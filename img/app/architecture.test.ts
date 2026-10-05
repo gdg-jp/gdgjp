@@ -37,15 +37,8 @@ function localModule(file: string, target: string): string | undefined {
 
 describe("architecture boundaries", () => {
   it("keeps lib and components domain-free", () => {
-    expect(sources.filter((path) => path.startsWith("lib/")).sort()).toEqual([
-      "lib/http-cache.ts",
-      "lib/utils.ts",
-    ]);
-    expect(
-      sources.filter(
-        (path) => path.startsWith("components/") && !path.startsWith("components/ui/"),
-      ),
-    ).toEqual([]);
+    expect(sources.filter((path) => path.startsWith("lib/")).sort()).toEqual(["lib/http-cache.ts"]);
+    expect(sources.filter((path) => path.startsWith("components/"))).toEqual([]);
     expect(sources.filter((path) => path.startsWith("layouts/")).sort()).toEqual([
       "layouts/page-shell.tsx",
       "layouts/top-bar.tsx",

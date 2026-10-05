@@ -1,19 +1,16 @@
-import { ExternalLink } from "lucide-react";
-import { useEffect, useState } from "react";
-import { useFetcher } from "react-router";
 import {
   AlertDialog,
   AlertDialogCancel,
   AlertDialogContent,
   AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
   AlertDialogTitle,
-} from "~/components/ui/alert-dialog";
-import { Button } from "~/components/ui/button";
-import { Input } from "~/components/ui/input";
-import { Spinner } from "~/components/ui/spinner";
-
+  Button,
+  Icons,
+  Input,
+  Spinner,
+} from "@gdgjp/design-system";
+import { useEffect, useState } from "react";
+import { useFetcher } from "react-router";
 export type LinkAction = "archive" | "restore" | "delete";
 
 export function LinkActionDialog({
@@ -52,12 +49,12 @@ export function LinkActionDialog({
 
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>
-      <AlertDialogContent className="gap-0 overflow-hidden p-0 data-[size=default]:sm:max-w-md">
-        <AlertDialogHeader className="place-items-start border-b px-5 py-4 text-left">
+      <AlertDialogContent className="gap-0 overflow-hidden p-0 sm:max-w-md">
+        <div className="place-items-start border-b px-5 py-4 text-left">
           <AlertDialogTitle className="text-base">
             {isArchive ? "Archive link" : isRestore ? "Restore link" : "Delete link"}
           </AlertDialogTitle>
-        </AlertDialogHeader>
+        </div>
 
         <div className="space-y-4 px-5 py-5">
           <AlertDialogDescription className="text-sm text-foreground">
@@ -91,37 +88,34 @@ export function LinkActionDialog({
           ) : null}
 
           {fetcher.data?.error ? (
-            <p className="text-sm text-destructive" role="alert">
+            <p className="text-sm text-danger" role="alert">
               {fetcher.data.error}
             </p>
           ) : null}
         </div>
 
-        <AlertDialogFooter className="border-t bg-muted/20 px-5 py-3">
-          <AlertDialogCancel disabled={pending}>Cancel</AlertDialogCancel>
+        <div className="border-t bg-surface/20 px-5 py-3">
+          <AlertDialogCancel asChild>
+            <Button variant="outline" disabled={pending}>
+              Cancel
+            </Button>
+          </AlertDialogCancel>
           <fetcher.Form method="post" action={`/links/${linkId}`}>
             <input type="hidden" name="intent" value={action} />
             <Button
               type="submit"
-              variant={isNonDestructive ? "default" : "destructive"}
-              className={
-                isNonDestructive
-                  ? "bg-black text-white hover:bg-black/90 dark:bg-white dark:text-black dark:hover:bg-white/90"
-                  : ""
-              }
+              variant={isNonDestructive ? "primary" : "danger"}
+              className={isNonDestructive ? "" : ""}
               disabled={pending || (!isNonDestructive && !deleteConfirmed)}
               aria-busy={pending || undefined}
             >
               {pending ? (
-                <Spinner
-                  size="sm"
-                  label={isArchive ? "Archiving" : isRestore ? "Restoring" : "Deleting"}
-                />
+                <Spinner label={isArchive ? "Archiving" : isRestore ? "Restoring" : "Deleting"} />
               ) : null}
               {isArchive ? "Archive link" : isRestore ? "Restore link" : "Delete link"}
             </Button>
           </fetcher.Form>
-        </AlertDialogFooter>
+        </div>
       </AlertDialogContent>
     </AlertDialog>
   );
@@ -137,7 +131,7 @@ function LinkPreview({
   destinationUrl: string;
 }) {
   return (
-    <div className="rounded-xl border bg-muted/20 p-2">
+    <div className="rounded-xl border bg-surface/20 p-2">
       <div className="flex min-w-0 items-center gap-3 rounded-lg border bg-background px-3 py-3">
         <div className="flex size-8 shrink-0 items-center justify-center rounded-full border bg-background">
           {favicon ? (
@@ -150,12 +144,12 @@ function LinkPreview({
               referrerPolicy="no-referrer"
             />
           ) : (
-            <ExternalLink className="size-4 text-muted-foreground" />
+            <Icons name="ExternalLink" aria-hidden="true" className="size-4 text-muted" />
           )}
         </div>
         <div className="min-w-0">
           <p className="truncate text-sm font-semibold text-foreground">{linkSlug}</p>
-          <p className="truncate text-sm text-muted-foreground">↳ {destinationUrl}</p>
+          <p className="truncate text-sm text-muted">↳ {destinationUrl}</p>
         </div>
       </div>
     </div>

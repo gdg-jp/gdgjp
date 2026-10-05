@@ -1,14 +1,24 @@
-import { Users } from "lucide-react";
-import { useState } from "react";
-import { useNavigate } from "react-router";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "~/components/ui/card";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogTitle,
+  Button,
+  Card,
+  Heading,
+  Icons,
+  Inline,
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "~/components/ui/select";
+  Text,
+} from "@gdgjp/design-system";
+import { useRef, useState } from "react";
+import { useNavigate } from "react-router";
 
 export function ChapterCard({
   image,
@@ -20,14 +30,15 @@ export function ChapterCard({
   currentChapterSlug: string;
 }) {
   const navigate = useNavigate();
+  const triggerRef = useRef<HTMLButtonElement>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  async function change(value: string) {
-    if (
-      image.folderId !== null &&
-      !confirm("Sharing with a different chapter will remove this image from its folder. Continue?")
-    )
-      return;
+  const [pendingChapter, setPendingChapter] = useState<string | null>(null);
+  function change(value: string) {
+    if (image.folderId !== null) setPendingChapter(value);
+    else void applyChange(value);
+  }
+  async function applyChange(value: string) {
     setBusy(true);
     setError(null);
     try {
@@ -43,24 +54,54 @@ export function ChapterCard({
     }
   }
   return (
-    <Card
-      className="motion-stagger transition-shadow duration-300 hover:shadow-md"
-      style={{ "--motion-index": 5 } as React.CSSProperties}
-    >
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2 text-base">
-          <Users className="size-4" /> Chapter
-        </CardTitle>
-        <CardDescription>
+    <Card className="flex flex-col gap-4">
+      <AlertDialog
+        open={pendingChapter !== null}
+        onOpenChange={(open) => {
+          if (!open) setPendingChapter(null);
+        }}
+      >
+        <AlertDialogContent
+          onCloseAutoFocus={(event) => {
+            event.preventDefault();
+            triggerRef.current?.focus();
+          }}
+        >
+          <AlertDialogTitle>Share with a different chapter?</AlertDialogTitle>
+          <AlertDialogDescription>
+            This will remove the image from its folder.
+          </AlertDialogDescription>
+          <Inline className="justify-end">
+            <AlertDialogCancel asChild>
+              <Button variant="outline">Cancel</Button>
+            </AlertDialogCancel>
+            <AlertDialogAction asChild>
+              <Button
+                onClick={() => {
+                  if (pendingChapter !== null) void applyChange(pendingChapter);
+                }}
+              >
+                Change chapter
+              </Button>
+            </AlertDialogAction>
+          </Inline>
+        </AlertDialogContent>
+      </AlertDialog>
+      <div>
+        <Inline>
+          <Icons name="Users" size={16} aria-hidden="true" className="size-4" />
+          <Heading className="text-base">Chapter</Heading>
+        </Inline>
+        <Text tone="muted" size="sm">
           {chapters.length > 1
             ? "Members of the selected chapter can view, replace, and delete this image."
             : `Members of ${currentChapterSlug} can view, replace, and delete this image.`}
-        </CardDescription>
-      </CardHeader>
+        </Text>
+      </div>
       {chapters.length > 1 ? (
-        <CardContent className="flex flex-col gap-2">
+        <div className="flex flex-col gap-2">
           <Select value={String(image.chapterId)} onValueChange={change} disabled={busy}>
-            <SelectTrigger className="w-56">
+            <SelectTrigger ref={triggerRef} aria-label="Chapter" className="w-full sm:max-w-sm">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -71,8 +112,12 @@ export function ChapterCard({
               ))}
             </SelectContent>
           </Select>
-          {error ? <p className="text-sm text-destructive">{error}</p> : null}
-        </CardContent>
+          {error ? (
+            <p role="alert" className="text-sm text-danger">
+              {error}
+            </p>
+          ) : null}
+        </div>
       ) : null}
     </Card>
   );

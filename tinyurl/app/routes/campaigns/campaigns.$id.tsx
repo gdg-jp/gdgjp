@@ -1,10 +1,7 @@
-import { ChevronLeft } from "lucide-react";
+import { Alert, Badge, Button, Icons, PageHeader, Stack, cn } from "@gdgjp/design-system";
 import { Suspense } from "react";
 import type { ShouldRevalidateFunctionArgs } from "react-router";
 import { Await, Link, useLocation, useNavigation, useSearchParams } from "react-router";
-import { Alert, AlertDescription } from "~/components/ui/alert";
-import { Badge } from "~/components/ui/badge";
-import { Button } from "~/components/ui/button";
 import { parseAnalyticsParams } from "~/features/analytics/analytics-filters";
 import { shouldReloadCampaign } from "~/features/campaigns/campaign-navigation";
 import { resolveCampaignScope } from "~/features/campaigns/campaign-navigation";
@@ -18,9 +15,7 @@ import { CampaignAnalyticsPanel } from "~/features/campaigns/components/detail-a
 import { ImportConnpassDialog } from "~/features/campaigns/components/participant-file-dialog";
 import { loader as loadPage, action as mutatePage } from "~/features/campaigns/detail.server";
 
-import { DashboardPage, DashboardPageHeader } from "~/layouts/dashboard-page";
 import { DashboardShell } from "~/layouts/dashboard-shell";
-import { cn } from "~/lib/utils";
 import type { Route } from "./+types/campaigns.$id";
 
 export function meta({ data }: Route.MetaArgs) {
@@ -108,26 +103,25 @@ export default function CampaignDetail({ loaderData, actionData }: Route.Compone
 
   return (
     <DashboardShell user={user}>
-      <DashboardPage>
+      <Stack className="mx-auto w-full min-w-0 max-w-6xl">
         {actionData && "error" in actionData ? (
-          <Alert variant="destructive">
-            <AlertDescription>{actionData.error}</AlertDescription>
+          <Alert tone="danger" title="Error">
+            {actionData.error}
           </Alert>
         ) : null}
-        <DashboardPageHeader
-          title={campaign.name}
-          description="Channel, links, and source performance"
-          titleAccessory={
-            <Badge variant="outline" className="shrink-0 font-mono">
-              {campaign.code}
-            </Badge>
+        <PageHeader
+          title={
+            <>
+              {campaign.name} {<Badge className="shrink-0 font-mono">{campaign.code}</Badge>}
+            </>
           }
-          eyebrow={
+          description="Channel, links, and source performance"
+          back={
             <Link
               to="/campaigns"
-              className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
+              className="inline-flex items-center gap-1 text-sm text-muted hover:text-foreground"
             >
-              <ChevronLeft className="size-4" /> Campaigns
+              <Icons name="ChevronLeft" aria-hidden="true" className="size-4" /> Campaigns
             </Link>
           }
           actions={
@@ -139,7 +133,7 @@ export default function CampaignDetail({ loaderData, actionData }: Route.Compone
         />
 
         <div
-          className="relative grid w-full grid-cols-3 rounded-lg bg-muted p-1 sm:w-fit"
+          className="relative grid w-full grid-cols-3 rounded-lg bg-surface p-1 sm:w-fit"
           role="tablist"
           aria-label="Campaign view"
         >
@@ -162,7 +156,7 @@ export default function CampaignDetail({ loaderData, actionData }: Route.Compone
             onClick={() => setView("channels")}
             className={cn(
               "relative z-10 min-w-24 transition-colors duration-200 aria-selected:hover:bg-transparent",
-              activeView === "channels" ? "text-foreground" : "text-muted-foreground",
+              activeView === "channels" ? "text-foreground" : "text-muted",
             )}
           >
             Channel
@@ -178,7 +172,7 @@ export default function CampaignDetail({ loaderData, actionData }: Route.Compone
             onClick={() => setView("analytics")}
             className={cn(
               "relative z-10 min-w-24 transition-colors duration-200 aria-selected:hover:bg-transparent",
-              activeView === "analytics" ? "text-foreground" : "text-muted-foreground",
+              activeView === "analytics" ? "text-foreground" : "text-muted",
             )}
           >
             Clicks
@@ -194,7 +188,7 @@ export default function CampaignDetail({ loaderData, actionData }: Route.Compone
             onClick={() => setView("acquisition")}
             className={cn(
               "relative z-10 min-w-24 transition-colors duration-200 aria-selected:hover:bg-transparent",
-              activeView === "acquisition" ? "text-foreground" : "text-muted-foreground",
+              activeView === "acquisition" ? "text-foreground" : "text-muted",
             )}
           >
             Acqquisitions
@@ -212,10 +206,10 @@ export default function CampaignDetail({ loaderData, actionData }: Route.Compone
               <h2 id="channels-heading" className="text-lg font-semibold">
                 Channels
               </h2>
-              <span className="text-sm text-muted-foreground">{channels.length} channels</span>
+              <span className="text-sm text-muted">{channels.length} channels</span>
             </div>
             {channels.length === 0 ? (
-              <div className="rounded-xl border border-dashed p-10 text-center text-sm text-muted-foreground">
+              <div className="rounded-xl border border-dashed p-10 text-center text-sm text-muted">
                 Add a channel such as X, Discord, or Instagram.
               </div>
             ) : (
@@ -280,7 +274,7 @@ export default function CampaignDetail({ loaderData, actionData }: Route.Compone
             }
           />
         )}
-      </DashboardPage>
+      </Stack>
     </DashboardShell>
   );
 }

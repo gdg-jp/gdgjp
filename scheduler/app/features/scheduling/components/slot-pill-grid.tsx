@@ -1,7 +1,6 @@
-import { motion } from "motion/react";
+import { Button, cn } from "@gdgjp/design-system";
 import { useEffect, useMemo, useState } from "react";
 import { DAY_LABELS } from "~/features/scheduling/slots";
-import { cn } from "~/lib/utils";
 
 type SlotKey = { dayOfWeek: number; startTime: string };
 type InteractiveSlot = SlotKey & { id: number };
@@ -87,26 +86,17 @@ function InteractiveGrid({
           const ids = slotIdsByDay.get(d) ?? [];
           const allChecked = ids.length > 0 && ids.every((id) => selected.has(id));
           return (
-            <motion.button
+            <Button
+              variant={allChecked ? "primary" : "outline"}
               key={`head-${d}`}
               type="button"
               onClick={() => toggleDay(d)}
               aria-pressed={allChecked}
               aria-label={`${allChecked ? "Deselect" : "Select"} all ${DAY_LABELS[d]} slots`}
-              whileHover={{ scale: 1.03 }}
-              whileTap={{ scale: 0.95 }}
-              transition={{ type: "spring", stiffness: 500, damping: 30 }}
-              className={cn(
-                "mb-1 flex items-center justify-center rounded-full border px-3 py-1 text-xs font-medium tabular-nums",
-                "transition-colors",
-                "focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50",
-                allChecked
-                  ? "border-primary bg-primary text-primary-foreground hover:bg-primary/90"
-                  : "border-primary/30 text-primary hover:bg-primary/5",
-              )}
+              className="mb-1 text-xs tabular-nums"
             >
               {DAY_LABELS[d]}
-            </motion.button>
+            </Button>
           );
         })}
         {allTimes.map((time) =>
@@ -124,18 +114,16 @@ function InteractiveGrid({
                   value={slot.id}
                   checked={isChecked}
                   onChange={(e) => toggleSlot(slot.id, e.target.checked)}
+                  aria-label={`${DAY_LABELS[d]} ${time}`}
                   className="peer sr-only"
                 />
-                <motion.span
-                  whileHover={{ scale: 1.03 }}
-                  whileTap={{ scale: 0.95 }}
-                  transition={{ type: "spring", stiffness: 500, damping: 30 }}
+                <span
                   className={cn(
-                    "flex items-center justify-center gap-1.5 rounded-full border px-3 py-1.5 text-sm tabular-nums",
-                    "border-primary/30 text-primary transition-colors",
+                    "flex items-center justify-center gap-1.5 min-h-11 rounded-full border px-3 py-1.5 text-sm tabular-nums",
+                    "border-primary/30 text-link transition-colors",
                     "hover:bg-primary/5",
-                    "peer-checked:bg-primary peer-checked:text-primary-foreground peer-checked:border-primary",
-                    "peer-checked:hover:bg-primary/90",
+                    "peer-checked:bg-selected peer-checked:text-link peer-checked:border-ring",
+                    "peer-checked:hover:bg-selected",
                     "peer-focus-visible:ring-[3px] peer-focus-visible:ring-ring/50",
                   )}
                 >
@@ -143,7 +131,7 @@ function InteractiveGrid({
                   {totalParticipants > 0 && count > 0 ? (
                     <span className="text-xs opacity-70">·{count}</span>
                   ) : null}
-                </motion.span>
+                </span>
               </label>
             );
           }),
@@ -165,10 +153,7 @@ function PreviewModeGrid({
         style={{ gridTemplateColumns: `repeat(${usedDays.length}, minmax(3.5rem, 1fr))` }}
       >
         {usedDays.map((d) => (
-          <div
-            key={`head-${d}`}
-            className="pb-1 text-center text-xs font-medium text-muted-foreground"
-          >
+          <div key={`head-${d}`} className="pb-1 text-center text-xs font-medium text-muted">
             {DAY_LABELS[d]}
           </div>
         ))}
@@ -186,7 +171,7 @@ function PreviewModeGrid({
 
 function EmptyCell() {
   return (
-    <div aria-hidden className="text-center text-sm text-muted-foreground/40">
+    <div aria-hidden className="text-center text-sm text-muted/40">
       —
     </div>
   );
@@ -194,7 +179,7 @@ function EmptyCell() {
 
 function PreviewPill({ time }: { time: string }) {
   return (
-    <span className="flex items-center justify-center rounded-full border border-primary/30 px-3 py-1.5 text-sm text-primary tabular-nums">
+    <span className="flex items-center justify-center rounded-full border border-primary/30 px-3 py-1.5 text-sm text-link tabular-nums">
       {time}
     </span>
   );

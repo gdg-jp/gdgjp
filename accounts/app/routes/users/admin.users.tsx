@@ -20,7 +20,9 @@ import {
   FormField,
   Heading,
   Icons,
-  Input,
+  InputGroup,
+  InputGroupAddon,
+  InputGroupInput,
   Stack,
   Table,
   Text,
@@ -82,21 +84,17 @@ export default function AdminUsers({ loaderData }: { loaderData: LoaderData }) {
           hideLabel
           className="flex-1 gap-0"
         >
-          <div className="relative">
-            <Icons
-              name="Search"
-              size={16}
-              className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2"
-              aria-hidden="true"
-            />
-            <Input
+          <InputGroup>
+            <InputGroupAddon>
+              <Icons name="Search" size={16} aria-hidden="true" />
+            </InputGroupAddon>
+            <InputGroupInput
               type="search"
               name="q"
               defaultValue={query}
               placeholder={t("adminUsers.searchPlaceholder")}
-              className="w-full pl-9"
             />
-          </div>
+          </InputGroup>
         </FormField>
         <Button type="submit">{t("adminUsers.search")}</Button>
         {query ? (
@@ -160,12 +158,14 @@ export default function AdminUsers({ loaderData }: { loaderData: LoaderData }) {
               <Table scrollLabel={t("common.tableScroll")}>
                 <thead>
                   <tr>
-                    <th>{t("adminUsers.table.user")}</th>
-                    <th>{t("adminUsers.table.memberships")}</th>
-                    <th>{t("adminUsers.table.sessions")}</th>
-                    <th>{t("adminUsers.table.created")}</th>
-                    <th>{t("adminUsers.table.role")}</th>
-                    <th className="text-right">{t("adminUsers.table.actions")}</th>
+                    <th scope="col">{t("adminUsers.table.user")}</th>
+                    <th scope="col">{t("adminUsers.table.memberships")}</th>
+                    <th scope="col">{t("adminUsers.table.sessions")}</th>
+                    <th scope="col">{t("adminUsers.table.created")}</th>
+                    <th scope="col">{t("adminUsers.table.role")}</th>
+                    <th scope="col" className="text-right">
+                      {t("adminUsers.table.actions")}
+                    </th>
                   </tr>
                 </thead>
                 <tbody>

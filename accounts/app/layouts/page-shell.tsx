@@ -16,7 +16,7 @@ type PageShellProps = {
 
 export function PageShell({ children, className, size = "md" }: PageShellProps) {
   const location = useLocation();
-  const max = size === "sm" ? "max-w-xl" : size === "lg" ? "max-w-none" : "max-w-3xl";
+  const max = size === "sm" ? "max-w-xl" : size === "lg" ? "max-w-7xl" : "max-w-3xl";
   return (
     <div
       className={cn(location.key !== "default" && "route-enter", "mx-auto w-full", max, className)}

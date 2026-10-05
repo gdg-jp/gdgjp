@@ -1,19 +1,24 @@
-import { Check, Pencil, Trash2, X } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+  Button,
+  Card,
+  FormField,
+  IconButton,
+  Icons,
+  Input,
+  PageHeader,
+  Table,
+  toast,
+} from "@gdgjp/design-system";
 import { useEffect, useRef } from "react";
 import { Form, Link, useFetcher } from "react-router";
-import { toast } from "sonner";
 import { ShareUrl } from "~/components/share-url";
-import { Button } from "~/components/ui/button";
-import { Input } from "~/components/ui/input";
-import { Label } from "~/components/ui/label";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "~/components/ui/table";
 import { loadEventParticipation, respondToEvent } from "~/features/participants/event.server";
 import type { Participant } from "~/features/participants/model";
 import { SlotPillGrid } from "~/features/scheduling/components/slot-pill-grid";
@@ -173,15 +178,13 @@ export default function EventPage({ loaderData }: Route.ComponentProps) {
       <Header user={user} />
       <main className="mx-auto max-w-4xl px-4 py-8">
         <div className="mb-6 flex flex-col gap-3">
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <h1 className="text-2xl font-semibold tracking-tight">{event.title}</h1>
+          <div className="flex flex-col items-start justify-between gap-3 sm:flex-row">
+            <div className="min-w-0 w-full flex-1 break-words">
+              <PageHeader title={event.title} className="break-words" />
               {event.description ? (
-                <p className="mt-1 whitespace-pre-wrap text-sm text-muted-foreground">
-                  {event.description}
-                </p>
+                <p className="mt-1 whitespace-pre-wrap text-sm text-muted">{event.description}</p>
               ) : null}
-              <p className="mt-2 text-xs text-muted-foreground">
+              <p className="mt-2 text-xs text-muted">
                 Each meeting is {formatLength(event.slotMinutes)}.
               </p>
             </div>
@@ -189,42 +192,55 @@ export default function EventPage({ loaderData }: Route.ComponentProps) {
               <div className="flex shrink-0 items-center gap-1">
                 <Button variant="ghost" size="sm" asChild>
                   <Link to={`/e/${event.id}/edit`}>
-                    <Pencil className="size-4" />
+                    <Icons name="Pencil" size={16} className="size-4" />
                     Edit
                   </Link>
                 </Button>
-                <Form
-                  method="post"
-                  action={`/e/${event.id}/delete`}
-                  onSubmit={(e) => {
-                    if (!confirm("Delete this event?")) e.preventDefault();
-                  }}
-                >
-                  <Button type="submit" variant="ghost" size="sm">
-                    <Trash2 className="size-4" />
-                    Delete
-                  </Button>
-                </Form>
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button variant="ghost" size="sm">
+                      <Icons name="Trash2" size={16} />
+                      Delete
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogTitle>Delete this event?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      The event and all participant availability will be removed.
+                    </AlertDialogDescription>
+                    <div className="flex flex-wrap justify-end gap-2">
+                      <AlertDialogCancel asChild>
+                        <Button variant="outline">Cancel</Button>
+                      </AlertDialogCancel>
+                      <Form method="post" action={`/e/${event.id}/delete`}>
+                        <AlertDialogAction asChild>
+                          <Button type="submit" variant="danger">
+                            Delete event
+                          </Button>
+                        </AlertDialogAction>
+                      </Form>
+                    </div>
+                  </AlertDialogContent>
+                </AlertDialog>
               </div>
             ) : null}
           </div>
           <ShareUrl path={`/e/${event.id}`} />
         </div>
 
-        <section className="mb-8 rounded-md border p-4">
+        <Card className="mb-8">
           <h2 className="text-lg font-semibold">
             {currentParticipantId ? "Update your availability" : "Pick the times that work"}
           </h2>
           {currentParticipantName ? (
-            <p className="mt-1 text-sm text-muted-foreground">
+            <p className="mt-1 text-sm text-muted">
               Participating as <span className="font-medium">{currentParticipantName}</span>
             </p>
           ) : null}
           <saveFetcher.Form ref={joinFormRef} method="post" className="mt-4 flex flex-col gap-4">
             <input type="hidden" name="intent" value={currentParticipantId ? "update" : "join"} />
             {!currentParticipantId && !user ? (
-              <div className="flex flex-col gap-2">
-                <Label htmlFor="displayName">Your name</Label>
+              <FormField id="displayName" label="Your name" required>
                 <Input
                   id="displayName"
                   name="displayName"
@@ -232,7 +248,7 @@ export default function EventPage({ loaderData }: Route.ComponentProps) {
                   maxLength={100}
                   placeholder="Alice"
                 />
-              </div>
+              </FormField>
             ) : null}
             <SlotPillGrid
               mode="interactive"
@@ -243,87 +259,92 @@ export default function EventPage({ loaderData }: Route.ComponentProps) {
               totals={totals}
               totalParticipants={participants.length}
             />
-            <div className="flex items-center justify-between gap-2">
-              <Button type="submit" disabled={saveFetcher.state !== "idle"}>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <Button type="submit" loading={saveFetcher.state !== "idle"}>
                 {currentParticipantId ? "Update" : "Join"}
               </Button>
-              {currentParticipantId ? (
-                <deleteFetcher.Form
-                  method="post"
-                  onSubmit={() => {
-                    snapshotRef.current = {
-                      displayName: currentParticipantName ?? "",
-                      slotIds: [...ownSlotIds],
-                    };
-                  }}
-                >
-                  <input type="hidden" name="intent" value="delete-response" />
-                  <Button
-                    type="submit"
-                    variant="ghost"
-                    className="text-destructive hover:text-destructive"
-                    disabled={deleteFetcher.state !== "idle"}
-                  >
-                    <Trash2 className="size-4" />
-                    Remove my availability
-                  </Button>
-                </deleteFetcher.Form>
-              ) : null}
             </div>
           </saveFetcher.Form>
-        </section>
+          <div className="mt-4">
+            {currentParticipantId ? (
+              <deleteFetcher.Form
+                method="post"
+                onSubmit={() => {
+                  snapshotRef.current = {
+                    displayName: currentParticipantName ?? "",
+                    slotIds: [...ownSlotIds],
+                  };
+                }}
+              >
+                <input type="hidden" name="intent" value="delete-response" />
+                <Button type="submit" variant="danger" loading={deleteFetcher.state !== "idle"}>
+                  <Icons name="Trash2" size={16} className="size-4" />
+                  Remove my availability
+                </Button>
+              </deleteFetcher.Form>
+            ) : null}
+          </div>
+        </Card>
 
         {participants.length > 0 ? (
           <section>
-            <h2 className="mb-2 text-sm font-medium text-muted-foreground">Who's available</h2>
+            <h2 className="mb-2 text-sm font-medium text-muted">Who's available</h2>
             <div className="rounded-md border">
               <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Slot</TableHead>
+                <thead>
+                  <tr>
+                    <th scope="col">Slot</th>
                     {participants.map((p) => (
-                      <TableHead key={p.id} className="text-center">
-                        <span className="inline-flex items-center gap-1">
+                      <th scope="col" key={p.id} className="text-center">
+                        <div className="inline-flex items-center gap-1">
                           <span>{p.displayName}</span>
                           {isOwner ? (
-                            <button
-                              type="button"
+                            <IconButton
+                              variant="ghost"
                               onClick={() =>
                                 adminDelete(p, Array.from(availByParticipant.get(p.id) ?? []))
                               }
                               disabled={adminFetcher.state !== "idle"}
-                              className="rounded p-0.5 text-muted-foreground hover:bg-destructive/10 hover:text-destructive focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:opacity-50"
                               aria-label={`Remove ${p.displayName}`}
                             >
-                              <X className="size-3" />
-                            </button>
+                              <Icons name="X" size={16} className="size-3" />
+                            </IconButton>
                           ) : null}
-                        </span>
-                      </TableHead>
+                        </div>
+                      </th>
                     ))}
-                    <TableHead className="text-center">Total</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
+                    <th scope="col" className="text-center">
+                      Total
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
                   {slots.map((s) => (
-                    <TableRow key={s.id}>
-                      <TableCell className="font-medium">
+                    <tr key={s.id}>
+                      <td className="font-medium">
                         {DAY_LABELS[s.dayOfWeek]} {s.startTime}
-                      </TableCell>
+                      </td>
                       {participants.map((p) => {
                         const has = availByParticipant.get(p.id)?.has(s.id) ?? false;
                         return (
-                          <TableCell key={p.id} className="text-center">
-                            {has ? <Check className="mx-auto size-4 text-primary" /> : null}
-                          </TableCell>
+                          <td key={p.id} className="text-center">
+                            {has ? (
+                              <Icons
+                                name="Check"
+                                size={16}
+                                className="mx-auto text-success"
+                                aria-label="Available"
+                              />
+                            ) : (
+                              <span className="sr-only">Unavailable</span>
+                            )}
+                          </td>
                         );
                       })}
-                      <TableCell className="text-center text-muted-foreground">
-                        {totals.get(s.id) ?? 0}
-                      </TableCell>
-                    </TableRow>
+                      <td className="text-center text-muted">{totals.get(s.id) ?? 0}</td>
+                    </tr>
                   ))}
-                </TableBody>
+                </tbody>
               </Table>
             </div>
           </section>

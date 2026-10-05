@@ -14,10 +14,10 @@
 | Image gallery, upload and edit controls | `app/features/images/components/` |
 | Folder policy, D1 queries, use cases and folder navigation | `app/features/folders/` |
 | HTTP endpoints and page composition | `app/routes/auth/`, `images/`, `api/images/`, `api/folders/`, `api/cli/`, `images/gallery.tsx` |
-| Domain-free UI primitives | `app/components/ui/` |
+| Domain-free UI primitives and theme | `@gdgjp/design-system` |
 | Composed gallery, detail and chapter onboarding pages | `app/routes/images/gallery.tsx`, `detail.tsx`, `app/routes/auth/no-chapter.tsx` |
 | Common app shell and navigation | `app/layouts/` |
-| Domain-free styling and HTTP cache helpers | `app/lib/utils.ts`, `http-cache.ts` |
+| Domain-free styling and HTTP cache helpers | `app/lib/http-cache.ts` |
 | Worker entry and ImageUploadService RPC | `workers/` |
 
 - Keep domain code and its tests together in `features/<domain>/`; import concrete modules directly.

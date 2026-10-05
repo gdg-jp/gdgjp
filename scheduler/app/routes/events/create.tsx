@@ -1,9 +1,5 @@
-import { motion } from "motion/react";
+import { Button, FormField, Input, PageHeader, Textarea } from "@gdgjp/design-system";
 import { Form, useNavigation } from "react-router";
-import { Button } from "~/components/ui/button";
-import { Input } from "~/components/ui/input";
-import { Label } from "~/components/ui/label";
-import { Textarea } from "~/components/ui/textarea";
 import { ScheduleEditor } from "~/features/scheduling/components/schedule-editor";
 import { Header } from "~/layouts/header";
 
@@ -35,42 +31,33 @@ export default function HomePage({ loaderData }: Route.ComponentProps) {
   return (
     <div className="min-h-dvh">
       <Header user={loaderData.user} />
-      <motion.main
-        className="mx-auto max-w-5xl px-4 py-8"
-        initial={{ opacity: 0, y: 8 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.25, ease: "easeOut" }}
-      >
-        <div className="mb-6">
-          <h1 className="text-2xl font-semibold tracking-tight">Schedule a meeting</h1>
-          <p className="text-sm text-muted-foreground">
-            Set when meetings could happen and how long they should be. Share the URL — participants
-            pick the times that work.
-          </p>
-        </div>
+      <main className="mx-auto max-w-5xl px-4 py-6">
+        <PageHeader
+          className="mb-6"
+          title="Schedule a meeting"
+          description="Set when meetings could happen and how long they should be. Share the URL — participants pick the times that work."
+        />
         <Form method="post" action="/events/new" className="flex flex-col gap-6">
           <ScheduleEditor>
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="title">Title</Label>
+            <FormField id="title" label="Title" required>
               <Input id="title" name="title" required maxLength={200} placeholder="Team sync" />
-            </div>
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="description">Description (optional)</Label>
+            </FormField>
+            <FormField id="description" label="Description (optional)">
               <Textarea
                 id="description"
                 name="description"
                 maxLength={2000}
                 placeholder="Anything participants should know."
               />
-            </div>
+            </FormField>
           </ScheduleEditor>
           <div>
-            <Button type="submit" disabled={submitting}>
+            <Button type="submit" loading={submitting}>
               {submitting ? "Creating…" : "Create event"}
             </Button>
           </div>
         </Form>
-      </motion.main>
+      </main>
     </div>
   );
 }

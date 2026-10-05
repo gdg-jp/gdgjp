@@ -28,12 +28,12 @@ describe("scheduler architecture", () => {
       Object.keys(libFiles)
         .map((path) => path.split("/").pop())
         .sort(),
-    ).toEqual(["theme.tsx", "utils.ts"]);
+    ).toEqual([]);
     expect(
       Object.keys(componentFiles)
         .map((path) => path.split("/").pop())
         .sort(),
-    ).toEqual(["gdg-mark.tsx", "share-url.tsx", "theme-toggle.tsx"]);
+    ).toEqual(["gdg-mark.tsx", "share-url.tsx"]);
   });
   it("keeps feature modules independent of route adapters and client components independent of server code", () => {
     for (const [path, source] of Object.entries(featureSources).filter(

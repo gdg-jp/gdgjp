@@ -1,19 +1,17 @@
-import { Plus } from "lucide-react";
-import type { ReactNode } from "react";
-import { Alert, AlertDescription } from "~/components/ui/alert";
-import { Button } from "~/components/ui/button";
 import {
+  Alert,
+  Button,
   Dialog,
   DialogContent,
   DialogDescription,
-  DialogFooter,
-  DialogHeader,
   DialogTitle,
   DialogTrigger,
-} from "~/components/ui/dialog";
-import { Input } from "~/components/ui/input";
-import { Label } from "~/components/ui/label";
-import { SubmitButton } from "~/components/ui/submit-button";
+  FormField,
+  Icons,
+  Input,
+  Label,
+} from "@gdgjp/design-system";
+import type { ReactNode } from "react";
 import type { UserChapter } from "~/features/auth/chapter.server";
 import { ChapterAccessSelect } from "~/features/campaigns/components/chapter-access-select";
 import { useCampaignActionDialog } from "~/features/campaigns/components/use-campaign-action-dialog";
@@ -32,25 +30,24 @@ export function CampaignDialog({
       <DialogTrigger asChild>
         {trigger ?? (
           <Button size="sm">
-            <Plus className="size-4" />
+            <Icons name="Plus" aria-hidden="true" className="size-4" />
             Create campaign
           </Button>
         )}
       </DialogTrigger>
       <DialogContent className="sm:max-w-md">
-        <DialogHeader className="border-b">
+        <div className="border-b">
           <DialogTitle>Create campaign</DialogTitle>
           <DialogDescription>
             Group links for one event. The code only suggests short link slugs; it does not restrict
             them.
           </DialogDescription>
-        </DialogHeader>
+        </div>
         <fetcher.Form method="post" className="space-y-5 px-5 pb-5">
           <input type="hidden" name="intent" value="create" />
-          <div className="space-y-2">
-            <Label htmlFor="campaign-name">Event name</Label>
+          <FormField id="campaign-name" label={<>Event name</>} required>
             <Input id="campaign-name" name="name" required maxLength={80} autoFocus />
-          </div>
+          </FormField>
           <ChapterAccessSelect
             chapters={chapters}
             defaultChapterIds={chapters.slice(0, 1).map((chapter) => chapter.chapterId)}
@@ -66,7 +63,7 @@ export function CampaignDialog({
               placeholder="df26"
               className="font-mono"
             />
-            <p className="text-xs text-muted-foreground">
+            <p className="text-xs text-muted">
               Letters, numbers, underscores, and hyphens. Saved in lowercase.
             </p>
           </div>
@@ -78,20 +75,20 @@ export function CampaignDialog({
               type="url"
               placeholder="https://example.com/event"
             />
-            <p className="text-xs text-muted-foreground">
+            <p className="text-xs text-muted">
               Optional. Prefills the destination for links created in this campaign.
             </p>
           </div>
           {error ? (
-            <Alert variant="destructive">
-              <AlertDescription>{error}</AlertDescription>
+            <Alert tone="danger" title="Error">
+              {error}
             </Alert>
           ) : null}
-          <DialogFooter>
-            <SubmitButton pending={pending} pendingLabel="Creating…">
+          <div className="flex flex-wrap justify-end gap-2">
+            <Button type="submit" loading={pending}>
               Create campaign
-            </SubmitButton>
-          </DialogFooter>
+            </Button>
+          </div>
         </fetcher.Form>
       </DialogContent>
     </Dialog>

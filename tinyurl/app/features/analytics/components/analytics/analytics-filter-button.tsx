@@ -1,26 +1,23 @@
 import {
-  Building2,
-  ChevronDown,
-  ChevronLeft,
-  ChevronUp,
-  Flag,
-  Globe,
-  Laptop,
-  Link as LinkIcon,
-  MapPin,
-  Map as MapSquare,
-  MonitorSmartphone,
-  Radio,
-  SlidersHorizontal,
-  Sparkles,
-  Tag as TagIcon,
-} from "lucide-react";
-import type { ComponentType, ReactNode, SVGProps } from "react";
+  Button,
+  Checkbox,
+  type IconName,
+  Icons,
+  Input,
+  Label,
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetTitle,
+  SheetTrigger,
+  cn,
+} from "@gdgjp/design-system";
+import type { ReactNode } from "react";
 import { useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router";
-import { Input } from "~/components/ui/input";
-import { Popover, PopoverContent, PopoverTrigger } from "~/components/ui/popover";
-import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "~/components/ui/sheet";
 import type { TopBlob } from "~/features/analytics/analytics-engine";
 import {
   type DimensionFilters,
@@ -29,11 +26,7 @@ import {
   serializeAnalyticsParams,
 } from "~/features/analytics/analytics-filters";
 import { useMediaQuery } from "~/lib/use-media-query";
-import { cn } from "~/lib/utils";
-
 export type FilterSuggestions = Partial<Record<TopBlob, string[]>>;
-
-type IconType = ComponentType<SVGProps<SVGSVGElement>>;
 
 const DIMENSION_LABELS: Record<TopBlob, string> = {
   slug: "Link",
@@ -48,17 +41,17 @@ const DIMENSION_LABELS: Record<TopBlob, string> = {
   source: "Source",
 };
 
-const DIMENSION_ICONS: Record<TopBlob, IconType> = {
-  slug: LinkIcon,
-  country: Flag,
-  city: Building2,
-  region: MapPin,
-  continent: MapSquare,
-  browser: Globe,
-  os: Laptop,
-  device: MonitorSmartphone,
-  referer: TagIcon,
-  source: Radio,
+const DIMENSION_ICONS: Record<TopBlob, IconName> = {
+  slug: "Link",
+  country: "MapPin",
+  city: "Home",
+  region: "MapPin",
+  continent: "MapPin",
+  browser: "Globe",
+  os: "MonitorCheck",
+  device: "MonitorCheck",
+  referer: "Tag",
+  source: "Radio",
 };
 
 type Props = {
@@ -104,14 +97,19 @@ export function AnalyticsFilterButton({ filters, suggestions }: Props) {
   }
 
   const trigger: ReactNode = (
-    <button
+    <Button
+      variant="ghost"
       type="button"
-      className="inline-flex h-8 items-center gap-1.5 rounded-md border bg-background px-3 text-sm font-medium shadow-xs transition hover:bg-accent hover:text-accent-foreground"
+      className="inline-flex h-8 items-center gap-1.5 rounded-md border bg-background px-3 text-sm font-medium shadow-xs transition hover:bg-selected hover:text-foreground"
     >
-      <SlidersHorizontal className="size-4" />
+      <Icons name="SlidersHorizontal" aria-hidden="true" className="size-4" />
       Filter
-      {open ? <ChevronUp className="size-4" /> : <ChevronDown className="size-4" />}
-    </button>
+      {open ? (
+        <Icons name="ChevronUp" aria-hidden="true" className="size-4" />
+      ) : (
+        <Icons name="ChevronDown" aria-hidden="true" className="size-4" />
+      )}
+    </Button>
   );
 
   const body: ReactNode =
@@ -148,7 +146,8 @@ export function AnalyticsFilterButton({ filters, suggestions }: Props) {
     <Sheet open={open} onOpenChange={handleOpenChange}>
       <SheetTrigger asChild>{trigger}</SheetTrigger>
       <SheetContent>
-        <SheetTitle className="sr-only">Filter</SheetTitle>
+        <SheetTitle>Filter</SheetTitle>
+        <SheetDescription>Choose the dimensions and values to include.</SheetDescription>
         {body}
       </SheetContent>
     </Sheet>
@@ -178,41 +177,45 @@ function DimensionList({
           className="h-8 border-0 px-0 shadow-none focus-visible:ring-0"
         />
         {showKbd ? (
-          <kbd className="inline-flex size-5 items-center justify-center rounded border bg-background text-[10px] font-medium text-muted-foreground">
+          <kbd className="inline-flex size-5 items-center justify-center rounded border bg-background text-[10px] font-medium text-muted">
             F
           </kbd>
         ) : null}
       </div>
       <ul className="overflow-y-auto p-1 pb-[env(safe-area-inset-bottom)]">
         <li>
-          <button
+          <Button
+            fullWidth
+            variant="ghost"
             type="button"
             disabled
             aria-disabled
-            className="flex w-full items-center gap-3 rounded-sm bg-accent/60 px-3 py-2.5 text-left text-sm text-muted-foreground sm:gap-2 sm:px-2 sm:py-1.5"
+            className="flex  items-center gap-3 rounded-sm bg-selected/60 px-3 py-2.5 text-left text-sm text-muted sm:gap-2 sm:px-2 sm:py-1.5"
           >
-            <Sparkles className="size-4" />
+            <Icons name="Sparkles" aria-hidden="true" className="size-4" />
             Ask AI
-          </button>
+          </Button>
         </li>
         <li className="my-1 -mx-1 h-px bg-border" />
         {dims.map((d) => {
-          const Icon = DIMENSION_ICONS[d];
+          const icon = DIMENSION_ICONS[d];
           return (
             <li key={d}>
-              <button
+              <Button
+                fullWidth
+                variant="ghost"
                 type="button"
                 onClick={() => onPick(d)}
-                className="flex w-full items-center gap-3 rounded-sm px-3 py-2.5 text-left text-sm hover:bg-accent hover:text-accent-foreground sm:gap-2 sm:px-2 sm:py-1.5"
+                className="flex  items-center gap-3 rounded-sm px-3 py-2.5 text-left text-sm hover:bg-selected hover:text-foreground sm:gap-2 sm:px-2 sm:py-1.5"
               >
-                <Icon className="size-4 text-muted-foreground" />
+                <Icons name={icon} aria-hidden="true" className="size-4 text-muted" />
                 {DIMENSION_LABELS[d]}
-              </button>
+              </Button>
             </li>
           );
         })}
         {dims.length === 0 ? (
-          <li className="px-2 py-3 text-center text-xs text-muted-foreground">No matches</li>
+          <li className="px-2 py-3 text-center text-xs text-muted">No matches</li>
         ) : null}
       </ul>
     </div>
@@ -233,7 +236,7 @@ function ValuePicker({
   onToggle: (v: string) => void;
 }) {
   const [query, setQuery] = useState("");
-  const Icon = DIMENSION_ICONS[dim];
+  const icon = DIMENSION_ICONS[dim];
 
   const merged = useMemo(() => {
     const set = new Set<string>(suggestions);
@@ -255,15 +258,16 @@ function ValuePicker({
   return (
     <div className="flex flex-col">
       <div className="flex items-center gap-2 border-b px-2 py-2">
-        <button
+        <Button
+          variant="ghost"
           type="button"
           aria-label="Back"
           onClick={onBack}
-          className="inline-flex size-7 items-center justify-center rounded-sm text-muted-foreground hover:bg-accent hover:text-foreground sm:size-6"
+          className="inline-flex size-7 items-center justify-center rounded-sm text-muted hover:bg-selected hover:text-foreground sm:size-6"
         >
-          <ChevronLeft className="size-4" />
-        </button>
-        <Icon className="size-4 text-muted-foreground" />
+          <Icons name="ChevronLeft" aria-hidden="true" className="size-4" />
+        </Button>
+        <Icons name={icon} aria-hidden="true" className="size-4 text-muted" />
         <span className="text-sm font-medium">{DIMENSION_LABELS[dim]}</span>
       </div>
       <div className="border-b px-3 py-2">
@@ -276,43 +280,34 @@ function ValuePicker({
       </div>
       <ul className="max-h-[60vh] overflow-y-auto p-1 pb-[env(safe-area-inset-bottom)] sm:max-h-64">
         {filtered.length === 0 && !customValid ? (
-          <li className="px-2 py-3 text-center text-xs text-muted-foreground">No values</li>
+          <li className="px-2 py-3 text-center text-xs text-muted">No values</li>
         ) : null}
         {filtered.map((v) => {
           const checked = selected.includes(v);
           return (
             <li key={v}>
-              <button
-                type="button"
-                onClick={() => onToggle(v)}
-                className="flex w-full items-center gap-3 rounded-sm px-3 py-2.5 text-left text-sm hover:bg-accent hover:text-accent-foreground sm:gap-2 sm:px-2 sm:py-1.5"
-              >
-                <span
-                  className={cn(
-                    "inline-flex size-4 shrink-0 items-center justify-center rounded-sm border",
-                    checked && "border-primary bg-primary text-primary-foreground",
-                  )}
-                >
-                  {checked ? "✓" : null}
-                </span>
+              <Label className="flex min-h-11 cursor-pointer items-center gap-3 rounded-md px-3 py-2 text-sm hover:bg-selected">
+                <Checkbox checked={checked} onCheckedChange={() => onToggle(v)} />
                 <span className="truncate">{v}</span>
-              </button>
+              </Label>
             </li>
           );
         })}
         {customValid ? (
           <li>
-            <button
+            <Button
+              fullWidth
+              variant="ghost"
               type="button"
               onClick={() => {
                 onToggle(query.trim());
                 setQuery("");
               }}
-              className="flex w-full items-center gap-3 rounded-sm px-3 py-2.5 text-left text-sm text-muted-foreground hover:bg-accent hover:text-accent-foreground sm:gap-2 sm:px-2 sm:py-1.5"
+              className="flex  items-center gap-3 rounded-sm px-3 py-2.5 text-left text-sm text-muted hover:bg-selected hover:text-foreground sm:gap-2 sm:px-2 sm:py-1.5"
             >
               <span className="inline-flex size-4 shrink-0 items-center justify-center rounded-sm border" />
               Add "{query.trim()}"
-            </button>
+            </Button>
           </li>
         ) : null}
       </ul>

@@ -1,16 +1,19 @@
-import { Check, Copy, WandSparkles } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
-import { Button } from "~/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "~/components/ui/card";
-import { Input } from "~/components/ui/input";
-import { Label } from "~/components/ui/label";
 import {
+  Button,
+  Card,
+  FormField,
+  Heading,
+  Icons,
+  Inline,
+  Input,
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "~/components/ui/select";
+  Text,
+} from "@gdgjp/design-system";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { WIDTH_LADDER, resolveDelivery } from "~/features/images/img-transform";
 import { type TransformOpts, deliveryUrl } from "~/features/images/img-url";
 
@@ -106,19 +109,17 @@ export function UrlBuilderCard({ image, appUrl }: { image: BuilderImage; appUrl:
   }
   const previewUrl = `${builtUrl}${builtUrl.includes("?") ? "&" : "?"}v=${image.updatedAt}`;
   return (
-    <Card
-      className="motion-stagger transition-shadow duration-300 hover:shadow-md"
-      style={{ "--motion-index": 3 } as React.CSSProperties}
-    >
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2 text-base">
-          <WandSparkles className="size-4" /> Optimization URL builder
-        </CardTitle>
-        <CardDescription>
+    <Card className="flex flex-col gap-4">
+      <div>
+        <Inline>
+          <Icons name="Sparkles" size={16} aria-hidden="true" className="size-4" />
+          <Heading className="text-base">Optimization URL builder</Heading>
+        </Inline>
+        <Text tone="muted" size="sm">
           Build a responsive, negotiated image URL and preview the delivered result.
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="flex flex-col gap-4">
+        </Text>
+      </div>
+      <div className="flex flex-col gap-4">
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <Control label="Width">
             <Select value={width} onValueChange={setWidth}>
@@ -223,15 +224,15 @@ export function UrlBuilderCard({ image, appUrl }: { image: BuilderImage; appUrl:
           ) : null}
         </div>
         {nonCanonical ? (
-          <p className="text-xs text-muted-foreground">
+          <p className="text-xs text-muted">
             This combination is delivered normally, but is not stored as a preset rendition.
           </p>
         ) : null}
-        <div className="overflow-hidden rounded-md border bg-muted/30">
+        <div className="overflow-hidden rounded-md border bg-surface/30">
           <img
             src={previewUrl}
             alt="Optimization preview"
-            className="motion-image-reveal mx-auto max-h-[48vh] object-contain"
+            className="mx-auto max-h-[48vh] object-contain"
             onLoad={(event) =>
               setNatural({
                 width: event.currentTarget.naturalWidth,
@@ -240,7 +241,7 @@ export function UrlBuilderCard({ image, appUrl }: { image: BuilderImage; appUrl:
             }
           />
         </div>
-        <div className="flex flex-wrap gap-x-5 gap-y-1 text-sm text-muted-foreground">
+        <div className="flex flex-wrap gap-x-5 gap-y-1 text-sm text-muted">
           <span>
             Before: {(selectedSource.byteSize / 1024).toFixed(1)} KB
             {selectedSource.width && selectedSource.height
@@ -255,20 +256,19 @@ export function UrlBuilderCard({ image, appUrl }: { image: BuilderImage; appUrl:
         <div className="flex items-center gap-2">
           <Input readOnly value={builtUrl} aria-label="Built image URL" />
           <Button variant="outline" onClick={copy}>
-            {copied ? <Check className="size-4" /> : <Copy className="size-4" />}
+            {copied ? (
+              <Icons name="Check" size={16} aria-hidden="true" className="size-4" />
+            ) : (
+              <Icons name="Copy" size={16} aria-hidden="true" className="size-4" />
+            )}
             {copied ? "Copied!" : "Copy"}
           </Button>
         </div>
-      </CardContent>
+      </div>
     </Card>
   );
 }
 
 function Control({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div className="flex flex-col gap-1.5">
-      <Label>{label}</Label>
-      {children}
-    </div>
-  );
+  return <FormField label={label}>{children}</FormField>;
 }

@@ -1,4 +1,14 @@
-import { Card, EmptyState, FormField, Heading, Icons, Input, Table } from "@gdgjp/design-system";
+import {
+  Card,
+  EmptyState,
+  FormField,
+  Heading,
+  Icons,
+  InputGroup,
+  InputGroupAddon,
+  InputGroupInput,
+  Table,
+} from "@gdgjp/design-system";
 import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { PageHeader } from "~/components/page-header";
@@ -52,21 +62,17 @@ export default function AdminRequests({ loaderData }: PageProps) {
           hideLabel
           className="mt-6 max-w-xl gap-0"
         >
-          <div className="relative">
-            <Icons
-              name="Search"
-              size={16}
-              className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2"
-              aria-hidden="true"
-            />
-            <Input
+          <InputGroup>
+            <InputGroupAddon>
+              <Icons name="Search" size={16} aria-hidden="true" />
+            </InputGroupAddon>
+            <InputGroupInput
               type="search"
               value={query}
               onChange={(event) => setQuery(event.target.value)}
               placeholder={t("adminRequests.searchPlaceholder")}
-              className="w-full pl-9"
             />
-          </div>
+          </InputGroup>
         </FormField>
       ) : null}
 
@@ -93,10 +99,12 @@ export default function AdminRequests({ loaderData }: PageProps) {
                 <Table scrollLabel={t("common.tableScroll")}>
                   <thead>
                     <tr>
-                      <th>{t("adminRequests.tableRequester")}</th>
-                      <th>{t("adminRequests.tableChapter")}</th>
-                      <th>{t("adminRequests.tableRequested")}</th>
-                      <th className="text-right">{t("adminRequests.tableActions")}</th>
+                      <th scope="col">{t("adminRequests.tableRequester")}</th>
+                      <th scope="col">{t("adminRequests.tableChapter")}</th>
+                      <th scope="col">{t("adminRequests.tableRequested")}</th>
+                      <th scope="col" className="text-right">
+                        {t("adminRequests.tableActions")}
+                      </th>
                     </tr>
                   </thead>
                   <tbody>

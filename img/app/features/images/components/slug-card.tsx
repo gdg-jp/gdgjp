@@ -1,10 +1,22 @@
-import { Link2, Trash2 } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+  Button,
+  Card,
+  Heading,
+  Icons,
+  Inline,
+  Input,
+  Label,
+  Text,
+} from "@gdgjp/design-system";
 import { useState } from "react";
 import { useNavigate } from "react-router";
-import { Button } from "~/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "~/components/ui/card";
-import { Input } from "~/components/ui/input";
-import { Label } from "~/components/ui/label";
 
 export function SlugCard({ image }: { image: { id: string; slug: string | null } }) {
   const navigate = useNavigate();
@@ -29,20 +41,18 @@ export function SlugCard({ image }: { image: { id: string; slug: string | null }
     }
   }
   return (
-    <Card
-      className="motion-stagger transition-shadow duration-300 hover:shadow-md"
-      style={{ "--motion-index": 1 } as React.CSSProperties}
-    >
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2 text-base">
-          <Link2 className="size-4" /> Custom URL
-        </CardTitle>
-        <CardDescription>
+    <Card className="flex flex-col gap-4">
+      <div>
+        <Inline>
+          <Icons name="Link2" size={16} aria-hidden="true" className="size-4" />
+          <Heading className="text-base">Custom URL</Heading>
+        </Inline>
+        <Text tone="muted" size="sm">
           Optional. Give this image a memorable link. Letters, numbers, hyphens and underscores, up
           to 64 characters.
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
+        </Text>
+      </div>
+      <div>
         <form
           onSubmit={(event) => {
             event.preventDefault();
@@ -54,7 +64,7 @@ export function SlugCard({ image }: { image: { id: string; slug: string | null }
             Custom slug
           </Label>
           <div className="flex flex-wrap items-center gap-2">
-            <span className="text-sm text-muted-foreground">img.gdgs.jp/</span>
+            <span className="text-sm text-muted">img.gdgs.jp/</span>
             <Input
               id="slug"
               name="slug"
@@ -70,22 +80,39 @@ export function SlugCard({ image }: { image: { id: string; slug: string | null }
               Save
             </Button>
             {image.slug ? (
-              <Button
-                type="button"
-                variant="outline"
-                disabled={busy}
-                onClick={() => {
-                  if (confirm("Remove the custom URL? The image stays reachable at its id URL."))
-                    void submit("");
-                }}
-              >
-                <Trash2 className="size-4" /> Clear
-              </Button>
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button variant="outline" disabled={busy}>
+                    <Icons name="Trash2" size={16} aria-hidden="true" />
+                    Clear
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogTitle>Remove the custom URL?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    The image stays reachable at its id URL.
+                  </AlertDialogDescription>
+                  <Inline className="justify-end">
+                    <AlertDialogCancel asChild>
+                      <Button variant="outline">Cancel</Button>
+                    </AlertDialogCancel>
+                    <AlertDialogAction asChild>
+                      <Button variant="danger" onClick={() => void submit("")}>
+                        Remove custom URL
+                      </Button>
+                    </AlertDialogAction>
+                  </Inline>
+                </AlertDialogContent>
+              </AlertDialog>
             ) : null}
           </div>
-          {error ? <p className="text-sm text-destructive">{error}</p> : null}
+          {error ? (
+            <p role="alert" className="text-sm text-danger">
+              {error}
+            </p>
+          ) : null}
         </form>
-      </CardContent>
+      </div>
     </Card>
   );
 }

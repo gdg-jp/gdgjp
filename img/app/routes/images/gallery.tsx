@@ -1,3 +1,4 @@
+import { PageHeader, Stack } from "@gdgjp/design-system";
 import { Suspense } from "react";
 import { Await } from "react-router";
 import { FolderBar } from "~/features/folders/components/folder-bar";
@@ -21,21 +22,24 @@ export default function GalleryPage({ loaderData }: Route.ComponentProps) {
 
   return (
     <PageShell user={user} size="lg">
-      <div className="flex flex-col gap-6">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Chapter image library</h1>
-          <p className="text-sm text-muted-foreground">
-            Upload images and share <code>img.gdgs.jp/&lt;id&gt;</code> links. Anyone with the link
-            can view; members of an image's chapter can manage it and organize it into folders.
-          </p>
-        </div>
+      <Stack className="gap-6">
+        <PageHeader
+          title="Chapter image library"
+          description={
+            <>
+              Upload images and share <code>img.gdgs.jp/&lt;id&gt;</code> links. Anyone with the
+              link can view; members of an image's chapter can manage it and organize it into
+              folders.
+            </>
+          }
+        />
         <FolderBar folders={folders} selected={selection} chapters={chapters} />
         <UploadForm folderId={uploadFolderId} />
         <Suspense fallback={<GalleryGridSkeleton />}>
           <Await
             resolve={items}
             errorElement={
-              <div className="rounded-md border border-destructive/40 p-6 text-sm text-destructive">
+              <div className="rounded-md border border-danger/40 p-6 text-sm text-danger">
                 Images could not be loaded. Refresh the page to try again.
               </div>
             }
@@ -45,7 +49,7 @@ export default function GalleryPage({ loaderData }: Route.ComponentProps) {
             )}
           </Await>
         </Suspense>
-      </div>
+      </Stack>
     </PageShell>
   );
 }

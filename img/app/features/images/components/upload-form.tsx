@@ -1,8 +1,7 @@
-import { ImagePlus, LoaderCircle, Upload } from "lucide-react";
+import { Button, Icons } from "@gdgjp/design-system";
+import { cn } from "@gdgjp/design-system";
 import { type ChangeEvent, type DragEvent, useRef, useState, useTransition } from "react";
 import { useNavigate } from "react-router";
-import { Button } from "~/components/ui/button";
-import { cn } from "~/lib/utils";
 
 export function UploadForm({ folderId }: { folderId?: number | null } = {}) {
   const navigate = useNavigate();
@@ -72,9 +71,10 @@ export function UploadForm({ folderId }: { folderId?: number | null } = {}) {
       <input
         ref={inputRef}
         id="image-upload"
+        aria-label="Choose image"
         type="file"
         accept="image/*"
-        className="sr-only"
+        className="hidden"
         disabled={pending}
         onChange={onChange}
       />
@@ -89,7 +89,7 @@ export function UploadForm({ folderId }: { folderId?: number | null } = {}) {
           "duration-200 ease-out",
           isDragging
             ? "scale-[1.01] border-primary bg-primary/10"
-            : "border-border bg-muted/20 hover:border-primary/60 hover:bg-muted/40",
+            : "border-border bg-surface/20 hover:border-primary/60 hover:bg-surface/40",
           pending && "pointer-events-none opacity-75",
         )}
       >
@@ -100,9 +100,14 @@ export function UploadForm({ folderId }: { folderId?: number | null } = {}) {
           )}
         >
           {pending ? (
-            <LoaderCircle className="size-5 animate-spin" aria-hidden="true" />
+            <Icons
+              name="LoaderCircle"
+              size={16}
+              aria-hidden="true"
+              className="size-5 animate-spin motion-reduce:animate-none"
+            />
           ) : (
-            <ImagePlus className="size-5" aria-hidden="true" />
+            <Icons name="Upload" size={16} aria-hidden="true" className="size-5" />
           )}
         </div>
         <div className="space-y-1">
@@ -113,7 +118,7 @@ export function UploadForm({ folderId }: { folderId?: number | null } = {}) {
                 ? "Opening image…"
                 : "Drop an image here"}
           </p>
-          <p className="text-sm text-muted-foreground">
+          <p className="text-sm text-muted">
             {pending
               ? "You can keep this page open while we finish."
               : "or choose one from your device"}
@@ -126,15 +131,20 @@ export function UploadForm({ folderId }: { folderId?: number | null } = {}) {
           className="min-w-40"
         >
           {pending ? (
-            <LoaderCircle className="size-4 animate-spin" />
+            <Icons
+              name="LoaderCircle"
+              size={16}
+              aria-hidden="true"
+              className="size-4 animate-spin motion-reduce:animate-none"
+            />
           ) : (
-            <Upload className="size-4" />
+            <Icons name="Upload" size={16} aria-hidden="true" className="size-4" />
           )}
           {pending ? "Please wait…" : "Choose image"}
         </Button>
       </div>
       {error ? (
-        <p role="alert" className="text-sm text-destructive">
+        <p role="alert" className="text-sm text-danger">
           {error}
         </p>
       ) : null}

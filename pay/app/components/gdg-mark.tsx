@@ -1,4 +1,4 @@
-import { cn } from "~/lib/utils";
+import { cn } from "@gdgjp/design-system";
 
 type Size = "sm" | "md" | "lg";
 
@@ -18,7 +18,7 @@ export function GdgMark({
   return (
     <img
       src="/app-icon.png"
-      alt="Pay"
+      alt=""
       width={1254}
       height={1254}
       className={cn(SIZE_MAP[size], "select-none object-contain", className)}

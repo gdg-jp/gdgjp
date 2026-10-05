@@ -1,7 +1,5 @@
-import { Form } from "react-router";
-import { Button } from "~/components/ui/button";
-import { Input } from "~/components/ui/input";
-import { Label } from "~/components/ui/label";
+import { Alert, Button, Card, FormField, Input, PageHeader } from "@gdgjp/design-system";
+import { Form, Link } from "react-router";
 import { Header } from "~/layouts/header";
 
 import { redirect } from "react-router";
@@ -41,24 +39,33 @@ export default function NewEventPage({ loaderData, actionData }: Route.Component
   return (
     <div className="min-h-dvh bg-background">
       <Header user={{ name: user.name, email: user.email, image: user.image }} />
-      <main className="mx-auto max-w-xl space-y-6 px-4 py-10">
-        <div>
-          <h1 className="text-2xl font-semibold">イベントを登録</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            作成者の所属チャプター Organizer が代行登録できます。現在の所属:{" "}
-            {chapters.map((c) => c.slug).join(", ")}
-          </p>
-        </div>
+      <main className="mx-auto max-w-xl space-y-6 px-4 py-6 sm:py-8">
+        <PageHeader
+          back={
+            <Link to="/" className="text-sm text-link hover:underline">
+              イベント一覧
+            </Link>
+          }
+          title="イベントを登録"
+          description={
+            <>
+              {" "}
+              作成者の所属チャプター Organizer が代行登録できます。現在の所属:{" "}
+              {chapters.map((c) => c.slug).join(", ")}{" "}
+            </>
+          }
+        />
         {actionData && "error" in actionData ? (
-          <p className="text-sm text-destructive">{actionData.error}</p>
+          <Alert tone="danger" title={actionData.error} />
         ) : null}
-        <Form method="post" className="space-y-4 rounded-xl border p-5">
-          <div className="space-y-2">
-            <Label htmlFor="title">イベント名</Label>
-            <Input id="title" name="title" required placeholder="例: Innovative Crosstalk 26" />
-          </div>
-          <Button type="submit">作成する</Button>
-        </Form>
+        <Card>
+          <Form method="post" className="space-y-4">
+            <FormField id="title" label="イベント名" required>
+              <Input name="title" required placeholder="例: Innovative Crosstalk 26" />
+            </FormField>
+            <Button type="submit">作成する</Button>
+          </Form>
+        </Card>
       </main>
     </div>
   );

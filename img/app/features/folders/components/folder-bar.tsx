@@ -1,17 +1,25 @@
-import type { UserChapter } from "@gdgjp/gdg-lib";
-import { FolderPlus, Loader2, Pencil, Trash2, X } from "lucide-react";
-import { useState } from "react";
-import { Link, useNavigate } from "react-router";
-import { Button } from "~/components/ui/button";
-import { Input } from "~/components/ui/input";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+  Button,
+  IconButton,
+  Icons,
+  Inline,
+  Input,
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "~/components/ui/select";
-import { cn } from "~/lib/utils";
+} from "@gdgjp/design-system";
+import type { UserChapter } from "@gdgjp/gdg-lib";
+import { useState } from "react";
+import { Link, useNavigate } from "react-router";
 
 export type FolderSummary = {
   id: number;
@@ -77,12 +85,12 @@ export function FolderBar({
         {folders.map((folder) => (
           <FolderChip key={folder.id} to={`/?folder=${folder.id}`} active={selected === folder.id}>
             {folder.name}
-            <span className="text-muted-foreground">{folder.imageCount}</span>
+            <span>{folder.imageCount}</span>
           </FolderChip>
         ))}
         {creating ? null : (
           <Button variant="ghost" size="sm" onClick={() => setCreating(true)}>
-            <FolderPlus className="size-4" />
+            <Icons name="FolderPlus" size={16} aria-hidden="true" className="size-4" />
             New folder
           </Button>
         )}
@@ -92,6 +100,7 @@ export function FolderBar({
         <form onSubmit={createFolder} className="flex flex-wrap items-center gap-2">
           <Input
             autoFocus
+            aria-label="Folder name"
             placeholder="Folder name"
             value={name}
             onChange={(e) => setName(e.target.value)}
@@ -100,7 +109,7 @@ export function FolderBar({
           />
           {chapters.length > 1 ? (
             <Select value={chapterId} onValueChange={setChapterId}>
-              <SelectTrigger size="sm">
+              <SelectTrigger aria-label="Chapter">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -112,24 +121,24 @@ export function FolderBar({
               </SelectContent>
             </Select>
           ) : null}
-          <Button type="submit" size="sm" disabled={busy || !name.trim()}>
-            {busy ? <Loader2 className="size-4 animate-spin" /> : "Create"}
+          <Button type="submit" size="sm" loading={busy} disabled={!name.trim()}>
+            Create
           </Button>
-          <Button
+          <IconButton
             type="button"
             variant="ghost"
-            size="icon-sm"
+            aria-label="Cancel creating folder"
             onClick={() => {
               setCreating(false);
               setError(null);
             }}
           >
-            <X className="size-4" />
-          </Button>
+            <Icons name="X" size={16} aria-hidden="true" className="size-4" />
+          </IconButton>
         </form>
       ) : null}
       {error ? (
-        <p role="alert" className="text-sm text-destructive">
+        <p role="alert" className="text-sm text-danger">
           {error}
         </p>
       ) : null}
@@ -149,18 +158,16 @@ function FolderChip({
   children: React.ReactNode;
 }) {
   return (
-    <Link
-      to={to}
-      prefetch="intent"
-      className={cn(
-        "inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-sm transition-colors",
-        active
-          ? "border-primary bg-primary/10 text-primary"
-          : "border-border text-muted-foreground hover:border-ring hover:text-foreground",
-      )}
-    >
-      {children}
-    </Link>
+    <Button asChild variant={active ? "secondary" : "ghost"} size="sm">
+      <Link
+        to={to}
+        prefetch="intent"
+        aria-current={active ? "page" : undefined}
+        className="max-w-full whitespace-normal break-words"
+      >
+        {children}
+      </Link>
+    </Button>
   );
 }
 
@@ -195,15 +202,6 @@ function FolderActions({ folder }: { folder: FolderSummary }) {
   }
 
   async function deleteFolder() {
-    if (
-      !confirm(
-        folder.imageCount > 0
-          ? `Delete "${folder.name}"? Its ${folder.imageCount} image(s) will become unfiled.`
-          : `Delete "${folder.name}"?`,
-      )
-    ) {
-      return;
-    }
     setBusy(true);
     setError(null);
     try {
@@ -217,11 +215,12 @@ function FolderActions({ folder }: { folder: FolderSummary }) {
   }
 
   return (
-    <div className="flex flex-wrap items-center gap-2 rounded-md border bg-muted/20 px-3 py-2">
+    <div className="flex flex-wrap items-center gap-2 rounded-md border bg-surface/20 px-3 py-2">
       {renaming ? (
-        <form onSubmit={rename} className="flex items-center gap-2">
+        <form onSubmit={rename} className="flex flex-wrap items-center gap-2">
           <Input
             autoFocus
+            aria-label="Folder name"
             value={name}
             onChange={(e) => setName(e.target.value)}
             className="w-48"
@@ -236,21 +235,43 @@ function FolderActions({ folder }: { folder: FolderSummary }) {
         </form>
       ) : (
         <>
-          <span className="text-sm text-muted-foreground">
+          <span className="text-sm text-muted">
             {folder.imageCount} image{folder.imageCount === 1 ? "" : "s"} in {folder.name}
           </span>
           <Button variant="ghost" size="sm" onClick={() => setRenaming(true)}>
-            <Pencil className="size-4" />
+            <Icons name="Pencil" size={16} aria-hidden="true" className="size-4" />
             Rename
           </Button>
-          <Button variant="ghost" size="sm" disabled={busy} onClick={deleteFolder}>
-            <Trash2 className="size-4" />
-            Delete
-          </Button>
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button variant="ghost" size="sm" disabled={busy}>
+                <Icons name="Trash2" size={16} aria-hidden="true" className="size-4" />
+                Delete
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogTitle>Delete “{folder.name}”?</AlertDialogTitle>
+              <AlertDialogDescription>
+                {folder.imageCount > 0
+                  ? `Its ${folder.imageCount} image(s) will become unfiled.`
+                  : "The folder will be removed."}
+              </AlertDialogDescription>
+              <Inline className="justify-end">
+                <AlertDialogCancel asChild>
+                  <Button variant="outline">Cancel</Button>
+                </AlertDialogCancel>
+                <AlertDialogAction asChild>
+                  <Button variant="danger" onClick={deleteFolder}>
+                    Delete folder
+                  </Button>
+                </AlertDialogAction>
+              </Inline>
+            </AlertDialogContent>
+          </AlertDialog>
         </>
       )}
       {error ? (
-        <p role="alert" className="text-sm text-destructive">
+        <p role="alert" className="text-sm text-danger">
           {error}
         </p>
       ) : null}

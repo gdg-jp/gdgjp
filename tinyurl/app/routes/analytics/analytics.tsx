@@ -1,8 +1,6 @@
-import { ExternalLink, X } from "lucide-react";
+import { Button, Card, Icons, PageHeader, Stack } from "@gdgjp/design-system";
 import { Suspense } from "react";
 import { Await, Link, useLocation, useNavigation, useSearchParams } from "react-router";
-import { Button } from "~/components/ui/button";
-import { Card } from "~/components/ui/card";
 import { parseAnalyticsParams } from "~/features/analytics/analytics-filters";
 import type { FilterSuggestions } from "~/features/analytics/components/analytics/analytics-filter-button";
 import { AnalyticsFiltersBar } from "~/features/analytics/components/analytics/analytics-filters-bar";
@@ -10,7 +8,6 @@ import { AnalyticsContent } from "~/features/analytics/components/overview";
 import { AnalyticsSkeleton } from "~/features/analytics/components/overview";
 import { loader as loadPage } from "~/features/analytics/page.server";
 
-import { DashboardPage, DashboardPageHeader } from "~/layouts/dashboard-page";
 import { DashboardShell } from "~/layouts/dashboard-shell";
 import type { Route } from "./+types/analytics";
 
@@ -43,8 +40,8 @@ export default function Analytics({ loaderData }: Route.ComponentProps) {
 
   return (
     <DashboardShell user={user}>
-      <DashboardPage>
-        <DashboardPageHeader
+      <Stack className="mx-auto w-full min-w-0 max-w-6xl">
+        <PageHeader
           title="Analytics"
           description={focus ? <span className="font-mono">{focus.shortUrl}</span> : undefined}
           actions={
@@ -53,7 +50,7 @@ export default function Analytics({ loaderData }: Route.ComponentProps) {
                 <Button asChild variant="outline" size="sm">
                   <a href={focus.destinationUrl} target="_blank" rel="noopener noreferrer">
                     Visit destination
-                    <ExternalLink className="size-3" />
+                    <Icons name="ExternalLink" aria-hidden="true" className="size-3" />
                   </a>
                 </Button>
               ) : null}
@@ -88,7 +85,7 @@ export default function Analytics({ loaderData }: Route.ComponentProps) {
           <div className="flex flex-wrap items-center gap-2">
             <Button asChild variant="outline" size="sm">
               <Link to="/analytics" prefetch="intent" aria-label="Clear link filter">
-                <X className="size-4" />
+                <Icons name="X" aria-hidden="true" className="size-4" />
                 {focus.slug}
               </Link>
             </Button>
@@ -97,10 +94,12 @@ export default function Analytics({ loaderData }: Route.ComponentProps) {
 
         {!hasLinks ? (
           <Card className="px-6 py-8 text-center">
-            <p className="text-base font-medium">No links yet</p>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Create a link to start collecting analytics.
-            </p>
+            <Stack>
+              <p className="text-base font-medium">No links yet</p>
+              <p className="mt-1 text-sm text-muted">
+                Create a link to start collecting analytics.
+              </p>
+            </Stack>
           </Card>
         ) : (
           <Suspense fallback={<AnalyticsSkeleton />}>
@@ -119,7 +118,7 @@ export default function Analytics({ loaderData }: Route.ComponentProps) {
             </Await>
           </Suspense>
         )}
-      </DashboardPage>
+      </Stack>
     </DashboardShell>
   );
 }

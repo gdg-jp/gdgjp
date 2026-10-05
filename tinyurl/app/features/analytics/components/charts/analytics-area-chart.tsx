@@ -87,7 +87,7 @@ export function AnalyticsAreaChart({
         <XAxis
           dataKey={xKey}
           tickFormatter={formatter}
-          tick={{ fontSize: 11, fill: "var(--color-muted-foreground)" }}
+          tick={{ fontSize: 11, fill: "var(--gdg-muted)" }}
           stroke="var(--color-border)"
           tickLine={false}
           minTickGap={48}
@@ -96,7 +96,7 @@ export function AnalyticsAreaChart({
           allowDecimals={percentage}
           domain={percentage ? [0, 100] : undefined}
           tickFormatter={percentage ? (value) => `${value}%` : undefined}
-          tick={{ fontSize: 11, fill: "var(--color-muted-foreground)" }}
+          tick={{ fontSize: 11, fill: "var(--gdg-muted)" }}
           stroke="var(--color-border)"
           axisLine={false}
           tickLine={false}
@@ -117,7 +117,7 @@ export function AnalyticsAreaChart({
           }
           cursor={{ stroke: "var(--color-border)", strokeDasharray: "3 3" }}
           contentStyle={{
-            background: "var(--color-popover)",
+            background: "var(--gdg-surface)",
             border: "1px solid var(--color-border)",
             borderRadius: "0.5rem",
             fontSize: 12,

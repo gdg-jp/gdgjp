@@ -1,5 +1,5 @@
+import { Button, Card, EmptyState, PageHeader } from "@gdgjp/design-system";
 import { Link } from "react-router";
-import { Button } from "~/components/ui/button";
 import { Header } from "~/layouts/header";
 
 import { loadOwnedEvents } from "~/features/events/manage.server";
@@ -19,35 +19,34 @@ export default function MyEventsPage({ loaderData }: Route.ComponentProps) {
     <div className="min-h-dvh">
       <Header user={user} />
       <main className="mx-auto max-w-3xl px-4 py-8">
-        <div className="mb-4 flex items-center justify-between">
-          <h1 className="text-2xl font-semibold tracking-tight">My events</h1>
-          <Button asChild>
-            <Link to="/">New event</Link>
-          </Button>
-        </div>
+        <PageHeader
+          className="mb-6"
+          title="My events"
+          actions={
+            <Button asChild>
+              <Link to="/">New event</Link>
+            </Button>
+          }
+        />
         {events.length === 0 ? (
-          <p className="text-sm text-muted-foreground">
-            No events yet.{" "}
-            <Link to="/" className="underline">
-              Create one
-            </Link>
-            .
-          </p>
+          <EmptyState
+            title="No events yet"
+            description="Create a meeting to start gathering availability."
+          />
         ) : (
           <ul className="flex flex-col gap-2">
             {events.map(({ event, slotCount, participantCount }) => (
-              <li
-                key={event.id}
-                className="rounded-md border p-3 transition-colors hover:bg-muted/50"
-              >
-                <Link to={`/e/${event.id}`} className="flex flex-col gap-1">
-                  <span className="font-medium">{event.title}</span>
-                  <span className="text-xs text-muted-foreground">
-                    {slotCount} slot{slotCount === 1 ? "" : "s"} · {participantCount} participant
-                    {participantCount === 1 ? "" : "s"} ·{" "}
-                    {new Date(event.createdAt * 1000).toLocaleDateString()}
-                  </span>
-                </Link>
+              <li key={event.id} className="min-w-0">
+                <Card>
+                  <Link to={`/e/${event.id}`} className="flex flex-col gap-1 break-words">
+                    <span className="font-medium">{event.title}</span>
+                    <span className="text-xs text-muted">
+                      {slotCount} slot{slotCount === 1 ? "" : "s"} · {participantCount} participant
+                      {participantCount === 1 ? "" : "s"} ·{" "}
+                      {new Date(event.createdAt * 1000).toLocaleDateString()}
+                    </span>
+                  </Link>
+                </Card>
               </li>
             ))}
           </ul>

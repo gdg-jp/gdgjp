@@ -21,6 +21,12 @@ test("selects Wiki E2E for Wiki application and harness changes", () => {
   assert.deepEqual(classifyChanges(["wiki/playwright.config.ts"]).e2e, ["wiki"]);
 });
 
+test("selects Pay browser checks for application and harness changes", () => {
+  assert.deepEqual(classifyChanges(["pay/app/root.tsx"]).e2e, ["pay"]);
+  assert.deepEqual(classifyChanges(["pay/e2e/ui-harness.tsx"]).e2e, ["pay"]);
+  assert.deepEqual(classifyChanges(["pay/playwright.config.ts"]).e2e, ["pay"]);
+});
+
 test("propagates gdg-lib changes to every dependent application", () => {
   const result = classifyChanges(["gdg-lib/src/auth/session.ts"]);
 
@@ -167,19 +173,36 @@ test("GDG UI changes validate and deploy its consumers", () => {
   assert.deepEqual(result.ci, [
     "@gdgjp/design-system",
     "@gdgjp/accounts",
+    "@gdgjp/tinyurl",
     "@gdgjp/wiki",
+    "@gdgjp/img",
+    "@gdgjp/scheduler",
+    "@gdgjp/pay",
     "@gdgjp/roster",
   ]);
   assert.deepEqual(result.build, [
     "@gdgjp/design-system",
     "@gdgjp/accounts",
+    "@gdgjp/tinyurl",
     "@gdgjp/wiki",
+    "@gdgjp/img",
+    "@gdgjp/scheduler",
+    "@gdgjp/pay",
     "@gdgjp/roster",
   ]);
-  assert.deepEqual(result.e2e, ["design-system", "accounts", "wiki", "roster"]);
+  assert.deepEqual(result.e2e, [
+    "design-system",
+    "accounts",
+    "tinyurl",
+    "wiki",
+    "img",
+    "scheduler",
+    "pay",
+    "roster",
+  ]);
   assert.deepEqual(
     result.deploy.map(({ app }) => app),
-    ["accounts", "wiki", "roster"],
+    ["accounts", "tinyurl", "wiki", "img", "scheduler", "pay", "roster"],
   );
 });
 

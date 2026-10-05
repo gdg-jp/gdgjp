@@ -1,8 +1,5 @@
+import { Button, FormField, Inline, Input, PageHeader, Textarea } from "@gdgjp/design-system";
 import { Form, useNavigation } from "react-router";
-import { Button } from "~/components/ui/button";
-import { Input } from "~/components/ui/input";
-import { Label } from "~/components/ui/label";
-import { Textarea } from "~/components/ui/textarea";
 import { ScheduleEditor } from "~/features/scheduling/components/schedule-editor";
 import { Header } from "~/layouts/header";
 
@@ -32,20 +29,22 @@ export default function EditEventPage({ loaderData }: Route.ComponentProps) {
     <div className="min-h-dvh">
       <Header user={user} />
       <main className="mx-auto max-w-5xl px-4 py-8">
-        <div className="mb-6 flex items-center justify-between">
-          <h1 className="text-2xl font-semibold tracking-tight">Edit event</h1>
-          <Button variant="ghost" size="sm" asChild>
-            <a href={`/e/${event.id}`}>Cancel</a>
-          </Button>
-        </div>
-        <p className="mb-6 text-xs text-muted-foreground">
+        <PageHeader
+          className="mb-6"
+          title="Edit event"
+          back={
+            <Button variant="ghost" size="sm" asChild>
+              <a href={`/e/${event.id}`}>Cancel</a>
+            </Button>
+          }
+        />
+        <p className="mb-6 text-xs text-muted">
           Slots whose day and time stay the same keep their participants' picks. Removed slots drop
           their availability records; added slots start empty.
         </p>
         <Form method="post" className="flex flex-col gap-6">
           <ScheduleEditor initialMinutes={event.slotMinutes} initialDays={initialDays}>
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="title">Title</Label>
+            <FormField id="title" label="Title" required>
               <Input
                 id="title"
                 name="title"
@@ -54,9 +53,8 @@ export default function EditEventPage({ loaderData }: Route.ComponentProps) {
                 defaultValue={event.title}
                 placeholder="Team sync"
               />
-            </div>
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="description">Description (optional)</Label>
+            </FormField>
+            <FormField id="description" label="Description (optional)">
               <Textarea
                 id="description"
                 name="description"
@@ -64,16 +62,16 @@ export default function EditEventPage({ loaderData }: Route.ComponentProps) {
                 defaultValue={event.description ?? ""}
                 placeholder="Anything participants should know."
               />
-            </div>
+            </FormField>
           </ScheduleEditor>
-          <div className="flex gap-2">
-            <Button type="submit" disabled={submitting}>
+          <Inline>
+            <Button type="submit" loading={submitting}>
               {submitting ? "Saving…" : "Save changes"}
             </Button>
-            <Button variant="ghost" size="default" asChild>
+            <Button variant="ghost" size="md" asChild>
               <a href={`/e/${event.id}`}>Cancel</a>
             </Button>
-          </div>
+          </Inline>
         </Form>
       </main>
     </div>

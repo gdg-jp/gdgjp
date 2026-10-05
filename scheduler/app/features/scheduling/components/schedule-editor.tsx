@@ -1,6 +1,5 @@
-import { Minus, Plus } from "lucide-react";
+import { Card, FormField, IconButton, Icons, NativeSelect, Stack } from "@gdgjp/design-system";
 import { type ReactNode, useMemo, useState } from "react";
-import { Button } from "~/components/ui/button";
 import { SlotPillGrid } from "~/features/scheduling/components/slot-pill-grid";
 import {
   DAY_LABELS,
@@ -13,7 +12,6 @@ import {
   minutesToTime,
   timeToMinutes,
 } from "~/features/scheduling/slots";
-import { cn } from "~/lib/utils";
 
 const DEFAULT_DAYS: DayRanges[] = Array.from({ length: 7 }, (_, i) => ({
   ranges: i < 5 ? [{ start: "19:00", end: "22:00" }] : [],
@@ -37,33 +35,26 @@ export function ScheduleEditor({
 
   return (
     <div className="grid grid-cols-1 gap-6 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
-      <div className="flex flex-col gap-6">
+      <Stack className="gap-6">
         {children}
-        <div className="flex flex-col gap-2">
-          <label htmlFor="slot_minutes" className="text-sm font-medium">
-            Meeting length
-          </label>
-          <select
+        <FormField id="slot_minutes" label="Meeting length">
+          <NativeSelect
             id="slot_minutes"
             name="slot_minutes"
             value={minutes}
             onChange={(e) => setMinutes(Number.parseInt(e.target.value, 10))}
-            className={cn(
-              "h-9 w-fit rounded-md border border-input bg-transparent px-2 text-sm shadow-xs outline-none",
-              "focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50",
-            )}
           >
             {MEETING_LENGTH_OPTIONS.map((o) => (
               <option key={o.value} value={o.value}>
                 {o.label}
               </option>
             ))}
-          </select>
-        </div>
+          </NativeSelect>
+        </FormField>
 
         <div className="flex flex-col gap-2">
           <p className="text-sm font-medium">Weekly availability</p>
-          <p className="text-xs text-muted-foreground">
+          <p className="text-xs text-muted">
             For each day, set the time ranges when meetings could happen. We'll generate the slots
             for you.
           </p>
@@ -78,9 +69,9 @@ export function ScheduleEditor({
             ))}
           </div>
         </div>
-      </div>
+      </Stack>
 
-      <div className="md:sticky md:top-4 md:self-start">
+      <div className="md:sticky md:top-24 md:self-start">
         <PreviewGrid generated={generated} minutes={minutes} />
       </div>
     </div>
@@ -111,11 +102,11 @@ function DayRow({
   };
 
   return (
-    <div className="grid grid-cols-[3rem_1fr_auto] items-start gap-3 py-3">
+    <div className="grid grid-cols-[2rem_minmax(0,1fr)_auto] items-start gap-2 py-3">
       <span className="pt-1.5 text-sm font-medium text-foreground">{DAY_LABELS[day]}</span>
       <div className="flex flex-col gap-1.5">
         {state.ranges.length === 0 ? (
-          <span className="pt-1.5 text-sm text-muted-foreground">Unavailable</span>
+          <span className="pt-1.5 text-sm text-muted">Unavailable</span>
         ) : (
           state.ranges.map((r, k) => (
             <RangeRow
@@ -129,14 +120,13 @@ function DayRow({
           ))
         )}
       </div>
-      <Button
+      <IconButton
         variant="ghost"
-        size="icon"
         onClick={addRange}
         aria-label={`Add time range for ${DAY_LABELS[day]}`}
       >
-        <Plus />
-      </Button>
+        <Icons name="Plus" size={16} animateOnHover={false} />
+      </IconButton>
     </div>
   );
 }
@@ -157,7 +147,7 @@ function RangeRow({
     isValidTime(range.end) &&
     timeToMinutes(range.end) <= timeToMinutes(range.start);
   return (
-    <div className="flex items-center gap-2">
+    <div className="flex flex-wrap items-center gap-2">
       <TimeSelect
         name={`day_${day}_start`}
         value={range.start}
@@ -165,7 +155,7 @@ function RangeRow({
         invalid={invalid}
         aria-label={`${DAY_LABELS[day]} start time`}
       />
-      <span className="text-sm text-muted-foreground">–</span>
+      <span className="text-sm text-muted">–</span>
       <TimeSelect
         name={`day_${day}_end`}
         value={range.end}
@@ -173,14 +163,13 @@ function RangeRow({
         invalid={invalid}
         aria-label={`${DAY_LABELS[day]} end time`}
       />
-      <Button
+      <IconButton
         variant="ghost"
-        size="icon"
         onClick={onRemove}
         aria-label={`Remove time range for ${DAY_LABELS[day]}`}
       >
-        <Minus />
-      </Button>
+        <Icons name="X" size={16} animateOnHover={false} />
+      </IconButton>
     </div>
   );
 }
@@ -199,15 +188,12 @@ function TimeSelect({
 } & Omit<React.ComponentProps<"select">, "value" | "onChange" | "name">) {
   const includesValue = TIME_OPTIONS.includes(value);
   return (
-    <select
+    <NativeSelect
       name={name}
       value={value}
       onChange={(e) => onChange(e.target.value)}
-      className={cn(
-        "h-9 rounded-md border border-input bg-transparent px-2 text-sm shadow-xs outline-none tabular-nums",
-        "focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50",
-        invalid && "border-destructive",
-      )}
+      aria-invalid={invalid || undefined}
+      className="tabular-nums"
       {...rest}
     >
       {!includesValue && <option value={value}>{value}</option>}
@@ -216,7 +202,7 @@ function TimeSelect({
           {t}
         </option>
       ))}
-    </select>
+    </NativeSelect>
   );
 }
 
@@ -254,23 +240,23 @@ function PreviewGrid({
     <div className="flex flex-col gap-2">
       <div className="flex items-baseline justify-between">
         <p className="text-sm font-medium">Preview</p>
-        <p className="text-xs text-muted-foreground">
+        <p className="text-xs text-muted">
           {generated.length} slot{generated.length === 1 ? "" : "s"} ({minutes} min each)
         </p>
       </div>
       {generated.length === 0 ? (
-        <p className="rounded-md border border-dashed p-6 text-center text-sm text-muted-foreground">
+        <p className="rounded-md border border-dashed p-6 text-center text-sm text-muted">
           Add a time range to see the slots.
         </p>
       ) : (
-        <div className="rounded-md border p-3">
+        <Card className="p-3">
           <SlotPillGrid
             mode="preview"
             usedDays={usedDays}
             allTimes={allTimes}
             slotByDayTime={slotByDayTime}
           />
-        </div>
+        </Card>
       )}
     </div>
   );

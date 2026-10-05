@@ -1,12 +1,10 @@
-import { Plus } from "lucide-react";
+import { Button, Icons, PageHeader, Stack } from "@gdgjp/design-system";
 import { useEffect, useState } from "react";
 import { useFetcher, useRevalidator } from "react-router";
-import { Button } from "~/components/ui/button";
 import { ConnectDomainDialog } from "~/features/domains/components/connect-domain-dialog";
 import { DomainCard } from "~/features/domains/components/domain-card";
 import { loader as loadPage, action as mutatePage } from "~/features/domains/page.server";
 
-import { DashboardPage, DashboardPageHeader } from "~/layouts/dashboard-page";
 import { DashboardShell } from "~/layouts/dashboard-shell";
 import type { Route } from "./+types/domains";
 
@@ -48,8 +46,8 @@ export default function Domains({ loaderData, actionData }: Route.ComponentProps
   );
   return (
     <DashboardShell user={loaderData.user}>
-      <DashboardPage>
-        <DashboardPageHeader
+      <Stack className="mx-auto w-full min-w-0 max-w-6xl">
+        <PageHeader
           title="Domains"
           actions={
             organizers.length > 0 ? (
@@ -58,14 +56,14 @@ export default function Domains({ loaderData, actionData }: Route.ComponentProps
                 onClick={() => setDialogOpen(true)}
                 disabled={loaderData.remainingDomains === 0}
               >
-                <Plus className="size-4" /> Connect a domain you own
+                <Icons name="Plus" aria-hidden="true" className="size-4" /> Connect a domain you own
               </Button>
             ) : null
           }
         />
 
         {actionData && "error" in actionData ? (
-          <p className="rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive">
+          <p className="rounded-md border border-danger/40 bg-danger/10 p-3 text-sm text-danger">
             {actionData.error}
           </p>
         ) : null}
@@ -91,7 +89,7 @@ export default function Domains({ loaderData, actionData }: Route.ComponentProps
             disabled={loaderData.remainingDomains === 0}
           />
         ) : null}
-      </DashboardPage>
+      </Stack>
     </DashboardShell>
   );
 }

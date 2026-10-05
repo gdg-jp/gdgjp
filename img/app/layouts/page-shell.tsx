@@ -1,6 +1,6 @@
+import { cn } from "@gdgjp/design-system";
 import type { ReactNode } from "react";
 import { TopBar, type TopBarUser } from "~/layouts/top-bar";
-import { cn } from "~/lib/utils";
 
 export function PageShell({
   user,
@@ -17,9 +17,7 @@ export function PageShell({
   return (
     <div className="min-h-dvh bg-background text-foreground">
       <TopBar user={user} />
-      <main className={cn("motion-enter container mx-auto px-4 py-8", max, className)}>
-        {children}
-      </main>
+      <main className={cn("container mx-auto px-4 py-8", max, className)}>{children}</main>
     </div>
   );
 }

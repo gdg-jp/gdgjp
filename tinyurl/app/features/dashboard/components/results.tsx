@@ -1,7 +1,5 @@
-import { Plus } from "lucide-react";
+import { Button, Icons, Skeleton } from "@gdgjp/design-system";
 import { useMemo } from "react";
-import { Button } from "~/components/ui/button";
-import { Skeleton } from "~/components/ui/skeleton";
 import type { UserSummary } from "~/features/auth/user.repository";
 import type { DisplayLayout, DisplayProperty } from "~/features/dashboard/display-preferences";
 import type { DashboardPageData } from "~/features/dashboard/page.server";
@@ -141,7 +139,7 @@ export function DashboardResults({
 
   if (items.length === 0) {
     return (
-      <div className="rounded-xl border bg-card p-10 text-center text-sm text-muted-foreground">
+      <div className="rounded-xl border bg-surface p-10 text-center text-sm text-muted">
         No links match your filters.
       </div>
     );
@@ -160,7 +158,7 @@ export function DashboardResults({
         layout={layout}
         properties={displayProperties}
       />
-      <p className="text-center text-xs text-muted-foreground">
+      <p className="text-center text-xs text-muted">
         Viewing 1–{items.length} of {accessibleCount} links
       </p>
     </>
@@ -181,11 +179,9 @@ export function EmptyState({
   domainOptions: DashboardPageData["domainOptions"];
 }) {
   return (
-    <div className="rounded-xl border bg-card p-10 text-center">
+    <div className="rounded-xl border bg-surface p-10 text-center">
       <h2 className="text-lg font-medium">No links yet</h2>
-      <p className="mt-1 text-sm text-muted-foreground">
-        Create your first short link to get started.
-      </p>
+      <p className="mt-1 text-sm text-muted">Create your first short link to get started.</p>
       <div className="mt-4 inline-block">
         <CreateLinkDialog
           availableTags={availableTags}
@@ -195,7 +191,7 @@ export function EmptyState({
           domainOptions={domainOptions}
           trigger={
             <Button size="sm">
-              <Plus className="size-4" />
+              <Icons name="Plus" aria-hidden="true" className="size-4" />
               Create a link
             </Button>
           }

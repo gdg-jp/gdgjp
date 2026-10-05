@@ -1,7 +1,5 @@
-import { Globe, Laptop, Link as LinkIcon, Smartphone, Tablet } from "lucide-react";
+import { Card, Icons, Skeleton, Stack } from "@gdgjp/design-system";
 import { type ReactNode, forwardRef } from "react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "~/components/ui/card";
-import { Skeleton } from "~/components/ui/skeleton";
 import type { TopBlob, TopRow } from "~/features/analytics/analytics-engine";
 import { BarList, type BarListRow } from "~/features/analytics/components/charts/bar-list";
 import { type BarTab, TabbedBarCard } from "~/features/analytics/components/charts/tabbed-bar-card";
@@ -28,18 +26,20 @@ export const AnalyticsClicksChartCard = forwardRef<
 >(function AnalyticsClicksChartCard({ total, pending = false, children, footer }, ref) {
   return (
     <Card ref={ref} className="min-w-0">
-      <CardHeader className="border-b">
-        <CardTitle className="flex items-end justify-between gap-4">
-          <span className="text-sm font-medium text-muted-foreground">Clicks</span>
-          {pending ? (
-            <Skeleton className="h-9 w-20" />
-          ) : (
-            <span className="text-3xl font-semibold tabular-nums">{total.toLocaleString()}</span>
-          )}
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="min-w-0 px-3 sm:px-6">{children}</CardContent>
-      {footer ? <CardContent className="flex justify-end pt-0">{footer}</CardContent> : null}
+      <Stack>
+        <div className="border-b">
+          <h2 className="flex items-end justify-between gap-4">
+            <span className="text-sm font-medium text-muted">Clicks</span>
+            {pending ? (
+              <Skeleton className="h-9 w-20" />
+            ) : (
+              <span className="text-3xl font-semibold tabular-nums">{total.toLocaleString()}</span>
+            )}
+          </h2>
+        </div>
+        <div className="min-w-0 px-3 sm:px-6">{children}</div>
+        {footer ? <div className="flex justify-end pt-0">{footer}</div> : null}
+      </Stack>
     </Card>
   );
 });
@@ -71,24 +71,26 @@ export function AnalyticsBarListCard({
 }: AnalyticsBarListCardProps) {
   return (
     <Card className="min-w-0">
-      <CardHeader className="gap-1">
-        <CardTitle className="text-sm">{title}</CardTitle>
-        {description ? <CardDescription className="text-xs">{description}</CardDescription> : null}
-      </CardHeader>
-      <CardContent className="min-w-0 px-4 sm:px-6">
-        {loading ? (
-          loadingContent
-        ) : (
-          <BarList
-            rows={rows}
-            emptyLabel={emptyLabel}
-            height={height}
-            pending={pending}
-            selectedKey={selectedKey}
-            onSelect={onSelect}
-          />
-        )}
-      </CardContent>
+      <Stack>
+        <div className="gap-1">
+          <h2 className="text-sm">{title}</h2>
+          {description ? <p className="text-xs">{description}</p> : null}
+        </div>
+        <div className="min-w-0 px-4 sm:px-6">
+          {loading ? (
+            loadingContent
+          ) : (
+            <BarList
+              rows={rows}
+              emptyLabel={emptyLabel}
+              height={height}
+              pending={pending}
+              selectedKey={selectedKey}
+              onSelect={onSelect}
+            />
+          )}
+        </div>
+      </Stack>
     </Card>
   );
 }
@@ -117,46 +119,48 @@ function CountryIcon({ row }: { row: TopRow }) {
 
 function ReferrerIcon({ row }: { row: TopRow }) {
   if (!row.name || row.name === "(unknown)") {
-    return <LinkIcon className="size-4 text-muted-foreground" />;
+    return <Icons name="Link" aria-hidden="true" className="size-4 text-muted" />;
   }
   try {
     const host = new URL(row.name).hostname || row.name;
     return host ? (
-      <Globe className="size-4 text-muted-foreground" />
+      <Icons name="Globe" aria-hidden="true" className="size-4 text-muted" />
     ) : (
-      <LinkIcon className="size-4 text-muted-foreground" />
+      <Icons name="Link" aria-hidden="true" className="size-4 text-muted" />
     );
   } catch {
-    return <LinkIcon className="size-4 text-muted-foreground" />;
+    return <Icons name="Link" aria-hidden="true" className="size-4 text-muted" />;
   }
 }
 
 function DeviceIcon({ row }: { row: TopRow }) {
   const name = row.name.toLowerCase();
   if (name.includes("mobile") || name.includes("phone")) {
-    return <Smartphone className="size-4 text-muted-foreground" />;
+    return <Icons name="Phone" aria-hidden="true" className="size-4 text-muted" />;
   }
   if (name.includes("tablet")) {
-    return <Tablet className="size-4 text-muted-foreground" />;
+    return <Icons name="Phone" aria-hidden="true" className="size-4 text-muted" />;
   }
-  return <Laptop className="size-4 text-muted-foreground" />;
+  return <Icons name="MonitorCheck" aria-hidden="true" className="size-4 text-muted" />;
 }
 
 function AnalyticsTabbedBarCardSkeleton() {
   return (
     <Card className="gap-0 py-0" aria-hidden>
-      <div className="flex items-center justify-between gap-3 border-b px-5 pt-4">
-        <div className="flex items-center gap-3 pb-3">
-          <Skeleton className="h-4 w-20" />
-          <Skeleton className="h-4 w-16" />
+      <Stack>
+        <div className="flex items-center justify-between gap-3 border-b px-5 pt-4">
+          <div className="flex items-center gap-3 pb-3">
+            <Skeleton className="h-4 w-20" />
+            <Skeleton className="h-4 w-16" />
+          </div>
+          <Skeleton className="mb-3 h-3 w-10" />
         </div>
-        <Skeleton className="mb-3 h-3 w-10" />
-      </div>
-      <div className="space-y-3 px-5 py-4" style={{ minHeight: 272 }}>
-        {["first", "second", "third", "fourth", "fifth"].map((key, index) => (
-          <Skeleton key={key} className="h-6" style={{ width: `${90 - index * 12}%` }} />
-        ))}
-      </div>
+        <div className="space-y-3 px-5 py-4" style={{ minHeight: 272 }}>
+          {["first", "second", "third", "fourth", "fifth"].map((key, index) => (
+            <Skeleton key={key} className="h-6" style={{ width: `${90 - index * 12}%` }} />
+          ))}
+        </div>
+      </Stack>
     </Card>
   );
 }

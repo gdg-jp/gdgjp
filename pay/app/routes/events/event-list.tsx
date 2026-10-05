@@ -1,13 +1,5 @@
+import { Button, Card, PageHeader, Table } from "@gdgjp/design-system";
 import { Link } from "react-router";
-import { Button } from "~/components/ui/button";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "~/components/ui/table";
 import { Header } from "~/layouts/header";
 
 import { formatYen } from "~/features/claims/money";
@@ -57,80 +49,77 @@ export async function loader({ request, context }: Route.LoaderArgs) {
 export default function HomePage({ loaderData }: Route.ComponentProps) {
   const { user, events } = loaderData;
   return (
-    <div className="min-h-dvh bg-[radial-gradient(circle_at_top,_#dbeafe,_transparent_45%),linear-gradient(180deg,#f8fafc,#eef2ff)] dark:bg-[radial-gradient(circle_at_top,_#1e3a5f,_transparent_40%),linear-gradient(180deg,#0b1220,#111827)]">
+    <div className="min-h-dvh bg-background">
       <Header user={user ? { name: user.name, email: user.email, image: user.image } : null} />
-      <main className="mx-auto flex max-w-3xl flex-col gap-8 px-4 py-10">
-        <div className="space-y-3">
-          <p className="text-sm font-medium tracking-[0.2em] text-blue-700 uppercase dark:text-blue-300">
-            pay.gdgs.jp
-          </p>
-          <div className="flex flex-wrap items-end justify-between gap-3">
-            <div>
-              <h1 className="text-3xl font-semibold tracking-tight">GDG Japan Pay</h1>
-              <p className="mt-1 text-sm text-muted-foreground">
-                イベント経費の申請・集計・スプレッドシート連携
-              </p>
-            </div>
-            {user ? (
-              <div className="flex gap-2">
+      <main className="mx-auto flex max-w-3xl flex-col gap-8 px-4 py-6 sm:py-8">
+        <PageHeader
+          title="GDG Japan Pay"
+          description="イベント経費の申請・集計・スプレッドシート連携"
+          actions={
+            user ? (
+              <>
                 <Button variant="outline" asChild>
                   <Link to="/profile">口座情報</Link>
                 </Button>
                 <Button asChild>
                   <Link to="/events/new">イベント登録</Link>
                 </Button>
-              </div>
+              </>
             ) : (
               <Button asChild>
                 <Link to="/signin">サインイン</Link>
               </Button>
-            )}
-          </div>
-        </div>
+            )
+          }
+        />
 
         {user ? (
-          <section className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white/80 shadow-sm backdrop-blur dark:border-slate-700 dark:bg-slate-900/70">
-            <div className="border-b px-5 py-4">
-              <h2 className="font-semibold">イベント一覧</h2>
-            </div>
-            {events.length === 0 ? (
-              <p className="px-5 py-8 text-sm text-muted-foreground">
-                まだイベントがありません。最初のイベントを登録してください。
-              </p>
-            ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>イベント</TableHead>
-                    <TableHead>申請数</TableHead>
-                    <TableHead>合計</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {events.map((event) => (
-                    <TableRow key={event.id}>
-                      <TableCell>
-                        <Link
-                          className="font-medium text-primary hover:underline"
-                          to={`/events/${event.id}`}
-                        >
-                          {event.title}
-                        </Link>
-                      </TableCell>
-                      <TableCell>{event.claimCount}</TableCell>
-                      <TableCell>{formatYen(event.total)}</TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            )}
+          <section aria-label="イベント一覧">
+            <Card className="p-0">
+              <div className="border-b px-5 py-4">
+                <h2 className="font-semibold">イベント一覧</h2>
+              </div>
+              {events.length === 0 ? (
+                <p className="px-5 py-8 text-sm text-muted">
+                  まだイベントがありません。最初のイベントを登録してください。
+                </p>
+              ) : (
+                <Table scrollLabel="イベント一覧を横にスクロール">
+                  <thead>
+                    <tr>
+                      <th scope="col">イベント</th>
+                      <th scope="col">申請数</th>
+                      <th scope="col">合計</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {events.map((event) => (
+                      <tr key={event.id}>
+                        <td>
+                          <Link
+                            className="font-medium text-link hover:underline"
+                            to={`/events/${event.id}`}
+                          >
+                            {event.title}
+                          </Link>
+                        </td>
+                        <td>{event.claimCount}</td>
+                        <td>{formatYen(event.total)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </Table>
+              )}
+            </Card>
           </section>
         ) : (
-          <section className="rounded-2xl border border-slate-200/80 bg-white/70 p-6 shadow-sm backdrop-blur dark:border-slate-700 dark:bg-slate-900/60">
-            <p className="text-sm text-muted-foreground">
-              GDG Accounts
-              でサインインすると、イベント登録と経費申請ができます。チャプターのメンバーシップが必要です。
-            </p>
+          <section aria-label="利用案内">
+            <Card>
+              <p className="text-sm text-muted">
+                GDG Accounts
+                でサインインすると、イベント登録と経費申請ができます。チャプターのメンバーシップが必要です。
+              </p>
+            </Card>
           </section>
         )}
       </main>

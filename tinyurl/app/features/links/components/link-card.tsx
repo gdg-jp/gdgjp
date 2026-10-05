@@ -1,37 +1,24 @@
 import {
-  Archive,
-  BarChart3,
-  Check,
-  Copy,
-  ExternalLink,
-  Folder,
-  FolderTree,
-  MoreHorizontal,
-  MousePointerClick,
-  Pencil,
-  RotateCcw,
-  Trash2,
-} from "lucide-react";
-import { useEffect, useState } from "react";
-import { Link } from "react-router";
-import { Avatar, AvatarFallback, AvatarImage } from "~/components/ui/avatar";
-import { Badge } from "~/components/ui/badge";
-import { Button } from "~/components/ui/button";
-import {
+  Avatar,
+  Badge,
+  Button,
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from "~/components/ui/dropdown-menu";
-import { Popover, PopoverAnchor, PopoverContent } from "~/components/ui/popover";
+  IconButton,
+  Icons,
+  cn,
+  toast,
+} from "@gdgjp/design-system";
+import { useEffect, useState } from "react";
+import { Link } from "react-router";
 import { SourceCombobox, type SourceOption } from "~/features/campaigns/components/source-combobox";
 import { campaignSourceUrl } from "~/features/campaigns/components/source-url";
 import type { DisplayLayout, DisplayProperty } from "~/features/dashboard/display-preferences";
 import { type LinkAction, LinkActionDialog } from "~/features/links/components/link-action-dialog";
 import type { Link as DbLink } from "~/features/links/link-record";
 import type { Tag as DbTag } from "~/features/tags/tag-record";
-import { cn } from "~/lib/utils";
-
 export type LinkOwner = {
   id: string;
   name: string;
@@ -123,6 +110,7 @@ export function LinkCard({
     const url = (source && campaignSourceUrl(shortUrl, source)) || shortUrl;
     await navigator.clipboard.writeText(url);
     setCopyFeedback({ url });
+    toast.success("Copied short URL", { description: url });
   }
 
   const viewTransitionName = `link-${link.id.replace(/[^a-zA-Z0-9_-]/g, "-")}`;
@@ -132,8 +120,8 @@ export function LinkCard({
       <>
         <div
           className={cn(
-            "group relative flex min-h-14 min-w-0 items-center gap-2 bg-card px-3 py-2 transition-colors hover:bg-muted/35 sm:min-w-[780px] sm:gap-3 sm:px-4",
-            link.archivedAt !== null && "bg-muted/25 opacity-75",
+            "group relative flex min-h-14 min-w-0 items-center gap-2 bg-surface px-3 py-2 transition-colors hover:bg-surface/35 sm:min-w-[780px] sm:gap-3 sm:px-4",
+            link.archivedAt !== null && "bg-surface/25 opacity-75",
           )}
           style={{ viewTransitionName }}
         >
@@ -155,7 +143,7 @@ export function LinkCard({
                 referrerPolicy="no-referrer"
               />
             ) : (
-              <ExternalLink className="size-3.5 text-muted-foreground" />
+              <Icons name="ExternalLink" aria-hidden="true" className="size-3.5 text-muted" />
             )}
           </div>
 
@@ -167,48 +155,25 @@ export function LinkCard({
               >
                 {shortDisplay}
               </span>
-              <Popover
-                open={copyFeedback !== null}
-                onOpenChange={(open) => {
-                  if (!open) setCopyFeedback(null);
-                }}
+
+              <Button
+                variant="ghost"
+                type="button"
+                onClick={copyShort}
+                aria-label={copyFeedback ? "Copied short URL" : "Copy short URL"}
+                className="relative z-10 shrink-0 rounded p-1 text-muted transition hover:bg-selected hover:text-foreground focus-visible:opacity-100 sm:opacity-60 sm:hover:opacity-100"
               >
-                <PopoverAnchor asChild>
-                  <button
-                    type="button"
-                    onClick={copyShort}
-                    aria-label={copyFeedback ? "Copied short URL" : "Copy short URL"}
-                    className="relative z-10 shrink-0 rounded p-1 text-muted-foreground transition hover:bg-accent hover:text-foreground focus-visible:opacity-100 sm:opacity-60 sm:hover:opacity-100"
-                  >
-                    {copyFeedback ? <Check className="size-3.5" /> : <Copy className="size-3.5" />}
-                  </button>
-                </PopoverAnchor>
-                <PopoverContent
-                  side="bottom"
-                  align="end"
-                  sideOffset={6}
-                  className="w-72 space-y-1.5 p-3"
-                  onOpenAutoFocus={(event) => event.preventDefault()}
-                  onCloseAutoFocus={(event) => event.preventDefault()}
-                >
-                  <div className="flex items-center gap-1.5 text-xs font-medium text-primary">
-                    <Check className="size-3.5" /> Copied
-                  </div>
-                  <p
-                    className="break-all font-mono text-xs text-muted-foreground"
-                    aria-live="polite"
-                  >
-                    {copyFeedback?.url}
-                  </p>
-                </PopoverContent>
-              </Popover>
+                {copyFeedback ? (
+                  <Icons name="Check" aria-hidden="true" className="size-3.5" />
+                ) : (
+                  <Icons name="Copy" aria-hidden="true" className="size-3.5" />
+                )}
+              </Button>
             </div>
           ) : null}
 
           {link.archivedAt !== null ? (
-            <Badge variant="secondary" className="hidden sm:inline-flex">
-              Archived
-            </Badge>
+            <Badge className="hidden sm:inline-flex">Archived</Badge>
           ) : null}
 
           {properties.includes("destinationUrl") ? (
@@ -216,10 +181,10 @@ export function LinkCard({
               href={link.destinationUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="relative z-10 flex min-w-0 flex-1 items-center gap-2 text-sm text-muted-foreground hover:text-foreground"
+              className="relative z-10 flex min-w-0 flex-1 items-center gap-2 text-sm text-muted hover:text-foreground"
               title={link.destinationUrl}
             >
-              <span aria-hidden="true" className="shrink-0 text-muted-foreground/70">
+              <span aria-hidden="true" className="shrink-0 text-muted/70">
                 →
               </span>
               <span className="truncate">{link.destinationUrl}</span>
@@ -235,7 +200,7 @@ export function LinkCard({
           ) : null}
           {properties.includes("description") && link.description ? (
             <span
-              className="hidden max-w-40 truncate text-sm text-muted-foreground sm:inline"
+              className="hidden max-w-40 truncate text-sm text-muted sm:inline"
               title={link.description}
             >
               {link.description}
@@ -243,27 +208,24 @@ export function LinkCard({
           ) : null}
           {properties.includes("creator") ? (
             <span className="hidden sm:inline-flex">
-              <Avatar size="sm" title={owner?.name || owner?.email || "Owner"}>
-                <AvatarImage
-                  src={owner?.image ?? undefined}
-                  alt={owner?.name || owner?.email || ""}
-                />
-                <AvatarFallback>{ownerInitials(owner)}</AvatarFallback>
-              </Avatar>
+              <Avatar
+                title={owner?.name || owner?.email || "Owner"}
+                src={owner?.image ?? undefined}
+                alt={owner?.name || owner?.email || ""}
+                fallback={ownerInitials(owner)}
+              />
             </span>
           ) : null}
           {properties.includes("createdDate") ? (
-            <span className="hidden w-16 shrink-0 text-right text-sm text-muted-foreground tabular-nums sm:inline">
+            <span className="hidden w-16 shrink-0 text-right text-sm text-muted tabular-nums sm:inline">
               {formatDate(link.createdAt)}
             </span>
           ) : null}
           {properties.includes("tags") && tags.length > 0 ? (
             <div className="relative z-10 hidden max-w-28 shrink-0 items-center gap-1 sm:flex">
-              <Badge variant="outline" className="max-w-20 truncate text-xs">
-                {tags[0].name}
-              </Badge>
+              <Badge className="max-w-20 truncate text-xs">{tags[0].name}</Badge>
               {tags.length > 1 ? (
-                <span className="text-xs text-muted-foreground">+{tags.length - 1}</span>
+                <span className="text-xs text-muted">+{tags.length - 1}</span>
               ) : null}
             </div>
           ) : null}
@@ -271,11 +233,19 @@ export function LinkCard({
             <Link
               to={`/analytics?linkId=${link.id}`}
               prefetch="intent"
-              className="relative z-10 inline-flex shrink-0 items-center gap-1 rounded-md border bg-background px-2 py-1.5 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-foreground sm:gap-1.5 sm:px-2.5 sm:py-1"
+              className="relative z-10 inline-flex shrink-0 items-center gap-1 rounded-md border bg-background px-2 py-1.5 text-xs text-muted transition-colors hover:bg-selected hover:text-foreground sm:gap-1.5 sm:px-2.5 sm:py-1"
               title="View analytics"
             >
-              <MousePointerClick className="size-3.5 text-primary sm:hidden" />
-              <BarChart3 className="hidden size-3.5 text-primary sm:block" />
+              <Icons
+                name="CursorClick"
+                aria-hidden="true"
+                className="size-3.5 text-primary sm:hidden"
+              />
+              <Icons
+                name="ChartColumnIncreasing"
+                aria-hidden="true"
+                className="hidden size-3.5 text-primary sm:block"
+              />
               <span className="tabular-nums">{clicks}</span>
               <span className="hidden sm:inline">{clicks === 1 ? "click" : "clicks"}</span>
             </Link>
@@ -300,9 +270,9 @@ export function LinkCard({
     <>
       <div
         className={cn(
-          "group relative grid min-w-0 cursor-pointer grid-cols-[minmax(0,1fr)_auto_auto] items-center border bg-card shadow-xs transition-shadow hover:shadow-sm sm:flex",
+          "group relative grid min-w-0 cursor-pointer grid-cols-[minmax(0,1fr)_auto_auto] items-center border bg-surface shadow-xs transition-shadow hover:shadow-sm sm:flex",
           layout === "cards" ? "gap-3 rounded-xl px-4 py-3 sm:px-4" : "gap-2 rounded-md px-3 py-2",
-          link.archivedAt !== null && "bg-muted/30 opacity-75",
+          link.archivedAt !== null && "bg-surface/30 opacity-75",
         )}
         style={{ viewTransitionName }}
       >
@@ -328,7 +298,7 @@ export function LinkCard({
               referrerPolicy="no-referrer"
             />
           ) : (
-            <ExternalLink className="size-4 text-muted-foreground" />
+            <Icons name="ExternalLink" aria-hidden="true" className="size-4 text-muted" />
           )}
         </div>
 
@@ -347,52 +317,34 @@ export function LinkCard({
                 {shortDisplay}
               </span>
             ) : null}
-            {link.archivedAt !== null ? <Badge variant="secondary">Archived</Badge> : null}
+            {link.archivedAt !== null ? <Badge>Archived</Badge> : null}
             {sources ? (
               <div className="relative z-10">
                 <SourceCombobox value={source} sources={sources} onValueChange={setSource} />
               </div>
             ) : null}
-            <Popover
-              open={copyFeedback !== null}
-              onOpenChange={(open) => {
-                if (!open) setCopyFeedback(null);
-              }}
+
+            <Button
+              variant="ghost"
+              type="button"
+              onClick={copyShort}
+              aria-label={copyFeedback ? "Copied short URL" : "Copy short URL"}
+              className={`relative z-10 rounded p-1 transition-colors transition-opacity focus-visible:opacity-100 ${
+                copyFeedback
+                  ? "bg-primary/10 text-primary"
+                  : "text-muted hover:bg-selected hover:text-foreground"
+              } ${sources ? "opacity-100" : "opacity-100 sm:opacity-0 sm:group-hover:opacity-100"}`}
             >
-              <PopoverAnchor asChild>
-                <button
-                  type="button"
-                  onClick={copyShort}
-                  aria-label={copyFeedback ? "Copied short URL" : "Copy short URL"}
-                  className={`relative z-10 rounded p-1 transition-colors transition-opacity focus-visible:opacity-100 ${
-                    copyFeedback
-                      ? "bg-primary/10 text-primary"
-                      : "text-muted-foreground hover:bg-accent hover:text-foreground"
-                  } ${sources ? "opacity-100" : "opacity-100 sm:opacity-0 sm:group-hover:opacity-100"}`}
-                >
-                  {copyFeedback ? <Check className="size-3.5" /> : <Copy className="size-3.5" />}
-                </button>
-              </PopoverAnchor>
-              <PopoverContent
-                side="bottom"
-                align="end"
-                sideOffset={6}
-                className="w-72 space-y-1.5 p-3"
-                onOpenAutoFocus={(event) => event.preventDefault()}
-                onCloseAutoFocus={(event) => event.preventDefault()}
-              >
-                <div className="flex items-center gap-1.5 text-xs font-medium text-primary">
-                  <Check className="size-3.5" /> Copied
-                </div>
-                <p className="break-all font-mono text-xs text-muted-foreground" aria-live="polite">
-                  {copyFeedback?.url}
-                </p>
-              </PopoverContent>
-            </Popover>
+              {copyFeedback ? (
+                <Icons name="Check" aria-hidden="true" className="size-3.5" />
+              ) : (
+                <Icons name="Copy" aria-hidden="true" className="size-3.5" />
+              )}
+            </Button>
           </div>
           {campaign ? (
-            <div className="flex min-w-0 items-center gap-1.5 text-[11px] text-muted-foreground">
-              <FolderTree className="size-3 shrink-0" />
+            <div className="flex min-w-0 items-center gap-1.5 text-[11px] text-muted">
+              <Icons name="FolderTree" aria-hidden="true" className="size-3 shrink-0" />
               <Link
                 to={`/campaigns/${campaign.campaignId}`}
                 className="relative z-10 truncate hover:text-foreground hover:underline"
@@ -403,8 +355,8 @@ export function LinkCard({
             </div>
           ) : null}
           {folder ? (
-            <div className="flex min-w-0 items-center gap-1.5 text-[11px] text-muted-foreground">
-              <Folder className="size-3 shrink-0" />
+            <div className="flex min-w-0 items-center gap-1.5 text-[11px] text-muted">
+              <Icons name="Folder" aria-hidden="true" className="size-3 shrink-0" />
               <span className="truncate" title={folder.name}>
                 {folder.name}
               </span>
@@ -416,24 +368,24 @@ export function LinkCard({
             </p>
           ) : null}
           {properties.includes("description") && link.description ? (
-            <p className="line-clamp-2 text-xs text-muted-foreground">{link.description}</p>
+            <p className="line-clamp-2 text-xs text-muted">{link.description}</p>
           ) : null}
           {properties.includes("destinationUrl") ? (
             <a
               href={link.destinationUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="relative z-10 inline-flex w-fit max-w-full min-w-0 self-start items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
+              className="relative z-10 inline-flex w-fit max-w-full min-w-0 self-start items-center gap-1 text-xs text-muted hover:text-foreground"
               title={link.destinationUrl}
             >
-              <span className="text-muted-foreground/70">↳</span>
+              <span className="text-muted/70">↳</span>
               <span className="truncate">{link.destinationUrl}</span>
             </a>
           ) : null}
           {properties.includes("tags") && tags.length > 0 ? (
             <div className="relative z-10 flex flex-wrap gap-1 pt-0.5">
               {tags.map((tag) => (
-                <Badge key={tag.id} variant="outline" className="text-[10px]">
+                <Badge key={tag.id} className="text-[10px]">
                   {tag.name}
                 </Badge>
               ))}
@@ -444,16 +396,15 @@ export function LinkCard({
         {properties.includes("creator") || properties.includes("createdDate") ? (
           <div className="hidden items-center gap-2 sm:flex">
             {properties.includes("creator") ? (
-              <Avatar size="sm" title={owner?.name || owner?.email || "Owner"}>
-                <AvatarImage
-                  src={owner?.image ?? undefined}
-                  alt={owner?.name || owner?.email || ""}
-                />
-                <AvatarFallback>{ownerInitials(owner)}</AvatarFallback>
-              </Avatar>
+              <Avatar
+                title={owner?.name || owner?.email || "Owner"}
+                src={owner?.image ?? undefined}
+                alt={owner?.name || owner?.email || ""}
+                fallback={ownerInitials(owner)}
+              />
             ) : null}
             {properties.includes("createdDate") ? (
-              <span className="w-12 text-right text-xs text-muted-foreground tabular-nums">
+              <span className="w-12 text-right text-xs text-muted tabular-nums">
                 {formatDate(link.createdAt)}
               </span>
             ) : null}
@@ -464,11 +415,19 @@ export function LinkCard({
           <Link
             to={`/analytics?linkId=${link.id}`}
             prefetch="intent"
-            className="relative z-10 col-start-2 row-start-1 inline-flex w-fit items-center gap-1.5 self-center rounded-lg border bg-background px-2.5 py-2 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-foreground sm:rounded-full sm:px-2.5 sm:py-1"
+            className="relative z-10 col-start-2 row-start-1 inline-flex w-fit items-center gap-1.5 self-center rounded-lg border bg-background px-2.5 py-2 text-xs text-muted transition-colors hover:bg-selected hover:text-foreground sm:rounded-full sm:px-2.5 sm:py-1"
             title="View analytics"
           >
-            <MousePointerClick className="size-4 text-primary sm:hidden" />
-            <BarChart3 className="hidden size-3.5 text-primary sm:block" />
+            <Icons
+              name="CursorClick"
+              aria-hidden="true"
+              className="size-4 text-primary sm:hidden"
+            />
+            <Icons
+              name="ChartColumnIncreasing"
+              aria-hidden="true"
+              className="hidden size-3.5 text-primary sm:block"
+            />
             <span className="tabular-nums">{clicks}</span>
             <span className="hidden sm:inline">{clicks === 1 ? "click" : "clicks"}</span>
           </Link>
@@ -502,51 +461,54 @@ function LinkActionsMenu({
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button
+        <IconButton
           variant="ghost"
-          size="icon-sm"
           aria-label="Link actions"
           className="relative z-10 col-start-3 row-start-1 shrink-0 self-center"
         >
-          <MoreHorizontal className="size-4 rotate-90 sm:rotate-0" />
-        </Button>
+          <Icons
+            name="MoreHorizontal"
+            aria-hidden="true"
+            className="size-4 rotate-90 sm:rotate-0"
+          />
+        </IconButton>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
         <DropdownMenuItem asChild>
           <Link to={`/links/${link.id}`} prefetch="intent">
-            <Pencil className="size-4" />
+            <Icons name="Pencil" aria-hidden="true" className="size-4" />
             Edit
           </Link>
         </DropdownMenuItem>
         <DropdownMenuItem asChild>
           <Link to={`/analytics?linkId=${link.id}`} prefetch="intent">
-            <BarChart3 className="size-4" />
+            <Icons name="ChartColumnIncreasing" aria-hidden="true" className="size-4" />
             Analytics
           </Link>
         </DropdownMenuItem>
         <DropdownMenuItem onSelect={copyShort}>
-          <Copy className="size-4" />
+          <Icons name="Copy" aria-hidden="true" className="size-4" />
           Copy short URL
         </DropdownMenuItem>
         <DropdownMenuItem asChild>
           <a href={link.destinationUrl} target="_blank" rel="noopener noreferrer">
-            <ExternalLink className="size-4" />
+            <Icons name="ExternalLink" aria-hidden="true" className="size-4" />
             Visit destination
           </a>
         </DropdownMenuItem>
         {link.archivedAt === null ? (
           <DropdownMenuItem onSelect={() => onAction("archive")}>
-            <Archive className="size-4" />
+            <Icons name="Archive" aria-hidden="true" className="size-4" />
             Archive…
           </DropdownMenuItem>
         ) : (
           <DropdownMenuItem onSelect={() => onAction("restore")}>
-            <RotateCcw className="size-4" />
+            <Icons name="RotateCcw" aria-hidden="true" className="size-4" />
             Restore…
           </DropdownMenuItem>
         )}
-        <DropdownMenuItem variant="destructive" onSelect={() => onAction("delete")}>
-          <Trash2 className="size-4" />
+        <DropdownMenuItem className="text-danger" onSelect={() => onAction("delete")}>
+          <Icons name="Trash2" aria-hidden="true" className="size-4" />
           Delete…
         </DropdownMenuItem>
       </DropdownMenuContent>

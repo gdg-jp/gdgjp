@@ -68,7 +68,7 @@ describe("TinyURL architecture boundaries", () => {
       ),
     );
     expect(violations).toEqual([]);
-    expect(readdirSync(resolve(app, "lib")).sort()).toEqual(["use-media-query.ts", "utils.ts"]);
+    expect(readdirSync(resolve(app, "lib")).sort()).toEqual(["use-media-query.ts"]);
     expect(existsSync(resolve(app, "lib/db.ts"))).toBe(false);
   });
 

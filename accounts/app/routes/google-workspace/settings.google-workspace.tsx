@@ -1,4 +1,5 @@
 import {
+  Alert,
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
@@ -65,7 +66,13 @@ export default function GoogleWorkspaceSettings({ loaderData }: PageProps) {
         title={t("settings.googleWorkspace.title")}
         description={t("settings.googleWorkspace.description")}
       />
-      <Card>
+      {workspaceStatus === "error" ? (
+        <Alert
+          tone="danger"
+          title={t("settings.googleWorkspace.toastError", { reason: workspaceReason ?? "unknown" })}
+        />
+      ) : null}
+      <Card className="mt-6">
         <Stack>
           <div className="flex items-center gap-2">
             {connected ? (

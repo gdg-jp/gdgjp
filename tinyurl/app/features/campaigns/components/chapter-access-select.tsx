@@ -1,8 +1,15 @@
-import { Check, ChevronsUpDown } from "lucide-react";
+import {
+  Button,
+  Checkbox,
+  Icons,
+  Input,
+  Label,
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+  Stack,
+} from "@gdgjp/design-system";
 import { useMemo, useState } from "react";
-import { Button } from "~/components/ui/button";
-import { Input } from "~/components/ui/input";
-import { Popover, PopoverContent, PopoverTrigger } from "~/components/ui/popover";
 import type { UserChapter } from "~/features/auth/chapter.server";
 
 export function ChapterAccessSelect({
@@ -35,57 +42,42 @@ export function ChapterAccessSelect({
   return (
     <fieldset className="space-y-2">
       <legend className="text-sm font-medium">Chapters with access</legend>
-      <p className="text-xs text-muted-foreground">
-        Members of selected chapters can manage this campaign.
-      </p>
+      <p className="text-xs text-muted">Members of selected chapters can manage this campaign.</p>
       {[...selectedIds].map((chapterId) => (
         <input key={chapterId} type="hidden" name="chapterId" value={chapterId} />
       ))}
       <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger asChild>
-          <Button type="button" variant="outline" className="w-full justify-between font-normal">
-            <span className="truncate">
+          <Button type="button" variant="outline" fullWidth className="justify-between">
+            <span>
               {selectedChapters.length === 0
                 ? "Select chapters"
-                : selectedChapters.length === 1
-                  ? selectedChapters[0].chapterSlug
-                  : `${selectedChapters.length} chapters selected`}
+                : `${selectedChapters.length} chapters selected`}
             </span>
-            <ChevronsUpDown className="size-4 shrink-0 opacity-50" />
+            <Icons name="ChevronsUpDown" size={18} aria-hidden="true" />
           </Button>
         </PopoverTrigger>
-        <PopoverContent align="start" className="w-[var(--radix-popover-trigger-width)] p-0">
-          <div className="border-b p-2">
-            <Input
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
-              placeholder="Search chapters…"
-              aria-label="Search chapters"
-              autoFocus
-            />
-          </div>
-          <div className="max-h-64 overflow-y-auto p-1">
-            {filteredChapters.map((chapter) => {
-              const selected = selectedIds.has(chapter.chapterId);
-              return (
-                <button
-                  key={chapter.chapterId}
-                  type="button"
-                  aria-pressed={selected}
-                  onClick={() => toggle(chapter.chapterId)}
-                  className="flex w-full items-center gap-2 rounded-sm px-2 py-2 text-left text-sm hover:bg-accent hover:text-accent-foreground"
-                >
-                  <span className="flex size-4 items-center justify-center">
-                    {selected ? <Check className="size-4" /> : null}
-                  </span>
-                  {chapter.chapterSlug}
-                </button>
-              );
-            })}
-            {filteredChapters.length === 0 ? (
-              <p className="px-2 py-3 text-sm text-muted-foreground">No matching chapters.</p>
-            ) : null}
-          </div>
+        <PopoverContent align="start" className="max-w-[calc(100vw-2rem)]">
+          <Input
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder="Search chapters…"
+            aria-label="Search chapters"
+          />
+          <Stack className="mt-3 max-h-64 overflow-y-auto">
+            {filteredChapters.map((chapter) => (
+              <Label key={chapter.chapterId} className="flex min-h-11 items-center gap-2">
+                <Checkbox
+                  checked={selectedIds.has(chapter.chapterId)}
+                  onCheckedChange={() => toggle(chapter.chapterId)}
+                />
+                {chapter.chapterSlug}
+              </Label>
+            ))}
+            {filteredChapters.length === 0 && (
+              <p className="text-sm text-muted">No matching chapters.</p>
+            )}
+          </Stack>
         </PopoverContent>
       </Popover>
     </fieldset>

@@ -172,12 +172,16 @@ export default function AdminChapters({ loaderData, actionData }: PageProps) {
                 <Table scrollLabel={t("common.tableScroll")}>
                   <thead>
                     <tr>
-                      <th>{t("admin.list.name")}</th>
-                      <th>{t("admin.list.slug")}</th>
-                      <th>{t("admin.list.kind")}</th>
-                      <th>{t("admin.list.region")}</th>
-                      <th className="text-right">{t("admin.list.members")}</th>
-                      <th className="text-right">{t("admin.list.actions")}</th>
+                      <th scope="col">{t("admin.list.name")}</th>
+                      <th scope="col">{t("admin.list.slug")}</th>
+                      <th scope="col">{t("admin.list.kind")}</th>
+                      <th scope="col">{t("admin.list.region")}</th>
+                      <th scope="col" className="text-right">
+                        {t("admin.list.members")}
+                      </th>
+                      <th scope="col" className="text-right">
+                        {t("admin.list.actions")}
+                      </th>
                     </tr>
                   </thead>
                   <tbody>

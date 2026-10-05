@@ -11,9 +11,9 @@
 | Public event view and response UI | `app/routes/participants/event.tsx` |
 | HTTP handlers and page composition | `app/routes/` (URLs stay in `app/routes.ts`) |
 | Composed application shell / header | `app/layouts/` |
-| Domain-free primitives (brand mark, URL sharing, theme toggle, UI controls) | `app/components/`, `app/components/ui/` |
+| App-owned brand mark and URL sharing | `app/components/` |
 | Event creation, owner list and edit screens | `app/routes/events/` |
-| Cross-cutting theme / CSS class helpers | `app/lib/theme.tsx`, `app/lib/utils.ts` |
+| Shared UI controls, theme and CSS class helpers | `@gdgjp/design-system` |
 | Worker runtime boundary | `workers/app.ts` |
 
 - Domain types live in each feature's `model.ts`; database rows and mapping stay in server repositories.

@@ -1,4 +1,5 @@
 import {
+  Alert,
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
@@ -10,6 +11,7 @@ import {
   Badge,
   Button,
   Card,
+  Checkbox,
   Dialog,
   DialogClose,
   DialogContent,
@@ -90,7 +92,7 @@ export function UserActions({
   }
 
   return (
-    <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
+    <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:justify-end">
       <Dialog open={chapterOpen} onOpenChange={setDialogOpen}>
         <DialogTrigger asChild>
           <Button
@@ -146,7 +148,7 @@ export function UserActions({
                 )}
               </div>
               <FormField
-                id="chapter-search"
+                id={`user-${item.id}-chapter-search`}
                 label={t("adminUsers.chapterSearchPlaceholder")}
                 hideLabel
                 className="gap-0"
@@ -168,25 +170,33 @@ export function UserActions({
                   chapterResults.map((chapter) => {
                     const selected = selectedChapterIds.includes(chapter.id);
                     return (
-                      <Button
-                        key={chapter.id}
-                        type="button"
-                        variant="ghost"
-                        fullWidth
-                        className="justify-start"
-                        onClick={() => toggleChapter(chapter.id)}
-                      >
-                        <span className="flex size-4 items-center justify-center">
-                          {selected ? <Icons name="Check" size={16} aria-hidden="true" /> : null}
-                        </span>
-                        {chapter.name}
-                        <span className="ml-auto font-mono text-xs text-muted">{chapter.slug}</span>
-                      </Button>
+                      <div key={chapter.id} className="flex min-h-11 items-start gap-3 px-3 py-2">
+                        <Checkbox
+                          id={`user-${item.id}-chapter-${chapter.id}`}
+                          checked={selected}
+                          disabled={busy}
+                          onCheckedChange={() => toggleChapter(chapter.id)}
+                        />
+                        <label
+                          htmlFor={`user-${item.id}-chapter-${chapter.id}`}
+                          className="min-w-0 flex-1 cursor-pointer"
+                        >
+                          <span className="block break-words text-sm font-medium">
+                            {chapter.name}
+                          </span>
+                          <span className="block break-all font-mono text-xs text-muted">
+                            {chapter.slug}
+                          </span>
+                        </label>
+                      </div>
                     );
                   })
                 )}
               </div>
             </div>
+            {fetcher.data && "error" in fetcher.data && fetcher.data.error ? (
+              <Alert tone="danger" title={fetcher.data.error} />
+            ) : null}
             <div className="flex flex-wrap justify-end gap-3">
               <DialogClose asChild>
                 <Button type="button" variant="outline" disabled={busy}>
@@ -282,6 +292,9 @@ export function UserActions({
           </div>
         </AlertDialogContent>
       </AlertDialog>
+      {!chapterOpen && fetcher.data && "error" in fetcher.data && fetcher.data.error ? (
+        <Alert tone="danger" title={fetcher.data.error} />
+      ) : null}
     </div>
   );
 }

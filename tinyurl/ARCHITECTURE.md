@@ -3,7 +3,7 @@
 | Responsibility | Code |
 | --- | --- |
 | HTTP adapters and public URLs | `app/routes/<domain>/`, `app/routes/api/cli/<domain>/`; registration in `app/routes.ts` |
-| Domain-free UI primitives and branding | `app/components/ui/`, `app/components/gdg-mark.tsx`, `app/components/status-badge.tsx` |
+| Domain-free UI primitives and branding | `@gdgjp/design-system`, `app/components/gdg-mark.tsx`, `app/components/status-badge.tsx` |
 | Common page shell, navigation, account menu | `app/layouts/` |
 | Composed screens, metadata, loader/action adapters | Registered modules directly in `app/routes/<domain>/` |
 | Domain widgets and forms | `app/features/<domain>/components/` |
@@ -17,9 +17,9 @@
 | Analytics Engine queries/events, filters and charts | `app/features/analytics/` |
 | RP/session/chapter claims, CLI authorization and cached user lookup | `app/features/auth/` |
 | CLI HTTP envelopes, request parsing and installer | `app/features/cli-api/` |
-| Dashboard display preferences | `app/features/dashboard/display-preferences.ts`, `components/display-menu.tsx` |
+| Dashboard display preferences and shared UI composition | `app/features/dashboard/display-preferences.ts`, `components/display-menu.tsx` |
 | Transport input contract | `app/http/request.ts` |
-| Neutral helpers | `app/lib/utils.ts`, `use-media-query.ts` |
+| Neutral helpers | `use-media-query.ts` |
 | Worker integration | `workers/app.ts`, `workers/context.ts` |
 | Schema/configuration | `migrations/`, `wrangler.toml` — `schema.sql` and Worker types are generated |
 

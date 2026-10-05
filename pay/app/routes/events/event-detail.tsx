@@ -1,13 +1,5 @@
+import { Alert, Button, Card, PageHeader, Table } from "@gdgjp/design-system";
 import { Link } from "react-router";
-import { Button } from "~/components/ui/button";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "~/components/ui/table";
 import { Header } from "~/layouts/header";
 
 import { formatYen } from "~/features/claims/money";
@@ -84,86 +76,88 @@ export default function EventDetailPage({ loaderData }: Route.ComponentProps) {
   return (
     <div className="min-h-dvh bg-background">
       <Header user={{ name: user.name, email: user.email, image: user.image }} />
-      <main className="mx-auto max-w-3xl space-y-6 px-4 py-10">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <p className="text-sm text-muted-foreground">
-              <Link to="/" className="hover:underline">
-                イベント一覧
-              </Link>
-            </p>
-            <h1 className="mt-1 text-2xl font-semibold">{event.title}</h1>
-            <p className="mt-2 text-lg font-medium">合計 {formatYen(total)}</p>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            {selfClaimId ? (
-              <Button asChild>
-                <Link to={`/events/${event.id}/claims/${selfClaimId}`}>自分の申請</Link>
-              </Button>
-            ) : hasProfile ? (
-              <Button asChild>
-                <Link to={`/events/${event.id}/claims/new`}>経費を申請</Link>
-              </Button>
-            ) : (
-              <Button disabled>経費を申請</Button>
-            )}
-            {canProxy ? (
-              <Button variant="outline" asChild>
-                <Link to={`/events/${event.id}/claims/proxy`}>代行登録</Link>
-              </Button>
-            ) : null}
-          </div>
-        </div>
+      <main className="mx-auto max-w-3xl space-y-6 px-4 py-6 sm:py-8">
+        <PageHeader
+          title={event.title}
+          description={<>合計 {formatYen(total)}</>}
+          back={
+            <Link to="/" className="text-sm text-link hover:underline">
+              イベント一覧
+            </Link>
+          }
+          actions={
+            <>
+              {selfClaimId ? (
+                <Button asChild>
+                  <Link to={`/events/${event.id}/claims/${selfClaimId}`}>自分の申請</Link>
+                </Button>
+              ) : hasProfile ? (
+                <Button asChild>
+                  <Link to={`/events/${event.id}/claims/new`}>経費を申請</Link>
+                </Button>
+              ) : (
+                <Button disabled>経費を申請</Button>
+              )}
+              {canProxy ? (
+                <Button variant="outline" asChild>
+                  <Link to={`/events/${event.id}/claims/proxy`}>代行登録</Link>
+                </Button>
+              ) : null}
+            </>
+          }
+        />
 
         {!hasProfile ? (
-          <p className="rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-700 dark:bg-amber-950 dark:text-amber-100">
+          <Alert tone="warning" title="口座情報の登録が必要です">
             申請前に{" "}
             <Link to="/profile" className="underline">
               本名と口座情報
             </Link>{" "}
             を登録してください。
-          </p>
+          </Alert>
         ) : null}
 
         {canManage ? <GoogleConnectionCard eventId={event.id} google={google} /> : null}
 
-        <section className="overflow-hidden rounded-xl border">
-          <div className="border-b px-4 py-3">
-            <h2 className="font-semibold">{canManage ? "すべての申請" : "自分の申請"}</h2>
-          </div>
-          {claims.length === 0 ? (
-            <p className="px-4 py-6 text-sm text-muted-foreground">まだ申請がありません。</p>
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>申請者</TableHead>
-                  <TableHead>種別</TableHead>
-                  <TableHead>合計</TableHead>
-                  <TableHead>状態</TableHead>
-                  <TableHead />
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {claims.map((claim) => (
-                  <TableRow key={claim.id}>
-                    <TableCell>{claim.applicantName}</TableCell>
-                    <TableCell>{claim.kind === "proxy" ? "代行" : "本人"}</TableCell>
-                    <TableCell>{formatYen(claim.totalAmount)}</TableCell>
-                    <TableCell>
-                      {claim.status === "synced" ? "Sheets同期済" : "下書き"}
-                      {claim.emailSentAt ? " / メール送信済" : ""}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <Button variant="ghost" size="sm" asChild>
-                        <Link to={`/events/${event.id}/claims/${claim.id}`}>開く</Link>
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          )}
+        <section aria-label="申請一覧">
+          <Card className="p-0">
+            <div className="border-b px-4 py-3">
+              <h2 className="font-semibold">{canManage ? "すべての申請" : "自分の申請"}</h2>
+            </div>
+            {claims.length === 0 ? (
+              <p className="px-4 py-6 text-sm text-muted">まだ申請がありません。</p>
+            ) : (
+              <Table scrollLabel="申請一覧を横にスクロール">
+                <thead>
+                  <tr>
+                    <th scope="col">申請者</th>
+                    <th scope="col">種別</th>
+                    <th scope="col">合計</th>
+                    <th scope="col">状態</th>
+                    <th scope="col">操作</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {claims.map((claim) => (
+                    <tr key={claim.id}>
+                      <td>{claim.applicantName}</td>
+                      <td>{claim.kind === "proxy" ? "代行" : "本人"}</td>
+                      <td>{formatYen(claim.totalAmount)}</td>
+                      <td>
+                        {claim.status === "synced" ? "Sheets同期済" : "下書き"}
+                        {claim.emailSentAt ? " / メール送信済" : ""}
+                      </td>
+                      <td className="text-right">
+                        <Button variant="ghost" size="sm" asChild>
+                          <Link to={`/events/${event.id}/claims/${claim.id}`}>開く</Link>
+                        </Button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </Table>
+            )}
+          </Card>
         </section>
       </main>
     </div>

@@ -1,20 +1,24 @@
-import { X } from "lucide-react";
+import { Button, Icons, cn } from "@gdgjp/design-system";
 import type { ReactNode } from "react";
-import { Button } from "~/components/ui/button";
 import type { Granularity } from "~/features/analytics/analytics-engine";
 import {
   AnalyticsAreaChart,
   formatAnalyticsTick,
   useLocalTimeZone,
 } from "~/features/analytics/components/charts/analytics-area-chart";
-import { cn } from "~/lib/utils";
-
 export type TrendMetric = "clicks" | "share";
 export type AnalyticsTrendPoint = { hour: string; [key: string]: string | number };
 export type AnalyticsTrendSeries = { key: string; label: string; clicks: number };
 export type TrendBreakdownOption = { value: string; label: string };
 
-const COLORS = ["#4285f4", "#ea4335", "#f9ab00", "#34a853", "#a855f7", "#06b6d4"];
+const COLORS = [
+  "var(--gdg-blue)",
+  "var(--gdg-red)",
+  "var(--gdg-yellow)",
+  "var(--gdg-green)",
+  "var(--gdg-primary)",
+  "var(--gdg-secondary)",
+];
 
 export function AnalyticsTrendChart({
   points,
@@ -80,10 +84,7 @@ export function AnalyticsTrendChart({
   return (
     <div className="space-y-3">
       {displayPoints.length === 0 ? (
-        <div
-          className="flex items-center justify-center text-sm text-muted-foreground"
-          style={{ height }}
-        >
+        <div className="flex items-center justify-center text-sm text-muted" style={{ height }}>
           No clicks in this range yet.
         </div>
       ) : (
@@ -100,7 +101,7 @@ export function AnalyticsTrendChart({
             }
           />
           {series.length > 1 ? (
-            <ul className="flex flex-wrap gap-x-4 gap-y-1 px-1 text-xs text-muted-foreground">
+            <ul className="flex flex-wrap gap-x-4 gap-y-1 px-1 text-xs text-muted">
               {series.map((item, index) => (
                 <li key={item.key} className="flex min-w-0 items-center gap-1.5">
                   <span
@@ -115,7 +116,7 @@ export function AnalyticsTrendChart({
               ))}
             </ul>
           ) : null}
-          <div className="flex flex-wrap items-center gap-x-5 gap-y-1 px-1 text-xs text-muted-foreground">
+          <div className="flex flex-wrap items-center gap-x-5 gap-y-1 px-1 text-xs text-muted">
             <span>
               Displayed{" "}
               <strong className="font-medium text-foreground">
@@ -149,21 +150,21 @@ export function AnalyticsTrendChart({
           <div className="flex flex-wrap items-center gap-2">
             {breakdownOptions && breakdownOptions.length > 0 ? (
               <>
-                <span className="text-xs font-medium text-muted-foreground">Break down by</span>
+                <span className="text-xs font-medium text-muted">Break down by</span>
                 <div
-                  className="flex rounded-md border bg-muted/30 p-0.5"
+                  className="flex rounded-md border bg-surface/30 p-0.5"
                   aria-label="Chart breakdown"
                 >
                   {breakdownOptions.map((option) => (
                     <Button
                       key={option.value}
                       type="button"
-                      size="xs"
+                      size="sm"
                       variant="ghost"
                       aria-pressed={breakdown === option.value}
                       onClick={() => onBreakdownChange?.(option.value)}
                       className={cn(
-                        "rounded-sm px-2.5 text-muted-foreground",
+                        "rounded-sm px-2.5 text-muted",
                         breakdown === option.value &&
                           "bg-background text-foreground shadow-xs hover:bg-background",
                       )}
@@ -178,17 +179,17 @@ export function AnalyticsTrendChart({
           </div>
           <div className="flex items-center gap-2">
             {onMetricChange && breakdown !== "total" && !focusKey ? (
-              <div className="flex rounded-md border bg-muted/30 p-0.5" aria-label="Chart metric">
+              <div className="flex rounded-md border bg-surface/30 p-0.5" aria-label="Chart metric">
                 {(["clicks", "share"] as const).map((value) => (
                   <Button
                     key={value}
                     type="button"
-                    size="xs"
+                    size="sm"
                     variant="ghost"
                     aria-pressed={metric === value}
                     onClick={() => onMetricChange(value)}
                     className={cn(
-                      "rounded-sm px-2.5 capitalize text-muted-foreground",
+                      "rounded-sm px-2.5 capitalize text-muted",
                       metric === value &&
                         "bg-background text-foreground shadow-xs hover:bg-background",
                     )}
@@ -199,9 +200,9 @@ export function AnalyticsTrendChart({
               </div>
             ) : null}
             {focusKey && onClearFocus ? (
-              <Button type="button" variant="secondary" size="xs" onClick={onClearFocus}>
+              <Button type="button" variant="secondary" size="sm" onClick={onClearFocus}>
                 <span className="max-w-44 truncate">Only: {focusLabel}</span>
-                <X className="size-3" />
+                <Icons name="X" aria-hidden="true" className="size-3" />
               </Button>
             ) : null}
           </div>

@@ -1,53 +1,36 @@
 import {
-  Archive,
-  BarChart3,
-  Check,
-  ChevronRight,
-  Copy,
-  ExternalLink,
-  Folder as FolderIcon,
-  MoreHorizontal,
-  Pencil,
-  RefreshCw,
-  Trash2,
-} from "lucide-react";
-import { QRCodeSVG } from "qrcode.react";
-import { Suspense, useEffect, useMemo, useRef, useState } from "react";
-import { Await, Form, Link, useNavigation } from "react-router";
-import { toast } from "sonner";
-import { Alert, AlertDescription, AlertTitle } from "~/components/ui/alert";
-import {
+  Alert,
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
   AlertDialogContent,
   AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
   AlertDialogTitle,
   AlertDialogTrigger,
-} from "~/components/ui/alert-dialog";
-import { Avatar, AvatarFallback } from "~/components/ui/avatar";
-import { Button } from "~/components/ui/button";
-import {
+  Avatar,
+  Button,
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "~/components/ui/dropdown-menu";
-import { FieldLabel } from "~/components/ui/field-label";
-import { Input } from "~/components/ui/input";
-import { Label } from "~/components/ui/label";
-import {
+  FormField,
+  IconButton,
+  Icons,
+  Input,
+  Label,
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "~/components/ui/select";
-import { SubmitButton } from "~/components/ui/submit-button";
-import { Textarea } from "~/components/ui/textarea";
+  Stack,
+  Textarea,
+  toast,
+} from "@gdgjp/design-system";
+import { QRCodeSVG } from "qrcode.react";
+import { Suspense, useEffect, useMemo, useRef, useState } from "react";
+import { Await, Form, Link, useNavigation } from "react-router";
 import type { LinkVisibility } from "~/features/links";
 import { formatDateShort } from "~/features/links/components/edit-fields";
 import { userInitials } from "~/features/links/components/edit-fields";
@@ -65,7 +48,6 @@ import { buildInitial } from "~/features/links/edit-draft";
 import { draftEqual } from "~/features/links/edit-draft";
 import { shortDomainLabel, shortLinkDisplay } from "~/features/links/short-url";
 import { TagCombobox } from "~/features/tags/components/tag-combobox";
-import { DashboardPage } from "~/layouts/dashboard-page";
 import { DashboardShell } from "~/layouts/dashboard-shell";
 import type { Route } from "./+types/links.$id";
 
@@ -121,7 +103,9 @@ export default function EditLink({ loaderData, actionData }: Route.ComponentProp
     if (!actionData || lastToastedRef.current === actionData) return;
     lastToastedRef.current = actionData;
     if ("success" in actionData && actionData.success) {
-      toast.success("Successfully updated short link!", { icon: <Check className="size-4" /> });
+      toast.success("Successfully updated short link!", {
+        icon: <Icons name="Check" aria-hidden="true" className="size-4" />,
+      });
     } else if ("error" in actionData && actionData.error) {
       toast.error(actionData.error);
     }
@@ -148,23 +132,23 @@ export default function EditLink({ loaderData, actionData }: Route.ComponentProp
 
   return (
     <DashboardShell user={loaderData.user}>
-      <DashboardPage className="pb-24">
+      <Stack className="pb-24">
         {/* Top bar: breadcrumb + actions */}
         <div className="flex min-w-0 flex-wrap items-center justify-between gap-3">
           <nav className="flex min-w-0 items-center gap-2 text-sm" aria-label="Breadcrumb">
             <Link
               to="/links"
-              className="inline-flex items-center gap-1.5 rounded-md border bg-card px-2 py-1 text-foreground hover:bg-accent"
+              className="inline-flex items-center gap-1.5 rounded-md border bg-surface px-2 py-1 text-foreground hover:bg-selected"
             >
-              <FolderIcon className="size-4 text-primary" />
+              <Icons name="Folder" aria-hidden="true" className="size-4 text-primary" />
               Links
             </Link>
-            <ChevronRight className="size-4 shrink-0 text-muted-foreground" />
-            <span className="inline-flex min-w-0 items-center gap-1.5 rounded-md border bg-card px-2 py-1 font-medium">
+            <Icons name="ChevronRight" aria-hidden="true" className="size-4 shrink-0 text-muted" />
+            <span className="inline-flex min-w-0 items-center gap-1.5 rounded-md border bg-surface px-2 py-1 font-medium">
               {favicon ? (
                 <img src={favicon} alt="" width={16} height={16} className="size-4 rounded-sm" />
               ) : (
-                <ExternalLink className="size-4 text-muted-foreground" />
+                <Icons name="ExternalLink" aria-hidden="true" className="size-4 text-muted" />
               )}
               <span className="truncate">{shortDisplay}</span>
             </span>
@@ -172,17 +156,21 @@ export default function EditLink({ loaderData, actionData }: Route.ComponentProp
           <div className="flex max-w-full flex-wrap items-center gap-1.5">
             {shortHost === "go.gdgs.jp" ? (
               <Button variant="outline" size="sm" onClick={copyGoAlias}>
-                <Copy className="size-4" />
+                <Icons name="Copy" aria-hidden="true" className="size-4" />
                 Copy go link
               </Button>
             ) : null}
             <Button variant="outline" size="sm" onClick={copyShort}>
-              <Copy className="size-4" />
+              <Icons name="Copy" aria-hidden="true" className="size-4" />
               Copy link
             </Button>
             <Button asChild variant="outline" size="sm">
               <Link to={`/analytics?linkId=${link.id}`} prefetch="intent">
-                <BarChart3 className="size-4 text-primary" />
+                <Icons
+                  name="ChartColumnIncreasing"
+                  aria-hidden="true"
+                  className="size-4 text-primary"
+                />
                 <Suspense fallback={<span>Clicks</span>}>
                   <Await resolve={loaderData.clicks}>
                     {(clicks) => `${clicks} ${clicks === 1 ? "click" : "clicks"}`}
@@ -192,30 +180,30 @@ export default function EditLink({ loaderData, actionData }: Route.ComponentProp
             </Button>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="icon-sm" aria-label="Link actions">
-                  <MoreHorizontal className="size-4" />
-                </Button>
+                <IconButton variant="outline" aria-label="Link actions">
+                  <Icons name="MoreHorizontal" aria-hidden="true" className="size-4" />
+                </IconButton>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
                 {shortHost === "go.gdgs.jp" ? (
                   <DropdownMenuItem onSelect={copyGoAlias}>
-                    <Copy className="size-4" />
+                    <Icons name="Copy" aria-hidden="true" className="size-4" />
                     Copy go/{draft.slug}
                   </DropdownMenuItem>
                 ) : null}
                 <DropdownMenuItem onSelect={copyShort}>
-                  <Copy className="size-4" />
+                  <Icons name="Copy" aria-hidden="true" className="size-4" />
                   Copy short URL
                 </DropdownMenuItem>
                 <DropdownMenuItem asChild>
                   <a href={link.destinationUrl} target="_blank" rel="noopener noreferrer">
-                    <ExternalLink className="size-4" />
+                    <Icons name="ExternalLink" aria-hidden="true" className="size-4" />
                     Visit destination
                   </a>
                 </DropdownMenuItem>
                 <DropdownMenuItem asChild>
                   <a href={apexShortUrl} target="_blank" rel="noopener noreferrer">
-                    <ExternalLink className="size-4" />
+                    <Icons name="ExternalLink" aria-hidden="true" className="size-4" />
                     Visit short URL
                   </a>
                 </DropdownMenuItem>
@@ -224,15 +212,15 @@ export default function EditLink({ loaderData, actionData }: Route.ComponentProp
                     <DropdownMenuSeparator />
                     {link.archivedAt === null ? (
                       <DropdownMenuItem onSelect={() => setLinkAction("archive")}>
-                        <Archive className="size-4" />
+                        <Icons name="Archive" aria-hidden="true" className="size-4" />
                         Archive link…
                       </DropdownMenuItem>
                     ) : null}
                     <DropdownMenuItem
-                      variant="destructive"
+                      className="text-danger"
                       onSelect={() => setLinkAction("delete")}
                     >
-                      <Trash2 className="size-4" />
+                      <Icons name="Trash2" aria-hidden="true" className="size-4" />
                       Delete link…
                     </DropdownMenuItem>
                   </>
@@ -254,9 +242,8 @@ export default function EditLink({ loaderData, actionData }: Route.ComponentProp
         ) : null}
 
         {actionData && "error" in actionData && actionData.error ? (
-          <Alert variant="destructive">
-            <AlertTitle>Error</AlertTitle>
-            <AlertDescription>{actionData.error}</AlertDescription>
+          <Alert tone="danger" title="Error">
+            {actionData.error}
           </Alert>
         ) : null}
 
@@ -286,8 +273,7 @@ export default function EditLink({ loaderData, actionData }: Route.ComponentProp
           {/* LEFT COLUMN */}
           <div className="min-w-0 space-y-8">
             {/* Destination URL */}
-            <div className="space-y-2">
-              <FieldLabel htmlFor="destinationUrl">Destination URL</FieldLabel>
+            <FormField id="destinationUrl" label={<>Destination URL</>} required>
               <Input
                 id="destinationUrl"
                 type="url"
@@ -296,44 +282,48 @@ export default function EditLink({ loaderData, actionData }: Route.ComponentProp
                 required
                 disabled={!editable}
               />
-            </div>
+            </FormField>
 
             {/* Short Link */}
             <div className="space-y-2">
               <div className="flex items-center justify-between">
-                <FieldLabel htmlFor="slug">Short Link</FieldLabel>
+                <Label htmlFor="slug">Short Link</Label>
                 {editable ? (
                   <AlertDialog open={slugDialogOpen} onOpenChange={setSlugDialogOpen}>
                     <AlertDialogTrigger asChild>
-                      <Button
+                      <IconButton
                         type="button"
                         variant="ghost"
-                        size="icon-sm"
                         aria-label="Edit short link"
                         disabled={slugUnlocked}
                       >
-                        <Pencil className="size-3.5 text-muted-foreground" />
-                      </Button>
+                        <Icons name="Pencil" aria-hidden="true" className="size-3.5 text-muted" />
+                      </IconButton>
                     </AlertDialogTrigger>
                     <AlertDialogContent>
-                      <AlertDialogHeader>
+                      <div className="space-y-2">
                         <AlertDialogTitle>Edit short link?</AlertDialogTitle>
                         <AlertDialogDescription>
                           Editing an existing short link could potentially break existing links. Are
                           you sure you want to continue?
                         </AlertDialogDescription>
-                      </AlertDialogHeader>
-                      <AlertDialogFooter>
-                        <AlertDialogCancel>Cancel</AlertDialogCancel>
-                        <AlertDialogAction
-                          onClick={() => {
-                            setSlugUnlocked(true);
-                            setSlugDialogOpen(false);
-                          }}
-                        >
-                          Continue
+                      </div>
+                      <div className="flex flex-wrap justify-end gap-2">
+                        <AlertDialogCancel asChild>
+                          <Button variant="outline">Cancel</Button>
+                        </AlertDialogCancel>
+                        <AlertDialogAction asChild>
+                          <Button
+                            variant="danger"
+                            onClick={() => {
+                              setSlugUnlocked(true);
+                              setSlugDialogOpen(false);
+                            }}
+                          >
+                            Continue
+                          </Button>
                         </AlertDialogAction>
-                      </AlertDialogFooter>
+                      </div>
                     </AlertDialogContent>
                   </AlertDialog>
                 ) : null}
@@ -346,7 +336,7 @@ export default function EditLink({ loaderData, actionData }: Route.ComponentProp
                 >
                   <SelectTrigger
                     aria-label="Short link domain"
-                    className="h-9 min-w-32 shrink-0 bg-muted text-muted-foreground shadow-none"
+                    className="h-9 min-w-32 shrink-0 bg-surface text-muted shadow-none"
                   >
                     <SelectValue />
                   </SelectTrigger>
@@ -373,7 +363,7 @@ export default function EditLink({ loaderData, actionData }: Route.ComponentProp
             {/* Tags */}
             <div className="space-y-3">
               <div className="flex items-center justify-between">
-                <FieldLabel>Tags</FieldLabel>
+                <Label>Tags</Label>
               </div>
               <TagCombobox
                 availableTags={availableTags}
@@ -389,11 +379,11 @@ export default function EditLink({ loaderData, actionData }: Route.ComponentProp
             {/* Folder */}
             <div className="space-y-2">
               <div className="flex items-center justify-between">
-                <FieldLabel htmlFor="folder">Folder</FieldLabel>
+                <Label htmlFor="folder">Folder</Label>
                 <Link
                   to="/folders"
                   prefetch="intent"
-                  className="text-xs text-muted-foreground hover:text-foreground"
+                  className="text-xs text-muted hover:text-foreground"
                 >
                   Manage
                 </Link>
@@ -405,7 +395,7 @@ export default function EditLink({ loaderData, actionData }: Route.ComponentProp
                 }
                 disabled={!editable}
               >
-                <SelectTrigger id="folder" size="sm" className="max-w-full min-w-0">
+                <SelectTrigger id="folder" className="max-w-full min-w-0">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -420,8 +410,7 @@ export default function EditLink({ loaderData, actionData }: Route.ComponentProp
             </div>
 
             {/* Comment (single) */}
-            <div className="space-y-2">
-              <FieldLabel htmlFor="comment">Comment</FieldLabel>
+            <FormField id="comment" label={<>Comment</>}>
               <Textarea
                 id="comment"
                 value={draft.comment}
@@ -431,17 +420,16 @@ export default function EditLink({ loaderData, actionData }: Route.ComponentProp
                 rows={3}
                 disabled={!editable}
               />
-            </div>
+            </FormField>
 
             {/* Visibility */}
-            <div className="space-y-2">
-              <FieldLabel htmlFor="visibility">Visibility</FieldLabel>
+            <FormField id="visibility" label={<>Visibility</>}>
               <Select
                 value={draft.visibility}
                 onValueChange={(value) => setField("visibility", value as LinkVisibility)}
                 disabled={!editable}
               >
-                <SelectTrigger id="visibility" size="sm" className="max-w-full min-w-0">
+                <SelectTrigger id="visibility" className="max-w-full min-w-0">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -451,14 +439,14 @@ export default function EditLink({ loaderData, actionData }: Route.ComponentProp
                   <SelectItem value="public">Anyone in GDG Japan can view</SelectItem>
                 </SelectContent>
               </Select>
-            </div>
+            </FormField>
 
             {/* Sharing */}
             <div className="space-y-3">
-              <FieldLabel>Sharing</FieldLabel>
-              <div className="rounded-md border bg-card">
+              <Label>Sharing</Label>
+              <div className="rounded-md border bg-surface">
                 {permissions.length === 0 ? (
-                  <p className="px-3 py-4 text-sm text-muted-foreground">Not shared with anyone.</p>
+                  <p className="px-3 py-4 text-sm text-muted">Not shared with anyone.</p>
                 ) : (
                   <div className="px-3">
                     {permissions.map((perm) => (
@@ -476,10 +464,8 @@ export default function EditLink({ loaderData, actionData }: Route.ComponentProp
             </div>
 
             {/* Created by footer */}
-            <div className="flex min-w-0 items-center gap-2 border-t pt-4 text-sm text-muted-foreground">
-              <Avatar size="sm">
-                <AvatarFallback>{userInitials(users, link.ownerUserId)}</AvatarFallback>
-              </Avatar>
+            <div className="flex min-w-0 items-center gap-2 border-t pt-4 text-sm text-muted">
+              <Avatar alt="" fallback={userInitials(users, link.ownerUserId)} />
               <span className="min-w-0 break-words">
                 Created by{" "}
                 <span className="break-all font-medium text-foreground">
@@ -495,8 +481,8 @@ export default function EditLink({ loaderData, actionData }: Route.ComponentProp
           <div className="min-w-0 space-y-6">
             {/* QR Code */}
             <div className="space-y-2">
-              <FieldLabel>QR Code</FieldLabel>
-              <div className="flex items-center justify-center rounded-md border bg-card p-4">
+              <Label>QR Code</Label>
+              <div className="flex items-center justify-center rounded-md border bg-surface p-4">
                 <QRCodeSVG
                   value={apexShortUrl}
                   size={140}
@@ -504,36 +490,36 @@ export default function EditLink({ loaderData, actionData }: Route.ComponentProp
                   className="dark:[&_path:last-of-type]:fill-white"
                 />
               </div>
-              <p className="break-all text-center font-mono text-xs text-muted-foreground">
-                {apexShortUrl}
-              </p>
+              <p className="break-all text-center font-mono text-xs text-muted">{apexShortUrl}</p>
             </div>
 
             {/* Custom Link Preview */}
             <div className="space-y-3">
               <div className="flex items-center justify-between">
-                <FieldLabel>Custom Link Preview</FieldLabel>
+                <Label>Custom Link Preview</Label>
                 {editable ? (
                   <Form method="post">
                     <input type="hidden" name="intent" value="fetchOgp" />
                     <input type="hidden" name="destinationUrl" value={draft.destinationUrl} />
-                    <SubmitButton variant="ghost" size="xs" pending={isFetchingOgp}>
-                      {isFetchingOgp ? null : <RefreshCw className="size-3" />}
+                    <Button type="submit" variant="ghost" size="sm" loading={isFetchingOgp}>
+                      {isFetchingOgp ? null : (
+                        <Icons name="RefreshCw" aria-hidden="true" className="size-3" />
+                      )}
                       Fetch
-                    </SubmitButton>
+                    </Button>
                   </Form>
                 ) : null}
               </div>
 
-              <div className="overflow-hidden rounded-md border bg-card">
+              <div className="overflow-hidden rounded-md border bg-surface">
                 {draft.ogImageUrl ? (
                   <img
                     src={draft.ogImageUrl}
                     alt="OGP preview"
-                    className="aspect-video w-full bg-muted object-cover"
+                    className="aspect-video w-full bg-surface object-cover"
                   />
                 ) : (
-                  <div className="flex aspect-video w-full items-center justify-center bg-muted text-xs text-muted-foreground">
+                  <div className="flex aspect-video w-full items-center justify-center bg-surface text-xs text-muted">
                     Enter a link to generate a preview
                   </div>
                 )}
@@ -542,29 +528,21 @@ export default function EditLink({ loaderData, actionData }: Route.ComponentProp
                     {draft.title || hostnameOf(draft.destinationUrl) || "Untitled"}
                   </p>
                   {draft.description ? (
-                    <p className="line-clamp-2 text-xs text-muted-foreground">
-                      {draft.description}
-                    </p>
+                    <p className="line-clamp-2 text-xs text-muted">{draft.description}</p>
                   ) : null}
                 </div>
               </div>
 
               <div className="space-y-3">
-                <div className="space-y-1.5">
-                  <Label htmlFor="title" className="text-xs text-muted-foreground">
-                    Title
-                  </Label>
+                <FormField id="title" label={<>Title</>}>
                   <Input
                     id="title"
                     value={draft.title}
                     onChange={(e) => setField("title", e.target.value)}
                     disabled={!editable}
                   />
-                </div>
-                <div className="space-y-1.5">
-                  <Label htmlFor="description" className="text-xs text-muted-foreground">
-                    Description
-                  </Label>
+                </FormField>
+                <FormField id="description" label={<>Description</>}>
                   <Textarea
                     id="description"
                     value={draft.description}
@@ -572,11 +550,8 @@ export default function EditLink({ loaderData, actionData }: Route.ComponentProp
                     disabled={!editable}
                     rows={2}
                   />
-                </div>
-                <div className="space-y-1.5">
-                  <Label htmlFor="ogImageUrl" className="text-xs text-muted-foreground">
-                    Image URL
-                  </Label>
+                </FormField>
+                <FormField id="ogImageUrl" label={<>Image URL</>}>
                   <Input
                     id="ogImageUrl"
                     type="url"
@@ -584,22 +559,22 @@ export default function EditLink({ loaderData, actionData }: Route.ComponentProp
                     onChange={(e) => setField("ogImageUrl", e.target.value)}
                     disabled={!editable}
                   />
-                </div>
+                </FormField>
               </div>
 
               <a
                 href={link.destinationUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-start gap-1 text-xs text-muted-foreground hover:text-foreground"
+                className="inline-flex items-start gap-1 text-xs text-muted hover:text-foreground"
               >
-                <ExternalLink className="mt-0.5 size-3 shrink-0" />
+                <Icons name="ExternalLink" aria-hidden="true" className="mt-0.5 size-3 shrink-0" />
                 <span className="break-all">{link.destinationUrl}</span>
               </a>
             </div>
           </div>
         </div>
-      </DashboardPage>
+      </Stack>
 
       {editable && isDirty ? <FloatingBar onDiscard={discard} isSaving={isSaving} /> : null}
     </DashboardShell>

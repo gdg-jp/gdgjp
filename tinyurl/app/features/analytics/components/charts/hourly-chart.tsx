@@ -12,10 +12,7 @@ export function HourlyChart({
 }) {
   if (data.length === 0) {
     return (
-      <div
-        className="flex items-center justify-center text-sm text-muted-foreground"
-        style={{ height }}
-      >
+      <div className="flex items-center justify-center text-sm text-muted" style={{ height }}>
         No clicks in this range yet.
       </div>
     );

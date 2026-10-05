@@ -1,5 +1,5 @@
-import { Form } from "react-router";
-import { Button } from "~/components/ui/button";
+import { Button, PageHeader } from "@gdgjp/design-system";
+import { Form, Link } from "react-router";
 import { Header } from "~/layouts/header";
 
 import { redirect } from "react-router";
@@ -56,13 +56,16 @@ export default function NewClaimPage({ loaderData }: Route.ComponentProps) {
   return (
     <div className="min-h-dvh bg-background">
       <Header user={{ name: user.name, email: user.email, image: user.image }} />
-      <main className="mx-auto max-w-xl space-y-6 px-4 py-10">
-        <div>
-          <h1 className="text-2xl font-semibold">経費を申請</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            {event.title} 向けの申請を作成し、領収書を追加します。
-          </p>
-        </div>
+      <main className="mx-auto max-w-xl space-y-6 px-4 py-6 sm:py-8">
+        <PageHeader
+          back={
+            <Link to={`/events/${event.id}`} className="text-sm text-link hover:underline">
+              {event.title}
+            </Link>
+          }
+          title="経費を申請"
+          description={<> {event.title} 向けの申請を作成し、領収書を追加します。 </>}
+        />
         <Form method="post">
           <Button type="submit">申請を作成する</Button>
         </Form>

@@ -19,7 +19,7 @@ export function LinkList({
       className={
         layout === "cards"
           ? "flex flex-col gap-2"
-          : "min-w-0 divide-y overflow-hidden rounded-xl border bg-card"
+          : "min-w-0 divide-y overflow-hidden rounded-xl border bg-surface"
       }
     >
       {items.map((item) => (

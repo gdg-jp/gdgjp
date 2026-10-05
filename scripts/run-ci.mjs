@@ -28,7 +28,7 @@ const fullSteps = [
   ...quickSteps,
   [
     "e2e",
-    "pnpm exec turbo test:e2e --filter=@gdgjp/accounts --filter=@gdgjp/tinyurl --filter=@gdgjp/img --filter=@gdgjp/scheduler --filter=@gdgjp/design-system --filter=@gdgjp/wiki --filter=@gdgjp/ost --filter=@gdgjp/roster --filter=@gdgjp/connpass --concurrency=1 --output-logs=errors-only -- --reporter=dot",
+    "pnpm exec turbo test:e2e --filter=@gdgjp/accounts --filter=@gdgjp/tinyurl --filter=@gdgjp/img --filter=@gdgjp/scheduler --filter=@gdgjp/pay --filter=@gdgjp/design-system --filter=@gdgjp/wiki --filter=@gdgjp/ost --filter=@gdgjp/roster --filter=@gdgjp/connpass --concurrency=1 --output-logs=errors-only -- --reporter=dot",
   ],
 ];
 
@@ -265,7 +265,7 @@ export function changedSteps(mode, files) {
       e2eWorkspaces.set(workspace, null);
     }
     for (const [workspace] of workspaceFiles(relevantFiles, (file) =>
-      /^wiki\/(?:tests\/e2e\/(?:global-setup|setup|run|fixtures|seed)\.|playwright\.config\.|vite\.config\.|package\.json)/.test(
+      /^(?:wiki\/(?:tests\/e2e\/(?:global-setup|setup|run|fixtures|seed)\.|playwright\.config\.|vite\.config\.|package\.json)|pay\/(?:e2e\/|playwright\.config\.|vite\.config\.|package\.json))/.test(
         file,
       ),
     )) {

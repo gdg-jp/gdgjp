@@ -71,12 +71,24 @@ test("unit-test-only changes keep typecheck and related tests without production
 });
 
 test("frontend edits without a configured browser suite retain other checks", () => {
-  for (const app of ["pay", "sns", "website", "agents"]) {
+  for (const app of ["sns", "website", "agents"]) {
     const steps = changedSteps("full", [`${app}/app/root.tsx`]);
     assert.ok(steps.some(([name]) => name === "typecheck"));
     assert.ok(steps.some(([name]) => name.startsWith("test:")));
     assert.ok(steps.some(([name]) => name === "build"));
     assert.ok(steps.every(([name]) => !name.startsWith("e2e:")));
+  }
+});
+
+test("Pay frontend and browser harness changes select its browser suite", () => {
+  for (const file of [
+    "pay/app/root.tsx",
+    "pay/e2e/ui.spec.ts",
+    "pay/e2e/ui-harness.tsx",
+    "pay/playwright.config.ts",
+  ]) {
+    const steps = changedSteps("full", [file]);
+    assert.ok(steps.some(([name]) => name === "e2e:@gdgjp/pay"));
   }
 });
 

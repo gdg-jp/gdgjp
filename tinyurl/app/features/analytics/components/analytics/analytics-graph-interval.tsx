@@ -1,16 +1,17 @@
-import { Check, RotateCcw } from "lucide-react";
-import { type FormEvent, useEffect, useState } from "react";
-import { useSearchParams } from "react-router";
-import { Button } from "~/components/ui/button";
-import { Input } from "~/components/ui/input";
-import { Label } from "~/components/ui/label";
 import {
+  Button,
+  IconButton,
+  Icons,
+  Input,
+  Label,
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "~/components/ui/select";
+} from "@gdgjp/design-system";
+import { type FormEvent, useEffect, useState } from "react";
+import { useSearchParams } from "react-router";
 import {
   type TimeBucketUnit,
   parseTimeBucket,
@@ -61,7 +62,7 @@ export function AnalyticsGraphInterval({
 
   return (
     <form className="ml-2 flex flex-wrap items-center gap-1.5" onSubmit={applyInterval}>
-      <Label htmlFor="analytics-graph-interval" className="text-xs text-muted-foreground">
+      <Label htmlFor="analytics-graph-interval" className="text-xs text-muted">
         Interval
       </Label>
       <Input
@@ -88,7 +89,6 @@ export function AnalyticsGraphInterval({
         disabled={pending}
       >
         <SelectTrigger
-          size="sm"
           aria-label="Graph interval unit"
           className="w-20 px-2 text-xs shadow-none data-[size=sm]:h-[30px]"
         >
@@ -101,20 +101,18 @@ export function AnalyticsGraphInterval({
           <SelectItem value="week">Weeks</SelectItem>
         </SelectContent>
       </Select>
-      <Button
+      <IconButton
         type="submit"
-        size="icon-xs"
         variant="ghost"
         disabled={pending}
         aria-label="Apply graph interval"
         title="Apply interval"
       >
-        <Check className="size-3" />
-      </Button>
+        <Icons name="Check" aria-hidden="true" className="size-3" />
+      </IconButton>
       {value ? (
-        <Button
+        <IconButton
           type="button"
-          size="icon-xs"
           variant="ghost"
           disabled={pending}
           aria-label="Reset graph interval to automatic"
@@ -126,10 +124,10 @@ export function AnalyticsGraphInterval({
             setSearchParams(next, { preventScrollReset: true });
           }}
         >
-          <RotateCcw className="size-3" />
-        </Button>
+          <Icons name="RotateCcw" aria-hidden="true" className="size-3" />
+        </IconButton>
       ) : null}
-      {error ? <span className="w-full text-xs text-destructive">{error}</span> : null}
+      {error ? <span className="w-full text-xs text-danger">{error}</span> : null}
     </form>
   );
 }

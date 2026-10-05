@@ -1,6 +1,6 @@
+import { Skeleton } from "@gdgjp/design-system";
 import { useRef, useState } from "react";
 import { useSearchParams } from "react-router";
-import { Skeleton } from "~/components/ui/skeleton";
 import type { BlobTrendPoint, TopBlob, TopRow } from "~/features/analytics/analytics-engine";
 import {
   type DimensionFilters,

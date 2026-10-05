@@ -1,10 +1,15 @@
-import { BarChart3, X } from "lucide-react";
+import {
+  Button,
+  Card,
+  Icons,
+  Inline,
+  Label,
+  NativeSelect,
+  Skeleton,
+  Stack,
+} from "@gdgjp/design-system";
 import { useRef, useState } from "react";
 import { useSearchParams } from "react-router";
-import { Button } from "~/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
-import { Label } from "~/components/ui/label";
-import { Skeleton } from "~/components/ui/skeleton";
 import type { TopBlob, TopRow } from "~/features/analytics/analytics-engine";
 import { serializeAnalyticsParams } from "~/features/analytics/analytics-filters";
 import { AnalyticsAutomatedClicksToggle } from "~/features/analytics/components/analytics/analytics-automated-clicks-toggle";
@@ -156,9 +161,12 @@ export function CampaignAnalyticsPanel({
     >
       <section aria-labelledby="analytics-heading" className="space-y-3">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <h2 id="analytics-heading" className="flex items-center gap-2 text-lg font-semibold">
-            <BarChart3 className="size-5" /> Analytics
-          </h2>
+          <Inline>
+            <Icons name="ChartColumnIncreasing" aria-hidden="true" className="size-5" />
+            <h2 id="analytics-heading" className="text-lg font-semibold">
+              Analytics
+            </h2>
+          </Inline>
           <AnalyticsFiltersBar
             preset={preset}
             startIso={customStart}
@@ -247,32 +255,34 @@ export function CampaignAnalyticsPanel({
       </section>
 
       {analytics.unregisteredSources.length > 0 ? (
-        <Card className="border-amber-300/70 bg-amber-50/40 dark:bg-amber-950/10">
-          <CardHeader>
-            <CardTitle className="text-sm">Unregistered sources detected</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2">
-            {analytics.unregisteredSources.map((source) => (
-              <div
-                key={`${source.channelId}:${source.code}`}
-                className="flex flex-wrap items-center justify-between gap-3 rounded-lg border bg-background p-3"
-              >
-                <div>
-                  <code className="text-sm">
-                    {source.channelName} / {source.code}
-                  </code>
-                  <span className="ml-2 text-xs text-muted-foreground">{source.clicks} clicks</span>
+        <Card className="bg-warning/5">
+          <Stack>
+            <div className="space-y-2">
+              <h2 className="text-sm">Unregistered sources detected</h2>
+            </div>
+            <div className="space-y-2">
+              {analytics.unregisteredSources.map((source) => (
+                <div
+                  key={`${source.channelId}:${source.code}`}
+                  className="flex flex-wrap items-center justify-between gap-3 rounded-lg border bg-background p-3"
+                >
+                  <div>
+                    <code className="text-sm">
+                      {source.channelName} / {source.code}
+                    </code>
+                    <span className="ml-2 text-xs text-muted">{source.clicks} clicks</span>
+                  </div>
+                  {channels.find((item) => item.id === source.channelId)?.archivedAt === null ? (
+                    <RegisterSourceDialog
+                      code={source.code}
+                      channelId={source.channelId}
+                      channelName={source.channelName}
+                    />
+                  ) : null}
                 </div>
-                {channels.find((item) => item.id === source.channelId)?.archivedAt === null ? (
-                  <RegisterSourceDialog
-                    code={source.code}
-                    channelId={source.channelId}
-                    channelName={source.channelName}
-                  />
-                ) : null}
-              </div>
-            ))}
-          </CardContent>
+              ))}
+            </div>
+          </Stack>
         </Card>
       ) : null}
     </div>
@@ -316,12 +326,12 @@ export function CampaignScopeFilters({
 
   return (
     <div
-      className="flex min-w-0 flex-col items-stretch gap-3 rounded-lg border bg-muted/20 p-3 sm:flex-row sm:flex-wrap sm:items-end"
+      className="flex min-w-0 flex-col items-stretch gap-3 rounded-lg border bg-surface/20 p-3 sm:flex-row sm:flex-wrap sm:items-end"
       aria-busy={pending || undefined}
     >
       <div className="min-w-0 space-y-1 sm:min-w-48">
         <Label htmlFor="analytics-channels">Channel</Label>
-        <select
+        <NativeSelect
           id="analytics-channels"
           value={selectedChannelId ?? ""}
           onChange={(event) => setScope("channelId", event.target.value)}
@@ -334,11 +344,11 @@ export function CampaignScopeFilters({
               {item.archivedAt !== null ? " (Archived)" : ""}
             </option>
           ))}
-        </select>
+        </NativeSelect>
       </div>
       <div className="min-w-0 flex-1 space-y-1 sm:min-w-56">
         <Label htmlFor="analytics-link">Link</Label>
-        <select
+        <NativeSelect
           id="analytics-link"
           value={selectedLinkId ?? ""}
           onChange={(event) => setScope("linkId", event.target.value)}
@@ -350,11 +360,11 @@ export function CampaignScopeFilters({
               {link.channelName} / {shortUrlBase}/{link.slug}
             </option>
           ))}
-        </select>
+        </NativeSelect>
       </div>
       {selectedChannelId || selectedLinkId ? (
         <Button type="button" variant="ghost" size="sm" onClick={clearScope}>
-          <X className="size-4" /> Clear scope
+          <Icons name="X" aria-hidden="true" className="size-4" /> Clear scope
         </Button>
       ) : null}
     </div>

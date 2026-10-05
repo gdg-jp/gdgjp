@@ -35,10 +35,6 @@
     box-shadow: var(--gdg-shadow-bottom);
   }
 
-  .chapter-table-row {
-    min-width: 760px;
-  }
-
   .developer-empty-state {
     min-height: 34rem;
   }

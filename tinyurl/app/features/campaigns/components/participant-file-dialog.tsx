@@ -1,14 +1,13 @@
-import { Plus } from "lucide-react";
-import { useState } from "react";
-import { Button } from "~/components/ui/button";
 import {
+  Button,
   Dialog,
   DialogContent,
   DialogDescription,
-  DialogHeader,
   DialogTitle,
   DialogTrigger,
-} from "~/components/ui/dialog";
+  Icons,
+} from "@gdgjp/design-system";
+import { useState } from "react";
 import {
   type CampaignChannelOption,
   CampaignParticipantImportWizard,
@@ -38,17 +37,17 @@ export function ImportConnpassDialog({
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         <Button size="sm" variant="outline">
-          <Plus className="size-4" /> {triggerLabel}
+          <Icons name="Plus" aria-hidden="true" className="size-4" /> {triggerLabel}
         </Button>
       </DialogTrigger>
       <DialogContent className="max-h-[90vh] overflow-y-auto">
-        <DialogHeader className="border-b">
+        <div className="border-b">
           <DialogTitle>{triggerLabel}</DialogTitle>
           <DialogDescription>
             Extract participant acquisition data and map each questionnaire option to one Campaign
             channel.
           </DialogDescription>
-        </DialogHeader>
+        </div>
         <CampaignParticipantImportWizard
           analyzeFile={analyzeParticipantFile}
           channels={channels.map(({ id, name, code }) => ({ id, name, code }))}

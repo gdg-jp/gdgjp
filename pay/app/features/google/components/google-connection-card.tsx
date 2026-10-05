@@ -1,7 +1,6 @@
+import { Button, Card, Heading, Stack } from "@gdgjp/design-system";
 import { useCallback } from "react";
 import { useFetcher } from "react-router";
-import { Button } from "~/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "~/components/ui/card";
 import { GoogleDrivePickerButton } from "./google-drive-picker";
 
 type GoogleConnectionInfo = {
@@ -38,18 +37,18 @@ export function GoogleConnectionCard({
   }, [eventId]);
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Google連携</CardTitle>
-        <CardDescription>
+    <Card className="space-y-4">
+      <Stack>
+        <Heading level={2}>Google連携</Heading>
+        <p className="text-sm text-muted">
           スプレッドシートへの反映には、イベント管理者本人のGoogleアカウントとの連携が必要です。
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-3 text-sm">
+        </p>
+      </Stack>
+      <Stack className="text-sm">
         {!google.adminUserId ? (
           <div className="space-y-2">
-            <p className="text-muted-foreground">まだGoogle連携されていません。</p>
-            <Button asChild size="sm">
+            <p className="text-muted">まだGoogle連携されていません。</p>
+            <Button asChild size="sm" variant="outline">
               <a href={`/google/connect?event_id=${eventId}`}>自分のGoogleアカウントで連携する</a>
             </Button>
           </div>
@@ -58,7 +57,7 @@ export function GoogleConnectionCard({
             <p>
               連携アカウント: <span className="font-medium">{google.adminEmail ?? "取得中"}</span>
             </p>
-            <p className="text-muted-foreground">
+            <p className="text-muted">
               テンプレート・フォルダの設定は連携した本人のみ変更できます。自分に切り替えるには再連携してください。
             </p>
             <Button asChild size="sm" variant="outline">
@@ -72,7 +71,7 @@ export function GoogleConnectionCard({
             </p>
             <div className="space-y-1">
               <p>テンプレートへのアクセス: {google.templateGranted ? "許可済み" : "未許可"}</p>
-              <p className="text-muted-foreground">
+              <p className="text-muted">
                 <a
                   className="underline"
                   href={`https://docs.google.com/spreadsheets/d/${google.templateSpreadsheetId}/edit`}
@@ -114,11 +113,13 @@ export function GoogleConnectionCard({
               />
             </div>
             {fetcher.data?.error ? (
-              <p className="text-sm text-destructive">{fetcher.data.error}</p>
+              <p className="text-sm text-danger" role="alert">
+                {fetcher.data.error}
+              </p>
             ) : null}
           </>
         )}
-      </CardContent>
+      </Stack>
     </Card>
   );
 }

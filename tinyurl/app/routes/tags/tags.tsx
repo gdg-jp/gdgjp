@@ -1,8 +1,14 @@
-import { HelpCircle, Search } from "lucide-react";
+import {
+  Button,
+  Dialog,
+  DialogContent,
+  DialogTrigger,
+  Icons,
+  Input,
+  PageHeader,
+  Stack,
+} from "@gdgjp/design-system";
 import { useEffect, useMemo, useState } from "react";
-import { Button } from "~/components/ui/button";
-import { Dialog, DialogContent, DialogTrigger } from "~/components/ui/dialog";
-import { Input } from "~/components/ui/input";
 import type { TagRow } from "~/features/tags/components/tag-list";
 import { TagListItem } from "~/features/tags/components/tag-list";
 import { EmptyState } from "~/features/tags/components/tag-list";
@@ -11,7 +17,6 @@ import { EditTagForm } from "~/features/tags/components/tag-list";
 import { DeleteTagAlert } from "~/features/tags/components/tag-list";
 import { loader as loadPage, action as mutatePage } from "~/features/tags/page.server";
 
-import { DashboardPage, DashboardPageHeader } from "~/layouts/dashboard-page";
 import { DashboardShell } from "~/layouts/dashboard-shell";
 import type { Route } from "./+types/tags";
 
@@ -75,19 +80,23 @@ export default function Tags({ loaderData }: Route.ComponentProps) {
 
   return (
     <DashboardShell user={user}>
-      <DashboardPage>
-        <DashboardPageHeader
-          title="Tags"
-          titleAccessory={
-            <a
-              href="https://dub.co/help/article/how-to-use-tags"
-              target="_blank"
-              rel="noopener noreferrer"
-              aria-label="Learn about tags"
-              className="text-muted-foreground transition-colors hover:text-foreground"
-            >
-              <HelpCircle className="size-4" />
-            </a>
+      <Stack className="mx-auto w-full min-w-0 max-w-6xl">
+        <PageHeader
+          title={
+            <>
+              Tags{" "}
+              {
+                <a
+                  href="https://dub.co/help/article/how-to-use-tags"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label="Learn about tags"
+                  className="text-muted transition-colors hover:text-foreground"
+                >
+                  <Icons name="CircleHelp" aria-hidden="true" className="size-4" />
+                </a>
+              }
+            </>
           }
           actions={
             <Dialog open={createOpen} onOpenChange={setCreateOpen}>
@@ -106,10 +115,14 @@ export default function Tags({ loaderData }: Route.ComponentProps) {
           }
         />
 
-        <div className="rounded-xl border bg-card">
+        <div className="rounded-xl border bg-surface">
           <div className="p-4">
             <div className="relative">
-              <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+              <Icons
+                name="Search"
+                aria-hidden="true"
+                className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted"
+              />
               <Input
                 value={query}
                 onChange={(e) => {
@@ -117,7 +130,7 @@ export default function Tags({ loaderData }: Route.ComponentProps) {
                   setPage(1);
                 }}
                 placeholder="Search..."
-                className="h-10 rounded-full bg-muted/40 pl-10"
+                className="h-10 rounded-full bg-surface/40 pl-10"
               />
             </div>
           </div>
@@ -141,7 +154,7 @@ export default function Tags({ loaderData }: Route.ComponentProps) {
         </div>
 
         {filtered.length > 0 ? (
-          <div className="mt-4 flex items-center justify-between text-sm text-muted-foreground">
+          <div className="mt-4 flex items-center justify-between text-sm text-muted">
             <span>
               Viewing {pageStart + 1}-{pageEnd} of {filtered.length}{" "}
               {filtered.length === 1 ? "tag" : "tags"}
@@ -166,7 +179,7 @@ export default function Tags({ loaderData }: Route.ComponentProps) {
             </div>
           </div>
         ) : null}
-      </DashboardPage>
+      </Stack>
 
       <Dialog open={editTarget !== null} onOpenChange={(open) => !open && setEditTarget(null)}>
         <DialogContent className="max-w-md p-0 sm:max-w-md">

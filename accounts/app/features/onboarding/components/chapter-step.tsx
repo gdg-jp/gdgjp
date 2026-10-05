@@ -7,7 +7,9 @@ import {
   FormField,
   Heading,
   Icons,
-  Input,
+  InputGroup,
+  InputGroupAddon,
+  InputGroupInput,
   Progress,
   ProgressIndicator,
   Stack,
@@ -94,20 +96,16 @@ export function ChapterStep({
         hideLabel
         className="gap-0"
       >
-        <div className="relative">
-          <Icons
-            name="Search"
-            size={16}
-            className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2"
-            aria-hidden="true"
-          />
-          <Input
+        <InputGroup>
+          <InputGroupAddon>
+            <Icons name="Search" size={16} aria-hidden="true" />
+          </InputGroupAddon>
+          <InputGroupInput
             value={query}
             onChange={(e) => onQueryChange(e.target.value)}
             placeholder={t("onboarding.chapter.searchPlaceholder")}
-            className="w-full pl-9"
           />
-        </div>
+        </InputGroup>
       </FormField>
 
       {chapters.length === 0 ? (

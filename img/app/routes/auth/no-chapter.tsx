@@ -1,6 +1,5 @@
+import { Button, Card, Heading, Text } from "@gdgjp/design-system";
 import { redirect } from "react-router";
-import { Button } from "~/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "~/components/ui/card";
 import { getAuth } from "~/features/auth/auth.server";
 import { ClaimsUnavailableError, fetchChapterForUser } from "~/features/auth/chapter.server";
 import type { Route } from "./+types/no-chapter";
@@ -28,19 +27,21 @@ export default function NoChapterPage({ loaderData }: Route.ComponentProps) {
   const { accountsUrl } = loaderData;
   return (
     <div className="grid min-h-dvh place-items-center bg-background px-4 py-10">
-      <Card className="motion-enter-scale w-full max-w-md transition-shadow duration-300 hover:shadow-md">
-        <CardHeader className="items-center text-center">
-          <CardTitle className="text-xl">Join a GDG to continue</CardTitle>
-          <CardDescription>
+      <Card className="w-full max-w-md flex flex-col gap-4">
+        <div className="items-center text-center">
+          <Heading level={1} className="text-xl">
+            Join a GDG to continue
+          </Heading>
+          <Text tone="muted" size="sm">
             GDG Japan Image is available to members of a GDG or GDG on Campus chapter. Anyone with
             the link can still view existing images.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="flex justify-center">
+          </Text>
+        </div>
+        <div className="flex justify-center">
           <Button asChild>
             <a href={`${accountsUrl}/onboarding`}>Join a chapter</a>
           </Button>
-        </CardContent>
+        </div>
       </Card>
     </div>
   );

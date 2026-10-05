@@ -10,7 +10,7 @@ import {
   Icons,
 } from "@gdgjp/design-system";
 import { cn } from "@gdgjp/design-system";
-import { GDG_APP_LINKS } from "@gdgjp/gdg-lib/ui";
+import { GDG_APP_LINKS } from "@gdgjp/gdg-lib/ui/app-links";
 import { useTranslation } from "react-i18next";
 import { Link, useLocation } from "react-router";
 import { GdgMark } from "~/components/gdg-mark";

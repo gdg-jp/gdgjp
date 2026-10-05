@@ -1,14 +1,17 @@
-import { FolderOpen } from "lucide-react";
-import { useState } from "react";
-import { useNavigate } from "react-router";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "~/components/ui/card";
 import {
+  Card,
+  Heading,
+  Icons,
+  Inline,
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "~/components/ui/select";
+  Text,
+} from "@gdgjp/design-system";
+import { useState } from "react";
+import { useNavigate } from "react-router";
 
 export function FolderCard({
   image,
@@ -33,25 +36,23 @@ export function FolderCard({
     }
   }
   return (
-    <Card
-      className="motion-stagger transition-shadow duration-300 hover:shadow-md"
-      style={{ "--motion-index": 4 } as React.CSSProperties}
-    >
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2 text-base">
-          <FolderOpen className="size-4" /> Folder
-        </CardTitle>
-        <CardDescription>
+    <Card className="flex flex-col gap-4">
+      <div>
+        <Inline>
+          <Icons name="FolderOpen" size={16} aria-hidden="true" className="size-4" />
+          <Heading className="text-base">Folder</Heading>
+        </Inline>
+        <Text tone="muted" size="sm">
           Organize this image within its chapter. Folders are shared with everyone in the chapter.
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="flex flex-col gap-2">
+        </Text>
+      </div>
+      <div className="flex flex-col gap-2">
         <Select
           value={image.folderId !== null ? String(image.folderId) : "none"}
           onValueChange={change}
           disabled={busy}
         >
-          <SelectTrigger className="w-56">
+          <SelectTrigger aria-label="Folder" className="w-full sm:max-w-sm">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -63,8 +64,12 @@ export function FolderCard({
             ))}
           </SelectContent>
         </Select>
-        {error ? <p className="text-sm text-destructive">{error}</p> : null}
-      </CardContent>
+        {error ? (
+          <p role="alert" className="text-sm text-danger">
+            {error}
+          </p>
+        ) : null}
+      </div>
     </Card>
   );
 }

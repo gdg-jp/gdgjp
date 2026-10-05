@@ -1,9 +1,6 @@
-import { Folder as FolderIcon, Link as LinkIcon, Plus } from "lucide-react";
+import { Button, Dialog, Icons, PageHeader, Stack, toast } from "@gdgjp/design-system";
 import { Suspense, useEffect, useRef, useState } from "react";
 import { Await, Link, useFetcher } from "react-router";
-import { toast } from "sonner";
-import { Button } from "~/components/ui/button";
-import { Dialog } from "~/components/ui/dialog";
 import {
   BUILT_IN_DISPLAY_DEFAULTS,
   type DisplayPreferences,
@@ -23,7 +20,6 @@ import type { FolderActionData } from "~/features/folders/list.server";
 import { CreateLinkDialog } from "~/features/links/components/create-link-dialog";
 import type { LinkCardItem } from "~/features/links/components/link-card";
 import { LinkList } from "~/features/links/components/link-list";
-import { DashboardPage, DashboardPageHeader } from "~/layouts/dashboard-page";
 import { DashboardShell } from "~/layouts/dashboard-shell";
 import type { Route } from "./+types/folders.$id";
 
@@ -91,10 +87,10 @@ export default function FolderDetail({ loaderData }: Route.ComponentProps) {
 
   return (
     <DashboardShell user={user}>
-      <DashboardPage>
-        <DashboardPageHeader
+      <Stack className="mx-auto w-full min-w-0 max-w-6xl">
+        <PageHeader
           title={folder.name}
-          eyebrow={<Breadcrumbs folders={breadcrumbs} />}
+          back={<Breadcrumbs folders={breadcrumbs} />}
           actions={
             editable ? (
               <>
@@ -106,13 +102,13 @@ export default function FolderDetail({ loaderData }: Route.ComponentProps) {
                   shortUrlBase={shortUrlBase}
                   trigger={
                     <Button size="sm">
-                      <LinkIcon className="size-4" />
+                      <Icons name="Link" aria-hidden="true" className="size-4" />
                       Create link
                     </Button>
                   }
                 />
                 <Button variant="outline" size="sm" onClick={() => setCreateOpen(true)}>
-                  <Plus className="size-4" />
+                  <Icons name="Plus" aria-hidden="true" className="size-4" />
                   Create folder
                 </Button>
                 <FolderActions
@@ -127,10 +123,10 @@ export default function FolderDetail({ loaderData }: Route.ComponentProps) {
         />
 
         {childFolders.length === 0 && displayedLinks.length === 0 ? (
-          <div className="flex min-h-56 flex-col items-center justify-center rounded-xl border border-dashed bg-muted/15 px-6 text-center">
-            <FolderIcon className="mb-3 size-8 text-muted-foreground" />
+          <div className="flex min-h-56 flex-col items-center justify-center rounded-xl border border-dashed bg-surface/15 px-6 text-center">
+            <Icons name="Folder" aria-hidden="true" className="mb-3 size-8 text-muted" />
             <h2 className="text-sm font-semibold">This folder is empty</h2>
-            <p className="mt-1 text-sm text-muted-foreground">
+            <p className="mt-1 text-sm text-muted">
               {editable
                 ? "Create a link or folder to start organizing this space."
                 : "There are no visible items in this folder."}
@@ -140,10 +136,7 @@ export default function FolderDetail({ loaderData }: Route.ComponentProps) {
           <div className="space-y-8">
             {childFolders.length > 0 ? (
               <section aria-labelledby="child-folders-heading">
-                <h2
-                  id="child-folders-heading"
-                  className="mb-3 text-sm font-medium text-muted-foreground"
-                >
+                <h2 id="child-folders-heading" className="mb-3 text-sm font-medium text-muted">
                   Folders
                 </h2>
                 <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
@@ -152,14 +145,14 @@ export default function FolderDetail({ loaderData }: Route.ComponentProps) {
                       <Link
                         to={`/folders/${child.id}`}
                         prefetch="intent"
-                        className="flex min-h-20 items-center gap-3 rounded-xl border bg-muted/35 px-4 py-3 transition-colors hover:bg-muted/65 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+                        className="flex min-h-20 items-center gap-3 rounded-xl border bg-surface/35 px-4 py-3 transition-colors hover:bg-surface/65 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
                       >
-                        <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-amber-400/15 text-amber-600 dark:text-amber-400">
-                          <FolderIcon className="size-5 fill-current" />
+                        <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-warning/15 text-warning">
+                          <Icons name="Folder" aria-hidden="true" className="size-5 fill-current" />
                         </span>
                         <span className="min-w-0">
                           <span className="block truncate text-sm font-semibold">{child.name}</span>
-                          <span className="block text-xs text-muted-foreground">
+                          <span className="block text-xs text-muted">
                             {child.childFolderCount}{" "}
                             {child.childFolderCount === 1 ? "folder" : "folders"} ·{" "}
                             {child.linkCount} {child.linkCount === 1 ? "link" : "links"}
@@ -173,10 +166,7 @@ export default function FolderDetail({ loaderData }: Route.ComponentProps) {
             ) : null}
             {displayedLinks.length > 0 ? (
               <section aria-labelledby="folder-links-heading">
-                <h2
-                  id="folder-links-heading"
-                  className="mb-3 text-sm font-medium text-muted-foreground"
-                >
+                <h2 id="folder-links-heading" className="mb-3 text-sm font-medium text-muted">
                   Links
                 </h2>
                 <Suspense fallback={<FolderLinksSkeleton />}>
@@ -231,7 +221,7 @@ export default function FolderDetail({ loaderData }: Route.ComponentProps) {
           target={deleteOpen ? folder : null}
           onClose={() => setDeleteOpen(false)}
         />
-      </DashboardPage>
+      </Stack>
     </DashboardShell>
   );
 }

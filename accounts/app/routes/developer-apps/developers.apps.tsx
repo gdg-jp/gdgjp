@@ -50,12 +50,14 @@ export default function DeveloperApps({ loaderData }: PageProps) {
             <Table scrollLabel={t("common.tableScroll")}>
               <thead>
                 <tr>
-                  <th>{t("developerApps.list.name")}</th>
-                  <th>{t("developerApps.list.creationDate")}</th>
-                  <th>{t("developerApps.list.type")}</th>
-                  <th>{t("developerApps.list.clientId")}</th>
-                  <th>{t("developerApps.list.status")}</th>
-                  <th className="text-right">{t("developerApps.list.actions")}</th>
+                  <th scope="col">{t("developerApps.list.name")}</th>
+                  <th scope="col">{t("developerApps.list.creationDate")}</th>
+                  <th scope="col">{t("developerApps.list.type")}</th>
+                  <th scope="col">{t("developerApps.list.clientId")}</th>
+                  <th scope="col">{t("developerApps.list.status")}</th>
+                  <th scope="col" className="text-right">
+                    {t("developerApps.list.actions")}
+                  </th>
                 </tr>
               </thead>
               <tbody>

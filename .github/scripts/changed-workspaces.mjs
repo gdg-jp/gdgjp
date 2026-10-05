@@ -11,7 +11,7 @@ const CI_WORKSPACES = [
   { directory: "scheduler", workspace: "@gdgjp/scheduler", build: true, e2e: true },
   { directory: "sns", workspace: "@gdgjp/sns", build: true, e2e: false },
   { directory: "connpass", workspace: "@gdgjp/connpass", build: true, e2e: false },
-  { directory: "pay", workspace: "@gdgjp/pay", build: true, e2e: false },
+  { directory: "pay", workspace: "@gdgjp/pay", build: true, e2e: true },
   { directory: "ost", workspace: "@gdgjp/ost", build: true, e2e: false },
   { directory: "roster", workspace: "@gdgjp/roster", build: true, e2e: true },
   { directory: "website", workspace: "@gdgjp/website", build: true, e2e: false },
@@ -173,7 +173,7 @@ export function classifyChanges(files, { forceAll = false } = {}) {
 
   // A submodule update appears as the path itself, without changed source filenames.
   if (directDirectories.has("design-system")) {
-    for (const directory of ["accounts", "wiki", "roster"]) {
+    for (const directory of ["accounts", "img", "pay", "scheduler", "tinyurl", "wiki", "roster"]) {
       affectedDirectories.add(directory);
     }
   }

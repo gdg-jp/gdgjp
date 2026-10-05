@@ -1,6 +1,5 @@
-import { X } from "lucide-react";
+import { Button, Icons } from "@gdgjp/design-system";
 import { useSearchParams } from "react-router";
-import { Button } from "~/components/ui/button";
 import type { TopBlob } from "~/features/analytics/analytics-engine";
 import {
   type DimensionFilters,
@@ -63,8 +62,8 @@ export function AnalyticsFiltersBar({ preset, startIso, endIso, filters, suggest
           onClick={() => removeValue(dim, value)}
           aria-label={`Remove ${DIMENSION_CHIP_LABELS[dim]} filter ${value}`}
         >
-          <X className="size-4" />
-          <span className="font-normal text-muted-foreground">{DIMENSION_CHIP_LABELS[dim]}:</span>
+          <Icons name="X" aria-hidden="true" className="size-4" />
+          <span className="font-normal text-muted">{DIMENSION_CHIP_LABELS[dim]}:</span>
           {value}
         </Button>
       ))}

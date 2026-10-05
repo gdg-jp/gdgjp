@@ -7,6 +7,7 @@ import { CloudflareContext } from "./workers/context";
 
 export default defineConfig({
   server: { port: 5180, strictPort: true },
+  optimizeDeps: { include: ["@gdgjp/design-system"] },
   plugins: [
     cloudflareDevProxy({
       getLoadContext: ({ context }) =>

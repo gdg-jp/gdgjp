@@ -1,8 +1,7 @@
+import { cn } from "@gdgjp/design-system";
 import type { ReactNode } from "react";
 import { TopBar } from "~/layouts/top-bar";
 import type { UserMenuUser } from "~/layouts/user-menu";
-import { cn } from "~/lib/utils";
-
 export function PageShell({
   user,
   children,

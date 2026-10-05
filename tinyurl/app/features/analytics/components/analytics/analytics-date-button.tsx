@@ -1,10 +1,22 @@
-import { CalendarRange, ChevronDown, ChevronUp } from "lucide-react";
+import {
+  Button,
+  Calendar,
+  type CalendarSelection,
+  type DateRange,
+  Icons,
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetTitle,
+  SheetTrigger,
+  cn,
+} from "@gdgjp/design-system";
 import type { ReactNode } from "react";
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useNavigation, useSearchParams } from "react-router";
-import { Calendar, type DateRange, fromIsoDate, toIsoDate } from "~/components/ui/calendar";
-import { Popover, PopoverContent, PopoverTrigger } from "~/components/ui/popover";
-import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "~/components/ui/sheet";
 import {
   ANALYTICS_PERIOD_PARAMS,
   PERIOD_HOTKEYS,
@@ -15,9 +27,8 @@ import {
   parsePeriodParams,
   serializePeriodParams,
 } from "~/features/analytics/analytics-filters";
+import { fromIsoDate, toIsoDate } from "~/features/analytics/date-format";
 import { useMediaQuery } from "~/lib/use-media-query";
-import { cn } from "~/lib/utils";
-
 type Props = {
   preset: PeriodPreset;
   startIso?: string;
@@ -70,7 +81,7 @@ export function AnalyticsDateButton({
 
   const initialRange = useMemo<DateRange | null>(() => {
     if (preset === "custom" && startIso && endIso) {
-      return { start: fromIsoDate(startIso), end: fromIsoDate(endIso) };
+      return { from: fromIsoDate(startIso), to: fromIsoDate(endIso) };
     }
     return null;
   }, [preset, startIso, endIso]);
@@ -92,15 +103,17 @@ export function AnalyticsDateButton({
     navigate(`?${nextParams.toString()}`, { preventScrollReset: true });
   }
 
-  function handleRangeChange(next: DateRange) {
+  function handleRangeChange(selection: CalendarSelection) {
+    if (!selection || selection instanceof Date || Array.isArray(selection)) return;
+    const next = selection;
     setRange(next);
-    if (next.start && next.end) {
+    if (next.from && next.to) {
       const nextParams = serializePeriodParams(
         searchParams,
         {
           preset: "custom",
-          startIso: toIsoDate(next.start),
-          endIso: toIsoDate(next.end),
+          startIso: toIsoDate(next.from),
+          endIso: toIsoDate(next.to),
         },
         params,
         defaultPreset,
@@ -111,14 +124,15 @@ export function AnalyticsDateButton({
   }
 
   const trigger: ReactNode = (
-    <button
-      type="button"
-      className="inline-flex h-8 items-center gap-1.5 rounded-md border bg-background px-3 text-sm font-medium shadow-xs transition hover:bg-accent hover:text-accent-foreground"
-    >
-      <CalendarRange className="size-4" />
+    <Button variant="outline" size="sm">
+      <Icons name="CalendarDays" aria-hidden="true" className="size-4" />
       {label}
-      {open ? <ChevronUp className="size-4" /> : <ChevronDown className="size-4" />}
-    </button>
+      {open ? (
+        <Icons name="ChevronUp" aria-hidden="true" className="size-4" />
+      ) : (
+        <Icons name="ChevronDown" aria-hidden="true" className="size-4" />
+      )}
+    </Button>
   );
 
   if (isDesktop) {
@@ -127,28 +141,31 @@ export function AnalyticsDateButton({
         <PopoverTrigger asChild>{trigger}</PopoverTrigger>
         <PopoverContent align="start" className="flex w-auto gap-0 p-0">
           <div className="border-r p-2">
-            <Calendar value={range} onChange={handleRangeChange} numberOfMonths={2} />
+            <Calendar mode="range" selected={range ?? undefined} onSelect={handleRangeChange} />
           </div>
           <ul className="flex w-56 flex-col gap-0.5 p-2">
             {PERIOD_PRESETS.map((p) => {
               const active = display.preset === p;
               return (
                 <li key={p}>
-                  <button
+                  <Button
+                    fullWidth
+                    variant="ghost"
                     type="button"
+                    aria-pressed={active}
                     onClick={() => applyPreset(p)}
                     className={cn(
-                      "flex w-full items-center justify-between rounded-md px-3 py-2 text-sm transition",
+                      "flex items-center justify-between rounded-md px-3 py-2 text-sm transition",
                       active
-                        ? "bg-accent font-medium text-accent-foreground"
-                        : "hover:bg-accent hover:text-accent-foreground",
+                        ? "bg-selected font-medium text-foreground"
+                        : "hover:bg-selected hover:text-foreground",
                     )}
                   >
                     <span>{PERIOD_LABELS[p]}</span>
-                    <kbd className="inline-flex size-5 items-center justify-center rounded border bg-background text-[10px] font-medium text-muted-foreground">
+                    <kbd className="inline-flex size-5 items-center justify-center rounded border bg-background text-[10px] font-medium text-muted">
                       {PERIOD_HOTKEYS[p]}
                     </kbd>
-                  </button>
+                  </Button>
                 </li>
               );
             })}
@@ -162,32 +179,36 @@ export function AnalyticsDateButton({
     <Sheet open={open} onOpenChange={setOpen}>
       <SheetTrigger asChild>{trigger}</SheetTrigger>
       <SheetContent>
-        <SheetTitle className="sr-only">Date range</SheetTitle>
+        <SheetTitle>Date range</SheetTitle>
+        <SheetDescription>Select a preset or a start and end date.</SheetDescription>
         <div className="overflow-x-auto border-b">
           <ul className="flex w-max gap-2 px-3 py-3">
             {PERIOD_PRESETS.map((p) => {
               const active = display.preset === p;
               return (
                 <li key={p}>
-                  <button
+                  <Button
+                    fullWidth
+                    variant="ghost"
                     type="button"
+                    aria-pressed={active}
                     onClick={() => applyPreset(p)}
                     className={cn(
                       "inline-flex h-9 items-center whitespace-nowrap rounded-md border px-3 text-sm transition",
                       active
-                        ? "border-foreground bg-background font-medium text-foreground"
-                        : "border-border bg-background text-muted-foreground hover:bg-accent hover:text-accent-foreground",
+                        ? "border-primary bg-selected font-medium text-foreground"
+                        : "border-border bg-background text-muted hover:bg-selected hover:text-foreground",
                     )}
                   >
                     {PERIOD_LABELS[p]}
-                  </button>
+                  </Button>
                 </li>
               );
             })}
           </ul>
         </div>
         <div className="overflow-y-auto px-2 pb-[env(safe-area-inset-bottom)]">
-          <Calendar value={range} onChange={handleRangeChange} numberOfMonths={1} />
+          <Calendar mode="range" selected={range ?? undefined} onSelect={handleRangeChange} />
         </div>
       </SheetContent>
     </Sheet>

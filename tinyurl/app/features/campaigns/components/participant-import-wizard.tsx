@@ -1,22 +1,24 @@
-import { CheckCircle2, FileSearch, FileSpreadsheet, RefreshCw } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
-import { useFetcher } from "react-router";
-import { Alert, AlertDescription, AlertTitle } from "~/components/ui/alert";
-import { Badge } from "~/components/ui/badge";
-import { Button } from "~/components/ui/button";
-import { Card, CardContent } from "~/components/ui/card";
-import { Input } from "~/components/ui/input";
-import { Label } from "~/components/ui/label";
 import {
+  Alert,
+  Badge,
+  Button,
+  Card,
+  Checkbox,
+  FormField,
+  Icons,
+  Input,
+  Label,
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "~/components/ui/select";
+  Stack,
+  cn,
+} from "@gdgjp/design-system";
+import { useEffect, useMemo, useState } from "react";
+import { useFetcher } from "react-router";
 import { validateParticipantImport } from "~/features/campaigns/campaign-participant-import-validation";
-import { cn } from "~/lib/utils";
-
 export type CampaignChannelOption = {
   id: number;
   name: string;
@@ -120,211 +122,213 @@ export function CampaignParticipantImportWizard({
 
   return (
     <Card className="border-0 bg-transparent shadow-none">
-      <CardContent className="space-y-5">
-        {channels.length === 0 ? (
-          <Alert>
-            <AlertTitle>Add Campaign channels first</AlertTitle>
-            <AlertDescription>
+      <Stack>
+        <div className="space-y-5">
+          {channels.length === 0 ? (
+            <Alert title="Add Campaign channels first">
               Create channels such as X, Discord, or connpass on the Channel tab before importing.
-            </AlertDescription>
-          </Alert>
-        ) : null}
-        {fetcher.data?.ok ? (
-          <Alert>
-            <CheckCircle2 className="size-4" />
-            <AlertTitle>Acquisition data replaced</AlertTitle>
-            <AlertDescription>Acquisition analytics now uses the latest CSV.</AlertDescription>
-          </Alert>
-        ) : null}
-        {error || fetcher.data?.error ? (
-          <Alert variant="destructive">
-            <AlertDescription>{error ?? fetcher.data?.error}</AlertDescription>
-          </Alert>
-        ) : null}
+            </Alert>
+          ) : null}
+          {fetcher.data?.ok ? (
+            <Alert title="Acquisition data replaced">
+              <Icons name="CheckCircle2" aria-hidden="true" className="size-4" />
+              Acquisition analytics now uses the latest CSV.
+            </Alert>
+          ) : null}
+          {error || fetcher.data?.error ? (
+            <Alert tone="danger" title="Error">
+              {error ?? fetcher.data?.error}
+            </Alert>
+          ) : null}
 
-        <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_12rem]">
-          <div className="space-y-2">
-            <Label htmlFor="participants-csv">connpass CSV</Label>
-            <Input
-              id="participants-csv"
-              type="file"
-              accept=".csv,text/csv"
-              disabled={channels.length === 0 || analyzing || fetcher.state !== "idle"}
-              onChange={(event) => {
-                const nextFile = event.currentTarget.files?.[0] ?? null;
-                setFile(nextFile);
-                if (!nextFile) return;
-                setConnpassEventId(eventIdFromFileName(nextFile.name));
-                void runAnalysis(nextFile);
-              }}
-            />
-          </div>
-          <div className="flex items-end">
-            <Button
-              type="button"
-              variant="outline"
-              className="w-full"
-              disabled={!file || analyzing || fetcher.state !== "idle"}
-              onClick={() => file && void runAnalysis(file)}
-            >
-              <RefreshCw className={cn("size-4", analyzing && "animate-spin")} />
-              {analyzing ? "Analyzing…" : "Analyze again"}
-            </Button>
-          </div>
-        </div>
-
-        {analyzing ? (
-          <div className="flex min-h-32 items-center justify-center rounded-lg border border-dashed text-sm text-muted-foreground">
-            <FileSearch className="mr-2 size-5 animate-pulse" /> Reading questions and matching
-            Campaign channels…
-          </div>
-        ) : null}
-
-        {draft ? (
-          <fetcher.Form
-            method="post"
-            className="motion-import-reveal space-y-6"
-            onSubmit={(event) => {
-              setValidationAttempted(true);
-              if (
-                validation &&
-                (validation.errors.length > 0 || validation.unassignedMappings.length > 0)
-              ) {
-                event.preventDefault();
-              }
-            }}
-          >
-            <input type="hidden" name="intent" value="replaceParticipantAnalytics" />
-            <input type="hidden" name="connpassEventId" value={connpassEventId} />
-            <input type="hidden" name="draft" value={JSON.stringify(draft)} />
-
-            <div className="flex flex-wrap items-center gap-2 rounded-lg bg-muted/50 px-4 py-3 text-sm">
-              <FileSpreadsheet className="size-4 text-gdg-green" />
-              <span className="font-medium">{draft.rowCount.toLocaleString()} participants</span>
-              <Badge variant="outline">Rule-based extraction</Badge>
-              <span className="text-muted-foreground">Review every suggestion before saving.</span>
-            </div>
-
-            <fieldset className="space-y-3">
-              <legend className="text-sm font-medium">1. Discovery questions</legend>
-              <p className="text-sm text-muted-foreground">
-                Select every question that asks how a participant learned about the event.
-              </p>
-              <div className="grid gap-2">
-                {draft.questions.map((question) => {
-                  const selected = draft.selectedQuestionIds.includes(question.id);
-                  return (
-                    <label
-                      key={question.id}
-                      className={cn(
-                        "flex cursor-pointer items-start gap-3 rounded-lg border px-3 py-3 text-sm",
-                        selected && "border-gdg-blue/60 bg-gdg-blue/5",
-                      )}
-                    >
-                      <input
-                        type="checkbox"
-                        className="mt-0.5 size-4 accent-primary"
-                        checked={selected}
-                        onChange={(event) => updateQuestion(question.id, event.target.checked)}
-                      />
-                      <span className="min-w-0 flex-1 break-words">{question.label}</span>
-                    </label>
-                  );
-                })}
-              </div>
-            </fieldset>
-
-            <fieldset className="space-y-3">
-              <legend className="text-sm font-medium">2. Campaign channel mappings</legend>
-              <p className="text-sm text-muted-foreground">
-                Confirm one Campaign channel for every option found in the CSV answers.
-              </p>
-              {draft.selectedQuestionIds.length === 0 ? (
-                <p className="rounded-lg border border-dashed p-4 text-sm text-muted-foreground">
-                  Select at least one discovery question above.
-                </p>
-              ) : (
-                <div className="overflow-x-auto rounded-lg border">
-                  <table className="w-full min-w-[44rem] text-sm">
-                    <thead className="border-b bg-muted/50 text-left text-xs text-muted-foreground">
-                      <tr>
-                        <th className="px-3 py-2 font-medium">Question</th>
-                        <th className="px-3 py-2 font-medium">CSV option</th>
-                        <th className="px-3 py-2 font-medium">Campaign channel</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y">
-                      {draft.answerMappings.map((mapping, mappingIndex) =>
-                        draft.selectedQuestionIds.includes(mapping.questionId) ? (
-                          <tr
-                            key={`${mapping.questionId}\u0000${mapping.answer}`}
-                            className={cn(
-                              validationAttempted &&
-                                mapping.channelIds.length === 0 &&
-                                "bg-destructive/5",
-                            )}
-                          >
-                            <td className="max-w-52 px-3 py-2 text-xs text-muted-foreground">
-                              <span className="line-clamp-2" title={mapping.questionLabel}>
-                                {mapping.questionLabel}
-                              </span>
-                            </td>
-                            <td className="max-w-56 px-3 py-2">
-                              <span className="line-clamp-2" title={mapping.answer}>
-                                {mapping.answer}
-                              </span>
-                            </td>
-                            <td className="px-3 py-2">
-                              <Select
-                                value={mapping.channelIds[0]}
-                                onValueChange={(channelId) => setChannel(mappingIndex, channelId)}
-                              >
-                                <SelectTrigger
-                                  size="sm"
-                                  className={cn(
-                                    "w-full min-w-40",
-                                    validationAttempted &&
-                                      mapping.channelIds.length === 0 &&
-                                      "border-destructive",
-                                  )}
-                                >
-                                  <SelectValue placeholder="Select a channel" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  {channels.map((channel) => (
-                                    <SelectItem key={channel.id} value={String(channel.id)}>
-                                      {channel.name}
-                                    </SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
-                            </td>
-                          </tr>
-                        ) : null,
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </fieldset>
-
-            <div className="max-w-xs space-y-2 border-t pt-5">
-              <Label htmlFor="connpass-event-id">connpass event ID</Label>
+          <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_12rem]">
+            <FormField id="participants-csv" label={<>connpass CSV</>}>
               <Input
-                id="connpass-event-id"
-                value={connpassEventId}
-                inputMode="numeric"
-                onChange={(event) => setConnpassEventId(event.target.value)}
+                id="participants-csv"
+                type="file"
+                accept=".csv,text/csv"
+                disabled={channels.length === 0 || analyzing || fetcher.state !== "idle"}
+                onChange={(event) => {
+                  const nextFile = event.currentTarget.files?.[0] ?? null;
+                  setFile(nextFile);
+                  if (!nextFile) return;
+                  setConnpassEventId(eventIdFromFileName(nextFile.name));
+                  void runAnalysis(nextFile);
+                }}
               />
+            </FormField>
+            <div className="flex items-end">
+              <Button
+                fullWidth
+                type="button"
+                variant="outline"
+                className=""
+                disabled={!file || analyzing || fetcher.state !== "idle"}
+                onClick={() => file && void runAnalysis(file)}
+              >
+                <Icons
+                  name="RefreshCw"
+                  aria-hidden="true"
+                  className={cn("size-4", analyzing && "animate-spin")}
+                />
+                {analyzing ? "Analyzing…" : "Analyze again"}
+              </Button>
             </div>
+          </div>
 
-            <div className="flex flex-wrap items-center justify-end gap-3">
-              {validationAttempted &&
-              validation &&
-              (validation.errors.length > 0 || validation.unassignedMappings.length > 0) ? (
-                <Alert variant="destructive" className="mr-auto basis-full">
-                  <AlertTitle>Acquisition data could not be saved</AlertTitle>
-                  <AlertDescription>
+          {analyzing ? (
+            <div className="flex min-h-32 items-center justify-center rounded-lg border border-dashed text-sm text-muted">
+              <Icons name="FileText" aria-hidden="true" className="mr-2 size-5 animate-pulse" />{" "}
+              Reading questions and matching Campaign channels…
+            </div>
+          ) : null}
+
+          {draft ? (
+            <fetcher.Form
+              method="post"
+              className="motion-import-reveal space-y-6"
+              onSubmit={(event) => {
+                setValidationAttempted(true);
+                if (
+                  validation &&
+                  (validation.errors.length > 0 || validation.unassignedMappings.length > 0)
+                ) {
+                  event.preventDefault();
+                }
+              }}
+            >
+              <input type="hidden" name="intent" value="replaceParticipantAnalytics" />
+              <input type="hidden" name="connpassEventId" value={connpassEventId} />
+              <input type="hidden" name="draft" value={JSON.stringify(draft)} />
+
+              <div className="flex flex-wrap items-center gap-2 rounded-lg bg-surface/50 px-4 py-3 text-sm">
+                <Icons name="FileText" aria-hidden="true" className="size-4 text-success" />
+                <span className="font-medium">{draft.rowCount.toLocaleString()} participants</span>
+                <Badge>Rule-based extraction</Badge>
+                <span className="text-muted">Review every suggestion before saving.</span>
+              </div>
+
+              <fieldset className="space-y-3">
+                <legend className="text-sm font-medium">1. Discovery questions</legend>
+                <p className="text-sm text-muted">
+                  Select every question that asks how a participant learned about the event.
+                </p>
+                <div className="grid gap-2">
+                  {draft.questions.map((question) => {
+                    const selected = draft.selectedQuestionIds.includes(question.id);
+                    return (
+                      <Label
+                        key={question.id}
+                        className={cn(
+                          "flex cursor-pointer items-start gap-3 rounded-lg border px-3 py-3 text-sm",
+                          selected && "border-gdg-blue/60 bg-gdg-blue/5",
+                        )}
+                      >
+                        <Checkbox
+                          className="mt-0.5 size-4 accent-primary"
+                          checked={selected}
+                          onCheckedChange={(checked) =>
+                            updateQuestion(question.id, checked === true)
+                          }
+                        />
+                        <span className="min-w-0 flex-1 break-words">{question.label}</span>
+                      </Label>
+                    );
+                  })}
+                </div>
+              </fieldset>
+
+              <fieldset className="space-y-3">
+                <legend className="text-sm font-medium">2. Campaign channel mappings</legend>
+                <p className="text-sm text-muted">
+                  Confirm one Campaign channel for every option found in the CSV answers.
+                </p>
+                {draft.selectedQuestionIds.length === 0 ? (
+                  <p className="rounded-lg border border-dashed p-4 text-sm text-muted">
+                    Select at least one discovery question above.
+                  </p>
+                ) : (
+                  <div className="overflow-x-auto rounded-lg border">
+                    <table className="w-full min-w-[44rem] text-sm">
+                      <thead className="border-b bg-surface/50 text-left text-xs text-muted">
+                        <tr>
+                          <th className="px-3 py-2 font-medium">Question</th>
+                          <th className="px-3 py-2 font-medium">CSV option</th>
+                          <th className="px-3 py-2 font-medium">Campaign channel</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y">
+                        {draft.answerMappings.map((mapping, mappingIndex) =>
+                          draft.selectedQuestionIds.includes(mapping.questionId) ? (
+                            <tr
+                              key={`${mapping.questionId}\u0000${mapping.answer}`}
+                              className={cn(
+                                validationAttempted &&
+                                  mapping.channelIds.length === 0 &&
+                                  "bg-danger/5",
+                              )}
+                            >
+                              <td className="max-w-52 px-3 py-2 text-xs text-muted">
+                                <span className="line-clamp-2" title={mapping.questionLabel}>
+                                  {mapping.questionLabel}
+                                </span>
+                              </td>
+                              <td className="max-w-56 px-3 py-2">
+                                <span className="line-clamp-2" title={mapping.answer}>
+                                  {mapping.answer}
+                                </span>
+                              </td>
+                              <td className="px-3 py-2">
+                                <Select
+                                  value={mapping.channelIds[0]}
+                                  onValueChange={(channelId) => setChannel(mappingIndex, channelId)}
+                                >
+                                  <SelectTrigger
+                                    className={cn(
+                                      "w-full min-w-40",
+                                      validationAttempted &&
+                                        mapping.channelIds.length === 0 &&
+                                        "border-danger",
+                                    )}
+                                  >
+                                    <SelectValue placeholder="Select a channel" />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {channels.map((channel) => (
+                                      <SelectItem key={channel.id} value={String(channel.id)}>
+                                        {channel.name}
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                              </td>
+                            </tr>
+                          ) : null,
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </fieldset>
+
+              <FormField id="connpass-event-id" label={<>connpass event ID</>}>
+                <Input
+                  id="connpass-event-id"
+                  value={connpassEventId}
+                  inputMode="numeric"
+                  onChange={(event) => setConnpassEventId(event.target.value)}
+                />
+              </FormField>
+
+              <div className="flex flex-wrap items-center justify-end gap-3">
+                {validationAttempted &&
+                validation &&
+                (validation.errors.length > 0 || validation.unassignedMappings.length > 0) ? (
+                  <Alert
+                    tone="danger"
+                    className="mr-auto basis-full"
+                    title="Acquisition data could not be saved"
+                  >
                     {validation.errors.map((message) => (
                       <p key={message}>{message}</p>
                     ))}
@@ -340,16 +344,16 @@ export function CampaignParticipantImportWizard({
                         </ul>
                       </div>
                     ) : null}
-                  </AlertDescription>
-                </Alert>
-              ) : null}
-              <Button type="submit" disabled={fetcher.state !== "idle"}>
-                {fetcher.state === "idle" ? "Save and replace acquisition data" : "Saving…"}
-              </Button>
-            </div>
-          </fetcher.Form>
-        ) : null}
-      </CardContent>
+                  </Alert>
+                ) : null}
+                <Button type="submit" disabled={fetcher.state !== "idle"}>
+                  {fetcher.state === "idle" ? "Save and replace acquisition data" : "Saving…"}
+                </Button>
+              </div>
+            </fetcher.Form>
+          ) : null}
+        </div>
+      </Stack>
     </Card>
   );
 }

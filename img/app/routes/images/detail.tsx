@@ -1,6 +1,5 @@
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "~/components/ui/card";
-import { Input } from "~/components/ui/input";
-import { Label } from "~/components/ui/label";
+import { Button, Card, Heading, Input, Label, PageHeader, Stack, Text } from "@gdgjp/design-system";
+import { Link } from "react-router";
 import { ChapterCard } from "~/features/images/components/chapter-card";
 import { FolderCard } from "~/features/images/components/folder-card";
 import { MobileCard } from "~/features/images/components/mobile-card";
@@ -24,27 +23,32 @@ export default function ImageDetailPage({ loaderData }: Route.ComponentProps) {
     loaderData;
   return (
     <PageShell user={user} size="md">
-      <div className="flex flex-col gap-6">
+      <Stack className="gap-6">
+        <PageHeader
+          title="Image details"
+          back={
+            <Button asChild variant="ghost">
+              <Link to="/">Back to library</Link>
+            </Button>
+          }
+        />
         <ReplaceCard image={image} publicUrl={publicUrl} />
         <MobileCard image={image} />
         <SlugCard image={image} />
         <UrlBuilderCard image={image} appUrl={appUrl} />
         <FolderCard image={image} folders={foldersInChapter} />
         <ChapterCard image={image} chapters={chapters} currentChapterSlug={currentChapterSlug} />
-        <Card
-          className="motion-stagger transition-shadow duration-300 hover:shadow-md"
-          style={{ "--motion-index": 6 } as React.CSSProperties}
-        >
-          <CardHeader>
-            <CardTitle className="text-base">Public URL</CardTitle>
-            <CardDescription>
+        <Card className="flex flex-col gap-4">
+          <div>
+            <Heading className="text-base">Public URL</Heading>
+            <Text tone="muted" size="sm">
               {image.slug
                 ? "Anyone with this link can view the image. It also stays reachable at its id URL."
                 : "Anyone with this link can view the image."}
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="flex flex-col gap-2">
-            <p className="text-sm text-muted-foreground">
+            </Text>
+          </div>
+          <div className="flex flex-col gap-2">
+            <p className="text-sm text-muted">
               This URL is automatically optimized (AVIF/WebP, up to 1600px). Add{" "}
               <code>?f=original</code> to retrieve the unmodified file.
             </p>
@@ -59,12 +63,12 @@ export default function ImageDetailPage({ loaderData }: Route.ComponentProps) {
                 <Label htmlFor="id-url" className="sr-only">
                   Id URL
                 </Label>
-                <Input id="id-url" readOnly value={idUrl} className="text-muted-foreground" />
+                <Input id="id-url" readOnly value={idUrl} className="text-muted" />
               </div>
             ) : null}
-          </CardContent>
+          </div>
         </Card>
-      </div>
+      </Stack>
     </PageShell>
   );
 }

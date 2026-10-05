@@ -1,16 +1,14 @@
+import { Skeleton, cn } from "@gdgjp/design-system";
 import type { ReactNode } from "react";
-import { Skeleton } from "~/components/ui/skeleton";
 import type { TopRow } from "~/features/analytics/analytics-engine";
-import { cn } from "~/lib/utils";
-
 export type BarTone = "blue" | "amber" | "rose" | "violet" | "emerald";
 
 const TONE_CLASS: Record<BarTone, string> = {
   blue: "bg-gdg-blue/15",
-  amber: "bg-amber-200/60 dark:bg-amber-400/20",
-  rose: "bg-rose-200/60 dark:bg-rose-400/20",
+  amber: "bg-warning/15",
+  rose: "bg-danger/15",
   violet: "bg-violet-200/60 dark:bg-violet-400/20",
-  emerald: "bg-emerald-200/60 dark:bg-emerald-400/20",
+  emerald: "bg-success/15",
 };
 
 export type BarListRow = TopRow & {
@@ -38,9 +36,7 @@ export function BarList({
   onSelect?: (row: BarListRow) => void;
 }) {
   if (rows.length === 0) {
-    return (
-      <p className="text-sm text-muted-foreground">{emptyLabel ?? "No data in this range."}</p>
-    );
+    return <p className="text-sm text-muted">{emptyLabel ?? "No data in this range."}</p>;
   }
   const max = Math.max(...rows.map((r) => r.clicks), 1);
   return (
@@ -65,7 +61,7 @@ export function BarList({
               </span>
               {r.description ? (
                 <span
-                  className="min-w-0 flex-1 truncate text-left text-xs text-muted-foreground"
+                  className="min-w-0 flex-1 truncate text-left text-xs text-muted"
                   title={r.description}
                 >
                   {r.description}
@@ -75,7 +71,7 @@ export function BarList({
             {pending ? (
               <Skeleton className="h-4 w-8 shrink-0" />
             ) : (
-              <span className="shrink-0 font-mono tabular-nums text-muted-foreground">
+              <span className="shrink-0 font-mono tabular-nums text-muted">
                 {r.clicks.toLocaleString()}
               </span>
             )}
@@ -95,8 +91,8 @@ export function BarList({
                 aria-pressed={selectedKey === rowKey}
                 onClick={() => onSelect(r)}
                 className={cn(
-                  "relative flex min-w-0 w-full cursor-pointer items-center justify-between gap-3 rounded px-2 py-1.5 text-sm outline-none transition-colors hover:bg-accent/60 focus-visible:ring-2 focus-visible:ring-ring/50 disabled:pointer-events-none",
-                  selectedKey === rowKey && "bg-accent ring-1 ring-ring/30",
+                  "relative flex min-w-0 w-full cursor-pointer items-center justify-between gap-3 rounded px-2 py-1.5 text-sm outline-none transition-colors hover:bg-selected/60 focus-visible:ring-2 focus-visible:ring-ring/50 disabled:pointer-events-none",
+                  selectedKey === rowKey && "bg-selected ring-1 ring-ring/30",
                 )}
               >
                 {content}

@@ -1,18 +1,19 @@
-import { ChevronDown, Folder, Megaphone, Plus, Search, SlidersHorizontal } from "lucide-react";
-import { Suspense, useEffect, useMemo, useState } from "react";
-import { flushSync } from "react-dom";
-import { Await } from "react-router";
-import { Button } from "~/components/ui/button";
 import {
+  Button,
   DropdownMenu,
   DropdownMenuCheckboxItem,
   DropdownMenuContent,
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "~/components/ui/dropdown-menu";
-import { Input } from "~/components/ui/input";
-import { MotionPresence } from "~/components/ui/motion";
+  Icons,
+  Input,
+  PageHeader,
+  Stack,
+} from "@gdgjp/design-system";
+import { Suspense, useEffect, useMemo, useState } from "react";
+import { flushSync } from "react-dom";
+import { Await } from "react-router";
 import { DashboardDisplayMenu } from "~/features/dashboard/components/display-menu";
 import { shortHostOf } from "~/features/dashboard/components/results";
 import { LinksSkeleton } from "~/features/dashboard/components/results";
@@ -29,7 +30,6 @@ import { loader as loadPage } from "~/features/dashboard/page.server";
 import type { DashboardPageData } from "~/features/dashboard/page.server";
 import type { CampaignFilter, FolderFilter, Scope, SortKey } from "~/features/dashboard/view.types";
 import { CreateLinkDialog } from "~/features/links/components/create-link-dialog";
-import { DashboardPage, DashboardPageHeader } from "~/layouts/dashboard-page";
 import { DashboardShell } from "~/layouts/dashboard-shell";
 import type { Route } from "./+types/dashboard";
 
@@ -209,10 +209,9 @@ export default function Dashboard({ loaderData }: Route.ComponentProps) {
 
   return (
     <DashboardShell user={user}>
-      <DashboardPage className="pb-20 md:pb-0">
-        <DashboardPageHeader
+      <Stack className="mx-auto w-full min-w-0 max-w-6xl">
+        <PageHeader
           title="Links"
-          actionsClassName="hidden sm:flex"
           actions={
             <CreateLinkDialog
               availableTags={availableTags}
@@ -222,7 +221,7 @@ export default function Dashboard({ loaderData }: Route.ComponentProps) {
               domainOptions={domainOptions}
               trigger={
                 <Button size="sm">
-                  <Plus className="size-4" />
+                  <Icons name="Plus" aria-hidden="true" className="size-4" />
                   Create link
                   <kbd className="ml-1 rounded bg-primary-foreground/15 px-1.5 py-0.5 text-[10px] font-medium tracking-wider">
                     C
@@ -238,9 +237,13 @@ export default function Dashboard({ loaderData }: Route.ComponentProps) {
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="outline" size="sm" className="min-w-0 justify-start">
-                  <SlidersHorizontal className="size-4" />
+                  <Icons name="SlidersHorizontal" aria-hidden="true" className="size-4" />
                   <span className="truncate">Filter</span>
-                  <ChevronDown className="ml-auto size-4 text-muted-foreground sm:hidden" />
+                  <Icons
+                    name="ChevronDown"
+                    aria-hidden="true"
+                    className="ml-auto size-4 text-muted sm:hidden"
+                  />
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="start" className="w-44">
@@ -269,9 +272,13 @@ export default function Dashboard({ loaderData }: Route.ComponentProps) {
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="outline" size="sm" className="min-w-0 justify-start sm:max-w-56">
-                  <Folder className="size-4" />
+                  <Icons name="Folder" aria-hidden="true" className="size-4" />
                   <span className="truncate">{folderFilterLabel}</span>
-                  <ChevronDown className="ml-auto size-4 shrink-0 text-muted-foreground sm:hidden" />
+                  <Icons
+                    name="ChevronDown"
+                    aria-hidden="true"
+                    className="ml-auto size-4 shrink-0 text-muted sm:hidden"
+                  />
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="start" className="max-h-80 w-56 overflow-y-auto">
@@ -304,9 +311,13 @@ export default function Dashboard({ loaderData }: Route.ComponentProps) {
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="outline" size="sm" className="min-w-0 justify-start sm:max-w-56">
-                  <Megaphone className="size-4" />
+                  <Icons name="RadioTower" aria-hidden="true" className="size-4" />
                   <span className="truncate">{campaignFilterLabel}</span>
-                  <ChevronDown className="ml-auto size-4 shrink-0 text-muted-foreground sm:hidden" />
+                  <Icons
+                    name="ChevronDown"
+                    aria-hidden="true"
+                    className="ml-auto size-4 shrink-0 text-muted sm:hidden"
+                  />
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="start" className="max-h-96 w-64 overflow-y-auto">
@@ -364,13 +375,18 @@ export default function Dashboard({ loaderData }: Route.ComponentProps) {
           </div>
 
           <div className="relative w-full sm:max-w-xs">
-            <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+            <Icons
+              name="Search"
+              aria-hidden="true"
+              className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted"
+            />
             <Input
               type="search"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Search by short link or URL"
-              className="h-8 pl-8 text-sm"
+              aria-label="Search links"
+              className="h-8 w-full pl-8 text-sm"
             />
           </div>
         </div>
@@ -387,13 +403,7 @@ export default function Dashboard({ loaderData }: Route.ComponentProps) {
           <Suspense fallback={<LinksSkeleton />}>
             <Await resolve={loaderData.clicks}>
               {(clicks) => (
-                <MotionPresence
-                  present
-                  distance={0}
-                  enterDuration={160}
-                  exitDuration={100}
-                  reducedDuration={100}
-                >
+                <>
                   <DashboardResults
                     ownLinks={ownLinks}
                     sharedLinks={sharedLinks}
@@ -413,28 +423,12 @@ export default function Dashboard({ loaderData }: Route.ComponentProps) {
                     shortUrlBase={shortUrlBase}
                     shortHost={shortHost}
                   />
-                </MotionPresence>
+                </>
               )}
             </Await>
           </Suspense>
         )}
-      </DashboardPage>
-
-      <div className="fixed inset-x-4 bottom-[calc(4.75rem+env(safe-area-inset-bottom))] z-20 rounded-xl border bg-background/95 p-2 shadow-lg backdrop-blur md:hidden">
-        <CreateLinkDialog
-          availableTags={availableTags}
-          campaignChannelOptions={campaignChannelOptions}
-          chapters={chapters}
-          shortUrlBase={shortUrlBase}
-          domainOptions={domainOptions}
-          trigger={
-            <Button className="w-full">
-              <Plus className="size-4" />
-              Create link
-            </Button>
-          }
-        />
-      </div>
+      </Stack>
     </DashboardShell>
   );
 }

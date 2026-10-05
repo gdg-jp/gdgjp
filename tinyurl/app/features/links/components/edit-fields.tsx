@@ -1,19 +1,17 @@
-import { Trash2 } from "lucide-react";
-import { useState } from "react";
-import { Form, useNavigation } from "react-router";
-import { Badge } from "~/components/ui/badge";
-import { Button } from "~/components/ui/button";
-
-import { Input } from "~/components/ui/input";
-
 import {
+  Badge,
+  Button,
+  IconButton,
+  Icons,
+  Input,
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "~/components/ui/select";
-import { SubmitButton } from "~/components/ui/submit-button";
+} from "@gdgjp/design-system";
+import { useState } from "react";
+import { Form, useNavigation } from "react-router";
 import type { UserChapter } from "~/features/auth/chapter.server";
 import type { UserSummary } from "~/features/auth/user.repository";
 import type { LinkPermission } from "~/features/links";
@@ -94,7 +92,7 @@ export function PermissionRow({
     <div className="flex items-center gap-3 border-b py-2 last:border-b-0">
       <div className="min-w-0 flex-1">
         <p className="truncate text-sm font-medium">{label}</p>
-        <p className="text-xs text-muted-foreground">{principalLabel}</p>
+        <p className="text-xs text-muted">{principalLabel}</p>
       </div>
       {editable ? (
         <>
@@ -102,7 +100,7 @@ export function PermissionRow({
             <input type="hidden" name="intent" value="updatePermissionRole" />
             <input type="hidden" name="permissionId" value={permission.id} />
             <Select name="role" defaultValue={permission.role}>
-              <SelectTrigger className="h-8 w-[110px]" size="sm">
+              <SelectTrigger className="h-8 w-[110px]">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -110,26 +108,20 @@ export function PermissionRow({
                 <SelectItem value="viewer">Viewer</SelectItem>
               </SelectContent>
             </Select>
-            <SubmitButton variant="ghost" size="sm" pending={isUpdating} pendingLabel="Saving">
+            <Button type="submit" variant="ghost" size="sm" loading={isUpdating}>
               Save
-            </SubmitButton>
+            </Button>
           </Form>
           <Form method="post">
             <input type="hidden" name="intent" value="removePermission" />
             <input type="hidden" name="permissionId" value={permission.id} />
-            <SubmitButton
-              variant="ghost"
-              size="icon-sm"
-              aria-label="Remove"
-              pending={isRemoving}
-              pendingLabel="Removing"
-            >
-              <Trash2 className="size-4 text-destructive" />
-            </SubmitButton>
+            <IconButton type="submit" variant="ghost" aria-label="Remove" loading={isRemoving}>
+              <Icons name="Trash2" aria-hidden="true" className="size-4 text-danger" />
+            </IconButton>
           </Form>
         </>
       ) : (
-        <Badge variant="secondary">{permission.role}</Badge>
+        <Badge>{permission.role}</Badge>
       )}
     </div>
   );
@@ -147,7 +139,7 @@ export function ShareForm({ chapters }: { chapters: UserChapter[] }) {
   return (
     <Form
       method="post"
-      className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-2 rounded-md border bg-card p-3 sm:grid-cols-[140px_minmax(0,1fr)_120px_auto]"
+      className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-2 rounded-md border bg-surface p-3 sm:grid-cols-[140px_minmax(0,1fr)_120px_auto]"
     >
       <input type="hidden" name="intent" value="addPermission" />
       <input type="hidden" name="principalType" value={principalType} />
@@ -155,7 +147,7 @@ export function ShareForm({ chapters }: { chapters: UserChapter[] }) {
         value={principalType}
         onValueChange={(v) => setPrincipalType(v as "user" | "chapter")}
       >
-        <SelectTrigger size="sm" className="w-full min-w-0">
+        <SelectTrigger className="w-full min-w-0">
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
@@ -178,7 +170,7 @@ export function ShareForm({ chapters }: { chapters: UserChapter[] }) {
         <>
           <input type="hidden" name="principalId" value={chapterId} />
           <Select value={chapterId} onValueChange={setChapterId}>
-            <SelectTrigger size="sm" className="w-full min-w-0">
+            <SelectTrigger className="w-full min-w-0">
               <SelectValue placeholder="Choose a chapter" />
             </SelectTrigger>
             <SelectContent>
@@ -192,7 +184,7 @@ export function ShareForm({ chapters }: { chapters: UserChapter[] }) {
         </>
       )}
       <Select name="role" defaultValue="viewer">
-        <SelectTrigger size="sm" className="w-full min-w-0">
+        <SelectTrigger className="w-full min-w-0">
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
@@ -200,15 +192,15 @@ export function ShareForm({ chapters }: { chapters: UserChapter[] }) {
           <SelectItem value="editor">Editor</SelectItem>
         </SelectContent>
       </Select>
-      <SubmitButton
+      <Button
+        type="submit"
         size="sm"
-        className="max-w-full"
-        pending={isSharing}
-        pendingLabel="Sharing"
+        className=""
+        loading={isSharing}
         disabled={principalType === "chapter" ? chapterId === "" : email.trim() === ""}
       >
         Share
-      </SubmitButton>
+      </Button>
     </Form>
   );
 }
@@ -216,15 +208,15 @@ export function ShareForm({ chapters }: { chapters: UserChapter[] }) {
 export function FloatingBar({ onDiscard, isSaving }: { onDiscard: () => void; isSaving: boolean }) {
   return (
     <div className="pointer-events-none fixed inset-x-0 bottom-4 z-40 px-4 md:left-60">
-      <div className="pointer-events-auto mx-auto flex max-w-6xl items-center justify-between gap-3 rounded-xl border bg-card px-4 py-3 shadow-lg">
+      <div className="pointer-events-auto mx-auto flex max-w-6xl items-center justify-between gap-3 rounded-xl border bg-surface px-4 py-3 shadow-lg">
         <p className="text-sm font-medium">Unsaved changes</p>
         <div className="flex items-center gap-2">
           <Button type="button" variant="ghost" size="sm" onClick={onDiscard} disabled={isSaving}>
             Discard
           </Button>
-          <SubmitButton form="link-update" size="sm" pending={isSaving} pendingLabel="Saving…">
+          <Button type="submit" form="link-update" size="sm" loading={isSaving}>
             {isSaving ? "Saving…" : "Save changes"}
-          </SubmitButton>
+          </Button>
         </div>
       </div>
     </div>

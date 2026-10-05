@@ -1,7 +1,6 @@
+import { ThemeProvider, Toaster } from "@gdgjp/design-system";
 import type { ReactNode } from "react";
 import { Links, Meta, Outlet, Scripts, ScrollRestoration } from "react-router";
-import { Toaster } from "~/components/ui/sonner";
-import { ThemeProvider, themeInitScript } from "~/lib/theme";
 import type { Route } from "./+types/root";
 import stylesheet from "./app.css?url";
 
@@ -21,11 +20,12 @@ export function Layout({ children }: { children: ReactNode }) {
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <Meta />
         <Links />
-        {/* biome-ignore lint/security/noDangerouslySetInnerHtml: pre-paint theme bootstrap */}
-        <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
       </head>
       <body className="font-sans antialiased">
-        {children}
+        <ThemeProvider storageKey="gdg-apps-theme" defaultTheme="system">
+          {children}
+          <Toaster richColors />
+        </ThemeProvider>
         <ScrollRestoration />
         <Scripts />
       </body>
@@ -34,10 +34,5 @@ export function Layout({ children }: { children: ReactNode }) {
 }
 
 export default function App() {
-  return (
-    <ThemeProvider>
-      <Outlet />
-      <Toaster richColors />
-    </ThemeProvider>
-  );
+  return <Outlet />;
 }

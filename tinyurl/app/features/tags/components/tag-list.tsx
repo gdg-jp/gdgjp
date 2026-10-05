@@ -1,45 +1,40 @@
-import { Globe, HelpCircle, MoreHorizontal, Pencil, Tag as TagIcon, Trash2 } from "lucide-react";
-import { type ReactNode, useEffect, useRef, useState } from "react";
-import { Form, useFetcher } from "react-router";
-import { toast } from "sonner";
-import { GdgMark } from "~/components/gdg-mark";
 import {
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
   AlertDialogContent,
   AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
   AlertDialogTitle,
-} from "~/components/ui/alert-dialog";
-import { Button } from "~/components/ui/button";
-import { DialogDescription, DialogTitle } from "~/components/ui/dialog";
-import {
+  Button,
+  DialogDescription,
+  DialogTitle,
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "~/components/ui/dropdown-menu";
-import { Input } from "~/components/ui/input";
-import { Label } from "~/components/ui/label";
-import {
+  FormField,
+  IconButton,
+  Icons,
+  Input,
+  Label,
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "~/components/ui/select";
-import { SubmitButton } from "~/components/ui/submit-button";
+  cn,
+  toast,
+} from "@gdgjp/design-system";
+import { type ReactNode, useEffect, useRef, useState } from "react";
+import { Form, useFetcher } from "react-router";
+import { GdgMark } from "~/components/gdg-mark";
 import type { ActionData } from "~/features/tags/page.server";
 import { TAG_COLORS } from "~/features/tags/tag-colors";
 import type { TagColor } from "~/features/tags/tag-colors";
 import { normalizeColor } from "~/features/tags/tag-colors";
 import { COLOR_CLASSES } from "~/features/tags/tag-colors";
 import type { TagWithCount } from "~/features/tags/tag-record";
-import { cn } from "~/lib/utils";
-
 export type TagRow = TagWithCount & { scope: "user" | "chapter" };
 
 export function TagListItem({
@@ -64,34 +59,34 @@ export function TagListItem({
           )}
           aria-hidden
         >
-          <TagIcon className="size-3.5" />
+          <Icons name="Tag" aria-hidden="true" className="size-3.5" />
         </span>
         <span className="truncate text-sm font-medium">{tag.name}</span>
         {tag.scope === "chapter" ? (
-          <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+          <span className="rounded-full bg-surface px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-muted">
             Chapter
           </span>
         ) : null}
       </div>
       <div className="flex items-center gap-1">
-        <span className="inline-flex items-center gap-1 rounded-md border bg-background px-2 py-1 text-xs text-muted-foreground">
-          <Globe className="size-3" />
+        <span className="inline-flex items-center gap-1 rounded-md border bg-background px-2 py-1 text-xs text-muted">
+          <Icons name="Globe" aria-hidden="true" className="size-3" />
           <span className="tabular-nums">{tag.linkCount}</span>{" "}
           {tag.linkCount === 1 ? "link" : "links"}
         </span>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon-sm" aria-label={`Actions for ${tag.name}`}>
-              <MoreHorizontal className="size-4" />
-            </Button>
+            <IconButton variant="ghost" aria-label={`Actions for ${tag.name}`}>
+              <Icons name="MoreHorizontal" aria-hidden="true" className="size-4" />
+            </IconButton>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-40">
             <DropdownMenuItem onSelect={onEdit}>
-              <Pencil className="size-4" /> Edit
+              <Icons name="Pencil" aria-hidden="true" className="size-4" /> Edit
             </DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem variant="destructive" onSelect={onDelete}>
-              <Trash2 className="size-4" /> Delete
+            <DropdownMenuItem className="text-danger" onSelect={onDelete}>
+              <Icons name="Trash2" aria-hidden="true" className="size-4" /> Delete
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
@@ -103,13 +98,13 @@ export function TagListItem({
 export function EmptyState({ query, hasAny }: { query: string; hasAny: boolean }) {
   return (
     <div className="flex flex-col items-center justify-center gap-2 py-16 text-center">
-      <div className="flex size-12 items-center justify-center rounded-full bg-muted">
-        <TagIcon className="size-5 text-muted-foreground" />
+      <div className="flex size-12 items-center justify-center rounded-full bg-surface">
+        <Icons name="Tag" aria-hidden="true" className="size-5 text-muted" />
       </div>
       <p className="text-sm font-medium">
         {query ? `No tags match "${query}"` : hasAny ? "No tags found" : "No tags yet"}
       </p>
-      <p className="max-w-sm text-xs text-muted-foreground">
+      <p className="max-w-sm text-xs text-muted">
         Tags help you organize your links. Create one to get started.
       </p>
     </div>
@@ -130,9 +125,7 @@ export function FormShell({
       <div className="flex flex-col items-center gap-2 px-6 pt-8 pb-2 text-center">
         <GdgMark size="md" />
         <DialogTitle className="text-lg font-semibold">{title}</DialogTitle>
-        <DialogDescription className="text-sm text-muted-foreground">
-          {description}
-        </DialogDescription>
+        <DialogDescription className="text-sm text-muted">{description}</DialogDescription>
       </div>
       {children}
     </div>
@@ -154,7 +147,7 @@ export function ColorSwatchRadio({
   const cls = COLOR_CLASSES[value];
   const label = value.charAt(0).toUpperCase() + value.slice(1);
   return (
-    <label
+    <Label
       className={cn(
         "cursor-pointer select-none rounded-md px-2.5 py-1 text-xs font-medium transition-shadow",
         cls.chip,
@@ -170,7 +163,7 @@ export function ColorSwatchRadio({
         className="sr-only"
       />
       {label}
-    </label>
+    </Label>
   );
 }
 
@@ -221,10 +214,7 @@ export function CreateTagForm({
         <input type="hidden" name="intent" value="create" />
         <input type="hidden" name="color" value={color} />
 
-        <div className="space-y-2">
-          <Label htmlFor="create-tag-name" className="text-sm font-medium">
-            Tag Name
-          </Label>
+        <FormField id="create-tag-name" label={<>Tag Name</>} required>
           <Input
             id="create-tag-name"
             name="name"
@@ -235,12 +225,12 @@ export function CreateTagForm({
             value={name}
             onChange={(e) => setName(e.target.value)}
           />
-        </div>
+        </FormField>
 
         <div className="space-y-2">
           <div className="flex items-center gap-1.5">
             <Label className="text-sm font-medium">Tag Color</Label>
-            <HelpCircle className="size-3.5 text-muted-foreground" />
+            <Icons name="CircleHelp" aria-hidden="true" className="size-3.5 text-muted" />
           </div>
           <div className="flex flex-wrap gap-2">
             {TAG_COLORS.map((c) => (
@@ -256,10 +246,7 @@ export function CreateTagForm({
         </div>
 
         {chapter ? (
-          <div className="space-y-2">
-            <Label htmlFor="create-tag-scope" className="text-sm font-medium">
-              Scope
-            </Label>
+          <FormField id="create-tag-scope" label={<>Scope</>}>
             <Select
               name="scope"
               value={scope}
@@ -273,19 +260,14 @@ export function CreateTagForm({
                 <SelectItem value="chapter">Chapter ({chapter.chapterSlug})</SelectItem>
               </SelectContent>
             </Select>
-          </div>
+          </FormField>
         ) : (
           <input type="hidden" name="scope" value="user" />
         )}
 
-        <SubmitButton
-          className="w-full"
-          pending={submitting}
-          pendingLabel="Creating…"
-          disabled={!name.trim()}
-        >
+        <Button fullWidth type="submit" className="" loading={submitting} disabled={!name.trim()}>
           {submitting ? "Creating…" : "Create tag"}
-        </SubmitButton>
+        </Button>
       </fetcher.Form>
     </FormShell>
   );
@@ -317,10 +299,7 @@ export function EditTagForm({ tag, onDone }: { tag: TagRow; onDone: () => void }
         <input type="hidden" name="id" value={tag.id} />
         <input type="hidden" name="color" value={color} />
 
-        <div className="space-y-2">
-          <Label htmlFor="edit-tag-name" className="text-sm font-medium">
-            Tag Name
-          </Label>
+        <FormField id="edit-tag-name" label={<>Tag Name</>} required>
           <Input
             id="edit-tag-name"
             name="name"
@@ -330,12 +309,12 @@ export function EditTagForm({ tag, onDone }: { tag: TagRow; onDone: () => void }
             value={name}
             onChange={(e) => setName(e.target.value)}
           />
-        </div>
+        </FormField>
 
         <div className="space-y-2">
           <div className="flex items-center gap-1.5">
             <Label className="text-sm font-medium">Tag Color</Label>
-            <HelpCircle className="size-3.5 text-muted-foreground" />
+            <Icons name="CircleHelp" aria-hidden="true" className="size-3.5 text-muted" />
           </div>
           <div className="flex flex-wrap gap-2">
             {TAG_COLORS.map((c) => (
@@ -350,14 +329,9 @@ export function EditTagForm({ tag, onDone }: { tag: TagRow; onDone: () => void }
           </div>
         </div>
 
-        <SubmitButton
-          className="w-full"
-          pending={submitting}
-          pendingLabel="Saving…"
-          disabled={!name.trim()}
-        >
+        <Button fullWidth type="submit" className="" loading={submitting} disabled={!name.trim()}>
           {submitting ? "Saving…" : "Save changes"}
-        </SubmitButton>
+        </Button>
       </fetcher.Form>
     </FormShell>
   );
@@ -367,7 +341,7 @@ export function DeleteTagAlert({ tag, onClose }: { tag: TagRow | null; onClose: 
   return (
     <AlertDialog open={tag !== null} onOpenChange={(open) => !open && onClose()}>
       <AlertDialogContent>
-        <AlertDialogHeader>
+        <div className="space-y-2">
           <AlertDialogTitle>Delete tag?</AlertDialogTitle>
           <AlertDialogDescription>
             {tag ? (
@@ -384,19 +358,23 @@ export function DeleteTagAlert({ tag, onClose }: { tag: TagRow | null; onClose: 
               </>
             ) : null}
           </AlertDialogDescription>
-        </AlertDialogHeader>
-        <AlertDialogFooter>
-          <AlertDialogCancel>Cancel</AlertDialogCancel>
+        </div>
+        <div className="flex flex-wrap justify-end gap-2">
+          <AlertDialogCancel asChild>
+            <Button variant="outline">Cancel</Button>
+          </AlertDialogCancel>
           {tag ? (
             <Form method="post" onSubmit={onClose}>
               <input type="hidden" name="intent" value="delete" />
               <input type="hidden" name="id" value={tag.id} />
-              <AlertDialogAction type="submit" variant="destructive">
-                Delete
+              <AlertDialogAction asChild>
+                <Button variant="danger" type="submit">
+                  Delete
+                </Button>
               </AlertDialogAction>
             </Form>
           ) : null}
-        </AlertDialogFooter>
+        </div>
       </AlertDialogContent>
     </AlertDialog>
   );

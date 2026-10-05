@@ -1,33 +1,28 @@
-import { ChevronRight, MoreHorizontal, Share2, Trash2 } from "lucide-react";
-import { useState } from "react";
-import { Form, Link, type useFetcher, useNavigation } from "react-router";
-import { Badge } from "~/components/ui/badge";
-import { Button } from "~/components/ui/button";
 import {
+  Badge,
+  Button,
   DialogContent,
   DialogDescription,
-  DialogFooter,
-  DialogHeader,
   DialogTitle,
-} from "~/components/ui/dialog";
-import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "~/components/ui/dropdown-menu";
-import { Input } from "~/components/ui/input";
-import { Label } from "~/components/ui/label";
-import {
+  FormField,
+  IconButton,
+  Icons,
+  Input,
+  Label,
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "~/components/ui/select";
-import { Skeleton } from "~/components/ui/skeleton";
-import { SubmitButton } from "~/components/ui/submit-button";
+  Skeleton,
+} from "@gdgjp/design-system";
+import { useState } from "react";
+import { Form, Link, type useFetcher, useNavigation } from "react-router";
 import type { UserChapter } from "~/features/auth/chapter.server";
 import type { Folder, FolderPermission } from "~/features/folders/folder-record";
 import type { FolderActionData } from "~/features/folders/list.server";
@@ -54,14 +49,14 @@ export function Breadcrumbs({ folders }: { folders: Folder[] }) {
   return (
     <nav
       aria-label="Breadcrumb"
-      className="flex min-w-0 items-center gap-1 overflow-hidden text-sm text-muted-foreground"
+      className="flex min-w-0 items-center gap-1 overflow-hidden text-sm text-muted"
     >
       <Link to="/folders" className="shrink-0 hover:text-foreground">
         Folders
       </Link>
       {folders.map((folder) => (
         <span key={folder.id} className="flex min-w-0 items-center gap-1">
-          <ChevronRight className="size-3.5 shrink-0" />
+          <Icons name="ChevronRight" aria-hidden="true" className="size-3.5 shrink-0" />
           <Link to={`/folders/${folder.id}`} className="truncate hover:text-foreground">
             {folder.name}
           </Link>
@@ -80,19 +75,19 @@ export function FolderActions({
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="outline" size="icon-sm" aria-label={`Actions for ${folder.name}`}>
-          <MoreHorizontal className="size-4" />
-        </Button>
+        <IconButton variant="outline" aria-label={`Actions for ${folder.name}`}>
+          <Icons name="MoreHorizontal" aria-hidden="true" className="size-4" />
+        </IconButton>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
         <DropdownMenuItem onSelect={onShare}>
-          <Share2 className="size-4" />
+          <Icons name="Share2" aria-hidden="true" className="size-4" />
           Share
         </DropdownMenuItem>
         <DropdownMenuItem onSelect={onRename}>Rename</DropdownMenuItem>
         <DropdownMenuSeparator />
-        <DropdownMenuItem variant="destructive" onSelect={onDelete}>
-          <Trash2 className="size-4" />
+        <DropdownMenuItem className="text-danger" onSelect={onDelete}>
+          <Icons name="Trash2" aria-hidden="true" className="size-4" />
           Delete…
         </DropdownMenuItem>
       </DropdownMenuContent>
@@ -105,21 +100,20 @@ export function CreateFolderForm({
 }: { fetcher: ReturnType<typeof useFetcher<FolderActionData>> }) {
   return (
     <DialogContent className="sm:max-w-md">
-      <DialogHeader>
+      <div className="space-y-2">
         <DialogTitle>Create folder</DialogTitle>
         <DialogDescription>New folders inherit this folder’s sharing settings.</DialogDescription>
-      </DialogHeader>
+      </div>
       <fetcher.Form method="post" className="space-y-4">
         <input type="hidden" name="intent" value="create" />
-        <div className="space-y-2">
-          <Label htmlFor="child-folder-name">Name</Label>
+        <FormField id="child-folder-name" label={<>Name</>} required>
           <Input id="child-folder-name" name="name" maxLength={48} autoFocus required />
-        </div>
-        <DialogFooter>
-          <SubmitButton pending={fetcher.state !== "idle"} pendingLabel="Creating">
+        </FormField>
+        <div className="flex flex-wrap justify-end gap-2">
+          <Button type="submit" loading={fetcher.state !== "idle"}>
             Create folder
-          </SubmitButton>
-        </DialogFooter>
+          </Button>
+        </div>
       </fetcher.Form>
     </DialogContent>
   );
@@ -131,16 +125,15 @@ export function RenameFolderForm({
 }: { fetcher: ReturnType<typeof useFetcher<FolderActionData>>; folder: Folder }) {
   return (
     <DialogContent className="sm:max-w-md">
-      <DialogHeader>
+      <div className="space-y-2">
         <DialogTitle>Rename folder</DialogTitle>
         <DialogDescription>
           Update the folder name for everyone who can access it.
         </DialogDescription>
-      </DialogHeader>
+      </div>
       <fetcher.Form method="post" className="space-y-4">
         <input type="hidden" name="intent" value="rename" />
-        <div className="space-y-2">
-          <Label htmlFor="folder-name">Name</Label>
+        <FormField id="folder-name" label={<>Name</>} required>
           <Input
             id="folder-name"
             name="name"
@@ -149,12 +142,12 @@ export function RenameFolderForm({
             autoFocus
             required
           />
-        </div>
-        <DialogFooter>
-          <SubmitButton pending={fetcher.state !== "idle"} pendingLabel="Renaming">
+        </FormField>
+        <div className="flex flex-wrap justify-end gap-2">
+          <Button type="submit" loading={fetcher.state !== "idle"}>
             Rename
-          </SubmitButton>
-        </DialogFooter>
+          </Button>
+        </div>
       </fetcher.Form>
     </DialogContent>
   );
@@ -173,16 +166,16 @@ export function ShareFolderDialog({
 }) {
   return (
     <DialogContent className="sm:max-w-lg">
-      <DialogHeader>
+      <div className="space-y-2">
         <DialogTitle>Share “{folder.name}”</DialogTitle>
         <DialogDescription>
           New links and folders created here start with these permissions.
         </DialogDescription>
-      </DialogHeader>
+      </div>
       <div className="space-y-4">
         <div className="rounded-md border">
           {permissions.length === 0 ? (
-            <p className="px-3 py-4 text-sm text-muted-foreground">Not shared with anyone.</p>
+            <p className="px-3 py-4 text-sm text-muted">Not shared with anyone.</p>
           ) : (
             <div className="px-3">
               {permissions.map((permission) => (
@@ -218,7 +211,7 @@ export function FolderPermissionRow({
     <div className="flex items-center gap-3 border-b py-2 last:border-b-0">
       <div className="min-w-0 flex-1">
         <p className="truncate text-sm font-medium">{label}</p>
-        <p className="text-xs text-muted-foreground">
+        <p className="text-xs text-muted">
           {permission.principalType === "chapter" ? "Chapter" : "Email"}
         </p>
       </div>
@@ -228,7 +221,7 @@ export function FolderPermissionRow({
             <input type="hidden" name="intent" value="updatePermissionRole" />
             <input type="hidden" name="permissionId" value={permission.id} />
             <Select name="role" defaultValue={permission.role}>
-              <SelectTrigger size="sm" className="h-8 w-24">
+              <SelectTrigger className="h-8 w-24">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -236,31 +229,30 @@ export function FolderPermissionRow({
                 <SelectItem value="viewer">Viewer</SelectItem>
               </SelectContent>
             </Select>
-            <SubmitButton
+            <Button
+              type="submit"
               variant="ghost"
               size="sm"
-              pending={active && navigation.formData?.get("intent") === "updatePermissionRole"}
-              pendingLabel="Saving"
+              loading={active && navigation.formData?.get("intent") === "updatePermissionRole"}
             >
               Save
-            </SubmitButton>
+            </Button>
           </Form>
           <Form method="post">
             <input type="hidden" name="intent" value="removePermission" />
             <input type="hidden" name="permissionId" value={permission.id} />
-            <SubmitButton
+            <IconButton
+              type="submit"
               variant="ghost"
-              size="icon-sm"
               aria-label="Remove"
-              pending={active && navigation.formData?.get("intent") === "removePermission"}
-              pendingLabel="Removing"
+              loading={active && navigation.formData?.get("intent") === "removePermission"}
             >
-              <Trash2 className="size-4 text-destructive" />
-            </SubmitButton>
+              <Icons name="Trash2" aria-hidden="true" className="size-4 text-danger" />
+            </IconButton>
           </Form>
         </>
       ) : (
-        <Badge variant="secondary">{permission.role}</Badge>
+        <Badge>{permission.role}</Badge>
       )}
     </div>
   );
@@ -276,7 +268,7 @@ export function ShareForm({ chapters }: { chapters: UserChapter[] }) {
   return (
     <Form
       method="post"
-      className="grid grid-cols-1 gap-2 rounded-md border bg-muted/20 p-3 sm:grid-cols-[120px_minmax(0,1fr)_108px_auto]"
+      className="grid grid-cols-1 gap-2 rounded-md border bg-surface/20 p-3 sm:grid-cols-[120px_minmax(0,1fr)_108px_auto]"
     >
       <input type="hidden" name="intent" value="addPermission" />
       <input type="hidden" name="principalType" value={principalType} />
@@ -284,7 +276,7 @@ export function ShareForm({ chapters }: { chapters: UserChapter[] }) {
         value={principalType}
         onValueChange={(value) => setPrincipalType(value as "user" | "chapter")}
       >
-        <SelectTrigger size="sm">
+        <SelectTrigger>
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
@@ -307,7 +299,7 @@ export function ShareForm({ chapters }: { chapters: UserChapter[] }) {
         <>
           <input type="hidden" name="principalId" value={chapterId} />
           <Select value={chapterId} onValueChange={setChapterId}>
-            <SelectTrigger size="sm">
+            <SelectTrigger>
               <SelectValue placeholder="Choose chapter" />
             </SelectTrigger>
             <SelectContent>
@@ -321,7 +313,7 @@ export function ShareForm({ chapters }: { chapters: UserChapter[] }) {
         </>
       )}
       <Select name="role" defaultValue="viewer">
-        <SelectTrigger size="sm">
+        <SelectTrigger>
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
@@ -329,14 +321,14 @@ export function ShareForm({ chapters }: { chapters: UserChapter[] }) {
           <SelectItem value="editor">Editor</SelectItem>
         </SelectContent>
       </Select>
-      <SubmitButton
+      <Button
+        type="submit"
         size="sm"
-        pending={pending}
-        pendingLabel="Sharing"
+        loading={pending}
         disabled={principalType === "user" ? !email.trim() : !chapterId}
       >
         Share
-      </SubmitButton>
+      </Button>
     </Form>
   );
 }

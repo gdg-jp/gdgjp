@@ -1,5 +1,5 @@
+import { Button } from "@gdgjp/design-system";
 import { useCallback, useState } from "react";
-import { Button } from "~/components/ui/button";
 
 type PickedItem = { id: string; name: string };
 
@@ -120,11 +120,16 @@ export function GoogleDrivePickerButton({
         variant="outline"
         size="sm"
         onClick={openPicker}
-        disabled={disabled || pending}
+        disabled={disabled}
+        loading={pending}
       >
         {pending ? "起動中…" : label}
       </Button>
-      {error ? <p className="text-sm text-destructive">{error}</p> : null}
+      {error ? (
+        <p role="alert" className="text-sm text-danger">
+          {error}
+        </p>
+      ) : null}
     </div>
   );
 }

@@ -1,4 +1,14 @@
-import { Button, Card, FormField, Heading, Icons, Input, Stack, Text } from "@gdgjp/design-system";
+import {
+  Card,
+  EmptyState,
+  FormField,
+  Icons,
+  InputGroup,
+  InputGroupAddon,
+  InputGroupInput,
+  ToggleGroup,
+  ToggleGroupItem,
+} from "@gdgjp/design-system";
 import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { PageHeader } from "~/components/page-header";
@@ -57,12 +67,10 @@ export default function ChaptersPage({ loaderData }: PageProps) {
 
       {items.length === 0 ? (
         <Card className="mt-6">
-          <Stack>
-            <Heading level={2} className="text-base">
-              {t("chapters.empty.title")}
-            </Heading>
-            <Text tone="muted">{t("chapters.empty.description")}</Text>
-          </Stack>
+          <EmptyState
+            title={t("chapters.empty.title")}
+            description={t("chapters.empty.description")}
+          />
         </Card>
       ) : (
         <>
@@ -73,50 +81,44 @@ export default function ChaptersPage({ loaderData }: PageProps) {
               hideLabel
               className="max-w-xl gap-0"
             >
-              <div className="relative">
-                <Icons
-                  name="Search"
-                  size={16}
-                  className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2"
-                  aria-hidden="true"
-                />
-                <Input
+              <InputGroup>
+                <InputGroupAddon>
+                  <Icons name="Search" size={16} aria-hidden="true" />
+                </InputGroupAddon>
+                <InputGroupInput
                   type="search"
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
                   placeholder={t("chapters.search.placeholder")}
-                  className="w-full pl-9"
                 />
-              </div>
+              </InputGroup>
             </FormField>
-            <fieldset className="flex gap-2 overflow-x-auto pb-1">
-              <legend className="sr-only">{t("chapters.filters.ariaLabel")}</legend>
+            <ToggleGroup
+              type="single"
+              role="radiogroup"
+              value={filter}
+              onValueChange={(value) => {
+                if (value) setFilter(value as ChapterFilter);
+              }}
+              aria-label={t("chapters.filters.ariaLabel")}
+              className="flex-wrap"
+            >
               {filters.map((item) => (
-                <Button
-                  key={item.value}
-                  type="button"
-                  variant={filter === item.value ? "primary" : "outline"}
-                  size="sm"
-                  aria-pressed={filter === item.value}
-                  onClick={() => setFilter(item.value)}
-                  className="shrink-0"
-                >
+                <ToggleGroupItem key={item.value} value={item.value}>
                   {item.label}
-                </Button>
+                </ToggleGroupItem>
               ))}
-            </fieldset>
+            </ToggleGroup>
           </div>
           {filtered.length === 0 ? (
             <Card className="mt-4">
-              <Stack>
-                <Heading level={2} className="text-base">
-                  {t("chapters.search.noMatches")}
-                </Heading>
-                <Text tone="muted">{t("chapters.search.noMatchesDescription")}</Text>
-              </Stack>
+              <EmptyState
+                title={t("chapters.search.noMatches")}
+                description={t("chapters.search.noMatchesDescription")}
+              />
             </Card>
           ) : (
-            <div className="mt-4 divide-y overflow-x-auto rounded-xl border border-border bg-surface">
+            <div className="mt-4 divide-y rounded-xl border border-border bg-surface">
               {filtered.map(({ chapter, state }) => (
                 <ChapterRow key={chapter.id} chapter={chapter} state={state} />
               ))}

@@ -1,5 +1,4 @@
-import { Label } from "~/components/ui/label";
-
+import { Checkbox, Label } from "@gdgjp/design-system";
 type Props = {
   checked: boolean;
   disabled?: boolean;
@@ -9,13 +8,11 @@ type Props = {
 /** Keeps crawler and OGP preview activity out of analytics unless explicitly requested. */
 export function AnalyticsAutomatedClicksToggle({ checked, disabled, onCheckedChange }: Props) {
   return (
-    <Label className="flex cursor-pointer items-center gap-2 text-xs font-normal text-muted-foreground">
-      <input
-        type="checkbox"
+    <Label className="flex cursor-pointer items-center gap-2 text-xs font-normal text-muted">
+      <Checkbox
         checked={checked}
         disabled={disabled}
-        onChange={(event) => onCheckedChange(event.target.checked)}
-        className="size-4 rounded border-input accent-primary"
+        onCheckedChange={(value) => onCheckedChange(value === true)}
       />
       Include bot and OGP clicks
     </Label>

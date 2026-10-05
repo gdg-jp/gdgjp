@@ -11,7 +11,9 @@ import {
   FormField,
   Heading,
   Icons,
-  Input,
+  InputGroup,
+  InputGroupAddon,
+  InputGroupInput,
   Stack,
   Text,
   toast,
@@ -103,21 +105,17 @@ export default function OrganizeChapter({ loaderData }: { loaderData: LoaderData
                 hideLabel
                 className="max-w-md gap-0"
               >
-                <div className="relative">
-                  <Icons
-                    name="Search"
-                    size={16}
-                    className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2"
-                    aria-hidden="true"
-                  />
-                  <Input
+                <InputGroup>
+                  <InputGroupAddon>
+                    <Icons name="Search" size={16} aria-hidden="true" />
+                  </InputGroupAddon>
+                  <InputGroupInput
                     type="search"
                     value={query}
                     onChange={(event) => setQuery(event.target.value)}
                     placeholder={t("organize.search.placeholder")}
-                    className="w-full pl-9"
                   />
-                </div>
+                </InputGroup>
               </FormField>
             ) : null}
             {members.length === 0 ? (

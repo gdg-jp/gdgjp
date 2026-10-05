@@ -1,13 +1,26 @@
-import { MAX_IMAGE_UPLOAD_BYTES } from "@gdgjp/gdg-lib";
 import {
-  CircleHelp,
-  Download,
-  ImagePlus,
-  LoaderCircle,
-  RefreshCw,
-  Shuffle,
-  Upload,
-} from "lucide-react";
+  Alert,
+  Button,
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogTitle,
+  DialogTrigger,
+  FormField,
+  IconButton,
+  Icons,
+  Input,
+  Label,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+  Textarea,
+  toast,
+} from "@gdgjp/design-system";
+import { MAX_IMAGE_UPLOAD_BYTES } from "@gdgjp/gdg-lib";
 import { QRCodeSVG } from "qrcode.react";
 import {
   type ChangeEvent,
@@ -18,29 +31,6 @@ import {
   useState,
 } from "react";
 import { Link, useFetcher, useNavigation } from "react-router";
-import { toast } from "sonner";
-import { Alert, AlertDescription, AlertTitle } from "~/components/ui/alert";
-import { Button } from "~/components/ui/button";
-import {
-  Dialog,
-  DialogClose,
-  DialogContent,
-  DialogDescription,
-  DialogTitle,
-  DialogTrigger,
-} from "~/components/ui/dialog";
-import { FieldLabel } from "~/components/ui/field-label";
-import { Input } from "~/components/ui/input";
-import { Label } from "~/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "~/components/ui/select";
-import { SubmitButton } from "~/components/ui/submit-button";
-import { Textarea } from "~/components/ui/textarea";
 import type { UserChapter } from "~/features/auth/chapter.server";
 import type { ApiLinksActionData } from "~/features/links/link-http.types";
 import type { LinkVisibility } from "~/features/links/link-record";
@@ -314,8 +304,7 @@ function CreateLinkForm({
             <input type="hidden" name="folderId" value={defaultFolderId} />
           ) : null}
 
-          <div className="space-y-2">
-            <FieldLabel htmlFor="create-destinationUrl">Destination URL</FieldLabel>
+          <FormField id="create-destinationUrl" label={<>Destination URL</>} required>
             <Input
               id="create-destinationUrl"
               name="destinationUrl"
@@ -328,20 +317,19 @@ function CreateLinkForm({
                 if (destinationUrl && !title && !description && !ogImageUrl) fetchOgpNow();
               }}
             />
-          </div>
+          </FormField>
 
           <div className="space-y-2">
             <div className="flex items-center justify-between">
-              <FieldLabel htmlFor="create-slug">Short Link</FieldLabel>
-              <Button
+              <Label htmlFor="create-slug">Short Link</Label>
+              <IconButton
                 type="button"
                 variant="ghost"
-                size="icon-xs"
                 aria-label="Generate random slug"
                 onClick={() => setSlug(generateRandomSlug(7))}
               >
-                <Shuffle className="size-3.5" />
-              </Button>
+                <Icons name="Waypoints" aria-hidden="true" className="size-3.5" />
+              </IconButton>
             </div>
             <div className="flex min-w-0 gap-2">
               <input type="hidden" name="domainId" value={domainId} />
@@ -350,7 +338,7 @@ function CreateLinkForm({
                   <SelectTrigger
                     id="create-domain"
                     aria-label="Short link domain"
-                    className="h-9 min-w-32 bg-muted text-muted-foreground shadow-none"
+                    className="h-9 min-w-32 bg-surface text-muted shadow-none"
                   >
                     <SelectValue />
                   </SelectTrigger>
@@ -365,15 +353,14 @@ function CreateLinkForm({
                 {isGoLinkDomain ? (
                   <Dialog open={goLinksHelpOpen} onOpenChange={setGoLinksHelpOpen}>
                     <DialogTrigger asChild>
-                      <Button
+                      <IconButton
                         type="button"
                         variant="ghost"
-                        size="icon-xs"
                         aria-label="How to use go links in Chrome"
                         className="absolute top-1/2 right-8 z-10 -translate-y-1/2"
                       >
-                        <CircleHelp className="size-4" />
-                      </Button>
+                        <Icons name="CircleHelp" aria-hidden="true" className="size-4" />
+                      </IconButton>
                     </DialogTrigger>
                     <DialogContent className="max-w-[24rem] gap-0 overflow-hidden p-0 sm:max-w-[24rem]">
                       <div className="border-b px-5 py-4 pr-14">
@@ -384,17 +371,17 @@ function CreateLinkForm({
                         </DialogDescription>
                       </div>
                       <div className="space-y-5 px-5 py-4">
-                        <Button asChild className="w-full">
+                        <Button fullWidth asChild className="">
                           <a href="https://github.com/gdg-jp/gdgjp/releases/latest/download/gdg-japan-go-links.zip">
-                            <Download className="size-4" />
+                            <Icons name="Download" aria-hidden="true" className="size-4" />
                             Download Chrome Extension
                           </a>
                         </Button>
-                        <ol className="list-decimal space-y-2 pl-5 text-sm text-muted-foreground">
+                        <ol className="list-decimal space-y-2 pl-5 text-sm text-muted">
                           <li>Download and unzip the extension file.</li>
                           <li>
                             Open{" "}
-                            <code className="rounded bg-muted px-1 py-0.5">
+                            <code className="rounded bg-surface px-1 py-0.5">
                               chrome://extensions
                             </code>{" "}
                             in Chrome.
@@ -428,11 +415,11 @@ function CreateLinkForm({
 
           <div className="space-y-3">
             <div className="flex items-center justify-between">
-              <FieldLabel>Tags</FieldLabel>
+              <Label>Tags</Label>
               <Link
                 to="/tags"
                 prefetch="intent"
-                className="text-xs text-muted-foreground hover:text-foreground"
+                className="text-xs text-muted hover:text-foreground"
               >
                 Manage
               </Link>
@@ -459,8 +446,7 @@ function CreateLinkForm({
             ))}
           </div>
 
-          <div className="space-y-2">
-            <FieldLabel htmlFor="create-comment">Comment</FieldLabel>
+          <FormField id="create-comment" label={<>Comment</>}>
             <Textarea
               id="create-comment"
               name="comment"
@@ -470,16 +456,16 @@ function CreateLinkForm({
               value={comment}
               onChange={(e) => setComment(e.target.value)}
             />
-          </div>
+          </FormField>
 
           <div className="space-y-2">
-            <FieldLabel htmlFor="create-visibility">Visibility</FieldLabel>
+            <Label htmlFor="create-visibility">Visibility</Label>
             <input type="hidden" name="visibility" value={visibility} />
             <Select
               value={visibility}
               onValueChange={(value) => setVisibility(value as LinkVisibility)}
             >
-              <SelectTrigger id="create-visibility" size="sm" className="w-full min-w-0">
+              <SelectTrigger id="create-visibility" className="w-full min-w-0">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -492,10 +478,10 @@ function CreateLinkForm({
           </div>
 
           <div className="space-y-3">
-            <FieldLabel>Sharing</FieldLabel>
-            <div className="rounded-md border bg-card">
+            <Label>Sharing</Label>
+            <div className="rounded-md border bg-surface">
               {pendingShares.length === 0 ? (
-                <p className="px-3 py-4 text-sm text-muted-foreground">Not shared with anyone.</p>
+                <p className="px-3 py-4 text-sm text-muted">Not shared with anyone.</p>
               ) : (
                 <div className="divide-y">
                   {pendingShares.map((share) => (
@@ -510,12 +496,12 @@ function CreateLinkForm({
                             )?.chapterSlug ?? share.principalId)
                           : share.principalId}
                       </span>
-                      <span className="flex items-center gap-2 text-xs text-muted-foreground">
+                      <span className="flex items-center gap-2 text-xs text-muted">
                         {share.role === "editor" ? "Editor" : "Viewer"}
                         <Button
                           type="button"
                           variant="ghost"
-                          size="xs"
+                          size="sm"
                           onClick={() =>
                             setPendingShares((shares) =>
                               shares.filter(
@@ -534,7 +520,7 @@ function CreateLinkForm({
                 </div>
               )}
             </div>
-            <div className="grid gap-2 rounded-md border bg-card p-3 sm:grid-cols-[140px_1fr_120px_auto]">
+            <div className="grid gap-2 rounded-md border bg-surface p-3 sm:grid-cols-[140px_1fr_120px_auto]">
               {pendingShares.map((share) => (
                 <input
                   key={`${share.principalType}-${share.principalId}`}
@@ -553,7 +539,7 @@ function CreateLinkForm({
                   );
                 }}
               >
-                <SelectTrigger size="sm">
+                <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -573,7 +559,7 @@ function CreateLinkForm({
                 />
               ) : (
                 <Select value={sharePrincipalId} onValueChange={setSharePrincipalId}>
-                  <SelectTrigger size="sm">
+                  <SelectTrigger>
                     <SelectValue placeholder="Choose a chapter" />
                   </SelectTrigger>
                   <SelectContent>
@@ -589,7 +575,7 @@ function CreateLinkForm({
                 value={shareRole}
                 onValueChange={(value) => setShareRole(value as "viewer" | "editor")}
               >
-                <SelectTrigger size="sm">
+                <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -627,8 +613,8 @@ function CreateLinkForm({
 
         <div className="min-w-0 space-y-5">
           <div className="space-y-2">
-            <FieldLabel>QR Code</FieldLabel>
-            <div className="flex items-center justify-center rounded-md border bg-card p-4">
+            <Label>QR Code</Label>
+            <div className="flex items-center justify-center rounded-md border bg-surface p-4">
               <QRCodeSVG
                 value={apexShortUrl}
                 size={112}
@@ -636,27 +622,29 @@ function CreateLinkForm({
                 className="dark:[&_path:last-of-type]:fill-white"
               />
             </div>
-            <p className="break-all text-center font-mono text-xs text-muted-foreground">
-              {shortDisplay}
-            </p>
+            <p className="break-all text-center font-mono text-xs text-muted">{shortDisplay}</p>
           </div>
 
           <div className="space-y-3">
             <div className="flex items-center justify-between">
-              <FieldLabel>Custom Link Preview</FieldLabel>
+              <Label>Custom Link Preview</Label>
               <Button
                 type="button"
                 variant="ghost"
-                size="xs"
+                size="sm"
                 onClick={() => fetchOgpNow()}
                 disabled={isFetchingOgp || !destinationUrl}
               >
-                <RefreshCw className={`size-3 ${isFetchingOgp ? "animate-spin" : ""}`} />
+                <Icons
+                  name="RefreshCw"
+                  aria-hidden="true"
+                  className={`size-3 ${isFetchingOgp ? "animate-spin" : ""}`}
+                />
                 Fetch
               </Button>
             </div>
 
-            <div className="overflow-hidden rounded-md border bg-card">
+            <div className="overflow-hidden rounded-md border bg-surface">
               <input
                 ref={imageInputRef}
                 type="file"
@@ -665,8 +653,10 @@ function CreateLinkForm({
                 disabled={isUploadingImage}
                 onChange={onImageChange}
               />
-              <button
+              <Button
+                variant="ghost"
                 type="button"
+                fullWidth
                 aria-label="Upload a custom preview image"
                 disabled={isUploadingImage}
                 onClick={() => imageInputRef.current?.click()}
@@ -674,7 +664,7 @@ function CreateLinkForm({
                 onDragOver={onImageDragOver}
                 onDragLeave={onImageDragLeave}
                 onDrop={onImageDrop}
-                className={`group relative block aspect-video w-full overflow-hidden bg-muted text-xs text-muted-foreground outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ${
+                className={`group relative block aspect-video overflow-hidden bg-surface text-xs text-muted outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ${
                   isDraggingImage ? "bg-primary/15 ring-2 ring-primary ring-inset" : ""
                 }`}
               >
@@ -682,12 +672,12 @@ function CreateLinkForm({
                   <img src={ogImageUrl} alt="OGP preview" className="size-full object-cover" />
                 ) : (
                   <span className="flex size-full flex-col items-center justify-center gap-2">
-                    <ImagePlus className="size-5" aria-hidden="true" />
+                    <Icons name="GalleryThumbnails" aria-hidden="true" className="size-5" />
                     Click or drop an image
                   </span>
                 )}
                 <span
-                  className={`absolute inset-0 flex flex-col items-center justify-center gap-2 bg-black/60 text-white transition-opacity ${
+                  className={`absolute inset-0 flex flex-col items-center justify-center gap-2 bg-surface/90 text-foreground transition-opacity ${
                     isUploadingImage || isDraggingImage
                       ? "opacity-100"
                       : ogImageUrl
@@ -696,9 +686,9 @@ function CreateLinkForm({
                   }`}
                 >
                   {isUploadingImage ? (
-                    <LoaderCircle className="size-5 animate-spin" aria-hidden="true" />
+                    <Icons name="LoaderCircle" aria-hidden="true" className="size-5 animate-spin" />
                   ) : (
-                    <Upload className="size-5" aria-hidden="true" />
+                    <Icons name="Upload" aria-hidden="true" className="size-5" />
                   )}
                   {isUploadingImage
                     ? "Uploading to img…"
@@ -706,31 +696,25 @@ function CreateLinkForm({
                       ? "Drop to upload"
                       : "Replace image"}
                 </span>
-              </button>
+              </Button>
               <div className="space-y-1 px-3 py-2">
                 <p className="truncate text-sm font-medium">{title || previewHost || "Untitled"}</p>
                 {description ? (
-                  <p className="line-clamp-2 text-xs text-muted-foreground">{description}</p>
+                  <p className="line-clamp-2 text-xs text-muted">{description}</p>
                 ) : null}
               </div>
             </div>
 
             <div className="space-y-3">
-              <div className="space-y-1.5">
-                <Label htmlFor="create-title" className="text-xs text-muted-foreground">
-                  Title
-                </Label>
+              <FormField id="create-title" label={<>Title</>}>
                 <Input
                   id="create-title"
                   name="title"
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
                 />
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="create-description" className="text-xs text-muted-foreground">
-                  Description
-                </Label>
+              </FormField>
+              <FormField id="create-description" label={<>Description</>}>
                 <Textarea
                   id="create-description"
                   name="description"
@@ -738,11 +722,8 @@ function CreateLinkForm({
                   onChange={(e) => setDescription(e.target.value)}
                   rows={2}
                 />
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="create-ogImageUrl" className="text-xs text-muted-foreground">
-                  Image URL
-                </Label>
+              </FormField>
+              <FormField id="create-ogImageUrl" label={<>Image URL</>}>
                 <Input
                   id="create-ogImageUrl"
                   name="ogImageUrl"
@@ -750,7 +731,7 @@ function CreateLinkForm({
                   value={ogImageUrl}
                   onChange={(e) => setOgImageUrl(e.target.value)}
                 />
-              </div>
+              </FormField>
             </div>
           </div>
         </div>
@@ -758,9 +739,8 @@ function CreateLinkForm({
 
       {error ? (
         <div className="px-5 pb-4 md:px-6">
-          <Alert variant="destructive">
-            <AlertTitle>Error</AlertTitle>
-            <AlertDescription>{error}</AlertDescription>
+          <Alert tone="danger" title="Error">
+            {error}
           </Alert>
         </div>
       ) : null}
@@ -771,9 +751,9 @@ function CreateLinkForm({
             Cancel
           </Button>
         </DialogClose>
-        <SubmitButton pending={isSubmitting} pendingLabel="Creating…" disabled={isUploadingImage}>
+        <Button type="submit" loading={isSubmitting} disabled={isUploadingImage}>
           {isSubmitting ? "Creating…" : "Create link"}
-        </SubmitButton>
+        </Button>
       </div>
     </createFetcher.Form>
   );

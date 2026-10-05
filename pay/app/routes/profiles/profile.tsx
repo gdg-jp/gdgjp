@@ -1,7 +1,5 @@
-import { Form } from "react-router";
-import { Button } from "~/components/ui/button";
-import { Input } from "~/components/ui/input";
-import { Label } from "~/components/ui/label";
+import { Alert, Button, Card, FormField, Input, PageHeader } from "@gdgjp/design-system";
+import { Form, Link } from "react-router";
 import { Header } from "~/layouts/header";
 
 import { redirect } from "react-router";
@@ -57,59 +55,46 @@ export default function ProfilePage({ loaderData, actionData }: Route.ComponentP
   return (
     <div className="min-h-dvh bg-background">
       <Header user={{ name: user.name, email: user.email, image: user.image }} />
-      <main className="mx-auto max-w-xl space-y-6 px-4 py-10">
-        <div>
-          <h1 className="text-2xl font-semibold">本名・振込先口座</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            経費精算スプレッドシートに転記される情報です。口座番号は暗号化して保存されます。
-          </p>
-        </div>
+      <main className="mx-auto max-w-xl space-y-6 px-4 py-6 sm:py-8">
+        <PageHeader
+          back={
+            <Link to="/" className="text-sm text-link hover:underline">
+              イベント一覧
+            </Link>
+          }
+          title="本名・振込先口座"
+          description={
+            <> 経費精算スプレッドシートに転記される情報です。口座番号は暗号化して保存されます。 </>
+          }
+        />
         {actionData && "error" in actionData ? (
-          <p className="text-sm text-destructive">{actionData.error}</p>
+          <Alert tone="danger" title={actionData.error} />
         ) : null}
-        <Form method="post" className="space-y-4 rounded-xl border p-5">
-          <div className="space-y-2">
-            <Label htmlFor="legalName">申請者氏名（本名）</Label>
-            <Input
-              id="legalName"
-              name="legalName"
-              required
-              defaultValue={profile?.legalName ?? ""}
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="bankName">銀行名</Label>
-            <Input id="bankName" name="bankName" required defaultValue={profile?.bankName ?? ""} />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="branchName">支店名</Label>
-            <Input
-              id="branchName"
-              name="branchName"
-              required
-              defaultValue={profile?.branchName ?? ""}
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="accountType">口座種別</Label>
-            <Input
-              id="accountType"
-              name="accountType"
-              defaultValue={profile?.accountType ?? "普通"}
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="accountNumber">口座番号</Label>
-            <Input
-              id="accountNumber"
-              name="accountNumber"
-              required
-              inputMode="numeric"
-              defaultValue={profile?.accountNumber ?? ""}
-            />
-          </div>
-          <Button type="submit">保存する</Button>
-        </Form>
+        <Card>
+          <Form method="post" className="space-y-4">
+            <FormField id="legalName" label="申請者氏名（本名）" required>
+              <Input name="legalName" required defaultValue={profile?.legalName ?? ""} />
+            </FormField>
+            <FormField id="bankName" label="銀行名" required>
+              <Input name="bankName" required defaultValue={profile?.bankName ?? ""} />
+            </FormField>
+            <FormField id="branchName" label="支店名" required>
+              <Input name="branchName" required defaultValue={profile?.branchName ?? ""} />
+            </FormField>
+            <FormField id="accountType" label="口座種別">
+              <Input name="accountType" defaultValue={profile?.accountType ?? "普通"} />
+            </FormField>
+            <FormField id="accountNumber" label="口座番号" required>
+              <Input
+                name="accountNumber"
+                required
+                inputMode="numeric"
+                defaultValue={profile?.accountNumber ?? ""}
+              />
+            </FormField>
+            <Button type="submit">保存する</Button>
+          </Form>
+        </Card>
       </main>
     </div>
   );
