@@ -16,28 +16,32 @@ export type BarTab = {
 export function TabbedBarCard({
   tabs,
   tone = "blue",
-  meta = "CLICKS",
 }: {
   tabs: BarTab[];
   tone?: BarTone;
-  meta?: string;
 }) {
   const [active, setActive] = useState(tabs[0]?.key ?? "");
   const current = tabs.find((t) => t.key === active) ?? tabs[0];
   if (!current) return null;
   return (
-    <Card className="gap-0 py-0">
+    <Card className="min-w-0 p-0">
       <Tabs value={current.key} onValueChange={setActive}>
-        <Stack>
-          <div className="flex items-center justify-between gap-3 border-b px-5 pt-4">
-            <TabsList aria-label="Analytics breakdown">
+        <Stack className="gap-0">
+          <div className="flex min-w-0 items-center border-b px-5 pt-2">
+            <TabsList
+              className="min-w-0 flex-nowrap overflow-x-auto"
+              aria-label="Analytics breakdown"
+            >
               {tabs.map((tab) => (
-                <TabsTrigger key={tab.key} value={tab.key}>
+                <TabsTrigger
+                  className="min-h-8 shrink-0 whitespace-nowrap px-2 py-1 pointer-coarse:min-h-11"
+                  key={tab.key}
+                  value={tab.key}
+                >
                   {tab.label}
                 </TabsTrigger>
               ))}
             </TabsList>
-            <span className="pb-3 text-[10px] font-medium tracking-wider text-muted">{meta}</span>
           </div>
           <TabsContent value={current.key} className="px-5 py-4">
             <BarList

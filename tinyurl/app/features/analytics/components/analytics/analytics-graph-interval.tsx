@@ -1,5 +1,4 @@
 import {
-  Button,
   IconButton,
   Icons,
   Input,
@@ -81,7 +80,7 @@ export function AnalyticsGraphInterval({
         aria-label="Graph interval amount"
         aria-invalid={Boolean(error)}
         disabled={pending}
-        className="h-[30px] w-[60px] px-2 font-mono text-xs shadow-none"
+        className="h-8 w-20 shrink-0 px-2 font-mono text-sm shadow-none"
       />
       <Select
         value={unit}
@@ -90,7 +89,7 @@ export function AnalyticsGraphInterval({
       >
         <SelectTrigger
           aria-label="Graph interval unit"
-          className="w-20 px-2 text-xs shadow-none data-[size=sm]:h-[30px]"
+          className="h-8 min-w-24 shrink-0 gap-2 px-2 text-sm shadow-none"
         >
           <SelectValue />
         </SelectTrigger>
@@ -102,6 +101,7 @@ export function AnalyticsGraphInterval({
         </SelectContent>
       </Select>
       <IconButton
+        size="sm"
         type="submit"
         variant="ghost"
         disabled={pending}
@@ -112,6 +112,7 @@ export function AnalyticsGraphInterval({
       </IconButton>
       {value ? (
         <IconButton
+          size="sm"
           type="button"
           variant="ghost"
           disabled={pending}

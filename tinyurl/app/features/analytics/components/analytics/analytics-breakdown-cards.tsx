@@ -146,14 +146,13 @@ function DeviceIcon({ row }: { row: TopRow }) {
 
 function AnalyticsTabbedBarCardSkeleton() {
   return (
-    <Card className="gap-0 py-0" aria-hidden>
-      <Stack>
-        <div className="flex items-center justify-between gap-3 border-b px-5 pt-4">
-          <div className="flex items-center gap-3 pb-3">
+    <Card className="min-w-0 p-0" aria-hidden>
+      <Stack className="gap-0">
+        <div className="flex items-center border-b px-5 pt-2">
+          <div className="flex items-center gap-3 pb-2">
             <Skeleton className="h-4 w-20" />
             <Skeleton className="h-4 w-16" />
           </div>
-          <Skeleton className="mb-3 h-3 w-10" />
         </div>
         <div className="space-y-3 px-5 py-4" style={{ minHeight: 272 }}>
           {["first", "second", "third", "fourth", "fifth"].map((key, index) => (
