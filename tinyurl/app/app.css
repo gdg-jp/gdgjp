@@ -6,6 +6,8 @@
 
 :root {
   --motion-ease-out: var(--gdg-ease-out);
+  --gdg-control-height: 36px;
+  --gdg-text-2xl: 24px;
 }
 
 .motion-import-reveal {

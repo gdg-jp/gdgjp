@@ -1,7 +1,6 @@
 import {
   Avatar,
   Badge,
-  Button,
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -156,19 +155,20 @@ export function LinkCard({
                 {shortDisplay}
               </span>
 
-              <Button
+              <IconButton
                 variant="ghost"
+                size="sm"
                 type="button"
                 onClick={copyShort}
                 aria-label={copyFeedback ? "Copied short URL" : "Copy short URL"}
-                className="relative z-10 shrink-0 rounded p-1 text-muted transition hover:bg-selected hover:text-foreground focus-visible:opacity-100 sm:opacity-60 sm:hover:opacity-100"
+                className="relative z-10 shrink-0 rounded p-1 text-muted transition hover:bg-selected hover:text-foreground focus-visible:opacity-100 sm:opacity-60 sm:hover:opacity-100 [--gdg-control-sm:24px]"
               >
                 {copyFeedback ? (
                   <Icons name="Check" aria-hidden="true" className="size-3.5" />
                 ) : (
                   <Icons name="Copy" aria-hidden="true" className="size-3.5" />
                 )}
-              </Button>
+              </IconButton>
             </div>
           ) : null}
 
@@ -209,6 +209,7 @@ export function LinkCard({
           {properties.includes("creator") ? (
             <span className="hidden sm:inline-flex">
               <Avatar
+                className="size-6 shrink-0"
                 title={owner?.name || owner?.email || "Owner"}
                 src={owner?.image ?? undefined}
                 alt={owner?.name || owner?.email || ""}
@@ -324,12 +325,13 @@ export function LinkCard({
               </div>
             ) : null}
 
-            <Button
+            <IconButton
               variant="ghost"
+              size="sm"
               type="button"
               onClick={copyShort}
               aria-label={copyFeedback ? "Copied short URL" : "Copy short URL"}
-              className={`relative z-10 rounded p-1 transition-colors transition-opacity focus-visible:opacity-100 ${
+              className={`relative z-10 rounded p-1 transition-colors transition-opacity focus-visible:opacity-100 [--gdg-control-sm:24px] ${
                 copyFeedback
                   ? "bg-primary/10 text-primary"
                   : "text-muted hover:bg-selected hover:text-foreground"
@@ -340,7 +342,7 @@ export function LinkCard({
               ) : (
                 <Icons name="Copy" aria-hidden="true" className="size-3.5" />
               )}
-            </Button>
+            </IconButton>
           </div>
           {campaign ? (
             <div className="flex min-w-0 items-center gap-1.5 text-[11px] text-muted">
@@ -397,6 +399,7 @@ export function LinkCard({
           <div className="hidden items-center gap-2 sm:flex">
             {properties.includes("creator") ? (
               <Avatar
+                className="size-6 shrink-0"
                 title={owner?.name || owner?.email || "Owner"}
                 src={owner?.image ?? undefined}
                 alt={owner?.name || owner?.email || ""}
@@ -463,6 +466,7 @@ function LinkActionsMenu({
       <DropdownMenuTrigger asChild>
         <IconButton
           variant="ghost"
+          size="sm"
           aria-label="Link actions"
           className="relative z-10 col-start-3 row-start-1 shrink-0 self-center"
         >

@@ -13,13 +13,16 @@ import { GDG_APP_LINKS } from "@gdgjp/gdg-lib/ui/app-links";
 export type UserMenuUser = { email: string; image: string | null; name: string };
 export function UserMenu({
   user,
+  launcherPosition = "left",
 }: { launcherPosition?: "left" | "right"; user: UserMenuUser | null }) {
   if (!user) return null;
   return (
-    <div className="flex items-center gap-1">
+    <div
+      className={`flex items-center gap-1 ${launcherPosition === "right" ? "flex-row-reverse" : ""}`}
+    >
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <IconButton variant="ghost" aria-label="GDG アプリ">
+          <IconButton size="sm" variant="ghost" aria-label="GDG アプリ">
             <Icons name="LayoutGrid" aria-hidden="true" size={20} />
           </IconButton>
         </DropdownMenuTrigger>
@@ -37,8 +40,13 @@ export function UserMenu({
       </DropdownMenu>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <IconButton variant="ghost" aria-label="アカウントメニュー">
-            <Avatar src={user.image ?? undefined} alt="" fallback={user.name.slice(0, 1)} />
+          <IconButton size="sm" variant="ghost" aria-label="アカウントメニュー" className="p-1">
+            <Avatar
+              className="size-6 shrink-0"
+              src={user.image ?? undefined}
+              alt=""
+              fallback={user.name.slice(0, 1)}
+            />
           </IconButton>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">

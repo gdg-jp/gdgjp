@@ -53,7 +53,8 @@ export function DashboardShell({
   const rootData = useRouteLoaderData("root") as { domainsEnabled?: boolean } | undefined;
   return (
     <AppShell
-      collapsible="icon"
+      collapsible="none"
+      mainClassName="w-full max-w-none"
       brand={
         <Link to="/links" className="flex items-center gap-2">
           <GdgMark size="sm" />
@@ -88,11 +89,13 @@ export function DashboardShell({
           ))}
         </SidebarNav>
       }
-      header={
-        <div className="ml-auto flex min-w-0 items-center gap-2">
+      footer={
+        <div className="flex min-w-0 items-center gap-1">
+          <UserMenu user={user} launcherPosition="right" />
+          <div className="ml-auto">
+            <ThemeToggle aria-label="Toggle theme" />
+          </div>
           {navigation.state !== "idle" && <Spinner label="Loading page" />}
-          <ThemeToggle aria-label="配色" />
-          <UserMenu user={user} />
         </div>
       }
     >

@@ -106,7 +106,7 @@ export function CreateLinkDialog({
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>{trigger}</DialogTrigger>
-      <DialogContent className="top-0 left-0 h-dvh max-h-dvh w-full max-w-none translate-x-0 translate-y-0 overflow-hidden rounded-none border-0 p-0 sm:top-1/2 sm:left-1/2 sm:h-auto sm:max-h-[calc(100dvh-2rem)] sm:max-w-3xl sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-lg sm:border">
+      <DialogContent className="top-0 left-0 h-dvh max-h-dvh w-full max-w-none translate-x-0 translate-y-0 overflow-hidden rounded-none p-0 sm:top-1/2 sm:left-1/2 sm:h-auto sm:max-h-[calc(100dvh-2rem)] sm:max-w-4xl sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-lg">
         {open ? (
           <CreateLinkForm
             availableTags={availableTags}
@@ -520,7 +520,7 @@ function CreateLinkForm({
                 </div>
               )}
             </div>
-            <div className="grid gap-2 rounded-md border bg-surface p-3 sm:grid-cols-[140px_1fr_120px_auto]">
+            <div className="grid min-w-0 grid-cols-2 gap-2 rounded-md border bg-surface p-3 lg:grid-cols-[112px_minmax(0,1fr)_100px_auto]">
               {pendingShares.map((share) => (
                 <input
                   key={`${share.principalType}-${share.principalId}`}
