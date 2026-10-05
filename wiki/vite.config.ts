@@ -11,6 +11,8 @@ const e2ePersistencePath = process.env[E2E_PERSISTENCE_ENV]
   : undefined;
 
 export default defineConfig({
+  // A running dev server must not rewrite the E2E dependency cache during hydration.
+  cacheDir: e2ePersistencePath ? "node_modules/.vite-e2e" : undefined,
   // Pin to a fixed port so the IdP redirect URL
   // (http://localhost:5177/api/auth/oauth2/callback/gdgjp registered in
   // accounts/.dev.vars.example) and wiki/.dev.vars APP_URL stay correct
@@ -21,7 +23,7 @@ export default defineConfig({
     cloudflare({
       viteEnvironment: { name: "ssr" },
       remoteBindings: false,
-      inspectorPort: 9277,
+      inspectorPort: e2ePersistencePath ? false : 9277,
       ...(e2ePersistencePath ? { persistState: { path: e2ePersistencePath } } : {}),
     }),
     reactRouter(),
