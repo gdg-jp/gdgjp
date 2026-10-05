@@ -1,6 +1,6 @@
 import { AsyncLocalStorage } from "node:async_hooks";
 import { createRequestHandler } from "react-router";
-import { getSessionUser, warmAuth } from "~/features/auth/auth.server";
+import { warmAuth } from "~/features/auth/auth.server";
 import { seedBetterAuthAsyncLocalStorage } from "~/features/auth/seed-better-auth-als.server";
 import { seedClients } from "~/features/oauth/seed-clients.server";
 
@@ -35,14 +35,6 @@ export default {
     // poison the module-scoped init promise for the rest of this isolate.
     ctx.waitUntil(warmAuth(env));
     if (env.E2E_TEST_MODE === "true") await seedE2eClients(env);
-    const url = new URL(request.url);
-    if (
-      env.E2E_TEST_MODE === "true" &&
-      url.pathname === "/api/auth/oauth2/authorize" &&
-      !(await getSessionUser(env, request))
-    ) {
-      return Response.redirect(`${url.origin}/signin?${url.searchParams}`, 302);
-    }
     return requestHandler(request, { cloudflare: { env, ctx } });
   },
 } satisfies ExportedHandler<Env>;

@@ -8,6 +8,12 @@ export default defineConfig({
   // Pin to a fixed port so RP `.dev.vars` IDP_URL=http://localhost:5173 stays
   // correct regardless of which app `pnpm dev` starts first.
   server: { port: 5173, strictPort: true },
+  // Pre-bundle the linked UI package before requests arrive. Discovering its
+  // dependencies during SSR can invalidate modules already loaded by workerd.
+  optimizeDeps: { include: ["@gdgjp/design-system"] },
+  environments: {
+    ssr: { optimizeDeps: { include: ["@gdgjp/design-system"] } },
+  },
   plugins: [
     cloudflare({ viteEnvironment: { name: "ssr" }, remoteBindings: false, inspectorPort: 9273 }),
     reactRouter(),
