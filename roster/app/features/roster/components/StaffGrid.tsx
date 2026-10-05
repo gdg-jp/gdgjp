@@ -15,10 +15,8 @@ type TrackInfo = { name: string; color: string };
  * (docs/roster/07-roster-manual-edit.md "Design" §3a). One column per staff
  * member's whole day; reading across a row answers "who is where right now".
  *
- * A cell shows the role name and the track name (never the experience
- * level — that's the column header's job, ADR-005 in spirit even though
- * this is the owner-only screen) with the track's color as a background
- * tint so a same-track run reads as a solid stripe down the column.
+ * A cell shows the role name and track name (never the experience level —
+ * that's the column header's job, ADR-005).
  *
  * Layout comes entirely from the shared `.data-grid*` classes in `app.css`
  * (see that file's "2 次元表" block) rather than per-component Tailwind: the
@@ -41,8 +39,7 @@ export function StaffGrid({
   roleNameById: ReadonlyMap<string, string>;
   onCellClick: (applicationId: string, slotId: string) => void;
   /** Application ids matching the name search (`GridSearch`). Their column
-   * header lights up; the cells keep their track colour so the vertical
-   * stripe stays readable. */
+   * header lights up while the cells remain easy to scan. */
   matchedIds?: ReadonlySet<string>;
 }) {
   const byAppSlot = useMemo(() => {
@@ -124,7 +121,6 @@ export function StaffGrid({
                               : "：空き"
                         }`}
                         className={cellClass(Boolean(value), availability, softUsed, violation)}
-                        style={track ? { backgroundColor: `${track.color}26` } : undefined}
                       >
                         {value ? (
                           <>
@@ -135,7 +131,7 @@ export function StaffGrid({
                           <span aria-hidden="true">—</span>
                         )}
                         {violation ? (
-                          <span className="text-[0.66rem] font-bold text-gdg-red">稼働×</span>
+                          <span className="text-xs font-bold text-gdg-red">稼働×</span>
                         ) : null}
                       </button>
                     </td>

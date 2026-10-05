@@ -1,20 +1,9 @@
-import {
-  Button,
-  Card,
-  Checkbox,
-  FormField,
-  Heading,
-  Input,
-  Link,
-  NativeSelect,
-  NativeSelectOption,
-  PageHeader,
-  Stack,
-} from "@gdgjp/design-system";
+import { Badge, Card, Heading, Link, PageHeader, Stack } from "@gdgjp/design-system";
 import { Form, Link as RouterLink, redirect, useNavigation } from "react-router";
 import { requireUserWithChapter } from "~/features/auth/auth-redirect.server";
 import { canManageEvent } from "~/features/auth/permissions";
 import { getEvent } from "~/features/events/events.server";
+import { NewRosterSheetDialog } from "~/features/roster-sheets/components/NewRosterSheetDialog";
 import { RosterSheetCard } from "~/features/roster-sheets/components/RosterSheetCard";
 import {
   archiveRosterSheet,
@@ -27,7 +16,6 @@ import {
 } from "~/features/roster-sheets/roster-sheets.server";
 import {
   DEFAULT_NAME,
-  SUPPORTED_STEPS,
   type SheetFormErrors,
   type SheetFormValues,
   parseSheetForm,
@@ -201,132 +189,87 @@ export default function EventOverview({ loaderData, actionData }: Route.Componen
   const pendingIntent = navigation.formData?.get("intent");
   const reorderPending = pendingIntent === "reorderSheets";
   const sheetIds = sheets.map(({ id }) => id);
+  const publishedCount = sheets.filter((sheet) => sheet.visibility === "published").length;
 
   return (
-    <main className="admin-page">
+    <main className="admin-page event-overview">
+      <span className="brand-eyebrow">EVENT / SHIFT BOARDS</span>
       <PageHeader
         title={event.name}
-        description="開催するシフト表を選択してください。"
+        description={`${event.date} · ${sheets.length}件のシフト表 · ${publishedCount}件公開中`}
         actions={
-          <>
-            <Link asChild>
-              <RouterLink to={`/e/${event.id}/staff`}>スタッフ</RouterLink>
-            </Link>
-            <Link asChild>
-              <RouterLink to={`/e/${event.id}/share`}>共有</RouterLink>
-            </Link>
-          </>
+          <NewRosterSheetDialog
+            values={values}
+            errors={errors}
+            formError={actionData?.formError}
+            submitting={submitting && pendingIntent === "createSheet"}
+            sheetCount={sheets.length}
+          />
         }
       />
+      <section aria-labelledby="sheet-list-heading" className="space-y-4 sheet-list-section">
+        <div className="flex flex-wrap items-end justify-between gap-3">
+          <div>
+            <Heading id="sheet-list-heading" level={2}>
+              シフト表
+            </Heading>
+            <p className="gdg-muted text-sm">シフト表を選んで割当や設計を編集します。</p>
+          </div>
+          <Link asChild>
+            <RouterLink to={`/e/${event.id}/staff`}>スタッフを管理</RouterLink>
+          </Link>
+        </div>
 
-      <Card>
-        <Stack>
-          <Heading level={2}>シフト表を追加</Heading>
-          <p className="gdg-muted text-sm">このイベント内で使うシフト表を作成します。</p>
-          {actionData?.formError && (
-            <p className="text-sm text-danger" role="alert">
-              {actionData.formError}
-            </p>
-          )}
-          <Form method="post" className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <input type="hidden" name="intent" value="createSheet" />
-            <FormField id="sheet-name" label="シフト表名" error={errors.name} required>
-              <Input
-                name="name"
-                type="text"
-                defaultValue={values.name}
-                maxLength={100}
-                required
-                autoComplete="off"
-              />
-            </FormField>
-            <FormField id="sheet-date" label="開催日" error={errors.date} required>
-              <Input name="date" type="date" defaultValue={values.date} required />
-            </FormField>
-            <FormField id="sheet-start" label="開始時刻" error={errors.startTime} required>
-              <Input name="startTime" type="time" defaultValue={values.startTime} required />
-            </FormField>
-            <FormField id="sheet-end" label="終了時刻" error={errors.endTime} required>
-              <Input name="endTime" type="time" defaultValue={values.endTime} required />
-            </FormField>
-            <FormField id="sheet-step" label="時間枠の刻み幅" error={errors.stepMin} required>
-              <NativeSelect name="stepMin" defaultValue={values.stepMin} required>
-                <NativeSelectOption value="">選択してください</NativeSelectOption>
-                {values.stepMin &&
-                  !SUPPORTED_STEPS.some((step) => String(step) === values.stepMin) && (
-                    <NativeSelectOption value={values.stepMin}>
-                      {values.stepMin}分（選択できません）
-                    </NativeSelectOption>
-                  )}
-                {SUPPORTED_STEPS.map((step) => (
-                  <NativeSelectOption key={step} value={step}>
-                    {step}分
-                  </NativeSelectOption>
-                ))}
-              </NativeSelect>
-            </FormField>
-            <FormField
-              id="sheet-max-consecutive"
-              label="連続担当の上限"
-              error={errors.maxConsecutive}
-              required
-            >
-              <Input
-                name="maxConsecutive"
-                type="number"
-                min={1}
-                step={1}
-                defaultValue={values.maxConsecutive}
-                required
-              />
-            </FormField>
-            <FormField id="sheet-no-solo" label="新人を単独の時間枠に割り当てない">
-              <Checkbox name="noSoloNewcomer" value="true" defaultChecked={values.noSoloNewcomer} />
-            </FormField>
-            <div className="sm:col-span-2">
-              <Button type="submit" loading={submitting}>
-                シフト表を作成
-              </Button>
-            </div>
-          </Form>
-        </Stack>
-      </Card>
-
-      {actionData?.reorderError && (
-        <p className="text-sm text-danger" role="alert">
-          {actionData.reorderError}
-        </p>
-      )}
-      {sheets.length === 0 ? (
-        <output className="gdg-muted">シフト表はまだありません。</output>
-      ) : (
-        <ul className="grid list-none grid-cols-1 gap-4 p-0 md:grid-cols-2 xl:grid-cols-3">
-          {sheets.map((sheet) => {
-            const isDefault = sheet.id === `default:${event.id}`;
-            const sheetError =
-              actionData?.sheetError?.sheetId === sheet.id
-                ? actionData.sheetError.message
-                : undefined;
-            return (
-              <li key={sheet.id}>
-                <RosterSheetCard
-                  sheet={sheet}
-                  eventId={event.id}
-                  visibility={sheet.visibility}
-                  isDefault={isDefault}
-                  error={sheetError}
-                  visibilityPending={
-                    pendingSheetId === sheet.id && pendingIntent === "setVisibility"
-                  }
-                  archivePending={pendingSheetId === sheet.id && pendingIntent === "archiveSheet"}
-                  reorderSheetIds={sheetIds}
-                  reorderPending={reorderPending}
-                />
-              </li>
-            );
-          })}
-        </ul>
-      )}
+        {actionData?.reorderError && (
+          <p className="text-sm text-destructive" role="alert">
+            {actionData.reorderError}
+          </p>
+        )}
+        {sheets.length === 0 ? (
+          <Card>
+            <Stack>
+              <p>シフト表はまだありません。</p>
+              <p className="gdg-muted text-sm">
+                「シフト表を追加」から最初のシフト表を作成してください。
+              </p>
+            </Stack>
+          </Card>
+        ) : (
+          <ul className="sheet-card-grid">
+            {sheets.map((sheet) => {
+              const isDefault = sheet.id === `default:${event.id}`;
+              const sheetError =
+                actionData?.sheetError?.sheetId === sheet.id
+                  ? actionData.sheetError.message
+                  : undefined;
+              return (
+                <li key={sheet.id}>
+                  <RosterSheetCard
+                    sheet={sheet}
+                    eventId={event.id}
+                    visibility={sheet.visibility}
+                    isDefault={isDefault}
+                    error={sheetError}
+                    visibilityPending={
+                      pendingSheetId === sheet.id && pendingIntent === "setVisibility"
+                    }
+                    archivePending={pendingSheetId === sheet.id && pendingIntent === "archiveSheet"}
+                    reorderSheetIds={sheetIds}
+                    reorderPending={reorderPending}
+                  />
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </section>
+      <div className="flex flex-wrap items-center gap-3 text-sm gdg-muted">
+        <Badge tone={publishedCount > 0 ? "success" : "neutral"}>{publishedCount}件公開中</Badge>
+        <span>公開URLは共有画面で確認できます。</span>
+        <Link asChild>
+          <RouterLink to={`/e/${event.id}/share`}>共有画面へ</RouterLink>
+        </Link>
+      </div>
     </main>
   );
 }

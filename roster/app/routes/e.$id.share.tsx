@@ -1,4 +1,5 @@
-import { PageHeader, Stack } from "@gdgjp/design-system";
+import { Link, PageHeader, Stack } from "@gdgjp/design-system";
+import { Link as RouterLink } from "react-router";
 import { requireUserWithChapter } from "~/features/auth/auth-redirect.server";
 import { canManageEvent } from "~/features/auth/permissions";
 import { ShareCard, SheetShareList } from "~/features/events/components/ShareCard";
@@ -56,9 +57,25 @@ export default function SharePage({ loaderData }: Route.ComponentProps) {
   return (
     <main className="admin-page admin-page-narrow">
       <Stack>
-        <PageHeader title="共有" description={`${event.name} · 閲覧専用URL`} />
-        <ShareCard viewUrl={viewUrl} visibility={defaultVisibility} />
+        <div className="share-page-hero">
+          <span className="brand-eyebrow">EVENT / SHARE</span>
+          <PageHeader
+            title="共有"
+            description={`${event.name} · 公開済みのシフト表はURLを知っている人が閲覧できます。`}
+            back={
+              <Link asChild>
+                <RouterLink to={`/e/${event.id}`}>シフト表一覧に戻る</RouterLink>
+              </Link>
+            }
+          />
+        </div>
         <SheetShareList sheets={sheets} />
+        <details className="border-t pt-4 text-sm">
+          <summary className="cursor-pointer font-medium">本編の旧URLを確認</summary>
+          <div className="mt-4">
+            <ShareCard viewUrl={viewUrl} visibility={defaultVisibility} />
+          </div>
+        </details>
       </Stack>
     </main>
   );

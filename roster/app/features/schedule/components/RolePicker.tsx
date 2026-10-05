@@ -1,3 +1,4 @@
+import { Button, Checkbox } from "@gdgjp/design-system";
 import { Form } from "react-router";
 import type { Role } from "~/features/schedule/tracks.server";
 
@@ -21,25 +22,24 @@ export function RolePicker({
       <ul className="grid grid-cols-2 gap-2 sm:grid-cols-3">
         {roles.map((role) => (
           <li key={role.id}>
-            <label className="flex items-center gap-2 rounded-xl border-2 border-border bg-surface p-3">
-              <input
-                type="checkbox"
+            <label
+              htmlFor={`role-${role.id}`}
+              className="flex min-h-11 items-center gap-2 rounded-lg border p-3"
+            >
+              <Checkbox
+                id={`role-${role.id}`}
                 name="roleId"
                 value={role.id}
                 defaultChecked={selected.has(role.id)}
-                className="size-4"
               />
               <span className="font-medium">{role.name}</span>
             </label>
           </li>
         ))}
       </ul>
-      <button
-        type="submit"
-        className="rounded-full border-2 border-border bg-gdg-blue px-6 py-2.5 font-bold text-primary-foreground transition hover:brightness-95"
-      >
+      <Button type="submit" variant="secondary">
         役割を保存
-      </button>
+      </Button>
     </Form>
   );
 }

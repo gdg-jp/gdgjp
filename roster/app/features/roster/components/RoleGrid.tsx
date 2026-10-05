@@ -25,7 +25,7 @@ type RoleInfo = { id: string; name: string; sortOrder: number };
  * it only knows "who is actually here", synthesized into a `demands`-shaped
  * map purely to reuse `buildGridColumns`/`buildRoleGridColumn`'s column
  * derivation and merge-by-membership logic (`app/routes/r.$token.tsx`).
- * Everything else (the merge algorithm, the member list, colors) is
+ * Everything else (the merge algorithm, the member list, layout) is
  * identical between the two callers.
  *
  * Merged cells are the one place in the grid system that top-aligns
@@ -125,8 +125,6 @@ export function RoleGrid({
                   const className = `data-grid-cell data-grid-cell-top${
                     empty ? " data-grid-cell-empty" : ""
                   }`;
-                  const style =
-                    track && !empty ? { backgroundColor: `${track.color}26` } : undefined;
                   // "需要なし" is a fact about the CELL, so it belongs on the
                   // count line and has to survive even when people are
                   // assigned there — a manual edit can place staff into a
@@ -166,7 +164,7 @@ export function RoleGrid({
                     // range's lineup.
                     <td key={colKey} rowSpan={cell.span}>
                       {readOnly ? (
-                        <div aria-label={ariaLabel} className={className} style={style}>
+                        <div aria-label={ariaLabel} className={className}>
                           {body}
                         </div>
                       ) : (
@@ -175,7 +173,6 @@ export function RoleGrid({
                           onClick={() => onSelectCell?.(col.trackId, col.roleId, rangeSlotIds)}
                           aria-label={ariaLabel}
                           className={className}
-                          style={style}
                         >
                           {body}
                         </button>

@@ -40,8 +40,12 @@ async function createEventWithDemand(
   await page.waitForURL(/\/e\/[^/]+\/(?:s\/[^/]+\/)?design$/);
   const eventId = new URL(page.url()).pathname.split("/")[2];
 
-  await page.check('input[name="roleId"][value="reception"]');
-  await page.getByRole("button", { name: "役割を保存" }).click();
+  await page.getByRole("checkbox", { name: "受付" }).check();
+  await Promise.all([
+    page.waitForResponse((response) => response.request().method() === "POST" && response.ok()),
+    page.getByRole("button", { name: "役割を保存" }).click(),
+  ]);
+  await page.reload();
   await expect(page.getByRole("checkbox", { name: "受付" })).toBeChecked();
 
   // Wait for the save's response itself: networkidle may already hold before the POST starts,
@@ -121,8 +125,10 @@ test("public roster: not-published message, no PII/experience leakage once publi
   // /e/:id/share while not published: shows the message, and the view URL is
   // visible even though it isn't live yet.
   await page.goto(`/e/${eventId}/share`);
+  const legacyLink = page.getByText("本編の旧URLを確認");
+  await legacyLink.click();
   await expect(page.getByText("本編は現在非公開です。", { exact: false })).toBeVisible();
-  const viewUrlText = (await page.locator("code").first().textContent())?.trim();
+  const viewUrlText = (await page.locator("details code").textContent())?.trim();
   if (!viewUrlText) throw new Error("view URL not found on /e/:id/share");
   const viewPath = new URL(viewUrlText).pathname;
 

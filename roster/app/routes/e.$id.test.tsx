@@ -426,36 +426,10 @@ describe("e.$id overview", () => {
     expect(html).not.toContain("シフト表ごとの設計・管理画面は準備中です。");
     expect(html).not.toContain("sheet-archived");
     expect(html).toContain("シフト表を追加");
-    expect(html).toContain('name="name"');
-    expect(html).toContain('name="date"');
-    expect(html).toContain('name="stepMin"');
-    expect(html).toContain('name="noSoloNewcomer"');
-  });
-
-  it("renders validation feedback and keeps the entered form values", async () => {
-    asChapter(OWNER);
-    const data = await callLoader("event", asD1(db));
-    const html = renderOverview({
-      loaderData: data,
-      actionData: {
-        values: {
-          ...VALID_SHEET_FORM,
-          stepMin: "20",
-          noSoloNewcomer: true,
-        },
-        errors: {
-          date: "有効な日付を選択してください。",
-          stepMin: "刻み幅を選択してください。",
-        },
-      },
-    });
-
-    expect(html).toContain('value="午後のシフト"');
-    expect(html).toContain('value="2026-11-07"');
-    expect(html).toContain("有効な日付を選択してください。");
-    expect(html).toContain("20分（選択できません）");
-    expect(html).toContain('aria-invalid="true"');
-    expect(html).toContain('data-state="checked"');
+    expect(html).toContain('aria-haspopup="dialog"');
+    expect(html).toContain("割当を開く");
+    expect(html).toContain("設計を編集");
+    expect(html).not.toContain('name="stepMin"');
   });
 
   it("renders a useful empty state when no live sheets remain", () => {
@@ -476,6 +450,6 @@ describe("e.$id overview", () => {
       },
     });
     expect(html).toContain("シフト表はまだありません。");
-    expect(html).toContain("<output");
+    expect(html).toContain("最初のシフト表を作成してください。");
   });
 });

@@ -33,8 +33,12 @@ async function createEventWithDemand(
   await page.waitForURL(/\/e\/[^/]+\/(?:s\/[^/]+\/)?design$/);
   const eventId = new URL(page.url()).pathname.split("/")[2];
 
-  await page.check('input[name="roleId"][value="reception"]');
-  await page.getByRole("button", { name: "役割を保存" }).click();
+  await page.getByRole("checkbox", { name: "受付" }).check();
+  await Promise.all([
+    page.waitForResponse((response) => response.request().method() === "POST" && response.ok()),
+    page.getByRole("button", { name: "役割を保存" }).click(),
+  ]);
+  await page.reload();
   await expect(page.getByRole("checkbox", { name: "受付" })).toBeChecked();
 
   // Every fixture here has too few applicants for the default "初参加者の
@@ -199,10 +203,12 @@ test("multi-sheet availability, generation history, and publishing stay scoped t
 
   // The default sheet ends at 19:00; start 懇親会 there to avoid cross-sheet overlap.
   await page.goto(`/e/${eventId}`);
+  await page.getByRole("button", { name: "シフト表を追加" }).click();
   await page.fill('input[name="name"]', "懇親会");
   await page.fill('input[name="date"]', "2030-06-01");
   await page.fill('input[name="startTime"]', "19:00");
   await page.fill('input[name="endTime"]', "21:00");
+  await page.getByText("詳細設定").click();
   await page.selectOption('select[name="stepMin"]', "60");
   // Every registrant is a newcomer; see createEventWithDemand for why this rule must be off.
   await page.getByRole("checkbox", { name: "新人を単独の時間枠に割り当てない" }).uncheck();
@@ -213,14 +219,17 @@ test("multi-sheet availability, generation history, and publishing stay scoped t
     .locator("li")
     .filter({ has: page.getByRole("heading", { name: "懇親会" }) });
   await expect(partyCard).toBeVisible();
-  await partyCard.getByRole("link", { name: "設計" }).click();
+  await partyCard.getByRole("link", { name: "設計を編集" }).click();
   await page.waitForURL(/\/e\/[^/]+\/s\/[^/]+\/design$/);
   const partySheetId = new URL(page.url()).pathname.split("/")[4];
   expect(partySheetId).toBeTruthy();
 
-  await page.check('input[name="roleId"][value="reception"]');
-  await page.getByRole("button", { name: "役割を保存" }).click();
-  await page.waitForLoadState("networkidle");
+  await page.getByRole("checkbox", { name: "受付" }).check();
+  await Promise.all([
+    page.waitForResponse((response) => response.request().method() === "POST" && response.ok()),
+    page.getByRole("button", { name: "役割を保存" }).click(),
+  ]);
+  await page.reload();
   const addTrackForm = page.getByRole("button", { name: "トラックを追加" }).locator("xpath=..");
   await addTrackForm.locator('input[name="name"]').fill("懇親会受付");
   await page.getByRole("button", { name: "トラックを追加" }).click();
