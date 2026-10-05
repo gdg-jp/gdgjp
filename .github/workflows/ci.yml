@@ -410,6 +410,8 @@ jobs:
         run: |
           cat > apps/accounts/.dev.vars <<EOF
           BETTER_AUTH_SECRET=ci-better-auth-secret-for-e2e-tests
+          GOOGLE_CLIENT_ID=ci-google-client-id
+          GOOGLE_CLIENT_SECRET=ci-google-client-secret
           E2E_TEST_MODE=true
           TINYURL_CLIENT_ID=tinyurl
           TINYURL_CLIENT_SECRET=ci-idp-client-secret
@@ -485,6 +487,9 @@ jobs:
       - name: Migrate Accounts local database
         if: matrix.app != 'design-system' && matrix.app != 'wiki'
         run: pnpm --filter @gdgjp/accounts migrate:local
+      - name: Migrate tinyurl local database
+        if: matrix.app == 'tinyurl'
+        run: pnpm --filter @gdgjp/tinyurl migrate:local
       - name: Migrate img local database
         if: matrix.app == 'img'
         run: pnpm --filter @gdgjp/img migrate:local

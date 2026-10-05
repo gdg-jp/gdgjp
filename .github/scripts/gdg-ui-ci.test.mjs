@@ -369,6 +369,16 @@ test("Wiki E2E setup is isolated from Accounts and uploads only the report", () 
     stepByName(job, "Migrate Accounts local database").if,
     "matrix.app != 'design-system' && matrix.app != 'wiki'",
   );
+  assert.match(
+    stepByName(job, "Create accounts dev vars").run,
+    /GOOGLE_CLIENT_ID=ci-google-client-id\nGOOGLE_CLIENT_SECRET=ci-google-client-secret/,
+  );
+  assert.equal(stepByName(job, "Migrate tinyurl local database").if, "matrix.app == 'tinyurl'");
+  assert.equal(
+    job.steps.findIndex((step) => step.name === "Migrate tinyurl local database") <
+      job.steps.findIndex((step) => step.name === "Run E2E testing"),
+    true,
+  );
   const wikiVars = stepByName(job, "Create Wiki E2E vars").run;
   assert.match(wikiVars, /WIKI_E2E_SESSION_SECRET=ci-wiki-e2e-session-secret/);
   assert.match(wikiVars, /WIKI_E2E_ISSUER=http:\/\/localhost:6173/);
