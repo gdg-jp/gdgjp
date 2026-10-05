@@ -21,7 +21,7 @@ pnpm --filter @gdgjp/pay migrate:local
 pnpm --filter @gdgjp/pay dev
 ```
 
-Dev server: http://localhost:5179
+Dev server: http://localhost:5182
 
 Seed the `pay` OAuth client in accounts via `/admin/seed-clients` after setting
 `PAY_CLIENT_SECRET` and `PAY_REDIRECT_URLS`.

@@ -38,7 +38,12 @@ After changing a client secret, ID, or redirect URI, open `/admin/seed-clients` 
 
 Development ports are `5173` (accounts), `5174` (tinyurl), `5175` (img), `5176`
 (scheduler), `5177` (wiki), `5178` (sns), `5179` (connpass), `5180` (website),
-`5185` (ost), and `5186` (roster).
+`5182` (pay), `5185` (ost), and `5186` (roster). Port `5181` is reserved for the
+connpass E2E mock IdP.
+
+Cloudflare Vite inspector ports are `9273` (accounts), `9277` (wiki), `9279`
+(connpass), `9285` (ost), and `9286` (roster) so parallel development servers do not
+compete for the default inspector port.
 
 `sns/.dev.vars.example` lists its additional X and Google Photos credentials. The public
 `website/` does not require a `.dev.vars` file for local development.

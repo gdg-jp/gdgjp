@@ -8,7 +8,7 @@ export default defineConfig({
   server: { port: 5179, strictPort: true },
   envPrefix: ["VITE_", "CONNPASS_E2E_"],
   plugins: [
-    cloudflare({ viteEnvironment: { name: "ssr" }, remoteBindings: false }),
+    cloudflare({ viteEnvironment: { name: "ssr" }, remoteBindings: false, inspectorPort: 9279 }),
     tailwindcss(),
     reactRouter(),
     tsconfigPaths(),

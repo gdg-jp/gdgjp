@@ -7,7 +7,7 @@ import tsconfigPaths from "vite-tsconfig-paths";
 export default defineConfig({
   server: { port: 5185, strictPort: true },
   plugins: [
-    cloudflare({ viteEnvironment: { name: "ssr" }, remoteBindings: false }),
+    cloudflare({ viteEnvironment: { name: "ssr" }, remoteBindings: false, inspectorPort: 9285 }),
     reactRouter(),
     tailwindcss(),
     tsconfigPaths(),

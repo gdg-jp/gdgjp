@@ -9,7 +9,7 @@ export default defineConfig({
   // correct regardless of which app `pnpm dev` starts first.
   server: { port: 5173, strictPort: true },
   plugins: [
-    cloudflare({ viteEnvironment: { name: "ssr" }, remoteBindings: false }),
+    cloudflare({ viteEnvironment: { name: "ssr" }, remoteBindings: false, inspectorPort: 9273 }),
     reactRouter(),
     tailwindcss(),
     tsconfigPaths(),

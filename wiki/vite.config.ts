@@ -21,6 +21,7 @@ export default defineConfig({
     cloudflare({
       viteEnvironment: { name: "ssr" },
       remoteBindings: false,
+      inspectorPort: 9277,
       ...(e2ePersistencePath ? { persistState: { path: e2ePersistencePath } } : {}),
     }),
     reactRouter(),
