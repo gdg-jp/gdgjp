@@ -2,7 +2,6 @@ import { cloudflare } from "@cloudflare/vite-plugin";
 import { reactRouter } from "@react-router/dev/vite";
 import tailwindcss from "@tailwindcss/vite";
 import { defineConfig } from "vite";
-import tsconfigPaths from "vite-tsconfig-paths";
 
 export default defineConfig({
   server: { port: 5185, strictPort: true },
@@ -15,12 +14,11 @@ export default defineConfig({
     }),
     reactRouter(),
     tailwindcss(),
-    tsconfigPaths(),
   ],
   // `@gdgjp/gdg-lib` is consumed as source; without dedupe + eagerly optimizing
   // the React-dependent libs it pulls in (radix-ui, lucide, motion), the client
   // ends up with two React copies → "invalid hook call" at hydration.
-  resolve: { dedupe: ["react", "react-dom", "react-router"] },
+  resolve: { tsconfigPaths: true, dedupe: ["react", "react-dom", "react-router"] },
   optimizeDeps: {
     include: [
       "react",
@@ -35,5 +33,9 @@ export default defineConfig({
   },
   // Keep the `OstBoard` class name through bundling so it still matches the
   // `new_sqlite_classes` entry in wrangler.toml after deploy.
-  esbuild: { keepNames: true },
+  build: {
+    reportCompressedSize: false,
+    target: ["edge88", "firefox78", "chrome87", "safari14"],
+    rolldownOptions: { output: { keepNames: true } },
+  },
 });

@@ -7,7 +7,7 @@ import { requireUser } from "~/features/auth/utils.server";
 import { PushNotificationToggle } from "~/features/notifications/components/PushNotificationToggle";
 import { supportedLngs } from "~/i18n";
 import { getDb } from "~/lib/db.server";
-import type { Route } from ".react-router/types/app/routes/+types/settings";
+import type { Route } from "./+types/settings";
 
 export async function loader({ request, context }: Route.LoaderArgs) {
   const { cloudflare } = context;

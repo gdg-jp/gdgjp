@@ -3,7 +3,6 @@ import { reactRouter } from "@react-router/dev/vite";
 import tailwindcss from "@tailwindcss/vite";
 import agents from "agents/vite";
 import { defineConfig } from "vite";
-import tsconfigPaths from "vite-tsconfig-paths";
 import { E2E_PERSISTENCE_ENV, resolveE2EPersistencePath } from "./tests/e2e/setup";
 
 const e2ePersistencePath = process.env[E2E_PERSISTENCE_ENV]
@@ -29,18 +28,15 @@ export default defineConfig({
     }),
     reactRouter(),
     tailwindcss(),
-    tsconfigPaths(),
   ],
-  resolve: {
-    dedupe: ["react", "react-dom", "react-router"],
-  },
+  resolve: { tsconfigPaths: true, dedupe: ["react", "react-dom", "react-router"] },
   // Durable Object and Workflow class names are part of Wrangler's deployment
   // contract, so retain them when the Worker bundle is transformed.
-  esbuild: {
-    keepNames: true,
-  },
   build: {
-    rollupOptions: {
+    reportCompressedSize: false,
+    target: ["edge88", "firefox78", "chrome87", "safari14"],
+    rolldownOptions: {
+      output: { keepNames: true },
       external: ["cloudflare:email"],
     },
   },

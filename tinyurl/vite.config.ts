@@ -2,10 +2,11 @@ import { reactRouter } from "@react-router/dev/vite";
 import { cloudflareDevProxy } from "@react-router/dev/vite/cloudflare";
 import tailwindcss from "@tailwindcss/vite";
 import { defineConfig } from "vite";
-import tsconfigPaths from "vite-tsconfig-paths";
 import { CloudflareContext } from "./workers/context";
 
 export default defineConfig({
+  build: { reportCompressedSize: false, target: ["edge88", "firefox78", "chrome87", "safari14"] },
+  resolve: { tsconfigPaths: true },
   server: { port: 5174 },
   plugins: [
     cloudflareDevProxy({
@@ -19,6 +20,5 @@ export default defineConfig({
     }),
     tailwindcss(),
     reactRouter(),
-    tsconfigPaths(),
   ],
 });

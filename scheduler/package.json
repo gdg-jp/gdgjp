@@ -6,7 +6,7 @@
     "build": "react-router build",
     "dev": "react-router dev",
     "deploy": "wrangler deploy",
-    "typecheck": "wrangler types && react-router typegen && tsc --noEmit",
+    "typecheck": "wrangler types && react-router typegen && node ../node_modules/@typescript/native/bin/tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "playwright test",
@@ -20,21 +20,20 @@
     "isbot": "^5.1.17",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
-    "react-router": "^7.1.1",
+    "react-router": "~7.14.2",
     "@gdgjp/design-system": "workspace:*"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20250101.0",
     "@playwright/test": "^1.49.1",
-    "@react-router/dev": "^7.1.1",
+    "@react-router/dev": "~7.14.2",
     "@tailwindcss/vite": "^4.2.4",
     "@types/react": "^19.0.1",
     "@types/react-dom": "^19.0.2",
     "tailwindcss": "^4.2.4",
     "typescript": "^5.7.2",
-    "vite": "^6.0.5",
-    "vite-tsconfig-paths": "^5.1.4",
+    "vite": "^8.3.2",
     "vitest": "^4.1.10",
-    "wrangler": "^3.99.0"
+    "wrangler": "~4.113.0"
   }
 }

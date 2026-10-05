@@ -302,7 +302,9 @@ export function changedSteps(mode, files) {
     ];
     steps.push([
       "typecheck+build",
-      `pnpm exec turbo ${tasks.map(shellQuote).join(" ")} --output-logs=errors-only`,
+      // Native compilers already use their own thread pools. Limit this graph
+      // without capping persistent dev servers or unrelated Turbo tasks.
+      `pnpm exec turbo ${tasks.map(shellQuote).join(" ")} --concurrency=4 --output-logs=errors-only`,
       tasks.every((task) => task.startsWith("@gdgjp/design-system#")) ? uiRuntime : runtime,
     ]);
   } else if (typecheckWorkspaces.length > 0) {

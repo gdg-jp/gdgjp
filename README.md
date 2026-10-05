@@ -60,6 +60,17 @@ UI builds use [Vite 8](https://vite.dev/blog/announcing-vite8) and the native
 The TypeScript 6 API remains available for Storybook's documentation tools.
 The former `gdgjp.typescriptNode` setting is no longer used.
 
+React Router applications and Node-script typechecks also use the pinned native TypeScript 7
+compiler. They invoke its explicit path so workspace-local TypeScript 5 APIs remain available to
+Vite and React Router. Application checks still regenerate both Worker and route types before
+checking the complete project; no incremental compiler cache or reduced checking mode is used.
+
+Application builds use Vite 8 with its native tsconfig-path resolver. Their Wrangler versions stay
+aligned so local service bindings can communicate. The previous browser targets and Worker class
+names are preserved. Gzip size estimates are omitted from build logs; production
+bundles and validation remain enabled. The staged `typecheck+build` graph runs at most four tasks
+at once to bound contention between the native compilers' own thread pools.
+
 On Apple Silicon with an Intel Node on `PATH`, install dependencies again with `pnpm install` to
 include the declared ARM64 optional binaries, then select a normal native Node >=22.18 installation:
 
