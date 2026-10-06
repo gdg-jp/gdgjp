@@ -6,8 +6,8 @@ a public link; roster auto-generates a draft schedule (respecting hard constrain
 double-book a slot" and skill-mix rules like "no newcomer working alone"), and owners hand-edit
 the result before publishing a read-only shared view.
 
-Full product plan: [`docs/roster/index.md`](../docs/roster/index.md). Design decisions:
-[`docs/roster/adr.md`](../docs/roster/adr.md).
+Full product plan: [`docs/roster/index.md`](../../docs/roster/index.md). Design decisions:
+[`docs/roster/adr.md`](../../docs/roster/adr.md).
 
 ## Status
 
@@ -25,22 +25,29 @@ the whole product exists to produce: `/r/:viewToken` (staff grid / role grid / i
 owner-side URL-copy card). See `docs/roster/index.md` §7 for the full stage
 graph.
 
+**After Stage 09: multiple sheets per event.** An event owns several roster sheets
+(`roster_sheets`, `app/features/roster-sheets/`), each with its own time grid, tracks, demand,
+assignments, history, and public visibility. Staff registration stays event-wide, and a person
+cannot be double-booked across overlapping sheets on the same date.
+
 ## Screens
 
 | Screen | Path | Auth | Status |
 |---|---|---|---|
 | Event list | `/` | Chapter required | Done (Stage 02) |
 | Event creation | `/events/new` | Chapter required | Done (Stage 02) |
-| Design (time slots / tracks / roles) | `/e/:id/design` | Chapter required | Done (Stage 02/03) |
+| Sheet list | `/e/:id` | Chapter required | Done (multi-sheet): create, publish, reorder, archive |
+| Design (time slots / tracks / roles / demand) | `/e/:id/s/:sheetId/design` | Chapter required | Done (Stage 02/03, per sheet); `/e/:id/design` redirects to the default sheet |
 | Recruiting / staff | `/e/:id/staff` | Chapter required | Done (Stage 04/05): apply URL + status, proxy-add, staff list, owner corrections, supply-demand view |
-| Shift schedule | `/e/:id/roster` | Chapter required | Done (Stage 07): generate, 3 views, manual edit; Stage 08 (parallel) adds history |
-| Share | `/e/:id/share` | Chapter required | Done (Stage 09): view-URL copy and sheet publication status |
+| Shift schedule | `/e/:id/s/:sheetId/roster` | Chapter required | Done (Stage 07/08, per sheet): generate, 3 views, manual edit, history; `/e/:id/roster` redirects to the default sheet |
+| Share | `/e/:id/share` | Chapter required | Done (Stage 09): per-sheet view-URL copy and publication status |
 | Staff registration (public) | `/apply/:applyToken` | Sign-in only, no chapter | Done (Stage 04) |
-| Public shift view | `/r/:viewToken` | None | Done (Stage 09): staff/role/individual/party tabs |
+| Public shift view | `/r/:viewToken`, `/r/:viewToken/s/:sheetId` | None | Done (Stage 09): staff/role/individual/party tabs; default sheet or one sheet |
 
-Routes today: `/`, `/events/new`, `/e/:id/design`, `/e/:id/staff`, `/e/:id/roster`,
-`/e/:id/share`, `/apply/:token`, `/r/:token`, `/signin`, `/no-chapter`, `/api/auth/*`,
-`/auth/signout`, `/dev/login`, `/dev/seed`.
+Routes today: `/`, `/events/new`, `/e/:id`, `/e/:id/design`, `/e/:id/s/:sheetId/design`,
+`/e/:id/staff`, `/e/:id/roster`, `/e/:id/s/:sheetId/roster`, `/e/:id/share`, `/apply/:token`,
+`/r/:token`, `/r/:token/s/:sheetId`, `/signin`, `/no-chapter`, `/api/auth/*`, `/auth/signout`,
+`/dev/login`, `/dev/seed`.
 
 ## How it works
 
@@ -67,7 +74,7 @@ pnpm --filter @gdgjp/roster migrate:local   # apply D1 migrations to the local d
 pnpm --filter @gdgjp/roster dev             # http://localhost:5186
 ```
 
-Create `roster/.dev.vars` from `.dev.vars.example` (`RP_SESSION_SECRET`, `IDP_CLIENT_SECRET`).
+Create `apps/roster/.dev.vars` from `.dev.vars.example` (`RP_SESSION_SECRET`, `IDP_CLIENT_SECRET`).
 For real sign-in also run `pnpm --filter @gdgjp/accounts dev` (port 5173) and
 `POST http://localhost:5173/admin/seed-clients`. Otherwise use
 `/dev/login?as=owner&chapter=1:x&return_to=/` (non-production only).
@@ -85,4 +92,4 @@ database bound by the committed id in `wrangler.toml`; the `RP_SESSION_SECRET` a
 `IDP_CLIENT_SECRET` Worker secrets; and the `roster` OIDC client registered on the `accounts`
 worker (`ROSTER_CLIENT_ID` / `ROSTER_REDIRECT_URLS` vars, `ROSTER_CLIENT_SECRET` secret,
 `POST /admin/seed-clients`). CI runs `deploy` and then `migrate:remote` on merge to `main` when
-`roster/` changes.
+`apps/roster/` changes.

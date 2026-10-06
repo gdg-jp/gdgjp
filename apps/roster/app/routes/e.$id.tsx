@@ -221,7 +221,7 @@ export default function EventOverview({ loaderData, actionData }: Route.Componen
         </div>
 
         {actionData?.reorderError && (
-          <p className="text-sm text-destructive" role="alert">
+          <p className="text-sm text-danger" role="alert">
             {actionData.reorderError}
           </p>
         )}

@@ -134,9 +134,7 @@ export function RosterSheetCard({
         </Inline>
         {(hasReorderControls || !isDefault) && (
           <details className="border-t pt-3 text-sm">
-            <summary className="cursor-pointer font-medium text-muted-foreground">
-              その他の操作
-            </summary>
+            <summary className="cursor-pointer font-medium text-muted">その他の操作</summary>
             <div className="mt-3 flex flex-wrap items-center gap-2">
               {hasReorderControls && (
                 <>

@@ -23,12 +23,23 @@ sub-views — staff/role/individual/party — no authentication at all), and `/e
 owner-side URL-copy card). See `README.md` and `ARCHITECTURE.md` for the current
 code map.
 
+**Multi-sheet (after Stage 09).** An event now owns several roster sheets (`roster_sheets`,
+`app/features/roster-sheets/`). Time slots, tracks, demand, assignments, history, and public
+visibility are per sheet; staff applications stay event-wide. Each event keeps a default sheet
+whose id is `default:<eventId>`. The stage descriptions below still say `/e/:id/design` and
+`/e/:id/roster`; those URLs now redirect to the default sheet's `/e/:id/s/:sheetId/...` screen.
+
 ## Routes (`app/routes.ts`, config mode)
 
 - `/` — event list (auth + chapter): the signed-in user's chapter's events, newest event date
   first, with a link to create one.
 - `/events/new` — create an event (name, date, start/end, step size). Also creates the initial
   time-slot grid and a shared "全体" track.
+- `/e/:id` — the event's sheet list (`RosterSheetCard`s): create a sheet (`NewRosterSheetDialog`),
+  publish/unpublish, reorder, and archive (the default sheet cannot be archived).
+- `/e/:id/s/:sheetId/design`, `/e/:id/s/:sheetId/roster` — the per-sheet screens described by
+  the `/e/:id/design` and `/e/:id/roster` entries below, with a shared `SheetHeader` tab bar.
+  The legacy `/e/:id/design` and `/e/:id/roster` URLs only redirect to the default sheet.
 - `/e/:id/design` — event settings, phases + the derived time-slot grid, tracks
   (add/reorder/delete), role selection, and the demand matrix (Stage 03: `min`/`ideal`/`leadMin`/
   `newMax` per time-slot x track x role, phase-wide or per-slot). Chapter-gated via
@@ -58,6 +69,8 @@ code map.
   just what's rendered — see "Public view" below). 4 tabs: staff-grid, role-grid (`RoleGrid` reused
   with `readOnly`), individual timeline (`PersonTimeline` — the screen this stage exists for), and
   party list (hidden when `event.hasParty` is false).
+- `/r/:token/s/:sheetId` — the same public view for one sheet, authorized by the same event
+  `view_token`; that sheet's own `visibility` gates data assembly.
 - `/signin`, `/api/auth/*`, `/auth/signout` — gdg-lib relying-party plumbing (`cookiePrefix
   gdgjp-roster`, `ACCOUNTS` service binding).
 - `/no-chapter` — shown when the user has no GDG chapter.
@@ -75,6 +88,13 @@ code map.
   revision's snapshot is currently reflected in `assignments`, `NULL` meaning "no history yet").
   Migrations in `migrations/`; `schema.sql` is generated (`pnpm migrate:local`) — never hand-edit
   it.
+- **`roster_sheets`** (migrations 0007–0012) scopes `phases`, `time_slots`, `tracks`,
+  `demands`, `assignments`, and `revisions` by `roster_sheet_id`; each sheet carries its own
+  date/time settings, `revision_cursor`, `visibility`, and `sort_order`. Compatibility triggers
+  keep legacy event-scoped writes attributed to the default sheet. Because applications are
+  event-wide, `app/features/roster-sheets/cross-sheet-conflicts.server.ts` finds a person's
+  overlapping assignments on other same-date sheets: `solver-input.server.ts` marks those slots
+  unavailable, and manual assignment returns a `cross-sheet` warning that needs confirmation.
 - No ORM. Every feature's `*.server.ts` hand-writes D1 (`*Row` type → `to*()` mapper →
   column-list constant → `RETURNING`, following `scheduler/app/lib/db.ts`'s pattern):
   `app/features/events/events.server.ts` (events CRUD, incl. `getEventByApplyToken`),
@@ -162,9 +182,9 @@ code map.
 ## Layout (ADR-003 — feature-first from day one)
 
 - Domain code goes in `app/features/<domain>/` (server + client + UI + colocated tests). Auth,
-  events, schedule, demand, applications, the solver, supply, roster, history, and public-roster
-  are the features so far: `app/features/{auth,events,schedule,demand,applications,solver,supply,
-  roster,history,public-roster}/`.
+  events, schedule, demand, applications, the solver, supply, roster, history, public-roster, and
+  roster-sheets are the features so far: `app/features/{auth,events,schedule,demand,applications,
+  solver,supply,roster,history,public-roster,roster-sheets}/`.
 - `roster/` (Stage 07) assembles the solver's `SolverInput` from D1 and owns the single
   `assignments` write path (`roster.server.ts#writeAssignments`) and the `/e/:id/roster` grid/
   drawer components. It imports from `demand/`, `applications/`, `schedule/`, `solver/`, and

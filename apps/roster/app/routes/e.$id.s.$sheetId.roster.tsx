@@ -336,7 +336,7 @@ export default function RosterPage({ loaderData, actionData }: Route.ComponentPr
       {droppedCount > 0 ? (
         <p
           role="alert"
-          className="rounded-xl border-2 border-border bg-card p-3 text-sm font-medium"
+          className="rounded-xl border-2 border-border bg-surface p-3 text-sm font-medium"
         >
           {droppedCount}件の割当は対象が存在しないため復元されませんでした。
         </p>
