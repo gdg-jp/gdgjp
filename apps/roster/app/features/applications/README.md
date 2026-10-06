@@ -34,8 +34,8 @@ Entry points:
   05-staff-supply-demand.md "Design" §5: the dependency runs `supply/` -> `applications/`, never
   the reverse).
 - `components/` — `ApplyForm` (the self-registration/edit form), `RoleSkillRow` (one role's
-  checkbox + conditionally-shown level/pref selects), `AvailabilityGrid` (the ○/△/× grid with
-  終日○/すべて×/午前のみ/午後のみ shortcuts), `ProxyAddDialog` (owner-side proxy-add entry point),
+  checkbox + conditionally-shown level/pref selects), `AvailabilityGrid` (the 参加できない時間 picker: staff
+  mark × / △ per slot, unmarked slots post `o`; すべて解除/午前は不可/午後は不可 shortcuts), `ProxyAddDialog` (owner-side proxy-add entry point),
   `StaffTable` (Stage 05: the staff list), `StaffDrawer` (Stage 05: owner corrections — reuses
   `RoleSkillRow`/`AvailabilityGrid` verbatim rather than reimplementing the input UI).
 

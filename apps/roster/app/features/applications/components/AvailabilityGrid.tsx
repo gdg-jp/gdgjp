@@ -1,10 +1,9 @@
 import { Button } from "@gdgjp/design-system";
 import { useId } from "react";
 import {
-  AVAILABILITY_HINT,
-  AVAILABILITY_LABELS,
-  AVAILABILITY_VALUES,
   type AvailabilityValue,
+  UNAVAILABILITY_CHOICES,
+  UNAVAILABILITY_HINT,
 } from "~/features/applications/types";
 
 export type AvailabilityGridSlot = {
@@ -24,15 +23,33 @@ export type AvailabilityRosterSheet = {
 };
 
 /**
- * The ○/△/× grid over an event's time slots (docs/roster/04-applications.md
- * "Design" §2). Shortcut buttons ("終日○" etc.) exist because filling a
- * radio group per slot by hand for a 10+ slot event is the input-load
- * problem the stage doc calls out explicitly — `onBulkChange` lets the
- * caller (`ApplyForm`) set every slot from one function of the slot.
+ * The grid's bulk shortcuts. "すべて解除" clears every mark; the half-day
+ * shortcuts add × to their half and keep the other half's current answers.
+ */
+export function availabilityShortcuts(
+  values: Readonly<Record<string, AvailabilityValue>>,
+): { label: string; compute: (slot: AvailabilityGridSlot) => AvailabilityValue }[] {
+  const current = (slot: AvailabilityGridSlot) => values[slot.id] ?? "o";
+  return [
+    { label: "すべて解除", compute: () => "o" },
+    { label: "午前は不可", compute: (slot) => (slot.start < "12:00" ? "x" : current(slot)) },
+    { label: "午後は不可", compute: (slot) => (slot.start >= "12:00" ? "x" : current(slot)) },
+  ];
+}
+
+/**
+ * The "参加できない時間" picker over an event's time slots
+ * (docs/roster/04-applications.md "Design" §2). Staff mark only the slots they
+ * cannot (×) or would rather not (△) work; every unmarked slot is submitted
+ * as `o`. Each slot posts one hidden `avail_<slotId>` input (`form-fields.ts`),
+ * so the saved o/d/x rows and the solver are unchanged by this input style.
  *
- * The "△ is only used when ○ doesn't fill the slot" caveat is shown
- * verbatim (`AVAILABILITY_HINT.d`) per the stage doc's warning that leaving
- * it unsaid makes everyone answer △ and breaks the solver's cost model.
+ * Shortcut buttons exist because marking a 10+ slot event by hand is the
+ * input-load problem the stage doc calls out (`availabilityShortcuts`).
+ *
+ * The △ caveat (`UNAVAILABILITY_HINT`) stays visible per the stage doc's
+ * warning that leaving it unsaid makes everyone answer △ and breaks the
+ * solver's cost model.
  */
 export function AvailabilityGrid({
   timeSlots,
@@ -56,67 +73,73 @@ export function AvailabilityGrid({
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap gap-2">
-        <ShortcutButton label="終日 ○" onClick={() => onBulkChange(() => "o")} />
-        <ShortcutButton label="すべて ×" onClick={() => onBulkChange(() => "x")} />
-        <ShortcutButton
-          label="午前のみ"
-          onClick={() => onBulkChange((slot) => (slot.start < "12:00" ? "o" : "x"))}
-        />
-        <ShortcutButton
-          label="午後のみ"
-          onClick={() => onBulkChange((slot) => (slot.start >= "12:00" ? "o" : "x"))}
-        />
+        {availabilityShortcuts(values).map((shortcut) => (
+          <ShortcutButton
+            key={shortcut.label}
+            label={shortcut.label}
+            onClick={() => onBulkChange(shortcut.compute)}
+          />
+        ))}
       </div>
 
-      <p id={hintId} className="text-xs text-muted">
-        ○ 可能 / △ {AVAILABILITY_HINT.d} / × 不可
-      </p>
+      <div id={hintId} className="space-y-1 text-xs text-muted">
+        <p>参加できない時間だけ選んでください。選ばなかった時間は参加できるものとして扱います。</p>
+        <p>{UNAVAILABILITY_HINT}</p>
+      </div>
 
-      <ul className="space-y-2">
-        {timeSlots.map((slot) => (
-          <li key={slot.id} className="rounded-lg border border-border bg-surface px-3 py-2">
-            <fieldset
-              aria-describedby={hintId}
-              className="flex w-full min-w-0 flex-wrap items-center justify-between gap-3"
-            >
-              <legend className="sr-only">
-                {slot.start}–{slot.end}
-                {slot.phaseName ? ` ${slot.phaseName}` : ""}
-              </legend>
-              <span aria-hidden="true">
-                <span className="font-medium">
+      <ul className="divide-y divide-border overflow-hidden rounded-lg border border-border bg-surface">
+        {timeSlots.map((slot) => {
+          const value = values[slot.id] ?? "o";
+          return (
+            <li key={slot.id} className="px-3 py-2">
+              <fieldset
+                aria-describedby={hintId}
+                className="flex w-full min-w-0 flex-wrap items-center justify-between gap-3"
+              >
+                <legend className="sr-only">
                   {slot.start}–{slot.end}
+                  {slot.phaseName ? ` ${slot.phaseName}` : ""}
+                </legend>
+                <span aria-hidden="true">
+                  <span className="text-sm font-medium tabular-nums">
+                    {slot.start}–{slot.end}
+                  </span>
+                  {slot.phaseName ? (
+                    <span className="ml-2 text-sm text-muted">{slot.phaseName}</span>
+                  ) : null}
                 </span>
-                {slot.phaseName ? (
-                  <span className="ml-2 text-sm text-muted">{slot.phaseName}</span>
-                ) : null}
-              </span>
-              <div className="inline-flex rounded-md bg-background p-0.5">
-                {AVAILABILITY_VALUES.map((value) => (
-                  <label
-                    key={value}
-                    className={`availability-option cursor-pointer rounded-sm px-3 py-1 text-center text-sm font-semibold transition ${
-                      values[slot.id] === value
-                        ? "bg-surface text-foreground shadow-sm"
-                        : "text-muted hover:text-foreground"
-                    }`}
-                  >
-                    <input
-                      type="radio"
-                      name={`avail_${slot.id}`}
-                      value={value}
-                      checked={values[slot.id] === value}
-                      onChange={() => onChange(slot.id, value)}
-                      aria-label={`${AVAILABILITY_LABELS[value]} ${AVAILABILITY_HINT[value]}`}
-                      className="sr-only"
-                    />
-                    {AVAILABILITY_LABELS[value]}
-                  </label>
-                ))}
-              </div>
-            </fieldset>
-          </li>
-        ))}
+                <input type="hidden" name={`avail_${slot.id}`} value={value} />
+                <div className="grid w-full grid-cols-2 gap-0.5 rounded-md bg-background p-0.5 sm:inline-flex sm:w-auto">
+                  {UNAVAILABILITY_CHOICES.map((choice) => {
+                    const checked = value === choice.value;
+                    return (
+                      <label
+                        key={choice.value}
+                        className={`availability-option cursor-pointer whitespace-nowrap rounded-sm px-2 py-1 text-center text-xs font-semibold transition sm:px-3 sm:text-sm ${
+                          checked
+                            ? choice.value === "x"
+                              ? "bg-danger/10 text-danger ring-1 ring-danger/50"
+                              : "bg-warning/10 text-warning ring-1 ring-warning/50"
+                            : "text-muted hover:text-foreground"
+                        }`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={(event) =>
+                            onChange(slot.id, event.target.checked ? choice.value : "o")
+                          }
+                          className="sr-only"
+                        />
+                        {choice.label}
+                      </label>
+                    );
+                  })}
+                </div>
+              </fieldset>
+            </li>
+          );
+        })}
       </ul>
     </div>
   );

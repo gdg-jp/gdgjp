@@ -1331,8 +1331,10 @@ body {
 .admin-page > .brand-eyebrow {
   margin-bottom: -18px;
 }
-.page-heading h1,
-.gdg-page-header h1.gdg-heading {
+/* The display-size heading is for the admin screens only; public pages
+   (staff registration, the published roster) keep the base heading size. */
+.admin-page .page-heading h1,
+.admin-page .gdg-page-header h1.gdg-heading {
   font-size: clamp(2.1rem, 4vw, 3.5rem);
   font-weight: 800;
   line-height: 1.06;

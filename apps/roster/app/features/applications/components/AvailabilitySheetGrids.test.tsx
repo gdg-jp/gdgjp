@@ -99,22 +99,16 @@ describe("staff availability sheets", () => {
       }),
     );
 
-    expect(html).toMatch(
-      /<input[^>]*(?=[^>]*name="avail_main-0900")(?=[^>]*value="d")(?=[^>]*checked="")[^>]*>/,
-    );
-    expect(html).toMatch(
-      /<input[^>]*(?=[^>]*name="avail_main-1000")(?=[^>]*value="x")(?=[^>]*checked="")[^>]*>/,
-    );
-    expect(html).toMatch(
-      /<input[^>]*(?=[^>]*name="avail_party-0900")(?=[^>]*value="x")(?=[^>]*checked="")[^>]*>/,
-    );
+    expect(html).toContain('<input type="hidden" name="avail_main-0900" value="d"/>');
+    expect(html).toContain('<input type="hidden" name="avail_main-1000" value="x"/>');
+    expect(html).toContain('<input type="hidden" name="avail_party-0900" value="x"/>');
     expect(buildAvailabilityState(MAIN.timeSlots, [], "x")).toEqual({
       "main-0900": "x",
       "main-1000": "x",
     });
   });
 
-  it("defaults proxy answers to ○ and restores those defaults when rebuilt after success", () => {
+  it("defaults proxy answers to available (no marks) and restores those defaults when rebuilt after success", () => {
     const html = renderInRouter(
       createElement(ProxyAddDialog, {
         hasParty: false,
@@ -124,12 +118,8 @@ describe("staff availability sheets", () => {
       }),
     );
 
-    expect(html).toMatch(
-      /<input[^>]*(?=[^>]*name="avail_main-0900")(?=[^>]*value="o")(?=[^>]*checked="")[^>]*>/,
-    );
-    expect(html).toMatch(
-      /<input[^>]*(?=[^>]*name="avail_party-0900")(?=[^>]*value="o")(?=[^>]*checked="")[^>]*>/,
-    );
+    expect(html).toContain('<input type="hidden" name="avail_main-0900" value="o"/>');
+    expect(html).toContain('<input type="hidden" name="avail_party-0900" value="o"/>');
     expect(buildAvailabilityState([PARTY.timeSlots[0]], [], "o")).toEqual({ "party-0900": "o" });
   });
 
@@ -155,8 +145,8 @@ describe("staff availability sheets", () => {
     );
     expect(emptySheet).toContain('<legend class="max-w-full px-1 text-sm font-semibold">');
     expect(emptySheet).toContain("このシフト表には選択できる時間枠がありません。");
-    expect(emptySheet).not.toContain('type="radio"');
-    expect(emptySheet).not.toContain("終日 ○");
+    expect(emptySheet).not.toContain('name="avail_');
+    expect(emptySheet).not.toContain("すべて解除");
   });
 
   it("keeps legacy flat timeSlots available as one unlabelled group", () => {

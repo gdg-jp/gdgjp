@@ -162,7 +162,7 @@ export function StaffDrawer({
           </fieldset>
 
           <fieldset className="space-y-3">
-            <legend className="text-sm font-medium">稼働可能時間</legend>
+            <legend className="text-sm font-medium">参加できない時間</legend>
             <AvailabilitySheetGrids
               rosterSheets={rosterSheets}
               timeSlots={timeSlots}

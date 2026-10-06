@@ -82,9 +82,9 @@ async function createEventWithDemand(
   return eventId;
 }
 
-/** Registers `as` for `reception` with every slot available ("終日 ○"),
- * except `unavailableSlotLabel` (e.g. "10:00–11:00"), which is forced to
- * "×" — the fixture the warn-and-allow test below assigns into anyway. */
+/** Registers `as` for `reception` with every slot available ("すべて解除"),
+ * except `unavailableSlotLabel` (e.g. "10:00–11:00"), which is marked
+ * "× 参加できない" — the fixture the warn-and-allow test below assigns into anyway. */
 async function registerStaff(
   page: Page,
   applyPath: string,
@@ -93,7 +93,7 @@ async function registerStaff(
 ): Promise<void> {
   await page.goto(`/dev/login?as=${as}&chapter=999:${as}-chapter&return_to=${applyPath}`);
   await page.check('input[name="role_reception"]');
-  await page.getByRole("button", { name: "終日 ○" }).click();
+  await page.getByRole("button", { name: "すべて解除" }).click();
   if (unavailableSlotLabel) {
     await page
       .locator("li", { hasText: unavailableSlotLabel })
@@ -264,23 +264,28 @@ test("multi-sheet availability, generation history, and publishing stay scoped t
   const partyGrid = page.getByRole("group", { name: /^懇親会 — 2030-06-01/ });
   await expect(defaultGrid).toBeVisible();
   await expect(partyGrid).toBeVisible();
-  await defaultGrid.getByRole("button", { name: "終日 ○" }).click();
-  await partyGrid.getByRole("button", { name: "終日 ○" }).click();
+  await defaultGrid.getByRole("button", { name: "すべて解除" }).click();
+  await partyGrid.getByRole("button", { name: "すべて解除" }).click();
   await partyGrid
     .locator("li", { hasText: "19:00–20:00" })
     .locator("label", { hasText: "×" })
     .click();
   await page.getByRole("button", { name: "登録する" }).click();
   await expect(page.getByRole("button", { name: "登録内容を更新" })).toBeVisible();
+  // An unmarked slot is saved as available; only the marked party slot is "×".
+  const defaultSlot = defaultGrid.locator("li", { hasText: "10:00–11:00" });
+  await expect(defaultSlot.getByRole("checkbox", { name: "× 参加できない" })).not.toBeChecked();
+  await expect(defaultSlot.getByRole("checkbox", { name: "△ できれば避けたい" })).not.toBeChecked();
   await expect(
-    defaultGrid.locator("li", { hasText: "10:00–11:00" }).getByRole("radio", { name: "○ 可能" }),
+    partyGrid
+      .locator("li", { hasText: "19:00–20:00" })
+      .getByRole("checkbox", { name: "× 参加できない" }),
   ).toBeChecked();
   await expect(
-    partyGrid.locator("li", { hasText: "19:00–20:00" }).getByRole("radio", { name: "× 不可" }),
-  ).toBeChecked();
-  await expect(
-    partyGrid.locator("li", { hasText: "20:00–21:00" }).getByRole("radio", { name: "○ 可能" }),
-  ).toBeChecked();
+    partyGrid
+      .locator("li", { hasText: "20:00–21:00" })
+      .getByRole("checkbox", { name: "× 参加できない" }),
+  ).not.toBeChecked();
 
   // Generate only the party sheet. Its assignment/history should not appear on 本編.
   await page.goto(`/dev/login?as=owner&chapter=1:e2e-roster-owner&return_to=/e/${eventId}/staff`);

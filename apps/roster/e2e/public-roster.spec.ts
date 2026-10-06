@@ -88,7 +88,7 @@ async function registerStaff(
 ): Promise<void> {
   await page.goto(`/dev/login?as=${as}&chapter=999:${as}-chapter&return_to=${applyPath}`);
   await page.check('input[name="role_reception"]');
-  await page.getByRole("button", { name: "終日 ○" }).click();
+  await page.getByRole("button", { name: "すべて解除" }).click();
   if (unavailableSlotLabel) {
     await page
       .locator("li", { hasText: unavailableSlotLabel })
