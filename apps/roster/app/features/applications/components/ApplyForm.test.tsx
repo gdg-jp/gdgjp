@@ -111,15 +111,9 @@ describe("ApplyForm grouped availability", () => {
     };
     const html = renderForm([MAIN_SHEET, PARTY_SHEET], own);
 
-    expect(html).toMatch(
-      /<input[^>]*(?=[^>]*name="avail_main-0900")(?=[^>]*value="d")(?=[^>]*checked="")[^>]*>/,
-    );
-    expect(html).toMatch(
-      /<input[^>]*(?=[^>]*name="avail_party-0900")(?=[^>]*value="x")(?=[^>]*checked="")[^>]*>/,
-    );
-    expect(html).toMatch(
-      /<input[^>]*(?=[^>]*name="avail_main-1000")(?=[^>]*value="o")(?=[^>]*checked="")[^>]*>/,
-    );
+    expect(html).toContain('<input type="hidden" name="avail_main-0900" value="d"/>');
+    expect(html).toContain('<input type="hidden" name="avail_party-0900" value="x"/>');
+    expect(html).toContain('<input type="hidden" name="avail_main-1000" value="o"/>');
   });
 
   it("labels an empty sheet and exposes an accessible empty state without controls", () => {
@@ -128,14 +122,14 @@ describe("ApplyForm grouped availability", () => {
     expect(html).toContain("懇親会 — 2026-11-07 09:00–11:00");
     expect(html).toContain("<output");
     expect(html).toContain("このシフト表には選択できる時間枠がありません。");
-    expect(html).not.toContain('type="radio"');
-    expect(html).not.toContain("終日 ○");
+    expect(html).not.toContain('name="avail_');
+    expect(html).not.toContain("すべて解除");
   });
 
   it("shows a form-level empty state when no sheet is available", () => {
     const html = renderForm([]);
 
     expect(html).toContain("回答できるシフト表がありません。");
-    expect(html).not.toContain('type="radio"');
+    expect(html).not.toContain('name="avail_');
   });
 });

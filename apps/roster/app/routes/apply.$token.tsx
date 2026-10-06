@@ -1,3 +1,4 @@
+import { Badge, Button, Card, Stack } from "@gdgjp/design-system";
 import { PublicShell } from "~/components/PublicShell";
 import {
   resolveOwnApplication,
@@ -198,46 +199,44 @@ export default function ApplyPage({ loaderData, actionData }: Route.ComponentPro
 
   return (
     <PublicShell>
-      <div className="page-heading">
-        <div>
-          <h1>{event.name}</h1>
-          <p>
-            {event.date} {event.startTime}–{event.endTime}
-          </p>
-        </div>
-      </div>
+      <header className="space-y-1">
+        <h1 className="text-2xl font-bold">スタッフ登録</h1>
+        <p className="text-sm text-muted">
+          {event.name}
+          <span aria-hidden="true"> · </span>
+          {event.date} {event.startTime}–{event.endTime}
+        </p>
+      </header>
 
       {!canApplyNow ? (
-        <p className="rounded-xl border border-border bg-surface p-5 font-medium">
-          募集は終了しました。
-        </p>
+        <Card>
+          <p className="font-medium">募集は終了しました。</p>
+        </Card>
       ) : !viewer ? (
-        <section className="space-y-4 rounded-xl border border-border bg-surface p-5">
-          <p>このイベントはスタッフを募集しています。登録するにはサインインしてください。</p>
-          {roles.length > 0 ? (
+        <Card>
+          <Stack>
+            <p>このイベントはスタッフを募集しています。登録するにはサインインしてください。</p>
+            {roles.length > 0 ? (
+              <div>
+                <h2 className="text-sm font-medium">募集中の役割</h2>
+                <ul className="mt-2 flex flex-wrap gap-2">
+                  {roles.map((role) => (
+                    <li key={role.id}>
+                      <Badge tone="neutral">{role.name}</Badge>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
             <div>
-              <h2 className="font-bold">募集中の役割</h2>
-              <ul className="mt-2 flex flex-wrap gap-2">
-                {roles.map((role) => (
-                  <li
-                    key={role.id}
-                    className="rounded-full border-2 border-border bg-surface px-3 py-1 text-sm"
-                  >
-                    {role.name}
-                  </li>
-                ))}
-              </ul>
+              <Button asChild>
+                <a href={signInHref}>サインインして登録する</a>
+              </Button>
             </div>
-          ) : null}
-          <a
-            href={signInHref}
-            className="inline-block rounded-full border-2 border-border bg-gdg-blue px-6 py-2.5 font-bold text-primary-foreground transition hover:brightness-95"
-          >
-            サインインして登録する
-          </a>
-        </section>
+          </Stack>
+        </Card>
       ) : (
-        <section className="space-y-4 rounded-xl border border-border bg-surface p-5">
+        <Card>
           <ApplyForm
             hasParty={event.hasParty}
             roles={roles}
@@ -246,7 +245,7 @@ export default function ApplyPage({ loaderData, actionData }: Route.ComponentPro
             defaultName={viewer.name}
             error={error}
           />
-        </section>
+        </Card>
       )}
     </PublicShell>
   );

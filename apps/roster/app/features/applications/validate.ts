@@ -69,7 +69,7 @@ export function validateApplyForm(input: ApplyFormInput, ctx: ApplyFormContext):
   const seenSlots = new Set<string>();
   for (const entry of input.availability) {
     if (!ctx.timeSlotIds.has(entry.timeSlotId)) {
-      errors.push("稼働可能時間に不明な時間枠が含まれています。");
+      errors.push("参加できない時間に不明な時間枠が含まれています。");
     }
     if (seenSlots.has(entry.timeSlotId)) {
       errors.push("同じ時間枠が重複して指定されています。");

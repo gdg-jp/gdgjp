@@ -76,7 +76,7 @@ test("public registration: overview when signed out, form for any signed-in visi
   await expect(page.locator('input[name="name"]')).toHaveValue(/staff1/);
 
   await page.check('input[name="role_reception"]');
-  await page.getByRole("button", { name: "終日 ○" }).click();
+  await page.getByRole("button", { name: "すべて解除" }).click();
   await page.getByRole("button", { name: "登録する" }).click();
   await expect(page.getByRole("button", { name: "登録内容を更新" })).toBeVisible();
 
@@ -114,7 +114,7 @@ test("proxy-add: owner registers by email, and that person's sign-in claims it d
   await page.fill('input[name="email"]', "Claimee@Dev.Local");
   await page.fill('input[name="name"]', "Proxy Claimee");
   await page.check('input[name="role_reception"]');
-  await page.getByRole("button", { name: "終日 ○" }).click();
+  await page.getByRole("button", { name: "すべて解除" }).click();
   await page.getByRole("dialog").getByRole("button", { name: "登録する" }).click();
   await expect(page.getByRole("dialog")).toBeHidden();
 

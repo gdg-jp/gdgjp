@@ -1,3 +1,4 @@
+import { FormField, NativeSelect, NativeSelectOption } from "@gdgjp/design-system";
 import {
   LEVELS,
   LEVEL_DESCRIPTIONS,
@@ -35,50 +36,46 @@ export function RoleSkillRow({
   onPrefChange: (pref: Pref) => void;
 }) {
   return (
-    <li className="rounded-lg border border-border bg-surface p-3">
+    <li className="rounded-lg border border-border bg-surface px-3 py-2.5">
       <label className="flex items-center gap-2">
         <input
           type="checkbox"
           name={`role_${role.id}`}
           checked={selected}
           onChange={(e) => onSelectedChange(e.target.checked)}
-          className="size-4"
+          className="size-4 accent-gdg-blue"
         />
-        <span className="font-medium">{role.name}</span>
+        <span className="text-sm font-medium">{role.name}</span>
       </label>
 
       {selected ? (
         <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <label className="space-y-1 text-sm">
-            <span className="block font-medium">経験レベル</span>
-            <select
+          <FormField id={`level-${role.id}`} label="経験レベル">
+            <NativeSelect
               name={`level_${role.id}`}
               value={level}
               onChange={(e) => onLevelChange(e.target.value as Level)}
-              className="w-full rounded-xl border-2 border-border bg-surface p-2 outline-none focus:ring-4 focus:ring-gdg-blue/40"
             >
               {LEVELS.map((l) => (
-                <option key={l} value={l}>
+                <NativeSelectOption key={l} value={l}>
                   {LEVEL_LABELS[l]} — {LEVEL_DESCRIPTIONS[l]}
-                </option>
+                </NativeSelectOption>
               ))}
-            </select>
-          </label>
-          <label className="space-y-1 text-sm">
-            <span className="block font-medium">希望度</span>
-            <select
+            </NativeSelect>
+          </FormField>
+          <FormField id={`pref-${role.id}`} label="希望度">
+            <NativeSelect
               name={`pref_${role.id}`}
               value={pref}
               onChange={(e) => onPrefChange(Number(e.target.value) as Pref)}
-              className="w-full rounded-xl border-2 border-border bg-surface p-2 outline-none focus:ring-4 focus:ring-gdg-blue/40"
             >
               {PREFS.map((p) => (
-                <option key={p} value={p}>
+                <NativeSelectOption key={p} value={p}>
                   {PREF_LABELS[p]}
-                </option>
+                </NativeSelectOption>
               ))}
-            </select>
-          </label>
+            </NativeSelect>
+          </FormField>
         </div>
       ) : null}
     </li>

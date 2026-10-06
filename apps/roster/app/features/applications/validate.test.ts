@@ -89,7 +89,9 @@ describe("validateApplyForm", () => {
         { timeSlotId: "slot_ghost", value: "o" as const },
       ],
     };
-    expect(validateApplyForm(input, ctx)).toContain("稼働可能時間に不明な時間枠が含まれています。");
+    expect(validateApplyForm(input, ctx)).toContain(
+      "参加できない時間に不明な時間枠が含まれています。",
+    );
   });
 
   it("rejects a duplicate time slot entry", () => {

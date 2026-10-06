@@ -44,12 +44,17 @@ export const AVAILABILITY_LABELS: Record<AvailabilityValue, string> = {
   x: "×",
 };
 
-/** The "△ is only used when ○ doesn't fill the slot" caveat the form must show verbatim. */
-export const AVAILABILITY_HINT: Record<AvailabilityValue, string> = {
-  o: "可能",
-  d: "○ で埋まらない場合にだけ使われます",
-  x: "不可",
-};
+/**
+ * The staff-facing form asks only for the slots someone cannot (`x`) or would rather not (`d`)
+ * work. A slot left unselected is saved as `o`, so the stored values above do not change.
+ */
+export const UNAVAILABILITY_CHOICES = [
+  { value: "d", label: "△ できれば避けたい" },
+  { value: "x", label: "× 参加できない" },
+] as const satisfies readonly { value: Exclude<AvailabilityValue, "o">; label: string }[];
+
+/** The "△ is only used when available staff don't fill the slot" caveat the form must show. */
+export const UNAVAILABILITY_HINT = "△ は、参加できる人で埋まらない場合にだけ割り当てられます。";
 
 export const PARTY_STATUSES = ["yes", "no", "undecided"] as const;
 export type PartyStatus = (typeof PARTY_STATUSES)[number];

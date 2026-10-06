@@ -1,3 +1,12 @@
+import {
+  Alert,
+  Button,
+  FormField,
+  Input,
+  NativeSelect,
+  NativeSelectOption,
+  Textarea,
+} from "@gdgjp/design-system";
 import { useState } from "react";
 import { Form } from "react-router";
 import {
@@ -104,40 +113,28 @@ export function ApplyForm({
 
   return (
     <Form method="post" className="space-y-6">
-      {error ? (
-        <p role="alert" className="text-sm font-medium text-gdg-red">
-          {error}
-        </p>
-      ) : null}
+      {error ? <Alert tone="danger" title={error} /> : null}
 
       {own?.withdrawn ? (
-        <p className="rounded-xl border-2 border-border bg-neutral-100 p-3 text-sm">
-          この登録は辞退済みです。内容を保存すると再度有効になります。
-        </p>
+        <Alert tone="info" title="この登録は辞退済みです。">
+          内容を保存すると再度有効になります。
+        </Alert>
       ) : null}
 
-      <label className="block space-y-1">
-        <span className="text-sm font-medium">表示名</span>
-        <input
-          name="name"
-          required
-          defaultValue={own?.name ?? defaultName}
-          className="w-full rounded-xl border-2 border-border bg-surface p-3 outline-none focus:ring-4 focus:ring-gdg-blue/40"
-        />
-      </label>
+      <FormField id="apply-name" label="表示名" required>
+        <Input name="name" required defaultValue={own?.name ?? defaultName} />
+      </FormField>
 
-      <label className="block space-y-1">
-        <span className="text-sm font-medium">当日の連絡手段（任意）</span>
-        <input
-          name="contact"
-          defaultValue={own?.contact ?? ""}
-          placeholder="未入力の場合はアカウントのメールを使用します"
-          className="w-full rounded-xl border-2 border-border bg-surface p-3 outline-none focus:ring-4 focus:ring-gdg-blue/40"
-        />
-      </label>
+      <FormField
+        id="apply-contact"
+        label="当日の連絡手段（任意）"
+        description="未入力の場合はアカウントのメールを使用します"
+      >
+        <Input name="contact" defaultValue={own?.contact ?? ""} />
+      </FormField>
 
-      <fieldset className="space-y-3">
-        <legend className="text-sm font-medium">担当できる役割</legend>
+      <fieldset className="space-y-2">
+        <legend className="mb-2 text-sm font-medium">担当できる役割</legend>
         <ul className="space-y-2">
           {roles.map((role) => (
             <RoleSkillRow
@@ -160,8 +157,8 @@ export function ApplyForm({
         </ul>
       </fieldset>
 
-      <fieldset className="space-y-3">
-        <legend className="text-sm font-medium">稼働可能時間</legend>
+      <fieldset className="space-y-2">
+        <legend className="mb-2 text-sm font-medium">参加できない時間</legend>
         {availabilitySheets.length === 0 ? (
           <output className="text-sm text-muted">回答できるシフト表がありません。</output>
         ) : (
@@ -200,51 +197,29 @@ export function ApplyForm({
       </fieldset>
 
       {hasParty ? (
-        <label className="block space-y-1">
-          <span className="text-sm font-medium">懇親会</span>
-          <select
-            name="party"
-            defaultValue={own?.party ?? DEFAULT_PARTY}
-            className="w-full rounded-xl border-2 border-border bg-surface p-3 outline-none focus:ring-4 focus:ring-gdg-blue/40"
-          >
+        <FormField id="apply-party" label="懇親会">
+          <NativeSelect name="party" defaultValue={own?.party ?? DEFAULT_PARTY}>
             {PARTY_STATUSES.map((status) => (
-              <option key={status} value={status}>
+              <NativeSelectOption key={status} value={status}>
                 {PARTY_LABELS[status]}
-              </option>
+              </NativeSelectOption>
             ))}
-          </select>
-        </label>
+          </NativeSelect>
+        </FormField>
       ) : null}
 
-      <label className="block space-y-1">
-        <span className="text-sm font-medium">備考（任意）</span>
-        <textarea
-          name="note"
-          rows={3}
-          defaultValue={own?.note ?? ""}
-          className="w-full rounded-xl border-2 border-border bg-surface p-3 outline-none focus:ring-4 focus:ring-gdg-blue/40"
-        />
-      </label>
+      <FormField id="apply-note" label="備考（任意）">
+        <Textarea name="note" rows={3} defaultValue={own?.note ?? ""} />
+      </FormField>
 
-      <div className="flex flex-wrap gap-3">
-        <button
-          type="submit"
-          name="intent"
-          value="save"
-          className="rounded-full border-2 border-border bg-gdg-blue px-6 py-2.5 font-bold text-primary-foreground transition hover:brightness-95"
-        >
+      <div className="flex flex-wrap gap-3 border-t border-border pt-5">
+        <Button type="submit" name="intent" value="save">
           {own ? "登録内容を更新" : "登録する"}
-        </button>
+        </Button>
         {own ? (
-          <button
-            type="submit"
-            name="intent"
-            value="withdraw"
-            formNoValidate
-            className="rounded-full border-2 border-border bg-surface px-6 py-2.5 font-bold text-gdg-red transition hover:bg-neutral-100"
-          >
+          <Button type="submit" name="intent" value="withdraw" variant="outline" formNoValidate>
             辞退する
-          </button>
+          </Button>
         ) : null}
       </div>
     </Form>
