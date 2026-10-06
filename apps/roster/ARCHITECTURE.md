@@ -37,6 +37,16 @@
   reshapes the result into a deliberately smaller `PublicRosterData` (ADR-005: no PII, no
   experience level, ever). Reuses `~/features/roster/components/RoleGrid` (new `readOnly` prop)
   rather than forking it.
+- **Multi-sheet** (after Stage 09) added the `roster_sheets` table (migrations 0007–0012) and
+  `app/features/roster-sheets/`: an event owns several sheets, each with its own date/time
+  grid, tracks, demand, assignments, history (`revision_cursor`), and `visibility`. Every event
+  keeps a deterministic default sheet `default:<eventId>` ("本編"). `/e/:id` is the sheet list;
+  per-sheet screens live under `/e/:id/s/:sheetId/{design,roster}`, and the legacy
+  `/e/:id/design` / `/e/:id/roster` URLs redirect to the default sheet. `/r/:token/s/:sheetId`
+  is the per-sheet public view under the same event token. Staff (`applications`) stay
+  event-wide, so `cross-sheet-conflicts.server.ts` keeps one person from overlapping across
+  sheets on the same date: the solver excludes those slots, and manual assignment asks for
+  confirmation.
 
 ## Code map
 
@@ -54,6 +64,7 @@
 | Roster/shift table (`assignments` table; `SolverInput` assembly from D1; the single `writeAssignments` write path; grid/drawer view logic; `/e/:id/roster`) | `app/features/roster/` (README) |
 | History (`revisions` table + `events.revision_cursor`; record/restore/undo/redo; consecutive-edit grouping; 50-entry retention; the history panel + undo/redo buttons) | `app/features/history/` (README) |
 | Public view (`/r/:viewToken`'s data assembly and 4 sub-views; the individual-view merge logic; `/e/:id/share`'s URL/publication card) | `app/features/public-roster/` (README) |
+| Roster sheets (`roster_sheets` table; create/update/visibility/reorder/archive; cross-sheet overlap detection; the `/e/:id` sheet list, new-sheet dialog, and per-sheet header/design screen) | `app/features/roster-sheets/` |
 
 ## Route surface
 
@@ -64,14 +75,24 @@ app/routes/
   admin.tsx         pathless authenticated layout — chapter gate + shared admin shell
   home.tsx          "/" — event list (auth + chapter required)
   events.new.tsx      "/events/new" — create an event
-  e.$id.design.tsx    "/e/:id/design" — event settings, phases/time slots, tracks, roles, demand
+  e.$id.tsx           "/e/:id" — sheet list: create, publish/unpublish, reorder, archive
+                      (auth + chapter)
+  e.$id.design.tsx    "/e/:id/design" — legacy URL, redirects to the default sheet's design
+  e.$id.s.$sheetId.design.tsx
+                      "/e/:id/s/:sheetId/design" — sheet settings, phases/time slots, tracks,
+                      roles, demand (auth + chapter)
   e.$id.staff.tsx     "/e/:id/staff" — staff list + owner-correction drawer, supply-demand view,
                       apply URL/status card, proxy-add entry point (auth + chapter)
-  e.$id.roster.tsx    "/e/:id/roster" — shift table: generate, 3 views, 2 manual-edit drawers,
-                      history panel + undo/redo/restore (auth + chapter)
-  e.$id.share.tsx     "/e/:id/share" — view-URL copy + publication card (auth + chapter)
+  e.$id.roster.tsx    "/e/:id/roster" — legacy URL, redirects to the default sheet's roster
+  e.$id.s.$sheetId.roster.tsx
+                      "/e/:id/s/:sheetId/roster" — shift table: generate, 3 views, 2 manual-edit
+                      drawers, history panel + undo/redo/restore (auth + chapter)
+  e.$id.share.tsx     "/e/:id/share" — per-sheet view-URL copy + publication status (auth + chapter)
   apply.$token.tsx    "/apply/:token" — public staff registration (sign-in only, no Chapter)
   r.$token.tsx        "/r/:token" — public read-only shift view, NO auth at all (default-sheet visibility gates data)
+  r.$token.s.$sheetId.tsx
+                      "/r/:token/s/:sheetId" — same as above for one sheet (that sheet's
+                      visibility gates data)
   signin.tsx         "/signin" — redirects into the gdg-lib auth flow
   no-chapter.tsx      "/no-chapter"
   api.auth.$.ts       "/api/auth/*" — gdg-lib RP plumbing

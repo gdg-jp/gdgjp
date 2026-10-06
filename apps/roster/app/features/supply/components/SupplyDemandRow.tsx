@@ -21,7 +21,7 @@ export function SupplyDemandRow({
   roleNameById: ReadonlyMap<string, string>;
 }) {
   return (
-    <li className="supply-demand-row grid items-center gap-3 rounded-lg border border-border bg-card px-3 py-2">
+    <li className="supply-demand-row grid items-center gap-3 rounded-lg border border-border bg-surface px-3 py-2">
       <span>
         <span className="font-medium">{label}</span>
         {phaseName ? <span className="ml-2 text-sm text-neutral-500">{phaseName}</span> : null}

@@ -51,7 +51,7 @@ export function NewRosterSheetDialog({
           日付と時間を設定して作成します。役割や必要人数は作成後に設定できます。
         </DialogDescription>
         {formError && (
-          <p className="text-sm text-destructive" role="alert">
+          <p className="text-sm text-danger" role="alert">
             {formError}
           </p>
         )}

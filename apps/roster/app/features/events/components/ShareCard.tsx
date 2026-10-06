@@ -136,7 +136,7 @@ function ShareUrl({ url, label }: { url: string; label: string }) {
 
   return (
     <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-center">
-      <code className="min-w-0 flex-1 select-all break-all rounded-lg bg-muted p-3 text-sm">
+      <code className="min-w-0 flex-1 select-all break-all rounded-lg bg-background p-3 text-sm">
         {url}
       </code>
       <Button
@@ -151,7 +151,7 @@ function ShareUrl({ url, label }: { url: string; label: string }) {
         {copied ? "クリップボードにコピーしました" : ""}
       </output>
       {copyError && (
-        <p role="alert" className="text-sm text-destructive">
+        <p role="alert" className="text-sm text-danger">
           コピーできませんでした。URLを選択してコピーしてください。
         </p>
       )}
