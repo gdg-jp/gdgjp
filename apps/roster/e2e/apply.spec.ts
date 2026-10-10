@@ -128,3 +128,39 @@ test("proxy-add: owner registers by email, and that person's sign-in claims it d
   await expect(page.locator('input[name="name"]')).toHaveValue("Proxy Claimee");
   await expect(page.getByRole("button", { name: "登録内容を更新" })).toBeVisible();
 });
+
+/**
+ * ADR-011 event-owned roles, end to end: the owner creates a role on the
+ * sheet design screen (it starts selected on that sheet), renames it, and a
+ * staff member then registers for it under the new name on the public form.
+ */
+test("custom role: owner creates and renames an event-owned role, and staff can register for it", async ({
+  page,
+}) => {
+  await page.goto("/dev/login?as=owner&chapter=1:e2e-owner-chapter&return_to=/events/new");
+  await page.fill('input[name="name"]', "E2E Custom Role Event");
+  await page.fill('input[name="date"]', "2030-06-01");
+  await page.getByRole("button", { name: "作成する" }).click();
+  await page.waitForURL(/\/e\/[^/]+\/(?:s\/[^/]+\/)?design$/);
+  const eventId = new URL(page.url()).pathname.split("/")[2];
+
+  await page.getByLabel("新しい役割").fill("クローク");
+  await page.getByRole("button", { name: "役割を作成" }).click();
+  await expect(page.getByRole("checkbox", { name: "クローク" })).toBeChecked();
+
+  await page.getByLabel("「クローク」の名前").fill("クローク・荷物");
+  await page.getByRole("button", { name: "名前を変更" }).click();
+  await expect(page.getByRole("checkbox", { name: "クローク・荷物" })).toBeChecked();
+
+  await setEventStatus(page, eventId, "open");
+  const applyUrlText = (await page.locator("code").first().textContent())?.trim();
+  if (!applyUrlText) throw new Error("apply URL not found on /e/:id/staff");
+  const applyPath = new URL(applyUrlText).pathname;
+
+  await page.goto(`/dev/login?as=staff-custom&chapter=999:other-chapter&return_to=${applyPath}`);
+  await page.getByRole("checkbox", { name: "クローク・荷物" }).check();
+  await page.getByRole("button", { name: "すべて解除" }).click();
+  await page.getByRole("button", { name: "登録する" }).click();
+  await expect(page.getByRole("button", { name: "登録内容を更新" })).toBeVisible();
+  await expect(page.getByRole("checkbox", { name: "クローク・荷物" })).toBeChecked();
+});

@@ -1,6 +1,7 @@
 import { useMemo, useRef, useState } from "react";
+import type { Role } from "~/features/schedule/roles.server";
 import type { Phase, TimeSlot } from "~/features/schedule/schedule.server";
-import type { Role, Track } from "~/features/schedule/tracks.server";
+import type { Track } from "~/features/schedule/tracks.server";
 import {
   type DemandColumn,
   type MatrixMode,

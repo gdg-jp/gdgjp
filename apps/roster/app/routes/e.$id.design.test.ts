@@ -8,6 +8,7 @@ vi.mock("~/features/auth/auth-redirect.server", () => ({
 
 import { requireUserWithChapter } from "~/features/auth/auth-redirect.server";
 import { slotDataLossOnSlotChange } from "~/features/demand/impact";
+import { createEventRole, listEventRoleIds, listRoles } from "~/features/schedule/roles.server";
 import { type TestD1Database, asD1, createTestD1 } from "../../tests/helpers/sqlite-d1";
 import { loader as legacyLoader } from "./e.$id.design";
 import { action, loader } from "./e.$id.s.$sheetId.design";
@@ -22,6 +23,9 @@ const MIGRATIONS = [
   "0008_default_sheet_compat.sql",
   "0009_time_slots_sheet_uniqueness.sql",
   "0010_revisions_sheet_sequence.sql",
+  "0011_repair_default_sheet_compat.sql",
+  "0012_independent_sheet_publication.sql",
+  "0013_event_custom_roles.sql",
 ].map((name) => fileURLToPath(new URL(`../../migrations/${name}`, import.meta.url)));
 
 const OWNER: UserChapter = { chapterId: 1, chapterSlug: "tokyo", role: "member" };
@@ -546,5 +550,57 @@ describe("e.$id.design sheet routing", () => {
           .first<{ count: number }>()
       )?.count,
     ).toBe(1);
+  });
+
+  it("manages event roles on the selected sheet and ignores another event's role ids", async () => {
+    owner();
+    const foreign = await createEventRole(asD1(db), "event-b", "default:event-b", "記録補助");
+    const call = (entries: Record<string, string | string[]>) => {
+      const form = new FormData();
+      for (const [key, value] of Object.entries(entries)) {
+        for (const v of Array.isArray(value) ? value : [value]) form.append(key, v);
+      }
+      return action(
+        args(
+          new Request("http://localhost/e/event-a/s/sheet-a2/design", {
+            method: "POST",
+            body: form,
+          }),
+          asD1(db),
+          { id: "event-a", sheetId: "sheet-a2" },
+        ) as Parameters<typeof action>[0],
+      );
+    };
+
+    await expect(call({ intent: "createRole", name: "クローク" })).resolves.toEqual({ ok: true });
+    const cloak = (await listRoles(asD1(db), "event-a")).find((role) => role.custom);
+    expect(cloak?.name).toBe("クローク");
+    expect(await listEventRoleIds(asD1(db), "event-a", "sheet-a2")).toEqual([cloak?.id]);
+    expect(await listEventRoleIds(asD1(db), "event-a", "default:event-a")).toEqual([]);
+
+    await call({ intent: "setRoles", roleId: ["guide", foreign.id] });
+    expect(await listEventRoleIds(asD1(db), "event-a", "sheet-a2")).toEqual(["guide"]);
+
+    await expect(
+      call({
+        intent: "saveDemand",
+        mode: "slot",
+        rowKey: "slot-default",
+        trackId: "track-sheet",
+        roleId: foreign.id,
+        min: "1",
+        ideal: "1",
+        leadMin: "0",
+        newMax: "99",
+      }),
+    ).resolves.toEqual({ error: "需要の対象が不正です。" });
+    expect(
+      (
+        await db
+          .prepare("SELECT COUNT(*) AS count FROM demands WHERE role_id = ?")
+          .bind(foreign.id)
+          .first<{ count: number }>()
+      )?.count,
+    ).toBe(0);
   });
 });

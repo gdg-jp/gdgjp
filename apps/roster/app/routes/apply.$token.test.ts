@@ -21,6 +21,7 @@ const MIGRATIONS = [
   fileURLToPath(new URL("../../migrations/0008_default_sheet_compat.sql", import.meta.url)),
   fileURLToPath(new URL("../../migrations/0009_time_slots_sheet_uniqueness.sql", import.meta.url)),
   fileURLToPath(new URL("../../migrations/0010_revisions_sheet_sequence.sql", import.meta.url)),
+  fileURLToPath(new URL("../../migrations/0013_event_custom_roles.sql", import.meta.url)),
 ];
 
 const SELF: AuthUser = {
