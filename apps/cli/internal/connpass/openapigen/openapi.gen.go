@@ -510,6 +510,11 @@ type NotFound = Error
 // Unauthorized defines model for Unauthorized.
 type Unauthorized = Error
 
+// CheckInParticipantJSONBody defines parameters for CheckInParticipant.
+type CheckInParticipantJSONBody struct {
+	Url string `json:"url"`
+}
+
 // UploadGroupEventImageMultipartBody defines parameters for UploadGroupEventImage.
 type UploadGroupEventImageMultipartBody struct {
 	Image openapi_types.File `json:"image"`
@@ -517,6 +522,9 @@ type UploadGroupEventImageMultipartBody struct {
 
 // AdminUpsertGroupJSONRequestBody defines body for AdminUpsertGroup for application/json ContentType.
 type AdminUpsertGroupJSONRequestBody = UpsertGroupRequest
+
+// CheckInParticipantJSONRequestBody defines body for CheckInParticipant for application/json ContentType.
+type CheckInParticipantJSONRequestBody CheckInParticipantJSONBody
 
 // CreateGroupEventJSONRequestBody defines body for CreateGroupEvent for application/json ContentType.
 type CreateGroupEventJSONRequestBody = CreateEventRequest
@@ -634,6 +642,11 @@ type ClientInterface interface {
 
 	// AdminRelogin request
 	AdminRelogin(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CheckInParticipantWithBody request with any body
+	CheckInParticipantWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	CheckInParticipant(ctx context.Context, body CheckInParticipantJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListGroupEvents request
 	ListGroupEvents(ctx context.Context, groupId string, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -778,6 +791,30 @@ func (c *Client) AdminUpsertGroup(ctx context.Context, groupId string, body Admi
 
 func (c *Client) AdminRelogin(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewAdminReloginRequest(c.Server)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CheckInParticipantWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCheckInParticipantRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CheckInParticipant(ctx context.Context, body CheckInParticipantJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCheckInParticipantRequest(c.Server, body)
 	if err != nil {
 		return nil, err
 	}
@@ -1341,6 +1378,46 @@ func NewAdminReloginRequest(server string) (*http.Request, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	return req, nil
+}
+
+// NewCheckInParticipantRequest calls the generic CheckInParticipant builder with application/json body
+func NewCheckInParticipantRequest(server string, body CheckInParticipantJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCheckInParticipantRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewCheckInParticipantRequestWithBody generates requests for CheckInParticipant with any type of body
+func NewCheckInParticipantRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/checkin")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
 
 	return req, nil
 }
@@ -2707,6 +2784,11 @@ type ClientWithResponsesInterface interface {
 	// AdminReloginWithResponse request
 	AdminReloginWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*AdminReloginResponse, error)
 
+	// CheckInParticipantWithBodyWithResponse request with any body
+	CheckInParticipantWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CheckInParticipantResponse, error)
+
+	CheckInParticipantWithResponse(ctx context.Context, body CheckInParticipantJSONRequestBody, reqEditors ...RequestEditorFn) (*CheckInParticipantResponse, error)
+
 	// ListGroupEventsWithResponse request
 	ListGroupEventsWithResponse(ctx context.Context, groupId string, reqEditors ...RequestEditorFn) (*ListGroupEventsResponse, error)
 
@@ -2880,6 +2962,33 @@ func (r AdminReloginResponse) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r AdminReloginResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type CheckInParticipantResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *struct {
+		CheckedIn bool `json:"checkedIn"`
+	}
+	JSON400 *BadRequest
+	JSON401 *Unauthorized
+	JSON403 *Forbidden
+}
+
+// Status returns HTTPResponse.Status
+func (r CheckInParticipantResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CheckInParticipantResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -3618,6 +3727,23 @@ func (c *ClientWithResponses) AdminReloginWithResponse(ctx context.Context, reqE
 	return ParseAdminReloginResponse(rsp)
 }
 
+// CheckInParticipantWithBodyWithResponse request with arbitrary body returning *CheckInParticipantResponse
+func (c *ClientWithResponses) CheckInParticipantWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CheckInParticipantResponse, error) {
+	rsp, err := c.CheckInParticipantWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCheckInParticipantResponse(rsp)
+}
+
+func (c *ClientWithResponses) CheckInParticipantWithResponse(ctx context.Context, body CheckInParticipantJSONRequestBody, reqEditors ...RequestEditorFn) (*CheckInParticipantResponse, error) {
+	rsp, err := c.CheckInParticipant(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCheckInParticipantResponse(rsp)
+}
+
 // ListGroupEventsWithResponse request returning *ListGroupEventsResponse
 func (c *ClientWithResponses) ListGroupEventsWithResponse(ctx context.Context, groupId string, reqEditors ...RequestEditorFn) (*ListGroupEventsResponse, error) {
 	rsp, err := c.ListGroupEvents(ctx, groupId, reqEditors...)
@@ -4062,6 +4188,55 @@ func ParseAdminReloginResponse(rsp *http.Response) (*AdminReloginResponse, error
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
 		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseCheckInParticipantResponse parses an HTTP response from a CheckInParticipantWithResponse call
+func ParseCheckInParticipantResponse(rsp *http.Response) (*CheckInParticipantResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CheckInParticipantResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			CheckedIn bool `json:"checkedIn"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}

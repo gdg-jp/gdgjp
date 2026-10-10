@@ -231,3 +231,30 @@ func TestRelogin(t *testing.T) {
 		t.Fatalf("job = %#v", job)
 	}
 }
+
+func TestCheckIn(t *testing.T) {
+	t.Parallel()
+	const checkinURL = "https://connpass.com/event/388434/qr_checkin/831287/7082717/"
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost || r.URL.Path != "/api/checkin" {
+			t.Fatalf("unexpected request %s %s", r.Method, r.URL.Path)
+		}
+		var payload map[string]string
+		if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+			t.Fatal(err)
+		}
+		if payload["url"] != checkinURL {
+			t.Fatalf("payload = %#v", payload)
+		}
+		_ = json.NewEncoder(w).Encode(map[string]any{"checkedIn": true})
+	}))
+	t.Cleanup(server.Close)
+
+	out, err := NewClientAt(server.URL).CheckIn(context.Background(), "token", checkinURL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !out.CheckedIn {
+		t.Fatalf("out = %#v", out)
+	}
+}

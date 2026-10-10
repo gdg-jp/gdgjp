@@ -23,7 +23,35 @@ func newConnpassCommand(credentials store.CredentialStore) *cobra.Command {
 	command.AddCommand(newConnpassJobsCommand(credentials))
 	command.AddCommand(newConnpassGroupsCommand(credentials))
 	command.AddCommand(newConnpassSessionCommand(credentials))
+	command.AddCommand(newConnpassCheckinCommand(credentials))
 	return command
+}
+
+func newConnpassCheckinCommand(credentials store.CredentialStore) *cobra.Command {
+	return &cobra.Command{
+		Use:   "checkin URL",
+		Short: "Check in a participant from a connpass reception QR URL",
+		Long: "Open a connpass reception QR URL (https://connpass.com/event/<id>/qr_checkin/<n>/<n>/) " +
+			"as the bot account to mark the participant as attended. Prints {\"checkedIn\": bool} " +
+			"and exits non-zero when the check-in did not succeed.",
+		Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			client := connpass.NewClient()
+			out, err := cliutil.WithToken(cmd.Context(), credentials, func(token string) (connpass.CheckInResponse, error) {
+				return client.CheckIn(cmd.Context(), token, args[0])
+			})
+			if err != nil {
+				return err
+			}
+			if err := cliutil.PrintJSON(cmd.OutOrStdout(), out); err != nil {
+				return err
+			}
+			if !out.CheckedIn {
+				return errors.New("check-in failed")
+			}
+			return nil
+		},
+	}
 }
 
 func addJSONBodyFlags(cmd *cobra.Command) {

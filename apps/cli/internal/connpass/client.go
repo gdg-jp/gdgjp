@@ -282,6 +282,24 @@ func (c *Client) Relogin(ctx context.Context, token string) (Job, error) {
 	return job, err
 }
 
+type CheckInResponse struct {
+	CheckedIn bool `json:"checkedIn"`
+}
+
+// CheckIn opens a connpass reception QR URL as the bot account and reports
+// whether the participant was marked as attended.
+func (c *Client) CheckIn(ctx context.Context, token, checkinURL string) (CheckInResponse, error) {
+	res, err := c.generatedClient().CheckInParticipantWithResponse(
+		ctx, openapigen.CheckInParticipantJSONRequestBody{Url: checkinURL}, bearer(token),
+	)
+	if err != nil {
+		return CheckInResponse{}, err
+	}
+	var out CheckInResponse
+	err = decodeResponse(res.StatusCode(), res.Body, &out)
+	return out, err
+}
+
 func (c *Client) ListEvents(ctx context.Context, token, groupID string) (ListEventsResponse, error) {
 	res, err := c.generatedClient().ListGroupEventsWithResponse(ctx, groupID, bearer(token))
 	if err != nil {

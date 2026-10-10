@@ -380,3 +380,27 @@ func TestConnpassSubEventsCancel(t *testing.T) {
 		t.Fatalf("output = %s", out)
 	}
 }
+
+func TestConnpassCheckin(t *testing.T) {
+	for _, checkedIn := range []bool{true, false} {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if r.Method != http.MethodPost || r.URL.Path != "/api/checkin" {
+				t.Fatalf("unexpected request %s %s", r.Method, r.URL.Path)
+			}
+			_ = json.NewEncoder(w).Encode(map[string]any{"checkedIn": checkedIn})
+		}))
+		t.Setenv("GDG_CONNPASS_URL", server.URL)
+
+		output, err := executeConnpass(t, "checkin", "https://connpass.com/event/1/qr_checkin/2/3/")
+		server.Close()
+		if checkedIn && err != nil {
+			t.Fatal(err)
+		}
+		if !checkedIn && (err == nil || err.Error() != "check-in failed") {
+			t.Fatalf("err = %v", err)
+		}
+		if !strings.Contains(output, `"checkedIn":`) {
+			t.Fatalf("output = %q", output)
+		}
+	}
+}
