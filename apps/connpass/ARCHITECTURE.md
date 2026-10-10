@@ -10,8 +10,8 @@
 | Job execution, browser lifecycle and failure handling | `app/features/jobs/job-runner.server.ts` |
 | Redacted job response | `app/features/jobs/job-presentation.ts` |
 | Browser connection and KV bot session | `app/features/connpass/{browser,session}.server.ts` |
-| Synchronous browser reads and login retry | `app/features/connpass/connpass-browser-read.server.ts` |
-| Connpass UI automation and model parsing | `app/features/connpass/ui/` |
+| Synchronous browser reads, reception check-in, and login retry | `app/features/connpass/connpass-browser-read.server.ts` |
+| Connpass UI automation and model parsing (QR check-in: `ui/checkin.ts`) | `app/features/connpass/ui/` |
 | Worker fetch/queue dispatch, acknowledgement/retry | `workers/app.ts` |
 
 - `app/routes.ts` owns public URLs. Route directory names identify the API domain.

@@ -1,6 +1,7 @@
 import type { Page } from "@cloudflare/playwright";
 import { getAllowedGroupByNumericId } from "../auth/authorize.server";
 import { ensureLoggedIn, forceRelogin, openConnpassSession } from "./browser.server";
+import { checkInWithQrUrl, scrapeEventGroupNumericId } from "./ui/checkin";
 import { scrapeConference } from "./ui/conference";
 import { type ScrapedEventDetail, scrapeEventDetail, scrapeGroupEvents } from "./ui/event-read";
 import { scrapeEventStatistics, scrapeParticipants } from "./ui/participants";
@@ -86,4 +87,33 @@ export function getEventStatisticsInBrowser(env: Env, eventId: string | number) 
 
 export function getVoucherRecipientsInBrowser(env: Env, eventId: string | number) {
   return withConnpassRead(env, (page) => scrapeVoucherRecipients(page, String(eventId)));
+}
+
+const EVENT_GROUP_TTL_SECONDS = 24 * 60 * 60;
+
+/**
+ * Reception check-in is synchronous: staff scan one QR after another and need the
+ * result immediately. The event's group is resolved first (KV-cached so repeated
+ * scans cost one page load) and `authorize` must approve it before the QR URL is
+ * opened, because opening it is what records attendance.
+ */
+export function checkInInBrowser(
+  env: Env,
+  checkin: { url: string; eventId: string },
+  authorize: (groupNumericId: number) => Promise<boolean>,
+): Promise<"checked_in" | "failed" | "forbidden"> {
+  const cacheKey = `connpass:event-group:${checkin.eventId}`;
+  return withConnpassRead(env, async (page) => {
+    let groupNumericId = Number((await env.SESSION_KV.get(cacheKey)) ?? Number.NaN);
+    if (!Number.isFinite(groupNumericId)) {
+      const scraped = await scrapeEventGroupNumericId(page, checkin.eventId);
+      if (scraped == null) return "forbidden";
+      groupNumericId = scraped;
+      await env.SESSION_KV.put(cacheKey, String(scraped), {
+        expirationTtl: EVENT_GROUP_TTL_SECONDS,
+      });
+    }
+    if (!(await authorize(groupNumericId))) return "forbidden";
+    return (await checkInWithQrUrl(page, checkin.url)) ? "checked_in" : "failed";
+  });
 }

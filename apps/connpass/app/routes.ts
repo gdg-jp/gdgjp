@@ -25,6 +25,7 @@ export default [
   ),
   route("api/groups/:groupId/events/:eventId/survey", "routes/api/events/survey.ts"),
   route("api/groups/:groupId/events/:eventId/conference", "routes/api/events/conference.ts"),
+  route("api/checkin", "routes/api/events/checkin.ts"),
   route("api/admin/session/relogin", "routes/api/admin/relogin.ts"),
   route("api/admin/groups", "routes/api/admin/groups.ts"),
   route("api/admin/groups/:groupId", "routes/api/admin/group.ts"),

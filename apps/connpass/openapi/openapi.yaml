@@ -43,6 +43,8 @@ paths:
     $ref: ./paths/group-event-survey.yaml
   /api/groups/{groupId}/events/{eventId}/conference:
     $ref: ./paths/group-event-conference.yaml
+  /api/checkin:
+    $ref: ./paths/checkin.yaml
   /api/admin/session/relogin:
     $ref: ./paths/admin-relogin.yaml
   /api/admin/groups:

@@ -76,6 +76,7 @@ it("preserves the public route set and resolves every relocated adapter", () => 
       "survey",
       "conference",
     ].map((suffix) => `api/groups/:groupId/events/:eventId/${suffix}`),
+    "api/checkin",
     "api/admin/session/relogin",
     "api/admin/groups",
     "api/admin/groups/:groupId",

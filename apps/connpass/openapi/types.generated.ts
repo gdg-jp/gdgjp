@@ -326,6 +326,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/checkin": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Check in a participant from a reception QR URL
+         * @description Opens the connpass reception QR URL (`https://connpass.com/event/{eventId}/qr_checkin/{n}/{n}/`) as the bot account, which marks the participant as attended. Runs synchronously and reports only whether the check-in succeeded. Requires organizer access to the event's allowlisted group, and the bot account must be a co-admin of the event on connpass.
+         */
+        post: operations["checkInParticipant"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/session/relogin": {
         parameters: {
             query?: never;
@@ -1607,6 +1627,41 @@ export interface operations {
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
+        };
+    };
+    checkInParticipant: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /**
+                     * Format: uri
+                     * @example https://connpass.com/event/388434/qr_checkin/831287/7082717/
+                     */
+                    url: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Check-in result */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        checkedIn: boolean;
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
         };
     };
     adminRelogin: {

@@ -34,6 +34,11 @@ test.describe("unauthenticated", () => {
       data: { enabled: true },
     });
     expect(upsert.status()).toBe(401);
+
+    const checkin = await request.post("/api/checkin", {
+      data: { url: "https://connpass.com/event/1/qr_checkin/2/3/" },
+    });
+    expect(checkin.status()).toBe(401);
   });
 
   test("invalid bearer token returns 401", async ({ request }) => {
@@ -174,6 +179,15 @@ test.describe("authorization and validation (no connpass.com)", () => {
     });
     expect(conference.status()).toBe(400);
     await expect(conference.json()).resolves.toEqual({ error: "invalid_body" });
+
+    for (const url of [undefined, "https://example.com/event/1/qr_checkin/2/3/"]) {
+      const checkin = await request.post("/api/checkin", {
+        headers: auth(TOKENS.organizer),
+        data: { url },
+      });
+      expect(checkin.status()).toBe(400);
+      await expect(checkin.json()).resolves.toEqual({ error: "invalid_checkin_url" });
+    }
   });
 
   test("jobs 404 and relogin is admin-only", async ({ request }) => {
