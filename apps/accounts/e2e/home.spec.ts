@@ -66,3 +66,11 @@ test("RP authorization creates a signed continuation accepted by Google sign-in"
   await page.getByRole("button", { name: /Continue with Google|Google で続行/ }).click();
   await expect(page.locator("body")).toHaveText("Google sign-in started");
 });
+
+test("unknown invite links explain the problem without asking to sign in", async ({ page }) => {
+  await page.goto("/invite/does-not-exist");
+  await expect(page).toHaveURL(/\/invite\/does-not-exist$/);
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText(
+    "This invite link can't be used",
+  );
+});

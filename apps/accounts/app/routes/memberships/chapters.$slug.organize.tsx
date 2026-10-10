@@ -20,7 +20,7 @@ import {
 } from "@gdgjp/design-system";
 import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { useFetcher } from "react-router";
+import { Link, useFetcher } from "react-router";
 import { PageHeader } from "~/components/page-header";
 import { MemberRow, PendingRow, userLabel } from "~/features/memberships/components/member-rows";
 import { StatusBadge } from "~/features/memberships/components/status-badge";
@@ -63,6 +63,17 @@ export default function OrganizeChapter({ loaderData }: { loaderData: LoaderData
       <PageHeader
         back={{ to: "/chapters", label: t("organize.back") }}
         title={t("organize.title", { chapter: chapter.name })}
+        actions={
+          <Button asChild variant="outline">
+            <Link
+              to={`/chapters/invites?chapter=${encodeURIComponent(chapter.slug)}`}
+              prefetch="intent"
+            >
+              <Icons name="Link" size={16} aria-hidden="true" />
+              {t("organize.createInvite")}
+            </Link>
+          </Button>
+        }
       />
 
       <section aria-labelledby="pending-heading" className="mt-8">

@@ -6,6 +6,7 @@ export default [
   route("signin", "routes/auth/signin.tsx", { id: "routes/signin" }),
   route("signup", "routes/signup.tsx"),
   route("onboarding", "routes/onboarding/onboarding.tsx", { id: "routes/onboarding" }),
+  route("invite/:token", "routes/invites/invite.$token.tsx", { id: "routes/invite.$token" }),
   layout("routes/authenticated.tsx", { id: "account" }, [
     route("dashboard", "routes/dashboard/dashboard.tsx", { id: "routes/dashboard" }),
     route("developers/apps", "routes/developer-apps/developers.apps.tsx", {
@@ -18,6 +19,9 @@ export default [
       id: "routes/developers.apps.$clientId",
     }),
     route("chapters", "routes/chapters/chapters.tsx", { id: "routes/chapters" }),
+    route("chapters/invites", "routes/invites/chapters.invites.tsx", {
+      id: "routes/chapters.invites",
+    }),
     route("settings/google-workspace", "routes/google-workspace/settings.google-workspace.tsx", {
       id: "routes/settings.google-workspace",
     }),

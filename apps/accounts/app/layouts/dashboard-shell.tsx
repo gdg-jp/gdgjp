@@ -51,6 +51,9 @@ function Navigation({
       label: membership.chapter.name,
       icon: "Settings",
     }));
+  if (organizerItems.length > 0) {
+    items.push({ to: "/chapters/invites", label: t("nav.invites"), icon: "Link" });
+  }
   if (user?.isAdmin) {
     items.push(
       { to: "/admin/users", label: t("nav.users"), icon: "Users" },

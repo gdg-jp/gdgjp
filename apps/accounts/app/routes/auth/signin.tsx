@@ -46,7 +46,9 @@ export default function SignInPage() {
               <Text tone="muted">{t("auth.signin.subtitle")}</Text>
             </Stack>
             <Text tone="muted" className="text-center">
-              {t("auth.signin.welcome")}
+              {returnTo.startsWith("/invite/")
+                ? t("auth.signin.inviteHint")
+                : t("auth.signin.welcome")}
             </Text>
             <form method="get" action="/oauth/google/start" className="space-y-3">
               <input type="hidden" name="return_to" value={returnTo} />

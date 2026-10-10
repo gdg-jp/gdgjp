@@ -25,7 +25,8 @@
     "navigationDescription": "移動先を選択してください。",
     "appLauncher": "アプリランチャーを開く",
     "closeNavigation": "ナビゲーションを閉じる",
-    "skipToContent": "本文へ移動"
+    "skipToContent": "本文へ移動",
+    "invites": "招待リンク"
   },
   "meta": {
     "signin": "サインイン — GDG Japan Accounts",
@@ -42,7 +43,9 @@
     "developerAppsDetail": "OIDC クライアントを管理 — GDG Japan Accounts",
     "oauthConsent": "アプリケーションを認可 — GDG Japan Accounts",
     "device": "CLI にサインイン — GDG Japan Accounts",
-    "googleWorkspace": "Google Workspace — GDG Japan Accounts"
+    "googleWorkspace": "Google Workspace — GDG Japan Accounts",
+    "invites": "招待リンク — GDG Japan Accounts",
+    "invite": "チャプターへの招待 — GDG Japan Accounts"
   },
   "dashboard": {
     "memberships": {
@@ -94,7 +97,8 @@
     },
     "organizerTools": {
       "title": "チャプター運営ツール",
-      "description": "参加リクエストを確認し、チャプターのメンバー一覧を最新に保ちます。"
+      "description": "参加リクエストを確認し、チャプターのメンバー一覧を最新に保ちます。",
+      "invitesCta": "招待リンクを発行"
     }
   },
   "developerApps": {
@@ -454,6 +458,50 @@
       "removeDescription": "ただちにアクティブな所属状態が失われます。後から再度参加をリクエストできます。",
       "rejectTitle": "{{name}} のリクエストを却下しますか？",
       "rejectDescription": "承認待ちのリクエストを削除します。後からもう一度リクエストできます。"
+    },
+    "createInvite": "招待リンクを発行"
+  },
+  "invites": {
+    "title": "招待リンク",
+    "description": "開いた人がそのままチャプターに参加できるリンクを発行します。参加リクエストの承認は不要です。",
+    "url": "招待リンク",
+    "copy": "招待リンクをコピー",
+    "create": {
+      "title": "招待リンクを発行",
+      "description": "あなたがオーガナイザーを務めるチャプターから、参加先を 1 つ以上選んでください。",
+      "chapters": "参加先のチャプター",
+      "expiry": "有効期限",
+      "days": "{{count}} 日間",
+      "submit": "リンクを発行",
+      "created": "招待リンクを発行しました。共有してください。"
+    },
+    "list": {
+      "title": "有効な招待リンク ({{count}})",
+      "description": "期限切れ前でも、失効させるとリンクはすぐに使えなくなります。",
+      "empty": "有効な招待リンクはありません。",
+      "meta": "有効期限 {{expiresAt}} ・ 発行者 {{creator}}",
+      "revoke": "失効させる",
+      "revokeTitle": "この招待リンクを失効させますか？",
+      "revokeDescription": "リンクはただちに使えなくなります。既に参加したメンバーには影響しません。"
+    },
+    "accept": {
+      "joinedTitle": "チャプターに参加しました",
+      "joinedSubtitle": "招待されたチャプターのメンバーになりました。",
+      "joined": "参加しました",
+      "alreadyMember": "参加済み",
+      "dashboard": "ダッシュボードへ",
+      "unavailableTitle": "この招待リンクは使えません",
+      "home": "トップへ",
+      "reason": {
+        "invalid": "リンクが正しくないか、招待が削除されています。招待した人に確認してください。",
+        "expired": "招待リンクの有効期限が切れています。招待した人に新しいリンクを依頼してください。",
+        "revoked": "この招待リンクは失効しています。招待した人に新しいリンクを依頼してください。"
+      }
+    },
+    "errors": {
+      "notOrganizer": "オーガナイザーを務めていないチャプターは選べません。",
+      "invalidExpiry": "有効期限を選んでください。",
+      "notFound": "招待リンクが見つかりません。"
     }
   },
   "kind": {
@@ -477,7 +525,8 @@
       "subtitle": "Google アカウントで続行します。",
       "welcome": "GDG Japan のチャプターと開発者ツールを、ひとつのアカウントで。",
       "secure": "次の画面で Google アカウントを選択します。",
-      "continueWithGoogle": "Google で続行"
+      "continueWithGoogle": "Google で続行",
+      "inviteHint": "サインインすると、招待されたチャプターに参加します。"
     },
     "consent": {
       "eyebrow": "GDG Japan Accounts",

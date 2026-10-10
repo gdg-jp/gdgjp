@@ -25,7 +25,8 @@
     "navigationDescription": "Choose a destination.",
     "appLauncher": "Open app launcher",
     "closeNavigation": "Close navigation",
-    "skipToContent": "Skip to content"
+    "skipToContent": "Skip to content",
+    "invites": "Invite links"
   },
   "meta": {
     "signin": "Sign in — GDG Japan Accounts",
@@ -42,7 +43,9 @@
     "developerAppsDetail": "Manage OIDC client — GDG Japan Accounts",
     "oauthConsent": "Authorize application — GDG Japan Accounts",
     "device": "Sign in to the CLI — GDG Japan Accounts",
-    "googleWorkspace": "Google Workspace — GDG Japan Accounts"
+    "googleWorkspace": "Google Workspace — GDG Japan Accounts",
+    "invites": "Invite links — GDG Japan Accounts",
+    "invite": "Chapter invite — GDG Japan Accounts"
   },
   "dashboard": {
     "memberships": {
@@ -94,7 +97,8 @@
     },
     "organizerTools": {
       "title": "Chapter organizer tools",
-      "description": "Review incoming requests and keep your chapter's member list up to date."
+      "description": "Review incoming requests and keep your chapter's member list up to date.",
+      "invitesCta": "Create invite link"
     }
   },
   "developerApps": {
@@ -454,6 +458,51 @@
       "removeDescription": "They will lose active membership immediately and can request to rejoin later.",
       "rejectTitle": "Reject {{name}}'s request?",
       "rejectDescription": "Their pending request will be removed. They can submit a new request later."
+    },
+    "createInvite": "Create invite link"
+  },
+  "invites": {
+    "title": "Invite links",
+    "description": "Create links that add whoever opens them to your chapters directly, without a join-request approval.",
+    "url": "Invite link",
+    "copy": "Copy invite link",
+    "create": {
+      "title": "Create an invite link",
+      "description": "Choose one or more chapters you organize.",
+      "chapters": "Chapters to join",
+      "expiry": "Expires in",
+      "days_one": "{{count}} day",
+      "days_other": "{{count}} days",
+      "submit": "Create link",
+      "created": "Invite link created. Share it with the people you want to invite."
+    },
+    "list": {
+      "title": "Active invite links ({{count}})",
+      "description": "Revoking a link disables it immediately, even before it expires.",
+      "empty": "No active invite links.",
+      "meta": "Expires {{expiresAt}} · Created by {{creator}}",
+      "revoke": "Revoke",
+      "revokeTitle": "Revoke this invite link?",
+      "revokeDescription": "The link stops working immediately. People who already joined keep their membership."
+    },
+    "accept": {
+      "joinedTitle": "You joined the chapter",
+      "joinedSubtitle": "You are now a member of the chapters you were invited to.",
+      "joined": "Joined",
+      "alreadyMember": "Already a member",
+      "dashboard": "Go to dashboard",
+      "unavailableTitle": "This invite link can't be used",
+      "home": "Go to home",
+      "reason": {
+        "invalid": "The link is incorrect or the invite no longer exists. Check with the person who invited you.",
+        "expired": "This invite link has expired. Ask the person who invited you for a new link.",
+        "revoked": "This invite link has been revoked. Ask the person who invited you for a new link."
+      }
+    },
+    "errors": {
+      "notOrganizer": "You can only choose chapters you organize.",
+      "invalidExpiry": "Choose an expiry period.",
+      "notFound": "Invite link not found."
     }
   },
   "kind": {
@@ -477,7 +526,8 @@
       "subtitle": "Use your Google account to continue.",
       "welcome": "One account for your GDG Japan chapters and developer tools.",
       "secure": "You'll choose a Google account on the next screen.",
-      "continueWithGoogle": "Continue with Google"
+      "continueWithGoogle": "Continue with Google",
+      "inviteHint": "After signing in, you will join the chapters you were invited to."
     },
     "consent": {
       "eyebrow": "GDG Japan Accounts",

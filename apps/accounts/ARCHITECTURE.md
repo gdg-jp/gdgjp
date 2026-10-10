@@ -13,6 +13,7 @@
 | Membership queries, atomic mutations, requests and chapter management | `app/features/memberships/` |
 | User lookup and super-admin user management | `app/features/users/` |
 | Onboarding policy, skip cookie and chapter selection wizard | `app/features/onboarding/` |
+| Organizer-issued chapter invite links and invite acceptance | `app/features/invites/` |
 | Account dashboard | `app/features/dashboard/` |
 | Membership email notifications | `app/features/notifications/` |
 | Independent Google Workspace OAuth linking, encryption and token vending | `app/features/google-workspace/` |

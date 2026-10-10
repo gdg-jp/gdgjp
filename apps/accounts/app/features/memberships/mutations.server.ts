@@ -44,6 +44,32 @@ export async function requestMembership(
   return { ok: true };
 }
 
+export type InviteJoinResult = "joined" | "already_member";
+
+/**
+ * Joins a chapter through an organizer-issued invite: no approval step. A
+ * pending request is promoted to active; an existing active membership keeps
+ * its role (an organizer opening their own link is not demoted).
+ */
+export async function joinMembershipViaInvite(
+  db: D1Database,
+  userId: string,
+  chapterId: number,
+): Promise<InviteJoinResult> {
+  const result = await db
+    .prepare(
+      `INSERT INTO memberships (user_id, chapter_id, role, status, approved_at)
+       VALUES (?, ?, 'member', 'active', unixepoch())
+       ON CONFLICT(user_id, chapter_id) DO UPDATE
+         SET status = 'active', approved_at = unixepoch()
+         WHERE memberships.status = 'pending'`,
+    )
+    .bind(userId, chapterId)
+    .run();
+  const changes = (result.meta as { changes?: number } | undefined)?.changes ?? 0;
+  return changes > 0 ? "joined" : "already_member";
+}
+
 export async function approveMembership(
   db: D1Database,
   userId: string,

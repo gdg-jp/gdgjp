@@ -81,6 +81,12 @@ export function RoleToolsSection({
                   </Link>
                 </Button>
               ))}
+              <Button asChild variant="outline" size="sm">
+                <Link to="/chapters/invites" prefetch="intent">
+                  <Icons name="Link" size={16} aria-hidden="true" />{" "}
+                  {t("dashboard.organizerTools.invitesCta")}
+                </Link>
+              </Button>
             </div>
           </Card>
         ) : null}
