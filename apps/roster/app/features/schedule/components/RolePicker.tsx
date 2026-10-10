@@ -1,4 +1,4 @@
-import { Badge, Button, Checkbox, FormField, Heading, Input } from "@gdgjp/design-system";
+import { Button, Checkbox, FormField, Heading, Input } from "@gdgjp/design-system";
 import { Form } from "react-router";
 import { ROLE_NAME_MAX_LENGTH, canCreateCustomRole } from "~/features/schedule/role-name";
 import type { Role } from "~/features/schedule/roles.server";
@@ -10,7 +10,8 @@ import type { Role } from "~/features/schedule/roles.server";
  * the event's own roles (ADR-011) are created, renamed, and deleted; they
  * are shared by every sheet of the event and its apply form, and a newly
  * created one starts selected on this sheet. Forms can't nest, so the
- * management forms are siblings of the checkbox form.
+ * management forms are siblings of the checkbox form. `error` is a failed
+ * role action's message, shown here rather than at the top of the page.
  *
  * The create button is deliberately not labelled "役割を追加" — that is the
  * demand matrix's add-column button, which tests look up by name.
@@ -19,7 +20,8 @@ export function RolePicker({
   roles,
   selectedRoleIds,
   sheetId,
-}: { roles: Role[]; selectedRoleIds: string[]; sheetId: string }) {
+  error,
+}: { roles: Role[]; selectedRoleIds: string[]; sheetId: string; error?: string }) {
   const selected = new Set(selectedRoleIds);
   const customRoles = roles.filter((role) => role.custom);
 
@@ -42,7 +44,6 @@ export function RolePicker({
                   defaultChecked={selected.has(role.id)}
                 />
                 <span className="font-medium">{role.name}</span>
-                {role.custom ? <Badge tone="neutral">独自</Badge> : null}
               </label>
             </li>
           ))}
@@ -59,6 +60,11 @@ export function RolePicker({
         <p className="gdg-muted text-sm">
           独自の役割はこのイベントのすべてのシフト表と応募フォームで共通です。名前の変更もすべてに反映されます。
         </p>
+        {error ? (
+          <p role="alert" className="text-sm font-medium text-gdg-red">
+            {error}
+          </p>
+        ) : null}
         {customRoles.length === 0 ? (
           <p className="gdg-muted text-sm">独自の役割はまだありません。</p>
         ) : (

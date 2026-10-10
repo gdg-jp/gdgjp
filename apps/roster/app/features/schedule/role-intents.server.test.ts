@@ -71,9 +71,11 @@ describe("handleRoleIntent", () => {
 
     await expect(run(db, "createRole", { name: "" })).resolves.toEqual({
       error: "役割名を入力してください。",
+      section: "roles",
     });
     await expect(run(db, "createRole", { name: "受付" })).resolves.toEqual({
       error: "「受付」という役割はすでにあります。",
+      section: "roles",
     });
     await expect(run(db, "createRole", { name: "クローク" })).resolves.toMatchObject({
       error: expect.stringContaining("すでにあります"),
@@ -88,6 +90,7 @@ describe("handleRoleIntent", () => {
     }
     await expect(run(db, "createRole", { name: "もう一つ" })).resolves.toEqual({
       error: `独自の役割は${CUSTOM_ROLE_LIMIT}件まで作成できます。`,
+      section: "roles",
     });
   });
 
@@ -106,7 +109,10 @@ describe("handleRoleIntent", () => {
     await expect(run(db, "renameRole", { roleId: cloak.id, name: "ｔａ" })).resolves.toMatchObject({
       error: expect.stringContaining("すでにあります"),
     });
-    const notFound = { error: "役割が見つかりません。画面を更新してお試しください。" };
+    const notFound = {
+      error: "役割が見つかりません。画面を更新してお試しください。",
+      section: "roles",
+    };
     await expect(run(db, "renameRole", { roleId: "reception", name: "総合受付" })).resolves.toEqual(
       notFound,
     );
@@ -145,9 +151,11 @@ describe("handleRoleIntent", () => {
     await expect(run(db, "deleteRole", { roleId: cloak.id })).resolves.toEqual({
       error:
         "需要または割当で使われているため削除できません。先に需要を0にし、割当を外してください。",
+      section: "roles",
     });
     await expect(run(db, "deleteRole", { roleId: "reception" })).resolves.toEqual({
       error: "役割が見つかりません。画面を更新してお試しください。",
+      section: "roles",
     });
 
     await db.prepare("UPDATE demands SET min_count = 0, ideal_count = 0").run();

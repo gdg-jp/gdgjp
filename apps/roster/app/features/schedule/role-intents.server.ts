@@ -13,16 +13,22 @@ import {
  * the event's own roles (ADR-011). Kept out of the route module so
  * `e.$id.s.$sheetId.design.tsx` stays under the 400-line cap. Every id the
  * form submits is checked against `listRoles(db, eventId)`, so another
- * event's custom role id is ignored or rejected.
+ * event's custom role id is ignored or rejected. Errors carry
+ * `section: "roles"` so the screen shows them inside the role card, next to
+ * the form that was submitted, instead of in the page-top banner.
  */
 
 export type RoleIntent = "setRoles" | "createRole" | "renameRole" | "deleteRole";
-export type RoleIntentResult = { ok: true } | { error: string };
+export type RoleIntentResult = { ok: true } | { error: string; section: "roles" };
 
 const ROLE_NOT_FOUND = "役割が見つかりません。画面を更新してお試しください。";
 
+function fail(error: string): RoleIntentResult {
+  return { error, section: "roles" };
+}
+
 function duplicateName(name: string): RoleIntentResult {
-  return { error: `「${name}」という役割はすでにあります。` };
+  return fail(`「${name}」という役割はすでにあります。`);
 }
 
 /** A concurrent exact duplicate that passed `validateRoleName` hits `roles_event_name`. */
@@ -48,10 +54,10 @@ export async function handleRoleIntent(
     }
     case "createRole": {
       if (!canCreateCustomRole(roles)) {
-        return { error: `独自の役割は${CUSTOM_ROLE_LIMIT}件まで作成できます。` };
+        return fail(`独自の役割は${CUSTOM_ROLE_LIMIT}件まで作成できます。`);
       }
       const result = validateRoleName(String(form.get("name") ?? ""), roles);
-      if (!result.ok) return { error: result.error };
+      if (!result.ok) return fail(result.error);
       try {
         await createEventRole(db, eventId, sheetId, result.name);
       } catch (error) {
@@ -62,12 +68,12 @@ export async function handleRoleIntent(
     }
     case "renameRole": {
       const roleId = String(form.get("roleId") ?? "");
-      if (!roles.some((r) => r.id === roleId && r.custom)) return { error: ROLE_NOT_FOUND };
+      if (!roles.some((r) => r.id === roleId && r.custom)) return fail(ROLE_NOT_FOUND);
       const result = validateRoleName(String(form.get("name") ?? ""), roles, roleId);
-      if (!result.ok) return { error: result.error };
+      if (!result.ok) return fail(result.error);
       try {
         if (!(await renameEventRole(db, eventId, roleId, result.name))) {
-          return { error: ROLE_NOT_FOUND };
+          return fail(ROLE_NOT_FOUND);
         }
       } catch (error) {
         if (isUniqueViolation(error)) return duplicateName(result.name);
@@ -78,12 +84,11 @@ export async function handleRoleIntent(
     case "deleteRole": {
       const outcome = await deleteEventRole(db, eventId, String(form.get("roleId") ?? ""));
       if (outcome === "in-use") {
-        return {
-          error:
-            "需要または割当で使われているため削除できません。先に需要を0にし、割当を外してください。",
-        };
+        return fail(
+          "需要または割当で使われているため削除できません。先に需要を0にし、割当を外してください。",
+        );
       }
-      if (outcome === "not-found") return { error: ROLE_NOT_FOUND };
+      if (outcome === "not-found") return fail(ROLE_NOT_FOUND);
       return { ok: true };
     }
   }
