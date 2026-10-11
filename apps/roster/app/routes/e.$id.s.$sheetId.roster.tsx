@@ -31,8 +31,9 @@ import {
 } from "~/features/roster/roster.server";
 import { buildSolverInput } from "~/features/roster/solver-input.server";
 import { useRosterDrawers } from "~/features/roster/use-roster-drawers";
+import { listEventRoleIds, listRoles } from "~/features/schedule/roles.server";
 import { listTimeSlots } from "~/features/schedule/schedule.server";
-import { listEventRoleIds, listRoles, listTracks } from "~/features/schedule/tracks.server";
+import { listTracks } from "~/features/schedule/tracks.server";
 import { evaluate } from "~/features/solver/evaluate";
 import { solve } from "~/features/solver/solve";
 import { type Assignments, type SolverInput, assignmentKey } from "~/features/solver/types";
@@ -88,7 +89,7 @@ export async function loader({ request, context, params }: Route.LoaderArgs) {
       listTimeSlots(db, event.id, sheet.id),
       listTracks(db, event.id, sheet.id),
       listEventRoleIds(db, event.id, sheet.id),
-      listRoles(db),
+      listRoles(db, event.id),
       listApplicationsForEvent(db, event.id),
       buildSolverInput(db, event, sheet.seed, sheet.id),
       readAssignmentsMap(db, event.id, sheet.id),

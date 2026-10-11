@@ -5,8 +5,9 @@ import {
   getRosterSheet,
 } from "~/features/roster-sheets/roster-sheets.server";
 import { readAssignments } from "~/features/roster/roster.server";
+import { listEventRoleIds, listRoles } from "~/features/schedule/roles.server";
 import { listTimeSlots } from "~/features/schedule/schedule.server";
-import { listEventRoleIds, listRoles, listTracks } from "~/features/schedule/tracks.server";
+import { listTracks } from "~/features/schedule/tracks.server";
 import type { PublicEventSummary, PublicRosterView, PublicStaff } from "./types";
 
 /**
@@ -88,7 +89,7 @@ export async function buildPublicRosterData(
     listTimeSlots(db, event.id, rosterSheet.id),
     listTracks(db, event.id, rosterSheet.id),
     listEventRoleIds(db, event.id, rosterSheet.id),
-    listRoles(db),
+    listRoles(db, event.id),
     listApplicationsForEvent(db, event.id),
     readAssignments(db, event.id, rosterSheet.id),
   ]);

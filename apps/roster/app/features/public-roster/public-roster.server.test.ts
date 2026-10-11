@@ -31,6 +31,7 @@ const MIGRATIONS = [
   fileURLToPath(
     new URL("../../../migrations/0012_independent_sheet_publication.sql", import.meta.url),
   ),
+  fileURLToPath(new URL("../../../migrations/0013_event_custom_roles.sql", import.meta.url)),
 ];
 
 function baseEvent(overrides: Partial<EventRecord> = {}): EventRecord {

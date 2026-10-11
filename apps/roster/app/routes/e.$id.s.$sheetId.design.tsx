@@ -15,6 +15,8 @@ import { getEvent } from "~/features/events/events.server";
 import DesignScreen from "~/features/roster-sheets/DesignScreen";
 import { getRosterSheet, updateRosterSheet } from "~/features/roster-sheets/roster-sheets.server";
 import type { RosterSheet } from "~/features/roster-sheets/types";
+import { handleRoleIntent } from "~/features/schedule/role-intents.server";
+import { listEventRoleIds, listRoles } from "~/features/schedule/roles.server";
 import {
   createPhase,
   deletePhase,
@@ -26,11 +28,8 @@ import { buildSlots, isValidTime, toMin } from "~/features/schedule/slots";
 import {
   createTrack,
   deleteTrack,
-  listEventRoleIds,
-  listRoles,
   listTracks,
   reorderTracks,
-  setEventRoles,
 } from "~/features/schedule/tracks.server";
 import { getDb } from "~/lib/db.server";
 import type { Route } from "./+types/e.$id.s.$sheetId.design";
@@ -75,7 +74,7 @@ async function loadSheetDesign(
       listPhases(db, event.id, sheet.id),
       listTimeSlots(db, event.id, sheet.id),
       listTracks(db, event.id, sheet.id),
-      listRoles(db),
+      listRoles(db, event.id),
       listEventRoleIds(db, event.id, sheet.id),
       listDemandsForEvent(db, event.id, sheet.id),
       listSlotDataCounts(db, event.id, sheet.id),
@@ -286,13 +285,11 @@ export async function action({ request, context, params }: Route.ActionArgs) {
       }
       return { ok: true };
     }
-    case "setRoles": {
-      const submitted = new Set(form.getAll("roleId").map(String));
-      const knownIds = new Set((await listRoles(db)).map((r) => r.id));
-      const roleIds = [...submitted].filter((id) => knownIds.has(id));
-      await setEventRoles(db, event.id, roleIds, sheet.id);
-      return { ok: true };
-    }
+    case "setRoles":
+    case "createRole":
+    case "renameRole":
+    case "deleteRole":
+      return handleRoleIntent(db, event.id, sheet.id, intent, form);
     // `saveDemand` / `copyDemand` back `~/features/demand/components/DemandDrawer`
     // (docs/roster/03-demand-input.md "Design" §4). Both share the same
     // value fields; `copyDemand` additionally fans the value out to the
@@ -310,11 +307,12 @@ export async function action({ request, context, params }: Route.ActionArgs) {
       // own tracks — `demands.track_id` only has a bare FK to `tracks(id)`,
       // not one scoped by event_id, so an unchecked id could otherwise
       // write a row whose denormalized event_id disagrees with its
-      // track_id's real event. roleId only needs to be a real role (like
-      // `setRoles` below) since the roles master itself isn't per-event.
+      // track_id's real event. roleId must be a seeded role or one of this
+      // event's own (`listRoles` is event-scoped, ADR-011) — another event's
+      // custom role id is rejected here like a foreign track id.
       const [eventTracks, knownRoleIds] = await Promise.all([
         listTracks(db, event.id, sheet.id),
-        listRoles(db).then((rs) => new Set(rs.map((r) => r.id))),
+        listRoles(db, event.id).then((rs) => new Set(rs.map((r) => r.id))),
       ]);
       const eventTrackIds = new Set(eventTracks.map((t) => t.id));
       if (!eventTrackIds.has(trackId) || !knownRoleIds.has(roleId)) {

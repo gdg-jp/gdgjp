@@ -8,8 +8,9 @@ import {
   getDefaultRosterSheet,
   getRosterSheet,
 } from "~/features/roster-sheets/roster-sheets.server";
+import { listEventRoleIds, listRoles } from "~/features/schedule/roles.server";
 import { listTimeSlots } from "~/features/schedule/schedule.server";
-import { listEventRoleIds, listRoles, listTracks } from "~/features/schedule/tracks.server";
+import { listTracks } from "~/features/schedule/tracks.server";
 import {
   type Availability,
   type Level,
@@ -86,7 +87,7 @@ export async function buildSolverInput(
       listTimeSlots(db, event.id, sheet.id),
       listTracks(db, event.id, sheet.id),
       listEventRoleIds(db, event.id, sheet.id),
-      listRoles(db),
+      listRoles(db, event.id),
       listDemandsForEvent(db, event.id, sheet.id),
       listApplicationsForEvent(db, event.id),
       listCrossSheetAssignmentOverlapByApplication(db, event.id, sheet.id),

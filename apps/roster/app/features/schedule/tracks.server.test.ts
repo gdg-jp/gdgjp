@@ -1,17 +1,7 @@
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import { asD1, createTestD1 } from "../../../tests/helpers/sqlite-d1";
-import {
-  createTrack,
-  deleteTrack,
-  listEventRoleIds,
-  listRoles,
-  listTracks,
-  reorderTracks,
-  setEventRoles,
-  toRole,
-  toTrack,
-} from "./tracks.server";
+import { createTrack, deleteTrack, listTracks, reorderTracks, toTrack } from "./tracks.server";
 
 const migrations = [
   "0002_domain.sql",
@@ -45,7 +35,6 @@ async function makeDb() {
        FROM roster_sheets WHERE id = 'default:evt'`,
     )
     .run();
-  await db.prepare("INSERT INTO event_roles (event_id, role_id) VALUES ('evt', 'guide')").run();
   return db;
 }
 
@@ -83,17 +72,7 @@ describe("toTrack", () => {
   });
 });
 
-describe("toRole", () => {
-  it("maps snake_case columns to camelCase", () => {
-    expect(toRole({ id: "reception", name: "受付", sort_order: 1 })).toEqual({
-      id: "reception",
-      name: "受付",
-      sortOrder: 1,
-    });
-  });
-});
-
-describe("sheet-scoped track and role access", () => {
+describe("sheet-scoped track access", () => {
   it("defaults event-only calls to the live default sheet and scopes creates, deletes, and reorders", async () => {
     const db = await makeDb();
     await expect(reorderTracks(db, "evt", [])).resolves.toBeUndefined();
@@ -130,28 +109,6 @@ describe("sheet-scoped track and role access", () => {
     expect((await listTracks(db, "evt", "sheet:other"))[0].id).toBe(other.id);
   });
 
-  it("replaces role selection only on the chosen sheet and leaves role master/event roles alone", async () => {
-    const db = await makeDb();
-    await setEventRoles(db, "evt", ["reception"]);
-    expect(await listEventRoleIds(db, "evt")).toEqual(["reception"]);
-    expect(await listEventRoleIds(db, "evt", "sheet:other")).toEqual([]);
-    expect((await listRoles(db)).map((role) => role.id)).toEqual([
-      "reception",
-      "guide",
-      "mc",
-      "stream",
-      "photo",
-      "setup",
-    ]);
-    expect(
-      (await db.prepare("SELECT role_id FROM event_roles WHERE event_id = 'evt'").all()).results,
-    ).toEqual([{ role_id: "guide" }]);
-
-    await setEventRoles(db, "evt", ["guide"], "sheet:other");
-    expect(await listEventRoleIds(db, "evt")).toEqual(["reception"]);
-    expect(await listEventRoleIds(db, "evt", "sheet:other")).toEqual(["guide"]);
-  });
-
   it("rejects an explicit sheet outside the event for reads and writes", async () => {
     const db = await makeDb();
     await expect(listTracks(db, "evt", "missing")).rejects.toThrow(
@@ -160,8 +117,5 @@ describe("sheet-scoped track and role access", () => {
     await expect(
       createTrack(db, "evt", { name: "Wrong", color: "#000", shared: false }, "missing"),
     ).rejects.toThrow("Roster sheet does not belong to this event or is not live");
-    await expect(setEventRoles(db, "evt", ["guide"], "missing")).rejects.toThrow(
-      "Roster sheet does not belong to this event or is not live",
-    );
   });
 });

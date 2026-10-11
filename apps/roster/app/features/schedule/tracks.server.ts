@@ -1,12 +1,11 @@
 import { getDefaultRosterSheet, getRosterSheet } from "../roster-sheets/roster-sheets.server";
 
 /**
- * D1 access for `tracks`, the seeded `roles` master, and `event_roles`
- * (docs/roster/index.md §3 "役割マスタ" / "トラック", §4). Split out of
- * `schedule.server.ts` to keep each file under the 400-line cap
+ * D1 access for `tracks` (docs/roster/index.md §3 "トラック", §4). Split out
+ * of `schedule.server.ts` to keep each file under the 400-line cap
  * (docs/roster/02-domain-schema.md "Design" §4: split by domain, not by
- * read/write) — tracks/roles have no idx-contiguity concern, so they don't
- * share schedule.server.ts's regenerate machinery.
+ * read/write) — tracks have no idx-contiguity concern, so they don't share
+ * schedule.server.ts's regenerate machinery. Roles live in `roles.server.ts`.
  */
 
 export type Track = {
@@ -18,8 +17,6 @@ export type Track = {
   sortOrder: number;
 };
 
-export type Role = { id: string; name: string; sortOrder: number };
-
 type TrackRow = {
   id: string;
   event_id: string;
@@ -29,12 +26,10 @@ type TrackRow = {
   sort_order: number;
 };
 
-type RoleRow = { id: string; name: string; sort_order: number };
-
 const TRACK_COLS = "id, event_id, name, color, shared, sort_order";
-const ROLE_COLS = "id, name, sort_order";
 
-async function resolveRosterSheetId(
+/** Resolves the sheet a sheet-scoped track/role call targets; shared with `roles.server.ts`. */
+export async function resolveRosterSheetId(
   db: D1Database,
   eventId: string,
   rosterSheetId: string | undefined,
@@ -61,10 +56,6 @@ export function toTrack(r: TrackRow): Track {
     shared: r.shared === 1,
     sortOrder: r.sort_order,
   };
-}
-
-export function toRole(r: RoleRow): Role {
-  return { id: r.id, name: r.name, sortOrder: r.sort_order };
 }
 
 export async function listTracks(
@@ -165,49 +156,5 @@ export async function reorderTracks(
       )
       .bind(i, id, eventId, sheetId),
   );
-  await db.batch(statements);
-}
-
-/** All 6 system-seeded roles (ADR-007), sorted for display. No write path — see Non-Goal. */
-export async function listRoles(db: D1Database): Promise<Role[]> {
-  const { results } = await db
-    .prepare(`SELECT ${ROLE_COLS} FROM roles ORDER BY sort_order`)
-    .all<RoleRow>();
-  return (results ?? []).map(toRole);
-}
-
-export async function listEventRoleIds(
-  db: D1Database,
-  eventId: string,
-  rosterSheetId?: string,
-): Promise<string[]> {
-  const sheetId = await resolveRosterSheetId(db, eventId, rosterSheetId, false);
-  if (!sheetId) return [];
-  const { results } = await db
-    .prepare("SELECT role_id FROM roster_sheet_roles WHERE roster_sheet_id = ? ORDER BY role_id")
-    .bind(sheetId)
-    .all<{ role_id: string }>();
-  return (results ?? []).map((r) => r.role_id);
-}
-
-/** Replaces one sheet's role selection wholesale without changing event_roles. */
-export async function setEventRoles(
-  db: D1Database,
-  eventId: string,
-  roleIds: readonly string[],
-  rosterSheetId?: string,
-): Promise<void> {
-  const sheetId = await resolveRosterSheetId(db, eventId, rosterSheetId, true);
-  if (!sheetId) throw new Error("Event has no live roster sheet");
-  const statements: D1PreparedStatement[] = [
-    db.prepare("DELETE FROM roster_sheet_roles WHERE roster_sheet_id = ?").bind(sheetId),
-  ];
-  for (const roleId of roleIds) {
-    statements.push(
-      db
-        .prepare("INSERT INTO roster_sheet_roles (roster_sheet_id, role_id) VALUES (?, ?)")
-        .bind(sheetId, roleId),
-    );
-  }
   await db.batch(statements);
 }
