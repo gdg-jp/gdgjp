@@ -57,7 +57,7 @@
 | App shell UI | `app/components/AppShell.tsx` (authenticated admin chrome), `PublicShell.tsx` (public chrome), and `RosterBrand.tsx` (shared product lockup); no local `ui/` (account UI from `@gdgjp/gdg-lib`, shared tokens and icons from `@gdgjp/design-system`) |
 | Solver (greedy fill + local search + OJT swap, Stage 06) | `app/features/solver/` — pure TS, no D1/React/fetch/window (ADR-004) |
 | Events (`events` table CRUD, status lifecycle) | `app/features/events/` |
-| Schedule (phases, the time-slot grid + its regenerate/reconcile logic, tracks, roles, event_roles) | `app/features/schedule/` |
+| Schedule (phases, the time-slot grid + its regenerate/reconcile logic, tracks, roles incl. event-owned roles, per-sheet role selection) | `app/features/schedule/` |
 | Demand (`demands` table: min/ideal/leadMin/newMax per time_slot x track x role; matrix row/column assembly; the `/e/:id/design` demand card) | `app/features/demand/` |
 | Staff registration (applications, application_skills, availabilities; proxy-registration claim; apply-form validation; owner-correction writes; the staff list `/` correction drawer) | `app/features/applications/` (README) |
 | Supply-demand cross-check (headcount vs. experience shortage per time slot/role; event-wide shortage summary) | `app/features/supply/` (README) |

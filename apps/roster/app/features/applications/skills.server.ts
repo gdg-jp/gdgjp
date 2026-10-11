@@ -5,7 +5,7 @@ import type { ApplicationSkillRecord, Level, Pref } from "./types";
  * applicant can't take has no row at all — there is no "unable" `pref`
  * value (docs/roster/04-applications.md "Design" §1) — so the write path is
  * delete-all-then-insert, the same wholesale-replace shape
- * `~/features/schedule/tracks.server#setEventRoles` uses for `event_roles`.
+ * `~/features/schedule/roles.server#setEventRoles` uses for a sheet's roles.
  */
 
 type ApplicationSkillRow = {

@@ -1,7 +1,8 @@
 import { useEffect, useRef } from "react";
 import { Form } from "react-router";
+import type { Role } from "~/features/schedule/roles.server";
 import type { Phase } from "~/features/schedule/schedule.server";
-import type { Role, Track } from "~/features/schedule/tracks.server";
+import type { Track } from "~/features/schedule/tracks.server";
 import type { MatrixMode } from "../matrix";
 import type { DemandValue } from "../types";
 

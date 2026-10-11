@@ -1,5 +1,6 @@
 import { fileURLToPath } from "node:url";
 import { beforeEach, describe, expect, it } from "vitest";
+import { createEventRole, deleteEventRole } from "~/features/schedule/roles.server";
 import { type Assignments, type Metrics, assignmentKey } from "~/features/solver/types";
 import { type TestD1Database, asD1, createTestD1 } from "../../../tests/helpers/sqlite-d1";
 import {
@@ -24,6 +25,7 @@ const MIGRATIONS = [
     new URL("../../../migrations/0009_time_slots_sheet_uniqueness.sql", import.meta.url),
   ),
   fileURLToPath(new URL("../../../migrations/0010_revisions_sheet_sequence.sql", import.meta.url)),
+  fileURLToPath(new URL("../../../migrations/0013_event_custom_roles.sql", import.meta.url)),
 ];
 
 const EVENT_ID = "evt_1";
@@ -439,6 +441,21 @@ describe("restoreRevision", () => {
     expect(await readAssignmentRows(testDb)).toEqual([
       { application_id: "app_1", time_slot_id: "slot_1", track_id: "trk_1", role_id: "reception" },
     ]);
+  });
+
+  it("drops snapshot rows whose event-owned role was deleted after the snapshot", async () => {
+    await seedApplication(testDb, "app_1");
+    const db = asD1(testDb);
+    const cloak = await createEventRole(db, EVENT_ID, `default:${EVENT_ID}`, "クローク");
+    await record(testDb, {
+      assignments: new Map([
+        [assignmentKey("app_1", "slot_1"), { trackId: "trk_1", roleId: cloak.id, locked: false }],
+      ]),
+    });
+    expect(await deleteEventRole(db, EVENT_ID, cloak.id)).toBe("deleted");
+
+    await expect(restoreRevision(db, EVENT_ID, 1, OWNER)).resolves.toEqual({ droppedCount: 1 });
+    expect(await readAssignmentRows(testDb)).toEqual([]);
   });
 
   it("replaces whatever is currently in assignments with the restored snapshot", async () => {

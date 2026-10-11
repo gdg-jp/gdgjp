@@ -41,7 +41,8 @@ whose id is `default:<eventId>`. The stage descriptions below still say `/e/:id/
   the `/e/:id/design` and `/e/:id/roster` entries below, with a shared `SheetHeader` tab bar.
   The legacy `/e/:id/design` and `/e/:id/roster` URLs only redirect to the default sheet.
 - `/e/:id/design` — event settings, phases + the derived time-slot grid, tracks
-  (add/reorder/delete), role selection, and the demand matrix (Stage 03: `min`/`ideal`/`leadMin`/
+  (add/reorder/delete), role selection plus the event's own roles (create/rename/delete,
+  ADR-011), and the demand matrix (Stage 03: `min`/`ideal`/`leadMin`/
   `newMax` per time-slot x track x role, phase-wide or per-slot). Chapter-gated via
   `canManageEvent`; 403 for a different chapter.
 - `/e/:id/staff` — chapter-gated like `/e/:id/design`. The staff list (`StaffTable`) with an
@@ -79,7 +80,8 @@ whose id is `default:<eventId>`. The stage descriptions below still say `/e/:id/
 ## Data
 
 - **D1 (`DB`)** — `user` + `oidc_session` (gdg-lib), `events`, `phases`, `time_slots`, `tracks`,
-  `roles` (seeded, ADR-007), `event_roles` (Stage 02), `demands` (Stage 03), `applications`,
+  `roles` (six seeded with `event_id` NULL, ADR-007, plus event-owned rows, ADR-011 /
+  migration 0013), `event_roles` (Stage 02), `demands` (Stage 03), `applications`,
   `application_skills`, `availabilities` (Stage 04), `assignments` (Stage 07 — the current
   shift table; `PRIMARY KEY (application_id, time_slot_id)`, not a surrogate id, is what makes
   "never assign the same staff member to the same slot twice" structurally impossible), plus
@@ -99,7 +101,9 @@ whose id is `default:<eventId>`. The stage descriptions below still say `/e/:id/
   column-list constant → `RETURNING`, following `scheduler/app/lib/db.ts`'s pattern):
   `app/features/events/events.server.ts` (events CRUD, incl. `getEventByApplyToken`),
   `app/features/schedule/schedule.server.ts` (phases + time-slot regeneration),
-  `app/features/schedule/tracks.server.ts` (tracks, the roles master, event_roles),
+  `app/features/schedule/tracks.server.ts` (tracks),
+  `app/features/schedule/roles.server.ts` (the roles master — always read per event — and each
+  sheet's role selection),
   `app/features/demand/demand.server.ts` (the demand matrix's D1 access — `ideal_count = 0` reads
   and writes identically to the row not existing at all),
   `app/features/applications/applications.server.ts` (applications CRUD, claim, dedup, and Stage

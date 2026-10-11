@@ -1,6 +1,6 @@
 import { listRosterSheets } from "~/features/roster-sheets/roster-sheets.server";
+import { listEventRoleIds, listRoles } from "~/features/schedule/roles.server";
 import { listPhases, listTimeSlots } from "~/features/schedule/schedule.server";
-import { listEventRoleIds, listRoles } from "~/features/schedule/tracks.server";
 
 export type PublicApplyTimeSlot = {
   id: string;
@@ -35,7 +35,7 @@ export async function getPublicApplyData(
 ): Promise<PublicApplyData> {
   const sheets = await listRosterSheets(db, eventId);
   const [allRoles, sheetData] = await Promise.all([
-    listRoles(db),
+    listRoles(db, eventId),
     Promise.all(
       sheets.map(async (sheet) => {
         const [phases, timeSlots, roleIds] = await Promise.all([

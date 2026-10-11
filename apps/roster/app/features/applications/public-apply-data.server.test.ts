@@ -13,6 +13,7 @@ const MIGRATIONS = [
   "0008_default_sheet_compat.sql",
   "0009_time_slots_sheet_uniqueness.sql",
   "0010_revisions_sheet_sequence.sql",
+  "0013_event_custom_roles.sql",
 ].map((name) => fileURLToPath(new URL(`../../../migrations/${name}`, import.meta.url)));
 
 async function seedEvent(db: TestD1Database, eventId: string, applyToken: string) {
