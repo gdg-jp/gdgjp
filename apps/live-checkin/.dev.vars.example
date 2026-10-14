@@ -1,0 +1,6 @@
+# Copy to .dev.vars for `pnpm --filter @gdgjp/live-checkin preview`,
+# and to .env.local for `pnpm --filter @gdgjp/live-checkin dev`.
+GDG_CLIENT_ID=
+GDG_CLIENT_SECRET=
+AUTH_SECRET=
+AUTH_URL=http://localhost:3000

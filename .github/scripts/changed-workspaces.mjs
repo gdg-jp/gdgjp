@@ -20,6 +20,12 @@ const CI_WORKSPACES = [
   { directory: "apps/ost", workspace: "@gdgjp/ost", build: true, e2e: false },
   { directory: "apps/roster", workspace: "@gdgjp/roster", build: true, e2e: true },
   { directory: "apps/website", workspace: "@gdgjp/website", build: true, e2e: false },
+  {
+    directory: "apps/live-checkin",
+    workspace: "@gdgjp/live-checkin",
+    build: true,
+    e2e: false,
+  },
   { directory: "packages/gdg-lib", workspace: "@gdgjp/gdg-lib", build: false, e2e: false },
   {
     directory: "apps/tinyurl-gateway",
@@ -86,6 +92,12 @@ const DEPLOY_TARGETS = [
   {
     app: "website",
     workspace: "@gdgjp/website",
+    provider: "cloudflare",
+    migrate: false,
+  },
+  {
+    app: "live-checkin",
+    workspace: "@gdgjp/live-checkin",
     provider: "cloudflare",
     migrate: false,
   },

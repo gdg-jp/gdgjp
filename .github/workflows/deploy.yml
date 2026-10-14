@@ -210,6 +210,9 @@ jobs:
             run: |
               pnpm --filter @gdgjp/website build
               pnpm --filter @gdgjp/website run deploy
+          - name: Deploy live-checkin
+            if: contains(fromJSON(needs.changes.outputs.deploy-apps), 'live-checkin')
+            run: pnpm --filter @gdgjp/live-checkin run deploy
           - name: Build and deploy tinyurl gateway
             if: contains(fromJSON(needs.changes.outputs.deploy-apps), 'tinyurl-gateway')
             run: |

@@ -213,6 +213,7 @@ because that grant has no single-column id.
 | `apps/tinyurl/` | `@gdgjp/tinyurl` | url.gdgs.jp | URL shortener. D1-backed; OAuth client of `accounts`. |
 | `apps/tinyurl-gateway/` | `@gdgjp/tinyurl-gateway` | Custom short-link domains | Vercel Edge gateway for TinyURL custom domains. It serves an optional upstream first, then resolves a short link when the upstream returns 404. |
 | `packages/design-system/` | `@gdgjp/design-system` | — | Shared React 19 design system submodule (`gdg-jp/design-system`) for GDG Apps, independent of application routing, authentication, and data fetching. |
+| `apps/live-checkin/` | `@gdgjp/live-checkin` | Cloudflare Workers | connpass event reception QR check-in. Next.js on OpenNext for Cloudflare; GDG Accounts OIDC login restricted to `gdg-kwansai` members. |
 | `apps/website/` | `@gdgjp/website` | gdgs.jp | Public GDG Japan website. Cloudflare Worker using the TinyURL service binding. |
 | `apps/wiki/` | `@gdgjp/wiki` | wiki.gdgs.jp | Community wiki. D1 + R2 + Queues + Browser Rendering + Workers AI + Vectorize + Durable Object (Yjs collab); OAuth client of `accounts`. |
 
