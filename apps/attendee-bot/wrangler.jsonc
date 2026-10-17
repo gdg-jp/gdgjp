@@ -1,0 +1,14 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "gdgjp-attendee-bot",
+  "account_id": "ca5917238ec18ca3365e7b05b11eee5e",
+  "main": "./src/index.ts",
+  "compatibility_date": "2026-07-25",
+  "triggers": { "crons": ["*/30 * * * *"] },
+  "vars": {
+    "ENABLE_NOTIFICATION": "true",
+    "CONNPASS_API_BASE_URL": "https://connpass.gdgs.jp",
+    "CONNPASS_GROUP_ID": "gdgkwansai",
+    "CONNPASS_EVENT_ID": "388434"
+  }
+}
