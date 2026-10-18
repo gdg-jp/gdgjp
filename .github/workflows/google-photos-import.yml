@@ -45,7 +45,7 @@ jobs:
       - name: Install Playwright Chromium
         if: steps.playwright-cache.outputs.cache-hit != 'true'
         run: pnpm exec playwright install --with-deps chromium
-      - run: node sns/google-photos-importer/server.mjs
+      - run: node apps/sns/google-photos-importer/server.mjs
         env:
           GOOGLE_PHOTOS_IMPORT_URL: ${{ vars.SNS_GOOGLE_PHOTOS_IMPORT_URL }}
           GOOGLE_PHOTOS_IMPORT_TOKEN: ${{ secrets.SNS_GOOGLE_PHOTOS_IMPORT_TOKEN }}
