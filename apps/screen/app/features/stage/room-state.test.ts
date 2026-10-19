@@ -191,14 +191,14 @@ describe("views", () => {
 describe("noise suppression", () => {
   it("starts every speaker on at the default strength and shows it only to them", () => {
     const data = room();
-    expect(data.peers[alice.id]?.denoise).toEqual({ on: true, attenDb: 30 });
-    expect(speakerView(data, meta, alice.id, 10).denoise).toEqual({ on: true, attenDb: 30 });
+    expect(data.peers[alice.id]?.denoise).toEqual({ on: true, attenDb: 80 });
+    expect(speakerView(data, meta, alice.id, 10).denoise).toEqual({ on: true, attenDb: 80 });
   });
 
   it("lets operators switch it and set the strength per speaker, clamped", () => {
     let data = apply(room(), op, { type: "denoise", participantId: alice.id, on: false }).data;
-    expect(data.peers[alice.id]?.denoise).toEqual({ on: false, attenDb: 30 });
-    expect(data.peers[bob.id]?.denoise).toEqual({ on: true, attenDb: 30 });
+    expect(data.peers[alice.id]?.denoise).toEqual({ on: false, attenDb: 80 });
+    expect(data.peers[bob.id]?.denoise).toEqual({ on: true, attenDb: 80 });
     data = apply(data, op, { type: "denoise", participantId: alice.id, attenDb: 250 }).data;
     expect(data.peers[alice.id]?.denoise).toEqual({ on: false, attenDb: 100 });
     data = apply(data, op, { type: "denoise", participantId: alice.id, attenDb: 1.2 }).data;
@@ -248,10 +248,10 @@ describe("noise suppression", () => {
       ...data,
       peers: { ...data.peers, [alice.id]: legacy as typeof peer },
     };
-    expect(speakerView(saved, meta, alice.id, 10).denoise).toEqual({ on: true, attenDb: 30 });
+    expect(speakerView(saved, meta, alice.id, 10).denoise).toEqual({ on: true, attenDb: 80 });
     expect(connectPeer(saved, alice, 40).peers[alice.id]?.denoise).toEqual({
       on: true,
-      attenDb: 30,
+      attenDb: 80,
     });
   });
 });

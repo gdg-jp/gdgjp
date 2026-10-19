@@ -39,7 +39,7 @@ Noise suppression:
   page publishes the worklet's output track and turns the browser's own `noiseSuppression`
   off (`applyConstraints`, or one mic reopen where the browser ignores that); otherwise it
   publishes the raw mic with the browser's suppression on. Either way it is one `replaceTrack`.
-- Operators switch it and set its strength (attenuation limit, 6–100 dB, default on at 30 dB)
+- Operators switch it and set its strength (attenuation limit, 6–100 dB, default on at 80 dB)
   per speaker in the participant row; the setting lives on the speaker's peer in the room and
   is never shown to the speaker. Operators' own talkback always uses the default. Pages report
   what actually runs (`denoiseState`), and the row warns when that is a fallback: loading,

@@ -64,7 +64,7 @@ export type DenoiseSetting = {
 
 export const DENOISE_MIN_DB = 6;
 export const DENOISE_MAX_DB = 100;
-export const DEFAULT_DENOISE: DenoiseSetting = { on: true, attenDb: 30 };
+export const DEFAULT_DENOISE: DenoiseSetting = { on: true, attenDb: 80 };
 
 /**
  * What a page's mic actually goes through. Anything but "active" (or "off"
