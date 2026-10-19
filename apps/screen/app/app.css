@@ -309,6 +309,32 @@ html[data-surface="transparent"] body {
   outline-offset: -2px;
 }
 
+/* Mic activity: dots at rest, bars that follow the input level. */
+.sc-voice {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  height: 20px;
+}
+
+.sc-voice > span {
+  width: 4px;
+  height: 4px;
+  border-radius: 999px;
+  background: currentColor;
+  transition: height 90ms linear;
+}
+
+.sc-voice[data-active] > span {
+  background: var(--gdg-link);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sc-voice > span {
+    transition: none;
+  }
+}
+
 .sc-device-menu {
   min-width: 280px;
   max-width: min(420px, calc(100vw - 32px));
@@ -980,6 +1006,43 @@ html[data-surface="transparent"] body {
   .sc-control-head > code {
     display: none;
   }
+}
+
+.sc-op-name {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 200px;
+  padding: 4px 10px;
+  border: 1px solid var(--sc-line);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--gdg-text);
+  font: inherit;
+  font-size: var(--gdg-text-sm);
+  cursor: pointer;
+  /* biome-ignore lint/correctness/noUnknownProperty: corner-shape is an intentional CSS Borders 4 property. */
+  corner-shape: round;
+}
+
+.sc-op-name span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sc-op-name svg {
+  flex: none;
+  color: var(--gdg-muted);
+}
+
+.sc-op-name:hover {
+  background: var(--gdg-hover);
+}
+
+.sc-op-name-form form {
+  display: flex;
+  gap: 8px;
 }
 
 .sc-op-count {

@@ -11,6 +11,7 @@ import { useLocalMedia } from "~/features/rtc/use-local-media";
 import { SPEAKER_PUBLISH, useSfu } from "~/features/rtc/use-sfu";
 import { ObsDialog, StageMenu } from "~/features/stage/components/StageDialogs";
 import { MessagePanel } from "~/features/stage/components/control/MessagePanel";
+import { OperatorName } from "~/features/stage/components/control/OperatorName";
 import { ParticipantRow } from "~/features/stage/components/control/ParticipantRow";
 import { SlotCard } from "~/features/stage/components/control/SlotCard";
 import { TimerControl } from "~/features/stage/components/control/TimerControl";
@@ -194,6 +195,11 @@ export default function ControlRoom({ loaderData }: Route.ComponentProps) {
           <Tv size={18} aria-hidden="true" />
         </IconButton>
         <StageMenu stage={access} onReset={() => room.send({ type: "reset" })} />
+        <OperatorName
+          current={view?.operators.find((o) => o.id === view.selfId)?.name ?? null}
+          socketStatus={room.status}
+          send={room.send}
+        />
         <span className="sc-op-count" title="配信担当">
           <Users size={16} aria-hidden="true" /> {view?.operators.length ?? 0}
         </span>

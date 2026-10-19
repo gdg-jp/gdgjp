@@ -12,7 +12,6 @@ import type { ReactNode } from "react";
 import { RoundToggle } from "~/components/RoundToggle";
 import {
   ChevronUp,
-  Ellipsis,
   Mic,
   MicOff,
   MonitorOff,
@@ -27,6 +26,7 @@ import {
 import { useI18n } from "~/features/i18n/i18n";
 import { type DeviceOption, deviceOptions, selectedDevice } from "~/features/rtc/devices";
 import { playTestTone } from "~/features/rtc/test-tone";
+import { useLevel } from "~/features/rtc/use-level";
 import type { LocalMedia } from "~/features/rtc/use-local-media";
 
 function DeviceItems({
@@ -88,6 +88,28 @@ function Split({
   );
 }
 
+/** Below this the mic counts as silent and the indicator rests as three dots. */
+const VOICE_THRESHOLD = 0.08;
+
+/**
+ * The mic menu's glyph: three resting dots that rise into bars while sound is
+ * coming in, taller the louder it is (like Meet).
+ */
+function VoiceDots({ track }: { track: MediaStreamTrack | null }) {
+  const level = useLevel(track);
+  const active = level > VOICE_THRESHOLD;
+  const bar = (scale: number) => ({
+    height: active ? `${4 + Math.min(1, level) * scale}px` : undefined,
+  });
+  return (
+    <span className="sc-voice" data-active={active || undefined} aria-hidden="true">
+      <span style={bar(10)} />
+      <span style={bar(16)} />
+      <span style={bar(10)} />
+    </span>
+  );
+}
+
 /**
  * Mic toggle plus a menu for the microphone. `toggle` replaces the plain
  * mute button (the control room swaps in push-to-talk while ON AIR).
@@ -99,7 +121,7 @@ export function MicControl({ media, toggle }: { media: LocalMedia; toggle?: Reac
   return (
     <Split
       menuLabel={t("micSettings")}
-      menuIcon={<Ellipsis size={18} />}
+      menuIcon={<VoiceDots track={media.mic} />}
       menu={
         <>
           <DropdownMenuLabel>{t("mic")}</DropdownMenuLabel>

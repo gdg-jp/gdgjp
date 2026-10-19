@@ -88,6 +88,13 @@ test("speaker goes on air through an OBS output", async ({ browser }) => {
   await speaker.getByRole("button", { name: "参加" }).click();
   await expect(speaker.locator(".sc-chip[data-tone='ok']")).toBeVisible({ timeout: 20_000 });
 
+  // The operator's display name is editable and reaches the speaker live.
+  await op.locator(".sc-op-name").click();
+  await op.getByRole("textbox", { name: "登壇者に表示される名前" }).fill("配信ヤマダ");
+  await op.getByRole("button", { name: "保存" }).click();
+  await expect(op.locator(".sc-op-name")).toContainText("配信ヤマダ");
+  await expect(speaker.locator(".sc-tile figcaption", { hasText: "配信ヤマダ" })).toBeVisible();
+
   // Operator sees the speaker and assigns slot A.
   await expect(op.locator(".sc-person-name", { hasText: "E2E Speaker" })).toBeVisible({
     timeout: 15_000,
