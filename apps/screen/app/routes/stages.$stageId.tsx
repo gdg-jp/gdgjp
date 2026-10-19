@@ -286,6 +286,9 @@ export default function ControlRoom({ loaderData }: Route.ComponentProps) {
                     })
                   }
                   onRemove={() => room.send({ type: "remove", participantId: p.id })}
+                  onDenoise={(patch) =>
+                    room.send({ type: "denoise", participantId: p.id, ...patch })
+                  }
                 />
               ))}
             </ul>

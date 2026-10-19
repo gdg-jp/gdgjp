@@ -14,13 +14,15 @@ import {
   Monitor,
   RefreshCw,
   Trash2,
+  TriangleAlert,
   VideoOff,
   Wifi,
   WifiOff,
 } from "~/components/icons";
 import { TrackAudio } from "~/features/rtc/components/TrackVideo";
 import { useLevel } from "~/features/rtc/use-level";
-import type { Peer, Slot } from "../../protocol";
+import type { DenoiseSetting, Peer, Slot } from "../../protocol";
+import { DENOISE_FALLBACK_LABEL, DenoiseControl, denoiseFallback } from "./DenoiseControl";
 
 const QUALITY_LABEL = { good: "回線 良好", fair: "回線 やや不安定", poor: "回線 不安定" } as const;
 
@@ -39,7 +41,7 @@ function Hint({ label, children }: { label: string; children: React.ReactNode })
 
 /**
  * A speaker in the participant list: presence, level, link quality, the
- * one-click slot picker, and the personal audio monitor.
+ * one-click slot picker, noise suppression, and the personal audio monitor.
  */
 export function ParticipantRow({
   peer,
@@ -53,6 +55,7 @@ export function ParticipantRow({
   onAssign,
   onMonitor,
   onRemove,
+  onDenoise,
 }: {
   peer: Peer;
   slots: Slot[];
@@ -66,9 +69,11 @@ export function ParticipantRow({
   onAssign: (slot: Slot | null) => void;
   onMonitor: (on: boolean) => void;
   onRemove: () => void;
+  onDenoise: (patch: Partial<DenoiseSetting>) => void;
 }) {
   const level = useLevel(mic, peer.online && peer.mic);
   const reconnecting = peer.online && !peer.sfuSessionId;
+  const fallback = peer.online ? denoiseFallback(peer.denoise, peer.denoiseState) : null;
   return (
     <li className="sc-person" data-online={peer.online || undefined}>
       <span className="sc-person-dot" aria-label={peer.online ? "接続中" : "切断"} />
@@ -106,6 +111,11 @@ export function ParticipantRow({
                 <Monitor size={14} />
               </Hint>
             )}
+            {fallback && (
+              <Hint label={DENOISE_FALLBACK_LABEL[fallback]}>
+                <TriangleAlert size={14} className="sc-denoise-warn" data-state={fallback} />
+              </Hint>
+            )}
             {reconnecting ? (
               <Hint label="再接続中">
                 <RefreshCw size={14} className="sc-spin" />
@@ -123,21 +133,24 @@ export function ParticipantRow({
         )}
       </span>
       {peer.online ? (
-        <IconButton
-          aria-label={
-            monitored ? `${peer.name} の音声モニターをオフ` : `${peer.name} の音声モニターをオン`
-          }
-          aria-pressed={monitored}
-          variant="ghost"
-          size="sm"
-          onClick={() => onMonitor(!monitored)}
-        >
-          {monitored ? (
-            <Headphones size={16} aria-hidden="true" />
-          ) : (
-            <HeadphoneOff size={16} aria-hidden="true" />
-          )}
-        </IconButton>
+        <span className="sc-person-actions">
+          <DenoiseControl name={peer.name} setting={peer.denoise} onChange={onDenoise} />
+          <IconButton
+            aria-label={
+              monitored ? `${peer.name} の音声モニターをオフ` : `${peer.name} の音声モニターをオン`
+            }
+            aria-pressed={monitored}
+            variant="ghost"
+            size="sm"
+            onClick={() => onMonitor(!monitored)}
+          >
+            {monitored ? (
+              <Headphones size={16} aria-hidden="true" />
+            ) : (
+              <HeadphoneOff size={16} aria-hidden="true" />
+            )}
+          </IconButton>
+        </span>
       ) : (
         <IconButton
           aria-label={`${peer.name} を一覧から外す`}

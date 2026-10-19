@@ -5,6 +5,7 @@
  */
 export {
   ArrowLeft,
+  AudioLines,
   Brush,
   Camera,
   Check,

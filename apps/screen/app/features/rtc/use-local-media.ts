@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { preloadDenoise } from "./denoise/use-denoise";
 import {
   type DeviceLists,
+  MIC_CONSTRAINTS,
   type PermissionProblem,
   type ScreenCapture,
   listDevices,
@@ -57,6 +59,8 @@ export type LocalMedia = {
   toggleSpeaker: () => void;
   toggleCam: () => void;
   setMicEnabled: (on: boolean) => void;
+  /** The browser's own noise suppression on the mic (off while DeepFilterNet3 runs). */
+  setBrowserNoiseSuppression: (on: boolean) => void;
   selectMic: (id: string) => void;
   selectCam: (id: string) => void;
   selectSpeaker: (id: string) => void;
@@ -87,6 +91,11 @@ export function useLocalMedia(enabled = true): LocalMedia {
   const [problem, setProblem] = useState<LocalMedia["problem"]>({ mic: null, camera: null });
   const [screenEndedByBrowser, setScreenEndedByBrowser] = useState(false);
   const [attempt, setAttempt] = useState(0);
+  const [browserNs, setBrowserNs] = useState(true);
+  const browserNsRef = useRef(true);
+  browserNsRef.current = browserNs;
+  const [nsReopen, setNsReopen] = useState(0);
+  const reopenedFor = useRef<boolean | null>(null);
   const loaded = useRef(false);
 
   // Restore remembered choices once on the client.
@@ -107,6 +116,10 @@ export function useLocalMedia(enabled = true): LocalMedia {
   }, []);
 
   useEffect(() => {
+    if (enabled) preloadDenoise();
+  }, [enabled]);
+
+  useEffect(() => {
     if (!enabled) return;
     refreshDevices();
     navigator.mediaDevices?.addEventListener("devicechange", refreshDevices);
@@ -114,12 +127,12 @@ export function useLocalMedia(enabled = true): LocalMedia {
   }, [enabled, refreshDevices]);
 
   // Mic: open for the chosen device; reopen on change.
-  // biome-ignore lint/correctness/useExhaustiveDependencies: attempt forces a retry
+  // biome-ignore lint/correctness/useExhaustiveDependencies: attempt and nsReopen force a reopen
   useEffect(() => {
     if (!enabled) return;
     let cancelled = false;
     let opened: MediaStreamTrack | null = null;
-    openMic(micId || undefined)
+    openMic(micId || undefined, browserNsRef.current)
       .then((track) => {
         if (cancelled) return stopTrack(track);
         opened = track;
@@ -135,11 +148,32 @@ export function useLocalMedia(enabled = true): LocalMedia {
       stopTrack(opened);
       setMic(null);
     };
-  }, [enabled, micId, attempt, refreshDevices]);
+  }, [enabled, micId, attempt, nsReopen, refreshDevices]);
 
   useEffect(() => {
     if (mic) mic.enabled = micOn;
   }, [mic, micOn]);
+
+  // Switch the browser's suppression in place; browsers that ignore the
+  // change (getSettings disagrees) get the mic reopened once, a short gap.
+  useEffect(() => {
+    if (!mic || mic.getSettings().noiseSuppression === browserNs) return;
+    let cancelled = false;
+    const { sampleRate: _rate, ...constraints } = MIC_CONSTRAINTS;
+    mic
+      .applyConstraints({ ...constraints, noiseSuppression: browserNs })
+      .catch(() => {})
+      .then(() => {
+        if (cancelled) return;
+        const now = mic.getSettings().noiseSuppression;
+        if (now === undefined || now === browserNs || reopenedFor.current === browserNs) return;
+        reopenedFor.current = browserNs;
+        setNsReopen((n) => n + 1);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [mic, browserNs]);
 
   // Camera: only open while on.
   // biome-ignore lint/correctness/useExhaustiveDependencies: attempt forces a retry
@@ -226,6 +260,7 @@ export function useLocalMedia(enabled = true): LocalMedia {
         return !on;
       }),
     setMicEnabled: (on: boolean) => setMicOn(on),
+    setBrowserNoiseSuppression: setBrowserNs,
     selectMic: (id) => {
       writePrefs({ micId: id });
       setMicId(id);

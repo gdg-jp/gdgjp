@@ -38,9 +38,20 @@ export function permissionProblem(err: unknown): PermissionProblem {
   return "unknown";
 }
 
-export async function openMic(deviceId?: string): Promise<MediaStreamTrack> {
+/**
+ * `noiseSuppression` is the browser's own; it is turned off while
+ * DeepFilterNet3 (features/rtc/denoise) cleans the mic instead.
+ */
+export async function openMic(
+  deviceId?: string,
+  noiseSuppression = true,
+): Promise<MediaStreamTrack> {
   const stream = await navigator.mediaDevices.getUserMedia({
-    audio: { ...MIC_CONSTRAINTS, ...(deviceId ? { deviceId: { exact: deviceId } } : {}) },
+    audio: {
+      ...MIC_CONSTRAINTS,
+      noiseSuppression,
+      ...(deviceId ? { deviceId: { exact: deviceId } } : {}),
+    },
   });
   const track = stream.getAudioTracks()[0];
   if (!track) throw new DOMException("no mic", "NotFoundError");

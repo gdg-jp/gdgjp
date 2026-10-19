@@ -95,6 +95,7 @@ export function SpeakerRoom({
     name,
   });
   const { manager, snapshot } = useSfu(stage.id, `invite:${inviteToken}`, SPEAKER_PUBLISH, true);
+  const view = room.view;
   usePublisher({
     manager,
     snapshot,
@@ -102,9 +103,9 @@ export function SpeakerRoom({
     socketStatus: room.status,
     send: room.send,
     micLive: media.micOn,
+    denoise: view?.denoise,
   });
 
-  const view = room.view;
   const operators = view?.operators ?? [];
   const refs = useMemo(() => operatorRefs(operators), [operators]);
   useEffect(() => manager?.want(refs), [manager, refs]);

@@ -1,6 +1,8 @@
 import {
   type ClientMessage,
+  DEFAULT_DENOISE,
   DEFAULT_TIMER,
+  DENOISE_STATES,
   EMPTY_REPORT,
   MAX_MESSAGE_LENGTH,
   MAX_NAME_LENGTH,
@@ -13,6 +15,7 @@ import {
   type SpeakerView,
   type StageMeta,
   type Timer,
+  clampAttenDb,
   isSlot,
   slotsOf,
 } from "./protocol";
@@ -51,7 +54,15 @@ export function timerRemaining(timer: Timer, now: number): number {
 export function connectPeer(data: RoomData, sender: Sender, now: number): RoomData {
   const existing = data.peers[sender.id];
   const peer: Peer = existing
-    ? { ...existing, name: sender.name || existing.name, online: true, since: now }
+    ? {
+        ...existing,
+        name: sender.name || existing.name,
+        online: true,
+        since: now,
+        // Rooms saved before noise suppression existed lack these.
+        denoise: existing.denoise ?? DEFAULT_DENOISE,
+        denoiseState: existing.denoiseState ?? null,
+      }
     : {
         ...EMPTY_REPORT,
         id: sender.id,
@@ -59,6 +70,7 @@ export function connectPeer(data: RoomData, sender: Sender, now: number): RoomDa
         name: sender.name,
         online: true,
         since: now,
+        denoise: DEFAULT_DENOISE,
       };
   return { ...data, peers: { ...data.peers, [sender.id]: peer } };
 }
@@ -76,7 +88,14 @@ export function disconnectPeer(data: RoomData, id: string, now: number): RoomDat
     ...data,
     peers: {
       ...data.peers,
-      [id]: { ...peer, online: false, since: now, talking: false, quality: null },
+      [id]: {
+        ...peer,
+        online: false,
+        since: now,
+        talking: false,
+        quality: null,
+        denoiseState: null,
+      },
     },
   };
 }
@@ -101,6 +120,12 @@ function sanitizeReport(report: Partial<SelfReport>): Partial<SelfReport> {
   }
   if (report.quality === null || ["good", "fair", "poor"].includes(report.quality as string)) {
     out.quality = report.quality;
+  }
+  if (
+    report.denoiseState === null ||
+    (DENOISE_STATES as readonly string[]).includes(report.denoiseState as string)
+  ) {
+    out.denoiseState = report.denoiseState;
   }
   return out;
 }
@@ -205,6 +230,25 @@ export function applyMessage(
       }
       return { data: { ...data, peers, slots }, changed: true };
     }
+    case "denoise": {
+      const peer = data.peers[msg.participantId];
+      if (!isOperator || !peer || peer.role !== "speaker") return unchanged(data);
+      const current = peer.denoise ?? DEFAULT_DENOISE;
+      const denoise = {
+        on: typeof msg.on === "boolean" ? msg.on : current.on,
+        attenDb:
+          typeof msg.attenDb === "number" && Number.isFinite(msg.attenDb)
+            ? clampAttenDb(msg.attenDb)
+            : current.attenDb,
+      };
+      if (denoise.on === current.on && denoise.attenDb === current.attenDb) {
+        return unchanged(data);
+      }
+      return {
+        data: { ...data, peers: { ...data.peers, [peer.id]: { ...peer, denoise } } },
+        changed: true,
+      };
+    }
     case "reset": {
       if (!isOperator) return unchanged(data);
       const peers: Record<string, Peer> = {};
@@ -268,6 +312,7 @@ export function speakerView(
     onAir: data.onAir,
     slot: slotOf(data, meta, selfId),
     timer: data.timer,
+    denoise: data.peers[selfId]?.denoise ?? DEFAULT_DENOISE,
     operators: peersOf(data, "operator"),
     messages: data.messages.filter(
       (m) =>

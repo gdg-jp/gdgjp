@@ -1236,9 +1236,51 @@ html[data-surface="transparent"] body {
   color: var(--gdg-muted);
 }
 
-.sc-person > .gdg-icon-button {
+.sc-person > .gdg-icon-button,
+.sc-person-actions {
   grid-area: action;
   justify-self: end;
+}
+
+.sc-person-actions {
+  display: inline-flex;
+  gap: 2px;
+}
+
+.sc-denoise-trigger[data-off] {
+  color: var(--gdg-muted);
+  opacity: 0.6;
+}
+
+.sc-denoise-warn {
+  color: var(--sc-yellow);
+}
+
+.sc-denoise {
+  display: grid;
+  gap: 10px;
+  width: 260px;
+}
+
+.sc-denoise-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.sc-denoise-row[data-disabled] {
+  color: var(--gdg-muted);
+}
+
+.sc-denoise-value {
+  font-variant-numeric: tabular-nums;
+}
+
+.sc-denoise-help {
+  margin: 0;
+  font-size: 12px;
+  color: var(--gdg-muted);
 }
 
 .sc-hint {

@@ -22,6 +22,7 @@
       "**/worker-configuration.d.ts",
       "**/pnpm-lock.yaml",
       "**/openapi/types.generated.ts",
+      "apps/screen/app/features/rtc/denoise/df-glue.js",
       "**/openapi.gen.go",
       "**/openapigen/**",
       "apps/cli/internal/wiki/hooks/acl.ts",

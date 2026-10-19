@@ -187,3 +187,71 @@ describe("views", () => {
     expect(summarize(data, meta)).toEqual({ onAir: false, outputs: 1, participants: 1 });
   });
 });
+
+describe("noise suppression", () => {
+  it("starts every speaker on at the default strength and shows it only to them", () => {
+    const data = room();
+    expect(data.peers[alice.id]?.denoise).toEqual({ on: true, attenDb: 30 });
+    expect(speakerView(data, meta, alice.id, 10).denoise).toEqual({ on: true, attenDb: 30 });
+  });
+
+  it("lets operators switch it and set the strength per speaker, clamped", () => {
+    let data = apply(room(), op, { type: "denoise", participantId: alice.id, on: false }).data;
+    expect(data.peers[alice.id]?.denoise).toEqual({ on: false, attenDb: 30 });
+    expect(data.peers[bob.id]?.denoise).toEqual({ on: true, attenDb: 30 });
+    data = apply(data, op, { type: "denoise", participantId: alice.id, attenDb: 250 }).data;
+    expect(data.peers[alice.id]?.denoise).toEqual({ on: false, attenDb: 100 });
+    data = apply(data, op, { type: "denoise", participantId: alice.id, attenDb: 1.2 }).data;
+    expect(speakerView(data, meta, alice.id, 10).denoise.attenDb).toBe(6);
+  });
+
+  it("refuses speakers, operator targets, bad values and no-op changes", () => {
+    const data = room();
+    expect(
+      apply(data, alice, { type: "denoise", participantId: alice.id, on: false }).changed,
+    ).toBe(false);
+    expect(apply(data, op, { type: "denoise", participantId: op.id, on: false }).changed).toBe(
+      false,
+    );
+    expect(
+      apply(data, op, { type: "denoise", participantId: alice.id, attenDb: Number.NaN }).changed,
+    ).toBe(false);
+    expect(apply(data, op, { type: "denoise", participantId: alice.id, on: true }).changed).toBe(
+      false,
+    );
+  });
+
+  it("keeps the setting across a reconnect and clears the reported state on disconnect", () => {
+    let data = apply(room(), op, { type: "denoise", participantId: alice.id, attenDb: 60 }).data;
+    data = apply(data, alice, { type: "self", report: { denoiseState: "active" } }).data;
+    expect(data.peers[alice.id]?.denoiseState).toBe("active");
+    data = disconnectPeer(data, alice.id, 20);
+    expect(data.peers[alice.id]?.denoiseState).toBeNull();
+    data = connectPeer(data, alice, 30);
+    expect(data.peers[alice.id]?.denoise).toEqual({ on: true, attenDb: 60 });
+  });
+
+  it("accepts only known reported states", () => {
+    const data = apply(room(), alice, {
+      type: "self",
+      report: { denoiseState: "bogus" as never },
+    });
+    expect(data.changed).toBe(false);
+  });
+
+  it("fills in the default for peers saved before the feature", () => {
+    const data = room();
+    const peer = data.peers[alice.id];
+    if (!peer) throw new Error("no alice");
+    const { denoise: _old, ...legacy } = peer;
+    const saved: RoomData = {
+      ...data,
+      peers: { ...data.peers, [alice.id]: legacy as typeof peer },
+    };
+    expect(speakerView(saved, meta, alice.id, 10).denoise).toEqual({ on: true, attenDb: 30 });
+    expect(connectPeer(saved, alice, 40).peers[alice.id]?.denoise).toEqual({
+      on: true,
+      attenDb: 30,
+    });
+  });
+});

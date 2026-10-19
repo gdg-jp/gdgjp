@@ -1,8 +1,15 @@
 import { useEffect, useRef, useState } from "react";
+import { useDenoise } from "~/features/rtc/denoise/use-denoise";
 import { classifyLink, sampleFromStats } from "~/features/rtc/quality";
 import type { SfuManager, SfuSnapshot } from "~/features/rtc/sfu-manager";
 import type { LocalMedia } from "~/features/rtc/use-local-media";
-import type { ClientMessage, Quality, SelfReport } from "./protocol";
+import {
+  type ClientMessage,
+  DEFAULT_DENOISE,
+  type DenoiseSetting,
+  type Quality,
+  type SelfReport,
+} from "./protocol";
 import type { SocketStatus } from "./reliable-socket";
 
 const QUALITY_MS = 2000;
@@ -23,6 +30,7 @@ export function usePublisher({
   send,
   micLive,
   talking = false,
+  denoise = DEFAULT_DENOISE,
 }: {
   manager: SfuManager | null;
   snapshot: SfuSnapshot;
@@ -32,9 +40,12 @@ export function usePublisher({
   /** Whether the mic is actually audible (mute toggle / push-to-talk). */
   micLive: boolean;
   talking?: boolean;
+  /** The operator's choice for this page (speakers); operators keep the default. */
+  denoise?: DenoiseSetting;
 }): Quality | null {
   const camera = media.camOn ? media.camera : null;
-  useEffect(() => manager?.setLocal("mic", media.mic), [manager, media.mic]);
+  const cleaned = useDenoise(media.mic, denoise, media.setBrowserNoiseSuppression);
+  useEffect(() => manager?.setLocal("mic", cleaned.track), [manager, cleaned.track]);
   useEffect(() => manager?.setLocal("camera", camera), [manager, camera]);
   useEffect(
     () => manager?.setLocal("screen", media.screen?.video ?? null),
@@ -72,6 +83,7 @@ export function usePublisher({
     screenAudio: media.screen?.audio != null,
     quality,
     talking,
+    denoiseState: cleaned.state,
   };
   const json = JSON.stringify(report);
   const lastSent = useRef<string | null>(null);

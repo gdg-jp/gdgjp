@@ -35,6 +35,10 @@ export function isOutputKind(value: unknown): value is OutputKind {
   return typeof value === "string" && (OUTPUT_KINDS as readonly string[]).includes(value);
 }
 
+export function clampAttenDb(value: number): number {
+  return Math.min(DENOISE_MAX_DB, Math.max(DENOISE_MIN_DB, Math.round(value)));
+}
+
 export function slotsOf(count: number): Slot[] {
   return SLOTS.slice(0, Math.min(Math.max(count, 1), SLOTS.length));
 }
@@ -51,6 +55,25 @@ export const NO_TRACKS: Tracks = { mic: null, camera: null, screen: null, screen
 
 export type Quality = "good" | "fair" | "poor";
 
+/** Operator-set DeepFilterNet3 noise suppression for one participant. */
+export type DenoiseSetting = {
+  on: boolean;
+  /** Attenuation limit in dB: how far noise may be pulled down. */
+  attenDb: number;
+};
+
+export const DENOISE_MIN_DB = 6;
+export const DENOISE_MAX_DB = 100;
+export const DEFAULT_DENOISE: DenoiseSetting = { on: true, attenDb: 30 };
+
+/**
+ * What a page's mic actually goes through. Anything but "active" (or "off"
+ * when the operator turned it off) means the browser's own suppression is in
+ * use instead.
+ */
+export const DENOISE_STATES = ["active", "loading", "unsupported", "overload", "off"] as const;
+export type DenoiseState = (typeof DENOISE_STATES)[number];
+
 /** What a page reports about its own media. */
 export type SelfReport = {
   sfuSessionId: string | null;
@@ -62,6 +85,7 @@ export type SelfReport = {
   quality: Quality | null;
   /** Operator only: the mic is open toward speakers right now. */
   talking: boolean;
+  denoiseState: DenoiseState | null;
 };
 
 export const EMPTY_REPORT: SelfReport = {
@@ -73,6 +97,7 @@ export const EMPTY_REPORT: SelfReport = {
   screenAudio: false,
   quality: null,
   talking: false,
+  denoiseState: null,
 };
 
 export type Peer = SelfReport & {
@@ -82,6 +107,8 @@ export type Peer = SelfReport & {
   online: boolean;
   /** Last connect/disconnect time (server clock). */
   since: number;
+  /** Speakers only; kept across disconnects. Operators always use the default. */
+  denoise: DenoiseSetting;
 };
 
 export type Timer = {
@@ -130,6 +157,8 @@ export type SpeakerView = {
   onAir: boolean;
   slot: Slot | null;
   timer: Timer;
+  /** The operator's noise-suppression choice for this speaker (never shown to them). */
+  denoise: DenoiseSetting;
   operators: Peer[];
   messages: Message[];
   selfId: string;
@@ -155,6 +184,7 @@ export type ClientMessage =
   | { type: "timer"; action: "start" | "pause" | "reset"; durationMs?: number }
   | { type: "message"; kind: MessageKind; to: string | null; text: string }
   | { type: "remove"; participantId: string }
+  | { type: "denoise"; participantId: string; on?: boolean; attenDb?: number }
   | { type: "reset" };
 
 export const MAX_MESSAGE_LENGTH = 500;

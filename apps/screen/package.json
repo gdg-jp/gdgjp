@@ -3,8 +3,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "react-router build",
-    "dev": "react-router dev",
+    "build": "node scripts/dfn/fetch.mjs --strict && react-router build",
+    "dev": "node scripts/dfn/fetch.mjs && react-router dev",
     "deploy": "wrangler deploy",
     "typecheck": "wrangler types && react-router typegen && node ../../node_modules/@typescript/native/bin/tsc --noEmit",
     "test": "vitest run",
@@ -13,7 +13,8 @@
     "cf-typegen": "wrangler types",
     "schema:dump": "bash ../../scripts/dump-schema.sh",
     "migrate:local": "wrangler d1 migrations apply gdgjp-screen-db --local && pnpm schema:dump",
-    "migrate:remote": "wrangler d1 migrations apply gdgjp-screen-db --remote && pnpm schema:dump"
+    "migrate:remote": "wrangler d1 migrations apply gdgjp-screen-db --remote && pnpm schema:dump",
+    "dfn:fetch": "node scripts/dfn/fetch.mjs"
   },
   "dependencies": {
     "@gdgjp/design-system": "workspace:*",
