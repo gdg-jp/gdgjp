@@ -609,7 +609,7 @@ html[data-surface="transparent"] body {
   min-width: 0;
 }
 
-.sc-device .gdg-native-select-wrap {
+.sc-device-select {
   flex: 1;
   min-width: 0;
 }
@@ -895,7 +895,21 @@ html[data-surface="transparent"] body {
 }
 
 .sc-control-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   font-weight: var(--gdg-weight-heading);
+}
+
+.sc-onair-toggle {
+  white-space: nowrap;
+}
+
+@media (max-width: 720px) {
+  .sc-control-head > code {
+    display: none;
+  }
 }
 
 .sc-op-count {
@@ -1124,7 +1138,7 @@ html[data-surface="transparent"] body {
   gap: 8px;
 }
 
-.sc-messages-head .gdg-native-select-wrap {
+.sc-to-select {
   flex: 1;
   min-width: 0;
 }

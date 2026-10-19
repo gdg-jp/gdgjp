@@ -1,8 +1,11 @@
 import {
   Button,
   Input,
-  NativeSelect,
-  NativeSelectOption,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
   Tabs,
   TabsContent,
   TabsList,
@@ -31,6 +34,9 @@ export const CUE_PRESETS: Array<{ icon: ReactNode; label: string; text: string }
     text: "音声が聞こえていません / We can't hear you",
   },
 ];
+
+/** Radix Select items cannot have an empty value; this stands for "everyone". */
+const ALL = "all";
 
 /** Chat and cue cards (カンペ) toward one speaker or everyone. */
 export function MessagePanel({
@@ -66,14 +72,19 @@ export function MessagePanel({
             <StickyNote size={16} aria-hidden="true" />
           </TabsTrigger>
         </TabsList>
-        <NativeSelect aria-label="宛先" value={to} onChange={(e) => setTo(e.target.value)}>
-          <NativeSelectOption value="">全員</NativeSelectOption>
-          {speakers.map((s) => (
-            <NativeSelectOption key={s.id} value={s.id}>
-              {s.name}
-            </NativeSelectOption>
-          ))}
-        </NativeSelect>
+        <Select value={to || ALL} onValueChange={(v) => setTo(v === ALL ? "" : v)}>
+          <SelectTrigger aria-label="宛先" className="sc-to-select">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value={ALL}>全員</SelectItem>
+            {speakers.map((s) => (
+              <SelectItem key={s.id} value={s.id}>
+                {s.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
         <Help>
           <p>カンペは登壇者の画面上部とミニ表示に大きく出ます。登壇者が ✓ を押すまで残ります。</p>
           <p>チャットは登壇者のチャット欄に届きます。</p>

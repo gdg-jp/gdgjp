@@ -1,4 +1,11 @@
-import { IconButton, NativeSelect, NativeSelectOption } from "@gdgjp/design-system";
+import {
+  IconButton,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@gdgjp/design-system";
 import { Camera, Mic, Play, Volume2 } from "~/components/icons";
 import { useI18n } from "~/features/i18n/i18n";
 import type { LocalMedia } from "~/features/rtc/use-local-media";
@@ -26,8 +33,40 @@ export function playTestTone(sinkId: string) {
   else start();
 }
 
-function label(d: MediaDeviceInfo, i: number, fallback: string) {
+function deviceLabel(d: MediaDeviceInfo, i: number, fallback: string) {
   return d.label || `${fallback} ${i + 1}`;
+}
+
+/** Radix Select items cannot have an empty value; this stands for "browser default". */
+const DEFAULT = "default";
+
+function DeviceSelect({
+  label,
+  value,
+  devices,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  devices: MediaDeviceInfo[];
+  onChange: (id: string) => void;
+}) {
+  const { t } = useI18n();
+  return (
+    <Select value={value || DEFAULT} onValueChange={(v) => onChange(v === DEFAULT ? "" : v)}>
+      <SelectTrigger aria-label={label} className="sc-device-select">
+        <SelectValue />
+      </SelectTrigger>
+      <SelectContent>
+        <SelectItem value={DEFAULT}>{t("defaultDevice")}</SelectItem>
+        {devices.map((d, i) => (
+          <SelectItem key={d.deviceId} value={d.deviceId}>
+            {deviceLabel(d, i, label)}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  );
 }
 
 export function DevicePickers({ media }: { media: LocalMedia }) {
@@ -37,49 +76,31 @@ export function DevicePickers({ media }: { media: LocalMedia }) {
     <div className="sc-devices">
       <div className="sc-device">
         <Mic size={16} aria-label={t("mic")} />
-        <NativeSelect
-          aria-label={t("mic")}
+        <DeviceSelect
+          label={t("mic")}
           value={media.micId}
-          onChange={(e) => media.selectMic(e.target.value)}
-        >
-          <NativeSelectOption value="">{t("defaultDevice")}</NativeSelectOption>
-          {devices.mics.map((d, i) => (
-            <NativeSelectOption key={d.deviceId} value={d.deviceId}>
-              {label(d, i, t("mic"))}
-            </NativeSelectOption>
-          ))}
-        </NativeSelect>
+          devices={devices.mics}
+          onChange={media.selectMic}
+        />
       </div>
       <div className="sc-device">
         <Camera size={16} aria-label={t("camera")} />
-        <NativeSelect
-          aria-label={t("camera")}
+        <DeviceSelect
+          label={t("camera")}
           value={media.camId}
-          onChange={(e) => media.selectCam(e.target.value)}
-        >
-          <NativeSelectOption value="">{t("defaultDevice")}</NativeSelectOption>
-          {devices.cameras.map((d, i) => (
-            <NativeSelectOption key={d.deviceId} value={d.deviceId}>
-              {label(d, i, t("camera"))}
-            </NativeSelectOption>
-          ))}
-        </NativeSelect>
+          devices={devices.cameras}
+          onChange={media.selectCam}
+        />
       </div>
       <div className="sc-device">
         <Volume2 size={16} aria-label={t("speaker")} />
         {devices.speakers.length > 0 ? (
-          <NativeSelect
-            aria-label={t("speaker")}
+          <DeviceSelect
+            label={t("speaker")}
             value={media.speakerId}
-            onChange={(e) => media.selectSpeaker(e.target.value)}
-          >
-            <NativeSelectOption value="">{t("defaultDevice")}</NativeSelectOption>
-            {devices.speakers.map((d, i) => (
-              <NativeSelectOption key={d.deviceId} value={d.deviceId}>
-                {label(d, i, t("speaker"))}
-              </NativeSelectOption>
-            ))}
-          </NativeSelect>
+            devices={devices.speakers}
+            onChange={media.selectSpeaker}
+          />
         ) : (
           <span className="sc-muted">{t("defaultDevice")}</span>
         )}
