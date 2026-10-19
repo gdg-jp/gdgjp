@@ -83,7 +83,7 @@ export async function createStage(
       id,
       name: input.name,
       slotCount: clampSlotCount(input.slotCount),
-      inviteToken: randomToken(),
+      inviteToken: generateStageId(),
       outputToken: randomToken(),
       createdAt: now,
     };
@@ -102,8 +102,13 @@ export async function createStage(
         now,
         now,
       )
-      .run();
-    if (res.meta.changes === 1) return stage;
+      .run()
+      .catch((err: unknown) => {
+        // The invite words collided with another stage's; draw again.
+        if (String(err).includes("UNIQUE")) return null;
+        throw err;
+      });
+    if (res?.meta.changes === 1) return stage;
   }
   throw new Error("could not allocate a stage id");
 }
@@ -120,13 +125,23 @@ export async function rotateToken(
   id: string,
   kind: "invite" | "output",
 ): Promise<string> {
-  const token = randomToken();
   const column = kind === "invite" ? "invite_token" : "output_token";
-  await db
-    .prepare(`UPDATE stage SET ${column} = ?, updated_at = unixepoch() WHERE id = ?`)
-    .bind(token, id)
-    .run();
-  return token;
+  for (let attempt = 0; attempt < 8; attempt++) {
+    // Invite links are three words (screen.gdgs.jp/apple-banana-orange/) so
+    // they can be read out loud; the OBS token stays opaque.
+    const token = kind === "invite" ? generateStageId() : randomToken();
+    const ok = await db
+      .prepare(`UPDATE stage SET ${column} = ?, updated_at = unixepoch() WHERE id = ?`)
+      .bind(token, id)
+      .run()
+      .then(() => true)
+      .catch((err: unknown) => {
+        if (String(err).includes("UNIQUE")) return false;
+        throw err;
+      });
+    if (ok) return token;
+  }
+  throw new Error("could not allocate an invite id");
 }
 
 export async function deleteStage(db: D1Database, id: string): Promise<void> {

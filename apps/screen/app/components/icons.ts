@@ -8,6 +8,7 @@ export {
   Brush,
   Camera,
   Check,
+  ChevronUp,
   CircleHelp,
   Copy,
   Dices,

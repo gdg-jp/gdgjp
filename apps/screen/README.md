@@ -4,7 +4,7 @@
 メディアは Cloudflare Realtime（Serverless SFU）を経由する。
 
 - 配信担当: `https://screen.gdgs.jp/`（GDG チャプターメンバーのみ）。ステージを作り、コントロールルームで登壇者を出力枠 A〜D に割り当てる。
-- 登壇者: ステージの招待リンク `https://screen.gdgs.jp/join/<token>`（ログイン不要）。待機室で機材を確認して参加する。
+- 登壇者: ステージの招待リンク `https://screen.gdgs.jp/<英単語3つ>/`（ログイン不要）。待機室で機材を確認して参加する。
 - OBS: 出力枠ごとに 3 つの Browser Source（カメラ・画面・マイク）。URL はコントロールルーム右上の 📺 からコピーする。
 
 ## OBS の設定

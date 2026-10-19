@@ -1,5 +1,5 @@
 import { Button, Input } from "@gdgjp/design-system";
-import { type FormEvent, useEffect, useState } from "react";
+import { type FormEvent, useEffect, useRef, useState } from "react";
 import { Help } from "~/components/Help";
 import { LevelBars } from "~/components/LevelBars";
 import {
@@ -16,8 +16,7 @@ import { TrackVideo } from "~/features/rtc/components/TrackVideo";
 import { canShareTabAudio } from "~/features/rtc/media";
 import { useLevel } from "~/features/rtc/use-level";
 import type { LocalMedia } from "~/features/rtc/use-local-media";
-import { DevicePickers } from "./DevicePickers";
-import { CamToggle, MicToggle, ShareToggle, SwitchShare } from "./MediaControls";
+import { CamControl, MicControl, ShareToggle, SwitchShare } from "./MediaControls";
 
 /** Device check before entering the room (Q16/Q23). */
 export function Lobby({
@@ -37,9 +36,17 @@ export function Lobby({
   const level = useLevel(media.mic, media.micOn);
   const [tabAudio, setTabAudio] = useState(true);
   useEffect(() => setTabAudio(canShareTabAudio(navigator.userAgent)), []);
+  // Join is always pressable; a missing name is explained right at the field.
+  const [nameError, setNameError] = useState(false);
+  const nameRef = useRef<HTMLInputElement>(null);
   const submit = (e: FormEvent) => {
     e.preventDefault();
-    if (name.trim()) onJoin();
+    if (!name.trim()) {
+      setNameError(true);
+      nameRef.current?.focus();
+      return;
+    }
+    onJoin();
   };
   const share = () => void media.shareScreen();
   const kinds = [media.problem.mic, media.problem.camera];
@@ -64,8 +71,8 @@ export function Lobby({
             )}
           </div>
           <div className="sc-preview-bar">
-            <MicToggle media={media} />
-            <CamToggle media={media} />
+            <MicControl media={media} />
+            <CamControl media={media} />
             <LevelBars level={level} />
           </div>
         </section>
@@ -95,19 +102,30 @@ export function Lobby({
         </section>
       </div>
 
-      <div className="sc-name">
-        <User size={18} aria-label={t("name")} />
-        <Input
-          value={name}
-          onChange={(e) => onName(e.target.value)}
-          placeholder={t("name")}
-          aria-label={t("name")}
-          maxLength={40}
-          required
-          autoComplete="name"
-        />
+      <div className="sc-name-field">
+        <div className="sc-name">
+          <User size={18} aria-label={t("name")} />
+          <Input
+            ref={nameRef}
+            value={name}
+            onChange={(e) => {
+              onName(e.target.value);
+              if (e.target.value.trim()) setNameError(false);
+            }}
+            placeholder={t("name")}
+            aria-label={t("name")}
+            aria-invalid={nameError || undefined}
+            aria-describedby={nameError ? "sc-name-error" : undefined}
+            maxLength={40}
+            autoComplete="name"
+          />
+        </div>
+        {nameError && (
+          <p id="sc-name-error" className="sc-field-error" role="alert">
+            {t("nameRequired")}
+          </p>
+        )}
       </div>
-      <DevicePickers media={media} />
 
       <ul className="sc-notes">
         {problem && (
@@ -134,7 +152,7 @@ export function Lobby({
         </li>
       </ul>
 
-      <Button type="submit" size="lg" disabled={!name.trim()} className="sc-join">
+      <Button type="submit" size="lg" className="sc-join">
         {t("join")}
       </Button>
     </form>

@@ -7,6 +7,7 @@ import { requireUserWithChapter } from "~/features/auth/auth-redirect.server";
 import { CreateStageDialog, StageMenu } from "~/features/stage/components/StageDialogs";
 import type { StageSummary } from "~/features/stage/room-state";
 import { listStages, metaOf } from "~/features/stage/stages.server";
+import { TopBar } from "~/layouts/TopBar";
 import type { Route } from "./+types/home";
 
 export function meta() {
@@ -25,7 +26,8 @@ export async function loader({ request, context }: Route.LoaderArgs) {
     ),
   );
   return {
-    user: { name: user.name, picture: user.image },
+    user: { name: user.name, email: user.email, image: user.image },
+    accountsUrl: env.ACCOUNTS_URL,
     stages: stages.map((s, i) => ({
       id: s.id,
       name: s.name,
@@ -40,7 +42,7 @@ export async function loader({ request, context }: Route.LoaderArgs) {
 const POLL_MS = 5000;
 
 export default function Home({ loaderData }: Route.ComponentProps) {
-  const { stages, user } = loaderData;
+  const { stages, user, accountsUrl } = loaderData;
   const revalidator = useRevalidator();
 
   // Live counts: re-read the summaries while the list is on screen.
@@ -55,32 +57,29 @@ export default function Home({ loaderData }: Route.ComponentProps) {
 
   return (
     <div className="sc-page">
-      <header className="sc-topbar">
-        <span className="sc-brand">screen.gdgs.jp</span>
-        <span className="sc-user" title={user.name}>
-          {user.picture ? <img src={user.picture} alt="" /> : user.name.slice(0, 1)}
-        </span>
-      </header>
+      <TopBar user={user} accountsUrl={accountsUrl} />
       <main className="sc-home">
-        <div className="sc-home-actions">
-          <CreateStageDialog
-            trigger={
-              <IconButton aria-label="ステージを作成" variant="primary">
-                <Plus size={20} aria-hidden="true" />
-              </IconButton>
-            }
-          />
-          <Help>
-            <p>
-              ステージは会場のトラックごとに 1 つ作ります。OBS の URL
-              と招待リンクは、削除・再発行するまで変わりません。
-            </p>
-            <p className="sc-help-legend">
-              <Radio size={14} aria-hidden="true" /> 出力中の枠
-              <Users size={14} aria-hidden="true" /> 参加中の登壇者
-            </p>
-          </Help>
-        </div>
+        {stages.length > 0 && (
+          <div className="sc-home-actions">
+            <CreateStageDialog
+              trigger={
+                <IconButton aria-label="ステージを作成" variant="primary">
+                  <Plus size={20} aria-hidden="true" />
+                </IconButton>
+              }
+            />
+            <Help>
+              <p>
+                ステージは会場のトラックごとに 1 つ作ります。OBS の URL
+                と招待リンクは、削除・再発行するまで変わりません。
+              </p>
+              <p className="sc-help-legend">
+                <Radio size={14} aria-hidden="true" /> 出力中の枠
+                <Users size={14} aria-hidden="true" /> 参加中の登壇者
+              </p>
+            </Help>
+          </div>
+        )}
         <ul className="sc-stage-list">
           {stages.map((s) => (
             <li key={s.id} className="sc-stage-row" data-on-air={s.summary.onAir || undefined}>
@@ -110,11 +109,13 @@ export default function Home({ loaderData }: Route.ComponentProps) {
           <div className="sc-empty">
             <CreateStageDialog
               trigger={
-                <button type="button" className="sc-empty-add" aria-label="ステージを作成">
+                <button type="button" className="sc-empty-add">
                   <Plus size={32} aria-hidden="true" />
+                  <span>ステージを作成</span>
                 </button>
               }
             />
+            <p className="sc-muted">会場のトラックごとに 1 つ作ります</p>
           </div>
         )}
       </main>

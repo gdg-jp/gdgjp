@@ -1,7 +1,7 @@
 import type { OutputKind, Slot } from "./protocol";
 
 export function inviteUrl(origin: string, inviteToken: string): string {
-  return `${origin}/join/${inviteToken}`;
+  return `${origin}/${inviteToken}/`;
 }
 
 export function outputUrl(

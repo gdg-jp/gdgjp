@@ -39,7 +39,7 @@ import { usePublisher } from "../../use-publisher";
 import { useStageRoom } from "../../use-stage-room";
 import { ChatLog } from "../ChatLog";
 import { LangToggle } from "./LangToggle";
-import { CamToggle, MicToggle, ShareToggle } from "./MediaControls";
+import { CamControl, MicControl, MicToggle, ShareToggle } from "./MediaControls";
 import { MiniWindowPortal, useMiniWindow } from "./MiniWindow";
 
 /** After this long without a working connection the yellow bar turns red. */
@@ -282,8 +282,8 @@ export function SpeakerRoom({
       </main>
 
       <footer className="sc-room-bar">
-        <MicToggle media={media} />
-        <CamToggle media={media} />
+        <MicControl media={media} />
+        <CamControl media={media} />
         <ShareToggle media={media} onShare={share} />
         <RoundToggle
           label={t("chat")}

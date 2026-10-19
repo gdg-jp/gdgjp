@@ -61,8 +61,17 @@ test("speaker goes on air through an OBS output", async ({ browser }) => {
   const speakerLog: string[] = [];
   speaker.on("console", (m) => speakerLog.push(`${m.type()}: ${m.text()}`));
   speaker.on("pageerror", (e) => speakerLog.push(`pageerror: ${e.message}`));
+  expect(invite).toMatch(/\/[a-z]+-[a-z]+-[a-z]+\/$/);
   await speaker.goto(invite);
+  // Join stays pressable; without a name it explains why instead of joining.
+  await speaker.getByRole("button", { name: "参加" }).click();
+  await expect(speaker.getByRole("alert")).toHaveText("お名前を入力してください");
   await speaker.getByRole("textbox", { name: "お名前" }).fill("E2E Speaker");
+  await expect(speaker.getByRole("alert")).toHaveCount(0);
+  // Device menus sit next to the toggles.
+  await speaker.getByRole("button", { name: "カメラの設定" }).click();
+  await expect(speaker.getByRole("menuitemradio").first()).toBeVisible();
+  await speaker.keyboard.press("Escape");
   await speaker.getByRole("button", { name: "参加" }).click();
   await expect(speaker.locator(".sc-chip[data-tone='ok']")).toBeVisible({ timeout: 20_000 });
 

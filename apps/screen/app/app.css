@@ -4,6 +4,9 @@
 @import "@gdgjp/design-system/components.css";
 @import "@gdgjp/design-system/fonts.css";
 
+/* Layout utilities of the shared account menu / app launcher (@gdgjp/gdg-lib/ui). */
+@source "../../../packages/gdg-lib/src/ui";
+
 :root {
   --sc-red: var(--gdg-red);
   --sc-green: var(--gdg-green);
@@ -90,24 +93,6 @@ html[data-surface="transparent"] body {
 .sc-brand {
   font-weight: var(--gdg-weight-heading);
   letter-spacing: 0.01em;
-}
-
-.sc-user {
-  margin-left: auto;
-  width: 32px;
-  height: 32px;
-  border-radius: 999px;
-  overflow: hidden;
-  display: grid;
-  place-items: center;
-  background: var(--gdg-neutral);
-  font-size: var(--gdg-text-sm);
-}
-
-.sc-user img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
 }
 
 .sc-center {
@@ -289,6 +274,56 @@ html[data-surface="transparent"] body {
   box-shadow: 0 0 0 2px var(--gdg-neutral);
 }
 
+/* Meet-style split control: [menu ▾][● toggle]. */
+.sc-split {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  background: color-mix(in oklch, var(--gdg-neutral) 55%, transparent);
+  /* biome-ignore lint/correctness/noUnknownProperty: corner-shape is an intentional CSS Borders 4 property. */
+  corner-shape: round;
+}
+
+.sc-split-menu {
+  width: 40px;
+  height: 48px;
+  border: 0;
+  border-radius: 999px 0 0 999px;
+  background: transparent;
+  color: var(--gdg-muted);
+  display: inline-grid;
+  place-items: center;
+  padding-left: 6px;
+  cursor: pointer;
+  /* biome-ignore lint/correctness/noUnknownProperty: corner-shape is an intentional CSS Borders 4 property. */
+  corner-shape: round;
+}
+
+.sc-split-menu:hover,
+.sc-split-menu[data-state="open"] {
+  color: var(--gdg-text);
+}
+
+.sc-split-menu:focus-visible {
+  outline: 2px solid var(--gdg-focus);
+  outline-offset: -2px;
+}
+
+.sc-device-menu {
+  min-width: 280px;
+  max-width: min(420px, calc(100vw - 32px));
+}
+
+.sc-device-item .gdg-menu-item-label {
+  display: grid;
+  gap: 2px;
+}
+
+.sc-device-default {
+  font-size: var(--gdg-text-xs);
+  color: var(--gdg-muted);
+}
+
 .sc-round-sm {
   width: 36px;
   height: 36px;
@@ -393,6 +428,31 @@ html[data-surface="transparent"] body {
   font-variant-numeric: tabular-nums;
 }
 
+/*
+ * The shared gdg-lib menus colour themselves with shadcn token utilities this
+ * app does not define; map just those, inside the menu popup only.
+ */
+[data-radix-popper-content-wrapper] .bg-popover {
+  background-color: var(--gdg-surface);
+  box-shadow: var(--gdg-shadow-md);
+}
+
+[data-radix-popper-content-wrapper] .text-popover-foreground {
+  color: var(--gdg-text);
+}
+
+[data-radix-popper-content-wrapper] .text-muted-foreground {
+  color: var(--gdg-muted);
+}
+
+[data-radix-popper-content-wrapper] .bg-border {
+  background-color: var(--gdg-border);
+}
+
+[data-radix-popper-content-wrapper] [role="menuitem"]:focus {
+  background-color: var(--gdg-hover);
+}
+
 /* ─── home ──────────────────────────────────────────────────────────── */
 
 .sc-home {
@@ -491,24 +551,40 @@ html[data-surface="transparent"] body {
 }
 
 .sc-empty {
+  min-height: 50dvh;
   display: grid;
-  place-items: center;
-  padding: 48px 0;
+  place-content: center;
+  justify-items: center;
+  gap: 12px;
+  text-align: center;
+}
+
+.sc-empty p {
+  margin: 0;
+  font-size: var(--gdg-text-sm);
 }
 
 .sc-empty-add {
-  width: 96px;
-  height: 96px;
-  border-radius: 24px;
+  width: 200px;
+  height: 160px;
+  border-radius: var(--gdg-radius-card);
   border: 2px dashed var(--sc-line);
   background: transparent;
   color: var(--gdg-muted);
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 10px;
+  font: inherit;
+  font-weight: var(--gdg-weight-medium);
   cursor: pointer;
+  transition: color 120ms var(--gdg-ease-out), border-color 120ms var(--gdg-ease-out);
 }
 
-.sc-empty-add:hover {
+.sc-empty-add:hover,
+.sc-empty-add:focus-visible {
   color: var(--gdg-text);
-  border-color: var(--gdg-muted);
+  border-color: var(--gdg-primary);
 }
 
 /* ─── speaker lobby ─────────────────────────────────────────────────── */
@@ -585,6 +661,17 @@ html[data-surface="transparent"] body {
   font-weight: var(--gdg-weight-medium);
 }
 
+.sc-name-field {
+  display: grid;
+  gap: 6px;
+}
+
+.sc-field-error {
+  margin: 0 0 0 28px;
+  color: var(--gdg-danger);
+  font-size: var(--gdg-text-sm);
+}
+
 .sc-name {
   display: flex;
   align-items: center;
@@ -594,24 +681,6 @@ html[data-surface="transparent"] body {
 
 .sc-name > input {
   flex: 1;
-}
-
-.sc-devices {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: 12px;
-}
-
-.sc-device {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  min-width: 0;
-}
-
-.sc-device-select {
-  flex: 1;
-  min-width: 0;
 }
 
 .sc-notes {
@@ -641,10 +710,11 @@ html[data-surface="transparent"] body {
 
 /* ─── speaker room ──────────────────────────────────────────────────── */
 
+/* Column: header, optional bars/cue, the stage filling the rest, controls pinned to the bottom. */
 .sc-room {
   height: 100dvh;
-  display: grid;
-  grid-template-rows: auto auto auto 1fr auto;
+  display: flex;
+  flex-direction: column;
 }
 
 .sc-room-head {
@@ -686,6 +756,7 @@ html[data-surface="transparent"] body {
 }
 
 .sc-room-main {
+  flex: 1;
   min-height: 0;
   display: grid;
   grid-template-columns: 1fr 240px;
@@ -742,6 +813,7 @@ html[data-surface="transparent"] body {
 
 .sc-room-bar {
   display: flex;
+  align-items: flex-end;
   justify-content: center;
   gap: 12px;
   padding: 12px var(--sc-gutter) 16px;
@@ -1177,7 +1249,7 @@ html[data-surface="transparent"] body {
 
 .sc-control-bar {
   display: flex;
-  align-items: center;
+  align-items: flex-end;
   gap: 12px;
   padding: 10px var(--sc-gutter);
   border-top: 1px solid var(--sc-line);

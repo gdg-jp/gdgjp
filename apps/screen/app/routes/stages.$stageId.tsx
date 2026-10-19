@@ -14,7 +14,11 @@ import { MessagePanel } from "~/features/stage/components/control/MessagePanel";
 import { ParticipantRow } from "~/features/stage/components/control/ParticipantRow";
 import { SlotCard } from "~/features/stage/components/control/SlotCard";
 import { TimerControl } from "~/features/stage/components/control/TimerControl";
-import { CamToggle, ShareToggle } from "~/features/stage/components/speaker/MediaControls";
+import {
+  CamControl,
+  MicControl,
+  ShareToggle,
+} from "~/features/stage/components/speaker/MediaControls";
 import {
   CLOSE_DELETED,
   type OperatorView,
@@ -292,27 +296,32 @@ export default function ControlRoom({ loaderData }: Route.ComponentProps) {
           <TimerControl timer={view.timer} clockOffset={room.clockOffset} send={room.send} />
         )}
         <span className="sc-spacer" />
-        {onAir ? (
-          <RoundToggle
-            label="押している間だけ話す（スペース）"
-            off={!pttHeld}
-            active={pttHeld}
-            onPointerDown={() => setPtt(true)}
-            onPointerUp={() => setPtt(false)}
-            onPointerLeave={() => setPtt(false)}
-          >
-            {pttHeld ? <Mic size={20} /> : <MicOff size={20} />}
-          </RoundToggle>
-        ) : (
-          <RoundToggle
-            label={media.micOn ? "マイクをオフ" : "マイクをオン"}
-            off={!media.micOn}
-            onClick={media.toggleMic}
-          >
-            {media.micOn ? <Mic size={20} /> : <MicOff size={20} />}
-          </RoundToggle>
-        )}
-        <CamToggle media={media} />
+        <MicControl
+          media={media}
+          toggle={
+            onAir ? (
+              <RoundToggle
+                label="押している間だけ話す（スペース）"
+                off={!pttHeld}
+                active={pttHeld}
+                onPointerDown={() => setPtt(true)}
+                onPointerUp={() => setPtt(false)}
+                onPointerLeave={() => setPtt(false)}
+              >
+                {pttHeld ? <Mic size={20} /> : <MicOff size={20} />}
+              </RoundToggle>
+            ) : (
+              <RoundToggle
+                label={media.micOn ? "マイクをオフ" : "マイクをオン"}
+                off={!media.micOn}
+                onClick={media.toggleMic}
+              >
+                {media.micOn ? <Mic size={20} /> : <MicOff size={20} />}
+              </RoundToggle>
+            )
+          }
+        />
+        <CamControl media={media} />
         <ShareToggle media={media} onShare={() => void media.shareScreen()} />
         <figure className="sc-self-tile">
           {media.camOn && media.camera && (

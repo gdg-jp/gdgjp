@@ -9,7 +9,7 @@ import { LangToggle } from "~/features/stage/components/speaker/LangToggle";
 import { Lobby } from "~/features/stage/components/speaker/Lobby";
 import { SpeakerRoom } from "~/features/stage/components/speaker/SpeakerRoom";
 import { getStageByInvite } from "~/features/stage/stages.server";
-import type { Route } from "./+types/join.$token";
+import type { Route } from "./+types/$invite";
 
 export function meta({ data }: Route.MetaArgs) {
   return [{ title: data?.stage ? `${data.stage.name} · screen` : "screen" }];
@@ -17,11 +17,11 @@ export function meta({ data }: Route.MetaArgs) {
 
 export async function loader({ params, request, context }: Route.LoaderArgs) {
   const lang = pickLang(request.headers.get("cookie"), request.headers.get("accept-language"));
-  const stage = await getStageByInvite(context.cloudflare.env.DB, params.token);
+  const stage = await getStageByInvite(context.cloudflare.env.DB, params.invite);
   const ua = request.headers.get("user-agent") ?? "";
   return {
     lang,
-    token: params.token,
+    token: params.invite,
     stage: stage ? { id: stage.id, name: stage.name } : null,
     mobile: /Android|iPhone|iPad|iPod|Mobile/i.test(ua),
   };

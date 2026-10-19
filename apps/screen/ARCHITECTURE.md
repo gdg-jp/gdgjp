@@ -2,7 +2,8 @@
 
 - Routes: `home.tsx` (stage list), `stages.$stageId.tsx` (control room), `api.stages.ts`
   (create / rename / reissue / delete) are operator-only (accounts RP + chapter).
-  `join.$token.tsx` (speaker lobby → room) is public behind the stage's invite token;
+  `$invite.tsx` (speaker lobby → room at `/<three-words>/`, registered last so static paths win)
+  is public behind the stage's invite words; `join.$token.ts` redirects old `/join/` links;
   `out.$stageId.$slot.$kind.tsx` (OBS Browser Source, transparent, no UI) is behind the output
   token.
 - `features/stage/` owns the wire protocol, the pure room rules (`room-state.ts`: slots, ON AIR,
