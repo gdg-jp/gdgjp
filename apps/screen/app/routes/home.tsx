@@ -59,27 +59,25 @@ export default function Home({ loaderData }: Route.ComponentProps) {
     <div className="sc-page">
       <TopBar user={user} accountsUrl={accountsUrl} />
       <main className="sc-home">
-        {stages.length > 0 && (
-          <div className="sc-home-actions">
-            <CreateStageDialog
-              trigger={
-                <IconButton aria-label="ステージを作成" variant="primary">
-                  <Plus size={20} aria-hidden="true" />
-                </IconButton>
-              }
-            />
-            <Help>
-              <p>
-                ステージは会場のトラックごとに 1 つ作ります。OBS の URL
-                と招待リンクは、削除・再発行するまで変わりません。
-              </p>
-              <p className="sc-help-legend">
-                <Radio size={14} aria-hidden="true" /> 出力中の枠
-                <Users size={14} aria-hidden="true" /> 参加中の登壇者
-              </p>
-            </Help>
-          </div>
-        )}
+        <div className="sc-home-actions">
+          <CreateStageDialog
+            trigger={
+              <IconButton aria-label="ステージを作成" variant="primary">
+                <Plus size={20} aria-hidden="true" />
+              </IconButton>
+            }
+          />
+          <Help>
+            <p>
+              ステージは会場のトラックごとに 1 つ作ります。OBS の URL
+              と招待リンクは、削除・再発行するまで変わりません。
+            </p>
+            <p className="sc-help-legend">
+              <Radio size={14} aria-hidden="true" /> 出力中の枠
+              <Users size={14} aria-hidden="true" /> 参加中の登壇者
+            </p>
+          </Help>
+        </div>
         <ul className="sc-stage-list">
           {stages.map((s) => (
             <li key={s.id} className="sc-stage-row" data-on-air={s.summary.onAir || undefined}>
@@ -115,7 +113,6 @@ export default function Home({ loaderData }: Route.ComponentProps) {
                 </button>
               }
             />
-            <p className="sc-muted">会場のトラックごとに 1 つ作ります</p>
           </div>
         )}
       </main>

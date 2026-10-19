@@ -559,11 +559,6 @@ html[data-surface="transparent"] body {
   text-align: center;
 }
 
-.sc-empty p {
-  margin: 0;
-  font-size: var(--gdg-text-sm);
-}
-
 .sc-empty-add {
   width: 200px;
   height: 160px;
