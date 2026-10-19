@@ -16,7 +16,7 @@ import { TrackVideo } from "~/features/rtc/components/TrackVideo";
 import { canShareTabAudio } from "~/features/rtc/media";
 import { useLevel } from "~/features/rtc/use-level";
 import type { LocalMedia } from "~/features/rtc/use-local-media";
-import { CamControl, MicControl, ShareToggle, SwitchShare } from "./MediaControls";
+import { CamControl, MicControl, ShareToggle, SpeakerControl, SwitchShare } from "./MediaControls";
 
 /** Device check before entering the room (Q16/Q23). */
 export function Lobby({
@@ -72,8 +72,9 @@ export function Lobby({
           </div>
           <div className="sc-preview-bar">
             <MicControl media={media} />
-            <CamControl media={media} />
             <LevelBars level={level} />
+            <CamControl media={media} />
+            <SpeakerControl media={media} />
           </div>
         </section>
         <section className="sc-preview" aria-label={t("share")}>

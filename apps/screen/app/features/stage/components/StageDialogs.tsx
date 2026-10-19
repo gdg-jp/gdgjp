@@ -26,13 +26,10 @@ import { Form, useFetcher } from "react-router";
 import { Help } from "~/components/Help";
 import {
   Brush,
-  Camera,
   Copy,
   Dices,
   Ellipsis,
   Link2,
-  Mic,
-  Monitor,
   Pencil,
   RefreshCw,
   Trash2,
@@ -48,12 +45,6 @@ export type StageAccess = {
   slotCount: number;
   inviteToken: string;
   outputToken: string;
-};
-
-const KIND_ICON: Record<OutputKind, ReactNode> = {
-  camera: <Camera size={16} aria-hidden="true" />,
-  screen: <Monitor size={16} aria-hidden="true" />,
-  mic: <Mic size={16} aria-hidden="true" />,
 };
 
 const KIND_LABEL: Record<OutputKind, string> = { camera: "カメラ", screen: "画面", mic: "マイク" };
@@ -145,47 +136,32 @@ export function ObsDialog({
             <p className="sc-muted">マイクは音声だけのソースです。サイズは何でも構いません。</p>
           </Help>
         </div>
-        <table className="sc-obs-table">
-          <thead>
-            <tr>
-              <th />
-              {OUTPUT_KINDS.map((k) => (
-                <th key={k} scope="col">
-                  <span className="sc-obs-kind">
-                    {KIND_ICON[k]}
-                    {KIND_LABEL[k]}
-                  </span>
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {slotsOf(stage.slotCount).map((slot) => (
-              <tr key={slot}>
-                <th scope="row">
-                  <span className="sc-slot-badge">{slot}</span>
-                </th>
+        <div className="sc-obs-slots">
+          {slotsOf(stage.slotCount).map((slot) => (
+            <section key={slot} className="sc-obs-slot" aria-label={`出力枠 ${slot}`}>
+              <span className="sc-slot-badge">{slot}</span>
+              <div className="sc-obs-buttons">
                 {OUTPUT_KINDS.map((kind) => (
-                  <td key={kind}>
-                    <IconButton
-                      aria-label={`${slot} ${KIND_LABEL[kind]} の URL をコピー`}
-                      variant="secondary"
-                      size="sm"
-                      onClick={() =>
-                        copyWithToast(
-                          outputUrl(origin, stage.id, slot, kind, stage.outputToken),
-                          `${slot} ${KIND_LABEL[kind]}の URL `,
-                        )
-                      }
-                    >
-                      <Copy size={16} aria-hidden="true" />
-                    </IconButton>
-                  </td>
+                  <Button
+                    key={kind}
+                    variant="secondary"
+                    size="sm"
+                    aria-label={`${slot} ${KIND_LABEL[kind]}URLをコピー`}
+                    onClick={() =>
+                      copyWithToast(
+                        outputUrl(origin, stage.id, slot, kind, stage.outputToken),
+                        `${slot} ${KIND_LABEL[kind]}の URL `,
+                      )
+                    }
+                  >
+                    <Copy size={16} aria-hidden="true" />
+                    {KIND_LABEL[kind]}URLをコピー
+                  </Button>
                 ))}
-              </tr>
-            ))}
-          </tbody>
-        </table>
+              </div>
+            </section>
+          ))}
+        </div>
         <p className="sc-warn">⚠ 「OBS で音声を制御する」に ✓ を入れてください</p>
         <div className="sc-obs-foot">
           <span className="sc-size">

@@ -21,6 +21,8 @@ import {
   Repeat,
   Video,
   VideoOff,
+  Volume2,
+  VolumeX,
 } from "~/components/icons";
 import { useI18n } from "~/features/i18n/i18n";
 import { type DeviceOption, deviceOptions, selectedDevice } from "~/features/rtc/devices";
@@ -87,15 +89,13 @@ function Split({
 }
 
 /**
- * Mic toggle plus a menu for microphone and speaker. `toggle` replaces the
- * plain mute button (the control room swaps in push-to-talk while ON AIR).
+ * Mic toggle plus a menu for the microphone. `toggle` replaces the plain
+ * mute button (the control room swaps in push-to-talk while ON AIR).
  */
 export function MicControl({ media, toggle }: { media: LocalMedia; toggle?: ReactNode }) {
   const { t } = useI18n();
   const mics = deviceOptions(media.devices.mics, t("mic"));
-  const speakers = deviceOptions(media.devices.speakers, t("speaker"));
   const mic = selectedDevice(mics, media.micId, media.mic?.getSettings().deviceId);
-  const speaker = selectedDevice(speakers, media.speakerId, undefined);
   return (
     <Split
       menuLabel={t("micSettings")}
@@ -104,12 +104,30 @@ export function MicControl({ media, toggle }: { media: LocalMedia; toggle?: Reac
         <>
           <DropdownMenuLabel>{t("mic")}</DropdownMenuLabel>
           <DeviceItems options={mics} value={mic} onChange={media.selectMic} />
-          {speakers.length > 0 && (
-            <>
-              <DropdownMenuSeparator />
-              <DropdownMenuLabel>{t("speaker")}</DropdownMenuLabel>
-              <DeviceItems options={speakers} value={speaker} onChange={media.selectSpeaker} />
-            </>
+        </>
+      }
+    >
+      {toggle ?? <MicToggle media={media} />}
+    </Split>
+  );
+}
+
+/** Mutes incoming audio locally; the menu picks the output device and plays a test tone. */
+export function SpeakerControl({ media }: { media: LocalMedia }) {
+  const { t } = useI18n();
+  const speakers = deviceOptions(media.devices.speakers, t("speaker"));
+  const speaker = selectedDevice(speakers, media.speakerId, undefined);
+  return (
+    <Split
+      menuLabel={t("speakerSettings")}
+      menuIcon={<ChevronUp size={18} />}
+      menu={
+        <>
+          <DropdownMenuLabel>{t("speaker")}</DropdownMenuLabel>
+          {speakers.length > 0 ? (
+            <DeviceItems options={speakers} value={speaker} onChange={media.selectSpeaker} />
+          ) : (
+            <DropdownMenuItem disabled>{t("defaultDevice")}</DropdownMenuItem>
           )}
           <DropdownMenuSeparator />
           <DropdownMenuItem
@@ -123,7 +141,13 @@ export function MicControl({ media, toggle }: { media: LocalMedia; toggle?: Reac
         </>
       }
     >
-      {toggle ?? <MicToggle media={media} />}
+      <RoundToggle
+        label={media.speakerOn ? t("speakerOn") : t("speakerOff")}
+        off={!media.speakerOn}
+        onClick={media.toggleSpeaker}
+      >
+        {media.speakerOn ? <Volume2 size={20} /> : <VolumeX size={20} />}
+      </RoundToggle>
     </Split>
   );
 }

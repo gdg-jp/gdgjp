@@ -18,6 +18,7 @@ type Prefs = {
   camId?: string;
   speakerId?: string;
   micOn?: boolean;
+  speakerOn?: boolean;
   camOn?: boolean;
 };
 
@@ -42,6 +43,8 @@ export type LocalMedia = {
   camera: MediaStreamTrack | null;
   screen: ScreenCapture | null;
   micOn: boolean;
+  /** Incoming audio (operators / speakers) plays; off mutes it locally. */
+  speakerOn: boolean;
   camOn: boolean;
   micId: string;
   camId: string;
@@ -51,6 +54,7 @@ export type LocalMedia = {
   /** Set when the browser's own "stop sharing" ended the capture. */
   screenEndedByBrowser: boolean;
   toggleMic: () => void;
+  toggleSpeaker: () => void;
   toggleCam: () => void;
   setMicEnabled: (on: boolean) => void;
   selectMic: (id: string) => void;
@@ -74,6 +78,7 @@ export function useLocalMedia(enabled = true): LocalMedia {
   const [camera, setCamera] = useState<MediaStreamTrack | null>(null);
   const [screen, setScreen] = useState<ScreenCapture | null>(null);
   const [micOn, setMicOn] = useState(true);
+  const [speakerOn, setSpeakerOn] = useState(true);
   const [camOn, setCamOn] = useState(true);
   const [micId, setMicId] = useState("");
   const [camId, setCamId] = useState("");
@@ -93,6 +98,7 @@ export function useLocalMedia(enabled = true): LocalMedia {
     if (prefs.camId) setCamId(prefs.camId);
     if (prefs.speakerId) setSpeakerId(prefs.speakerId);
     if (typeof prefs.micOn === "boolean") setMicOn(prefs.micOn);
+    if (typeof prefs.speakerOn === "boolean") setSpeakerOn(prefs.speakerOn);
     if (typeof prefs.camOn === "boolean") setCamOn(prefs.camOn);
   }, []);
 
@@ -196,6 +202,7 @@ export function useLocalMedia(enabled = true): LocalMedia {
     camera,
     screen,
     micOn,
+    speakerOn,
     camOn,
     micId,
     camId,
@@ -203,6 +210,11 @@ export function useLocalMedia(enabled = true): LocalMedia {
     devices,
     problem,
     screenEndedByBrowser,
+    toggleSpeaker: () =>
+      setSpeakerOn((on) => {
+        writePrefs({ speakerOn: !on });
+        return !on;
+      }),
     toggleMic: () =>
       setMicOn((on) => {
         writePrefs({ micOn: !on });

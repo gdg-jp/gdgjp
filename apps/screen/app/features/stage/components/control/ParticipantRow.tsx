@@ -48,6 +48,7 @@ export function ParticipantRow({
   mic,
   screenAudio,
   monitored,
+  speakerOn,
   sinkId,
   onAssign,
   onMonitor,
@@ -59,6 +60,8 @@ export function ParticipantRow({
   mic: MediaStreamTrack | null;
   screenAudio: MediaStreamTrack | null;
   monitored: boolean;
+  /** The operator's own speaker toggle; off silences every speaker. */
+  speakerOn: boolean;
   sinkId: string;
   onAssign: (slot: Slot | null) => void;
   onMonitor: (on: boolean) => void;
@@ -145,10 +148,14 @@ export function ParticipantRow({
           <Trash2 size={16} aria-hidden="true" />
         </IconButton>
       )}
-      <TrackAudio track={peer.online ? mic : null} muted={!monitored} sinkId={sinkId} />
+      <TrackAudio
+        track={peer.online ? mic : null}
+        muted={!monitored || !speakerOn}
+        sinkId={sinkId}
+      />
       <TrackAudio
         track={peer.online && peer.screenAudio ? screenAudio : null}
-        muted={!monitored}
+        muted={!monitored || !speakerOn}
         sinkId={sinkId}
       />
     </li>

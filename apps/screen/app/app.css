@@ -395,23 +395,31 @@ html[data-surface="transparent"] body {
   font-size: var(--gdg-text-sm);
 }
 
-.sc-obs-table {
-  border-collapse: collapse;
-  width: 100%;
+.sc-dialog.sc-obs {
+  width: min(640px, calc(100vw - 32px));
+  max-width: none;
 }
 
-.sc-obs-table th,
-.sc-obs-table td {
-  padding: 6px;
-  text-align: center;
+.sc-obs-slots {
+  display: grid;
+  gap: 12px;
 }
 
-.sc-obs-kind {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  font-size: var(--gdg-text-sm);
-  font-weight: var(--gdg-weight-medium);
+.sc-obs-slot {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.sc-obs-slot .sc-slot-badge {
+  margin-top: 4px;
+}
+
+.sc-obs-buttons {
+  flex: 1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 
 .sc-obs-foot {
@@ -754,13 +762,9 @@ html[data-surface="transparent"] body {
   flex: 1;
   min-height: 0;
   display: grid;
-  grid-template-columns: 1fr 240px;
+  grid-template-columns: 1fr 240px 300px;
   gap: 12px;
   padding: 12px var(--sc-gutter);
-}
-
-.sc-room-main[data-chat] {
-  grid-template-columns: 1fr 240px 300px;
 }
 
 .sc-room-stage {
@@ -815,8 +819,7 @@ html[data-surface="transparent"] body {
 }
 
 @media (max-width: 900px) {
-  .sc-room-main,
-  .sc-room-main[data-chat] {
+  .sc-room-main {
     grid-template-columns: 1fr;
     grid-auto-rows: minmax(0, auto);
     overflow: auto;

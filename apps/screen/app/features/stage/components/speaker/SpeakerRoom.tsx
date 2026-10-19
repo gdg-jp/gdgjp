@@ -11,7 +11,6 @@ import { Help } from "~/components/Help";
 import { RoundToggle } from "~/components/RoundToggle";
 import {
   Check,
-  MessageSquare,
   Mic,
   MonitorUp,
   PhoneOff,
@@ -39,7 +38,7 @@ import { usePublisher } from "../../use-publisher";
 import { useStageRoom } from "../../use-stage-room";
 import { ChatLog } from "../ChatLog";
 import { LangToggle } from "./LangToggle";
-import { CamControl, MicControl, MicToggle, ShareToggle } from "./MediaControls";
+import { CamControl, MicControl, MicToggle, ShareToggle, SpeakerControl } from "./MediaControls";
 import { MiniWindowPortal, useMiniWindow } from "./MiniWindow";
 
 /** After this long without a working connection the yellow bar turns red. */
@@ -130,10 +129,6 @@ export function SpeakerRoom({
   const { cue, ack } = useOpenCue(messages);
   const pip = useMiniWindow();
   useCueAlerts(cue, pip.isOpen);
-
-  // ─── chat ────────────────────────────────────────────────────────────
-  const [chatOpen, setChatOpen] = useState(false);
-  const unread = useUnread(messages, chatOpen, view?.selfId ?? "");
 
   // ─── screen share (+ mini window in the same click) ─────────────────
   const share = () => {
@@ -238,7 +233,7 @@ export function SpeakerRoom({
         </div>
       )}
 
-      <main className="sc-room-main" data-chat={chatOpen || undefined}>
+      <main className="sc-room-main">
         <section className="sc-room-stage">
           {opScreen ? (
             <TrackVideo track={opScreen} className="sc-fill" label={t("operator")} />
@@ -269,30 +264,21 @@ export function SpeakerRoom({
             <figcaption>{t("you")}</figcaption>
           </figure>
         </aside>
-        {chatOpen && (
-          <aside className="sc-room-chat" aria-label={t("chat")}>
-            <ChatLog
-              messages={messages.filter((m) => m.kind === "chat")}
-              selfId={view?.selfId ?? ""}
-              sendLabel={t("send")}
-              onSend={(text) => room.send({ type: "message", kind: "chat", to: null, text })}
-            />
-          </aside>
-        )}
+        <aside className="sc-room-chat" aria-label={t("chat")}>
+          <ChatLog
+            messages={messages.filter((m) => m.kind === "chat")}
+            selfId={view?.selfId ?? ""}
+            sendLabel={t("send")}
+            onSend={(text) => room.send({ type: "message", kind: "chat", to: null, text })}
+          />
+        </aside>
       </main>
 
       <footer className="sc-room-bar">
         <MicControl media={media} />
         <CamControl media={media} />
+        <SpeakerControl media={media} />
         <ShareToggle media={media} onShare={share} />
-        <RoundToggle
-          label={t("chat")}
-          active={chatOpen}
-          onClick={() => setChatOpen((o) => !o)}
-          data-badge={unread > 0 || undefined}
-        >
-          <MessageSquare size={20} />
-        </RoundToggle>
         {pip.supported && (
           <RoundToggle
             label={t("miniWindow")}
@@ -314,11 +300,13 @@ export function SpeakerRoom({
             key={`${o.id}-mic`}
             track={track(o.sfuSessionId, o.tracks.mic)}
             sinkId={media.speakerId}
+            muted={!media.speakerOn}
           />,
           <TrackAudio
             key={`${o.id}-sa`}
             track={o.screenAudio ? track(o.sfuSessionId, o.tracks.screenAudio) : null}
             sinkId={media.speakerId}
+            muted={!media.speakerOn}
           />,
         ])}
 
@@ -357,14 +345,6 @@ export function SpeakerRoom({
       </Dialog>
     </div>
   );
-}
-
-/** Count operator chat messages that arrived while the panel was closed. */
-function useUnread(messages: Message[], open: boolean, selfId: string): number {
-  const seen = useRef(0);
-  const chats = messages.filter((m) => m.kind === "chat" && m.from.id !== selfId).length;
-  if (open) seen.current = chats;
-  return Math.max(0, chats - seen.current);
 }
 
 /**

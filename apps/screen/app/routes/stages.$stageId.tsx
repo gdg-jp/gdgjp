@@ -18,6 +18,7 @@ import {
   CamControl,
   MicControl,
   ShareToggle,
+  SpeakerControl,
 } from "~/features/stage/components/speaker/MediaControls";
 import {
   CLOSE_DELETED,
@@ -263,6 +264,7 @@ export default function ControlRoom({ loaderData }: Route.ComponentProps) {
                   mic={remote(p, p.tracks.mic)}
                   screenAudio={remote(p, p.tracks.screenAudio)}
                   monitored={!muted.has(p.id)}
+                  speakerOn={media.speakerOn}
                   sinkId={media.speakerId}
                   onAssign={(slot) => {
                     const current = slotOf(p.id);
@@ -322,6 +324,7 @@ export default function ControlRoom({ loaderData }: Route.ComponentProps) {
           }
         />
         <CamControl media={media} />
+        <SpeakerControl media={media} />
         <ShareToggle media={media} onShare={() => void media.shareScreen()} />
         <figure className="sc-self-tile">
           {media.camOn && media.camera && (

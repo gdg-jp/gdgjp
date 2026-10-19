@@ -45,10 +45,10 @@ test("speaker goes on air through an OBS output", async ({ browser }) => {
   });
   const cameraUrl = await copied(op, async () => {
     await op.getByRole("button", { name: "OBS", exact: true }).click();
-    await op.getByRole("button", { name: "A カメラ の URL をコピー" }).click();
+    await op.getByRole("button", { name: "A カメラURLをコピー" }).click();
   });
   const micUrl = await copied(op, async () => {
-    await op.getByRole("button", { name: "A マイク の URL をコピー" }).click();
+    await op.getByRole("button", { name: "A マイクURLをコピー" }).click();
   });
   await op.keyboard.press("Escape");
 
@@ -73,7 +73,7 @@ test("speaker goes on air through an OBS output", async ({ browser }) => {
   await expect(speaker.getByRole("menuitemradio").first()).toBeVisible();
   await speaker.keyboard.press("Escape");
   // Switching back to the OS-default mic sticks (it used to stay unselected).
-  const micMenu = speaker.getByRole("button", { name: "マイクとスピーカーの設定" });
+  const micMenu = speaker.getByRole("button", { name: "マイクの設定" });
   const pick = async (label: string) => {
     await micMenu.click();
     await speaker.getByRole("menuitemradio", { name: label }).click();
