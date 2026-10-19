@@ -72,6 +72,19 @@ test("speaker goes on air through an OBS output", async ({ browser }) => {
   await speaker.getByRole("button", { name: "カメラの設定" }).click();
   await expect(speaker.getByRole("menuitemradio").first()).toBeVisible();
   await speaker.keyboard.press("Escape");
+  // Switching back to the OS-default mic sticks (it used to stay unselected).
+  const micMenu = speaker.getByRole("button", { name: "マイクとスピーカーの設定" });
+  const pick = async (label: string) => {
+    await micMenu.click();
+    await speaker.getByRole("menuitemradio", { name: label }).click();
+  };
+  await pick("Fake Audio Input 2");
+  await pick("Fake Audio Input 1 システムのデフォルト");
+  await micMenu.click();
+  await expect(
+    speaker.getByRole("menuitemradio", { name: "Fake Audio Input 1 システムのデフォルト" }),
+  ).toHaveAttribute("aria-checked", "true");
+  await speaker.keyboard.press("Escape");
   await speaker.getByRole("button", { name: "参加" }).click();
   await expect(speaker.locator(".sc-chip[data-tone='ok']")).toBeVisible({ timeout: 20_000 });
 

@@ -40,8 +40,9 @@ function DeviceItems({
   return (
     <DropdownMenuRadioGroup
       value={value}
-      // Picking the OS default follows it, so a later OS-level switch still applies.
-      onValueChange={(id) => onChange(options.find((o) => o.deviceId === id)?.isDefault ? "" : id)}
+      // Always pin the exact device: an empty "follow the OS" id lets the browser
+      // pick for itself, which is not necessarily the device marked default.
+      onValueChange={onChange}
     >
       {options.map((o) => (
         <DropdownMenuRadioItem key={o.deviceId} value={o.deviceId} className="sc-device-item">
