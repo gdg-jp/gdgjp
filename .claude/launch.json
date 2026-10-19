@@ -28,6 +28,12 @@
       "port": 5187
     },
     {
+      "name": "screen-dev",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["--filter", "@gdgjp/screen", "dev"],
+      "port": 5188
+    },
+    {
       "name": "img-dev",
       "runtimeExecutable": "pnpm",
       "runtimeArgs": ["--filter", "@gdgjp/img", "dev"],

@@ -19,6 +19,7 @@ PAY_CLIENT_SECRET=""
 OST_CLIENT_SECRET=""
 ROSTER_CLIENT_SECRET=""
 MC_CLIENT_SECRET=""
+SCREEN_CLIENT_SECRET=""
 
 # Override prod URLs from wrangler.toml so dev runs the IdP at localhost.
 APP_URL=http://localhost:5173
@@ -43,5 +44,7 @@ ROSTER_CLIENT_ID=roster
 ROSTER_REDIRECT_URLS=http://localhost:5186/api/auth/callback/gdgjp
 MC_CLIENT_ID=mc
 MC_REDIRECT_URLS=http://localhost:5187/api/auth/callback/gdgjp
+SCREEN_CLIENT_ID=screen
+SCREEN_REDIRECT_URLS=http://localhost:5188/api/auth/callback/gdgjp
 
 RESEND_API_KEY=""

@@ -41,6 +41,13 @@ Applications live in `apps/` and shared libraries in `packages/`. Workspace glob
   and timestamped transcripts are generated offline into `public/audio/` and `clips.json`
   (`scripts/build-clips.mjs`); the source `音声/` and `原稿/` folders are never committed.
   Clips added later from the controller are stored in R2 (`AUDIO`) + D1 (`uploaded_clip`).
+- `apps/screen/` is the remote speaker feed for OBS (`screen.gdgs.jp`): speakers join a stage
+  from a shared invite link (no login) and send camera, mic and screen share through the
+  Cloudflare Realtime SFU; the operator control room (an `apps/accounts/` relying party gated by
+  chapter membership) assigns speakers to output slots, talks back (push-to-talk while ON AIR),
+  and sends cue cards; each slot's camera/screen/mic is a token-gated OBS Browser Source page
+  (`/out/<stage>/<slot>/<kind>?t=<token>`). D1 holds auth tables + the stage registry; live state
+  is one `StageRoom` Durable Object per stage. The SFU app secret is `REALTIME_APP_TOKEN`.
 - `packages/gdg-lib/` is the source-only shared TypeScript package (`@gdgjp/gdg-lib`) for relying-party
   auth and signed-cookie helpers. Keep code app-local unless it is genuinely shared here.
 - `packages/design-system/` is the `gdg-jp/design-system` Git submodule and shared React 19 workspace (`@gdgjp/design-system`).

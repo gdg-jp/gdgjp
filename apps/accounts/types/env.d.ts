@@ -25,6 +25,7 @@ declare global {
     OST_CLIENT_SECRET: string;
     ROSTER_CLIENT_SECRET: string;
     MC_CLIENT_SECRET: string;
+    SCREEN_CLIENT_SECRET: string;
     RESEND_API_KEY?: string;
     EMAIL_FROM?: string;
     /** Better Auth encryption/signing secret. Set with wrangler secret put. */

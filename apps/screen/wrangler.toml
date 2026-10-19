@@ -1,0 +1,60 @@
+name = "gdgjp-screen"
+main = "./workers/app.ts"
+compatibility_date = "2026-07-28"
+compatibility_flags = ["nodejs_compat"]
+
+[alias]
+"virtual:react-router/server-build" = "./build/server/index.js"
+
+[vars]
+ENVIRONMENT = "production"
+APP_URL = "https://screen.gdgs.jp"
+ACCOUNTS_URL = "https://accounts.gdgs.jp"
+IDP_URL = "https://accounts.gdgs.jp"
+IDP_CLIENT_ID = "screen"
+# Cloudflare Realtime SFU application. Its secret is REALTIME_APP_TOKEN.
+REALTIME_APP_ID = "43178fae81617bf7932406d5b1eb8373"
+
+[assets]
+binding = "ASSETS"
+directory = "./build/client"
+# Stage sockets (/ws) and the SFU proxy (/rtc) must reach the Worker instead
+# of being served as static assets.
+run_worker_first = ["/ws", "/rtc/*"]
+
+[[routes]]
+pattern = "screen.gdgs.jp"
+custom_domain = true
+
+[durable_objects]
+bindings = [
+  { name = "STAGE", class_name = "StageRoom" },
+]
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["StageRoom"]
+
+# Relying-party auth tables plus the stage registry (name, slot count, tokens).
+# Live state (participants, output assignments, ON AIR, timer, chat, cues) is
+# in the per-stage StageRoom Durable Object.
+[[d1_databases]]
+binding = "DB"
+database_name = "gdgjp-screen-db"
+database_id = "4b2576ee-3751-4929-83d2-1be464fa6307"
+migrations_dir = "./migrations"
+
+# Worker-to-Worker OIDC (discovery, token, UserInfo) stays on Cloudflare's
+# internal network instead of looping through public HTTPS.
+[[services]]
+binding = "ACCOUNTS"
+service = "gdgjp-accounts"
+
+[observability]
+enabled = true
+
+[observability.logs]
+enabled = true
+head_sampling_rate = 1
+persist = true
+invocation_logs = true

@@ -211,6 +211,12 @@ jobs:
               pnpm --filter @gdgjp/mc build
               pnpm --filter @gdgjp/mc run deploy
               pnpm --filter @gdgjp/mc migrate:remote
+          - name: Build, deploy, and migrate screen
+            if: contains(fromJSON(needs.changes.outputs.deploy-apps), 'screen')
+            run: |
+              pnpm --filter @gdgjp/screen build
+              pnpm --filter @gdgjp/screen run deploy
+              pnpm --filter @gdgjp/screen migrate:remote
           - name: Build and deploy website
             if: contains(fromJSON(needs.changes.outputs.deploy-apps), 'website')
             run: |
