@@ -69,8 +69,7 @@ export async function getAgentInstructions(
   if (!row) {
     // Older production databases do not necessarily contain the optional
     // wiki-system row introduced by the namespace seed migration. Attribute the
-    // bootstrap to the oldest user so it satisfies the foreign-key constraint;
-    // the local is_admin snapshot is no longer maintained.
+    // bootstrap to the oldest user so it satisfies the foreign-key constraint.
     const seedUser = await db
       .select({ id: schema.user.id })
       .from(schema.user)

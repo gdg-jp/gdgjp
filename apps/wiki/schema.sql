@@ -9,7 +9,7 @@ CREATE TABLE IF NOT EXISTS "user" (
   "created_at"                 INTEGER NOT NULL,
   "updated_at"                 INTEGER NOT NULL,
   -- additionalFields
-  "is_admin" INTEGER NOT NULL DEFAULT 0, oidc_issuer TEXT, oidc_subject TEXT);
+  oidc_issuer TEXT, oidc_subject TEXT);
 CREATE TABLE IF NOT EXISTS "chapters" (
   "id"          TEXT NOT NULL PRIMARY KEY,
   "name_ja"     TEXT NOT NULL,
