@@ -6,7 +6,6 @@ CREATE TABLE IF NOT EXISTS "user" (
   email        TEXT NOT NULL UNIQUE,
   name         TEXT NOT NULL,
   image        TEXT,
-  is_admin     INTEGER NOT NULL DEFAULT 0,
   oidc_issuer  TEXT,
   oidc_subject TEXT,
   created_at   INTEGER NOT NULL DEFAULT (unixepoch()),

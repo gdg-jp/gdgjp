@@ -49,7 +49,7 @@ OAuth **client** of accounts.gdgs.jp. No local password / better-auth (migration
 - `cookiePrefix: "gdgjp-wiki"` → session cookie `gdgjp-wiki-session`
 - `RP_SESSION_SECRET` + `IDP_CLIENT_ID=wiki` + `IDP_CLIENT_SECRET`
 
-`user` row populated from `/userinfo` at sign-in; `is_admin` is value **at last sign-in** — for fresh authz checks use `getFreshClaims()`. Wiki-specific fields (UI/content language, Discord ID) live on `user_preferences` so `user` stays uniform across RPs.
+`user` row is an identity link plus a name/image display cache; admin status is not stored locally — authorize with `user.isAdmin` / `getFreshClaims()`, which are live. Wiki-specific fields (UI/content language, Discord ID) live on `user_preferences` so `user` stays uniform across RPs.
 
 ## Drizzle (not Kysely)
 

@@ -35,22 +35,6 @@ CREATE TABLE oauth_transactions (
   expires_at TEXT NOT NULL,
   created_at TEXT NOT NULL
 );
-CREATE TABLE google_photos_tokens (
-  user_id TEXT PRIMARY KEY,
-  access_token_ciphertext TEXT NOT NULL,
-  refresh_token_ciphertext TEXT,
-  expires_at TEXT,
-  updated_at TEXT NOT NULL
-);
-CREATE TABLE google_picker_sessions (
-  id TEXT PRIMARY KEY,
-  post_id TEXT NOT NULL REFERENCES posts(id) ON DELETE CASCADE,
-  user_id TEXT NOT NULL,
-  google_session_id TEXT NOT NULL,
-  picker_uri TEXT NOT NULL,
-  expires_at TEXT NOT NULL,
-  created_at TEXT NOT NULL
-);
 CREATE TABLE posts (
   id TEXT PRIMARY KEY,
   chapter_id INTEGER NOT NULL,
@@ -101,7 +85,6 @@ CREATE TABLE IF NOT EXISTS "user" (
   email TEXT NOT NULL UNIQUE,
   name TEXT NOT NULL,
   image TEXT,
-  is_admin INTEGER NOT NULL DEFAULT 0,
   oidc_issuer TEXT,
   oidc_subject TEXT,
   created_at INTEGER NOT NULL,
@@ -123,3 +106,54 @@ CREATE TABLE oidc_session (
   updated_at INTEGER NOT NULL DEFAULT (unixepoch())
 );
 CREATE INDEX oidc_session_user_idx ON oidc_session (user_id);
+CREATE TABLE google_photos_albums (
+  id TEXT PRIMARY KEY,
+  chapter_id INTEGER NOT NULL UNIQUE,
+  album_url TEXT NOT NULL,
+  enabled INTEGER NOT NULL DEFAULT 1 CHECK (enabled IN (0, 1)),
+  poll_interval_minutes INTEGER NOT NULL DEFAULT 5,
+  unchanged_poll_count INTEGER NOT NULL DEFAULT 0,
+  next_poll_at TEXT NOT NULL,
+  last_success_at TEXT,
+  last_error TEXT,
+  lease_expires_at TEXT,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+, active_run_id TEXT);
+CREATE INDEX google_photos_albums_due
+  ON google_photos_albums(enabled, next_poll_at);
+CREATE TABLE google_photos_media (
+  id TEXT PRIMARY KEY,
+  album_id TEXT NOT NULL REFERENCES google_photos_albums(id) ON DELETE CASCADE,
+  stable_photo_id TEXT NOT NULL,
+  r2_key TEXT NOT NULL UNIQUE,
+  content_type TEXT NOT NULL,
+  byte_size INTEGER NOT NULL,
+  source_url TEXT,
+  imported_at TEXT NOT NULL,
+  last_seen_at TEXT NOT NULL, taken_at TEXT, blurhash TEXT,
+  UNIQUE (album_id, stable_photo_id)
+);
+CREATE INDEX google_photos_media_album_imported
+  ON google_photos_media(album_id, imported_at DESC);
+CREATE TABLE google_photos_snapshot_items (
+  album_id TEXT NOT NULL REFERENCES google_photos_albums(id) ON DELETE CASCADE,
+  stable_photo_id TEXT NOT NULL,
+  last_seen_at TEXT NOT NULL,
+  PRIMARY KEY (album_id, stable_photo_id)
+);
+CREATE TABLE google_photos_poll_runs (
+  id TEXT PRIMARY KEY,
+  album_id TEXT NOT NULL REFERENCES google_photos_albums(id) ON DELETE CASCADE,
+  started_at TEXT NOT NULL,
+  finished_at TEXT,
+  outcome TEXT NOT NULL CHECK (outcome IN ('running', 'imported', 'unchanged', 'failed', 'structure_changed')),
+  discovered_count INTEGER NOT NULL DEFAULT 0,
+  imported_count INTEGER NOT NULL DEFAULT 0,
+  duplicate_count INTEGER NOT NULL DEFAULT 0,
+  detail TEXT
+);
+CREATE INDEX google_photos_poll_runs_album_started
+  ON google_photos_poll_runs(album_id, started_at DESC);
+CREATE INDEX google_photos_media_album_taken
+  ON google_photos_media(album_id, taken_at DESC, imported_at DESC);

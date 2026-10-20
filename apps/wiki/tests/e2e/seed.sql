@@ -3,16 +3,15 @@
 
 DELETE FROM page_access WHERE page_id = 'e2e-test-page-id';
 
-INSERT INTO "user" (id, email, name, image, is_admin, created_at, updated_at)
+INSERT INTO "user" (id, email, name, image, created_at, updated_at)
 VALUES
-  ('e2e-admin-user-id', 'admin@test.local', 'E2E Admin', NULL, 1, unixepoch(), unixepoch()),
-  ('e2e-author-user-id', 'author@test.local', 'E2E Author', NULL, 0, unixepoch(), unixepoch()),
-  ('e2e-member-user-id', 'member@test.local', 'E2E Member', NULL, 0, unixepoch(), unixepoch())
+  ('e2e-admin-user-id', 'admin@test.local', 'E2E Admin', NULL, unixepoch(), unixepoch()),
+  ('e2e-author-user-id', 'author@test.local', 'E2E Author', NULL, unixepoch(), unixepoch()),
+  ('e2e-member-user-id', 'member@test.local', 'E2E Member', NULL, unixepoch(), unixepoch())
 ON CONFLICT(id) DO UPDATE SET
   email = excluded.email,
   name = excluded.name,
   image = excluded.image,
-  is_admin = excluded.is_admin,
   updated_at = excluded.updated_at;
 
 INSERT INTO user_preferences (user_id, preferred_ui_language, preferred_content_language, discord_id)
