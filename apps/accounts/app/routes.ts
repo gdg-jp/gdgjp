@@ -42,6 +42,7 @@ export default [
   route("api/users/search", "routes/api.users.search.ts"),
   route("api/cli/logout", "routes/api.cli.logout.ts"),
   route("api/cli/v1/identity", "routes/api.cli.v1.identity.ts"),
+  route("api/rp/v1/session", "routes/api.rp.v1.session.ts"),
   route("api/agents/google-workspace-token", "routes/api.agents.google-workspace-token.ts"),
   route("auth/signout", "routes/auth.signout.ts"),
   route("device", "routes/oauth/device.tsx", { id: "routes/device" }),

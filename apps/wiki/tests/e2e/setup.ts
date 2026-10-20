@@ -100,20 +100,27 @@ export function signCookie(payload: unknown, secret: string): string {
   return `${body}.${signature}`;
 }
 
+/**
+ * A gdg-lib v4 dev session (the format `/dev/login` mints): it carries its own
+ * claims, so the loopback e2e server never asks the Accounts IdP.
+ */
 export function buildSessionCookieValue(user: E2EUser, secret: string, issuer: string): string {
   const expiresAt = Date.now() + 30 * 24 * 60 * 60 * 1000;
   return signCookie(
     {
-      version: 3,
+      version: 4,
       sessionId: `e2e-session-${user.id}`,
       userId: user.id,
       issuer,
       subject: user.id,
-      email: user.email,
-      name: user.name,
-      picture: null,
-      isAdmin: user.isAdmin === 1,
+      sid: `dev-e2e-${user.id}`,
       expiresAt,
+      dev: {
+        email: user.email,
+        name: user.name,
+        isAdmin: user.isAdmin === 1,
+        chapters: [],
+      },
     },
     secret,
   );

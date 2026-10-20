@@ -31,6 +31,12 @@ bucket_name = "gdgjp-img-originals"
 binding = "DERIVED"
 bucket_name = "gdgjp-img-derived"
 
+[[services]]
+# Every authenticated request asks Accounts whether its IdP session is still
+# current, so keep that call on Cloudflare's internal network.
+binding = "ACCOUNTS"
+service = "gdgjp-accounts"
+
 [images]
 binding = "IMAGES"
 

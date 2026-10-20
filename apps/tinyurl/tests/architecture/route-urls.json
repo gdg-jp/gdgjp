@@ -30,6 +30,7 @@
   "folders/:id",
   "domains",
   "signin",
+  "dev/login",
   "no-chapter",
   "api/auth/*",
   "auth/signout",

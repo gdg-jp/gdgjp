@@ -71,6 +71,7 @@ exports[`routes.ts URL surface > exposes a stable set of URLs 1`] = `
   "/api/wiki/import-zip",
   "/api/wiki/import-zip/preview",
   "/archived",
+  "/dev/login",
   "/ingest",
   "/ingest/:sessionId",
   "/logout",

@@ -10,7 +10,7 @@ export default [
   route("no-chapter", "routes/no-chapter.tsx"),
   route("api/auth/*", "routes/api.auth.$.ts"),
   route("auth/signout", "routes/auth.signout.ts"),
-  route("dev/login", "routes/dev.login.tsx"), // 404 when ENVIRONMENT === "production"
+  route("dev/login", "routes/dev.login.ts"), // 404 unless APP_URL is loopback
   // Speaker lobby + room at screen.gdgs.jp/<three-words>/ — public, invite words. Last so every
   // static path above wins.
   route(":invite", "routes/$invite.tsx"),

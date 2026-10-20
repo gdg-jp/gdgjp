@@ -4,6 +4,7 @@ export default [
   // Public routes (no app shell)
   route("/api/auth/*", "routes/public/api-auth.tsx"),
   route("/signin", "routes/public/signin.tsx"),
+  route("/dev/login", "routes/public/dev.login.ts"),
   route("/logout", "routes/public/logout.tsx"),
 
   // Task API routes (no app shell)

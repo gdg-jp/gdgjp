@@ -78,18 +78,18 @@ async function upsertImageOwner(db: D1Database, user: ImageUploadInput["user"]):
     .first<{ id: string }>();
   if (existing) {
     await db
-      .prepare(`UPDATE "user" SET name = ?, image = ?, is_admin = ?, updated_at = ? WHERE id = ?`)
-      .bind(user.name, user.image, user.isAdmin ? 1 : 0, now, existing.id)
+      .prepare(`UPDATE "user" SET name = ?, image = ?, updated_at = ? WHERE id = ?`)
+      .bind(user.name, user.image, now, existing.id)
       .run();
     return existing.id;
   }
 
   await db
     .prepare(
-      `INSERT INTO "user" (id, email, name, image, is_admin, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO "user" (id, email, name, image, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?)`,
     )
-    .bind(user.id, user.email, user.name, user.image, user.isAdmin ? 1 : 0, now, now)
+    .bind(user.id, user.email, user.name, user.image, now, now)
     .run();
   return user.id;
 }

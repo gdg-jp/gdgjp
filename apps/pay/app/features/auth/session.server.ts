@@ -1,4 +1,9 @@
-import type { AuthUser, UserChapter, UserClaims } from "@gdgjp/gdg-lib";
+import {
+  type AuthUser,
+  ClaimsUnavailableError,
+  type UserChapter,
+  type UserClaims,
+} from "@gdgjp/gdg-lib";
 import { redirect } from "react-router";
 import { getAuth } from "~/features/auth/auth.server";
 
@@ -29,8 +34,9 @@ export async function requireMember(
   let claims: UserClaims;
   try {
     claims = await getAuth(env).getFreshClaims(request);
-  } catch {
-    throw buildSignInRedirect(request);
+  } catch (e) {
+    if (e instanceof ClaimsUnavailableError) throw buildSignInRedirect(request);
+    throw e;
   }
   if (claims.chapters.length === 0) {
     throw new Response("チャプターのメンバーシップが必要です", { status: 403 });

@@ -1,4 +1,9 @@
-import { type AuthUser, type UserChapter, isSuperAdmin } from "@gdgjp/gdg-lib";
+import {
+  type AuthUser,
+  ClaimsUnavailableError,
+  type UserChapter,
+  isSuperAdmin,
+} from "@gdgjp/gdg-lib";
 import { redirect } from "react-router";
 import { getAuth } from "~/features/auth/auth.server";
 import { listAccessibleChapters } from "~/features/auth/chapters.server";
@@ -38,14 +43,18 @@ export async function requireSnsAccess(
   let user: AuthUser;
   try {
     user = await getAuth(env).requireUser(request);
-  } catch {
-    throw buildSignInRedirect(request);
+  } catch (e) {
+    // 401 means signed out (or signed in as someone else at Accounts); a 503
+    // from an unreachable IdP must surface instead of looping through sign-in.
+    if (e instanceof Response && e.status === 401) throw buildSignInRedirect(request);
+    throw e;
   }
   let memberships: UserChapter[];
   try {
     memberships = (await getAuth(env).getFreshClaims(request)).chapters;
-  } catch {
-    throw buildSignInRedirect(request);
+  } catch (e) {
+    if (e instanceof ClaimsUnavailableError) throw buildSignInRedirect(request);
+    throw e;
   }
   const superAdmin = isSuperAdmin(user);
   const chapters = await listAccessibleChapters(env.DB, user.email, memberships, superAdmin);

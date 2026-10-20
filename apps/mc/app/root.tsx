@@ -1,5 +1,6 @@
 import { ThemeProvider, Toaster } from "@gdgjp/design-system";
-import type { ReactNode } from "react";
+import { installSignedOutReload } from "@gdgjp/gdg-lib/auth/signed-out-reload";
+import { type ReactNode, useEffect } from "react";
 import {
   Links,
   Meta,
@@ -52,6 +53,8 @@ export function Layout({ children }: { children: ReactNode }) {
 }
 
 export default function App() {
+  // Leave a page whose accounts.gdgs.jp session ended (see gdg-lib).
+  useEffect(() => installSignedOutReload(), []);
   // next-themes writes an inline `color-scheme: dark`, which would paint an
   // opaque canvas behind the OBS player; that page needs no theme anyway.
   if (useTransparent()) return <Outlet />;

@@ -2,9 +2,9 @@ import { sql } from "drizzle-orm";
 import { integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
 
 // ---------------------------------------------------------------------------
-// user — populated by the openid-client RP factory from IdP /userinfo at
-// sign-in. is_admin reflects the value at last sign-in; fresh checks should
-// go through getFreshClaims().
+// user — identity link + display cache maintained by the gdg-lib RP factory
+// (name/image follow the IdP). is_admin is no longer written or read and is
+// slated for removal; authorization uses the live claims.
 // ---------------------------------------------------------------------------
 export const user = sqliteTable("user", {
   id: text("id").primaryKey(),

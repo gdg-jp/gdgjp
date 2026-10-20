@@ -109,14 +109,44 @@ function database(options?: {
   return { db: db as unknown as D1Database, calls };
 }
 
-function auth(db: D1Database, issuer = "https://issuer.example", idpFetch?: typeof fetch) {
+function sessionCheck(body: Record<string, unknown> = { active: true, ...userInfo() }) {
+  return vi.fn<typeof fetch>(async () => Response.json(body));
+}
+
+function auth(
+  db: D1Database,
+  issuer = "https://issuer.example",
+  idpFetch: typeof fetch = sessionCheck(),
+  appUrl = "https://app.example",
+) {
   return initializeRpAuth({
     db,
-    appUrl: "https://app.example",
+    appUrl,
     cookiePrefix: "app",
     secret,
     idp: { url: issuer, clientId: "client", clientSecret: "client-secret", fetch: idpFetch },
   });
+}
+
+async function sessionCookie(overrides: Record<string, unknown> = {}) {
+  const value = await signPayload(
+    {
+      version: 4,
+      sessionId: "session-1",
+      userId: "local-user",
+      issuer: "https://issuer.example",
+      subject: "subject-1",
+      sid: "idp-session-1",
+      expiresAt: Date.now() + 60_000,
+      ...overrides,
+    },
+    secret,
+  );
+  return `app-session=${value}`;
+}
+
+function page(cookie: string, url = "https://app.example/") {
+  return new Request(url, { headers: { Cookie: cookie } });
 }
 
 async function transactionCookie() {
@@ -130,7 +160,7 @@ async function transactionCookie() {
     },
     secret,
   );
-  return `app-oidc-tx=${value}`;
+  return `app-oidc-tx=${value}; gdg_sid=idp-session-1`;
 }
 
 function tokenResponse(idToken = "signed-id-token") {
@@ -139,7 +169,7 @@ function tokenResponse(idToken = "signed-id-token") {
     refresh_token: "refresh-token",
     expires_in: 3600,
     id_token: idToken,
-    claims: () => ({ sub: "subject-1" }),
+    claims: () => ({ sub: "subject-1", sid: "idp-session-1" }),
   };
 }
 
@@ -165,7 +195,7 @@ beforeEach(() => {
   oidc.fetchUserInfo.mockResolvedValue(userInfo());
 });
 
-describe("OIDC RP", () => {
+describe("OIDC RP sign-in", () => {
   it("requests the standard scopes plus the namespaced chapter scope with PKCE and nonce", async () => {
     const { db } = database();
     const response = await auth(db).handleAuthRequest(
@@ -248,39 +278,7 @@ describe("OIDC RP", () => {
     );
   });
 
-  it("turns discovery timeouts during claims refresh into an unavailable-claims error", async () => {
-    oidc.discovery.mockRejectedValueOnce(new DOMException("timed out", "TimeoutError"));
-    const sessionId = "session-with-discovery-timeout";
-    const session = await signPayload(
-      {
-        version: 3,
-        sessionId,
-        userId: "local-user",
-        issuer: "https://timeout-issuer.example",
-        subject: "subject-1",
-        email: "user@example.com",
-        name: "Example User",
-        picture: null,
-        isAdmin: false,
-        expiresAt: Date.now() + 60_000,
-      },
-      secret,
-    );
-    const { db } = database();
-
-    await expect(
-      auth(db, "https://timeout-issuer.example").getFreshClaims(
-        new Request("https://app.example/", {
-          headers: { Cookie: `app-session=${session}` },
-        }),
-      ),
-    ).rejects.toMatchObject({
-      name: "ClaimsUnavailableError",
-      reason: "userinfo_failed",
-    });
-  });
-
-  it("requires an ID Token, validates nonce, and binds UserInfo to its subject", async () => {
+  it("requires an ID Token, validates nonce, binds UserInfo to its subject and the session to sid", async () => {
     const { db, calls } = database();
     const instance = auth(db);
     const response = await instance.handleAuthRequest(
@@ -304,14 +302,44 @@ describe("OIDC RP", () => {
     expect(calls[0]).toEqual(
       expect.objectContaining({ args: ["https://issuer.example", "subject-1"] }),
     );
+    // The local row no longer snapshots is_admin.
+    expect(calls.some((call) => call.sql.includes("is_admin"))).toBe(false);
 
-    const sessionCookie = response.headers.getSetCookie()[0].split(";")[0];
-    const claims = await instance.getFreshClaims(
-      new Request("https://app.example/dashboard", { headers: { Cookie: sessionCookie } }),
-    );
+    const cookie = response.headers.getSetCookie()[0].split(";")[0];
+    const claims = await instance.getFreshClaims(page(`${cookie}; gdg_sid=idp-session-1`));
     expect(claims.isAdmin).toBe(true);
     expect(claims.chapter).toEqual({ chapterId: 10, chapterSlug: "tokyo", role: "organizer" });
     expect(claims.chapters).toHaveLength(2);
+  });
+
+  it("refuses an ID Token without a session ID", async () => {
+    oidc.authorizationCodeGrant.mockResolvedValue({
+      ...tokenResponse(),
+      claims: () => ({ sub: "subject-1" }),
+    });
+    const { db, calls } = database();
+    const response = await auth(db).handleAuthRequest(
+      new Request("https://app.example/api/auth/callback/gdgjp?code=code&state=state", {
+        headers: { Cookie: await transactionCookie() },
+      }),
+    );
+
+    expect(response.status).toBe(400);
+    expect(calls).toHaveLength(0);
+  });
+
+  it("stops instead of looping when the browser does not present the IdP session hint", async () => {
+    const { db, calls } = database();
+    const txOnly = (await transactionCookie()).replace("; gdg_sid=idp-session-1", "");
+    const response = await auth(db).handleAuthRequest(
+      new Request("https://app.example/api/auth/callback/gdgjp?code=code&state=state", {
+        headers: { Cookie: `${txOnly}; gdg_sid=another-session` },
+      }),
+    );
+
+    expect(response.status).toBe(409);
+    expect(await response.text()).toContain("サインインを完了できませんでした");
+    expect(calls).toHaveLength(0);
   });
 
   it("fails closed when the token endpoint omits the ID Token", async () => {
@@ -408,27 +436,126 @@ describe("OIDC RP", () => {
     expect(response.status).toBe(400);
     expect(calls.some((call) => call.operation === "run")).toBe(false);
   });
+});
 
-  it("uses RP-Initiated Logout with an ID Token hint", async () => {
-    const sessionId = "session-1";
-    const session = await signPayload(
+describe("OIDC RP session", () => {
+  it("asks the IdP on every request and returns its current identity", async () => {
+    const idpFetch = sessionCheck({
+      active: true,
+      ...userInfo(),
+      name: "Renamed User",
+      [IS_ADMIN_CLAIM]: false,
+    });
+    const { db, calls } = database();
+    const user = await auth(db, undefined, idpFetch).getSessionUser(
+      page(`${await sessionCookie()}; gdg_sid=idp-session-1`),
+    );
+
+    expect(user).toEqual({
+      id: "local-user",
+      email: "user@example.com",
+      name: "Renamed User",
+      image: "https://example.com/user.png",
+      isAdmin: false,
+    });
+    const [url, init] = idpFetch.mock.calls[0];
+    expect(url).toBe("https://issuer.example/api/rp/v1/session");
+    expect(init?.method).toBe("POST");
+    expect(new Headers(init?.headers).get("authorization")).toBe(
+      `Basic ${btoa("client:client-secret")}`,
+    );
+    expect(JSON.parse(String(init?.body))).toEqual({ sid: "idp-session-1", sub: "subject-1" });
+    const sync = calls.find((call) => call.sql.includes('UPDATE "user"'));
+    expect(sync?.args.slice(0, 2)).toEqual(["Renamed User", "https://example.com/user.png"]);
+  });
+
+  it("checks the IdP once per request however many loaders ask", async () => {
+    const idpFetch = sessionCheck();
+    const { db } = database();
+    const instance = auth(db, undefined, idpFetch);
+    const request = page(`${await sessionCookie()}; gdg_sid=idp-session-1`);
+
+    await Promise.all([
+      instance.getSessionUser(request),
+      instance.requireUser(request),
+      instance.getFreshClaims(request),
+    ]);
+
+    expect(idpFetch).toHaveBeenCalledTimes(1);
+  });
+
+  it("is signed out without asking the IdP when the browser's IdP session changed", async () => {
+    const idpFetch = sessionCheck();
+    const { db } = database();
+    const instance = auth(db, undefined, idpFetch);
+
+    expect(
+      await instance.getSessionUser(page(`${await sessionCookie()}; gdg_sid=idp-session-2`)),
+    ).toBeNull();
+    expect(await instance.getSessionUser(page(await sessionCookie()))).toBeNull();
+    await expect(instance.getFreshClaims(page(await sessionCookie()))).rejects.toMatchObject({
+      name: "ClaimsUnavailableError",
+      reason: "no_linked_account",
+    });
+    expect(idpFetch).not.toHaveBeenCalled();
+  });
+
+  it("is signed out and drops stored tokens once the IdP session has ended", async () => {
+    const { db, calls } = database();
+    const user = await auth(db, undefined, sessionCheck({ active: false })).getSessionUser(
+      page(`${await sessionCookie()}; gdg_sid=idp-session-1`),
+    );
+
+    expect(user).toBeNull();
+    expect(calls).toContainEqual(
+      expect.objectContaining({
+        sql: "DELETE FROM oidc_session WHERE id = ?",
+        args: ["session-1"],
+      }),
+    );
+  });
+
+  it("fails closed with 503 when the IdP cannot be asked", async () => {
+    const { db } = database();
+    const down = vi.fn<typeof fetch>(async () => new Response("bad gateway", { status: 502 }));
+    const rejected = await auth(db, undefined, down)
+      .getSessionUser(page(`${await sessionCookie()}; gdg_sid=idp-session-1`))
+      .catch((error: unknown) => error);
+
+    expect(rejected).toBeInstanceOf(Response);
+    expect((rejected as Response).status).toBe(503);
+  });
+
+  it("rejects sessions from before the IdP binding (v3)", async () => {
+    const legacy = await signPayload(
       {
         version: 3,
-        sessionId,
+        sessionId: "session-1",
         userId: "local-user",
         issuer: "https://issuer.example",
         subject: "subject-1",
         email: "user@example.com",
         name: "Example User",
         picture: null,
-        isAdmin: false,
+        isAdmin: true,
         expiresAt: Date.now() + 60_000,
       },
       secret,
     );
+    const idpFetch = sessionCheck();
+    const { db } = database();
+    const user = await auth(db, undefined, idpFetch).getSessionUser(
+      page(`app-session=${legacy}; gdg_sid=idp-session-1`),
+    );
+
+    expect(user).toBeNull();
+    expect(idpFetch).not.toHaveBeenCalled();
+  });
+
+  it("uses RP-Initiated Logout with an ID Token hint", async () => {
     const { db, calls } = database({
       tokenSession: {
-        id: sessionId,
+        id: "session-1",
         userId: "local-user",
         issuer: "https://issuer.example",
         subject: "subject-1",
@@ -440,9 +567,7 @@ describe("OIDC RP", () => {
       },
     });
     const response = await auth(db).handleSignOutRedirect(
-      new Request("https://app.example/auth/signout", {
-        headers: { Cookie: `app-session=${session}` },
-      }),
+      page(await sessionCookie(), "https://app.example/auth/signout"),
     );
 
     const location = new URL(response.headers.get("location") ?? "");
@@ -461,25 +586,9 @@ describe("OIDC RP", () => {
       id_token: "rotated-id-token",
       expires_in: 3600,
     });
-    const sessionId = "session-2";
-    const session = await signPayload(
-      {
-        version: 3,
-        sessionId,
-        userId: "local-user",
-        issuer: "https://issuer.example",
-        subject: "subject-1",
-        email: "user@example.com",
-        name: "Example User",
-        picture: null,
-        isAdmin: false,
-        expiresAt: Date.now() + 60_000,
-      },
-      secret,
-    );
     const { db, calls } = database({
       tokenSession: {
-        id: sessionId,
+        id: "session-1",
         userId: "local-user",
         issuer: "https://issuer.example",
         subject: "subject-1",
@@ -491,16 +600,12 @@ describe("OIDC RP", () => {
       },
     });
 
-    await auth(db).getFreshClaims(
-      new Request("https://app.example/", { headers: { Cookie: `app-session=${session}` } }),
+    const token = await auth(db).getAccessToken(
+      page(`${await sessionCookie()}; gdg_sid=idp-session-1`),
     );
 
+    expect(token).toBe("rotated-access-token");
     expect(oidc.refreshTokenGrant).toHaveBeenCalledWith(expect.anything(), "refresh-token");
-    expect(oidc.fetchUserInfo).toHaveBeenCalledWith(
-      expect.anything(),
-      "rotated-access-token",
-      "subject-1",
-    );
     const update = calls.find((call) => call.sql.includes("UPDATE oidc_session"));
     expect(update?.args.slice(0, 3)).toEqual([
       "rotated-access-token",
@@ -509,22 +614,66 @@ describe("OIDC RP", () => {
     ]);
   });
 
-  it("rejects pre-v3 sessions", async () => {
-    const legacy = await signPayload(
-      {
-        userId: "local-user",
-        email: "user@example.com",
-        name: "Example User",
-        picture: null,
-        isAdmin: true,
-      },
-      secret,
-    );
+  it("does not hand out access tokens once the IdP session has ended", async () => {
     const { db } = database();
-    const user = await auth(db).getSessionUser(
-      new Request("https://app.example/", { headers: { Cookie: `app-session=${legacy}` } }),
+    await expect(
+      auth(db, undefined, sessionCheck({ active: false })).getAccessToken(
+        page(`${await sessionCookie()}; gdg_sid=idp-session-1`),
+      ),
+    ).rejects.toMatchObject({ name: "ClaimsUnavailableError", reason: "no_linked_account" });
+    expect(oidc.refreshTokenGrant).not.toHaveBeenCalled();
+  });
+});
+
+describe("dev sessions", () => {
+  const local = "http://localhost:5199";
+
+  it("mints a signed-in session with the requested chapters on a loopback app", async () => {
+    const idpFetch = sessionCheck();
+    const { db } = database();
+    const instance = auth(db, "http://localhost:5173", idpFetch, local);
+    const login = await instance.handleDevLogin(
+      new Request(
+        `${local}/dev/login?as=owner&chapter=7:kyoto&chapter=8:nara:member&admin=1&return_to=/e/1`,
+      ),
     );
 
-    expect(user).toBeNull();
+    expect(login.status).toBe(302);
+    expect(login.headers.get("location")).toBe(`${local}/e/1`);
+    const cookie = login.headers.getSetCookie()[0].split(";")[0];
+    const claims = await instance.getFreshClaims(page(cookie, `${local}/`));
+    expect(claims).toMatchObject({
+      sub: "dev-owner",
+      isAdmin: true,
+      chapter: { chapterId: 7, chapterSlug: "kyoto", role: "organizer" },
+      chapters: [
+        { chapterId: 7, chapterSlug: "kyoto", role: "organizer" },
+        { chapterId: 8, chapterSlug: "nara", role: "member" },
+      ],
+    });
+    expect((await instance.getSessionUser(page(cookie, `${local}/`)))?.id).toBe("dev-user-owner");
+    expect(idpFetch).not.toHaveBeenCalled();
+  });
+
+  it("supports a member of no chapter", async () => {
+    const { db } = database();
+    const instance = auth(db, "http://localhost:5173", sessionCheck(), local);
+    const login = await instance.handleDevLogin(new Request(`${local}/dev/login?chapter=none`));
+    const cookie = login.headers.getSetCookie()[0].split(";")[0];
+
+    expect((await instance.getFreshClaims(page(cookie, `${local}/`))).chapters).toEqual([]);
+  });
+
+  it("is unavailable outside loopback and its cookies are ignored there", async () => {
+    const { db } = database();
+    const login = await auth(db).handleDevLogin(new Request("https://app.example/dev/login"));
+    expect(login.status).toBe(404);
+
+    const forged = await sessionCookie({
+      dev: { email: "x@dev.local", name: "x", isAdmin: true, chapters: [] },
+    });
+    const idpFetch = sessionCheck();
+    expect(await auth(db, undefined, idpFetch).getSessionUser(page(forged))).toBeNull();
+    expect(idpFetch).not.toHaveBeenCalled();
   });
 });

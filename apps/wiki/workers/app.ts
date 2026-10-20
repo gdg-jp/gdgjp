@@ -70,7 +70,14 @@ export default {
       const slug = url.pathname.split("/")[3];
       if (!slug) return new Response("Missing slug", { status: 400 });
       const auth = createAuth(env);
-      const user = await auth.getSessionUser(request);
+      let user: Awaited<ReturnType<typeof auth.getSessionUser>>;
+      try {
+        user = await auth.getSessionUser(request);
+      } catch (error) {
+        // An unreachable IdP answers 503 (fail closed).
+        if (error instanceof Response) return error;
+        throw error;
+      }
       if (!user) return new Response("Unauthorized", { status: 401 });
       const db = drizzle(env.DB, { schema });
       const page = await db

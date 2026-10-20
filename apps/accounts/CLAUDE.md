@@ -25,6 +25,17 @@ it fixes clients to `client_secret_basic`, authorization code + refresh token, P
 scope set. Self-service clients skip consent by product policy. Client secrets are returned only by
 create/rotate responses, which must retain `Cache-Control: no-store`.
 
+## Single sign-on state for `*.gdgs.jp`
+
+Relying parties never trust their own cookie alone. `workers/app.ts` runs
+`features/auth/sso-cookie.server.ts` on every response to keep a `gdg_sid` cookie
+(`Domain=gdgs.jp`, HttpOnly; host-only on localhost) equal to the browser's live Better Auth
+session ID, and ends a session that a new sign-in replaced. Each first-party RP compares it with
+the `sid` its session was bound to and calls `POST /api/rp/v1/session`
+(`features/oauth/rp-session.server.ts`; first-party client credentials + `{ sid, sub }`) for live
+claims on every authenticated request. Migration 0023's trigger deletes a session's OAuth tokens
+when the session row is deleted, except for device-grant (CLI) clients.
+
 Chapter authorization uses the dedicated `https://gdgs.jp/scopes/chapters` scope. UserInfo and ID
 tokens include `https://gdgs.jp/claims/chapters` and `https://gdgs.jp/claims/is_admin` only when that
 scope was granted. Memberships are read fresh from D1 when claims are minted.

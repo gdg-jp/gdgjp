@@ -21,8 +21,11 @@ export async function requireUserWithChapter(
   let user: AuthUser;
   try {
     user = await getAuth(env).requireUser(request);
-  } catch {
-    throw buildSignInRedirect(request);
+  } catch (e) {
+    // 401 means signed out (or signed in as someone else at Accounts); a 503
+    // from an unreachable IdP must surface instead of looping through sign-in.
+    if (e instanceof Response && e.status === 401) throw buildSignInRedirect(request);
+    throw e;
   }
   let resolved: UserChapters;
   try {
