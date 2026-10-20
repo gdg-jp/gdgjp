@@ -8,6 +8,7 @@
   "exports": {
     ".": "./src/index.ts",
     "./auth/claims": "./src/auth/claims.ts",
+    "./auth/signed-out-reload": "./src/auth/signed-out-reload.ts",
     "./acl": "./src/acl/index.ts",
     "./acl/agent": "./src/acl/agent.ts",
     "./ui": "./src/ui/index.ts",

@@ -1,6 +1,7 @@
 import { Button, Heading, Icons, Stack, Text, ThemeProvider, Toaster } from "@gdgjp/design-system";
+import { installSignedOutReload } from "@gdgjp/gdg-lib/auth/signed-out-reload";
 
-import type { ReactNode } from "react";
+import { type ReactNode, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import {
   Links,
@@ -167,6 +168,8 @@ export function ErrorBoundary() {
 }
 
 export default function App() {
+  // Leave a page whose accounts.gdgs.jp session ended (see gdg-lib).
+  useEffect(() => installSignedOutReload(), []);
   const { firebaseConfig } = useLoaderData<typeof loader>();
 
   return (
