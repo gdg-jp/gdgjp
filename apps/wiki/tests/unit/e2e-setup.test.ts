@@ -57,16 +57,18 @@ describe("Wiki E2E setup contract", () => {
       userId: string;
       issuer: string;
       subject: string;
-      isAdmin: boolean;
+      sid: string;
+      dev: { isAdmin: boolean };
       expiresAt: number;
     };
     expect(payload).toMatchObject({
-      version: 3,
+      version: 4,
       userId: USERS.author.id,
       issuer: "http://localhost:5173",
       subject: USERS.author.id,
-      isAdmin: false,
+      dev: { email: USERS.author.email, isAdmin: false, chapters: [] },
     });
+    expect(payload.sid).toMatch(/^dev-/);
     expect(payload.expiresAt).toBeGreaterThan(Date.now());
     expect(signCookie({ ok: true }, "test-secret")).toMatch(/^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/);
     expect(cookie).not.toContain("test-secret");

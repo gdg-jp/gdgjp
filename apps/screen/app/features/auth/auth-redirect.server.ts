@@ -23,8 +23,11 @@ export async function requireUserWithChapter(
   let user: AuthUser;
   try {
     user = await getAuth(env).requireUser(request);
-  } catch {
-    throw buildSignInRedirect(request);
+  } catch (e) {
+    // 401 means signed out (or signed in as someone else at Accounts); a 503
+    // from an unreachable IdP must surface instead of looping through sign-in.
+    if (e instanceof Response && e.status === 401) throw buildSignInRedirect(request);
+    throw e;
   }
   let resolved: UserChapters;
   try {
@@ -53,8 +56,10 @@ export async function canUseController(env: Env, request: Request): Promise<bool
   let user: AuthUser | null;
   try {
     user = await getAuth(env).getSessionUser(request);
-  } catch {
-    return false;
+  } catch (e) {
+    // gdg-lib only asks the IdP (and can only fail with 503) after the signed
+    // session and the browser's IdP session hint have already matched.
+    return e instanceof Response && e.status === 503;
   }
   if (!user) return false;
   try {

@@ -33,6 +33,12 @@ migrations_dir = "./migrations"
 binding = "RECEIPTS"
 bucket_name = "gdgjp-pay-receipts"
 
+[[services]]
+# Every authenticated request asks Accounts whether its IdP session is still
+# current, so keep that call on Cloudflare's internal network.
+binding = "ACCOUNTS"
+service = "gdgjp-accounts"
+
 [[routes]]
 pattern = "pay.gdgs.jp/*"
 zone_name = "gdgs.jp"

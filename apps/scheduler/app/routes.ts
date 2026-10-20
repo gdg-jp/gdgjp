@@ -8,6 +8,7 @@ export default [
   route("e/:id/edit", "routes/events/edit.tsx"),
   route("e/:id/delete", "routes/events/delete.ts"),
   route("signin", "routes/signin.tsx"),
+  route("dev/login", "routes/dev.login.ts"),
   route("api/auth/*", "routes/api.auth.$.ts"),
   route("auth/signout", "routes/auth.signout.ts"),
 ] satisfies RouteConfig;

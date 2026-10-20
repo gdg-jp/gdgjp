@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const getSessionUser = vi.fn();
 const getFreshClaims = vi.fn();
@@ -14,7 +14,7 @@ vi.mock("~/features/auth/redirect", () => ({
   buildSignInRedirect: () => new Response(null, { status: 302 }),
 }));
 
-import { clearChapterClaimsCacheForTests, getAccessIdentity } from "./utils.server";
+import { getAccessIdentity } from "./utils.server";
 
 const env = {} as Env;
 const request = new Request("https://wiki.gdgs.jp/wiki/example");
@@ -38,16 +38,10 @@ const claims = {
   chapters: [{ chapterId: 10, chapterSlug: "tokyo", role: "member" as const }],
 };
 
-describe("getAccessIdentity claims cache", () => {
+describe("getAccessIdentity", () => {
   beforeEach(() => {
-    clearChapterClaimsCacheForTests();
     getSessionUser.mockReset();
     getFreshClaims.mockReset();
-    vi.useRealTimers();
-  });
-
-  afterEach(() => {
-    vi.useRealTimers();
   });
 
   it("returns empty identity when signed out", async () => {
@@ -61,47 +55,27 @@ describe("getAccessIdentity claims cache", () => {
     expect(getFreshClaims).not.toHaveBeenCalled();
   });
 
-  it("fetches /userinfo once and reuses claims within the TTL", async () => {
+  it("uses the live claims on every call so membership changes apply immediately", async () => {
     getSessionUser.mockResolvedValue(user);
-    getFreshClaims.mockResolvedValue(claims);
+    getFreshClaims.mockResolvedValueOnce(claims).mockResolvedValueOnce({
+      ...claims,
+      chapter: null,
+      chapters: [],
+    });
 
     const first = await getAccessIdentity(request, env);
     const second = await getAccessIdentity(request, env);
 
-    expect(getFreshClaims).toHaveBeenCalledTimes(1);
     expect(first.chapterIds).toEqual(["10"]);
-    expect(second.chapters).toEqual([{ chapterId: "10", chapterSlug: "tokyo", role: "member" }]);
-    expect(second.claimsAvailable).toBe(true);
-  });
-
-  it("refreshes claims after the TTL expires", async () => {
-    getSessionUser.mockResolvedValue(user);
-    getFreshClaims.mockResolvedValue(claims);
-
-    vi.useFakeTimers();
-    vi.setSystemTime(new Date("2026-08-12T00:00:00Z"));
-    await getAccessIdentity(request, env);
-
-    vi.setSystemTime(new Date("2026-08-12T00:00:31Z"));
-    await getAccessIdentity(request, env);
-
+    expect(first.chapters).toEqual([{ chapterId: "10", chapterSlug: "tokyo", role: "member" }]);
+    expect(second.chapterIds).toEqual([]);
     expect(getFreshClaims).toHaveBeenCalledTimes(2);
   });
 
-  it("falls back to a stale cache entry when /userinfo fails", async () => {
+  it("surfaces an unreachable IdP instead of guessing", async () => {
     getSessionUser.mockResolvedValue(user);
-    getFreshClaims.mockResolvedValueOnce(claims);
+    getFreshClaims.mockRejectedValue(new Response(null, { status: 503 }));
 
-    vi.useFakeTimers();
-    vi.setSystemTime(new Date("2026-08-12T00:00:00Z"));
-    await getAccessIdentity(request, env);
-
-    vi.setSystemTime(new Date("2026-08-12T00:00:31Z"));
-    getFreshClaims.mockRejectedValueOnce(new Error("userinfo_failed"));
-    const identity = await getAccessIdentity(request, env);
-
-    expect(identity.claimsAvailable).toBe(true);
-    expect(identity.chapterIds).toEqual(["10"]);
-    expect(identity.chapters[0]?.chapterSlug).toBe("tokyo");
+    await expect(getAccessIdentity(request, env)).rejects.toMatchObject({ status: 503 });
   });
 });

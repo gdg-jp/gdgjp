@@ -140,6 +140,7 @@ describe("architecture boundaries", () => {
         "api/slug/:id",
         "api/upload",
         "auth/signout",
+        "dev/login",
         "i/:id",
         "no-chapter",
         "signin",

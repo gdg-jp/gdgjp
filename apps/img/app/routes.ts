@@ -21,6 +21,7 @@ export default [
   route("api/auth/*", "routes/auth/handler.ts"),
   route("auth/signout", "routes/auth/signout.ts"),
   route("signin", "routes/auth/signin.tsx"),
+  route("dev/login", "routes/auth/dev.login.ts"),
   route("no-chapter", "routes/auth/no-chapter.tsx"),
   route(":id", "routes/images/serve.tsx"),
 ] satisfies RouteConfig;

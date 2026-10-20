@@ -13,6 +13,7 @@ export default [
   route("google/connect", "routes/google.connect.ts"),
   route("google/callback", "routes/google.callback.ts"),
   route("signin", "routes/auth/sign-in.tsx"),
+  route("dev/login", "routes/dev.login.ts"),
   route("api/auth/*", "routes/api.auth.$.ts"),
   route("auth/signout", "routes/auth.signout.ts"),
 ] satisfies RouteConfig;

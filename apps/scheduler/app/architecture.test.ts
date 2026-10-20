@@ -70,6 +70,7 @@ describe("scheduler architecture", () => {
       "e/:id/edit",
       "e/:id/delete",
       "signin",
+      "dev/login",
       "api/auth/*",
       "auth/signout",
     ]);

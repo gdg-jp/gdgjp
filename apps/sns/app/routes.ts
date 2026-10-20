@@ -26,6 +26,7 @@ export default [
   route("x/callback", "routes/x.callback.ts"),
   route("google/photos/library", "routes/google-photos/library.tsx"),
   route("signin", "routes/signin.tsx"),
+  route("dev/login", "routes/dev.login.ts"),
   route("no-chapter", "routes/no-chapter.tsx"),
   route("api/auth/*", "routes/api.auth.$.ts"),
   route("auth/signout", "routes/auth.signout.ts"),

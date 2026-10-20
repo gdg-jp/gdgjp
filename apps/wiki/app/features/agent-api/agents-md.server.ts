@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { eq } from "drizzle-orm";
+import { asc, eq } from "drizzle-orm";
 import * as schema from "~/db/schema";
 import type { getDb } from "~/lib/db.server";
 import draft from "../../../../../docs/plans/03a-agents-md.md?raw";
@@ -67,13 +67,14 @@ export async function getAgentInstructions(
     .where(eq(schema.wikiAgentInstructions.id, 1))
     .get();
   if (!row) {
-    // Older production databases contain an administrator but not necessarily
-    // the optional wiki-system row introduced by the namespace seed migration.
-    // Use a real admin so this bootstrap satisfies the foreign-key constraint.
+    // Older production databases do not necessarily contain the optional
+    // wiki-system row introduced by the namespace seed migration. Attribute the
+    // bootstrap to the oldest user so it satisfies the foreign-key constraint;
+    // the local is_admin snapshot is no longer maintained.
     const seedUser = await db
       .select({ id: schema.user.id })
       .from(schema.user)
-      .where(eq(schema.user.isAdmin, true))
+      .orderBy(asc(schema.user.createdAt))
       .get();
     if (!seedUser) return null;
     const contentHash = agentsHash(INITIAL_AGENTS_MD);

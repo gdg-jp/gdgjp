@@ -1,5 +1,6 @@
 import type { D1Database } from "@cloudflare/workers-types";
 import * as oidc from "openid-client";
+import { RP_SESSION_PATH, SSO_SESSION_COOKIE } from "./claims";
 import {
   clearedCookie,
   parseCookies,
@@ -12,6 +13,7 @@ import {
   type AuthUser,
   CHAPTERS_CLAIM,
   CHAPTERS_SCOPE,
+  type ChapterRole,
   ClaimsUnavailableError,
   IS_ADMIN_CLAIM,
   type UserChapter,
@@ -29,22 +31,30 @@ export interface RpAuthConfig {
     url: string;
     clientId: string;
     clientSecret: string;
-    /** Optional internal transport, such as a Cloudflare service binding. */
-    fetch?: typeof fetch;
+    /**
+     * Transport for every IdP call, normally the `ACCOUNTS` service binding.
+     * The session is checked against the IdP on each authenticated request, so
+     * this must not leave Cloudflare's network.
+     */
+    fetch: typeof fetch;
   };
 }
 
 export interface RpAuthInstance {
+  /**
+   * The signed-in user, checked against the IdP for this request: null when
+   * there is no session, when accounts.gdgs.jp now has another (or no) user
+   * signed in, or when the IdP session ended. Throws a 503 Response when the
+   * IdP cannot be asked (fail closed).
+   */
   getSessionUser(request: Request): Promise<AuthUser | null>;
   requireUser(request: Request): Promise<AuthUser>;
   handleAuthRequest(request: Request): Promise<Response>;
   handleSignOutRedirect(request: Request, options?: { returnTo?: string }): Promise<Response>;
   /**
-   * Fetch the user's current claims from the IdP /userinfo endpoint.
-   * Resolves access/refresh tokens from the server-side D1 session and refreshes
-   * them when expired. Throws ClaimsUnavailableError if the login session is
-   * absent, the refresh token is invalid, or /userinfo errors.
-   * Callers should catch and redirect to /signin to force re-auth.
+   * The user's current claims from the same per-request IdP check as
+   * `getSessionUser`. Throws ClaimsUnavailableError("no_linked_account") when
+   * the session is not valid; callers redirect to /signin.
    */
   getFreshClaims(request: Request): Promise<UserClaims>;
   /**
@@ -52,25 +62,54 @@ export interface RpAuthInstance {
    * The token remains server-side and is refreshed when necessary.
    */
   getAccessToken(request: Request): Promise<string>;
+  /**
+   * Local-development and e2e sign-in without the IdP:
+   * `/dev/login?as=<name>&chapter=<id>:<slug>[:<role>]&admin=1&return_to=/path`.
+   * `chapter` may repeat (`chapter=none` for no membership). Answers 404
+   * unless the app runs on a loopback URL; dev sessions are ignored elsewhere.
+   */
+  handleDevLogin(request: Request): Promise<Response>;
 }
 
 // ─── Factory ───────────────────────────────────────────────────────────────────
 
 export function initializeRpAuth(config: RpAuthConfig): RpAuthInstance {
+  const verified = new WeakMap<Request, Promise<VerifiedSession | null>>();
+  const verify = (request: Request) => {
+    let pending = verified.get(request);
+    if (!pending) {
+      pending = verifySession(config, request);
+      verified.set(request, pending);
+    }
+    return pending;
+  };
+
   return {
-    getSessionUser: (request) => getSessionUser(config, request),
+    getSessionUser: async (request) => {
+      const session = await verify(request);
+      return session ? toAuthUser(session) : null;
+    },
     requireUser: async (request) => {
-      const user = await getSessionUser(config, request);
-      if (!user) throw new Response("Unauthorized", { status: 401 });
-      return user;
+      const session = await verify(request);
+      if (!session) throw new Response("Unauthorized", { status: 401 });
+      return toAuthUser(session);
     },
     handleAuthRequest: (request) => handleAuthRequest(config, request),
     handleSignOutRedirect: (request, options) => {
       const returnTo = safeReturnTo(options?.returnTo ?? "/signin", config.appUrl);
       return handleEndSession(config, request, returnTo);
     },
-    getFreshClaims: (request) => fetchUserClaims(config, request),
-    getAccessToken: (request) => fetchAccessToken(config, request),
+    getFreshClaims: async (request) => {
+      const session = await verify(request);
+      if (!session) throw new ClaimsUnavailableError("no_linked_account");
+      return session.claims;
+    },
+    getAccessToken: async (request) => {
+      const session = await verify(request);
+      if (!session || session.payload.dev) throw new ClaimsUnavailableError("no_linked_account");
+      return fetchAccessToken(config, session.payload);
+    },
+    handleDevLogin: (request) => handleDevLogin(config, request),
   };
 }
 
@@ -78,6 +117,8 @@ export function initializeRpAuth(config: RpAuthConfig): RpAuthInstance {
 
 const issuerCache = new Map<string, Promise<oidc.Configuration>>();
 const OIDC_HTTP_TIMEOUT_S = 10;
+// The session check runs on every authenticated request; fail fast.
+const SESSION_CHECK_TIMEOUT_MS = 3_000;
 
 function getIssuerConfig(config: RpAuthConfig): Promise<oidc.Configuration> {
   const key = `${config.idp.url}|${config.idp.clientId}`;
@@ -90,13 +131,9 @@ function getIssuerConfig(config: RpAuthConfig): Promise<oidc.Configuration> {
     const isLocal = issuerUrl.protocol === "http:";
     const options: oidc.DiscoveryRequestOptions = {
       timeout: OIDC_HTTP_TIMEOUT_S,
-      ...(config.idp.fetch
-        ? {
-            [oidc.customFetch]: config.idp.fetch as NonNullable<
-              oidc.DiscoveryRequestOptions[typeof oidc.customFetch]
-            >,
-          }
-        : {}),
+      [oidc.customFetch]: config.idp.fetch as NonNullable<
+        oidc.DiscoveryRequestOptions[typeof oidc.customFetch]
+      >,
       ...(isLocal ? { execute: [oidc.allowInsecureRequests] } : {}),
     };
     p = oidc
@@ -121,17 +158,33 @@ function txCookieName(config: RpAuthConfig): string {
 
 // ─── Session payload ───────────────────────────────────────────────────────────
 
+/**
+ * The RP cookie only names the login: identity and claims are asked of the
+ * IdP on every request, so nothing here can go stale.
+ */
 interface SessionPayload {
-  version: 3;
+  version: 4;
   sessionId: string;
   userId: string;
   issuer: string;
   subject: string;
+  /** IdP session ID (`sid`) this login is bound to; compared with `gdg_sid`. */
+  sid: string;
+  expiresAt: number;
+  /** Present only on `/dev/login` sessions, which skip the IdP (loopback only). */
+  dev?: DevClaims;
+}
+
+interface DevClaims {
   email: string;
   name: string;
-  picture: string | null;
   isAdmin: boolean;
-  expiresAt: number;
+  chapters: UserChapter[];
+}
+
+interface VerifiedSession {
+  payload: SessionPayload;
+  claims: UserClaims;
 }
 
 interface TokenSessionRow {
@@ -243,6 +296,17 @@ async function handleCallback(config: RpAuthConfig, request: Request, url: URL):
     console.error("oidc callback returned no valid id_token subject");
     return new Response("Authentication failed", { status: 400 });
   }
+  const sid = idTokenClaims?.sid;
+  if (typeof sid !== "string" || sid.length === 0) {
+    console.error("oidc callback returned an id_token without a session ID (sid)");
+    return new Response("Authentication failed", { status: 400 });
+  }
+  // The IdP sets `gdg_sid` on the authorize response that led here. If the
+  // browser still does not present it, every request would look signed out
+  // and bounce through sign-in forever; stop with an explanation instead.
+  if (readCookie(request, SSO_SESSION_COOKIE) !== sid) {
+    return signInFailedPage(config, txCookieName(config), 409);
+  }
 
   let userClaims: UserClaims;
   try {
@@ -299,28 +363,17 @@ async function handleCallback(config: RpAuthConfig, request: Request, url: URL):
   }
 
   const session: SessionPayload = {
-    version: 3,
+    version: 4,
     sessionId,
     userId: internalUserId,
     issuer,
     subject: oidcSub,
-    email: userClaims.email ?? "",
-    name: userClaims.name ?? userClaims.email ?? "",
-    picture: userClaims.picture,
-    isAdmin: userClaims.isAdmin,
+    sid,
     expiresAt: sessionExpiresAt,
   };
 
   const headers = new Headers({ Location: tx.returnTo });
-  headers.append(
-    "Set-Cookie",
-    serializeCookie({
-      name: sessionCookieName(config),
-      value: await signPayload(session, config.secret),
-      maxAge: SESSION_MAX_AGE_S,
-      secure: !isLocalAppUrl(config.appUrl),
-    }),
-  );
+  headers.append("Set-Cookie", await sessionCookie(config, session));
   headers.append("Set-Cookie", clearedCookie(txCookieName(config)));
   return new Response(null, { status: 302, headers });
 }
@@ -336,17 +389,7 @@ async function handleCallback(config: RpAuthConfig, request: Request, url: URL):
 function handleLostTransaction(config: RpAuthConfig, url: URL): Response {
   const state = url.searchParams.get("state") ?? "";
   if (url.searchParams.has("error") || state.startsWith(RETRY_STATE_PREFIX)) {
-    const signIn = escapeHtml(`${trimTrailingSlash(config.appUrl)}/api/auth/signin`);
-    return new Response(
-      `<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>サインインできませんでした</title><p>サインインを完了できませんでした。ブラウザで Cookie が有効になっているか確認してから、<a href="${signIn}">もう一度サインイン</a>してください。</p>`,
-      {
-        status: 400,
-        headers: {
-          "Content-Type": "text/html; charset=utf-8",
-          "Set-Cookie": clearedCookie(txCookieName(config)),
-        },
-      },
-    );
+    return signInFailedPage(config, txCookieName(config), 400);
   }
   return new Response(null, {
     status: 302,
@@ -355,6 +398,20 @@ function handleLostTransaction(config: RpAuthConfig, url: URL): Response {
       "Set-Cookie": clearedCookie(txCookieName(config)),
     },
   });
+}
+
+function signInFailedPage(config: RpAuthConfig, clearCookie: string, status: number): Response {
+  const signIn = escapeHtml(`${trimTrailingSlash(config.appUrl)}/api/auth/signin`);
+  return new Response(
+    `<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>サインインできませんでした</title><p>サインインを完了できませんでした。ブラウザで Cookie が有効になっているか確認してから、<a href="${signIn}">もう一度サインイン</a>してください。</p>`,
+    {
+      status,
+      headers: {
+        "Content-Type": "text/html; charset=utf-8",
+        "Set-Cookie": clearedCookie(clearCookie),
+      },
+    },
+  );
 }
 
 async function handleSignOut(config: RpAuthConfig, request: Request): Promise<Response> {
@@ -366,13 +423,11 @@ async function handleEndSession(
   request: Request,
   returnTo: string,
 ): Promise<Response> {
-  const value = readCookie(request, sessionCookieName(config));
-  const session = value ? await verifyPayload<SessionPayload>(value, config.secret) : null;
+  const session = await readSessionPayload(config, request);
   let location = returnTo;
 
-  const tokenSession = isCurrentSession(session, config)
-    ? await readTokenSession(config.db, session.sessionId)
-    : null;
+  const tokenSession =
+    session && !session.dev ? await readTokenSession(config.db, session.sessionId) : null;
   if (tokenSession) {
     await config.db.prepare("DELETE FROM oidc_session WHERE id = ?").bind(tokenSession.id).run();
     try {
@@ -400,85 +455,148 @@ async function handleEndSession(
 }
 
 async function handleMe(config: RpAuthConfig, request: Request): Promise<Response> {
-  const user = await getSessionUser(config, request);
-  return new Response(JSON.stringify({ user }), {
+  const session = await verifySession(config, request);
+  return new Response(JSON.stringify({ user: session ? toAuthUser(session) : null }), {
     status: 200,
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", "Cache-Control": "no-store" },
   });
 }
 
-// ─── Session readers ───────────────────────────────────────────────────────────
+// ─── Session verification ──────────────────────────────────────────────────────
 
-async function getSessionUser(config: RpAuthConfig, request: Request): Promise<AuthUser | null> {
+async function readSessionPayload(
+  config: RpAuthConfig,
+  request: Request,
+): Promise<SessionPayload | null> {
   const value = parseCookies(request.headers.get("cookie"))[sessionCookieName(config)];
   if (!value) return null;
   const session = await verifyPayload<SessionPayload>(value, config.secret);
-  if (!isCurrentSession(session, config)) return null;
+  return isCurrentSession(session, config) ? session : null;
+}
+
+/**
+ * Accounts.gdgs.jp is the only source of truth for who is signed in: the RP
+ * session must still be bound to the browser's current IdP session (`gdg_sid`),
+ * and that session must still be alive. Claims come from the same answer.
+ */
+async function verifySession(
+  config: RpAuthConfig,
+  request: Request,
+): Promise<VerifiedSession | null> {
+  const payload = await readSessionPayload(config, request);
+  if (!payload) return null;
+
+  if (payload.dev) {
+    if (!isLocalAppUrl(config.appUrl)) return null;
+    return { payload, claims: devUserClaims(payload, payload.dev) };
+  }
+
+  if (readCookie(request, SSO_SESSION_COOKIE) !== payload.sid) return null;
+
+  const claims = await checkIdpSession(config, payload);
+  if (!claims) {
+    // The IdP session is gone; its tokens were revoked with it.
+    await config.db.prepare("DELETE FROM oidc_session WHERE id = ?").bind(payload.sessionId).run();
+    return null;
+  }
+  await syncDisplayProfile(config.db, payload.userId, claims);
+  return { payload, claims };
+}
+
+async function checkIdpSession(
+  config: RpAuthConfig,
+  payload: SessionPayload,
+): Promise<UserClaims | null> {
+  const credentials = btoa(
+    `${encodeURIComponent(config.idp.clientId)}:${encodeURIComponent(config.idp.clientSecret)}`,
+  );
+  let response: Response;
+  try {
+    response = await config.idp.fetch(`${trimTrailingSlash(config.idp.url)}${RP_SESSION_PATH}`, {
+      method: "POST",
+      headers: { authorization: `Basic ${credentials}`, "content-type": "application/json" },
+      body: JSON.stringify({ sid: payload.sid, sub: payload.subject }),
+      signal: AbortSignal.timeout(SESSION_CHECK_TIMEOUT_MS),
+    });
+  } catch (err) {
+    console.error("IdP session check failed", err);
+    throw idpUnavailable();
+  }
+  if (!response.ok) {
+    console.error(`IdP session check returned ${response.status}`);
+    throw idpUnavailable();
+  }
+  let body: Record<string, unknown>;
+  try {
+    body = (await response.json()) as Record<string, unknown>;
+  } catch (err) {
+    console.error("IdP session check returned malformed JSON", err);
+    throw idpUnavailable();
+  }
+  if (body.active !== true) return null;
+  const claims = parseClaims(body);
+  return claims.sub === payload.subject ? claims : null;
+}
+
+/** Fail closed: an unreachable IdP must not turn a revoked login into access. */
+function idpUnavailable(): Response {
+  return new Response("Sign-in service temporarily unavailable", {
+    status: 503,
+    headers: { "Retry-After": "5", "Content-Type": "text/plain; charset=utf-8" },
+  });
+}
+
+function toAuthUser({ payload, claims }: VerifiedSession): AuthUser {
   return {
-    id: session.userId,
-    email: session.email,
-    name: session.name,
-    image: session.picture,
-    isAdmin: session.isAdmin === true,
+    id: payload.userId,
+    email: claims.email ?? "",
+    name: claims.name ?? claims.email ?? "",
+    image: claims.picture,
+    isAdmin: claims.isAdmin,
   };
 }
 
-// ─── Live claims ───────────────────────────────────────────────────────────────
+// ─── Local display profile ─────────────────────────────────────────────────────
 
-const inflightClaims = new Map<string, Promise<UserClaims>>();
+// Per-isolate record of the display profile last written for each user, so an
+// unchanged profile costs no D1 write.
+const syncedProfiles = new Map<string, string>();
+const MAX_SYNCED_PROFILES = 1_000;
 
-async function fetchUserClaims(config: RpAuthConfig, request: Request): Promise<UserClaims> {
-  const value = parseCookies(request.headers.get("cookie"))[sessionCookieName(config)];
-  if (!value) throw new ClaimsUnavailableError("no_linked_account");
-  const session = await verifyPayload<SessionPayload>(value, config.secret);
-  if (!isCurrentSession(session, config)) throw new ClaimsUnavailableError("no_linked_account");
-
-  // De-dupe refresh/userinfo work for this login within an isolate.
-  const inflight = inflightClaims.get(session.sessionId);
-  if (inflight) return inflight;
-
-  const promise = (async () => {
-    let issuerConfig: oidc.Configuration;
-    try {
-      issuerConfig = await getIssuerConfig(config);
-    } catch (err) {
-      throw new ClaimsUnavailableError("userinfo_failed", err);
-    }
-    let stored = await readTokenSession(config.db, session.sessionId);
-    if (
-      !stored ||
-      stored.userId !== session.userId ||
-      stored.issuer !== session.issuer ||
-      stored.subject !== session.subject ||
-      stored.expiresAt <= Date.now()
-    ) {
-      throw new ClaimsUnavailableError("no_linked_account");
-    }
-    if (stored.accessTokenExpiresAt - REFRESH_LEEWAY_MS < Date.now()) {
-      stored = await refreshStoredTokens(config.db, issuerConfig, stored);
-    }
-
-    try {
-      if (issuerConfig.serverMetadata().issuer !== session.issuer) {
-        throw new ClaimsUnavailableError("userinfo_failed");
-      }
-      return await fetchUserinfoClaims(issuerConfig, stored.accessToken, session.subject);
-    } catch (err) {
-      if (err instanceof ClaimsUnavailableError) throw err;
-      throw new ClaimsUnavailableError("userinfo_failed", err);
-    }
-  })().finally(() => inflightClaims.delete(session.sessionId));
-
-  inflightClaims.set(session.sessionId, promise);
-  return promise;
+/**
+ * The local `user` row is only an identity link plus a display cache for other
+ * users' screens. Keep its name and image in step with the IdP; authorization
+ * never reads it.
+ */
+async function syncDisplayProfile(
+  db: D1Database,
+  userId: string,
+  claims: UserClaims,
+): Promise<void> {
+  const name = claims.name ?? claims.email ?? "";
+  const image = claims.picture;
+  const fingerprint = JSON.stringify([name, image]);
+  if (syncedProfiles.get(userId) === fingerprint) return;
+  try {
+    await db
+      .prepare(
+        `UPDATE "user" SET name = ?, image = ?, updated_at = ?
+         WHERE id = ? AND (name IS NOT ? OR image IS NOT ?)`,
+      )
+      .bind(name, image, Math.floor(Date.now() / 1000), userId, name, image)
+      .run();
+  } catch (err) {
+    // A stale display name must never block the request.
+    console.warn("local profile sync failed", err);
+    return;
+  }
+  if (syncedProfiles.size >= MAX_SYNCED_PROFILES) syncedProfiles.clear();
+  syncedProfiles.set(userId, fingerprint);
 }
 
-async function fetchAccessToken(config: RpAuthConfig, request: Request): Promise<string> {
-  const value = parseCookies(request.headers.get("cookie"))[sessionCookieName(config)];
-  if (!value) throw new ClaimsUnavailableError("no_linked_account");
-  const session = await verifyPayload<SessionPayload>(value, config.secret);
-  if (!isCurrentSession(session, config)) throw new ClaimsUnavailableError("no_linked_account");
+// ─── Access tokens ─────────────────────────────────────────────────────────────
 
+async function fetchAccessToken(config: RpAuthConfig, session: SessionPayload): Promise<string> {
   let issuerConfig: oidc.Configuration;
   try {
     issuerConfig = await getIssuerConfig(config);
@@ -514,13 +632,17 @@ function isCurrentSession(
   config: RpAuthConfig,
 ): session is SessionPayload {
   return (
-    session?.version === 3 &&
+    session?.version === 4 &&
     typeof session.sessionId === "string" &&
     session.sessionId.length > 0 &&
+    typeof session.userId === "string" &&
+    session.userId.length > 0 &&
     typeof session.issuer === "string" &&
     session.issuer === trimTrailingSlash(config.idp.url) &&
     typeof session.subject === "string" &&
     session.subject.length > 0 &&
+    typeof session.sid === "string" &&
+    session.sid.length > 0 &&
     typeof session.expiresAt === "number" &&
     session.expiresAt > Date.now()
   );
@@ -593,6 +715,85 @@ async function refreshStoredTokens(
   };
 }
 
+// ─── Dev sessions ──────────────────────────────────────────────────────────────
+
+async function handleDevLogin(config: RpAuthConfig, request: Request): Promise<Response> {
+  if (!isLocalAppUrl(config.appUrl)) return new Response(null, { status: 404 });
+
+  const url = new URL(request.url);
+  const as =
+    (url.searchParams.get("as") ?? "dev").replace(/[^a-z0-9_-]/gi, "").slice(0, 40) || "dev";
+  const chapters = parseDevChapters(url.searchParams.getAll("chapter"));
+  const isAdmin = url.searchParams.get("admin") === "1";
+
+  const issuer = trimTrailingSlash(config.idp.url);
+  const subject = `dev-${as}`;
+  const userId = `dev-user-${as}`;
+  const email = `${as}@dev.local`;
+  const name = `${as} (dev)`;
+  const now = Math.floor(Date.now() / 1000);
+
+  await config.db
+    .prepare(
+      `INSERT INTO "user" (id, email, name, image, oidc_issuer, oidc_subject, created_at, updated_at)
+       VALUES (?, ?, ?, NULL, ?, ?, ?, ?)
+       ON CONFLICT(id) DO UPDATE SET name = excluded.name, updated_at = excluded.updated_at`,
+    )
+    .bind(userId, email, name, issuer, subject, now, now)
+    .run();
+
+  const session: SessionPayload = {
+    version: 4,
+    sessionId: crypto.randomUUID(),
+    userId,
+    issuer,
+    subject,
+    sid: `dev-${crypto.randomUUID()}`,
+    expiresAt: Date.now() + SESSION_MAX_AGE_S * 1000,
+    dev: { email, name, isAdmin, chapters },
+  };
+
+  const headers = new Headers({
+    Location: safeReturnTo(url.searchParams.get("return_to"), config.appUrl),
+  });
+  headers.append("Set-Cookie", await sessionCookie(config, session));
+  return new Response(null, { status: 302, headers });
+}
+
+/** `<id>:<slug>[:organizer|member]`, repeatable; `none` for no membership. */
+function parseDevChapters(values: string[]): UserChapter[] {
+  if (values.length === 0) return [{ chapterId: 1, chapterSlug: "dev-chapter", role: "organizer" }];
+  return values.flatMap((value) => {
+    const [idRaw, slugRaw, roleRaw] = value.split(":");
+    const chapterId = Number.parseInt(idRaw ?? "", 10);
+    if (!Number.isInteger(chapterId) || chapterId <= 0) return [];
+    const role: ChapterRole = roleRaw === "member" ? "member" : "organizer";
+    return [{ chapterId, chapterSlug: slugRaw || `chapter-${chapterId}`, role }];
+  });
+}
+
+function devUserClaims(payload: SessionPayload, dev: DevClaims): UserClaims {
+  return {
+    sub: payload.subject,
+    email: dev.email,
+    name: dev.name,
+    picture: null,
+    emailVerified: true,
+    isAdmin: dev.isAdmin,
+    chapter: dev.chapters[0] ?? null,
+    chapters: dev.chapters,
+  };
+}
+
+async function sessionCookie(config: RpAuthConfig, session: SessionPayload): Promise<string> {
+  return serializeCookie({
+    name: sessionCookieName(config),
+    value: await signPayload(session, config.secret),
+    maxAge: SESSION_MAX_AGE_S,
+    secure: !isLocalAppUrl(config.appUrl),
+  });
+}
+
 // ─── User upsert ───────────────────────────────────────────────────────────────
 
 /** Resolve users by the stable OIDC identity. A verified email may link one
@@ -606,7 +807,6 @@ async function upsertUser(
   const email = claims.email ?? "";
   const name = claims.name ?? email;
   const image = claims.picture;
-  const isAdmin = claims.isAdmin ? 1 : 0;
   const now = Math.floor(Date.now() / 1000);
 
   const linked = await db
@@ -616,8 +816,8 @@ async function upsertUser(
 
   if (linked) {
     await db
-      .prepare(`UPDATE "user" SET name = ?, image = ?, is_admin = ?, updated_at = ? WHERE id = ?`)
-      .bind(name, image, isAdmin, now, linked.id)
+      .prepare(`UPDATE "user" SET name = ?, image = ?, updated_at = ? WHERE id = ?`)
+      .bind(name, image, now, linked.id)
       .run();
     return linked.id;
   }
@@ -647,19 +847,10 @@ async function upsertUser(
         const result = await db
           .prepare(
             `UPDATE "user"
-             SET oidc_subject = ?, name = ?, image = ?, is_admin = ?, updated_at = ?
+             SET oidc_subject = ?, name = ?, image = ?, updated_at = ?
              WHERE id = ? AND oidc_issuer = ? AND oidc_subject = ?`,
           )
-          .bind(
-            subject,
-            name,
-            image,
-            isAdmin,
-            now,
-            existingByEmail.id,
-            issuer,
-            existingByEmail.oidc_subject,
-          )
+          .bind(subject, name, image, now, existingByEmail.id, issuer, existingByEmail.oidc_subject)
           .run();
         if (result.meta.changes !== 1) {
           throw new Error("OIDC identity link changed concurrently");
@@ -671,10 +862,10 @@ async function upsertUser(
     const result = await db
       .prepare(
         `UPDATE "user"
-         SET oidc_issuer = ?, oidc_subject = ?, name = ?, image = ?, is_admin = ?, updated_at = ?
+         SET oidc_issuer = ?, oidc_subject = ?, name = ?, image = ?, updated_at = ?
          WHERE id = ? AND oidc_issuer IS NULL AND oidc_subject IS NULL`,
       )
-      .bind(issuer, subject, name, image, isAdmin, now, existingByEmail.id)
+      .bind(issuer, subject, name, image, now, existingByEmail.id)
       .run();
     if (result.meta.changes !== 1) {
       throw new Error("OIDC identity link changed concurrently");
@@ -686,10 +877,10 @@ async function upsertUser(
   await db
     .prepare(
       `INSERT INTO "user"
-       (id, email, name, image, is_admin, oidc_issuer, oidc_subject, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       (id, email, name, image, oidc_issuer, oidc_subject, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
     )
-    .bind(id, email, name, image, isAdmin, issuer, subject, now, now)
+    .bind(id, email, name, image, issuer, subject, now, now)
     .run();
   return id;
 }

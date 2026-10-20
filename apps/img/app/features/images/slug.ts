@@ -12,6 +12,7 @@ export const RESERVED_SLUGS: ReadonlySet<string> = new Set([
   "app-icon.png",
   "assets",
   "auth",
+  "dev",
   "favicon.ico",
   "i",
   "no-chapter",

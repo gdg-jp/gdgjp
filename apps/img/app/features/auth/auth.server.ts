@@ -13,6 +13,7 @@ export function getAuth(env: Env): RpAuthInstance {
       url: env.IDP_URL,
       clientId: env.IDP_CLIENT_ID,
       clientSecret: env.IDP_CLIENT_SECRET,
+      fetch: (input, init) => env.ACCOUNTS.fetch(input, init),
     },
   });
   cached = { instance, env };

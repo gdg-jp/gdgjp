@@ -57,6 +57,7 @@ export default [
   route("folders/:id", "routes/folders/folders.$id.tsx"),
   route("domains", "routes/domains/domains.tsx"),
   route("signin", "routes/auth/signin.tsx"),
+  route("dev/login", "routes/auth/dev.login.ts"),
   route("no-chapter", "routes/auth/no-chapter.tsx"),
   route("api/auth/*", "routes/api/api.auth.$.ts"),
   route("auth/signout", "routes/auth/auth.signout.ts"),
