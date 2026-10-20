@@ -10,15 +10,37 @@
 
 export type PushKey = "mic" | "camera" | "screen" | "screenAudio";
 
+/**
+ * Simulcast layer ids, best first: the SFU's "asciibetical" fallback treats
+ * `a` as most desirable, so f (full) > h (half) > q (quarter).
+ */
+export type Rid = "f" | "h" | "q";
+
+export type Layer = { rid: Rid; scaleResolutionDownBy: number; maxBitrate: number };
+
 export type PushSpec = {
   key: PushKey;
   kind: "audio" | "video";
   track: MediaStreamTrack | null;
+  /** Single-stream cap; ignored when `layers` is set (each layer has its own). */
   maxBitrate?: number;
+  /** Publish these simulcast layers instead of one stream. */
+  layers?: Layer[];
   degradation?: RTCDegradationPreference;
 };
 
-export type RemoteRef = { sessionId: string; trackName: string };
+/** How a pull picks a simulcast layer (Realtime SFU `simulcast` object). */
+export type LayerPick = {
+  preferredRid: Rid;
+  priorityOrdering: "none" | "asciibetical";
+  ridNotAvailable: "none" | "asciibetical";
+};
+
+/**
+ * `simulcast` must only be set when the publisher really sends layers. A
+ * ref's layer is fixed for its (session, track): it is not part of the key.
+ */
+export type RemoteRef = { sessionId: string; trackName: string; simulcast?: LayerPick };
 
 export type PulledTrack = RemoteRef & { mid: string; track: MediaStreamTrack };
 
@@ -130,7 +152,10 @@ export class SfuConnection {
     return this.serial(async () => {
       const sid = this.requireSession();
       const transceivers = specs.map((spec) =>
-        this.pc.addTransceiver(spec.track ?? spec.kind, { direction: "sendonly" }),
+        this.pc.addTransceiver(spec.track ?? spec.kind, {
+          direction: "sendonly",
+          sendEncodings: spec.layers?.map((l) => ({ ...l, maxFramerate: 30 })),
+        }),
       );
       await this.pc.setLocalDescription(await this.pc.createOffer());
       const res = await this.api<TracksResponse>("POST", `sessions/${sid}/tracks/new`, {
@@ -152,6 +177,18 @@ export class SfuConnection {
         void tuneSender(sender, spec);
       });
     });
+  }
+
+  /**
+   * Whether the negotiated sender kept more than one encoding: browsers
+   * without simulcast, or an answer refusing it, collapse it to one.
+   */
+  simulcasting(key: PushKey): boolean {
+    try {
+      return (this.senders.get(key)?.getParameters().encodings?.length ?? 0) > 1;
+    } catch {
+      return false;
+    }
   }
 
   async replace(key: PushKey, track: MediaStreamTrack | null): Promise<void> {
@@ -229,7 +266,9 @@ async function tuneSender(sender: RTCRtpSender, spec: PushSpec) {
     const params = sender.getParameters();
     if (!params.encodings || params.encodings.length === 0) params.encodings = [{}];
     for (const enc of params.encodings) {
-      if (spec.maxBitrate) enc.maxBitrate = spec.maxBitrate;
+      const layer = spec.layers?.find((l) => l.rid === enc.rid);
+      const maxBitrate = layer?.maxBitrate ?? spec.maxBitrate;
+      if (maxBitrate) enc.maxBitrate = maxBitrate;
       enc.maxFramerate = 30;
     }
     if (spec.degradation) params.degradationPreference = spec.degradation;

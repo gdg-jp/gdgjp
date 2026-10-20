@@ -139,6 +139,16 @@ describe("self reports", () => {
     expect(peer?.tracks).toEqual({ mic: "mic", camera: null, screen: null, screenAudio: null });
   });
 
+  it("coerces simulcast flags and forgets them when the speaker drops", () => {
+    let data = apply(room(), alice, {
+      type: "self",
+      report: { simulcast: { camera: true, screen: "yes" as never } },
+    }).data;
+    expect(data.peers[alice.id]?.simulcast).toEqual({ camera: true, screen: false });
+    data = disconnectPeer(data, alice.id, 20);
+    expect(data.peers[alice.id]?.simulcast).toEqual({ camera: false, screen: false });
+  });
+
   it("reports no change when nothing changed", () => {
     const once = apply(room(), alice, { type: "self", report: { mic: true } }).data;
     expect(apply(once, alice, { type: "self", report: { mic: true } }).changed).toBe(false);

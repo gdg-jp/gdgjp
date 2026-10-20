@@ -6,9 +6,10 @@ import { RoundToggle } from "~/components/RoundToggle";
 import { ArrowLeft, Mic, MicOff, Radio, RefreshCw, Tv, Users, WifiOff } from "~/components/icons";
 import { requireUserWithChapter } from "~/features/auth/auth-redirect.server";
 import { TrackVideo } from "~/features/rtc/components/TrackVideo";
+import { describeRates, useReceiveStats } from "~/features/rtc/receive-stats";
 import { remoteKey } from "~/features/rtc/sfu-client";
 import { useLocalMedia } from "~/features/rtc/use-local-media";
-import { SPEAKER_PUBLISH, useSfu } from "~/features/rtc/use-sfu";
+import { OPERATOR_PUBLISH, useSfu } from "~/features/rtc/use-sfu";
 import { ObsDialog, StageMenu } from "~/features/stage/components/StageDialogs";
 import { MessagePanel } from "~/features/stage/components/control/MessagePanel";
 import { OperatorName } from "~/features/stage/components/control/OperatorName";
@@ -46,6 +47,7 @@ export async function loader({ params, request, context }: Route.LoaderArgs) {
   const stage = await getStage(env.DB, params.stageId);
   if (!stage) throw new Response(null, { status: 404 });
   return {
+    debug: new URL(request.url).searchParams.has("debug"),
     stage: {
       id: stage.id,
       name: stage.name,
@@ -103,13 +105,13 @@ function usePushToTalk(enabled: boolean): [boolean, (held: boolean) => void] {
 }
 
 export default function ControlRoom({ loaderData }: Route.ComponentProps) {
-  const { stage } = loaderData;
+  const { stage, debug } = loaderData;
   const [tab, setTab] = useState("");
   useEffect(() => setTab(tabId()), []);
   const room = useStageRoom<OperatorView>(
     tab ? { role: "operator", stage: stage.id, pid: tab } : null,
   );
-  const { manager, snapshot } = useSfu(stage.id, null, SPEAKER_PUBLISH, tab !== "");
+  const { manager, snapshot } = useSfu(stage.id, null, OPERATOR_PUBLISH, tab !== "");
   const media = useLocalMedia(true, "operator");
   const view = room.view;
   const onAir = view?.onAir ?? false;
@@ -129,6 +131,7 @@ export default function ControlRoom({ loaderData }: Route.ComponentProps) {
   const speakers = view?.speakers ?? [];
   const slotMap = view?.slots;
   const refs = useMemo(() => controlRoomRefs(speakers, slotMap ?? {}), [speakers, slotMap]);
+  const rates = useReceiveStats(manager, snapshot.remote, debug);
   useEffect(() => manager?.want(refs), [manager, refs]);
   const remote = useCallback(
     (p: Peer | undefined | null, name: string | null) =>
@@ -329,6 +332,19 @@ export default function ControlRoom({ loaderData }: Route.ComponentProps) {
       </footer>
 
       <ObsDialog stage={access} open={obsOpen} onOpenChange={setObsOpen} />
+      {debug && (
+        <pre className="sc-out-debug sc-control-debug">
+          {JSON.stringify(
+            {
+              session: snapshot.sessionId,
+              pulls: refs.map((r) => `${remoteKey(r)} ${r.simulcast?.preferredRid ?? "single"}`),
+              receiving: describeRates(snapshot.remote, rates),
+            },
+            null,
+            2,
+          )}
+        </pre>
+      )}
     </div>
   );
 }

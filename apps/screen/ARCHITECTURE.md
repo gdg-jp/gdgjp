@@ -32,6 +32,20 @@ Reliability rules:
   gone.
 - Sockets ping every second; 3.5 s without a pong forces a reconnect, forever.
 
+SFU egress (billed per GB, SFU → clients):
+
+- Speakers publish camera and screen as VP8 simulcast: f (full), h (1/2), q (1/4), each layer
+  with its own bitrate cap; f keeps the agreed preset (camera 1.5 Mbps, screen 2.5 Mbps). A
+  speaker reports which tracks the SFU actually took as layers (`simulcast` in its self report),
+  and pullers name a layer only for those; anything else is pulled as one stream.
+- OBS outputs pull f with `asciibetical` priority/fallback, so they step down to h, q instead of
+  freezing when the speaker's uplink drops f. The control room pulls q (camera) and h (screen),
+  and pulls video only for speakers in a slot; unassigned speakers are audio only.
+- Operators publish single streams (only speakers watch them, full size) and start with the
+  camera off, since every speaker pulls it.
+- `?debug` on the control room and on OBS outputs shows each pulled track's received kbps and
+  frame size, which tells which layer arrives.
+
 Noise suppression:
 
 - Every mic (speakers and operator talkback, never screen audio) can go through DeepFilterNet3

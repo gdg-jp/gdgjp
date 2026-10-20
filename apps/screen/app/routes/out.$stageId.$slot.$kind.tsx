@@ -1,8 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
 import { TrackAudio, TrackVideo } from "~/features/rtc/components/TrackVideo";
-import { type RemoteRef, remoteKey } from "~/features/rtc/sfu-client";
+import { describeRates, useReceiveStats } from "~/features/rtc/receive-stats";
+import { remoteKey } from "~/features/rtc/sfu-client";
 import { useSfu } from "~/features/rtc/use-sfu";
 import { type OutputView, isOutputKind, isSlot } from "~/features/stage/protocol";
+import { outputRefs } from "~/features/stage/pulls";
 import { isStageId } from "~/features/stage/stage-id";
 import { useStageRoom } from "~/features/stage/use-stage-room";
 import type { RouteHandle } from "~/root";
@@ -43,20 +45,8 @@ export default function Output({ loaderData }: Route.ComponentProps) {
   const { manager, snapshot } = useSfu(stageId, `output:${token}`, [], true);
   const peer = room.view?.peer ?? null;
 
-  const refs = useMemo(() => {
-    const list: RemoteRef[] = [];
-    if (!peer?.online || !peer.sfuSessionId) return list;
-    const add = (name: string | null) => {
-      if (name && peer.sfuSessionId) list.push({ sessionId: peer.sfuSessionId, trackName: name });
-    };
-    if (kind === "camera" && peer.cam) add(peer.tracks.camera);
-    if (kind === "screen" && peer.screen) {
-      add(peer.tracks.screen);
-      if (peer.screenAudio) add(peer.tracks.screenAudio);
-    }
-    if (kind === "mic") add(peer.tracks.mic);
-    return list;
-  }, [peer, kind]);
+  const refs = useMemo(() => outputRefs(peer, kind), [peer, kind]);
+  const rates = useReceiveStats(manager, snapshot.remote, debug);
 
   useEffect(() => {
     manager?.want(refs);
@@ -110,8 +100,8 @@ export default function Output({ loaderData }: Route.ComponentProps) {
               sfu: snapshot.status,
               session: snapshot.sessionId,
               peer: peer && { name: peer.name, online: peer.online, session: peer.sfuSessionId },
-              tracks: refs.map((r) => r.trackName),
-              receiving: [...snapshot.remote.keys()],
+              tracks: refs.map((r) => ({ name: r.trackName, layer: r.simulcast?.preferredRid })),
+              receiving: describeRates(snapshot.remote, rates),
               visible,
             },
             null,

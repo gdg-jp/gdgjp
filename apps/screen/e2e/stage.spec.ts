@@ -32,6 +32,13 @@ async function copied(page: Page, action: () => Promise<void>): Promise<string> 
   return text;
 }
 
+function videoWidth(page: Page, selector: string): Promise<number> {
+  return page.evaluate(
+    (s) => (document.querySelector(s) as HTMLVideoElement | null)?.videoWidth ?? 0,
+    selector,
+  );
+}
+
 test("speaker goes on air through an OBS output", async ({ browser }) => {
   test.skip(!process.env.SCREEN_E2E_SFU && !!process.env.CI, "needs Realtime credentials");
   const op = await operatorPage(browser);
@@ -87,6 +94,10 @@ test("speaker goes on air through an OBS output", async ({ browser }) => {
   await speaker.keyboard.press("Escape");
   await speaker.getByRole("button", { name: "参加" }).click();
   await expect(speaker.locator(".sc-chip[data-tone='ok']")).toBeVisible({ timeout: 20_000 });
+
+  // The operator camera starts off (every speaker would pull it); turned on,
+  // it shows up on the speaker's side with the operator's name.
+  await op.getByRole("button", { name: "カメラをオン" }).click();
 
   // The operator's display name is editable and reaches the speaker live.
   await op.locator(".sc-op-name").click();
@@ -155,6 +166,13 @@ test("speaker goes on air through an OBS output", async ({ browser }) => {
     )
     .toBeGreaterThan(0);
 
+  // Simulcast: OBS climbs to the full layer while the control room's small
+  // camera tile stays on the quarter layer.
+  await expect.poll(() => videoWidth(out, "video"), { timeout: 30_000 }).toBe(1280);
+  await expect
+    .poll(() => videoWidth(op, ".sc-slot .sc-slot-tile video"), { timeout: 30_000 })
+    .toBe(320);
+
   // A reload mid-talk returns to slot A without touching anything, and the
   // OBS output picks up the new SFU session.
   await speaker.reload();
@@ -187,6 +205,17 @@ test("speaker goes on air through an OBS output", async ({ browser }) => {
       timeout: 30_000,
     })
     .toBeGreaterThan(0);
+  // The control room's screen tile pulls the half layer.
+  await expect
+    .poll(
+      async () => {
+        const full = await videoWidth(outScreen, "video");
+        const tile = await videoWidth(op, ".sc-slot .sc-slot-screen video");
+        return full > 0 && tile * 2 === full;
+      },
+      { timeout: 30_000 },
+    )
+    .toBe(true);
 
   // ON AIR turns the speaker's indicator red; a cue appears large.
   await op.getByRole("button", { name: "ON AIR" }).click();

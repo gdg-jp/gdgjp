@@ -1432,3 +1432,14 @@ html[data-surface="transparent"] body {
   color: var(--gdg-green);
   font-size: 12px;
 }
+
+/* The control room's ?debug readout sits above the footer bar. */
+.sc-control-debug {
+  position: fixed;
+  left: auto;
+  top: auto;
+  right: 8px;
+  bottom: 88px;
+  z-index: 10;
+  pointer-events: none;
+}

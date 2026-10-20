@@ -7,6 +7,7 @@ import {
   MAX_MESSAGE_LENGTH,
   MAX_NAME_LENGTH,
   type Message,
+  NO_SIMULCAST,
   type OperatorView,
   type OutputView,
   type Peer,
@@ -62,6 +63,7 @@ export function connectPeer(data: RoomData, sender: Sender, now: number): RoomDa
         // Rooms saved before noise suppression existed lack these.
         denoise: existing.denoise ?? DEFAULT_DENOISE,
         denoiseState: existing.denoiseState ?? null,
+        simulcast: existing.simulcast ?? NO_SIMULCAST,
       }
     : {
         ...EMPTY_REPORT,
@@ -95,6 +97,7 @@ export function disconnectPeer(data: RoomData, id: string, now: number): RoomDat
         talking: false,
         quality: null,
         denoiseState: null,
+        simulcast: NO_SIMULCAST,
       },
     },
   };
@@ -113,6 +116,12 @@ function sanitizeReport(report: Partial<SelfReport>): Partial<SelfReport> {
       camera: str(t.camera),
       screen: str(t.screen),
       screenAudio: str(t.screenAudio),
+    };
+  }
+  if (report.simulcast && typeof report.simulcast === "object") {
+    out.simulcast = {
+      camera: report.simulcast.camera === true,
+      screen: report.simulcast.screen === true,
     };
   }
   for (const key of ["mic", "cam", "screen", "screenAudio", "talking"] as const) {

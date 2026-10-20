@@ -53,6 +53,15 @@ export type Tracks = {
 
 export const NO_TRACKS: Tracks = { mic: null, camera: null, screen: null, screenAudio: null };
 
+/**
+ * Which video tracks the SFU actually took as simulcast (f/h/q layers).
+ * Pullers ask for a layer only when this says the layers exist; otherwise
+ * they pull the single stream as before (other browsers, older pages).
+ */
+export type Simulcast = { camera: boolean; screen: boolean };
+
+export const NO_SIMULCAST: Simulcast = { camera: false, screen: false };
+
 export type Quality = "good" | "fair" | "poor";
 
 /** Operator-set DeepFilterNet3 noise suppression for one participant. */
@@ -78,6 +87,7 @@ export type DenoiseState = (typeof DENOISE_STATES)[number];
 export type SelfReport = {
   sfuSessionId: string | null;
   tracks: Tracks;
+  simulcast: Simulcast;
   mic: boolean;
   cam: boolean;
   screen: boolean;
@@ -91,6 +101,7 @@ export type SelfReport = {
 export const EMPTY_REPORT: SelfReport = {
   sfuSessionId: null,
   tracks: NO_TRACKS,
+  simulcast: NO_SIMULCAST,
   mic: false,
   cam: false,
   screen: false,

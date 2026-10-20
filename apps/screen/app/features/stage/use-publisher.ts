@@ -77,6 +77,10 @@ export function usePublisher({
     tracks: snapshot.sessionId
       ? TRACK_NAMES
       : { mic: null, camera: null, screen: null, screenAudio: null },
+    simulcast: {
+      camera: snapshot.layered.includes("camera"),
+      screen: snapshot.layered.includes("screen"),
+    },
     mic: micLive && media.mic !== null,
     cam: camera !== null,
     screen: media.screen !== null,

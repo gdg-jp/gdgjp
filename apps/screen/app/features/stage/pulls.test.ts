@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { DEFAULT_DENOISE, EMPTY_REPORT, type Peer } from "./protocol";
-import { controlRoomRefs } from "./pulls";
+import { controlRoomRefs, outputRefs } from "./pulls";
 
 const TRACKS = { mic: "mic", camera: "camera", screen: "screen", screenAudio: "screenAudio" };
 
@@ -48,5 +48,47 @@ describe("controlRoomRefs", () => {
       { A: "a", B: "b", C: "c" },
     );
     expect(names(refs)).toEqual(["sfu-a/mic"]);
+  });
+});
+
+describe("simulcast layer picks", () => {
+  const layered = speaker("a", { simulcast: { camera: true, screen: true } });
+
+  it("control room asks for low layers, only where the speaker sends layers", () => {
+    const picks = (p: Peer) =>
+      controlRoomRefs([p], { A: p.id }).map((r) => [r.trackName, r.simulcast?.preferredRid]);
+    expect(picks(layered)).toEqual([
+      ["mic", undefined],
+      ["camera", "q"],
+      ["screen", "h"],
+      ["screenAudio", undefined],
+    ]);
+    expect(picks(speaker("b", { simulcast: { camera: true, screen: false } }))).toEqual([
+      ["mic", undefined],
+      ["camera", "q"],
+      ["screen", undefined],
+      ["screenAudio", undefined],
+    ]);
+  });
+
+  it("OBS asks for the full layer and may step down when it is gone", () => {
+    expect(outputRefs(layered, "camera")).toEqual([
+      {
+        sessionId: "sfu-a",
+        trackName: "camera",
+        simulcast: {
+          preferredRid: "f",
+          priorityOrdering: "asciibetical",
+          ridNotAvailable: "asciibetical",
+        },
+      },
+    ]);
+    expect(outputRefs(layered, "screen").map((r) => r.trackName)).toEqual([
+      "screen",
+      "screenAudio",
+    ]);
+    expect(outputRefs(speaker("b"), "camera")[0]?.simulcast).toBeUndefined();
+    expect(outputRefs(layered, "mic")).toEqual([{ sessionId: "sfu-a", trackName: "mic" }]);
+    expect(outputRefs(speaker("c", { online: false }), "camera")).toEqual([]);
   });
 });

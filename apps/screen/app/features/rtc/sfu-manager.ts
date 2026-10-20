@@ -14,6 +14,8 @@ export type SfuSnapshot = {
   status: SfuStatus;
   /** remoteKey(ref) → live track. */
   remote: ReadonlyMap<string, MediaStreamTrack>;
+  /** Published slots the SFU took as simulcast in this session. */
+  layered: readonly PushKey[];
 };
 
 export type PublishSlot = Omit<PushSpec, "track">;
@@ -36,7 +38,12 @@ export class SfuManager {
   private wanted = new Map<string, RemoteRef>();
   private have = new Map<string, PulledTrack>();
   private listeners = new Set<() => void>();
-  private snapshot: SfuSnapshot = { sessionId: null, status: "connecting", remote: new Map() };
+  private snapshot: SfuSnapshot = {
+    sessionId: null,
+    status: "connecting",
+    remote: new Map(),
+    layered: [],
+  };
   private stopped = false;
   private attempt = 0;
   private syncing = false;
@@ -129,7 +136,8 @@ export class SfuManager {
       if (generation !== this.generation) return;
       // Pull-only pages have no ICE until the first pull; report the session
       // anyway so publishers become pullable as soon as possible.
-      this.emit({ sessionId });
+      const layered = this.publish.filter((s) => conn.simulcasting(s.key)).map((s) => s.key);
+      this.emit({ sessionId, layered });
       await this.sync();
     } catch {
       this.fail(generation);
