@@ -52,7 +52,6 @@ export async function loader({ params, request, context }: Route.LoaderArgs) {
       id: stage.id,
       name: stage.name,
       slotCount: stage.slotCount,
-      inviteToken: stage.inviteToken,
       outputToken: stage.outputToken,
     },
   };

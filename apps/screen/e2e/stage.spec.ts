@@ -68,7 +68,8 @@ test("speaker goes on air through an OBS output", async ({ browser }) => {
   const speakerLog: string[] = [];
   speaker.on("console", (m) => speakerLog.push(`${m.type()}: ${m.text()}`));
   speaker.on("pageerror", (e) => speakerLog.push(`pageerror: ${e.message}`));
-  expect(invite).toMatch(/\/[a-z]+-[a-z]+-[a-z]+\/$/);
+  // The invite link is the stage id itself.
+  expect(new URL(invite).pathname).toBe(`/${stageId}/`);
   await speaker.goto(invite);
   // Join stays pressable; without a name it explains why instead of joining.
   await speaker.getByRole("button", { name: "参加" }).click();
@@ -235,6 +236,42 @@ test("speaker goes on air through an OBS output", async ({ browser }) => {
   await op.getByRole("button", { name: "削除" }).click();
   await op.waitForURL(/\/$/);
   await Promise.all([op.context().close(), speakerContext.close(), outContext.close()]);
+});
+
+test("a stage takes a custom id that is also its invite link", async ({ browser }) => {
+  const op = await operatorPage(browser);
+  const id = `e2e-${Date.now()}`;
+  const open = async () => {
+    await op.getByRole("button", { name: "ステージを作成" }).first().click();
+    await op.getByRole("textbox", { name: "名前" }).fill("e2e custom id");
+    await op.getByRole("textbox", { name: "ID" }).fill(id.toUpperCase());
+  };
+  await open();
+  await expect(op.getByRole("textbox", { name: "ID" })).toHaveValue(id);
+  await op.getByRole("button", { name: "作成" }).click();
+  await op.waitForURL(new RegExp(`/stages/${id}$`));
+
+  // Speakers reach the stage at /<id>/.
+  const speaker = await browser.newPage();
+  await speaker.goto(`/${id}/`);
+  await expect(speaker.getByRole("heading", { name: "e2e custom id" })).toBeVisible();
+  await speaker.close();
+
+  // A taken id is refused rather than swapped for another.
+  await op.goto("/");
+  await open();
+  await op.getByRole("button", { name: "作成" }).click();
+  await expect(op.getByText("この ID はすでに使われています")).toBeVisible();
+  await op.getByRole("textbox", { name: "ID" }).fill("stages");
+  await expect(op.getByRole("button", { name: "作成" })).toBeDisabled();
+  await op.keyboard.press("Escape");
+
+  await op.goto(`/stages/${id}`);
+  await op.getByRole("button", { name: "メニュー" }).click();
+  await op.getByRole("menuitem", { name: "削除" }).click();
+  await op.getByRole("button", { name: "削除" }).click();
+  await op.waitForURL(/\/$/);
+  await op.context().close();
 });
 
 test("invalid invite links say so", async ({ page }) => {

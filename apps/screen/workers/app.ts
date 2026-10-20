@@ -6,7 +6,6 @@ import { isStageId } from "../app/features/stage/stage-id";
 import {
   type StageRow,
   getStage,
-  getStageByInvite,
   metaOf,
   timingSafeEqual,
 } from "../app/features/stage/stages.server";
@@ -21,7 +20,7 @@ const PEER_ID_RE = /^[A-Za-z0-9_-]{8,64}$/;
 
 /**
  * Who is calling, from one of:
- *   - `invite:<token>`  speaker (stage invite link)
+ *   - `invite:<stageId>` speaker (the invite link is the stage id)
  *   - `output:<token>`  OBS Browser Source
  *   - session cookie    operator (chapter member)
  */
@@ -32,7 +31,7 @@ async function authorize(
   credential: string | null,
 ): Promise<"speaker" | "output" | "operator" | null> {
   if (credential?.startsWith("invite:")) {
-    return timingSafeEqual(credential.slice(7), stage.inviteToken) ? "speaker" : null;
+    return timingSafeEqual(credential.slice(7), stage.id) ? "speaker" : null;
   }
   if (credential?.startsWith("output:")) {
     return timingSafeEqual(credential.slice(7), stage.outputToken) ? "output" : null;
@@ -46,7 +45,8 @@ async function handleSocket(request: Request, env: Env, url: URL): Promise<Respo
   const headers = new Headers(request.headers);
 
   if (role === "speaker") {
-    stage = await getStageByInvite(env.DB, url.searchParams.get("invite") ?? "");
+    const invite = url.searchParams.get("invite");
+    stage = isStageId(invite) ? await getStage(env.DB, invite) : null;
     if (!stage) return new Response("bad invite", { status: 403 });
     const pid = url.searchParams.get("pid") ?? "";
     if (!PEER_ID_RE.test(pid)) return new Response("bad pid", { status: 400 });

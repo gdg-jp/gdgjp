@@ -402,7 +402,12 @@ html[data-surface="transparent"] body {
   display: flex;
   align-items: center;
   gap: 8px;
-  color: var(--gdg-muted);
+}
+
+.sc-id-row > input {
+  flex: 1;
+  min-width: 0;
+  font-family: ui-monospace, monospace;
 }
 
 .sc-confirm-actions {

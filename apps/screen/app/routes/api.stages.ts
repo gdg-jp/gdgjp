@@ -1,7 +1,7 @@
 import { data, redirect } from "react-router";
 import { requireUserWithChapter } from "~/features/auth/auth-redirect.server";
 import { cleanName } from "~/features/stage/room-state";
-import { isStageId } from "~/features/stage/stage-id";
+import { isStageId, normalizeStageId } from "~/features/stage/stage-id";
 import {
   clampSlotCount,
   createStage,
@@ -9,7 +9,7 @@ import {
   getStage,
   metaOf,
   renameStage,
-  rotateToken,
+  rotateOutputToken,
 } from "~/features/stage/stages.server";
 import type { Route } from "./+types/api.stages";
 
@@ -27,13 +27,16 @@ export async function action({ request, context }: Route.ActionArgs) {
   if (intent === "create") {
     const name = cleanName(form.get("name"));
     if (!name) return data({ ok: false as const, error: "name" }, { status: 400 });
-    const proposed = form.get("id");
+    // The id is also the speaker invite link, so it is never swapped silently.
+    const id = normalizeStageId(form.get("id"));
+    if (!isStageId(id)) return data({ ok: false as const, error: "id" }, { status: 400 });
     const stage = await createStage(env.DB, {
-      id: isStageId(proposed) ? proposed : undefined,
+      id,
       name,
       slotCount: clampSlotCount(form.get("slotCount")),
       createdBy: user.id,
     });
+    if (!stage) return data({ ok: false as const, error: "id-taken" }, { status: 409 });
     return redirect(`/stages/${stage.id}`);
   }
 
@@ -50,13 +53,11 @@ export async function action({ request, context }: Route.ActionArgs) {
     await room.configure({ ...metaOf(stage), name });
     return { ok: true as const };
   }
-  if (intent === "rotate-output" || intent === "rotate-invite") {
-    const kind = intent === "rotate-output" ? "output" : "invite";
-    await rotateToken(env.DB, stage.id, kind);
-    // Old OBS URLs stop at once. Speakers already in the room stay (a new
-    // invite link only keeps further people out); their pages fail to
-    // reconnect with the old link after a drop, which is the point.
-    if (kind === "output") await room.revoke("output");
+  if (intent === "rotate-output") {
+    await rotateOutputToken(env.DB, stage.id);
+    // Old OBS URLs stop at once. (The invite link is the stage id itself and
+    // cannot be reissued.)
+    await room.revoke("output");
     return { ok: true as const };
   }
   if (intent === "delete") {

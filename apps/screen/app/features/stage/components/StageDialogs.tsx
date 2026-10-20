@@ -36,14 +36,13 @@ import {
   Tv,
 } from "~/components/icons";
 import { OUTPUT_KINDS, type OutputKind, slotsOf } from "../protocol";
-import { generateStageId } from "../stage-id";
+import { STAGE_ID_MAX, generateStageId, isStageId, normalizeStageId } from "../stage-id";
 import { copyText, inviteUrl, outputUrl } from "../urls";
 
 export type StageAccess = {
   id: string;
   name: string;
   slotCount: number;
-  inviteToken: string;
   outputToken: string;
 };
 
@@ -58,17 +57,37 @@ export function CreateStageDialog({ trigger }: { trigger: ReactNode }) {
   const [open, setOpen] = useState(false);
   const [id, setId] = useState("");
   const [slots, setSlots] = useState("2");
+  const [origin, setOrigin] = useState("");
+  // The id the last rejected submit used, so its error clears once the id changes.
+  const [submitted, setSubmitted] = useState("");
+  const fetcher = useFetcher<{ ok: false; error: string }>();
   useEffect(() => {
     if (open) setId(generateStageId());
   }, [open]);
+  useEffect(() => setOrigin(window.location.origin), []);
+  const valid = isStageId(id);
+  const idError = !id
+    ? "ID を入力してください"
+    : !valid
+      ? `英小文字・数字・ハイフンの ${STAGE_ID_MAX} 文字以内で入力してください（先頭と末尾にハイフンは使えません）`
+      : fetcher.data?.error === "id-taken" && submitted === id
+        ? "この ID はすでに使われています"
+        : undefined;
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>{trigger}</DialogTrigger>
       <DialogContent className="sc-dialog" aria-describedby={undefined}>
         <DialogTitle>ステージを作成</DialogTitle>
-        <Form method="post" action="/api/stages" className="sc-form">
+        <fetcher.Form
+          method="post"
+          action="/api/stages"
+          className="sc-form"
+          onSubmit={(e) => {
+            if (!valid) e.preventDefault();
+            else setSubmitted(id);
+          }}
+        >
           <input type="hidden" name="intent" value="create" />
-          <input type="hidden" name="id" value={id} />
           <input type="hidden" name="slotCount" value={slots} />
           <FormField label="名前" required>
             <Input name="name" required maxLength={40} placeholder="メインステージ" autoFocus />
@@ -87,21 +106,36 @@ export function CreateStageDialog({ trigger }: { trigger: ReactNode }) {
               ))}
             </ToggleGroup>
           </FormField>
-          <div className="sc-id-row">
-            <code>{id}</code>
-            <IconButton
-              aria-label="ID を再生成"
-              variant="ghost"
-              size="sm"
-              onClick={() => setId(generateStageId())}
-            >
-              <Dices size={16} aria-hidden="true" />
-            </IconButton>
-          </div>
-          <Button type="submit" fullWidth>
+          <FormField
+            label="ID"
+            required
+            description={`招待リンク: ${origin}/${id}/`}
+            error={idError}
+          >
+            <div className="sc-id-row">
+              <Input
+                name="id"
+                required
+                maxLength={STAGE_ID_MAX}
+                autoComplete="off"
+                spellCheck={false}
+                value={id}
+                onChange={(e) => setId(normalizeStageId(e.currentTarget.value))}
+              />
+              <IconButton
+                aria-label="ID を再生成"
+                variant="ghost"
+                size="sm"
+                onClick={() => setId(generateStageId())}
+              >
+                <Dices size={16} aria-hidden="true" />
+              </IconButton>
+            </div>
+          </FormField>
+          <Button type="submit" fullWidth disabled={!valid || fetcher.state !== "idle"}>
             作成
           </Button>
-        </Form>
+        </fetcher.Form>
       </DialogContent>
     </Dialog>
   );
@@ -273,13 +307,14 @@ function RenameDialog({
 }
 
 /**
- * The [⋯] menu: copy invite link, OBS URLs, rename, (reset), delete.
+ * The [⋯] menu: copy invite link, OBS URLs, rename, (reset), delete. The invite link is the
+ * stage id, so it cannot be reissued.
  * `onReset` is only offered inside the control room.
  */
 export function StageMenu({ stage, onReset }: { stage: StageAccess; onReset?: () => void }) {
   const [obs, setObs] = useState(false);
   const [rename, setRename] = useState(false);
-  const [confirm, setConfirm] = useState<"delete" | "reset" | "invite" | null>(null);
+  const [confirm, setConfirm] = useState<"delete" | "reset" | null>(null);
   const fetcher = useFetcher();
   return (
     <>
@@ -292,7 +327,7 @@ export function StageMenu({ stage, onReset }: { stage: StageAccess; onReset?: ()
         <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
           <DropdownMenuItem
             onSelect={() =>
-              copyWithToast(inviteUrl(window.location.origin, stage.inviteToken), "招待リンク")
+              copyWithToast(inviteUrl(window.location.origin, stage.id), "招待リンク")
             }
           >
             <Link2 size={16} aria-hidden="true" /> 招待リンクをコピー
@@ -302,9 +337,6 @@ export function StageMenu({ stage, onReset }: { stage: StageAccess; onReset?: ()
           </DropdownMenuItem>
           <DropdownMenuItem onSelect={() => setRename(true)}>
             <Pencil size={16} aria-hidden="true" /> 名前を変更
-          </DropdownMenuItem>
-          <DropdownMenuItem onSelect={() => setConfirm("invite")}>
-            <RefreshCw size={16} aria-hidden="true" /> 招待リンクを再発行
           </DropdownMenuItem>
           <DropdownMenuSeparator />
           {onReset && (
@@ -322,18 +354,12 @@ export function StageMenu({ stage, onReset }: { stage: StageAccess; onReset?: ()
       <AlertDialog open={confirm !== null} onOpenChange={(o) => !o && setConfirm(null)}>
         <AlertDialogContent className="sc-dialog" aria-describedby={undefined}>
           <AlertDialogTitle>
-            {confirm === "delete"
-              ? `「${stage.name}」を削除しますか？`
-              : confirm === "reset"
-                ? "リセットしますか？"
-                : "招待リンクを再発行しますか？"}
+            {confirm === "delete" ? `「${stage.name}」を削除しますか？` : "リセットしますか？"}
           </AlertDialogTitle>
           <p className="sc-muted">
             {confirm === "delete"
               ? "OBS の URL と招待リンクも使えなくなります。"
-              : confirm === "reset"
-                ? "チャット・カンペの履歴、出力枠の割り当て、ON AIR、タイマー、切断中の参加者を消します。"
-                : "今のリンクでは新しく参加できなくなります。参加中の登壇者はそのままです。"}
+              : "チャット・カンペの履歴、出力枠の割り当て、ON AIR、タイマー、切断中の参加者を消します。"}
           </p>
           <div className="sc-confirm-actions">
             <AlertDialogCancel asChild>
@@ -347,12 +373,12 @@ export function StageMenu({ stage, onReset }: { stage: StageAccess; onReset?: ()
                 if (which === "reset") onReset?.();
                 else
                   fetcher.submit(
-                    { intent: which === "delete" ? "delete" : "rotate-invite", stageId: stage.id },
+                    { intent: "delete", stageId: stage.id },
                     { method: "post", action: "/api/stages" },
                   );
               }}
             >
-              {confirm === "delete" ? "削除" : confirm === "reset" ? "リセット" : "再発行"}
+              {confirm === "delete" ? "削除" : "リセット"}
             </Button>
           </div>
         </AlertDialogContent>

@@ -1,6 +1,8 @@
 /**
- * Stage ids are three short, easy-to-say English words ("apple-banana-orange").
- * 512 words → 134M combinations; collisions are retried by the creator.
+ * A stage id is also its speaker invite link (screen.gdgs.jp/<id>/). New stages
+ * suggest three short, easy-to-say English words ("apple-banana-orange"; 512
+ * words → 134M combinations), and the operator may replace them with any
+ * lowercase letters, digits and hyphens up to STAGE_ID_MAX characters.
  */
 export const WORDS = `
 acorn album amber anchor angel ant apple apron arch arrow atlas attic aunt autumn avocado
@@ -41,10 +43,43 @@ starling sunflower tadpole thistle tofu toucan truffle tundra vanilla waffle was
   .trim()
   .split(/\s+/);
 
-export const STAGE_ID_RE = /^[a-z]+-[a-z]+-[a-z]+$/;
+export const STAGE_ID_MAX = 32;
+
+/** Lowercase letters and digits, hyphens inside. */
+export const STAGE_ID_RE = /^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/;
+
+/**
+ * First path segments the app already serves, so `/<id>/` would never reach
+ * the invite page (routes.ts, Worker paths, public/ and build assets).
+ */
+const RESERVED = new Set([
+  "api",
+  "assets",
+  "auth",
+  "dev",
+  "dfn",
+  "join",
+  "licenses",
+  "no-chapter",
+  "out",
+  "rtc",
+  "signin",
+  "stages",
+  "ws",
+]);
 
 export function isStageId(value: unknown): value is string {
-  return typeof value === "string" && value.length <= 64 && STAGE_ID_RE.test(value);
+  return (
+    typeof value === "string" &&
+    value.length <= STAGE_ID_MAX &&
+    STAGE_ID_RE.test(value) &&
+    !RESERVED.has(value)
+  );
+}
+
+/** Operator input → candidate id: trimmed and lowercased (validate with isStageId). */
+export function normalizeStageId(value: unknown): string {
+  return typeof value === "string" ? value.trim().toLowerCase() : "";
 }
 
 function randomIndex(max: number): number {

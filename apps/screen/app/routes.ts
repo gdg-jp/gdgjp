@@ -11,7 +11,7 @@ export default [
   route("api/auth/*", "routes/api.auth.$.ts"),
   route("auth/signout", "routes/auth.signout.ts"),
   route("dev/login", "routes/dev.login.ts"), // 404 unless APP_URL is loopback
-  // Speaker lobby + room at screen.gdgs.jp/<three-words>/ — public, invite words. Last so every
-  // static path above wins.
+  // Speaker lobby + room at screen.gdgs.jp/<stageId>/ — public; the stage id is the invite link.
+  // Last so every static path above wins (stage-id.ts reserves those names).
   route(":invite", "routes/$invite.tsx"),
 ] satisfies RouteConfig;

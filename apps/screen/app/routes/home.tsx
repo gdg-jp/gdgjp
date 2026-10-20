@@ -32,7 +32,6 @@ export async function loader({ request, context }: Route.LoaderArgs) {
       id: s.id,
       name: s.name,
       slotCount: s.slotCount,
-      inviteToken: s.inviteToken,
       outputToken: s.outputToken,
       summary: summaries[i] ?? { onAir: false, outputs: 0, participants: 0 },
     })),

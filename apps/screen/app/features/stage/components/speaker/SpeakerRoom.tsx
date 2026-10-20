@@ -74,14 +74,12 @@ function useDisconnectedFor(connected: boolean): number {
 
 export function SpeakerRoom({
   stage,
-  inviteToken,
   participantId,
   name,
   media,
   onLeave,
 }: {
   stage: { id: string; name: string };
-  inviteToken: string;
   participantId: string;
   name: string;
   media: LocalMedia;
@@ -90,11 +88,11 @@ export function SpeakerRoom({
   const { t } = useI18n();
   const room = useStageRoom<SpeakerView>({
     role: "speaker",
-    invite: inviteToken,
+    invite: stage.id,
     pid: participantId,
     name,
   });
-  const { manager, snapshot } = useSfu(stage.id, `invite:${inviteToken}`, SPEAKER_PUBLISH, true);
+  const { manager, snapshot } = useSfu(stage.id, `invite:${stage.id}`, SPEAKER_PUBLISH, true);
   const view = room.view;
   usePublisher({
     manager,

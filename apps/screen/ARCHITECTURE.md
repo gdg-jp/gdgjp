@@ -1,13 +1,15 @@
 # screen architecture
 
 - Routes: `home.tsx` (stage list), `stages.$stageId.tsx` (control room), `api.stages.ts`
-  (create / rename / reissue / delete) are operator-only (accounts RP + chapter).
-  `$invite.tsx` (speaker lobby → room at `/<three-words>/`, registered last so static paths win)
-  is public behind the stage's invite words; `join.$token.ts` redirects old `/join/` links;
+  (create / rename / reissue OBS URLs / delete) are operator-only (accounts RP + chapter).
+  `$invite.tsx` (speaker lobby → room at `/<stageId>/`, registered last so static paths win)
+  is public: the stage id is the invite link, so it cannot be reissued; `join.$token.ts`
+  redirects old `/join/` links;
   `out.$stageId.$slot.$kind.tsx` (OBS Browser Source, transparent, no UI) is behind the output
   token.
 - `features/stage/` owns the wire protocol, the pure room rules (`room-state.ts`: slots, ON AIR,
-  timer, chat/cues, role-filtered views), the D1 stage registry, three-word stage ids, the
+  timer, chat/cues, role-filtered views), the D1 stage registry, stage ids (three suggested words or an
+  operator-chosen lowercase/digit/hyphen string up to 32 characters, never a served path), the
   reliable socket (from mc), and the publisher hook that keeps the room told which SFU
   session/tracks a page publishes. `components/control/` and `components/speaker/` hold the
   control-room and speaker widgets; the mini window is Document Picture-in-Picture.

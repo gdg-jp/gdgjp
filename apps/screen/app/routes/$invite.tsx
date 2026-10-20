@@ -8,7 +8,8 @@ import { useLocalMedia } from "~/features/rtc/use-local-media";
 import { LangToggle } from "~/features/stage/components/speaker/LangToggle";
 import { Lobby } from "~/features/stage/components/speaker/Lobby";
 import { SpeakerRoom } from "~/features/stage/components/speaker/SpeakerRoom";
-import { getStageByInvite } from "~/features/stage/stages.server";
+import { isStageId } from "~/features/stage/stage-id";
+import { getStage } from "~/features/stage/stages.server";
 import type { Route } from "./+types/$invite";
 
 export function meta({ data }: Route.MetaArgs) {
@@ -17,7 +18,10 @@ export function meta({ data }: Route.MetaArgs) {
 
 export async function loader({ params, request, context }: Route.LoaderArgs) {
   const lang = pickLang(request.headers.get("cookie"), request.headers.get("accept-language"));
-  const stage = await getStageByInvite(context.cloudflare.env.DB, params.invite);
+  // The invite link is the stage id itself.
+  const stage = isStageId(params.invite)
+    ? await getStage(context.cloudflare.env.DB, params.invite)
+    : null;
   const ua = request.headers.get("user-agent") ?? "";
   return {
     lang,
@@ -99,7 +103,6 @@ function JoinPage({
     return (
       <SpeakerRoom
         stage={stage}
-        inviteToken={token}
         participantId={pid}
         name={name.trim()}
         media={media}

@@ -29,14 +29,13 @@ CREATE TABLE oidc_session (
   FOREIGN KEY (user_id) REFERENCES "user" (id) ON DELETE CASCADE
 );
 CREATE INDEX oidc_session_user_idx ON oidc_session (user_id);
-CREATE TABLE stage (
-  -- Three lowercase English words, e.g. "apple-banana-orange".
+CREATE TABLE IF NOT EXISTS "stage" (
+  -- Lowercase letters, digits and hyphens, up to 32 characters
+  -- (e.g. "apple-banana-orange" or "main-stage"). Also the invite link.
   id TEXT PRIMARY KEY,
   name TEXT NOT NULL,
   -- Number of output slots (A..D), 1-4.
   slot_count INTEGER NOT NULL DEFAULT 2,
-  -- Shared speaker invite link token (/join/<invite_token>).
-  invite_token TEXT NOT NULL UNIQUE,
   -- OBS Browser Source token (/out/...?t=<output_token>).
   output_token TEXT NOT NULL,
   created_by TEXT NOT NULL,
