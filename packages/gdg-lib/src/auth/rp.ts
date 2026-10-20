@@ -157,6 +157,9 @@ interface TxPayload {
 const SESSION_MAX_AGE_S = 60 * 60 * 24 * 30; // 30d
 const TX_MAX_AGE_S = 60 * 10; // 10m
 const REFRESH_LEEWAY_MS = 30_000;
+// Marks the `state` of a sign-in that was restarted after a lost transaction
+// cookie, so a browser that never stores the cookie is not redirected forever.
+const RETRY_STATE_PREFIX = "retry.";
 
 // ─── Request handler ───────────────────────────────────────────────────────────
 
@@ -179,7 +182,8 @@ async function handleSignIn(config: RpAuthConfig, _request: Request, url: URL): 
   const issuerConfig = await getIssuerConfig(config);
   const codeVerifier = oidc.randomPKCECodeVerifier();
   const codeChallenge = await oidc.calculatePKCECodeChallenge(codeVerifier);
-  const state = oidc.randomState();
+  const isRetry = url.searchParams.get("retry") === "1";
+  const state = `${isRetry ? RETRY_STATE_PREFIX : ""}${oidc.randomState()}`;
   const nonce = oidc.randomNonce();
 
   const authUrl = oidc.buildAuthorizationUrl(issuerConfig, {
@@ -216,11 +220,8 @@ async function handleSignIn(config: RpAuthConfig, _request: Request, url: URL): 
 
 async function handleCallback(config: RpAuthConfig, request: Request, url: URL): Promise<Response> {
   const txValue = readCookie(request, txCookieName(config));
-  if (!txValue) return new Response("Missing OIDC transaction cookie", { status: 400 });
-  const tx = await verifyPayload<TxPayload>(txValue, config.secret);
-  if (!tx || tx.exp < Date.now()) {
-    return new Response("Invalid or expired OIDC transaction", { status: 400 });
-  }
+  const tx = txValue ? await verifyPayload<TxPayload>(txValue, config.secret) : null;
+  if (!tx || tx.exp < Date.now()) return handleLostTransaction(config, url);
 
   const issuerConfig = await getIssuerConfig(config);
   let tokens: oidc.TokenEndpointResponse & oidc.TokenEndpointResponseHelpers;
@@ -322,6 +323,38 @@ async function handleCallback(config: RpAuthConfig, request: Request, url: URL):
   );
   headers.append("Set-Cookie", clearedCookie(txCookieName(config)));
   return new Response(null, { status: 302, headers });
+}
+
+/**
+ * The callback arrived without a usable transaction cookie: the 10-minute
+ * window passed on the IdP login screen, or the flow started in one cookie jar
+ * (e.g. a chat app's in-app browser) and finished in another (Safari). The
+ * user usually now has an IdP session in this browser, so restarting sign-in
+ * here completes without another prompt. The original return_to is lost with
+ * the cookie, so the restart lands on the app root.
+ */
+function handleLostTransaction(config: RpAuthConfig, url: URL): Response {
+  const state = url.searchParams.get("state") ?? "";
+  if (url.searchParams.has("error") || state.startsWith(RETRY_STATE_PREFIX)) {
+    const signIn = escapeHtml(`${trimTrailingSlash(config.appUrl)}/api/auth/signin`);
+    return new Response(
+      `<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>サインインできませんでした</title><p>サインインを完了できませんでした。ブラウザで Cookie が有効になっているか確認してから、<a href="${signIn}">もう一度サインイン</a>してください。</p>`,
+      {
+        status: 400,
+        headers: {
+          "Content-Type": "text/html; charset=utf-8",
+          "Set-Cookie": clearedCookie(txCookieName(config)),
+        },
+      },
+    );
+  }
+  return new Response(null, {
+    status: 302,
+    headers: {
+      Location: `${trimTrailingSlash(config.appUrl)}/api/auth/signin?retry=1`,
+      "Set-Cookie": clearedCookie(txCookieName(config)),
+    },
+  });
 }
 
 async function handleSignOut(config: RpAuthConfig, request: Request): Promise<Response> {
@@ -715,6 +748,14 @@ function callbackUrl(config: RpAuthConfig): string {
 
 function trimTrailingSlash(s: string): string {
   return s.endsWith("/") ? s.slice(0, -1) : s;
+}
+
+function escapeHtml(s: string): string {
+  return s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
 }
 
 function isLocalAppUrl(appUrl: string): boolean {

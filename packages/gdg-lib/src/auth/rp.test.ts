@@ -180,6 +180,55 @@ describe("OIDC RP", () => {
     expect(location.searchParams.get("nonce")).toBe("nonce");
   });
 
+  it("restarts sign-in once when the callback arrives without a transaction cookie", async () => {
+    const { db } = database();
+    const instance = auth(db);
+    const lost = await instance.handleAuthRequest(
+      new Request("https://app.example/api/auth/callback/gdgjp?code=code&state=state"),
+    );
+
+    expect(lost.status).toBe(302);
+    expect(lost.headers.get("location")).toBe("https://app.example/api/auth/signin?retry=1");
+    expect(oidc.authorizationCodeGrant).not.toHaveBeenCalled();
+
+    const retry = await instance.handleAuthRequest(
+      new Request("https://app.example/api/auth/signin?retry=1"),
+    );
+    const retryState = new URL(retry.headers.get("location") ?? "").searchParams.get("state");
+    expect(retryState).toBe("retry.state");
+
+    const lostAgain = await instance.handleAuthRequest(
+      new Request(`https://app.example/api/auth/callback/gdgjp?code=code&state=${retryState}`),
+    );
+    expect(lostAgain.status).toBe(400);
+    expect(await lostAgain.text()).toContain('href="https://app.example/api/auth/signin"');
+  });
+
+  it("restarts sign-in when the transaction cookie has expired", async () => {
+    const { db } = database();
+    const expired = await signPayload(
+      { codeVerifier: "verifier", state: "state", nonce: "nonce", returnTo: "/", exp: 0 },
+      secret,
+    );
+    const response = await auth(db).handleAuthRequest(
+      new Request("https://app.example/api/auth/callback/gdgjp?code=code&state=state", {
+        headers: { Cookie: `app-oidc-tx=${expired}` },
+      }),
+    );
+
+    expect(response.status).toBe(302);
+    expect(response.headers.get("location")).toBe("https://app.example/api/auth/signin?retry=1");
+  });
+
+  it("does not restart sign-in when the IdP returned an error", async () => {
+    const { db } = database();
+    const response = await auth(db).handleAuthRequest(
+      new Request("https://app.example/api/auth/callback/gdgjp?error=access_denied&state=state"),
+    );
+
+    expect(response.status).toBe(400);
+  });
+
   it("uses a bounded internal transport for every OIDC endpoint", async () => {
     const { db } = database();
     const idpFetch = vi.fn<typeof fetch>();
