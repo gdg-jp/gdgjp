@@ -6,7 +6,7 @@ import { RoundToggle } from "~/components/RoundToggle";
 import { ArrowLeft, Mic, MicOff, Radio, RefreshCw, Tv, Users, WifiOff } from "~/components/icons";
 import { requireUserWithChapter } from "~/features/auth/auth-redirect.server";
 import { TrackVideo } from "~/features/rtc/components/TrackVideo";
-import { type RemoteRef, remoteKey } from "~/features/rtc/sfu-client";
+import { remoteKey } from "~/features/rtc/sfu-client";
 import { useLocalMedia } from "~/features/rtc/use-local-media";
 import { SPEAKER_PUBLISH, useSfu } from "~/features/rtc/use-sfu";
 import { ObsDialog, StageMenu } from "~/features/stage/components/StageDialogs";
@@ -28,6 +28,7 @@ import {
   type Slot,
   slotsOf,
 } from "~/features/stage/protocol";
+import { controlRoomRefs } from "~/features/stage/pulls";
 import { isStageId } from "~/features/stage/stage-id";
 import { getStage } from "~/features/stage/stages.server";
 import { usePublisher } from "~/features/stage/use-publisher";
@@ -67,22 +68,6 @@ function tabId(): string {
   } catch {
     return crypto.randomUUID().replaceAll("-", "");
   }
-}
-
-function speakerRefs(speakers: Peer[]): RemoteRef[] {
-  const refs: RemoteRef[] = [];
-  for (const p of speakers) {
-    const sid = p.sfuSessionId;
-    if (!p.online || !sid) continue;
-    const add = (name: string | null, on: boolean) => {
-      if (name && on) refs.push({ sessionId: sid, trackName: name });
-    };
-    add(p.tracks.mic, true);
-    add(p.tracks.camera, p.cam);
-    add(p.tracks.screen, p.screen);
-    add(p.tracks.screenAudio, p.screenAudio);
-  }
-  return refs;
 }
 
 /** Space bar push-to-talk, ignored while typing. */
@@ -142,7 +127,8 @@ export default function ControlRoom({ loaderData }: Route.ComponentProps) {
   });
 
   const speakers = view?.speakers ?? [];
-  const refs = useMemo(() => speakerRefs(speakers), [speakers]);
+  const slotMap = view?.slots;
+  const refs = useMemo(() => controlRoomRefs(speakers, slotMap ?? {}), [speakers, slotMap]);
   useEffect(() => manager?.want(refs), [manager, refs]);
   const remote = useCallback(
     (p: Peer | undefined | null, name: string | null) =>
