@@ -29,7 +29,13 @@ export type UserClaims = {
 };
 
 export const SSO_PROVIDER_ID = "gdgjp";
-export { CHAPTERS_CLAIM, CHAPTERS_SCOPE, IS_ADMIN_CLAIM } from "./claims";
+export {
+  CHAPTERS_CLAIM,
+  CHAPTERS_SCOPE,
+  IS_ADMIN_CLAIM,
+  RP_SESSION_PATH,
+  SSO_SESSION_COOKIE,
+} from "./claims";
 export { type BearerIdentity, getBearerIdentity, getCliIdentity } from "./bearer";
 
 export function isSuperAdmin(user: AuthUser): boolean {

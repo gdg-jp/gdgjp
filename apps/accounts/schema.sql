@@ -271,3 +271,17 @@ CREATE TABLE chapter_invite_chapters (
   PRIMARY KEY (invite_id, chapter_id)
 );
 CREATE INDEX idx_chapter_invite_chapters_chapter ON chapter_invite_chapters(chapter_id);
+CREATE TRIGGER session_end_revokes_oauth_tokens
+BEFORE DELETE ON "session"
+BEGIN
+  DELETE FROM "oauthAccessToken"
+  WHERE "sessionId" = OLD."id"
+    AND "clientId" NOT IN (
+      SELECT "clientId" FROM "oauthClient" WHERE "grantTypes" LIKE '%device_code%'
+    );
+  DELETE FROM "oauthRefreshToken"
+  WHERE "sessionId" = OLD."id"
+    AND "clientId" NOT IN (
+      SELECT "clientId" FROM "oauthClient" WHERE "grantTypes" LIKE '%device_code%'
+    );
+END;
