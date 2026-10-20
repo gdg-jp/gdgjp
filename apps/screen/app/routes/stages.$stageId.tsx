@@ -110,7 +110,7 @@ export default function ControlRoom({ loaderData }: Route.ComponentProps) {
     tab ? { role: "operator", stage: stage.id, pid: tab } : null,
   );
   const { manager, snapshot } = useSfu(stage.id, null, SPEAKER_PUBLISH, tab !== "");
-  const media = useLocalMedia(true);
+  const media = useLocalMedia(true, "operator");
   const view = room.view;
   const onAir = view?.onAir ?? false;
 

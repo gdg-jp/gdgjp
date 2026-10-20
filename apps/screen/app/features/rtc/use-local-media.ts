@@ -22,6 +22,8 @@ type Prefs = {
   micOn?: boolean;
   speakerOn?: boolean;
   camOn?: boolean;
+  /** Operators' camera choice, kept apart so a speaker's "on" never carries over. */
+  opCamOn?: boolean;
 };
 
 function readPrefs(): Prefs {
@@ -76,14 +78,21 @@ const EMPTY_DEVICES: DeviceLists = { mics: [], cameras: [], speakers: [] };
  * The page's own mic, camera and screen capture. The mic stays open while
  * muted (muting only disables the track) so unmuting is instant; turning the
  * camera off releases it so the camera light goes out.
+ *
+ * Operators start with the camera off: every speaker pulls it, so an unused
+ * operator camera is SFU egress times the number of speakers.
  */
-export function useLocalMedia(enabled = true): LocalMedia {
+export function useLocalMedia(
+  enabled = true,
+  role: "speaker" | "operator" = "speaker",
+): LocalMedia {
+  const camPref = role === "operator" ? "opCamOn" : "camOn";
   const [mic, setMic] = useState<MediaStreamTrack | null>(null);
   const [camera, setCamera] = useState<MediaStreamTrack | null>(null);
   const [screen, setScreen] = useState<ScreenCapture | null>(null);
   const [micOn, setMicOn] = useState(true);
   const [speakerOn, setSpeakerOn] = useState(true);
-  const [camOn, setCamOn] = useState(true);
+  const [camOn, setCamOn] = useState(role === "speaker");
   const [micId, setMicId] = useState("");
   const [camId, setCamId] = useState("");
   const [speakerId, setSpeakerId] = useState("");
@@ -108,8 +117,9 @@ export function useLocalMedia(enabled = true): LocalMedia {
     if (prefs.speakerId) setSpeakerId(prefs.speakerId);
     if (typeof prefs.micOn === "boolean") setMicOn(prefs.micOn);
     if (typeof prefs.speakerOn === "boolean") setSpeakerOn(prefs.speakerOn);
-    if (typeof prefs.camOn === "boolean") setCamOn(prefs.camOn);
-  }, []);
+    const savedCam = prefs[camPref];
+    if (typeof savedCam === "boolean") setCamOn(savedCam);
+  }, [camPref]);
 
   const refreshDevices = useCallback(() => {
     void listDevices().then(setDevices);
@@ -256,7 +266,7 @@ export function useLocalMedia(enabled = true): LocalMedia {
       }),
     toggleCam: () =>
       setCamOn((on) => {
-        writePrefs({ camOn: !on });
+        writePrefs({ [camPref]: !on });
         return !on;
       }),
     setMicEnabled: (on: boolean) => setMicOn(on),
