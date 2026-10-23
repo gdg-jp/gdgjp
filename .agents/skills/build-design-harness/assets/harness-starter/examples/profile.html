@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Edit profile</title>
+<link rel="stylesheet" href="../generated/theme.css">
+<style>
+  body { font: 1rem/1.6 system-ui; color: var(--color-text); background: var(--color-surface); margin: 2rem auto; padding: 0 1rem; max-width: 32rem; }
+  form { display: grid; gap: var(--space-control); }
+  input, button { font: inherit; padding: var(--space-control); border-radius: var(--radius-control); }
+  button { color: var(--color-surface); background: var(--color-action); border: 0; }
+  :focus-visible { outline: 3px solid var(--color-action); outline-offset: 3px; }
+</style>
+<main>
+  <h1>Edit profile</h1>
+  <p>This prototype keeps changes in this page only.</p>
+  <form>
+    <label for="name">Display name</label>
+    <input id="name" name="name" value="Morgan Lee" required>
+    <button type="submit">Save profile</button>
+    <p role="status" id="status"></p>
+  </form>
+</main>
+<script>
+  document.querySelector('form').addEventListener('submit', event => {
+    event.preventDefault();
+    document.querySelector('#status').textContent = 'Saved in this prototype.';
+  });
+</script>
+</html>

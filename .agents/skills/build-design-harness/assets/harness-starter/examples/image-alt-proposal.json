@@ -1,0 +1,12 @@
+{
+  "id": "image-alt",
+  "observation": "The image example has no alt attribute; existing checks did not cover it.",
+  "evidence": ["examples/image.html", "runs/image-before.json"],
+  "target": "design/catalog.json",
+  "rule": {
+    "id": "HTML-IMAGE-ALT", "kind": "required-attribute", "scope": ["scenario.profile-edit"],
+    "description": "Images declare alternative text; decorative images may use an empty alt.",
+    "selector": "img", "attribute": "alt", "allowEmpty": true,
+    "fix": "Describe an informative image in alt; use alt=\"\" for a decorative image. Review the meaning separately."
+  }
+}

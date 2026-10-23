@@ -1,0 +1,24 @@
+{
+  "name": "design-harness-starter",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "bin": { "design-harness-mcp": "./mcp.mjs" },
+  "engines": { "node": ">=22" },
+  "scripts": {
+    "test": "node --test test.mjs",
+    "mcp:start": "node mcp.mjs",
+    "design:catalog": "node cli.mjs catalog",
+    "design:resolve": "node cli.mjs resolve",
+    "design:check": "node cli.mjs check",
+    "design:generate": "node cli.mjs generate",
+    "design:drift": "node cli.mjs generate --check",
+    "feedback": "node cli.mjs feedback"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/server": "2.0.0",
+    "parse5": "8.0.1",
+    "zod": "4.6.5"
+  },
+  "devDependencies": { "@modelcontextprotocol/client": "2.0.0" }
+}

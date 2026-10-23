@@ -1,0 +1,38 @@
+{
+  "version": 1,
+  "documents": [
+    {
+      "id": "component.button", "kind": "component", "title": "Native button",
+      "description": "An action control with an explicit native button type.",
+      "refs": [], "skills": [],
+      "details": { "implementation": "examples/profile.html", "element": "button", "states": ["default", "focus"], "navigation": "Use an anchor for navigation." }
+    },
+    {
+      "id": "pattern.edit-form", "kind": "pattern", "title": "Edit form",
+      "description": "Keep the field label, primary action, and outcome in reading order.",
+      "refs": ["component.button"], "skills": [],
+      "details": { "regions": ["heading", "fields", "actions", "status"], "narrow": "Single column; no horizontal overflow." }
+    },
+    {
+      "id": "scenario.profile-edit", "kind": "scenario", "title": "Profile edit",
+      "description": "A member edits their display name in a local prototype.",
+      "refs": ["pattern.edit-form"], "skills": ["design-build", "design-review", "design-improve"],
+      "details": { "artifact": "examples/profile.html", "states": ["default", "invalid", "saved"], "limits": "No backend persistence. Static checks do not verify the interaction." }
+    }
+  ],
+  "rules": [
+    {
+      "id": "HTML-BUTTON-TYPE", "kind": "required-attribute", "scope": ["component.button"],
+      "description": "Buttons declare their intended native behavior.",
+      "selector": "button", "attribute": "type", "allowEmpty": false,
+      "values": ["button", "submit", "reset"],
+      "fix": "Choose type=button, type=submit, or type=reset for the intended action."
+    },
+    {
+      "id": "TASK-FIT", "kind": "manual", "scope": ["pattern.edit-form"],
+      "description": "The intended user can understand the action and its outcome.",
+      "fix": "Render and operate the page, then review it against the brief."
+    }
+  ],
+  "adoptions": []
+}
