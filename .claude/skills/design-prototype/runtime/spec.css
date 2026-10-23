@@ -1,0 +1,78 @@
+/* Rendering for spec.md in the 仕様 tab. */
+.proto-spec {
+  line-height: 1.7;
+  overflow-wrap: anywhere;
+}
+.proto-spec h1,
+.proto-spec h2,
+.proto-spec h3,
+.proto-spec th {
+  font-weight: var(--gdg-weight-heading);
+  line-height: 1.3;
+}
+.proto-spec h1 {
+  margin: 0 0 24px;
+  font-size: var(--gdg-text-2xl);
+}
+.proto-spec h2 {
+  margin: 40px 0 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--gdg-border);
+  font-size: var(--gdg-text-xl);
+}
+.proto-spec h3 {
+  margin: 28px 0 8px;
+  font-size: var(--gdg-text-lg);
+}
+.proto-spec p,
+.proto-spec ul,
+.proto-spec ol {
+  margin: 0 0 12px;
+}
+.proto-spec ul,
+.proto-spec ol {
+  padding-left: 1.5em;
+}
+.proto-spec ul {
+  list-style: disc;
+}
+.proto-spec ol {
+  list-style: decimal;
+}
+.proto-spec li + li {
+  margin-top: 4px;
+}
+.proto-spec table {
+  display: block;
+  max-width: 100%;
+  overflow-x: auto;
+  margin: 0 0 16px;
+  border-collapse: collapse;
+  font-size: var(--gdg-text-sm);
+}
+.proto-spec th,
+.proto-spec td {
+  padding: 6px 10px;
+  border: 1px solid var(--gdg-border);
+  text-align: left;
+  vertical-align: top;
+  /* "anywhere" would shrink short cells such as "US-1" to one character per line. */
+  overflow-wrap: break-word;
+}
+.proto-spec th {
+  background: var(--gdg-neutral);
+}
+/* Headers and the first column hold short labels and IDs (US-1, Who) that read badly when broken. */
+.proto-spec th,
+.proto-spec td:first-child {
+  white-space: nowrap;
+}
+.proto-spec code {
+  font-size: 0.9em;
+}
+.proto-spec pre {
+  overflow-x: auto;
+  padding: 12px;
+  border-radius: var(--gdg-radius-md);
+  background: var(--gdg-neutral);
+}
