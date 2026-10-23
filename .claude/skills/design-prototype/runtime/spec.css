@@ -56,9 +56,16 @@
   border: 1px solid var(--gdg-border);
   text-align: left;
   vertical-align: top;
+  /* "anywhere" would shrink short cells such as "US-1" to one character per line. */
+  overflow-wrap: break-word;
 }
 .proto-spec th {
   background: var(--gdg-neutral);
+}
+/* Headers and the first column hold short labels and IDs (US-1, Who) that read badly when broken. */
+.proto-spec th,
+.proto-spec td:first-child {
+  white-space: nowrap;
 }
 .proto-spec code {
   font-size: 0.9em;
