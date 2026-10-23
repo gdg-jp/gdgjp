@@ -224,6 +224,9 @@ jobs:
           - name: Typecheck screen
             if: contains(fromJSON(needs.changes.outputs.ci), '@gdgjp/screen')
             run: pnpm --filter @gdgjp/screen typecheck
+          - name: Typecheck deck
+            if: contains(fromJSON(needs.changes.outputs.ci), '@gdgjp/deck')
+            run: pnpm --filter @gdgjp/deck typecheck
           - name: Typecheck website
             if: contains(fromJSON(needs.changes.outputs.ci), '@gdgjp/website')
             run: pnpm --filter @gdgjp/website typecheck
@@ -300,6 +303,9 @@ jobs:
           - name: Test screen
             if: contains(fromJSON(needs.changes.outputs.ci), '@gdgjp/screen')
             run: pnpm --filter @gdgjp/screen test
+          - name: Test deck
+            if: contains(fromJSON(needs.changes.outputs.ci), '@gdgjp/deck')
+            run: pnpm --filter @gdgjp/deck test
           - name: Test website
             if: contains(fromJSON(needs.changes.outputs.ci), '@gdgjp/website')
             run: pnpm --filter @gdgjp/website test
@@ -380,6 +386,9 @@ jobs:
           - name: Build screen
             if: contains(fromJSON(needs.changes.outputs.build), '@gdgjp/screen')
             run: pnpm --filter @gdgjp/screen build
+          - name: Build deck
+            if: contains(fromJSON(needs.changes.outputs.build), '@gdgjp/deck')
+            run: pnpm --filter @gdgjp/deck build
           - name: Build website
             if: contains(fromJSON(needs.changes.outputs.build), '@gdgjp/website')
             run: pnpm --filter @gdgjp/website build

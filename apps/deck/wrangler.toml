@@ -1,0 +1,62 @@
+name = "gdgjp-deck"
+main = "./workers/app.ts"
+compatibility_date = "2026-07-28"
+compatibility_flags = ["nodejs_compat"]
+
+[alias]
+"virtual:react-router/server-build" = "./build/server/index.js"
+
+[vars]
+ENVIRONMENT = "production"
+APP_URL = "https://deck.gdgs.jp"
+ACCOUNTS_URL = "https://accounts.gdgs.jp"
+IDP_URL = "https://accounts.gdgs.jp"
+IDP_CLIENT_ID = "deck"
+
+[assets]
+binding = "ASSETS"
+directory = "./build/client"
+# Deck sockets (/ws) must reach the Worker instead of being served as static assets.
+run_worker_first = ["/ws"]
+
+[[routes]]
+pattern = "deck.gdgs.jp"
+custom_domain = true
+
+[durable_objects]
+bindings = [
+  { name = "DECK", class_name = "DeckRoom" },
+]
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["DeckRoom"]
+
+# Relying-party auth tables, decks (layout JSON + dock token) and key images.
+# Live state (dock connection, OBS state, operation log) is in the per-deck
+# DeckRoom Durable Object.
+[[d1_databases]]
+binding = "DB"
+database_name = "gdgjp-deck-db"
+database_id = "41c1f3dc-7338-48d6-9c65-406b132436aa"
+migrations_dir = "./migrations"
+
+# Uploaded key images (decks/<deckId>/<imageId>).
+[[r2_buckets]]
+binding = "IMAGES"
+bucket_name = "gdgjp-deck-images"
+
+# Worker-to-Worker OIDC (discovery, token, UserInfo) stays on Cloudflare's
+# internal network instead of looping through public HTTPS.
+[[services]]
+binding = "ACCOUNTS"
+service = "gdgjp-accounts"
+
+[observability]
+enabled = true
+
+[observability.logs]
+enabled = true
+head_sampling_rate = 1
+persist = true
+invocation_logs = true

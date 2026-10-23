@@ -48,6 +48,13 @@ Applications live in `apps/` and shared libraries in `packages/`. Workspace glob
   and sends cue cards; each slot's camera/screen/mic is a token-gated OBS Browser Source page
   (`/out/<stage>/<slot>/<kind>?t=<token>`). D1 holds auth tables + the stage registry; live state
   is one `StageRoom` Durable Object per stage. The SFU app secret is `REALTIME_APP_TOKEN`.
+- `apps/deck/` is the in-house Stream Deck Mobile replacement for OBS (`deck.gdgs.jp`): chapter
+  members edit a deck (pages, folders, keys running OBS actions, multi-actions) in the PC
+  editor and press keys from a phone PWA (an `apps/accounts/` relying party, chapter-gated); an
+  OBS custom browser dock (`/dock/<deck>?t=<token>`, no login) connects to the local
+  obs-websocket v5 and to the deck's `DeckRoom` Durable Object, so phone and PC need no shared
+  LAN. D1 holds auth tables + decks (layout JSON, versioned) + image rows; key images are in R2
+  (`IMAGES`).
 - `packages/gdg-lib/` is the source-only shared TypeScript package (`@gdgjp/gdg-lib`) for relying-party
   auth and signed-cookie helpers. Keep code app-local unless it is genuinely shared here.
 - `packages/design-system/` is the `gdg-jp/design-system` Git submodule and shared React 19 workspace (`@gdgjp/design-system`).

@@ -30,6 +30,8 @@ MC_CLIENT_ID = "mc"
 MC_REDIRECT_URLS = "https://mc.gdgs.jp/api/auth/callback/gdgjp"
 SCREEN_CLIENT_ID = "screen"
 SCREEN_REDIRECT_URLS = "https://screen.gdgs.jp/api/auth/callback/gdgjp"
+DECK_CLIENT_ID = "deck"
+DECK_REDIRECT_URLS = "https://deck.gdgs.jp/api/auth/callback/gdgjp"
 # gdg-cli userId of the pre-registered gdgagent-svc service account — the only
 # caller allowed to hit api/agents/google-workspace-token. Not sensitive (an
 # opaque user id, not a credential), but set only after that account exists

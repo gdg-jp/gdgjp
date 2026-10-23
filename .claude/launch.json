@@ -38,6 +38,12 @@
       "runtimeExecutable": "pnpm",
       "runtimeArgs": ["--filter", "@gdgjp/img", "dev"],
       "port": 5175
+    },
+    {
+      "name": "deck-dev",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["--filter", "@gdgjp/deck", "dev"],
+      "port": 5189
     }
   ]
 }

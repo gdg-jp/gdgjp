@@ -21,6 +21,7 @@ const CI_WORKSPACES = [
   { directory: "apps/roster", workspace: "@gdgjp/roster", build: true, e2e: true },
   { directory: "apps/mc", workspace: "@gdgjp/mc", build: true, e2e: true },
   { directory: "apps/screen", workspace: "@gdgjp/screen", build: true, e2e: false },
+  { directory: "apps/deck", workspace: "@gdgjp/deck", build: true, e2e: true },
   { directory: "apps/website", workspace: "@gdgjp/website", build: true, e2e: false },
   {
     directory: "apps/live-checkin",
@@ -104,6 +105,12 @@ const DEPLOY_TARGETS = [
     migrate: true,
   },
   {
+    app: "deck",
+    workspace: "@gdgjp/deck",
+    provider: "cloudflare",
+    migrate: true,
+  },
+  {
     app: "website",
     workspace: "@gdgjp/website",
     provider: "cloudflare",
@@ -143,6 +150,7 @@ const GDG_LIB_DEPENDENTS = new Set([
   "roster",
   "mc",
   "screen",
+  "deck",
 ]);
 
 const GLOBAL_INPUTS = new Set([
@@ -226,6 +234,7 @@ export function classifyChanges(files, { forceAll = false } = {}) {
       "roster",
       "mc",
       "screen",
+      "deck",
     ]) {
       affectedDirectories.add(`apps/${directory}`);
     }
