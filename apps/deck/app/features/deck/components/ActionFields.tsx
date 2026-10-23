@@ -1,5 +1,6 @@
-import { FormField, Input, NativeSelect, NativeSelectOption, Textarea } from "@gdgjp/design-system";
+import { FormField, Input, Textarea } from "@gdgjp/design-system";
 import { useId } from "react";
+import { Choice } from "~/components/Choice";
 import {
   ACTION_LABELS,
   ACTION_OPS,
@@ -130,11 +131,15 @@ function ToggleField({
   const [on, off] = TOGGLE_LABELS[op] ?? ["オン", "オフ"];
   return (
     <FormField label="動作">
-      <NativeSelect value={value} onChange={(e) => onChange(e.currentTarget.value as Toggle)}>
-        <NativeSelectOption value="toggle">切り替え</NativeSelectOption>
-        <NativeSelectOption value="on">{on}</NativeSelectOption>
-        <NativeSelectOption value="off">{off}</NativeSelectOption>
-      </NativeSelect>
+      <Choice
+        value={value}
+        onChange={(v) => onChange(v as Toggle)}
+        options={[
+          { value: "toggle", label: "切り替え" },
+          { value: "on", label: on },
+          { value: "off", label: off },
+        ]}
+      />
     </FormField>
   );
 }
@@ -156,16 +161,11 @@ export function ActionFields({
   return (
     <div className="dk-fields">
       <FormField label="操作">
-        <NativeSelect
+        <Choice
           value={action.op}
-          onChange={(e) => onChange(defaultAction(e.currentTarget.value as ActionOp))}
-        >
-          {ACTION_OPS.map((op) => (
-            <NativeSelectOption key={op} value={op}>
-              {ACTION_LABELS[op]}
-            </NativeSelectOption>
-          ))}
-        </NativeSelect>
+          onChange={(v) => onChange(defaultAction(v as ActionOp))}
+          options={ACTION_OPS.map((op) => ({ value: op, label: ACTION_LABELS[op] }))}
+        />
       </FormField>
       <OpFields action={action} obs={obs} scenes={scenes} sources={sources} onChange={onChange} />
       {warnings.map((w) => (
@@ -230,15 +230,14 @@ function OpFields({
             }
           />
           <FormField label="形式">
-            <NativeSelect
+            <Choice
               value={action.format}
-              onChange={(e) =>
-                onChange({ ...action, format: e.currentTarget.value === "jpg" ? "jpg" : "png" })
-              }
-            >
-              <NativeSelectOption value="png">PNG</NativeSelectOption>
-              <NativeSelectOption value="jpg">JPEG</NativeSelectOption>
-            </NativeSelect>
+              onChange={(v) => onChange({ ...action, format: v === "jpg" ? "jpg" : "png" })}
+              options={[
+                { value: "png", label: "PNG" },
+                { value: "jpg", label: "JPEG" },
+              ]}
+            />
           </FormField>
         </>
       );
@@ -253,18 +252,16 @@ function OpFields({
             onChange={(scene) => onChange({ ...action, scene })}
           />
           <FormField label="切り替え先">
-            <NativeSelect
+            <Choice
               value={action.target}
-              onChange={(e) =>
-                onChange({
-                  ...action,
-                  target: e.currentTarget.value === "preview" ? "preview" : "program",
-                })
+              onChange={(v) =>
+                onChange({ ...action, target: v === "preview" ? "preview" : "program" })
               }
-            >
-              <NativeSelectOption value="program">番組（本番）</NativeSelectOption>
-              <NativeSelectOption value="preview">プレビュー（スタジオモード）</NativeSelectOption>
-            </NativeSelect>
+              options={[
+                { value: "program", label: "番組（本番）" },
+                { value: "preview", label: "プレビュー（スタジオモード）" },
+              ]}
+            />
           </FormField>
         </>
       );
@@ -379,16 +376,11 @@ function OpFields({
             onChange={(input) => onChange({ ...action, input })}
           />
           <FormField label="動作">
-            <NativeSelect
+            <Choice
               value={action.media}
-              onChange={(e) => onChange({ ...action, media: e.currentTarget.value as MediaOp })}
-            >
-              {MEDIA_OPS.map((m) => (
-                <NativeSelectOption key={m} value={m}>
-                  {MEDIA_LABELS[m]}
-                </NativeSelectOption>
-              ))}
-            </NativeSelect>
+              onChange={(v) => onChange({ ...action, media: v as MediaOp })}
+              options={MEDIA_OPS.map((m) => ({ value: m, label: MEDIA_LABELS[m] }))}
+            />
           </FormField>
         </>
       );
@@ -403,16 +395,11 @@ function OpFields({
             onChange={(input) => onChange({ ...action, input })}
           />
           <FormField label="動作">
-            <NativeSelect
+            <Choice
               value={action.mode}
-              onChange={(e) => onChange({ ...action, mode: e.currentTarget.value as MuteMode })}
-            >
-              {MUTE_MODES.map((m) => (
-                <NativeSelectOption key={m} value={m}>
-                  {MUTE_LABELS[m]}
-                </NativeSelectOption>
-              ))}
-            </NativeSelect>
+              onChange={(v) => onChange({ ...action, mode: v as MuteMode })}
+              options={MUTE_MODES.map((m) => ({ value: m, label: MUTE_LABELS[m] }))}
+            />
           </FormField>
         </>
       );
@@ -427,17 +414,18 @@ function OpFields({
             onChange={(input) => onChange({ ...action, input })}
           />
           <FormField label="動作">
-            <NativeSelect
+            <Choice
               value={action.mode}
-              onChange={(e) => {
-                const mode = e.currentTarget.value as "step" | "set" | "slider";
+              onChange={(v) => {
+                const mode = v as "step" | "set" | "slider";
                 onChange({ ...action, mode, db: mode === "step" ? 3 : mode === "set" ? -10 : 0 });
               }}
-            >
-              <NativeSelectOption value="step">上げ下げ（± dB）</NativeSelectOption>
-              <NativeSelectOption value="set">指定の音量にする</NativeSelectOption>
-              <NativeSelectOption value="slider">スライダーを開く</NativeSelectOption>
-            </NativeSelect>
+              options={[
+                { value: "step", label: "上げ下げ（± dB）" },
+                { value: "set", label: "指定の音量にする" },
+                { value: "slider", label: "スライダーを開く" },
+              ]}
+            />
           </FormField>
           {action.mode !== "slider" && (
             <FormField

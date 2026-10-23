@@ -153,6 +153,21 @@ export default function Controller({ loaderData }: Route.ComponentProps) {
   }
 
   const disabled = !online || !room?.dockOnline || !room.obs.connected;
+  // Folders get a "back" key by default; offer one on the phone only if it was removed.
+  const needsBack =
+    nav.stack.length > 1 &&
+    !Object.values(page?.keys ?? {}).some((k) => k.behavior.type === "back");
+  const cols = layout?.cols ?? 1;
+  const rows = layout?.rows ?? 1;
+  // Phones reflow the keys in reading order to the screen's orientation (see app.css).
+  const gridVars = {
+    "--dk-cols": cols,
+    "--dk-rows": rows,
+    "--dk-tall-cols": Math.min(cols, rows),
+    "--dk-tall-rows": Math.max(cols, rows),
+    "--dk-wide-cols": Math.max(cols, rows),
+    "--dk-wide-rows": Math.min(cols, rows),
+  } as CSSProperties;
 
   return (
     <div className="dk-controller">
@@ -181,12 +196,25 @@ export default function Controller({ loaderData }: Route.ComponentProps) {
         <StatusChips room={room} online={online} />
       </header>
 
+      {/* Phones hide the header: only problems and a missing way back are shown, over the keys. */}
+      <div className="dk-float">
+        {needsBack && (
+          <IconButton
+            aria-label="戻る"
+            variant="secondary"
+            size="sm"
+            onClick={() => setNav((n) => ({ ...n, stack: n.stack.slice(0, -1) }))}
+          >
+            <Icons name="ChevronLeft" size={18} aria-hidden="true" animateOnHover={false} />
+          </IconButton>
+        )}
+        <span className="dk-spacer" />
+        {disabled && <StatusChips room={room} online={online} />}
+      </div>
+
       <main className="dk-controller-main">
         {layout ? (
-          <div
-            className="dk-grid"
-            style={{ "--dk-cols": layout.cols, "--dk-rows": layout.rows } as CSSProperties}
-          >
+          <div className="dk-grid" style={gridVars}>
             {slots.map((key, i) =>
               key ? (
                 <ControllerKey

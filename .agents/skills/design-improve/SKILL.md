@@ -26,7 +26,7 @@ Changing DESIGN.md's prose or token values is a change to the design system's pu
 
 ## 2. Run statically detectable rules through the feedback CLI
 
-Only the detectors in `sourceRuleSchema` in `harness/core.mjs` are supported (`jsx-required-prop`, `jsx-requires-context`, `jsx-literal-pattern`, `import-policy`).
+Only the detectors in `sourceRuleSchema` in `harness/core.mjs` are supported (`jsx-required-prop`, `jsx-requires-context`, `jsx-forbidden-component`, `jsx-literal-pattern`, `import-policy`).
 
 1. Write a draft JSON (shape in `design/proposals/README.md`). For evidence, point to a file or report that reproduces the violation; copies are saved under `design/proposals/<id>/`.
 2. `pnpm -s design:feedback propose <draft.json>`. At this point it is in neither the rules nor the resolver.

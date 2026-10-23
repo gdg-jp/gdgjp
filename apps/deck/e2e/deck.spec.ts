@@ -192,7 +192,8 @@ async function setup(browser: Browser) {
   const dock = await openDock(browser, deckId, await dockUrl(editor));
   const phone = await signedIn(browser, { mobile: true });
   await phone.goto(`/d/${deckId}`);
-  await expect(phone.getByText("接続中")).toBeVisible();
+  // Keys are enabled once the dock and OBS are both connected.
+  await expect(phone.getByRole("button", { name: "休憩" })).not.toHaveAttribute("data-disabled");
   return { editor, dock, phone, deckId };
 }
 
@@ -222,7 +223,8 @@ test("stream needs a hold; a tap does nothing", async ({ browser }) => {
   await phone.waitForTimeout(1100);
   await phone.mouse.up();
   await expect.poll(() => obs.sent("ToggleStream").length).toBe(1);
-  await expect(phone.locator(".dk-chip", { hasText: "配信" })).toBeVisible();
+  // The key itself shows the live state and the stream timer.
+  await expect(key).toContainText(/\d{2}:\d{2}/);
   await expect(key).toHaveAttribute("aria-pressed", "true");
 });
 
@@ -283,6 +285,22 @@ test("an edit reaches an open phone without a reload", async ({ browser }) => {
   if (key) key.title = "休憩中";
   expect((await saveLayout(editor, deckId, 2, next)).ok()).toBe(true);
   await expect(phone.getByRole("button", { name: "休憩中" })).toBeVisible();
+});
+
+test("on a phone the keys fill a portrait screen without a header", async ({ browser }) => {
+  const { phone } = await setup(browser);
+  await expect(phone.locator(".dk-controller-head")).toBeHidden();
+  // Nothing is wrong, so no status overlay either.
+  await expect(phone.locator(".dk-float .dk-chip")).toHaveCount(0);
+  // The 4 × 2 deck reflows to 2 columns × 4 rows in portrait.
+  const grid = phone.locator(".dk-controller-main .dk-grid");
+  const tracks = await grid.evaluate((el) => {
+    const style = getComputedStyle(el);
+    return [style.gridTemplateColumns, style.gridTemplateRows].map((v) => v.split(" ").length);
+  });
+  expect(tracks).toEqual([2, 4]);
+  const box = await grid.boundingBox();
+  expect(box?.height).toBeGreaterThan(700);
 });
 
 test("the dock refuses a wrong token", async ({ browser }) => {

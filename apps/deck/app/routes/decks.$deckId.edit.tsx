@@ -9,12 +9,11 @@ import {
   IconButton,
   Icons,
   Input,
-  NativeSelect,
-  NativeSelectOption,
   toast,
 } from "@gdgjp/design-system";
 import { type CSSProperties, useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router";
+import { Choice } from "~/components/Choice";
 import { requireDeck } from "~/features/deck/access.server";
 import {
   DeleteDeckDialog,
@@ -250,19 +249,16 @@ export default function Editor({ loaderData }: Route.ComponentProps) {
       <div className="dk-editor">
         <section className="dk-editor-main">
           <div className="dk-toolbar">
-            <NativeSelect
+            <Choice
               aria-label="画面"
               value={board?.id ?? ROOT_BOARD}
-              onChange={(e) => switchBoard(e.currentTarget.value)}
+              onChange={switchBoard}
               className="dk-board-select"
-            >
-              <NativeSelectOption value={ROOT_BOARD}>ホーム</NativeSelectOption>
-              {folders.map((f) => (
-                <NativeSelectOption key={f.id} value={f.id}>
-                  フォルダ: {f.name}
-                </NativeSelectOption>
-              ))}
-            </NativeSelect>
+              options={[
+                { value: ROOT_BOARD, label: "ホーム" },
+                ...folders.map((f) => ({ value: f.id, label: `フォルダ: ${f.name}` })),
+              ]}
+            />
             <Button
               size="sm"
               variant="outline"
@@ -498,33 +494,27 @@ function GridSize({
     <span className="dk-grid-size">
       <span className="dk-grid-size-field">
         <span aria-hidden="true">列</span>
-        <NativeSelect
+        <Choice
           aria-label="列"
-          value={layout.cols}
-          onChange={(e) => onResize(Number(e.currentTarget.value), layout.rows)}
-        >
-          {Array.from({ length: MAX_COLS }, (_, i) => (
-            // biome-ignore lint/suspicious/noArrayIndexKey: numbers.
-            <NativeSelectOption key={i} value={i + 1}>
-              {i + 1}
-            </NativeSelectOption>
-          ))}
-        </NativeSelect>
+          value={String(layout.cols)}
+          onChange={(v) => onResize(Number(v), layout.rows)}
+          options={Array.from({ length: MAX_COLS }, (_, i) => ({
+            value: String(i + 1),
+            label: String(i + 1),
+          }))}
+        />
       </span>
       <span className="dk-grid-size-field">
         <span aria-hidden="true">行</span>
-        <NativeSelect
+        <Choice
           aria-label="行"
-          value={layout.rows}
-          onChange={(e) => onResize(layout.cols, Number(e.currentTarget.value))}
-        >
-          {Array.from({ length: MAX_ROWS }, (_, i) => (
-            // biome-ignore lint/suspicious/noArrayIndexKey: numbers.
-            <NativeSelectOption key={i} value={i + 1}>
-              {i + 1}
-            </NativeSelectOption>
-          ))}
-        </NativeSelect>
+          value={String(layout.rows)}
+          onChange={(v) => onResize(layout.cols, Number(v))}
+          options={Array.from({ length: MAX_ROWS }, (_, i) => ({
+            value: String(i + 1),
+            label: String(i + 1),
+          }))}
+        />
       </span>
     </span>
   );

@@ -13,12 +13,11 @@ import {
   DialogTrigger,
   FormField,
   Input,
-  NativeSelect,
-  NativeSelectOption,
   toast,
 } from "@gdgjp/design-system";
 import { type ReactNode, useEffect, useState } from "react";
 import { useFetcher } from "react-router";
+import { Choice } from "~/components/Choice";
 
 export type ChapterOption = { chapterId: number; chapterSlug: string };
 
@@ -31,13 +30,11 @@ function ChapterSelect({
   }
   return (
     <FormField label="チャプター">
-      <NativeSelect name="chapterId" defaultValue={defaultValue ?? chapters[0]?.chapterId}>
-        {chapters.map((c) => (
-          <NativeSelectOption key={c.chapterId} value={c.chapterId}>
-            {c.chapterSlug}
-          </NativeSelectOption>
-        ))}
-      </NativeSelect>
+      <Choice
+        name="chapterId"
+        defaultValue={String(defaultValue ?? chapters[0]?.chapterId)}
+        options={chapters.map((c) => ({ value: String(c.chapterId), label: c.chapterSlug }))}
+      />
     </FormField>
   );
 }

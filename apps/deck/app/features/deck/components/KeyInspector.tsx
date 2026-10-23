@@ -1,15 +1,6 @@
-import {
-  Button,
-  FormField,
-  IconButton,
-  Icons,
-  Input,
-  NativeSelect,
-  NativeSelectOption,
-  Switch,
-  toast,
-} from "@gdgjp/design-system";
+import { Button, FormField, IconButton, Icons, Input, Switch, toast } from "@gdgjp/design-system";
 import { useRef, useState } from "react";
+import { Choice } from "~/components/Choice";
 import { type ObsAction, defaultAction } from "~/features/obs/actions";
 import type { ObsState } from "~/features/obs/state";
 import { withAction } from "../editing";
@@ -337,19 +328,17 @@ export function KeyInspector({
       </FormField>
 
       <FormField label="種類">
-        <NativeSelect
+        <Choice
           value={b.type}
-          onChange={(e) => {
-            const type = e.currentTarget.value as Behavior["type"];
-            onChange({ ...keyDef, behavior: defaultBehavior(type, layout) });
-          }}
-        >
-          {(Object.keys(BEHAVIOR_LABELS) as Behavior["type"][]).map((t) => (
-            <NativeSelectOption key={t} value={t} disabled={t === "folder" && folders.length === 0}>
-              {BEHAVIOR_LABELS[t]}
-            </NativeSelectOption>
-          ))}
-        </NativeSelect>
+          onChange={(v) =>
+            onChange({ ...keyDef, behavior: defaultBehavior(v as Behavior["type"], layout) })
+          }
+          options={(Object.keys(BEHAVIOR_LABELS) as Behavior["type"][]).map((t) => ({
+            value: t,
+            label: BEHAVIOR_LABELS[t],
+            disabled: t === "folder" && folders.length === 0,
+          }))}
+        />
       </FormField>
 
       {b.type === "action" && (
@@ -385,50 +374,40 @@ export function KeyInspector({
       )}
       {b.type === "folder" && (
         <FormField label="フォルダ">
-          <NativeSelect
+          <Choice
             value={b.board}
-            onChange={(e) =>
-              onChange({ ...keyDef, behavior: { type: "folder", board: e.currentTarget.value } })
-            }
-          >
-            {folders.map((f) => (
-              <NativeSelectOption key={f.id} value={f.id}>
-                {f.name}
-              </NativeSelectOption>
-            ))}
-          </NativeSelect>
+            onChange={(board) => onChange({ ...keyDef, behavior: { type: "folder", board } })}
+            options={folders.map((f) => ({ value: f.id, label: f.name }))}
+          />
         </FormField>
       )}
       {b.type === "page" && (
         <FormField label="移動先">
-          <NativeSelect
+          <Choice
             value={String(b.to)}
-            onChange={(e) => {
-              const v = e.currentTarget.value;
+            onChange={(v) =>
               onChange({
                 ...keyDef,
                 behavior: { type: "page", to: v === "next" || v === "prev" ? v : Number(v) },
-              });
-            }}
-          >
-            <NativeSelectOption value="next">次のページ</NativeSelectOption>
-            <NativeSelectOption value="prev">前のページ</NativeSelectOption>
-            {Array.from({ length: 10 }, (_, i) => (
-              // biome-ignore lint/suspicious/noArrayIndexKey: page numbers.
-              <NativeSelectOption key={i} value={String(i)}>
-                {i + 1} ページ目
-              </NativeSelectOption>
-            ))}
-          </NativeSelect>
+              })
+            }
+            options={[
+              { value: "next", label: "次のページ" },
+              { value: "prev", label: "前のページ" },
+              ...Array.from({ length: 10 }, (_, i) => ({
+                value: String(i),
+                label: `${i + 1} ページ目`,
+              })),
+            ]}
+          />
         </FormField>
       )}
 
       {b.type !== "folder" && b.type !== "back" && b.type !== "page" && (
         <FormField label="誤操作の防止">
-          <NativeSelect
+          <Choice
             value={keyDef.confirm.mode}
-            onChange={(e) => {
-              const mode = e.currentTarget.value;
+            onChange={(mode) => {
               onChange({
                 ...keyDef,
                 confirm:
@@ -439,11 +418,12 @@ export function KeyInspector({
                       : { mode: "none" },
               });
             }}
-          >
-            <NativeSelectOption value="none">なし</NativeSelectOption>
-            <NativeSelectOption value="hold">長押し</NativeSelectOption>
-            <NativeSelectOption value="double">2 回タップ</NativeSelectOption>
-          </NativeSelect>
+            options={[
+              { value: "none", label: "なし" },
+              { value: "hold", label: "長押し" },
+              { value: "double", label: "2 回タップ" },
+            ]}
+          />
         </FormField>
       )}
       {keyDef.confirm.mode === "hold" && (
