@@ -59,7 +59,10 @@ Applications live in `apps/` and shared libraries in `packages/`. Workspace glob
   auth and signed-cookie helpers. Keep code app-local unless it is genuinely shared here.
 - `packages/design-system/` is the `gdg-jp/design-system` Git submodule and shared React 19 workspace (`@gdgjp/design-system`).
   Initialize it with `git submodule update --init packages/design-system` before installing dependencies. It is independent of
-  application routing, authentication, and data fetching.
+  application routing, authentication, and data fetching. Its `DESIGN.md` `## Harness` section is
+  the entrypoint for the design harness: contracts in `design/`, `pnpm --filter @gdgjp/design-system
+  design:*` checks, the `gdg-design` MCP server, and the `design-build` / `design-review` /
+  `design-improve` Skills.
 - `apps/agents-index/` is the local, ACL-filtered semantic navigation MCP service for the shared wiki
   worktree. Its results must never include indexed document text.
 - `apps/tinyurl-gateway/` is a Vercel Edge gateway for TinyURL custom domains.

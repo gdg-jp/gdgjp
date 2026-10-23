@@ -26,6 +26,7 @@ Implement GDG Apps screens with the official `@gdgjp/design-system` design langu
 ## Completion criteria
 
 - Verify Light/Dark themes, keyboard behavior, focus, narrow widths, long Japanese text, and loading/empty/error/success states as relevant to the change.
+- Run `pnpm --filter @gdgjp/design-system -s design:check-source <file>` on changed screen files; it applies the design harness's static rules (see `packages/design-system/DESIGN.md` `## Harness`). Treat a reported wrapper false positive as a finding to report, not a reason to restructure working code.
 - Run the target app's focused tests and typecheck first, and run Playwright for user-facing changes. If shared-package imports, exports, or CSS usage change, also verify the `@gdgjp/design-system` consumer contract.
 - When updating snapshots, inspect the images and confirm that only intended differences are present. Do not treat axe or passing tests alone as a substitute for visual and interaction review.
 - At handoff, explicitly list changed files, validations run, unverified items, and any library-defect report.
