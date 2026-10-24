@@ -288,7 +288,8 @@ export function classifyChanges(files, { forceAll = false } = {}) {
         /^apps\/agent-host\//.test(file) ||
         /^apps\/agents-index\//.test(file) ||
         /^apps\/cli\/internal\/wiki\/hooks\//.test(file) ||
-        /^scripts\/install-gdg-agent-host\.sh$/.test(file),
+        file === ".github/scripts/shell-allowlist.txt" ||
+        file.endsWith(".sh"),
     ),
     cli:
       ciGlobal ||

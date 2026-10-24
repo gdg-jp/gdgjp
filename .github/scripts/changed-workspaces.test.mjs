@@ -151,6 +151,8 @@ test("gates script-tests on workflow scripts and agent-host components", () => {
   assert.equal(classifyChanges(["apps/accounts/src/index.ts"]).scriptTests, false);
   assert.equal(classifyChanges(["scripts/check-ui-conventions.mjs"]).scriptTests, true);
   assert.equal(classifyChanges(["scripts/run-ci.mjs"]).scriptTests, true);
+  assert.equal(classifyChanges([".github/scripts/shell-allowlist.txt"]).scriptTests, true);
+  assert.equal(classifyChanges(["apps/screen/scripts/dfn/build.sh"]).scriptTests, true);
   assert.equal(classifyChanges(["scripts/run-go-ci.mjs"]).scriptTests, true);
   assert.equal(classifyChanges(["packages/gdg-lib/scripts/build-acl.mjs"]).scriptTests, true);
   assert.equal(
