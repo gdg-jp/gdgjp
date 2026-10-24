@@ -9,7 +9,6 @@ import {
   FormField,
   Icons,
   Input,
-  Label,
 } from "@gdgjp/design-system";
 import type { ReactNode } from "react";
 import type { UserChapter } from "~/features/auth/chapter.server";
@@ -52,8 +51,12 @@ export function CampaignDialog({
             chapters={chapters}
             defaultChapterIds={chapters.slice(0, 1).map((chapter) => chapter.chapterId)}
           />
-          <div className="space-y-2">
-            <Label htmlFor="campaign-code">Short code</Label>
+          <FormField
+            id="campaign-code"
+            label={<>Short code</>}
+            description="Letters, numbers, underscores, and hyphens. Saved in lowercase."
+            required
+          >
             <Input
               id="campaign-code"
               name="code"
@@ -63,22 +66,19 @@ export function CampaignDialog({
               placeholder="df26"
               className="font-mono"
             />
-            <p className="text-xs text-muted">
-              Letters, numbers, underscores, and hyphens. Saved in lowercase.
-            </p>
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="campaign-destination">Default Destination URL</Label>
+          </FormField>
+          <FormField
+            id="campaign-destination"
+            label={<>Default Destination URL</>}
+            description="Optional. Prefills the destination for links created in this campaign."
+          >
             <Input
               id="campaign-destination"
               name="defaultDestinationUrl"
               type="url"
               placeholder="https://example.com/event"
             />
-            <p className="text-xs text-muted">
-              Optional. Prefills the destination for links created in this campaign.
-            </p>
-          </div>
+          </FormField>
           {error ? (
             <Alert tone="danger" title="Error">
               {error}

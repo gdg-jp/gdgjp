@@ -1,4 +1,11 @@
-import { FormField, NativeSelect, NativeSelectOption } from "@gdgjp/design-system";
+import {
+  FormField,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@gdgjp/design-system";
 import {
   LEVELS,
   LEVEL_DESCRIPTIONS,
@@ -51,30 +58,40 @@ export function RoleSkillRow({
       {selected ? (
         <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
           <FormField id={`level-${role.id}`} label="経験レベル">
-            <NativeSelect
+            <Select
               name={`level_${role.id}`}
               value={level}
-              onChange={(e) => onLevelChange(e.target.value as Level)}
+              onValueChange={(value) => onLevelChange(value as Level)}
             >
-              {LEVELS.map((l) => (
-                <NativeSelectOption key={l} value={l}>
-                  {LEVEL_LABELS[l]} — {LEVEL_DESCRIPTIONS[l]}
-                </NativeSelectOption>
-              ))}
-            </NativeSelect>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {LEVELS.map((l) => (
+                  <SelectItem key={l} value={l}>
+                    {LEVEL_LABELS[l]} — {LEVEL_DESCRIPTIONS[l]}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </FormField>
           <FormField id={`pref-${role.id}`} label="希望度">
-            <NativeSelect
+            <Select
               name={`pref_${role.id}`}
-              value={pref}
-              onChange={(e) => onPrefChange(Number(e.target.value) as Pref)}
+              value={String(pref)}
+              onValueChange={(value) => onPrefChange(Number(value) as Pref)}
             >
-              {PREFS.map((p) => (
-                <NativeSelectOption key={p} value={p}>
-                  {PREF_LABELS[p]}
-                </NativeSelectOption>
-              ))}
-            </NativeSelect>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {PREFS.map((p) => (
+                  <SelectItem key={p} value={String(p)}>
+                    {PREF_LABELS[p]}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </FormField>
         </div>
       ) : null}

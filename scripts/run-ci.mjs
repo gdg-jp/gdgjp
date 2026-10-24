@@ -351,7 +351,7 @@ export function changedSteps(mode, files) {
     ]);
   }
 
-  if (relevantFiles.some(isDesignSourceFile)) {
+  if (relevantFiles.some((file) => isDesignSourceFile(file))) {
     // Existing app code predates the harness; only touched files must pass.
     steps.push(["design-harness:source", "node scripts/check-design-harness.mjs source --staged"]);
   }

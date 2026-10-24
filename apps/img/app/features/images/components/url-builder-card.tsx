@@ -121,7 +121,7 @@ export function UrlBuilderCard({ image, appUrl }: { image: BuilderImage; appUrl:
       </div>
       <div className="flex flex-col gap-4">
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <Control label="Width">
+          <FormField label="Width">
             <Select value={width} onValueChange={setWidth}>
               <SelectTrigger>
                 <SelectValue />
@@ -135,16 +135,16 @@ export function UrlBuilderCard({ image, appUrl }: { image: BuilderImage; appUrl:
                 ))}
               </SelectContent>
             </Select>
-          </Control>
-          <Control label="Height">
+          </FormField>
+          <FormField label="Height">
             <Input
               value={height}
               onChange={(event) => setHeight(event.target.value.replace(/\D/g, "").slice(0, 4))}
               inputMode="numeric"
               placeholder="Auto"
             />
-          </Control>
-          <Control label="Fit">
+          </FormField>
+          <FormField label="Fit">
             <Select value={fit} onValueChange={(value) => setFit(value as typeof fit)}>
               <SelectTrigger>
                 <SelectValue />
@@ -157,16 +157,16 @@ export function UrlBuilderCard({ image, appUrl }: { image: BuilderImage; appUrl:
                 ))}
               </SelectContent>
             </Select>
-          </Control>
-          <Control label="Corner radius">
+          </FormField>
+          <FormField label="Corner radius">
             <Input
               value={radius}
               onChange={(event) => setRadius(event.target.value.replace(/\D/g, "").slice(0, 4))}
               inputMode="numeric"
               placeholder="None"
             />
-          </Control>
-          <Control label="Quality">
+          </FormField>
+          <FormField label="Quality">
             <Select value={quality} onValueChange={setQuality}>
               <SelectTrigger>
                 <SelectValue />
@@ -180,8 +180,8 @@ export function UrlBuilderCard({ image, appUrl }: { image: BuilderImage; appUrl:
                 ))}
               </SelectContent>
             </Select>
-          </Control>
-          <Control label="Format">
+          </FormField>
+          <FormField label="Format">
             <Select value={format} onValueChange={(value) => setFormat(value as typeof format)}>
               <SelectTrigger>
                 <SelectValue />
@@ -194,8 +194,8 @@ export function UrlBuilderCard({ image, appUrl }: { image: BuilderImage; appUrl:
                 ))}
               </SelectContent>
             </Select>
-          </Control>
-          <Control label="DPR">
+          </FormField>
+          <FormField label="DPR">
             <Select value={dpr} onValueChange={setDpr}>
               <SelectTrigger>
                 <SelectValue />
@@ -208,9 +208,9 @@ export function UrlBuilderCard({ image, appUrl }: { image: BuilderImage; appUrl:
                 ))}
               </SelectContent>
             </Select>
-          </Control>
+          </FormField>
           {image.mobile ? (
-            <Control label="Variant">
+            <FormField label="Variant">
               <Select value={variant} onValueChange={setVariant}>
                 <SelectTrigger>
                   <SelectValue />
@@ -220,7 +220,7 @@ export function UrlBuilderCard({ image, appUrl }: { image: BuilderImage; appUrl:
                   <SelectItem value="mobile">Mobile</SelectItem>
                 </SelectContent>
               </Select>
-            </Control>
+            </FormField>
           ) : null}
         </div>
         {nonCanonical ? (
@@ -267,8 +267,4 @@ export function UrlBuilderCard({ image, appUrl }: { image: BuilderImage; appUrl:
       </div>
     </Card>
   );
-}
-
-function Control({ label, children }: { label: string; children: React.ReactNode }) {
-  return <FormField label={label}>{children}</FormField>;
 }

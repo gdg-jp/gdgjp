@@ -139,7 +139,7 @@ export default function TeamManager({ teams, taskListId, onRefresh }: TeamManage
           >
             <div
               className="h-4 w-4 flex-shrink-0 rounded-full"
-              style={{ backgroundColor: team.color ?? "#6b7280" }} // design-token-policy: allow-dynamic-color
+              style={{ backgroundColor: team.color ?? "var(--gdg-muted)" }} // design-token-policy: allow-dynamic-color
             />
             <span className="flex-1 text-sm">{team.name}</span>
             <button

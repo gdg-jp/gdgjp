@@ -171,6 +171,7 @@ function DimensionList({
     <div className="flex flex-col">
       <div className="flex items-center gap-2 border-b px-3 py-2 sm:py-2">
         <Input
+          aria-label="Filter"
           placeholder="Filter…"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
@@ -272,6 +273,7 @@ function ValuePicker({
       </div>
       <div className="border-b px-3 py-2">
         <Input
+          aria-label={`Filter ${DIMENSION_LABELS[dim].toLowerCase()}`}
           placeholder={`Filter ${DIMENSION_LABELS[dim].toLowerCase()}…`}
           value={query}
           onChange={(e) => setQuery(e.target.value)}

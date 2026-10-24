@@ -3,8 +3,11 @@ import {
   Button,
   FormField,
   Input,
-  NativeSelect,
-  NativeSelectOption,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
   Textarea,
 } from "@gdgjp/design-system";
 import { useState } from "react";
@@ -198,13 +201,18 @@ export function ApplyForm({
 
       {hasParty ? (
         <FormField id="apply-party" label="懇親会">
-          <NativeSelect name="party" defaultValue={own?.party ?? DEFAULT_PARTY}>
-            {PARTY_STATUSES.map((status) => (
-              <NativeSelectOption key={status} value={status}>
-                {PARTY_LABELS[status]}
-              </NativeSelectOption>
-            ))}
-          </NativeSelect>
+          <Select name="party" defaultValue={own?.party ?? DEFAULT_PARTY}>
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {PARTY_STATUSES.map((status) => (
+                <SelectItem key={status} value={status}>
+                  {PARTY_LABELS[status]}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </FormField>
       ) : null}
 

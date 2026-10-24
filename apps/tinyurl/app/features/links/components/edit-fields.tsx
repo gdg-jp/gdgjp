@@ -161,6 +161,7 @@ export function ShareForm({ chapters }: { chapters: UserChapter[] }) {
         <Input
           type="email"
           name="principalId"
+          aria-label="Email address"
           placeholder="alice@example.com"
           required
           value={email}

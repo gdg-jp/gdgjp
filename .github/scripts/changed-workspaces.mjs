@@ -302,7 +302,7 @@ export function classifyChanges(files, { forceAll = false } = {}) {
     agentHostWorkspace: normalizedFiles.some((file) =>
       file.startsWith("apps/agent-host/workspace/"),
     ),
-    designSource: normalizedFiles.some(isDesignSourceFile),
+    designSource: normalizedFiles.some((file) => isDesignSourceFile(file)),
     full: false,
   };
 }

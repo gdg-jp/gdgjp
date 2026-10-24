@@ -321,7 +321,9 @@ function CreateLinkForm({
 
           <div className="space-y-2">
             <div className="flex items-center justify-between">
-              <Label htmlFor="create-slug">Short Link</Label>
+              <Label id="create-slug-label" htmlFor="create-slug">
+                Short Link
+              </Label>
               <IconButton
                 type="button"
                 variant="ghost"
@@ -403,6 +405,7 @@ function CreateLinkForm({
               </div>
               <Input
                 id="create-slug"
+                aria-labelledby="create-slug-label"
                 name="slug"
                 placeholder="auto-generated if blank"
                 pattern="[a-zA-Z0-9_\-]{1,64}"
@@ -553,6 +556,7 @@ function CreateLinkForm({
                 <Input
                   type="email"
                   name="sharePrincipalId"
+                  aria-label="Email address"
                   placeholder="alice@example.com"
                   value={sharePrincipalId}
                   onChange={(e) => setSharePrincipalId(e.target.value)}

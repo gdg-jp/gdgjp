@@ -12,7 +12,6 @@ import {
   Icons,
   Inline,
   Input,
-  Label,
   Text,
 } from "@gdgjp/design-system";
 import { useState } from "react";
@@ -60,14 +59,12 @@ export function SlugCard({ image }: { image: { id: string; slug: string | null }
           }}
           className="flex flex-col gap-2"
         >
-          <Label htmlFor="slug" className="sr-only">
-            Custom slug
-          </Label>
           <div className="flex flex-wrap items-center gap-2">
             <span className="text-sm text-muted">img.gdgs.jp/</span>
             <Input
               id="slug"
               name="slug"
+              aria-label="Custom slug"
               value={slug}
               onChange={(event) => setSlug(event.target.value)}
               placeholder="my-image"

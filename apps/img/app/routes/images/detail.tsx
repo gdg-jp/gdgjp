@@ -1,4 +1,4 @@
-import { Button, Card, Heading, Input, Label, PageHeader, Stack, Text } from "@gdgjp/design-system";
+import { Button, Card, Heading, Input, PageHeader, Stack, Text } from "@gdgjp/design-system";
 import { Link } from "react-router";
 import { ChapterCard } from "~/features/images/components/chapter-card";
 import { FolderCard } from "~/features/images/components/folder-card";
@@ -53,17 +53,17 @@ export default function ImageDetailPage({ loaderData }: Route.ComponentProps) {
               <code>?f=original</code> to retrieve the unmodified file.
             </p>
             <div className="flex items-center gap-2">
-              <Label htmlFor="public-url" className="sr-only">
-                Public URL
-              </Label>
-              <Input id="public-url" readOnly value={publicUrl} />
+              <Input id="public-url" aria-label="Public URL" readOnly value={publicUrl} />
             </div>
             {image.slug ? (
               <div className="flex items-center gap-2">
-                <Label htmlFor="id-url" className="sr-only">
-                  Id URL
-                </Label>
-                <Input id="id-url" readOnly value={idUrl} className="text-muted" />
+                <Input
+                  id="id-url"
+                  aria-label="Id URL"
+                  readOnly
+                  value={idUrl}
+                  className="text-muted"
+                />
               </div>
             ) : null}
           </div>

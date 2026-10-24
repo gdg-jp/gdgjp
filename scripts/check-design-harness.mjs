@@ -6,7 +6,8 @@
 //   source FILE...               static source rules on the given app TSX files
 //
 // Source rules only cover changed files: existing app code predates the harness, so a file
-// must satisfy the rules once it is touched (a ratchet), not before.
+// must satisfy the rules once it is touched (a ratchet), not before. Apps that do not depend on
+// @gdgjp/design-system are not built with it, so its rules do not apply to them.
 import { spawnSync } from "node:child_process";
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { join, resolve } from "node:path";
@@ -17,8 +18,27 @@ const UI_DIRECTORY = "packages/design-system";
 const appSourcePattern = /^apps\/[^/]+\/app\/.+\.tsx$/;
 const testSourcePattern = /\.(?:test|spec)\.tsx$/;
 
-export function isDesignSourceFile(path) {
-  return appSourcePattern.test(path) && !testSourcePattern.test(path);
+const usesDesignSystem = new Map();
+
+function appUsesDesignSystem(app, cwd) {
+  const key = join(cwd, app);
+  if (!usesDesignSystem.has(key)) {
+    let uses = false;
+    try {
+      const pkg = JSON.parse(readFileSync(join(key, "package.json"), "utf8"));
+      uses = Boolean(pkg.dependencies?.["@gdgjp/design-system"]);
+    } catch {}
+    usesDesignSystem.set(key, uses);
+  }
+  return usesDesignSystem.get(key);
+}
+
+export function isDesignSourceFile(path, cwd = repositoryRoot) {
+  return (
+    appSourcePattern.test(path) &&
+    !testSourcePattern.test(path) &&
+    appUsesDesignSystem(path.split("/").slice(0, 2).join("/"), cwd)
+  );
 }
 
 function git(args, cwd) {
@@ -86,7 +106,7 @@ async function runSource(options, cwd) {
       : options.mode === "diff"
         ? changedPaths([options.base, options.head], cwd)
         : options.files;
-  const files = paths.filter(isDesignSourceFile);
+  const files = paths.filter((path) => isDesignSourceFile(path, cwd));
   if (files.length === 0) return 0;
 
   const harnessUrl = (path) => pathToFileURL(join(cwd, UI_DIRECTORY, "harness", path)).href;

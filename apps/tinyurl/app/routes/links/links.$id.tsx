@@ -287,7 +287,9 @@ export default function EditLink({ loaderData, actionData }: Route.ComponentProp
             {/* Short Link */}
             <div className="space-y-2">
               <div className="flex items-center justify-between">
-                <Label htmlFor="slug">Short Link</Label>
+                <Label id="slug-label" htmlFor="slug">
+                  Short Link
+                </Label>
                 {editable ? (
                   <AlertDialog open={slugDialogOpen} onOpenChange={setSlugDialogOpen}>
                     <AlertDialogTrigger asChild>
@@ -350,6 +352,7 @@ export default function EditLink({ loaderData, actionData }: Route.ComponentProp
                 </Select>
                 <Input
                   id="slug"
+                  aria-labelledby="slug-label"
                   value={draft.slug}
                   onChange={(e) => setField("slug", e.target.value)}
                   pattern="[a-zA-Z0-9_\-]{1,64}"

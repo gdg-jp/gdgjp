@@ -209,7 +209,8 @@ test("multi-sheet availability, generation history, and publishing stay scoped t
   await page.fill('input[name="startTime"]', "19:00");
   await page.fill('input[name="endTime"]', "21:00");
   await page.getByText("詳細設定").click();
-  await page.selectOption('select[name="stepMin"]', "60");
+  await page.getByRole("combobox", { name: "時間枠の刻み幅" }).click();
+  await page.getByRole("option", { name: "60分" }).click();
   // Every registrant is a newcomer; see createEventWithDemand for why this rule must be off.
   await page.getByRole("checkbox", { name: "新人を単独の時間枠に割り当てない" }).uncheck();
   await page.getByRole("button", { name: "シフト表を作成" }).click();

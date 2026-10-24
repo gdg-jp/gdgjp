@@ -11,7 +11,6 @@ import {
   FormField,
   Icons,
   Input,
-  Label,
   Skeleton,
   Stack,
 } from "@gdgjp/design-system";
@@ -192,8 +191,11 @@ export function EditCampaignDialog({
               className="font-mono"
             />
           </FormField>
-          <div className="space-y-2">
-            <Label htmlFor={`campaign-destination-${campaign.id}`}>Default Destination URL</Label>
+          <FormField
+            id={`campaign-destination-${campaign.id}`}
+            label={<>Default Destination URL</>}
+            description="Used to prefill new links in every channel. Leave blank for no default."
+          >
             <Input
               id={`campaign-destination-${campaign.id}`}
               name="defaultDestinationUrl"
@@ -201,10 +203,7 @@ export function EditCampaignDialog({
               defaultValue={campaign.defaultDestinationUrl ?? ""}
               placeholder="https://example.com/event"
             />
-            <p className="text-xs text-muted">
-              Used to prefill new links in every channel. Leave blank for no default.
-            </p>
-          </div>
+          </FormField>
           {error ? (
             <Alert tone="danger" title="Error">
               {error}

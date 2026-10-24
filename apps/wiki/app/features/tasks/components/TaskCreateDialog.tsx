@@ -199,11 +199,16 @@ export default function TaskCreateDialog({
           </div>
 
           <div>
-            <label htmlFor="task-due" className="mb-1 block text-sm font-medium text-muted">
+            <label
+              id="task-due-label"
+              htmlFor="task-due"
+              className="mb-1 block text-sm font-medium text-muted"
+            >
               {t("tasks.col_due_date")}
             </label>
             <Input
               id="task-due"
+              aria-labelledby="task-due-label"
               type="date"
               value={dueDate}
               onChange={(e) => setDueDate(e.target.value)}

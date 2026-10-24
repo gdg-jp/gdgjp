@@ -203,11 +203,9 @@ export default function Navbar({
 
       {/* Search */}
       <Form action="/search" method="get" className="flex min-w-0 flex-1 justify-center">
-        <label htmlFor="wiki-search" className="gdg-sr-only">
-          {t("nav.search")}
-        </label>
         <Input
           id="wiki-search"
+          aria-label={t("nav.search")}
           name="q"
           type="search"
           value={queryInput}

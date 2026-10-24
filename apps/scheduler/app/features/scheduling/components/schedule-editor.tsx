@@ -1,4 +1,15 @@
-import { Card, FormField, IconButton, Icons, NativeSelect, Stack } from "@gdgjp/design-system";
+import {
+  Card,
+  FormField,
+  IconButton,
+  Icons,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+  Stack,
+} from "@gdgjp/design-system";
 import { type ReactNode, useMemo, useState } from "react";
 import { SlotPillGrid } from "~/features/scheduling/components/slot-pill-grid";
 import {
@@ -38,18 +49,22 @@ export function ScheduleEditor({
       <Stack className="gap-6">
         {children}
         <FormField id="slot_minutes" label="Meeting length">
-          <NativeSelect
-            id="slot_minutes"
+          <Select
             name="slot_minutes"
-            value={minutes}
-            onChange={(e) => setMinutes(Number.parseInt(e.target.value, 10))}
+            value={String(minutes)}
+            onValueChange={(value) => setMinutes(Number.parseInt(value, 10))}
           >
-            {MEETING_LENGTH_OPTIONS.map((o) => (
-              <option key={o.value} value={o.value}>
-                {o.label}
-              </option>
-            ))}
-          </NativeSelect>
+            <SelectTrigger id="slot_minutes">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {MEETING_LENGTH_OPTIONS.map((o) => (
+                <SelectItem key={o.value} value={String(o.value)}>
+                  {o.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </FormField>
 
         <div className="flex flex-col gap-2">
@@ -179,30 +194,33 @@ function TimeSelect({
   value,
   onChange,
   invalid,
-  ...rest
+  "aria-label": ariaLabel,
 }: {
   name: string;
   value: string;
   onChange: (next: string) => void;
   invalid?: boolean;
-} & Omit<React.ComponentProps<"select">, "value" | "onChange" | "name">) {
+  "aria-label": string;
+}) {
   const includesValue = TIME_OPTIONS.includes(value);
   return (
-    <NativeSelect
-      name={name}
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      aria-invalid={invalid || undefined}
-      className="tabular-nums"
-      {...rest}
-    >
-      {!includesValue && <option value={value}>{value}</option>}
-      {TIME_OPTIONS.map((t) => (
-        <option key={t} value={t}>
-          {t}
-        </option>
-      ))}
-    </NativeSelect>
+    <Select name={name} value={value} onValueChange={onChange}>
+      <SelectTrigger
+        aria-label={ariaLabel}
+        aria-invalid={invalid || undefined}
+        className="tabular-nums"
+      >
+        <SelectValue />
+      </SelectTrigger>
+      <SelectContent>
+        {!includesValue && <SelectItem value={value}>{value}</SelectItem>}
+        {TIME_OPTIONS.map((t) => (
+          <SelectItem key={t} value={t}>
+            {t}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
   );
 }
 

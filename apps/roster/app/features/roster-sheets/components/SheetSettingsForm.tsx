@@ -9,8 +9,11 @@ import {
   Checkbox,
   FormField,
   Input,
-  NativeSelect,
-  NativeSelectOption,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
 } from "@gdgjp/design-system";
 import { useRef, useState } from "react";
 import { Form } from "react-router";
@@ -103,13 +106,18 @@ export function SheetSettingsForm({
           <Input name="endTime" type="time" defaultValue={sheet.endTime} required />
         </FormField>
         <FormField id="sheet-step-edit" label="時間枠の刻み幅" required>
-          <NativeSelect name="stepMin" defaultValue={String(sheet.stepMin)} required>
-            {STEPS.map((step) => (
-              <NativeSelectOption key={step} value={step}>
-                {step}分
-              </NativeSelectOption>
-            ))}
-          </NativeSelect>
+          <Select name="stepMin" defaultValue={String(sheet.stepMin)} required>
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {STEPS.map((step) => (
+                <SelectItem key={step} value={String(step)}>
+                  {step}分
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </FormField>
         <FormField id="sheet-max-consecutive-edit" label="連続担当の上限" required>
           <Input

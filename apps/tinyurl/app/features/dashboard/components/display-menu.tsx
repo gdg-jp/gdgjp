@@ -5,10 +5,14 @@ import {
   Icons,
   Inline,
   Label,
-  NativeSelect,
   Popover,
   PopoverContent,
   PopoverTrigger,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
   Stack,
   Switch,
   ToggleGroup,
@@ -94,17 +98,19 @@ export function DashboardDisplayMenu({
             </ToggleGroup>
           </fieldset>
           <FormField label="Ordering" id="link-ordering">
-            <NativeSelect
+            <Select
               value={sort}
-              onChange={(event) =>
-                onSortChange(event.target.value as "newest" | "oldest" | "mostClicks")
-              }
-              onKeyDown={(event) => event.stopPropagation()}
+              onValueChange={(value) => onSortChange(value as "newest" | "oldest" | "mostClicks")}
             >
-              <option value="newest">Date created · newest</option>
-              <option value="oldest">Date created · oldest</option>
-              <option value="mostClicks">Analytics · most clicks</option>
-            </NativeSelect>
+              <SelectTrigger onKeyDown={(event) => event.stopPropagation()}>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="newest">Date created · newest</SelectItem>
+                <SelectItem value="oldest">Date created · oldest</SelectItem>
+                <SelectItem value="mostClicks">Analytics · most clicks</SelectItem>
+              </SelectContent>
+            </Select>
           </FormField>
           <Label className="flex items-center justify-between gap-3">
             Show archived links

@@ -9,8 +9,11 @@ import {
   IconButton,
   Icons,
   Input,
-  NativeSelect,
-  NativeSelectOption,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
   Sheet,
   SheetContent,
   SheetDescription,
@@ -63,6 +66,7 @@ export function ClipEditorProvider({ children }: { children: ReactNode }) {
 }
 
 const COMMON = "common";
+const FIRST = "__first__";
 
 function groupOf(track: string | null): string {
   return track ?? COMMON;
@@ -293,30 +297,44 @@ function EditorBody({ mode, onDone }: { mode: EditorMode; onDone: () => void }) 
 
       <div className="mc-editor-row">
         <FormField label="トラック">
-          <NativeSelect
+          <Select
             value={group}
-            onChange={(e) => {
-              setGroup(e.target.value);
-              setAfter(lastOf(e.target.value));
+            onValueChange={(value) => {
+              setGroup(value);
+              setAfter(lastOf(value));
             }}
           >
-            {tracks.map((t) => (
-              <NativeSelectOption key={t} value={t}>
-                {t}
-              </NativeSelectOption>
-            ))}
-            <NativeSelectOption value={COMMON}>共通</NativeSelectOption>
-          </NativeSelect>
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {tracks.map((t) => (
+                <SelectItem key={t} value={t}>
+                  {t}
+                </SelectItem>
+              ))}
+              <SelectItem value={COMMON}>共通</SelectItem>
+            </SelectContent>
+          </Select>
         </FormField>
         <FormField label="位置" className="mc-editor-after">
-          <NativeSelect value={after} onChange={(e) => setAfter(e.target.value)}>
-            <NativeSelectOption value="">先頭</NativeSelectOption>
-            {groupClips(group).map((c) => (
-              <NativeSelectOption key={c.id} value={c.id}>
-                {c.uploaded ? c.title : `${c.id} ${c.title}`} の後
-              </NativeSelectOption>
-            ))}
-          </NativeSelect>
+          {/* Radix Select items cannot use "" as a value; FIRST stands for "no predecessor". */}
+          <Select
+            value={after || FIRST}
+            onValueChange={(value) => setAfter(value === FIRST ? "" : value)}
+          >
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={FIRST}>先頭</SelectItem>
+              {groupClips(group).map((c) => (
+                <SelectItem key={c.id} value={c.id}>
+                  {c.uploaded ? c.title : `${c.id} ${c.title}`} の後
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </FormField>
       </div>
 

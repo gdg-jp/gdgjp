@@ -4,7 +4,11 @@ import {
   Icons,
   Inline,
   Label,
-  NativeSelect,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
   Skeleton,
   Stack,
 } from "@gdgjp/design-system";
@@ -289,6 +293,8 @@ export function CampaignAnalyticsPanel({
   );
 }
 
+const ALL_SCOPE = "all";
+
 export function CampaignScopeFilters({
   channels,
   selectedChannelId,
@@ -331,36 +337,43 @@ export function CampaignScopeFilters({
     >
       <div className="min-w-0 space-y-1 sm:min-w-48">
         <Label htmlFor="analytics-channels">Channel</Label>
-        <NativeSelect
-          id="analytics-channels"
-          value={selectedChannelId ?? ""}
-          onChange={(event) => setScope("channelId", event.target.value)}
-          className="h-9 w-full rounded-md border bg-background px-3 text-sm"
+        {/* Radix Select items cannot use "" as a value; ALL_SCOPE stands for "no filter". */}
+        <Select
+          value={selectedChannelId ? String(selectedChannelId) : ALL_SCOPE}
+          onValueChange={(value) => setScope("channelId", value === ALL_SCOPE ? "" : value)}
         >
-          <option value="">All channels</option>
-          {channels.map((item) => (
-            <option key={item.id} value={item.id}>
-              {item.name}
-              {item.archivedAt !== null ? " (Archived)" : ""}
-            </option>
-          ))}
-        </NativeSelect>
+          <SelectTrigger id="analytics-channels" className="w-full">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value={ALL_SCOPE}>All channels</SelectItem>
+            {channels.map((item) => (
+              <SelectItem key={item.id} value={String(item.id)}>
+                {item.name}
+                {item.archivedAt !== null ? " (Archived)" : ""}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
       <div className="min-w-0 flex-1 space-y-1 sm:min-w-56">
         <Label htmlFor="analytics-link">Link</Label>
-        <NativeSelect
-          id="analytics-link"
-          value={selectedLinkId ?? ""}
-          onChange={(event) => setScope("linkId", event.target.value)}
-          className="h-9 w-full rounded-md border bg-background px-3 text-sm"
+        <Select
+          value={selectedLinkId ? String(selectedLinkId) : ALL_SCOPE}
+          onValueChange={(value) => setScope("linkId", value === ALL_SCOPE ? "" : value)}
         >
-          <option value="">All links</option>
-          {links.map((link) => (
-            <option key={link.id} value={link.id}>
-              {link.channelName} / {shortUrlBase}/{link.slug}
-            </option>
-          ))}
-        </NativeSelect>
+          <SelectTrigger id="analytics-link" className="w-full">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value={ALL_SCOPE}>All links</SelectItem>
+            {links.map((link) => (
+              <SelectItem key={link.id} value={String(link.id)}>
+                {link.channelName} / {shortUrlBase}/{link.slug}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
       {selectedChannelId || selectedLinkId ? (
         <Button type="button" variant="ghost" size="sm" onClick={clearScope}>

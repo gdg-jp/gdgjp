@@ -11,7 +11,11 @@ import {
   Icons,
   Input,
   Label,
-  NativeSelect,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
 } from "@gdgjp/design-system";
 import { Form } from "react-router";
 import { useCampaignActionDialog } from "~/features/campaigns/components/use-campaign-action-dialog";
@@ -260,22 +264,20 @@ export function AssignLinksDialog({
         </div>
         <FetcherForm method="post" className="space-y-4 px-5 pb-5">
           <input type="hidden" name="intent" value="assign" />
-          <div className="space-y-2">
-            <Label htmlFor="assign-channel">Channel</Label>
-            <NativeSelect
-              id="assign-channel"
-              name="channelId"
-              required
-              className="h-9 w-full rounded-md border bg-background px-3 text-sm"
-            >
-              <option value="">Select channel</option>
-              {activeChannels.map((item) => (
-                <option key={item.id} value={item.id}>
-                  {item.name} ({item.code})
-                </option>
-              ))}
-            </NativeSelect>
-          </div>
+          <FormField id="assign-channel" label={<>Channel</>} required>
+            <Select name="channelId">
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Select channel" />
+              </SelectTrigger>
+              <SelectContent>
+                {activeChannels.map((item) => (
+                  <SelectItem key={item.id} value={String(item.id)}>
+                    {item.name} ({item.code})
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </FormField>
           <fieldset className="max-h-64 space-y-2 overflow-y-auto rounded-lg border p-3">
             <legend className="px-1 text-sm font-medium">Links</legend>
             {links.length === 0 ? (

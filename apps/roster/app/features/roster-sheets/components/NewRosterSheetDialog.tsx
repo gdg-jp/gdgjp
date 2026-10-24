@@ -9,8 +9,11 @@ import {
   FormField,
   Icons,
   Input,
-  NativeSelect,
-  NativeSelectOption,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
 } from "@gdgjp/design-system";
 import { useEffect, useRef, useState } from "react";
 import { Form } from "react-router";
@@ -82,20 +85,24 @@ export function NewRosterSheetDialog({
             <summary className="cursor-pointer font-medium">詳細設定</summary>
             <div className="mt-3 grid grid-cols-1 gap-4 sm:grid-cols-2">
               <FormField id="sheet-step" label="時間枠の刻み幅" error={errors.stepMin} required>
-                <NativeSelect name="stepMin" defaultValue={values.stepMin} required>
-                  <NativeSelectOption value="">選択してください</NativeSelectOption>
-                  {values.stepMin &&
-                    !SUPPORTED_STEPS.some((step) => String(step) === values.stepMin) && (
-                      <NativeSelectOption value={values.stepMin}>
-                        {values.stepMin}分（選択できません）
-                      </NativeSelectOption>
-                    )}
-                  {SUPPORTED_STEPS.map((step) => (
-                    <NativeSelectOption key={step} value={step}>
-                      {step}分
-                    </NativeSelectOption>
-                  ))}
-                </NativeSelect>
+                <Select name="stepMin" defaultValue={values.stepMin || undefined} required>
+                  <SelectTrigger>
+                    <SelectValue placeholder="選択してください" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {values.stepMin &&
+                      !SUPPORTED_STEPS.some((step) => String(step) === values.stepMin) && (
+                        <SelectItem value={values.stepMin}>
+                          {values.stepMin}分（選択できません）
+                        </SelectItem>
+                      )}
+                    {SUPPORTED_STEPS.map((step) => (
+                      <SelectItem key={step} value={String(step)}>
+                        {step}分
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </FormField>
               <FormField
                 id="sheet-max-consecutive"

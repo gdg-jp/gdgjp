@@ -11,7 +11,8 @@ for (const width of [390, 1280]) {
       await page
         .getByRole("textbox", { name: /^Title/ })
         .fill("日本語の長いタイトル：チームのスケジュールを相談する定例会議");
-      await page.getByLabel("Meeting length").selectOption("30");
+      await page.getByRole("combobox", { name: "Meeting length" }).click();
+      await page.getByRole("option", { name: "30 min" }).click();
       await expect(page.getByText("30 slots (30 min each)")).toBeVisible();
       await page.getByRole("button", { name: "Add time range for Sat" }).click();
       await expect(page.getByLabel("Sat start time")).toBeVisible();

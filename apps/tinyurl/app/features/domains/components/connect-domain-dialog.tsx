@@ -7,7 +7,6 @@ import {
   FormField,
   Icons,
   Input,
-  Label,
   Select,
   SelectContent,
   SelectItem,
@@ -120,8 +119,7 @@ export function ConnectDomainDialog({
           <input type="hidden" name="intent" value="create" />
           <input type="hidden" name="chapterId" value={chapterId} />
           <div className="space-y-5 px-6 py-6">
-            <div className="space-y-2">
-              <Label htmlFor="connect-domain">Your domain</Label>
+            <FormField id="connect-domain" label={<>Your domain</>}>
               <Input
                 id="connect-domain"
                 name="hostname"
@@ -136,7 +134,7 @@ export function ConnectDomainDialog({
               <div id="domain-check-result" aria-live="polite" className="min-h-6 text-sm">
                 <div>{inspectionStatus}</div>
               </div>
-            </div>
+            </FormField>
 
             {organizers.length > 1 ? (
               <FormField id="connect-domain-chapter" label={<>Chapter</>}>
