@@ -10,3 +10,4 @@ scripts/migrate-cf-2-import.sh
 scripts/migrate-wiki-1-export.sh
 scripts/migrate-wiki-2-import.sh
 apps/tinyurl/public/cli/install.sh
+apps/screen/scripts/dfn/build.sh

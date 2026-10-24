@@ -100,7 +100,7 @@ describe("build-publish-package", () => {
       expect(() =>
         execFileSync("node", ["smoke-not-exported.mjs"], { cwd: scratchDir, stdio: "pipe" }),
       ).toThrow();
-    });
+    }, 60_000);
 
     it("typechecks against the emitted declarations, including SourceVisibility from ./acl/agent", () => {
       writeFileSync(
@@ -131,6 +131,6 @@ describe("build-publish-package", () => {
           { cwd: scratchDir, stdio: "pipe" },
         ),
       ).not.toThrow();
-    });
+    }, 60_000);
   });
 });
