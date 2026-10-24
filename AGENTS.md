@@ -99,6 +99,11 @@ Run commands from the repository root unless a single workspace is in scope.
 - `pnpm ci:quick` runs Biome and Vitest tests.
 - `pnpm ci:full` runs `ci:quick` + workspace Playwright tests serially.
 
+`node scripts/check-design-harness.mjs` runs the design harness: `source` applies its static rules
+to changed app TSX only (existing violations block a file once it is touched), and `scenarios`
+runs `design:check` for every scenario. The pre-commit hook and the CI `Design harness` job run
+both when app TSX or `packages/design-system` changes.
+
 Prefer `ci:quick` and `ci:full` than specific commands during development.
 Use specific commands only when fixing CI errors.
 

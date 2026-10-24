@@ -1,6 +1,7 @@
 import { spawnSync } from "node:child_process";
 import { appendFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
+import { isDesignSourceFile } from "../../scripts/check-design-harness.mjs";
 
 const CI_WORKSPACES = [
   {
@@ -191,6 +192,7 @@ function allResults() {
     scriptTests: true,
     cli: true,
     agentHostWorkspace: true,
+    designSource: true,
     full: true,
   };
 }
@@ -277,6 +279,7 @@ export function classifyChanges(files, { forceAll = false } = {}) {
       (file) =>
         /^\.github\/scripts\/.*\.mjs$/.test(file) ||
         file === "scripts/check-ui-conventions.mjs" ||
+        file === "scripts/check-design-harness.mjs" ||
         file === "scripts/run-ci.mjs" ||
         file === "scripts/run-go-ci.mjs" ||
         file === "packages/gdg-lib/scripts/build-acl.mjs" ||
@@ -299,6 +302,7 @@ export function classifyChanges(files, { forceAll = false } = {}) {
     agentHostWorkspace: normalizedFiles.some((file) =>
       file.startsWith("apps/agent-host/workspace/"),
     ),
+    designSource: normalizedFiles.some(isDesignSourceFile),
     full: false,
   };
 }
@@ -353,6 +357,7 @@ function workflowOutputs(result, base, head) {
     "script-tests": String(result.scriptTests),
     cli: String(result.cli),
     "agent-host-workspace": String(result.agentHostWorkspace),
+    "design-source": String(result.designSource),
     full: String(result.full),
     base: base ?? "",
     head: head ?? "",

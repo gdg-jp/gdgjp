@@ -24,6 +24,7 @@ jobs:
       openapi: ${{ steps.changes.outputs.openapi }}
       script-tests: ${{ steps.changes.outputs.script-tests }}
       cli: ${{ steps.changes.outputs.cli }}
+      design-source: ${{ steps.changes.outputs.design-source }}
       full: ${{ steps.changes.outputs.full }}
       base: ${{ steps.changes.outputs.base }}
       head: ${{ steps.changes.outputs.head }}
@@ -163,6 +164,52 @@ jobs:
             ARCH="${target#*/}"
             GOOS="$OS" GOARCH="$ARCH" go build -o /dev/null ./cmd/gdg
           done
+
+  design-harness:
+    name: Design harness
+    needs: changes
+    if: >-
+      contains(fromJSON(needs.changes.outputs.ci), '@gdgjp/design-system') ||
+      needs.changes.outputs.design-source == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          submodules: false
+      - name: Initialize shared UI submodule
+        run: git submodule update --init packages/design-system
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      # Existing app code predates the harness; only files this change touches must pass.
+      - name: Check changed app sources
+        if: needs.changes.outputs.design-source == 'true' && needs.changes.outputs.base != ''
+        env:
+          BASE_SHA: ${{ needs.changes.outputs.base }}
+          HEAD_SHA: ${{ needs.changes.outputs.head }}
+        run: node scripts/check-design-harness.mjs source --diff "$BASE_SHA" "$HEAD_SHA"
+      # The scenario specs' Playwright config also serves the library consumer build.
+      - name: Build library consumer
+        if: contains(fromJSON(needs.changes.outputs.ci), '@gdgjp/design-system')
+        run: pnpm exec turbo test:consumer --filter=@gdgjp/design-system --output-logs=errors-only
+      - name: Install Playwright browsers
+        if: contains(fromJSON(needs.changes.outputs.ci), '@gdgjp/design-system')
+        run: pnpm --filter @gdgjp/design-system exec playwright install --with-deps chromium
+      - name: Check design system scenarios
+        if: contains(fromJSON(needs.changes.outputs.ci), '@gdgjp/design-system')
+        run: node scripts/check-design-harness.mjs scenarios
+      - name: Upload design reports
+        if: always() && contains(fromJSON(needs.changes.outputs.ci), '@gdgjp/design-system')
+        uses: actions/upload-artifact@v4
+        with:
+          name: design-harness-reports
+          path: packages/design-system/test-results/design/
+          if-no-files-found: ignore
+          retention-days: 7
 
   typecheck:
     name: Typecheck

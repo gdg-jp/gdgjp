@@ -426,9 +426,14 @@ test("UI gitlink updates run local library checks", () => {
   const steps = changedSteps("full", ["packages/design-system"]);
   assert.deepEqual(
     steps.map(([name]) => name),
-    ["e2e:ui"],
+    ["design-harness:scenarios", "e2e:ui"],
   );
-  assert.match(steps[0][1], /turbo typecheck test test:e2e:browser/);
+  assert.match(
+    steps[0][1],
+    /turbo test:consumer .*&& node scripts\/check-design-harness\.mjs scenarios$/,
+  );
+  assert.equal(steps[0][2].CI, "true");
+  assert.match(steps[1][1], /turbo typecheck test test:e2e:browser/);
   const { tasks } = JSON.parse(readFileSync(new URL("../../turbo.json", import.meta.url), "utf8"));
   assert.deepEqual(tasks["@gdgjp/design-system#test:e2e:browser"].dependsOn, [
     "typecheck",

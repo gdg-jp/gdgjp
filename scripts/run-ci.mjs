@@ -12,6 +12,7 @@ import {
 import { availableParallelism, machine, release, tmpdir } from "node:os";
 import { basename, delimiter, dirname, isAbsolute, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { isDesignSourceFile } from "./check-design-harness.mjs";
 import { playwrightMetrics, playwrightReport, turboMetrics } from "./ci-metrics.mjs";
 
 const quickSteps = [
@@ -41,6 +42,9 @@ const fullSteps = [
     "prepare:e2e:ui",
     "pnpm exec turbo test:consumer build:storybook:test --filter=@gdgjp/design-system --output-logs=errors-only",
   ],
+  // Rebuilds build/storybook with the harness revision stamp, so it must not
+  // overlap the browser suites that serve that directory.
+  ["design-harness:scenarios", "node scripts/check-design-harness.mjs scenarios"],
   // Keep the shared-Accounts chain moving whenever its server is free.
   ...[
     "accounts",
@@ -71,7 +75,7 @@ export function completeSteps(mode) {
       // Native addons in unit tests must use the Node that installed them.
       name === "test:addons"
         ? undefined
-        : name === "prepare:e2e:ui"
+        : name === "prepare:e2e:ui" || name === "design-harness:scenarios"
           ? { ...runtime, CI: "true" }
           : name.startsWith("e2e:")
             ? { ...runtime, GDG_E2E_BUILT: builtE2EApps.join(",") }
@@ -347,6 +351,11 @@ export function changedSteps(mode, files) {
     ]);
   }
 
+  if (relevantFiles.some(isDesignSourceFile)) {
+    // Existing app code predates the harness; only touched files must pass.
+    steps.push(["design-harness:source", "node scripts/check-design-harness.mjs source --staged"]);
+  }
+
   const typecheckWorkspaces = [...changedWorkspaces].filter(
     (workspace) => mode !== "full" || workspace !== "@gdgjp/design-system" || uiUnitTestsOnly,
   );
@@ -391,6 +400,11 @@ export function changedSteps(mode, files) {
       ".github/scripts/staged-ui.test.mjs",
     ]) {
       if (!scriptTests.includes(file)) scriptTests.push(file);
+    }
+  }
+  if (relevantFiles.includes("scripts/check-design-harness.mjs")) {
+    if (!scriptTests.includes(".github/scripts/design-harness.test.mjs")) {
+      scriptTests.push(".github/scripts/design-harness.test.mjs");
     }
   }
   if (relevantFiles.includes("scripts/run-e2e-dev.mjs")) {
@@ -448,6 +462,13 @@ export function changedSteps(mode, files) {
 
   if (mode === "full") {
     if (changedWorkspaces.has("@gdgjp/design-system") && !uiUnitTestsOnly) {
+      // A preparation step: it runs before, never beside, the browser suites.
+      // Its Playwright config also serves the library consumer build.
+      steps.push([
+        "design-harness:scenarios",
+        "pnpm exec turbo test:consumer --filter=@gdgjp/design-system --output-logs=errors-only && node scripts/check-design-harness.mjs scenarios",
+        uiRuntime,
+      ]);
       steps.push([
         "e2e:ui",
         "pnpm exec turbo typecheck test test:e2e:browser --filter=@gdgjp/design-system --output-logs=errors-only",
