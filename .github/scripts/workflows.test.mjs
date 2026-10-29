@@ -17,6 +17,7 @@ test("Cloudflare pipelines invoke the package deploy script unambiguously", () =
     "mc",
     "screen",
     "deck",
+    "roulette",
     "website",
   ];
 

@@ -34,6 +34,12 @@
       "port": 5188
     },
     {
+      "name": "roulette-dev",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["--filter", "@gdgjp/roulette", "dev"],
+      "port": 5190
+    },
+    {
       "name": "img-dev",
       "runtimeExecutable": "pnpm",
       "runtimeArgs": ["--filter", "@gdgjp/img", "dev"],

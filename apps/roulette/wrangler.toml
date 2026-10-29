@@ -1,0 +1,49 @@
+name = "gdgjp-roulette"
+main = "./workers/app.ts"
+compatibility_date = "2026-07-28"
+compatibility_flags = ["nodejs_compat"]
+
+# Runs on the Workers Free plan: only Workers, static assets, D1 and a service
+# binding. No Durable Objects, KV, Queues or R2.
+
+[alias]
+"virtual:react-router/server-build" = "./build/server/index.js"
+
+[vars]
+ENVIRONMENT = "production"
+APP_URL = "https://roulette.gdgs.jp"
+ACCOUNTS_URL = "https://accounts.gdgs.jp"
+IDP_URL = "https://accounts.gdgs.jp"
+IDP_CLIENT_ID = "roulette"
+
+[assets]
+binding = "ASSETS"
+directory = "./build/client"
+
+[[routes]]
+pattern = "roulette.gdgs.jp/*"
+zone_name = "gdgs.jp"
+
+# Relying-party auth tables (user, oidc_session), projects, prizes and draws.
+# Replace database_id with the id printed by `wrangler d1 create gdgjp-roulette-db`
+# before the first deploy.
+[[d1_databases]]
+binding = "DB"
+database_name = "gdgjp-roulette-db"
+database_id = "00000000-0000-0000-0000-000000000000"
+migrations_dir = "./migrations"
+
+# Worker-to-Worker OIDC (discovery, token, UserInfo) stays on Cloudflare's
+# internal network instead of looping through public HTTPS.
+[[services]]
+binding = "ACCOUNTS"
+service = "gdgjp-accounts"
+
+[observability]
+enabled = true
+
+[observability.logs]
+enabled = true
+head_sampling_rate = 1
+persist = true
+invocation_logs = true

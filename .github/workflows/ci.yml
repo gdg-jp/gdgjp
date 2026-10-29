@@ -274,6 +274,9 @@ jobs:
           - name: Typecheck deck
             if: contains(fromJSON(needs.changes.outputs.ci), '@gdgjp/deck')
             run: pnpm --filter @gdgjp/deck typecheck
+          - name: Typecheck roulette
+            if: contains(fromJSON(needs.changes.outputs.ci), '@gdgjp/roulette')
+            run: pnpm --filter @gdgjp/roulette typecheck
           - name: Typecheck website
             if: contains(fromJSON(needs.changes.outputs.ci), '@gdgjp/website')
             run: pnpm --filter @gdgjp/website typecheck
@@ -353,6 +356,9 @@ jobs:
           - name: Test deck
             if: contains(fromJSON(needs.changes.outputs.ci), '@gdgjp/deck')
             run: pnpm --filter @gdgjp/deck test
+          - name: Test roulette
+            if: contains(fromJSON(needs.changes.outputs.ci), '@gdgjp/roulette')
+            run: pnpm --filter @gdgjp/roulette test
           - name: Test website
             if: contains(fromJSON(needs.changes.outputs.ci), '@gdgjp/website')
             run: pnpm --filter @gdgjp/website test
@@ -436,6 +442,9 @@ jobs:
           - name: Build deck
             if: contains(fromJSON(needs.changes.outputs.build), '@gdgjp/deck')
             run: pnpm --filter @gdgjp/deck build
+          - name: Build roulette
+            if: contains(fromJSON(needs.changes.outputs.build), '@gdgjp/roulette')
+            run: pnpm --filter @gdgjp/roulette build
           - name: Build website
             if: contains(fromJSON(needs.changes.outputs.build), '@gdgjp/website')
             run: pnpm --filter @gdgjp/website build
@@ -546,6 +555,16 @@ jobs:
           ACCOUNTS_URL=http://localhost:6173
           IDP_URL=http://localhost:6173
           IDP_CLIENT_ID=roster
+          ENVIRONMENT=development
+          EOF
+
+          cat > apps/roulette/.dev.vars <<EOF
+          RP_SESSION_SECRET=ci-rp-session-secret
+          IDP_CLIENT_SECRET=ci-idp-client-secret
+          APP_URL=http://localhost:6190
+          ACCOUNTS_URL=http://localhost:6173
+          IDP_URL=http://localhost:6173
+          IDP_CLIENT_ID=roulette
           ENVIRONMENT=development
           EOF
       - name: Create Wiki E2E vars
