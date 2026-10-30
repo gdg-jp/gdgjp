@@ -1,4 +1,4 @@
-import type { Method, Prize, Tier } from "./prize";
+import type { Mode, Prize, Tier } from "./prize";
 
 /**
  * Prize odds and wheel layout. Pure: shared by the admin preview, the draw
@@ -41,35 +41,34 @@ export function finiteLeft(prizes: Prize[]) {
 /**
  * The chance (0–1) that each prize is drawn next. All zeros means sold out.
  *
- * - fixed: the configured %; a sold-out prize's share goes to the rest pro rata.
- * - box: tickets in a box of `expected` visitors. Finite prizes count what is
- *   left; unlimited prizes share `expected − draws − finite left`. Past
+ * - standard: tickets in a box of `expected` visitors. Finite prizes count what
+ *   is left; unlimited prizes share `expected − draws − finite left`. Past
  *   `expected` visitors only unlimited prizes come out.
- * - equal: every prize that is left, equally.
+ * - evil: standard with the excluded prizes' tickets taken out of the box, so
+ *   the rest keep their odds relative to each other.
+ * - custom: the configured %; a sold-out prize's share goes to the rest pro rata.
  */
 export function currentOdds(
   prizes: Prize[],
-  method: Method,
+  mode: Mode,
   expected: number,
   draws: number,
 ): number[] {
-  const inStock = prizes.map((prize) => remaining(prize) > 0);
+  const drawable = prizes.map((prize) => remaining(prize) > 0 && !prize.excluded);
   let weights: number[];
-  if (method === "fixed") {
-    weights = prizes.map((prize, i) => (inStock[i] ? Math.max(prize.percent, 0) : 0));
-  } else if (method === "box") {
-    const unlimited = prizes.filter((prize) => prize.stock === null).length;
+  if (mode === "custom") {
+    weights = prizes.map((prize, i) => (drawable[i] ? Math.max(prize.percent, 0) : 0));
+  } else {
+    const unlimited = prizes.filter((prize, i) => prize.stock === null && drawable[i]).length;
     const pool = Math.max(expected - draws - finiteLeft(prizes), 0);
-    weights = prizes.map((prize) =>
-      prize.stock === null ? (unlimited ? pool / unlimited : 0) : remaining(prize),
+    weights = prizes.map((prize, i) =>
+      !drawable[i] ? 0 : prize.stock === null ? pool / unlimited : remaining(prize),
     );
     if (weights.every((weight) => weight === 0))
-      weights = prizes.map((prize) => (prize.stock === null ? 1 : 0));
-  } else {
-    weights = inStock.map((ok) => (ok ? 1 : 0));
+      weights = prizes.map((prize, i) => (prize.stock === null && drawable[i] ? 1 : 0));
   }
-  // The prizes still in stock may all be 0% under "fixed": fall back to equal.
-  if (weights.every((weight) => weight === 0)) weights = inStock.map((ok) => (ok ? 1 : 0));
+  // The prizes still in stock may all be 0% under "custom": fall back to equal.
+  if (weights.every((weight) => weight === 0)) weights = drawable.map((ok) => (ok ? 1 : 0));
   return normalize(weights);
 }
 
@@ -110,17 +109,15 @@ const cycle: SegmentTone[] = ["blue", "red", "green"];
 
 /**
  * The prize mix as configured, ignoring what has been won. The wheel uses it so
- * visitors cannot read the remaining stock off the wheel.
+ * visitors cannot read the remaining stock off the wheel — nor, in the evil
+ * mode, which prizes are excluded.
  */
-export function configuredWeights(prizes: Prize[], method: Method, expected: number) {
-  if (method === "fixed") return prizes.map((prize) => Math.max(prize.percent, 0));
-  if (method === "box") {
-    const stocked = prizes.reduce((sum, prize) => sum + (prize.stock ?? 0), 0);
-    const unlimited = prizes.filter((prize) => prize.stock === null).length;
-    const pool = Math.max(expected - stocked, 0);
-    return prizes.map((prize) => prize.stock ?? (unlimited ? pool / unlimited : 0));
-  }
-  return prizes.map(() => 1);
+export function configuredWeights(prizes: Prize[], mode: Mode, expected: number) {
+  if (mode === "custom") return prizes.map((prize) => Math.max(prize.percent, 0));
+  const stocked = prizes.reduce((sum, prize) => sum + (prize.stock ?? 0), 0);
+  const unlimited = prizes.filter((prize) => prize.stock === null).length;
+  const pool = Math.max(expected - stocked, 0);
+  return prizes.map((prize) => prize.stock ?? (unlimited ? pool / unlimited : 0));
 }
 
 /**
@@ -128,9 +125,9 @@ export function configuredWeights(prizes: Prize[], method: Method, expected: num
  * proportion to the configured weights, so a rare prize is one thin slice the
  * pointer can nearly hit. Copies of the same prize are spread around the rim.
  */
-export function segmentsFor(prizes: Prize[], method: Method, expected: number): Segment[] {
+export function segmentsFor(prizes: Prize[], mode: Mode, expected: number): Segment[] {
   if (!prizes.length) return [];
-  const weights = configuredWeights(prizes, method, expected);
+  const weights = configuredWeights(prizes, mode, expected);
   const counts = prizes.map(() => 1);
   const extra = Math.max(MIN_SEGMENTS - prizes.length, 0);
   const total = weights.reduce((sum, weight) => sum + weight, 0);

@@ -1,5 +1,5 @@
 import { currentOdds, finiteLeft } from "./odds";
-import { MAX_PRIZES, METHODS, type Method, type Prize } from "./prize";
+import { MAX_PRIZES, MODES, type Mode, type Prize } from "./prize";
 
 /**
  * The prize settings form while it is being edited: text as typed, validated on
@@ -12,24 +12,26 @@ export type DraftPrize = {
   stockText: string;
   unlimited: boolean;
   percentText: string;
+  /** Kept while switching modes; only takes effect in the evil mode. */
+  excluded: boolean;
 };
 
-export type Draft = { method: Method; expectedText: string; prizes: DraftPrize[] };
+export type Draft = { mode: Mode; expectedText: string; prizes: DraftPrize[] };
 
 export type DraftErrors = {
   name?: Record<string, string>;
   stock?: Record<string, string>;
   percent?: Record<string, string>;
-  /** About the whole list: empty, too many, or the % do not add up. */
+  /** About the whole list: empty, too many, the % do not add up, or nothing excluded. */
   list?: string;
   expected?: string;
 };
 
 export const MAX_NAME_LENGTH = 40;
 
-export function toDraft(settings: { method: Method; expected: number; prizes: Prize[] }): Draft {
+export function toDraft(settings: { mode: Mode; expected: number; prizes: Prize[] }): Draft {
   return {
-    method: settings.method,
+    mode: settings.mode,
     expectedText: String(settings.expected),
     prizes: settings.prizes.map((prize) => ({
       id: prize.id,
@@ -37,6 +39,7 @@ export function toDraft(settings: { method: Method; expected: number; prizes: Pr
       stockText: prize.stock === null ? "" : String(prize.stock),
       unlimited: prize.stock === null,
       percentText: String(prize.percent),
+      excluded: prize.excluded,
     })),
   };
 }
@@ -69,6 +72,7 @@ export function draftPrizes(draft: Draft, saved: Prize[]): Prize[] {
     stock: row.unlimited ? null : (parseCount(row.stockText) ?? 0),
     won: wonOf(saved, row.id),
     percent: parsePercent(row.percentText) ?? 0,
+    excluded: draft.mode === "evil" && row.excluded,
   }));
 }
 
@@ -83,8 +87,8 @@ export function percentTotal(draft: Draft) {
 
 /** Odds of the draft for the preview; null while the % do not add up to 100. */
 export function previewOdds(draft: Draft, saved: Prize[], draws: number) {
-  if (draft.method === "fixed" && percentTotal(draft) !== 100) return null;
-  return currentOdds(draftPrizes(draft, saved), draft.method, draftExpected(draft), draws);
+  if (draft.mode === "custom" && percentTotal(draft) !== 100) return null;
+  return currentOdds(draftPrizes(draft, saved), draft.mode, draftExpected(draft), draws);
 }
 
 /** Losing tickets in the box right now (expected − drawn − finite left). */
@@ -110,17 +114,23 @@ export function validateDraft(draft: Draft, saved: Prize[]): DraftErrors {
       if (value === null) stock[row.id] = "0 以上の整数にしてください";
       else if (value < won) stock[row.id] = `当選済みの ${won} 個より減らせません`;
     }
-    if (draft.method === "fixed" && parsePercent(row.percentText) === null)
+    if (draft.mode === "custom" && parsePercent(row.percentText) === null)
       percent[row.id] = "0〜100 にしてください";
   }
   if (
     !errors.list &&
-    draft.method === "fixed" &&
+    draft.mode === "custom" &&
     !Object.keys(percent).length &&
     percentTotal(draft) !== 100
   )
     errors.list = `確率の合計を 100% にしてください（今は ${percentTotal(draft)}%）`;
-  if (draft.method === "box" && draft.prizes.some((row) => row.unlimited)) {
+  if (!errors.list && draft.mode === "evil") {
+    if (draft.prizes.every((row) => !row.excluded))
+      errors.list = "悪徳モードでは、出さない景品を 1 つ以上選んでください";
+    else if (draft.prizes.every((row) => row.excluded))
+      errors.list = "出す景品を 1 つ以上残してください";
+  }
+  if (draft.mode !== "custom" && draft.prizes.some((row) => row.unlimited)) {
     const expected = parseCount(draft.expectedText);
     const stocked = draft.prizes.reduce(
       (sum, row) => (row.unlimited ? sum : sum + (parseCount(row.stockText) ?? 0)),
@@ -143,35 +153,39 @@ export function hasErrors(errors: DraftErrors) {
 /** Validate an untrusted JSON body into a Draft (shape only; values go through validateDraft). */
 export function parseDraft(input: unknown): Draft | null {
   if (!input || typeof input !== "object") return null;
-  const { method, expectedText, prizes } = input as Record<string, unknown>;
-  if (!METHODS.includes(method as Method)) return null;
+  const { mode, expectedText, prizes } = input as Record<string, unknown>;
+  if (!MODES.includes(mode as Mode)) return null;
   if (typeof expectedText !== "string" || !Array.isArray(prizes)) return null;
   if (prizes.length > MAX_PRIZES) return null;
   const rows: DraftPrize[] = [];
   const ids = new Set<string>();
   for (const row of prizes) {
     if (!row || typeof row !== "object") return null;
-    const { id, name, stockText, unlimited, percentText } = row as Record<string, unknown>;
+    const { id, name, stockText, unlimited, percentText, excluded } = row as Record<
+      string,
+      unknown
+    >;
     if (typeof id !== "string" || !/^[A-Za-z0-9-]{1,64}$/.test(id) || ids.has(id)) return null;
     if (typeof name !== "string" || typeof stockText !== "string") return null;
     if (typeof unlimited !== "boolean" || typeof percentText !== "string") return null;
+    if (typeof excluded !== "boolean") return null;
     ids.add(id);
-    rows.push({ id, name, stockText, unlimited, percentText });
+    rows.push({ id, name, stockText, unlimited, percentText, excluded });
   }
-  return { method: method as Method, expectedText, prizes: rows };
+  return { mode: mode as Mode, expectedText, prizes: rows };
 }
 
 /** Draft → the values to store. Call only after validateDraft returned no errors. */
 export function draftToSettings(draft: Draft, saved: Prize[]) {
   return {
-    method: draft.method,
+    mode: draft.mode,
     expected: draftExpected(draft),
     prizes: draftPrizes(draft, saved),
   };
 }
 
 export function newRow(id: string): DraftPrize {
-  return { id, name: "", stockText: "1", unlimited: false, percentText: "0" };
+  return { id, name: "", stockText: "1", unlimited: false, percentText: "0", excluded: false };
 }
 
 /** Add above the first unlimited row so the losing slot stays at the bottom. */

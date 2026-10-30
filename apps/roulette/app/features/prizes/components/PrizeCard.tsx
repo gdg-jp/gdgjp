@@ -28,10 +28,14 @@ import {
   percentTotal,
 } from "../draft";
 import { formatOdds } from "../odds";
-import { MAX_PRIZES, type Method } from "../prize";
+import { MAX_PRIZES, type Mode } from "../prize";
 
-const fixedCols = "md:grid-cols-[3.5rem_minmax(0,1fr)_9rem_6.5rem_5rem_5rem_6.5rem] md:gap-x-3";
-const plainCols = "md:grid-cols-[3.5rem_minmax(0,1fr)_9rem_5rem_5rem_6.5rem] md:gap-x-3";
+// Custom adds a % column, evil a "出さない" column.
+const cols: Record<Mode, string> = {
+  standard: "md:grid-cols-[3.5rem_minmax(0,1fr)_9rem_5rem_5rem_6.5rem] md:gap-x-3",
+  custom: "md:grid-cols-[3.5rem_minmax(0,1fr)_9rem_6.5rem_5rem_5rem_6.5rem] md:gap-x-3",
+  evil: "md:grid-cols-[3.5rem_minmax(0,1fr)_9rem_5rem_5rem_5rem_6.5rem] md:gap-x-3",
+};
 
 function RankBadge({ rank }: { rank: number | null }) {
   if (rank === null) return <Badge>ハズレ</Badge>;
@@ -44,7 +48,7 @@ function PrizeRow({
   rank,
   won,
   odds,
-  method,
+  mode,
   errors,
   isFirst,
   isLast,
@@ -57,7 +61,7 @@ function PrizeRow({
   rank: number | null;
   won: number;
   odds: number | null;
-  method: Method;
+  mode: Mode;
   errors: DraftErrors;
   isFirst: boolean;
   isLast: boolean;
@@ -71,9 +75,7 @@ function PrizeRow({
   const stock = Number(row.stockText) || 0;
   return (
     <div
-      className={`grid grid-cols-2 gap-x-3 gap-y-2 rounded-md border border-border p-3 md:items-start md:rounded-none md:border-0 md:p-0 ${
-        method === "fixed" ? fixedCols : plainCols
-      }`}
+      className={`grid grid-cols-2 gap-x-3 gap-y-2 rounded-md border border-border p-3 md:items-start md:rounded-none md:border-0 md:p-0 ${cols[mode]}`}
     >
       <div className="col-span-2 flex items-center md:col-span-1 md:h-10">
         <RankBadge rank={rank} />
@@ -114,7 +116,7 @@ function PrizeRow({
           </label>
         </div>
       </FormField>
-      {method === "fixed" && (
+      {mode === "custom" && (
         <FormField
           className="md:[&>label]:sr-only"
           label={<>確率{suffix}</>}
@@ -131,6 +133,18 @@ function PrizeRow({
             </InputGroupAddon>
           </InputGroup>
         </FormField>
+      )}
+      {mode === "evil" && (
+        <div className="flex h-10 items-center gap-2 self-end md:self-auto">
+          <Checkbox
+            id={`excluded-${row.id}`}
+            checked={row.excluded}
+            onCheckedChange={(checked) => onChange({ ...row, excluded: checked === true })}
+          />
+          <label htmlFor={`excluded-${row.id}`} className="text-sm md:sr-only">
+            出さない{suffix}
+          </label>
+        </div>
       )}
       <div className="flex items-center gap-1 text-sm tabular-nums md:h-10">
         <span className="text-muted md:sr-only">残り</span>
@@ -174,7 +188,7 @@ function PrizeRow({
   );
 }
 
-/** The prize table: name, stock (or ∞), % for "fixed", what is left and the odds now. */
+/** The prize table: name, stock (or ∞), % or 出さない by mode, what is left and the odds now. */
 export function PrizeCard({
   draft,
   errors,
@@ -208,14 +222,12 @@ export function PrizeCard({
         {hasErrors(errors) && (
           <Alert tone="danger" title={errors.list ?? "赤字の項目を直してから保存してください"} />
         )}
-        <div
-          aria-hidden="true"
-          className={`hidden text-sm text-muted md:grid ${draft.method === "fixed" ? fixedCols : plainCols}`}
-        >
+        <div aria-hidden="true" className={`hidden text-sm text-muted md:grid ${cols[draft.mode]}`}>
           <span>等級</span>
           <span>景品名</span>
           <span>個数</span>
-          {draft.method === "fixed" && <span>確率</span>}
+          {draft.mode === "custom" && <span>確率</span>}
+          {draft.mode === "evil" && <span>出さない</span>}
           <span>残り</span>
           <span>今の確率</span>
           <span />
@@ -229,7 +241,7 @@ export function PrizeCard({
               rank={draftRank(draft, index)}
               won={wonOf(row.id)}
               odds={odds ? (odds[index] ?? 0) : null}
-              method={draft.method}
+              mode={draft.mode}
               errors={errors}
               isFirst={index === 0}
               isLast={index === draft.prizes.length - 1}
@@ -260,7 +272,7 @@ export function PrizeCard({
               景品は {MAX_PRIZES} 個までです
             </Text>
           )}
-          {draft.method === "fixed" && (
+          {draft.mode === "custom" && (
             <p
               className={`ml-auto text-sm tabular-nums ${total === 100 ? "text-muted" : "font-semibold text-danger"}`}
             >

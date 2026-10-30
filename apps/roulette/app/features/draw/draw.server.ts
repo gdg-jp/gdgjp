@@ -1,6 +1,7 @@
 import { currentOdds, pickPrize, rankOf, tierOf } from "~/features/prizes/odds";
 import type { Tier } from "~/features/prizes/prize";
 import { getProject } from "~/features/projects/projects.server";
+import type { DrawLogEntry } from "./log";
 import { type DrawResult, formatDrawTime } from "./result";
 
 export type SpinOutcome =
@@ -45,6 +46,28 @@ export async function getDeviceDraw(
   return row ? toResult(row) : null;
 }
 
+/** A project's spins for the admin log, latest first; every spin unless `limit` is given. */
+export async function listDraws(
+  db: D1Database,
+  slug: string,
+  limit?: number,
+): Promise<DrawLogEntry[]> {
+  // LIMIT -1 is no limit in SQLite.
+  const { results } = await db
+    .prepare(
+      `SELECT number, prize_name, rank, created_at FROM draw
+       WHERE project_slug = ? ORDER BY number DESC LIMIT ?`,
+    )
+    .bind(slug, limit ?? -1)
+    .all<{ number: number; prize_name: string; rank: number | null; created_at: number }>();
+  return (results ?? []).map((row) => ({
+    number: row.number,
+    name: row.prize_name,
+    rank: row.rank,
+    createdAt: row.created_at,
+  }));
+}
+
 function secureRandom() {
   return (crypto.getRandomValues(new Uint32Array(1))[0] ?? 0) / 2 ** 32;
 }
@@ -78,7 +101,7 @@ export async function spin(
     if (!project) return { status: "missing" };
     if (existing) return { status: "already", result: existing };
     if (!project.open) return { status: "closed" };
-    const odds = currentOdds(project.prizes, project.method, project.expected, project.draws);
+    const odds = currentOdds(project.prizes, project.mode, project.expected, project.draws);
     const prizeId = pickPrize(project.prizes, odds, random);
     const prize = project.prizes.find((item) => item.id === prizeId);
     if (!prize) return { status: "soldout" };

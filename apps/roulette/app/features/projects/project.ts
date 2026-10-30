@@ -1,4 +1,4 @@
-import type { Method, Prize } from "~/features/prizes/prize";
+import type { Mode, Prize } from "~/features/prizes/prize";
 
 export type Project = {
   slug: string;
@@ -6,8 +6,8 @@ export type Project = {
   chapterId: number;
   chapterSlug: string;
   open: boolean;
-  method: Method;
-  /** Expected number of visitors for the "box" method. */
+  mode: Mode;
+  /** Expected number of visitors for the standard and evil modes. */
   expected: number;
   draws: number;
   /** Increments on every settings save. */
@@ -16,4 +16,5 @@ export type Project = {
   prizes: Prize[];
 };
 
-export type ProjectSummary = Omit<Project, "prizes"> & { prizeCount: number };
+/** Without prizes, so also without the mode (evil is told apart by its prizes). */
+export type ProjectSummary = Omit<Project, "prizes" | "mode"> & { prizeCount: number };

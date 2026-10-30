@@ -35,7 +35,7 @@ export async function loader({ request, params, context }: Route.LoaderArgs) {
   if (!project) throw new Response(null, { status: 404 });
   const device = ensureDeviceId(request, { secure: new URL(request.url).protocol === "https:" });
   const mine = await getDeviceDraw(env.DB, slug, device.id);
-  const odds = currentOdds(project.prizes, project.method, project.expected, project.draws);
+  const odds = currentOdds(project.prizes, project.mode, project.expected, project.draws);
   const status = !project.open ? "closed" : odds.every((value) => value === 0) ? "soldout" : "open";
   const headers = new Headers({ "Cache-Control": "private, no-store" });
   if (device.setCookie) headers.append("Set-Cookie", device.setCookie);
@@ -43,7 +43,7 @@ export async function loader({ request, params, context }: Route.LoaderArgs) {
     {
       project: { slug, name: project.name },
       status,
-      segments: segmentsFor(project.prizes, project.method, project.expected),
+      segments: segmentsFor(project.prizes, project.mode, project.expected),
       prizes: project.prizes.flatMap((prize) => {
         const rank = rankOf(project.prizes, prize.id);
         return rank === null ? [] : [{ name: prize.name, rank }];

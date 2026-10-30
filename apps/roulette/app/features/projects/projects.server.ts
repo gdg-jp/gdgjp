@@ -1,10 +1,16 @@
-import type { Method, Prize } from "~/features/prizes/prize";
+import type { Mode, Prize } from "~/features/prizes/prize";
 import type { Project, ProjectSummary } from "./project";
 
 /**
  * D1 access for projects and their prize settings. Auth tables (`user`,
  * `oidc_session`) are owned by gdg-lib; spins live in draw.server.ts.
+ *
+ * The mode is not stored as such. `project.method` holds how odds are counted
+ * — 'fixed' (custom) or 'box' (standard) — and a 'box' project is evil when
+ * any of its prizes is excluded. 'equal' is no longer offered.
  */
+
+type StoredMethod = "fixed" | "box" | "equal";
 
 type ProjectRow = {
   slug: string;
@@ -12,7 +18,7 @@ type ProjectRow = {
   chapter_id: number;
   chapter_slug: string;
   is_open: number;
-  method: Method;
+  method: StoredMethod;
   expected: number;
   draws: number;
   revision: number;
@@ -25,10 +31,24 @@ type PrizeRow = {
   stock: number | null;
   won: number;
   percent: number;
+  excluded: number;
 };
 
 const PROJECT_COLS =
   "slug, name, chapter_id, chapter_slug, is_open, method, expected, draws, revision, updated_at";
+
+function toPrize(row: PrizeRow): Prize {
+  return { ...row, excluded: row.excluded === 1 };
+}
+
+function modeOf(method: StoredMethod, prizes: Prize[]): Mode {
+  if (method === "fixed") return "custom";
+  return prizes.some((prize) => prize.excluded) ? "evil" : "standard";
+}
+
+function methodOf(mode: Mode): StoredMethod {
+  return mode === "custom" ? "fixed" : "box";
+}
 
 function toProject(row: ProjectRow, prizes: Prize[]): Project {
   return {
@@ -37,7 +57,7 @@ function toProject(row: ProjectRow, prizes: Prize[]): Project {
     chapterId: row.chapter_id,
     chapterSlug: row.chapter_slug,
     open: row.is_open === 1,
-    method: row.method,
+    mode: modeOf(row.method, prizes),
     expected: row.expected,
     draws: row.draws,
     revision: row.revision,
@@ -51,13 +71,14 @@ export async function getProject(db: D1Database, slug: string): Promise<Project 
     db.prepare(`SELECT ${PROJECT_COLS} FROM project WHERE slug = ?`).bind(slug),
     db
       .prepare(
-        "SELECT id, name, stock, won, percent FROM prize WHERE project_slug = ? ORDER BY position",
+        `SELECT id, name, stock, won, percent, excluded FROM prize
+         WHERE project_slug = ? ORDER BY position`,
       )
       .bind(slug),
   ]);
   const row = project?.results[0] as ProjectRow | undefined;
   if (!row) return null;
-  return toProject(row, (prizes?.results ?? []) as PrizeRow[]);
+  return toProject(row, ((prizes?.results ?? []) as PrizeRow[]).map(toPrize));
 }
 
 export async function listProjectsForChapters(
@@ -79,7 +100,7 @@ export async function listProjectsForChapters(
     .bind(...chapterIds)
     .all<ProjectRow & { prize_count: number }>();
   return (results ?? []).map((row) => {
-    const { prizes: _, ...project } = toProject(row, []);
+    const { prizes: _, mode: __, ...project } = toProject(row, []);
     return { ...project, prizeCount: row.prize_count };
   });
 }
@@ -92,7 +113,7 @@ export type CreateProjectInput = {
   createdBy: string | null;
 };
 
-/** Create a project that starts closed with a single unlimited losing slot at 100%. */
+/** Create a project that starts closed, in the standard mode, with a single losing slot. */
 export async function createProject(
   db: D1Database,
   input: CreateProjectInput,
@@ -101,8 +122,8 @@ export async function createProject(
     await db.batch([
       db
         .prepare(
-          `INSERT INTO project (slug, name, chapter_id, chapter_slug, created_by)
-           VALUES (?, ?, ?, ?, ?)`,
+          `INSERT INTO project (slug, name, chapter_id, chapter_slug, method, created_by)
+           VALUES (?, ?, ?, ?, 'box', ?)`,
         )
         .bind(input.slug, input.name, input.chapterId, input.chapterSlug, input.createdBy),
       db
@@ -135,7 +156,7 @@ export async function setOpen(db: D1Database, slug: string, open: boolean) {
 export async function saveSettings(
   db: D1Database,
   project: Project,
-  settings: { method: Method; expected: number; prizes: Prize[] },
+  settings: { mode: Mode; expected: number; prizes: Prize[] },
 ): Promise<{ ok: true } | { ok: false; reason: "conflict" }> {
   const existing = new Set(project.prizes.map((prize) => prize.id));
   const kept = settings.prizes.filter((prize) => existing.has(prize.id)).map((prize) => prize.id);
@@ -150,23 +171,39 @@ export async function saveSettings(
       existing.has(prize.id)
         ? db
             .prepare(
-              `UPDATE prize SET position = ?, name = ?, stock = ?, percent = ?
+              `UPDATE prize SET position = ?, name = ?, stock = ?, percent = ?, excluded = ?
                WHERE id = ? AND project_slug = ?`,
             )
-            .bind(position, prize.name, prize.stock, prize.percent, prize.id, project.slug)
+            .bind(
+              position,
+              prize.name,
+              prize.stock,
+              prize.percent,
+              prize.excluded ? 1 : 0,
+              prize.id,
+              project.slug,
+            )
         : db
             .prepare(
-              `INSERT INTO prize (id, project_slug, position, name, stock, percent)
-               VALUES (?, ?, ?, ?, ?, ?)`,
+              `INSERT INTO prize (id, project_slug, position, name, stock, percent, excluded)
+               VALUES (?, ?, ?, ?, ?, ?, ?)`,
             )
-            .bind(prize.id, project.slug, position, prize.name, prize.stock, prize.percent),
+            .bind(
+              prize.id,
+              project.slug,
+              position,
+              prize.name,
+              prize.stock,
+              prize.percent,
+              prize.excluded ? 1 : 0,
+            ),
     ),
     db
       .prepare(
         `UPDATE project SET method = ?, expected = ?, revision = revision + 1,
          updated_at = unixepoch() WHERE slug = ?`,
       )
-      .bind(settings.method, settings.expected, project.slug),
+      .bind(methodOf(settings.mode), settings.expected, project.slug),
   ];
   try {
     await db.batch(statements);
@@ -178,7 +215,7 @@ export async function saveSettings(
   return { ok: true };
 }
 
-/** Clear every spin: counters back to 0 and devices may spin again. Settings stay. */
+/** Clear every spin and its log: counters back to 0 and devices may spin again. Settings stay. */
 export async function resetDraws(db: D1Database, slug: string) {
   await db.batch([
     db.prepare("DELETE FROM draw WHERE project_slug = ?").bind(slug),

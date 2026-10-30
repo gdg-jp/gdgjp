@@ -3,6 +3,7 @@ import { type RouteConfig, index, route } from "@react-router/dev/routes";
 export default [
   index("routes/projects/home.tsx"), // "/" — project list + create (auth + chapter)
   route("admin/:slug", "routes/projects/admin.tsx"), // settings + live status (auth + chapter)
+  route("admin/:slug/draws.csv", "routes/projects/draws-csv.ts"), // draw log download (same gate)
   route("signin", "routes/signin.tsx"),
   route("no-chapter", "routes/auth/no-chapter.tsx"),
   route("api/auth/*", "routes/api.auth.$.ts"),
