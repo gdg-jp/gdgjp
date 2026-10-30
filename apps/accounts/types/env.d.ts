@@ -27,6 +27,7 @@ declare global {
     MC_CLIENT_SECRET: string;
     SCREEN_CLIENT_SECRET: string;
     DECK_CLIENT_SECRET: string;
+    ROULETTE_CLIENT_SECRET: string;
     RESEND_API_KEY?: string;
     EMAIL_FROM?: string;
     /** Better Auth encryption/signing secret. Set with wrangler secret put. */

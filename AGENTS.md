@@ -55,6 +55,12 @@ Applications live in `apps/` and shared libraries in `packages/`. Workspace glob
   obs-websocket v5 and to the deck's `DeckRoom` Durable Object, so phone and PC need no shared
   LAN. D1 holds auth tables + decks (layout JSON, versioned) + image rows; key images are in R2
   (`IMAGES`).
+- `apps/roulette/` is the event prize lottery (`roulette.gdgs.jp`): organizers create a project
+  and set up to 15 prizes with a stock each (unlimited = the losing slot) and a draw method
+  (fixed %, ticket box, or equal) on `/admin/<slug>` — an `apps/accounts/` relying party gated
+  by chapter membership; visitors spin a roulette wheel once per device at the public `/<slug>`,
+  which never shows stock. Runs on the Workers Free plan: D1 only (no Durable Objects, KV,
+  Queues or R2); each spin is one atomic D1 batch.
 - `packages/gdg-lib/` is the source-only shared TypeScript package (`@gdgjp/gdg-lib`) for relying-party
   auth and signed-cookie helpers. Keep code app-local unless it is genuinely shared here.
 - `packages/design-system/` is the `gdg-jp/design-system` Git submodule and shared React 19 workspace (`@gdgjp/design-system`).

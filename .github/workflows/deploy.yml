@@ -223,6 +223,12 @@ jobs:
               pnpm --filter @gdgjp/deck build
               pnpm --filter @gdgjp/deck run deploy
               pnpm --filter @gdgjp/deck migrate:remote
+          - name: Build, deploy, and migrate roulette
+            if: contains(fromJSON(needs.changes.outputs.deploy-apps), 'roulette')
+            run: |
+              pnpm --filter @gdgjp/roulette build
+              pnpm --filter @gdgjp/roulette run deploy
+              pnpm --filter @gdgjp/roulette migrate:remote
           - name: Build and deploy website
             if: contains(fromJSON(needs.changes.outputs.deploy-apps), 'website')
             run: |
