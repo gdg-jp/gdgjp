@@ -14,6 +14,8 @@
   cookie, the visitor-facing `DrawResult`, and the wheel, spin button, result card and effects.
   `use-spin.ts` drives the animation; `feedback.ts` holds sound and vibration.
 - `app/layouts/AdminLayout.tsx` is the signed-in shell.
+- `app/lib/use-hydrated.ts` keeps controls that need JavaScript (spin, create, save, open,
+  reset) disabled until hydration, so an early tap on a slow phone is not silently dropped.
 
 ## Spinning
 

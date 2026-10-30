@@ -13,6 +13,7 @@ import { restingOn, useSpin } from "~/features/draw/use-spin";
 import { currentOdds, rankOf, segmentsFor } from "~/features/prizes/odds";
 import { getProject } from "~/features/projects/projects.server";
 import { normalizeSlug } from "~/features/projects/slug";
+import { useHydrated } from "~/lib/use-hydrated";
 import type { Route } from "./+types/draw";
 
 export function meta({ data }: Route.MetaArgs) {
@@ -114,6 +115,7 @@ export default function DrawPage({ loaderData }: Route.ComponentProps) {
   const wheel = useSpin(segments, initial);
   const [sound, toggleSound] = useSound();
   const [error, setError] = useState<string | null>(null);
+  const hydrated = useHydrated();
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: react to each new spin response only
   useEffect(() => {
@@ -217,7 +219,7 @@ export default function DrawPage({ loaderData }: Route.ComponentProps) {
                           : "ルーレットを回す"
                     }
                     charge={wheel.charge}
-                    disabled={phase === "spinning" || phase === "closed"}
+                    disabled={!hydrated || phase === "spinning" || phase === "closed"}
                     pulse={phase === "idle"}
                     onChargeStart={wheel.startCharge}
                     onChargeCancel={wheel.cancelCharge}
