@@ -51,7 +51,7 @@ CREATE TABLE prize (
   name         TEXT NOT NULL,
   stock        INTEGER CHECK (stock IS NULL OR stock >= 0),
   won          INTEGER NOT NULL DEFAULT 0,
-  percent      REAL NOT NULL DEFAULT 0,
+  percent      REAL NOT NULL DEFAULT 0, excluded INTEGER NOT NULL DEFAULT 0,
   CHECK (stock IS NULL OR won <= stock)
 );
 CREATE INDEX prize_project_idx ON prize (project_slug, position);
@@ -67,3 +67,4 @@ CREATE TABLE draw (
   created_at   INTEGER NOT NULL DEFAULT (unixepoch())
 );
 CREATE UNIQUE INDEX draw_device_once ON draw (project_slug, device_id);
+CREATE INDEX draw_number_idx ON draw (project_slug, number);

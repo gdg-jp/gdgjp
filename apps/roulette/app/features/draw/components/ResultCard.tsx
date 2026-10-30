@@ -1,6 +1,6 @@
 import { Badge, Card, Heading, Separator, Stack, Text } from "@gdgjp/design-system";
 import { rankLabel, textUnits } from "~/features/prizes/odds";
-import type { DrawResult } from "../result";
+import { type DrawResult, drawNumberLabel } from "../result";
 
 /** What staff check before handing the prize over: the prize, draw number and time. */
 export function ResultCard({ result }: { result: DrawResult }) {
@@ -32,7 +32,7 @@ export function ResultCard({ result }: { result: DrawResult }) {
                     抽選番号
                   </Text>
                   <p className="text-xl font-semibold tabular-nums">
-                    No. {String(result.number).padStart(3, "0")}
+                    {drawNumberLabel(result.number)}
                   </p>
                 </div>
                 <div>

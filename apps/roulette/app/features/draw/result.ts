@@ -27,3 +27,8 @@ export function formatDrawTime(unixSeconds: number) {
   );
   return `${parts.month}/${parts.day} ${parts.hour}:${parts.minute}`;
 }
+
+/** "No. 012": the number visitors show at the prize desk and the admin log lists. */
+export function drawNumberLabel(number: number) {
+  return `No. ${String(number).padStart(3, "0")}`;
+}

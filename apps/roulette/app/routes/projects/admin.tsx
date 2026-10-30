@@ -20,7 +20,9 @@ import {
 } from "@gdgjp/design-system";
 import { useEffect, useState } from "react";
 import { Link, useFetcher, useRevalidator } from "react-router";
-import { MethodCard } from "~/features/prizes/components/MethodCard";
+import { DrawLogCard } from "~/features/draw/components/DrawLogCard";
+import { listDraws } from "~/features/draw/draw.server";
+import { ModeCard } from "~/features/prizes/components/ModeCard";
 import { PrizeCard } from "~/features/prizes/components/PrizeCard";
 import {
   type Draft,
@@ -46,6 +48,9 @@ export function meta({ data }: Route.MetaArgs) {
   return [{ title: data ? `${data.project.name} — GDG Roulette` : "GDG Roulette" }];
 }
 
+/** The page polls, so it lists only the latest spins; the CSV has them all. */
+const LOG_LIMIT = 50;
+
 export async function loader({ request, params, context }: Route.LoaderArgs) {
   const env = context.cloudflare.env;
   const { user, project } = await requireProjectAccess(env, request, params.slug);
@@ -54,6 +59,7 @@ export async function loader({ request, params, context }: Route.LoaderArgs) {
     accountsUrl: env.ACCOUNTS_URL,
     publicUrl: `${env.APP_URL}/${project.slug}`,
     project,
+    log: await listDraws(env.DB, project.slug, LOG_LIMIT),
   };
 }
 
@@ -104,7 +110,7 @@ function usePolling(ms: number) {
 }
 
 export default function AdminPage({ loaderData }: Route.ComponentProps) {
-  const { user, accountsUrl, publicUrl, project } = loaderData;
+  const { user, accountsUrl, publicUrl, project, log } = loaderData;
   const save = useFetcher<typeof action>();
   const toggle = useFetcher<typeof action>();
   const reset = useFetcher<typeof action>();
@@ -221,7 +227,7 @@ export default function AdminPage({ loaderData }: Route.ComponentProps) {
             );
           }}
         />
-        <MethodCard
+        <ModeCard
           draft={draft}
           errors={errors}
           pool={boxPool(draft, project.prizes, project.draws)}
@@ -234,13 +240,18 @@ export default function AdminPage({ loaderData }: Route.ComponentProps) {
           wonOf={wonOf}
           onChange={setDraft}
         />
+        <DrawLogCard
+          entries={log}
+          total={project.draws}
+          csvUrl={`/admin/${project.slug}/draws.csv`}
+        />
       </Stack>
       <AlertDialog open={resetOpen} onOpenChange={setResetOpen}>
         <AlertDialogContent>
           <AlertDialogTitle>抽選結果をリセットしますか？</AlertDialogTitle>
           <AlertDialogDescription>
             抽選回数と当選数を 0
-            に戻し、来場者の端末の「抽選済み」の記録も消します。景品と抽選方式はそのままです。この操作は取り消せません。
+            に戻し、抽選ログと、来場者の端末の「抽選済み」の記録も消します。景品と抽選モードはそのままです。この操作は取り消せません。
           </AlertDialogDescription>
           <div className="flex justify-end gap-3">
             <AlertDialogCancel asChild>
