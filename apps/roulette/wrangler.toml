@@ -21,16 +21,14 @@ binding = "ASSETS"
 directory = "./build/client"
 
 [[routes]]
-pattern = "roulette.gdgs.jp/*"
-zone_name = "gdgs.jp"
+pattern = "roulette.gdgs.jp"
+custom_domain = true
 
 # Relying-party auth tables (user, oidc_session), projects, prizes and draws.
-# Replace database_id with the id printed by `wrangler d1 create gdgjp-roulette-db`
-# before the first deploy.
 [[d1_databases]]
 binding = "DB"
 database_name = "gdgjp-roulette-db"
-database_id = "00000000-0000-0000-0000-000000000000"
+database_id = "f2f200d8-dbd4-483d-b1b6-124f4a3358a8"
 migrations_dir = "./migrations"
 
 # Worker-to-Worker OIDC (discovery, token, UserInfo) stays on Cloudflare's

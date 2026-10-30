@@ -21,13 +21,15 @@
 Workers Free プランで動く構成にしている。使うのは Workers・静的アセット・D1・accounts へのサービスバインディングだけで、
 Durable Objects・KV・Queues・R2 は使わない。来場者 1 人の抽選は D1 への書き込み 3 行程度。
 
-初回デプロイの前に、次を一度だけ行う。
+D1 データベース `gdgjp-roulette-db` は作成済みで、id は `wrangler.toml` にある。
+`roulette.gdgs.jp` は `custom_domain = true` のルートなので、`wrangler deploy` が DNS レコードと証明書を作る。
+main へのマージで GitHub Actions がデプロイとリモートのマイグレーションを行う。
 
-1. `wrangler d1 create gdgjp-roulette-db` を実行し、表示された `database_id` を `wrangler.toml` に書く。
-2. 秘密情報を設定する: `wrangler secret put RP_SESSION_SECRET` と `wrangler secret put IDP_CLIENT_SECRET`
-   （accounts 側の `ROULETTE_CLIENT_SECRET` と同じ値）。
-3. accounts に `ROULETTE_CLIENT_SECRET` を設定してデプロイし、`/admin/seed-clients` で OAuth クライアントを登録し直す。
-4. `roulette.gdgs.jp` の DNS（gdgs.jp ゾーン）を用意する。ルートは `wrangler.toml` の `[[routes]]`。
+秘密情報は次の 3 つで、`wrangler secret put` で設定する。値を変えたら 3 の手順をやり直す。
+
+1. roulette: `RP_SESSION_SECRET`（ランダムな文字列）
+2. roulette: `IDP_CLIENT_SECRET` と、accounts（`gdgjp-accounts`）: `ROULETTE_CLIENT_SECRET`（同じ値）
+3. accounts のデプロイ後、管理者が `https://accounts.gdgs.jp/admin/seed-clients` で OAuth クライアントを登録し直す。
 
 ## 開発
 
