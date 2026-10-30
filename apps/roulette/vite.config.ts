@@ -3,7 +3,7 @@ import { reactRouter } from "@react-router/dev/vite";
 import tailwindcss from "@tailwindcss/vite";
 import { defineConfig } from "vite";
 
-export default defineConfig({
+export default defineConfig(({ command }) => ({
   build: { reportCompressedSize: false, target: ["edge88", "firefox78", "chrome87", "safari14"] },
   server: { port: 5190, strictPort: true },
   plugins: [
@@ -19,7 +19,24 @@ export default defineConfig({
   // `@gdgjp/gdg-lib` is consumed as source; dedupe React so hydration sees one
   // copy (same block as ost/roster/mc/screen).
   resolve: { tsconfigPaths: true, dedupe: ["react", "react-dom", "react-router"] },
+  // Pre-bundle the linked UI package before requests arrive (same as accounts).
+  // Discovering its dependencies on the first page load re-optimizes and
+  // reloads the page mid-hydration.
   optimizeDeps: {
-    include: ["react", "react-dom", "react-dom/client", "react-router", "radix-ui", "lucide-react"],
+    include: [
+      "react",
+      "react-dom",
+      "react-dom/client",
+      "react-router",
+      "radix-ui",
+      "lucide-react",
+      "@gdgjp/design-system",
+    ],
   },
-});
+  // Pre-bundling is a dev-only concern. A partial SSR environment in a build
+  // makes React Router 7 replace Cloudflare's Worker entry with its server build.
+  environments:
+    command === "serve"
+      ? { ssr: { optimizeDeps: { include: ["@gdgjp/design-system"] } } }
+      : undefined,
+}));
