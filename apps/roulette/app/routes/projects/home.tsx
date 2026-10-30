@@ -76,11 +76,7 @@ export default function Home({ loaderData, actionData }: Route.ComponentProps) {
   return (
     <AdminLayout user={user} accountsUrl={accountsUrl}>
       <Stack className="[word-break:auto-phrase]">
-        <PageHeader
-          title="プロジェクト"
-          description={`${chapters.map((c) => c.slug).join("、")} の抽選プロジェクトです。チャプターのメンバー全員が編集できます。`}
-          actions={projects.length ? createButton : undefined}
-        />
+        <PageHeader title="プロジェクト" actions={projects.length ? createButton : undefined} />
         {projects.length === 0 ? (
           <Card>
             <EmptyState
