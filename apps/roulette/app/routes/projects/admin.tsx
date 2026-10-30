@@ -39,6 +39,7 @@ import { requireProjectAccess } from "~/features/projects/access.server";
 import { StatusCard } from "~/features/projects/components/StatusCard";
 import { resetDraws, saveSettings, setOpen } from "~/features/projects/projects.server";
 import { AdminLayout } from "~/layouts/AdminLayout";
+import { useHydrated } from "~/lib/use-hydrated";
 import type { Route } from "./+types/admin";
 
 export function meta({ data }: Route.MetaArgs) {
@@ -111,6 +112,7 @@ export default function AdminPage({ loaderData }: Route.ComponentProps) {
   const [errors, setErrors] = useState<DraftErrors>({});
   const [revision, setRevision] = useState(project.revision);
   const [resetOpen, setResetOpen] = useState(false);
+  const hydrated = useHydrated();
   usePolling(15_000);
 
   // A save (here or by another organizer) bumps the revision: start over from it.
@@ -175,7 +177,7 @@ export default function AdminPage({ loaderData }: Route.ComponentProps) {
               )}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <IconButton variant="ghost" aria-label="その他の操作">
+                  <IconButton variant="ghost" aria-label="その他の操作" disabled={!hydrated}>
                     <Icons name="MoreHorizontal" size={18} aria-hidden="true" />
                   </IconButton>
                 </DropdownMenuTrigger>
@@ -186,6 +188,7 @@ export default function AdminPage({ loaderData }: Route.ComponentProps) {
                 </DropdownMenuContent>
               </DropdownMenu>
               <Button
+                disabled={!hydrated}
                 loading={save.state !== "idle"}
                 onClick={() => {
                   const found = validateDraft(draft, project.prizes);
@@ -209,7 +212,7 @@ export default function AdminPage({ loaderData }: Route.ComponentProps) {
           left={finiteLeft(project.prizes)}
           slug={project.slug}
           publicUrl={publicUrl}
-          pending={toggle.state !== "idle"}
+          pending={!hydrated || toggle.state !== "idle"}
           onToggleOpen={(next) => submit(toggle, { intent: "open", open: next })}
           onCopy={() => {
             navigator.clipboard.writeText(publicUrl).then(

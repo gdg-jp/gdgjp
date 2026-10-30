@@ -35,6 +35,7 @@ import { requireUserWithChapter } from "~/features/auth/access.server";
 import { createProjectFromForm } from "~/features/projects/creation.server";
 import { listProjectsForChapters } from "~/features/projects/projects.server";
 import { AdminLayout } from "~/layouts/AdminLayout";
+import { useHydrated } from "~/lib/use-hydrated";
 import type { Route } from "./+types/home";
 
 export function meta() {
@@ -67,8 +68,9 @@ export default function Home({ loaderData, actionData }: Route.ComponentProps) {
   const navigation = useNavigation();
   // The dialog stays open on errors: only a successful create redirects away.
   const errors = actionData?.errors ?? {};
+  const hydrated = useHydrated();
   const createButton = (
-    <Button onClick={() => setCreating(true)}>
+    <Button disabled={!hydrated} onClick={() => setCreating(true)}>
       <Icons name="Plus" size={16} aria-hidden="true" />
       プロジェクトを作成
     </Button>
@@ -76,11 +78,7 @@ export default function Home({ loaderData, actionData }: Route.ComponentProps) {
   return (
     <AdminLayout user={user} accountsUrl={accountsUrl}>
       <Stack className="[word-break:auto-phrase]">
-        <PageHeader
-          title="プロジェクト"
-          description={`${chapters.map((c) => c.slug).join("、")} の抽選プロジェクトです。チャプターのメンバー全員が編集できます。`}
-          actions={projects.length ? createButton : undefined}
-        />
+        <PageHeader title="プロジェクト" actions={projects.length ? createButton : undefined} />
         {projects.length === 0 ? (
           <Card>
             <EmptyState
