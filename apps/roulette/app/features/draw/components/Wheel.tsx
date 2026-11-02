@@ -44,18 +44,18 @@ function star(radius: number) {
     .join(" ");
 }
 
-export type LightMode = "idle" | "spin" | "reach" | "celebrate" | "off";
+export type LightMode = "idle" | "spin" | "tension" | "celebrate" | "off";
 
 /**
  * Marquee bulbs on the rim: a slow chase at rest, fast while spinning, red and
- * yellow flashing through a reach, blinking on a win.
+ * yellow flashing through a chance, blinking on a win.
  */
 function Lights({ mode }: { mode: LightMode }) {
   const [phase, setPhase] = useState(0);
   useEffect(() => {
     if (mode === "off" || reducedMotion()) return;
     const interval =
-      mode === "spin" ? 70 : mode === "reach" ? 110 : mode === "celebrate" ? 160 : 420;
+      mode === "spin" ? 70 : mode === "tension" ? 110 : mode === "celebrate" ? 160 : 420;
     const timer = setInterval(() => setPhase((value) => value + 1), interval);
     return () => clearInterval(timer);
   }, [mode]);
@@ -66,11 +66,11 @@ function Lights({ mode }: { mode: LightMode }) {
         const on =
           mode === "off"
             ? false
-            : mode === "celebrate" || mode === "reach"
+            : mode === "celebrate" || mode === "tension"
               ? (i + phase) % 2 === 0
               : (i + phase) % 3 === 0;
         const lit =
-          mode === "reach" ? (on ? "fill-gdg-red" : "fill-gdg-yellow") : "fill-gdg-yellow";
+          mode === "tension" ? (on ? "fill-gdg-red" : "fill-gdg-yellow") : "fill-gdg-yellow";
         return (
           <circle
             // biome-ignore lint/suspicious/noArrayIndexKey: a bulb is its position
@@ -78,7 +78,7 @@ function Lights({ mode }: { mode: LightMode }) {
             cx={x}
             cy={y}
             r={4.5}
-            className={on || mode === "reach" ? lit : "fill-white opacity-25"}
+            className={on || mode === "tension" ? lit : "fill-white opacity-25"}
           />
         );
       })}

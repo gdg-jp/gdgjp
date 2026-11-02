@@ -8,6 +8,7 @@ import {
   useRevalidator,
 } from "react-router";
 import { Confetti, Flash, Stamp, Sunburst } from "~/features/draw/components/Celebration";
+import { ChancePrompt } from "~/features/draw/components/ChancePrompt";
 import { CutIn } from "~/features/draw/components/CutIn";
 import { PrizeList } from "~/features/draw/components/PrizeList";
 import { ResultCard } from "~/features/draw/components/ResultCard";
@@ -181,8 +182,8 @@ export default function DrawPage({ loaderData }: Route.ComponentProps) {
   const lights: LightMode =
     phase === "closed" || phase === "soldout" || wheel.staging === "hush"
       ? "off"
-      : wheel.staging === "reach"
-        ? "reach"
+      : wheel.staging === "tension"
+        ? "tension"
         : phase === "charge" || phase === "spinning"
           ? "spin"
           : celebrating
@@ -216,12 +217,17 @@ export default function DrawPage({ loaderData }: Route.ComponentProps) {
           </IconButton>
         </header>
         <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_360px] md:items-start">
-          {/* Above the dimmed page during a reach; the cut-in and revival shake it. */}
+          {/* Above the dimmed page during a staged finish; the cut-in and PUSH shake it. */}
           <div ref={wheel.stageRef} className={`relative ${staged ? "z-30" : ""}`}>
             <div
               className={`relative overflow-hidden transition-transform duration-700 ${staged ? "scale-105" : ""}`}
             >
-              {celebrating && <Sunburst tier={celebrating} />}
+              {celebrating ? (
+                <Sunburst tone={celebrating === "jackpot" ? "gold" : "blue"} />
+              ) : (
+                wheel.staging === "tension" &&
+                wheel.cutIn && <Sunburst tone={wheel.cutIn.level} fast />
+              )}
               <Wheel
                 segments={segments}
                 rotation={wheel.rotation}
@@ -306,10 +312,19 @@ export default function DrawPage({ loaderData }: Route.ComponentProps) {
         }`}
       />
       {wheel.cutIn && (
-        <CutIn kind={wheel.cutIn.kind} runKey={wheel.cutIn.key} anchor={wheel.stageRef} />
+        <CutIn level={wheel.cutIn.level} runKey={wheel.cutIn.key} anchor={wheel.stageRef} />
       )}
+      {wheel.prompt && (
+        <ChancePrompt
+          prompt={wheel.prompt}
+          gauge={wheel.gauge}
+          taps={wheel.taps}
+          onPress={wheel.press}
+        />
+      )}
+      <Flash tone="push" runKey={wheel.pushKey} />
       {celebrating && <Confetti tier={celebrating} runKey={wheel.celebrateKey} />}
-      {celebrating && <Flash tier={celebrating} runKey={wheel.celebrateKey} />}
+      {celebrating && <Flash tone={celebrating} runKey={wheel.celebrateKey} />}
     </div>
   );
 }

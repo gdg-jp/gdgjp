@@ -1,12 +1,15 @@
 import { useEffect, useRef, useState } from "react";
 import { type Segment, mod, rotationFor } from "~/features/prizes/odds";
+import type { Prompt } from "./components/ChancePrompt";
 import { flickPointer } from "./components/Wheel";
 import {
   cutInVibration,
   heartbeatVibration,
+  maxVibration,
+  promptVibration,
+  pushVibration,
   reducedMotion,
   revealVibration,
-  reviveVibration,
   sfx,
   shake,
   vibrate,
@@ -23,9 +26,8 @@ import {
 } from "./staging";
 
 export type SpinPhase = "idle" | "charge" | "spinning" | "result";
-/** The staged finish: crawling after a cut-in, and the hush before a revival. */
-export type Staging = "none" | "reach" | "hush";
-export type CutInKind = CutInLevel | "revive";
+/** The staged finish: crawling after a cut-in, and the dark hush before PUSH. */
+export type Staging = "none" | "tension" | "hush";
 
 const CHARGE_MS = 1200;
 /** Free spin reaches full speed in this long. */
@@ -34,17 +36,25 @@ const RAMP_MS = 180;
 const MIN_FREE_MS = 450;
 /** Aim for a slow-down of about this long. */
 const LAND_MS = 3600;
-/** A reach slows to a crawl in about this long, then crawls CRAWL_SLICES slices in CRAWL_MS. */
+/** A staged finish slows to a crawl in about this long, then crawls CRAWL_SLICES slices. */
 const APPROACH_MS = 2400;
 const CRAWL_SLICES = 2.4;
 const CRAWL_MS = 3200;
+/** 連打 crawls longer: the cut-in, then the button for the rest. */
+const RENDA_MS = 4800;
+const CUT_IN_MS = 1150;
+/** Without taps the gauge fills this far by the end of the crawl; each tap adds TAP_GAIN. */
+const RENDA_AUTO_SHARE = 0.7;
+const TAP_GAIN = 0.05;
 /**
- * A revival goes quiet this long after its fake stop, jolts on in REVIVE_MS,
- * and holds until its cut-in has left before the reveal.
+ * 押せ: dark for HUSH_MS after stopping short, then the button waits up to
+ * PUSH_WAIT_MS before pressing itself; the jolt takes JOLT_MS and the wheel
+ * holds JOLT_HOLD_MS before the reveal.
  */
-const HUSH_MS = 1000;
-const REVIVE_MS = 520;
-const REVIVE_HOLD_MS = 500;
+const HUSH_MS = 800;
+const PUSH_WAIT_MS = 6000;
+const JOLT_MS = 520;
+const JOLT_HOLD_MS = 500;
 const HEARTBEAT_MS = 640;
 /** Pause between stopping and the reveal. */
 const REVEAL_DELAY_MS = 300;
@@ -53,17 +63,22 @@ const SLOW = 0.35;
 
 type Landing = LandingPlan & { result: DrawResult | null };
 
-/** One stretch of the finish: `distance` degrees in `duration` ms along `ease`. */
+/**
+ * One stretch of the finish: `distance` degrees in `duration` ms along `ease`.
+ * A `wait` leg ends early when the PUSH button is pressed.
+ */
 type Leg = {
   distance: number;
   duration: number;
   ease: (t: number) => number;
   onStart?: () => void;
+  wait?: boolean;
 };
 
 const easeOut = (power: number) => (t: number) => 1 - (1 - t) ** power;
+const still = () => 0;
 
-/** Overshoots a little and settles back: the revival's jolt. */
+/** Overshoots a little and settles back: the jolt after PUSH. */
 const backOut = (t: number) => 1 + 2.70158 * (t - 1) ** 3 + 1.70158 * (t - 1) ** 2;
 
 /**
@@ -82,7 +97,7 @@ function approach(delta: number, from: number, to: number): Leg {
   };
 }
 
-/** Dev only: `?demo=revive-gold` (a variant and/or a level) forces a finish, to try each effect. */
+/** Dev only: `?demo=push-gold` (a variant and/or a level) forces a finish, to try each effect. */
 function demoForce(): { variant?: Variant; level?: CutInLevel } {
   if (!import.meta.env.DEV) return {};
   const parts = new URLSearchParams(window.location.search).get("demo")?.split("-") ?? [];
@@ -103,8 +118,8 @@ export function restingOn(segments: Segment[], prizeId: string | null) {
  * Drives the wheel: hold to charge (the wheel winds back), release to spin
  * freely while the server picks the prize, then `land()` eases into the
  * winning slice with no jump in speed and reveals the result — through a
- * staged reach when staging.ts says so. The wheel's transform is set directly
- * each frame; React state only changes per phase.
+ * staged finish (staging.ts) when one is planned. The wheel's transform is set
+ * directly each frame; React state only changes per phase, tap and gauge step.
  */
 export function useSpin(segments: Segment[], initial: { rotation: number; highlight?: number }) {
   const [phase, setPhase] = useState<SpinPhase>("idle");
@@ -114,11 +129,15 @@ export function useSpin(segments: Segment[], initial: { rotation: number; highli
   const [result, setResult] = useState<DrawResult | null>(null);
   const [celebrateKey, setCelebrateKey] = useState(0);
   const [staging, setStaging] = useState<Staging>("none");
-  const [cutIn, setCutIn] = useState<{ kind: CutInKind; key: number } | null>(null);
+  const [cutIn, setCutIn] = useState<{ level: CutInLevel; key: number } | null>(null);
+  const [prompt, setPrompt] = useState<Prompt | null>(null);
+  const [gauge, setGauge] = useState(0);
+  const [taps, setTaps] = useState(0);
+  const [pushKey, setPushKey] = useState(0);
   const [nearMiss, setNearMiss] = useState(false);
   const wheelRef = useRef<SVGGElement>(null);
   const pointerRef = useRef<SVGGElement>(null);
-  /** Shaken by the cut-in, the revival and the jackpot. */
+  /** Shaken by the cut-in, PUSH and the jackpot. */
   const stageRef = useRef<HTMLDivElement>(null);
   const motion = useRef({
     angle: initial.rotation,
@@ -128,9 +147,16 @@ export function useSpin(segments: Segment[], initial: { rotation: number; highli
     frame: 0,
     timer: 0,
     heartbeat: 0,
-    cutIns: 0,
-    /** Crawling through a reach: boundaries tick louder and vibrate. */
-    reach: false,
+    keys: 0,
+    /** Crawling after a cut-in: boundaries tick louder and vibrate. */
+    tense: false,
+    prompt: null as Prompt["kind"] | null,
+    promptTimer: 0,
+    gaugeTimer: 0,
+    rendaSince: 0,
+    taps: 0,
+    maxed: false,
+    pushed: false,
     freeSince: 0,
     pending: null as Landing | null,
     course: null as {
@@ -144,11 +170,24 @@ export function useSpin(segments: Segment[], initial: { rotation: number; highli
   const count = Math.max(segments.length, 1);
   const seg = 360 / count;
 
+  const stopHeartbeat = () => clearInterval(motion.current.heartbeat);
+
+  const endPrompt = () => {
+    const m = motion.current;
+    clearTimeout(m.promptTimer);
+    clearInterval(m.gaugeTimer);
+    m.prompt = null;
+    setPrompt(null);
+  };
+
   useEffect(
     () => () => {
-      cancelAnimationFrame(motion.current.frame);
-      clearTimeout(motion.current.timer);
-      clearInterval(motion.current.heartbeat);
+      const m = motion.current;
+      cancelAnimationFrame(m.frame);
+      clearTimeout(m.timer);
+      clearInterval(m.heartbeat);
+      clearTimeout(m.promptTimer);
+      clearInterval(m.gaugeTimer);
     },
     [],
   );
@@ -158,49 +197,110 @@ export function useSpin(segments: Segment[], initial: { rotation: number; highli
     wheelRef.current?.setAttribute("transform", `rotate(${angle})`);
   };
 
-  const showCutIn = (kind: CutInKind) => {
-    motion.current.cutIns += 1;
-    setCutIn({ kind, key: motion.current.cutIns });
+  const nextKey = () => {
+    motion.current.keys += 1;
+    return motion.current.keys;
   };
 
-  const stopHeartbeat = () => clearInterval(motion.current.heartbeat);
+  const showPrompt = (kind: Prompt["kind"], level: CutInLevel) => {
+    motion.current.prompt = kind;
+    setPrompt({
+      kind,
+      level,
+      key: nextKey(),
+      timeout: kind === "push" ? PUSH_WAIT_MS : undefined,
+    });
+    sfx.prompt();
+    vibrate(promptVibration);
+  };
 
-  const startReach = (level: CutInLevel) => {
+  const gaugeNow = () => {
     const m = motion.current;
-    m.reach = true;
-    setStaging("reach");
-    showCutIn(level);
+    const auto = ((performance.now() - m.rendaSince) / (RENDA_MS - CUT_IN_MS)) * RENDA_AUTO_SHARE;
+    return Math.min(1, auto + m.taps * TAP_GAIN);
+  };
+
+  const updateGauge = () => {
+    const m = motion.current;
+    const value = gaugeNow();
+    setGauge(value);
+    if (value >= 1 && !m.maxed) {
+      m.maxed = true;
+      sfx.max();
+      vibrate(maxVibration);
+    }
+  };
+
+  const startRenda = (level: CutInLevel) => {
+    const m = motion.current;
+    m.taps = 0;
+    m.maxed = false;
+    m.rendaSince = performance.now();
+    setTaps(0);
+    setGauge(0);
+    showPrompt("renda", level);
+    m.gaugeTimer = window.setInterval(updateGauge, 60);
+  };
+
+  const startTension = (level: CutInLevel, renda: boolean) => {
+    const m = motion.current;
+    m.tense = true;
+    setStaging("tension");
+    setCutIn({ level, key: nextKey() });
     sfx.cutIn(level);
     vibrate(cutInVibration[level]);
-    shake(stageRef.current, level === "gold" ? 12 : 7);
+    shake(stageRef.current, level === "gold" || level === "rainbow" ? 12 : 7);
     stopHeartbeat();
     m.heartbeat = window.setInterval(() => {
       sfx.heartbeat();
       vibrate(heartbeatVibration);
     }, HEARTBEAT_MS);
+    if (renda) m.promptTimer = window.setTimeout(() => startRenda(level), CUT_IN_MS);
   };
 
   const hush = () => {
-    motion.current.reach = false;
+    motion.current.tense = false;
     stopHeartbeat();
     setStaging("hush");
   };
 
-  const revive = () => {
-    motion.current.reach = true;
-    setStaging("reach");
-    showCutIn("revive");
-    sfx.revive();
-    vibrate(reviveVibration);
-    shake(stageRef.current, 16);
+  const askPush = (level: CutInLevel) => {
+    motion.current.pushed = false;
+    showPrompt("push", level);
+  };
+
+  /** PUSH went in (or the wait ran out): flash, shake and jolt into the prize. */
+  const jolt = () => {
+    motion.current.tense = true;
+    endPrompt();
+    setStaging("tension");
+    setPushKey(nextKey());
+    sfx.push();
+    vibrate(pushVibration);
+    shake(stageRef.current, 18);
+  };
+
+  /** The chance button: a tap for 連打, the one press for 押せ. */
+  const press = () => {
+    const m = motion.current;
+    if (m.prompt === "renda") {
+      m.taps += 1;
+      setTaps(m.taps);
+      updateGauge();
+      sfx.tap(gaugeNow());
+      vibrate(12);
+    } else if (m.prompt === "push" && !m.pushed) {
+      m.pushed = true;
+    }
   };
 
   const reveal = (landing: Landing) => {
     const m = motion.current;
     m.course = null;
     m.pending = null;
-    m.reach = false;
+    m.tense = false;
     stopHeartbeat();
+    endPrompt();
     setStaging("none");
     setRotation(m.angle);
     if (!landing.result) {
@@ -210,7 +310,7 @@ export function useSpin(segments: Segment[], initial: { rotation: number; highli
     const drawn = landing.result;
     setHighlight(landing.index);
     setResult(drawn);
-    setNearMiss(landing.variant === "fake");
+    setNearMiss(landing.nearMiss);
     setPhase("result");
     setCelebrateKey((key) => key + 1);
     sfx.reveal(drawn.tier);
@@ -229,24 +329,38 @@ export function useSpin(segments: Segment[], initial: { rotation: number; highli
       const distance = turns * 360 + delta;
       return [{ distance, duration: (4 * distance) / velocity, ease: easeOut(4) }];
     }
+    const renda = landing.variant === "renda";
     const stop = landing.fakeStop ?? landing;
     const crawl = CRAWL_SLICES * seg;
+    const crawlMs = renda ? RENDA_MS : CRAWL_MS;
     // The crawl eases out quadratically, which starts at 2·distance/duration.
-    const crawlSpeed = (2 * crawl) / CRAWL_MS;
+    const crawlSpeed = (2 * crawl) / crawlMs;
     const legs: Leg[] = [
       approach(mod(target(stop) - crawl - angle, 360), velocity, crawlSpeed),
-      { distance: crawl, duration: CRAWL_MS, ease: easeOut(2), onStart: () => startReach(level) },
+      {
+        distance: crawl,
+        duration: crawlMs,
+        ease: easeOut(2),
+        onStart: () => startTension(level, renda),
+      },
     ];
     if (landing.fakeStop)
       legs.push(
-        { distance: 0, duration: HUSH_MS, ease: () => 0, onStart: hush },
+        { distance: 0, duration: HUSH_MS, ease: still, onStart: hush },
+        {
+          distance: 0,
+          duration: PUSH_WAIT_MS,
+          ease: still,
+          wait: true,
+          onStart: () => askPush(level),
+        },
         {
           distance: mod(target(landing) - target(landing.fakeStop), 360),
-          duration: REVIVE_MS,
+          duration: JOLT_MS,
           ease: backOut,
-          onStart: revive,
+          onStart: jolt,
         },
-        { distance: 0, duration: REVIVE_HOLD_MS, ease: () => 0 },
+        { distance: 0, duration: JOLT_HOLD_MS, ease: still },
       );
     return legs;
   };
@@ -299,11 +413,14 @@ export function useSpin(segments: Segment[], initial: { rotation: number; highli
     setResult(null);
     setNearMiss(false);
     setCutIn(null);
+    endPrompt();
     setPhase("spinning");
     if (reducedMotion()) return true;
     let boundary = Math.floor(m.angle / seg);
     let last = performance.now();
     m.freeSince = last;
+    const done = (leg: Leg, elapsed: number) =>
+      elapsed >= leg.duration || (leg.wait === true && m.pushed);
     const loop = (now: number) => {
       const dt = now - last;
       last = now;
@@ -311,18 +428,18 @@ export function useSpin(segments: Segment[], initial: { rotation: number; highli
       const course = m.course;
       if (course) {
         let leg = course.legs[course.at];
-        let t = leg ? (now - course.start) / leg.duration : 1;
-        while (leg && t >= 1 && course.at < course.legs.length - 1) {
+        let elapsed = now - course.start;
+        while (leg && done(leg, elapsed) && course.at < course.legs.length - 1) {
           course.from += leg.distance;
-          course.start += leg.duration;
+          course.start = leg.wait ? now : course.start + leg.duration;
           course.at += 1;
           leg = course.legs[course.at];
           leg?.onStart?.();
-          t = leg ? (now - course.start) / leg.duration : 1;
+          elapsed = now - course.start;
         }
-        t = Math.min(t, 1);
-        if (leg) setAngle(course.from + leg.distance * leg.ease(t));
-        if (t >= 1) {
+        if (leg)
+          setAngle(course.from + leg.distance * leg.ease(Math.min(elapsed / leg.duration, 1)));
+        if (!leg || done(leg, elapsed)) {
           m.timer = window.setTimeout(() => reveal(course.landing), REVEAL_DELAY_MS);
           return;
         }
@@ -339,10 +456,10 @@ export function useSpin(segments: Segment[], initial: { rotation: number; highli
       const next = Math.floor(m.angle / seg);
       if (next !== boundary) {
         boundary = next;
-        sfx.tick(m.reach);
+        sfx.tick(m.tense);
         flickPointer(pointerRef.current);
         const speed = dt > 0 ? Math.abs(m.angle - before) / dt : 0;
-        if (m.reach) vibrate(18);
+        if (m.tense) vibrate(18);
         else if (speed < SLOW) vibrate(6);
       }
       m.frame = requestAnimationFrame(loop);
@@ -381,6 +498,10 @@ export function useSpin(segments: Segment[], initial: { rotation: number; highli
     celebrateKey,
     staging,
     cutIn,
+    prompt,
+    gauge,
+    taps,
+    pushKey,
     nearMiss,
     wheelRef,
     pointerRef,
@@ -388,6 +509,7 @@ export function useSpin(segments: Segment[], initial: { rotation: number; highli
     startCharge,
     cancelCharge,
     release,
+    press,
     land,
     abort,
   };

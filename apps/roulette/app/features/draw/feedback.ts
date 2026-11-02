@@ -1,7 +1,7 @@
 import type { Tier } from "~/features/prizes/prize";
 import type { CutInLevel } from "./staging";
 
-/** Sound, vibration and shake for the spin page. Browser only; every call is a no-op on the server. */
+/** Sound, vibration and shake for the spin page. Browser only; no-ops on the server. */
 
 export function reducedMotion() {
   return typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -94,12 +94,18 @@ const cutInChord: Record<CutInLevel, number[]> = {
   blue: [659, 988],
   red: [784, 1175, 1568],
   gold: [1047, 1319, 1568, 2093],
+  rainbow: [1047, 1319, 1568, 2093, 2637],
 };
+
+const sparkle = (at: number) =>
+  [2093, 2637, 3136, 4186].forEach((f, i) =>
+    tone(f, 0.12, { type: "sine", gain: 0.03, at: at + i * 0.07 }),
+  );
 
 let lastTick = 0;
 
 export const sfx = {
-  /** The pointer passed a slice boundary; `strong` while crawling through a reach. */
+  /** The pointer passed a slice boundary; `strong` while crawling after a cut-in. */
   tick(strong = false) {
     const now = performance.now();
     if (now - lastTick < 35) return;
@@ -107,24 +113,37 @@ export const sfx = {
     if (strong) tone(1500, 0.06, { gain: 0.07 });
     else tone(2100, 0.03, { gain: 0.03 });
   },
-  /** The reach cut-in slashing across: a whoosh and a chord, bigger with the level. */
+  /** The CHANCE cut-in slashing across: a whoosh and a chord, bigger with the level. */
   cutIn(level: CutInLevel) {
     noise(0.35, { gain: 0.12, from: 300, to: 6000 });
     cutInChord[level].forEach((f, i) =>
       tone(f, 0.5, { type: "sawtooth", gain: 0.035, at: 0.08 + i * 0.03 }),
     );
-    if (level === "gold")
-      [2093, 2637, 3136, 4186].forEach((f, i) =>
-        tone(f, 0.12, { type: "sine", gain: 0.03, at: 0.3 + i * 0.07 }),
-      );
+    if (level === "gold" || level === "rainbow") sparkle(0.3);
+    if (level === "rainbow") sparkle(0.6);
+  },
+  /** The chance button appeared: three quick beeps. */
+  prompt() {
+    tone(1760, 0.06, { gain: 0.05 });
+    tone(1760, 0.06, { gain: 0.05, at: 0.1 });
+    tone(2349, 0.14, { gain: 0.06, at: 0.2 });
+  },
+  /** One rapid tap, higher as the gauge fills. */
+  tap(gauge: number) {
+    tone(520 + gauge * 1100, 0.045, { gain: 0.06 });
+  },
+  /** The gauge is full. */
+  max() {
+    sparkle(0);
+    tone(2093, 0.4, { type: "triangle", gain: 0.05, at: 0.28 });
   },
   /** One heartbeat while the wheel crawls. */
   heartbeat() {
     tone(90, 0.12, { type: "sine", gain: 0.3, slideTo: 50 });
     tone(80, 0.14, { type: "sine", gain: 0.22, at: 0.17, slideTo: 45 });
   },
-  /** The revival jolt: a crash and a rising run. */
-  revive() {
+  /** PUSH: a crash and a rising run as the wheel jolts into the prize. */
+  push() {
     tone(120, 0.3, { gain: 0.1, slideTo: 60 });
     noise(0.4, { gain: 0.15, from: 2000, to: 200 });
     [523, 784, 1047, 1568, 2093].forEach((f, i) =>
@@ -215,10 +234,13 @@ export const cutInVibration: Record<CutInLevel, number[]> = {
   blue: [60, 40, 120],
   red: [80, 40, 80, 40, 200],
   gold: [100, 30, 100, 30, 100, 30, 320],
+  rainbow: [120, 30, 120, 30, 120, 30, 120, 30, 400],
 };
 
 export const heartbeatVibration = [25, 110, 35];
-export const reviveVibration = [150, 50, 150, 50, 300];
+export const promptVibration = [40, 60, 40, 60, 40];
+export const maxVibration = [60, 30, 60];
+export const pushVibration = [150, 50, 150, 50, 300];
 
 /** Shake an element, `power` pixels at first, dying down. */
 export function shake(element: HTMLElement | null, power: number) {

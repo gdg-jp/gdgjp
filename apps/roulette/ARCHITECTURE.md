@@ -15,7 +15,8 @@
   anonymous device cookie, the visitor-facing `DrawResult`, `log.ts` (the admin log and its CSV,
   never the device id), and the wheel, spin button, result card, effects and log card.
   `use-spin.ts` drives the animation; `staging.ts` plans how a spin finishes (see below);
-  `feedback.ts` holds sound effects, vibration and shake; `music.ts` the background music.
+  `feedback.ts` holds sound effects, vibration and shake; `music.ts` the background music;
+  the cut-in, chance button and lettering are widgets.
 - `app/layouts/AdminLayout.tsx` is the signed-in shell.
 - `app/lib/use-hydrated.ts` keeps controls that need JavaScript (spin, create, save, open,
   reset) disabled until hydration, so an early tap on a slow phone is not silently dropped.
@@ -46,16 +47,21 @@ action so the reveal is not cut short.
 
 ## Spin effects
 
-`staging.ts` decides, purely, how each spin finishes. Every prize gets a reach (リーチ): a cut-in
-whose color (blue, red, gold) hints at the outcome, then a crawl over the last slices with a
-heartbeat, the page dimmed and the wheel's lights flashing. Some losses get a fake reach that
-stops just short of a prize ("おしい…！"), and some prizes a revival (復活): a stop just short, a
-hush, then a jolt into the prize. Haptics use the Vibration API, or on iOS (which has none) the
-haptic tick of an `<input type="checkbox" switch>`. The music is a synthesized loop that starts on
-the first tap (browsers block sound before one) and fades out through a reach and the fanfare.
-Reduced motion skips straight to the result.
+Pachinko style, and presentation only: the server has picked the prize before any of it starts,
+and `staging.ts` decides purely how the spin finishes. Every prize gets a staged finish: a CHANCE
+cut-in whose color (blue, red, gold; rainbow only for prizes) hints at the outcome, then a crawl
+over the last slices with a heartbeat, the page dimmed, rays behind the wheel and its lights
+flashing. Some crawls ask for 連打 (rapid taps fill a gauge; they change nothing). Some prizes get
+押せ instead: the wheel stops just short, goes dark, and a PUSH button (which presses itself after
+a few seconds) jolts it into the prize. Some losses get a crawl too and stop just short of a prize
+("おしい…！"); a loss never gets PUSH or rainbow. `app.css` holds the lettering (`.pachi-*`).
 
-In local dev only, `?demo=<variant>-<level>` on the spin page (for example `?demo=revive-gold`)
+Haptics use the Vibration API, or on iOS (which has none) the haptic tick of an
+`<input type="checkbox" switch>`. The music is a synthesized loop that starts on the first tap
+(browsers block sound before one) and fades out through a staged finish and the fanfare. Reduced
+motion skips straight to the result.
+
+In local dev only, `?demo=<variant>-<level>` on the spin page (for example `?demo=push-gold`)
 forces a finish, and `/dev/reset/:slug` (404 unless `APP_URL` is loopback) clears the spins so
 the same browser can spin again.
 

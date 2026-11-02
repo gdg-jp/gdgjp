@@ -55,7 +55,9 @@ test("an organizer sets up prizes and visitors win them one spin per device", as
   await expect(page.getByText("抽選の受付を始めました")).toBeVisible();
 
   const first = await spinAsVisitor(browser, slug);
-  await expect(first.page.getByText("大当たり！")).toBeVisible({ timeout: SPIN_TIMEOUT });
+  await expect(first.page.getByText("大当たり", { exact: true })).toBeVisible({
+    timeout: SPIN_TIMEOUT,
+  });
   await expect(
     first.page.getByRole("heading", { name: "Google Pixel 10", level: 2 }),
   ).toBeVisible();

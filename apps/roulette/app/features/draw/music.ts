@@ -110,7 +110,7 @@ export const music = {
     window.setTimeout(() => fader?.disconnect(), 400);
     state.fader = null;
   },
-  /** Louder with double-time hats while spinning; silent through a reach and the fanfare. */
+  /** Louder, with double-time hats, while spinning; silent through staged finishes and fanfares. */
   setMood(mood: Mood) {
     if (state.mood === mood) return;
     state.mood = mood;
