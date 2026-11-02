@@ -5,14 +5,15 @@ import type { Tier } from "~/features/prizes/prize";
  * How a spin finishes, pachinko style. Pure, so how often each effect shows is
  * testable. The server has already picked the prize; none of this changes it.
  *
- * - crawl: a CHANCE cut-in, then a crawl over the last slices.
- * - renda (連打): a crawl that asks for rapid taps. The taps fill a gauge and
- *   nothing else.
+ * - crawl: a CHANCE cut-in, then a crawl over the last slices into the prize.
+ * - renda (連打): the crawl stops just short, on a losing slice, and the wheel
+ *   stays frozen while rapid taps fill a gauge (they change nothing). Then a
+ *   prize jolts the wheel on into its slice; a loss stays where it stopped.
  * - push (押せ): prizes only. Stops just short, goes dark, and a PUSH button
  *   sends it on into the prize.
  *
- * Every prize gets a crawl; some losses get one too and stop just short of a
- * prize. The cut-in color hints at the outcome: blue, red, gold, and rainbow
+ * Every prize gets one of these; some losses get a crawl or a renda too and
+ * stop just short of a prize. The cut-in color hints at the outcome: blue, red, gold, and rainbow
  * (prizes only, so it settles it).
  */
 
@@ -36,7 +37,7 @@ export type LandingPlan = Stop & {
   level: CutInLevel | null;
   /** A loss that stops just short of a prize. */
   nearMiss: boolean;
-  /** Push only: where the wheel stops before the button sends it on. */
+  /** Renda and push prizes: where the wheel stops before jolting on into the prize. */
   fakeStop: Stop | null;
 };
 
@@ -85,7 +86,7 @@ function pickLevel(tier: Tier, random: () => number): CutInLevel {
 
 export function planLanding(
   segments: Segment[],
-  drawn: { prizeId: string | null; tier: Tier } | null,
+  drawn: { prizeId: string | null; tier: Tier; rank: number | null } | null,
   random: () => number,
   force: { variant?: Variant; level?: CutInLevel } = {},
 ): LandingPlan {
@@ -129,22 +130,39 @@ export function planLanding(
 
   const level = force.level ?? pickLevel(drawn.tier, random);
   const variant = force.variant ?? (random() < pushShare[drawn.tier] ? "push" : crawl());
-  // Push stops on the slice the pointer meets just before the prize, so that one must differ.
-  const pushable = matches.filter((i) => at(i + 1)?.prizeId !== drawn.prizeId);
-  const pushTo = pick(pushable, random);
-  if (variant === "push" && pushTo !== undefined)
+  // Renda and push stop first on a lesser prize (ハズレ is the least) as close
+  // before the prize as the wheel has one, then jolt on over the gap.
+  const lesser = (i: number) => {
+    const slice = at(i);
+    return slice?.rank === null || (slice !== undefined && slice.rank > (drawn.rank ?? 0));
+  };
+  const gaps = matches.map((i) => {
+    let gap = 1;
+    while (gap < count && !lesser(i + gap)) gap += 1;
+    return { i, gap };
+  });
+  const nearest = Math.min(...gaps.map(({ gap }) => gap));
+  const jump =
+    nearest < count
+      ? pick(
+          gaps.filter(({ gap }) => gap === nearest),
+          random,
+        )
+      : undefined;
+  if ((variant === "push" || variant === "renda") && jump)
     return {
-      index: pushTo,
+      index: jump.i,
       fraction: between(random, 0.35, 0.65),
       variant,
       level,
       nearMiss: false,
-      fakeStop: { index: mod(pushTo + 1, count), fraction: between(random, 0.05, 0.12) },
+      // Far enough in that the needle is plainly on the lesser prize.
+      fakeStop: { index: mod(jump.i + jump.gap, count), fraction: between(random, 0.12, 0.22) },
     };
   return {
     index,
     fraction: between(random, 0.82, 0.92),
-    variant: variant === "push" ? "crawl" : variant,
+    variant: "crawl",
     level,
     nearMiss: false,
     fakeStop: null,

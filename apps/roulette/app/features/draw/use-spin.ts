@@ -40,21 +40,17 @@ const LAND_MS = 3600;
 const APPROACH_MS = 2400;
 const CRAWL_SLICES = 2.4;
 const CRAWL_MS = 3200;
-/** 連打 crawls longer: the cut-in, then the button for the rest. */
-const RENDA_MS = 4800;
-const CUT_IN_MS = 1150;
-/** Without taps the gauge fills this far by the end of the crawl; each tap adds TAP_GAIN. */
+/** 連打: the wheel stays frozen this long while the button asks for taps. */
+const RENDA_MS = 3600;
+/** Without taps the gauge fills this far by the end; each tap adds TAP_GAIN. */
 const RENDA_AUTO_SHARE = 0.7;
 const TAP_GAIN = 0.05;
-/**
- * 押せ: dark for HUSH_MS after stopping short, then the button waits up to
- * PUSH_WAIT_MS before pressing itself; the jolt takes JOLT_MS and the wheel
- * holds JOLT_HOLD_MS before the reveal.
- */
+/** 押せ: dark for HUSH_MS after stopping short; the button presses itself after PUSH_WAIT_MS. */
 const HUSH_MS = 800;
 const PUSH_WAIT_MS = 6000;
-const JOLT_MS = 520;
-const JOLT_HOLD_MS = 500;
+/** The jolt from the short stop into the prize, and the hold before the reveal. */
+const JOLT_MS = 380;
+const JOLT_HOLD_MS = 600;
 const HEARTBEAT_MS = 640;
 /** Pause between stopping and the reveal. */
 const REVEAL_DELAY_MS = 300;
@@ -151,7 +147,6 @@ export function useSpin(segments: Segment[], initial: { rotation: number; highli
     /** Crawling after a cut-in: boundaries tick louder and vibrate. */
     tense: false,
     prompt: null as Prompt["kind"] | null,
-    promptTimer: 0,
     gaugeTimer: 0,
     rendaSince: 0,
     taps: 0,
@@ -174,7 +169,6 @@ export function useSpin(segments: Segment[], initial: { rotation: number; highli
 
   const endPrompt = () => {
     const m = motion.current;
-    clearTimeout(m.promptTimer);
     clearInterval(m.gaugeTimer);
     m.prompt = null;
     setPrompt(null);
@@ -186,7 +180,6 @@ export function useSpin(segments: Segment[], initial: { rotation: number; highli
       cancelAnimationFrame(m.frame);
       clearTimeout(m.timer);
       clearInterval(m.heartbeat);
-      clearTimeout(m.promptTimer);
       clearInterval(m.gaugeTimer);
     },
     [],
@@ -216,7 +209,7 @@ export function useSpin(segments: Segment[], initial: { rotation: number; highli
 
   const gaugeNow = () => {
     const m = motion.current;
-    const auto = ((performance.now() - m.rendaSince) / (RENDA_MS - CUT_IN_MS)) * RENDA_AUTO_SHARE;
+    const auto = ((performance.now() - m.rendaSince) / RENDA_MS) * RENDA_AUTO_SHARE;
     return Math.min(1, auto + m.taps * TAP_GAIN);
   };
 
@@ -242,7 +235,7 @@ export function useSpin(segments: Segment[], initial: { rotation: number; highli
     m.gaugeTimer = window.setInterval(updateGauge, 60);
   };
 
-  const startTension = (level: CutInLevel, renda: boolean) => {
+  const startTension = (level: CutInLevel) => {
     const m = motion.current;
     m.tense = true;
     setStaging("tension");
@@ -255,7 +248,6 @@ export function useSpin(segments: Segment[], initial: { rotation: number; highli
       sfx.heartbeat();
       vibrate(heartbeatVibration);
     }, HEARTBEAT_MS);
-    if (renda) m.promptTimer = window.setTimeout(() => startRenda(level), CUT_IN_MS);
   };
 
   const hush = () => {
@@ -269,7 +261,7 @@ export function useSpin(segments: Segment[], initial: { rotation: number; highli
     showPrompt("push", level);
   };
 
-  /** PUSH went in (or the wait ran out): flash, shake and jolt into the prize. */
+  /** After 連打, or once PUSH went in (or timed out): flash, shake, jolt into the prize. */
   const jolt = () => {
     motion.current.tense = true;
     endPrompt();
@@ -329,22 +321,18 @@ export function useSpin(segments: Segment[], initial: { rotation: number; highli
       const distance = turns * 360 + delta;
       return [{ distance, duration: (4 * distance) / velocity, ease: easeOut(4) }];
     }
-    const renda = landing.variant === "renda";
     const stop = landing.fakeStop ?? landing;
     const crawl = CRAWL_SLICES * seg;
-    const crawlMs = renda ? RENDA_MS : CRAWL_MS;
     // The crawl eases out quadratically, which starts at 2·distance/duration.
-    const crawlSpeed = (2 * crawl) / crawlMs;
+    const crawlSpeed = (2 * crawl) / CRAWL_MS;
     const legs: Leg[] = [
       approach(mod(target(stop) - crawl - angle, 360), velocity, crawlSpeed),
-      {
-        distance: crawl,
-        duration: crawlMs,
-        ease: easeOut(2),
-        onStart: () => startTension(level, renda),
-      },
+      { distance: crawl, duration: CRAWL_MS, ease: easeOut(2), onStart: () => startTension(level) },
     ];
-    if (landing.fakeStop)
+    // Frozen where the crawl stopped while the button asks for taps.
+    if (landing.variant === "renda")
+      legs.push({ distance: 0, duration: RENDA_MS, ease: still, onStart: () => startRenda(level) });
+    if (landing.variant === "push")
       legs.push(
         { distance: 0, duration: HUSH_MS, ease: still, onStart: hush },
         {
@@ -354,6 +342,9 @@ export function useSpin(segments: Segment[], initial: { rotation: number; highli
           wait: true,
           onStart: () => askPush(level),
         },
+      );
+    if (landing.fakeStop)
+      legs.push(
         {
           distance: mod(target(landing) - target(landing.fakeStop), 360),
           duration: JOLT_MS,

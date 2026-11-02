@@ -51,9 +51,11 @@ Pachinko style, and presentation only: the server has picked the prize before an
 and `staging.ts` decides purely how the spin finishes. Every prize gets a staged finish: a CHANCE
 cut-in whose color (blue, red, gold; rainbow only for prizes) hints at the outcome, then a crawl
 over the last slices with a heartbeat, the page dimmed, rays behind the wheel and its lights
-flashing. Some crawls ask for 連打 (rapid taps fill a gauge; they change nothing). Some prizes get
-押せ instead: the wheel stops just short, goes dark, and a PUSH button (which presses itself after
-a few seconds) jolts it into the prize. Some losses get a crawl too and stop just short of a prize
+flashing. Some prizes get 連打 instead: the crawl stops just short on the nearest lesser prize
+(ハズレ counts as the least) and the wheel stays frozen while rapid taps fill a gauge (they change
+nothing), then jolts on into the prize; others get 押せ: the same short stop, then dark, and a
+PUSH button (which presses itself after a few seconds) jolts it in. Wheel segments carry their
+rank for this. Some losses get a crawl too and stop just short of a prize
 ("おしい…！"); a loss never gets PUSH or rainbow. `app.css` holds the lettering (`.pachi-*`).
 
 Haptics use the Vibration API, or on iOS (which has none) the haptic tick of an

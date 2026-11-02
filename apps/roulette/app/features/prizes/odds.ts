@@ -102,7 +102,14 @@ export function pickPrize(prizes: Prize[], odds: number[], random: () => number)
 
 export type SegmentTone = "jackpot" | "blue" | "red" | "green" | "neutral";
 
-export type Segment = { prizeId: string; label: string; size: number; tone: SegmentTone };
+export type Segment = {
+  prizeId: string;
+  label: string;
+  size: number;
+  tone: SegmentTone;
+  /** 1 等, 2 等, …; null for unlimited (ハズレ). Ranks are public, like the prize list. */
+  rank: number | null;
+};
 
 const MIN_SEGMENTS = 12;
 const cycle: SegmentTone[] = ["blue", "red", "green"];
@@ -164,7 +171,12 @@ export function segmentsFor(prizes: Prize[], mode: Mode, expected: number): Segm
           ? "jackpot"
           : (cycle[(rank - 2) % cycle.length] ?? "blue");
     // The jackpot slice also carries a star, so its label has less room.
-    return { prizeId: prize.id, tone, ...fitLabel(prize.name, tone === "jackpot" ? 7.6 : 8.6) };
+    return {
+      prizeId: prize.id,
+      tone,
+      rank,
+      ...fitLabel(prize.name, tone === "jackpot" ? 7.6 : 8.6),
+    };
   });
 }
 
