@@ -1,7 +1,14 @@
-import { Alert, Heading, IconButton, Icons, Stack, Text } from "@gdgjp/design-system";
+import { Alert, Button, Heading, IconButton, Icons, Stack, Text } from "@gdgjp/design-system";
 import { useEffect, useState } from "react";
-import { type ShouldRevalidateFunctionArgs, data, useFetcher, useRevalidator } from "react-router";
+import {
+  type ShouldRevalidateFunctionArgs,
+  data,
+  useFetcher,
+  useLocation,
+  useRevalidator,
+} from "react-router";
 import { Confetti, Flash, Stamp, Sunburst } from "~/features/draw/components/Celebration";
+import { CutIn } from "~/features/draw/components/CutIn";
 import { PrizeList } from "~/features/draw/components/PrizeList";
 import { ResultCard } from "~/features/draw/components/ResultCard";
 import { SpinButton } from "~/features/draw/components/SpinButton";
@@ -9,6 +16,7 @@ import { type LightMode, Wheel } from "~/features/draw/components/Wheel";
 import { ensureDeviceId, readDeviceId } from "~/features/draw/device-cookie.server";
 import { type SpinOutcome, getDeviceDraw, spin } from "~/features/draw/draw.server";
 import { setSoundOn } from "~/features/draw/feedback";
+import { type Mood, music } from "~/features/draw/music";
 import { restingOn, useSpin } from "~/features/draw/use-spin";
 import { currentOdds, rankOf, segmentsFor } from "~/features/prizes/odds";
 import { getProject } from "~/features/projects/projects.server";
@@ -82,7 +90,10 @@ const failure: Record<
 };
 
 const SOUND_KEY = "roulette-sound";
+/** The music stays down this long after a reveal, under the fanfare. */
+const FANFARE_MS = 2400;
 
+/** Sound effects and music, on by default and remembered per browser. */
 function useSound() {
   const [sound, setSound] = useState(true);
   useEffect(() => {
@@ -91,17 +102,35 @@ function useSound() {
     } catch {
       // Storage can be unavailable (private mode); keep the default.
     }
+    return () => music.stop();
   }, []);
-  useEffect(() => setSoundOn(sound), [sound]);
-  const toggle = () =>
-    setSound((value) => {
-      try {
-        localStorage.setItem(SOUND_KEY, value ? "off" : "on");
-      } catch {
-        // Not remembered this time.
-      }
-      return !value;
-    });
+  useEffect(() => {
+    setSoundOn(sound);
+    if (!sound) {
+      music.stop();
+      return;
+    }
+    // Browsers allow sound only after a tap: start the music on the first one.
+    const start = () => music.start();
+    window.addEventListener("pointerdown", start, { once: true });
+    window.addEventListener("keydown", start, { once: true });
+    return () => {
+      window.removeEventListener("pointerdown", start);
+      window.removeEventListener("keydown", start);
+    };
+  }, [sound]);
+  const toggle = () => {
+    const next = !sound;
+    try {
+      localStorage.setItem(SOUND_KEY, next ? "on" : "off");
+    } catch {
+      // Not remembered this time.
+    }
+    // This click is a tap, so the music may start right away.
+    setSoundOn(next);
+    if (next) music.start();
+    setSound(next);
+  };
   return [sound, toggle] as const;
 }
 
@@ -115,7 +144,16 @@ export default function DrawPage({ loaderData }: Route.ComponentProps) {
   const wheel = useSpin(segments, initial);
   const [sound, toggleSound] = useSound();
   const [error, setError] = useState<string | null>(null);
+  const [fanfare, setFanfare] = useState(false);
   const hydrated = useHydrated();
+  const { search } = useLocation();
+
+  useEffect(() => {
+    if (!wheel.celebrateKey) return;
+    setFanfare(true);
+    const timer = setTimeout(() => setFanfare(false), FANFARE_MS);
+    return () => clearTimeout(timer);
+  }, [wheel.celebrateKey]);
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: react to each new spin response only
   useEffect(() => {
@@ -136,14 +174,20 @@ export default function DrawPage({ loaderData }: Route.ComponentProps) {
     wheel.phase !== "idle" ? wheel.phase : mine ? "done" : status === "open" ? "idle" : status;
   const showResult = (phase === "result" || phase === "done") && result;
   const celebrating = phase === "result" && result && result.tier !== "lose" ? result.tier : null;
+  const staged = wheel.staging !== "none";
+  const mood: Mood =
+    staged || fanfare ? "quiet" : phase === "charge" || phase === "spinning" ? "spin" : "idle";
+  useEffect(() => music.setMood(mood), [mood]);
   const lights: LightMode =
-    phase === "closed" || phase === "soldout"
+    phase === "closed" || phase === "soldout" || wheel.staging === "hush"
       ? "off"
-      : phase === "charge" || phase === "spinning"
-        ? "spin"
-        : celebrating
-          ? "celebrate"
-          : "idle";
+      : wheel.staging === "reach"
+        ? "reach"
+        : phase === "charge" || phase === "spinning"
+          ? "spin"
+          : celebrating
+            ? "celebrate"
+            : "idle";
 
   return (
     <div className="min-h-dvh overflow-x-hidden bg-background text-foreground [word-break:auto-phrase]">
@@ -172,19 +216,26 @@ export default function DrawPage({ loaderData }: Route.ComponentProps) {
           </IconButton>
         </header>
         <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_360px] md:items-start">
-          <div className="relative overflow-hidden">
-            {celebrating && <Sunburst tier={celebrating} />}
-            <Wheel
-              segments={segments}
-              rotation={wheel.rotation}
-              highlight={showResult ? wheel.highlight : undefined}
-              lights={lights}
-              dimmed={phase === "closed" || phase === "soldout"}
-              compact={phase === "done"}
-              wheelRef={wheel.wheelRef}
-              pointerRef={wheel.pointerRef}
-            />
-            {phase === "result" && result && <Stamp tier={result.tier} />}
+          {/* Above the dimmed page during a reach; the cut-in and revival shake it. */}
+          <div ref={wheel.stageRef} className={`relative ${staged ? "z-30" : ""}`}>
+            <div
+              className={`relative overflow-hidden transition-transform duration-700 ${staged ? "scale-105" : ""}`}
+            >
+              {celebrating && <Sunburst tier={celebrating} />}
+              <Wheel
+                segments={segments}
+                rotation={wheel.rotation}
+                highlight={showResult ? wheel.highlight : undefined}
+                lights={lights}
+                dimmed={phase === "closed" || phase === "soldout"}
+                compact={phase === "done"}
+                wheelRef={wheel.wheelRef}
+                pointerRef={wheel.pointerRef}
+              />
+              {phase === "result" && result && (
+                <Stamp tier={result.tier} nearMiss={wheel.nearMiss} />
+              )}
+            </div>
           </div>
           <Stack>
             {phase === "done" && (
@@ -206,7 +257,14 @@ export default function DrawPage({ loaderData }: Route.ComponentProps) {
             )}
             {error && <Alert tone="danger" title={error} />}
             {showResult ? (
-              <ResultCard result={result} />
+              <>
+                <ResultCard result={result} />
+                {import.meta.env.DEV && (
+                  <Button variant="outline" asChild>
+                    <a href={`/dev/reset/${project.slug}${search}`}>もう一度回す（開発用）</a>
+                  </Button>
+                )}
+              </>
             ) : (
               phase !== "soldout" && (
                 <Stack className="gap-2">
@@ -241,6 +299,15 @@ export default function DrawPage({ loaderData }: Route.ComponentProps) {
           </Stack>
         </div>
       </div>
+      <div
+        aria-hidden="true"
+        className={`pointer-events-none fixed inset-0 z-20 bg-(--gdg-black) transition-opacity duration-500 ${
+          wheel.staging === "hush" ? "opacity-80" : staged ? "opacity-60" : "opacity-0"
+        }`}
+      />
+      {wheel.cutIn && (
+        <CutIn kind={wheel.cutIn.kind} runKey={wheel.cutIn.key} anchor={wheel.stageRef} />
+      )}
       {celebrating && <Confetti tier={celebrating} runKey={wheel.celebrateKey} />}
       {celebrating && <Flash tier={celebrating} runKey={wheel.celebrateKey} />}
     </div>

@@ -70,7 +70,7 @@ test("an organizer sets up prizes and visitors win them one spin per device", as
   await first.context.close();
 
   const second = await spinAsVisitor(browser, slug);
-  await expect(second.page.getByText("ざんねん…")).toBeVisible({ timeout: SPIN_TIMEOUT });
+  await expect(second.page.getByText(/ざんねん…|おしい…！/)).toBeVisible({ timeout: SPIN_TIMEOUT });
   await expect(second.page.getByRole("heading", { name: "ハズレ", level: 2 })).toBeVisible();
   await second.context.close();
 
@@ -123,7 +123,9 @@ test("the evil mode shows an excluded prize but never draws it", async ({ page, 
   // The Pixel is the only prize with stock, yet the losing slot comes out.
   const visitor = await spinAsVisitor(browser, slug);
   await expect(visitor.page.getByText("1 等 · Google Pixel 10")).toBeVisible();
-  await expect(visitor.page.getByText("ざんねん…")).toBeVisible({ timeout: SPIN_TIMEOUT });
+  await expect(visitor.page.getByText(/ざんねん…|おしい…！/)).toBeVisible({
+    timeout: SPIN_TIMEOUT,
+  });
   await visitor.context.close();
 
   // Reloading keeps the mode, derived from the excluded prize.

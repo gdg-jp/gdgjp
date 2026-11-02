@@ -20,8 +20,8 @@ export const stampText: Record<Tier, string> = {
   lose: "ざんねん…",
 };
 
-/** The tilted "大当たり！" label over the wheel. */
-export function Stamp({ tier }: { tier: Tier }) {
+/** The tilted "大当たり！" label over the wheel. A loss that just missed a prize says so. */
+export function Stamp({ tier, nearMiss }: { tier: Tier; nearMiss?: boolean }) {
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (reducedMotion()) return;
@@ -46,7 +46,7 @@ export function Stamp({ tier }: { tier: Tier }) {
         aria-hidden="true"
         className={`whitespace-nowrap rounded-lg px-6 py-3 font-semibold shadow-lg ${stampClass[tier]}`}
       >
-        {stampText[tier]}
+        {nearMiss && tier === "lose" ? "おしい…！" : stampText[tier]}
       </div>
     </div>
   );

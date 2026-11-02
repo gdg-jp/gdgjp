@@ -14,7 +14,8 @@
 - `features/draw/` owns spinning: `draw.server.ts` (the atomic spin and the draw log query), the
   anonymous device cookie, the visitor-facing `DrawResult`, `log.ts` (the admin log and its CSV,
   never the device id), and the wheel, spin button, result card, effects and log card.
-  `use-spin.ts` drives the animation; `feedback.ts` holds sound and vibration.
+  `use-spin.ts` drives the animation; `staging.ts` plans how a spin finishes (see below);
+  `feedback.ts` holds sound effects, vibration and shake; `music.ts` the background music.
 - `app/layouts/AdminLayout.tsx` is the signed-in shell.
 - `app/lib/use-hydrated.ts` keeps controls that need JavaScript (spin, create, save, open,
   reset) disabled until hydration, so an early tap on a slow phone is not silently dropped.
@@ -42,5 +43,20 @@ result. The page
 starts spinning on release, then eases into a slice of the server's prize at the same speed, so
 the server round trip is hidden in the free spin. It opts out of revalidating after its own
 action so the reveal is not cut short.
+
+## Spin effects
+
+`staging.ts` decides, purely, how each spin finishes. Every prize gets a reach (リーチ): a cut-in
+whose color (blue, red, gold) hints at the outcome, then a crawl over the last slices with a
+heartbeat, the page dimmed and the wheel's lights flashing. Some losses get a fake reach that
+stops just short of a prize ("おしい…！"), and some prizes a revival (復活): a stop just short, a
+hush, then a jolt into the prize. Haptics use the Vibration API, or on iOS (which has none) the
+haptic tick of an `<input type="checkbox" switch>`. The music is a synthesized loop that starts on
+the first tap (browsers block sound before one) and fades out through a reach and the fanfare.
+Reduced motion skips straight to the result.
+
+In local dev only, `?demo=<variant>-<level>` on the spin page (for example `?demo=revive-gold`)
+forces a finish, and `/dev/reset/:slug` (404 unless `APP_URL` is loopback) clears the spins so
+the same browser can spin again.
 
 Features do not import routes; widgets do not import server modules.
