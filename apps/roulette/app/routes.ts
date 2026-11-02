@@ -9,6 +9,7 @@ export default [
   route("api/auth/*", "routes/api.auth.$.ts"),
   route("auth/signout", "routes/auth.signout.ts"),
   route("dev/login", "routes/dev.login.ts"), // 404 unless APP_URL is loopback
+  route("dev/reset/:slug", "routes/dev.reset.ts"), // spin again; 404 unless APP_URL is loopback
   // Public spin page. Last so every static path above wins (slug.ts reserves those names).
   route(":slug", "routes/draw/draw.tsx"),
 ] satisfies RouteConfig;

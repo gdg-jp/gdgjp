@@ -55,7 +55,9 @@ test("an organizer sets up prizes and visitors win them one spin per device", as
   await expect(page.getByText("抽選の受付を始めました")).toBeVisible();
 
   const first = await spinAsVisitor(browser, slug);
-  await expect(first.page.getByText("大当たり！")).toBeVisible({ timeout: SPIN_TIMEOUT });
+  await expect(first.page.getByText("大当たり", { exact: true })).toBeVisible({
+    timeout: SPIN_TIMEOUT,
+  });
   await expect(
     first.page.getByRole("heading", { name: "Google Pixel 10", level: 2 }),
   ).toBeVisible();
@@ -70,7 +72,7 @@ test("an organizer sets up prizes and visitors win them one spin per device", as
   await first.context.close();
 
   const second = await spinAsVisitor(browser, slug);
-  await expect(second.page.getByText("ざんねん…")).toBeVisible({ timeout: SPIN_TIMEOUT });
+  await expect(second.page.getByText(/ざんねん…|おしい…！/)).toBeVisible({ timeout: SPIN_TIMEOUT });
   await expect(second.page.getByRole("heading", { name: "ハズレ", level: 2 })).toBeVisible();
   await second.context.close();
 
@@ -123,7 +125,9 @@ test("the evil mode shows an excluded prize but never draws it", async ({ page, 
   // The Pixel is the only prize with stock, yet the losing slot comes out.
   const visitor = await spinAsVisitor(browser, slug);
   await expect(visitor.page.getByText("1 等 · Google Pixel 10")).toBeVisible();
-  await expect(visitor.page.getByText("ざんねん…")).toBeVisible({ timeout: SPIN_TIMEOUT });
+  await expect(visitor.page.getByText(/ざんねん…|おしい…！/)).toBeVisible({
+    timeout: SPIN_TIMEOUT,
+  });
   await visitor.context.close();
 
   // Reloading keeps the mode, derived from the excluded prize.

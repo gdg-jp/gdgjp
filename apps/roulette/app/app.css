@@ -12,3 +12,148 @@
     @apply bg-background text-foreground font-sans antialiased;
   }
 }
+
+/*
+ * Pachinko-style lettering and bands for the spin effects (features/draw).
+ * A tone class sets the color; `.pachi-text` draws a black edge with a glow
+ * and lays a metallic fill over it from `data-text`.
+ */
+@layer utilities {
+  .pachi-blue {
+    --pachi-glow: var(--gdg-blue);
+  }
+  .pachi-red {
+    --pachi-glow: var(--gdg-red);
+  }
+  .pachi-gold {
+    --pachi-glow: var(--gdg-yellow);
+  }
+  .pachi-white {
+    --pachi-glow: var(--gdg-white);
+  }
+  .pachi-blue,
+  .pachi-red,
+  .pachi-gold,
+  .pachi-white {
+    --pachi-fill: linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--gdg-white) 85%, var(--pachi-glow)) 0%,
+      var(--pachi-glow) 42%,
+      color-mix(in srgb, var(--pachi-glow) 50%, var(--gdg-black)) 50%,
+      var(--pachi-glow) 60%,
+      color-mix(in srgb, var(--gdg-white) 60%, var(--pachi-glow)) 100%
+    );
+  }
+  .pachi-rainbow {
+    --pachi-glow: var(--gdg-yellow);
+    --pachi-fill: linear-gradient(
+      90deg,
+      var(--gdg-red),
+      var(--gdg-yellow),
+      var(--gdg-green),
+      var(--gdg-blue),
+      var(--gdg-red)
+    );
+  }
+
+  .pachi-text {
+    position: relative;
+    display: inline-block;
+    font-family: "Noto Sans JP", sans-serif;
+    font-weight: 900;
+    font-style: normal;
+    line-height: 1.15;
+    letter-spacing: 0.02em;
+    white-space: nowrap;
+    color: var(--gdg-black);
+    -webkit-text-stroke: 0.16em var(--gdg-black);
+    paint-order: stroke fill;
+    filter: drop-shadow(0 0 0.08em var(--pachi-glow)) drop-shadow(0 0 0.2em var(--pachi-glow));
+  }
+  .pachi-text::after {
+    content: attr(data-text);
+    position: absolute;
+    inset: 0;
+    -webkit-text-stroke: 0;
+    color: transparent;
+    background-image: var(--pachi-fill);
+    background-size: 100% 100%;
+    background-clip: text;
+    -webkit-background-clip: text;
+  }
+  .pachi-rainbow .pachi-text::after,
+  .pachi-text.pachi-rainbow::after {
+    background-size: 200% 100%;
+    animation: pachi-flow 1.2s linear infinite;
+  }
+
+  .pachi-band {
+    background-color: var(--gdg-black);
+    border-block: 10px solid var(--pachi-glow);
+    box-shadow: 0 0 24px var(--pachi-glow);
+  }
+  .pachi-rainbow .pachi-band {
+    border-image: var(--pachi-fill) 1;
+  }
+  .pachi-lines {
+    background-image: repeating-linear-gradient(
+      100deg,
+      transparent 0 26px,
+      color-mix(in srgb, var(--pachi-glow) 35%, transparent) 26px 32px
+    );
+  }
+}
+
+@keyframes pachi-flow {
+  to {
+    background-position: -200% 0;
+  }
+}
+
+/* The chance button (ChancePrompt), its gauge and rings. */
+@layer utilities {
+  .pachi-button {
+    background: radial-gradient(
+      circle at 50% 32%,
+      color-mix(in srgb, var(--gdg-white) 55%, var(--pachi-glow)),
+      var(--pachi-glow) 52%,
+      color-mix(in srgb, var(--pachi-glow) 50%, var(--gdg-black))
+    );
+    border: 6px solid var(--gdg-black);
+    box-shadow: 0 0 0 4px var(--pachi-glow), 0 0 28px var(--pachi-glow), inset 0 -10px 0
+      color-mix(in srgb, var(--gdg-black) 35%, transparent);
+    animation: pachi-pulse 0.5s ease-in-out infinite alternate;
+  }
+  .pachi-rainbow .pachi-button {
+    background: conic-gradient(
+      var(--gdg-red),
+      var(--gdg-yellow),
+      var(--gdg-green),
+      var(--gdg-blue),
+      var(--gdg-red)
+    );
+  }
+  .pachi-gauge {
+    background-color: color-mix(in srgb, var(--gdg-black) 75%, transparent);
+    border: 3px solid var(--pachi-glow);
+    box-shadow: 0 0 12px var(--pachi-glow);
+  }
+  .pachi-gauge-fill {
+    background-image: var(--pachi-fill);
+    transition: width 80ms linear;
+  }
+  .pachi-ripple {
+    border: 6px solid var(--pachi-glow);
+  }
+  .pachi-countdown {
+    stroke: var(--pachi-glow);
+    filter: drop-shadow(0 0 6px var(--pachi-glow));
+  }
+}
+
+@keyframes pachi-pulse {
+  to {
+    box-shadow: 0 0 0 8px var(--pachi-glow), 0 0 64px var(--pachi-glow), inset 0 -10px 0
+      color-mix(in srgb, var(--gdg-black) 35%, transparent);
+  }
+}

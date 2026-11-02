@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react";
 import type { Tier } from "~/features/prizes/prize";
 import { reducedMotion } from "../feedback";
+import { PachiText } from "./PachiText";
 
 /**
  * Result effects. Their size scales with the tier: the jackpot gets a flash,
@@ -8,20 +9,8 @@ import { reducedMotion } from "../feedback";
  * stamp.
  */
 
-const stampClass: Record<Tier, string> = {
-  jackpot: "bg-gdg-yellow text-black text-4xl -rotate-6",
-  win: "bg-gdg-red text-white text-2xl -rotate-6",
-  lose: "bg-surface text-foreground text-xl rotate-3",
-};
-
-export const stampText: Record<Tier, string> = {
-  jackpot: "大当たり！",
-  win: "当たり！",
-  lose: "ざんねん…",
-};
-
-/** The tilted "大当たり！" label over the wheel. */
-export function Stamp({ tier }: { tier: Tier }) {
+/** The label over the wheel: pachinko lettering for a prize, a quiet pill for a loss. */
+export function Stamp({ tier, nearMiss }: { tier: Tier; nearMiss?: boolean }) {
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (reducedMotion()) return;
@@ -32,21 +21,28 @@ export function Stamp({ tier }: { tier: Tier }) {
             { opacity: 1, translate: "0 0" },
           ]
         : [
-            { opacity: 0, scale: 0.4 },
-            { opacity: 1, scale: 1.18, offset: 0.6 },
+            { opacity: 0, scale: 3 },
+            { opacity: 1, scale: 0.9, offset: 0.55 },
+            { opacity: 1, scale: 1.08, offset: 0.75 },
             { opacity: 1, scale: 1 },
           ],
-      { duration: tier === "lose" ? 700 : 520, easing: "cubic-bezier(0.23, 1, 0.32, 1)" },
+      { duration: tier === "lose" ? 700 : 600, easing: "cubic-bezier(0.23, 1, 0.32, 1)" },
     );
   }, [tier]);
   return (
     <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
-      <div
-        ref={ref}
-        aria-hidden="true"
-        className={`whitespace-nowrap rounded-lg px-6 py-3 font-semibold shadow-lg ${stampClass[tier]}`}
-      >
-        {stampText[tier]}
+      <div ref={ref} aria-hidden="true" className="-rotate-6">
+        {tier === "lose" ? (
+          <div className="rotate-9 rounded-lg bg-surface px-6 py-3 text-xl font-semibold whitespace-nowrap text-foreground shadow-lg">
+            {nearMiss ? "おしい…！" : "ざんねん…"}
+          </div>
+        ) : (
+          <PachiText
+            text={tier === "jackpot" ? "大当たり" : "当たり"}
+            tone={tier === "jackpot" ? "gold" : "red"}
+            className={tier === "jackpot" ? "text-7xl" : "text-6xl"}
+          />
+        )}
       </div>
     </div>
   );
@@ -57,17 +53,26 @@ function point(radius: number, degrees: number) {
   return [radius * Math.sin(angle), -radius * Math.cos(angle)] as const;
 }
 
-/** Rays turning slowly behind the wheel. */
-export function Sunburst({ tier }: { tier: "jackpot" | "win" }) {
+export type RayTone = "blue" | "red" | "gold" | "rainbow";
+
+const rayClass: Record<Exclude<RayTone, "rainbow">, string> = {
+  blue: "fill-gdg-blue opacity-25",
+  red: "fill-gdg-red opacity-30",
+  gold: "fill-gdg-yellow opacity-35",
+};
+const rainbowRays = ["fill-gdg-red", "fill-gdg-yellow", "fill-gdg-green", "fill-gdg-blue"];
+
+/** Rays turning behind the wheel: slowly after a win, fast through a chance. */
+export function Sunburst({ tone, fast }: { tone: RayTone; fast?: boolean }) {
   const ref = useRef<SVGSVGElement>(null);
   useEffect(() => {
     if (reducedMotion()) return;
     const animation = ref.current?.animate(
       [{ transform: "rotate(0deg)" }, { transform: "rotate(360deg)" }],
-      { duration: 24000, iterations: Number.POSITIVE_INFINITY },
+      { duration: fast ? 6000 : 24000, iterations: Number.POSITIVE_INFINITY },
     );
     return () => animation?.cancel();
-  }, []);
+  }, [fast]);
   const rays = 18;
   return (
     <svg
@@ -85,7 +90,9 @@ export function Sunburst({ tier }: { tier: "jackpot" | "win" }) {
             key={i}
             points={`0,0 ${x0},${y0} ${x1},${y1}`}
             className={
-              tier === "jackpot" ? "fill-gdg-yellow opacity-35" : "fill-gdg-blue opacity-15"
+              tone === "rainbow"
+                ? `${rainbowRays[i % rainbowRays.length]} opacity-40`
+                : rayClass[tone]
             }
           />
         );
@@ -94,23 +101,29 @@ export function Sunburst({ tier }: { tier: "jackpot" | "win" }) {
   );
 }
 
-/** A flash of brand color over the whole page: yellow for the jackpot, blue otherwise. */
-export function Flash({ tier, runKey }: { tier: "jackpot" | "win"; runKey: number }) {
+const flashClass = {
+  jackpot: "bg-gdg-yellow",
+  win: "bg-primary",
+  push: "bg-(--gdg-white)",
+} as const;
+
+/** A flash over the whole page: yellow for the jackpot, blue for a prize, white for PUSH. */
+export function Flash({ tone, runKey }: { tone: keyof typeof flashClass; runKey: number }) {
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (!runKey || reducedMotion()) return;
     ref.current?.animate(
-      tier === "jackpot"
-        ? [{ opacity: 0 }, { opacity: 0.9 }, { opacity: 0 }, { opacity: 0.6 }, { opacity: 0 }]
-        : [{ opacity: 0 }, { opacity: 0.45 }, { opacity: 0 }],
-      { duration: tier === "jackpot" ? 900 : 450, easing: "ease-out" },
+      tone === "win"
+        ? [{ opacity: 0 }, { opacity: 0.45 }, { opacity: 0 }]
+        : [{ opacity: 0 }, { opacity: 0.9 }, { opacity: 0 }, { opacity: 0.6 }, { opacity: 0 }],
+      { duration: tone === "win" ? 450 : 900, easing: "ease-out" },
     );
-  }, [tier, runKey]);
+  }, [tone, runKey]);
   return (
     <div
       ref={ref}
       aria-hidden="true"
-      className={`pointer-events-none fixed inset-0 z-40 opacity-0 ${tier === "jackpot" ? "bg-gdg-yellow" : "bg-primary"}`}
+      className={`pointer-events-none fixed inset-0 z-40 opacity-0 ${flashClass[tone]}`}
     />
   );
 }
