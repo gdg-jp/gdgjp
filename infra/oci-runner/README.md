@@ -69,6 +69,13 @@ sudo sh smoke.sh
 journalctl -u gdg-runner -f            # job lines: "job <id> (<type>, space <id>) started / succeeded"
 ```
 
+Troubleshooting: if answers say Codex "could not read the files" / "execution host is
+unavailable", check `sysctl kernel.apparmor_restrict_unprivileged_userns` (the bwrap AppArmor
+profile from cloud-init must be loaded: `sudo apparmor_parser -r /etc/apparmor.d/bwrap`) and
+that `/usr/local/bin/codex-code-mode-host` exists. When testing `codex exec` by hand over SSH,
+give it `</dev/null`, or it waits for stdin. Bump the Codex version and both sha256 values
+together.
+
 `/admin/runner` on the wiki shows the last heartbeat, the running job and the queue. When the
 heartbeat is older than 10 minutes the hourly cron posts once to `RUNNER_ALERT_WEBHOOK_URL`.
 

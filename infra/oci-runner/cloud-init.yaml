@@ -22,6 +22,17 @@ write_files:
       RUNNER_BACKEND=codex
       RUNNER_WORKDIR=/var/lib/gdg-runner
       # RUNNER_MODEL=
+  # Ubuntu 24.04 restricts unprivileged user namespaces; Codex's sandbox (bubblewrap) needs them.
+  - path: /etc/apparmor.d/bwrap
+    permissions: "0644"
+    content: |
+      abi <abi/4.0>,
+      include <tunables/global>
+
+      profile bwrap /usr/bin/bwrap flags=(unconfined) {
+        userns,
+        include if exists <local/bwrap>
+      }
   - path: /etc/systemd/system/gdg-runner.service
     permissions: "0644"
     content: |
@@ -46,6 +57,7 @@ write_files:
       WantedBy=multi-user.target
 
 runcmd:
+  - apparmor_parser -r /etc/apparmor.d/bwrap
   # write_files runs before users are created, so the group is set here.
   - chown root:runner /etc/gdg/runner.env
   - install -d -o runner -g runner -m 0700 /var/lib/gdg-runner
@@ -60,4 +72,11 @@ runcmd:
     tar -xzf codex.tar.gz
     install -m 0755 codex-aarch64-unknown-linux-musl /usr/local/bin/codex
     rm -f codex.tar.gz codex-aarch64-unknown-linux-musl
+    # Codex runs tool calls through this helper; without it every command fails.
+    CODE_MODE_HOST_SHA256=6e99948fa20ca816a01f222a56afa261b321e00cbed611d76bb92c765fd11ec6
+    curl -fsSL -o cmh.tar.gz "https://github.com/openai/codex/releases/download/${CODEX_VERSION}/codex-code-mode-host-aarch64-unknown-linux-musl.tar.gz"
+    echo "${CODE_MODE_HOST_SHA256}  cmh.tar.gz" | sha256sum -c -
+    tar -xzf cmh.tar.gz
+    install -m 0755 codex-code-mode-host-aarch64-unknown-linux-musl /usr/local/bin/codex-code-mode-host
+    rm -f cmh.tar.gz codex-code-mode-host-aarch64-unknown-linux-musl
   - systemctl daemon-reload
