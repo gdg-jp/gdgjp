@@ -3,6 +3,7 @@ import { publishApprovedPage } from "~/features/connpass/page.server";
 import { deliveryAction } from "~/features/dispatch/delivery.server";
 import { afterDraftApproval, prepareDraftApproval } from "~/features/dispatch/dispatch.server";
 import { EnqueueError, enqueueCopy, enqueuePosts } from "~/features/jobs/enqueue.server";
+import { afterListingApproval, markListedByHand } from "~/features/listings/listing.server";
 import { type ConnpassPageContent, setSectionImages } from "~/features/pages/render";
 import { autoFold } from "./content";
 import type { Draft } from "./draft";
@@ -42,6 +43,12 @@ export async function draftAction(
     if (intent === "approve") {
       const approved = { ...draft, status: "approved" as const };
       await afterDraftApproval(env, access.campaign, approved);
+      if (draft.kind === "listing") {
+        const listed = await afterListingApproval(env, access, approved);
+        return listed.ok
+          ? { ok: true, message: `承認しました。${listed.message}` }
+          : { ok: false, errors: [`承認しましたが、${listed.error}`] };
+      }
       if (draft.kind === "connpass_page") {
         const page = await publishApprovedPage(env, access, approved);
         return page.ok
@@ -58,6 +65,10 @@ export async function draftAction(
   ) {
     const page = await publishApprovedPage(env, access, draft);
     return page.ok ? { ok: true, message: page.message } : { ok: false, errors: [page.error] };
+  }
+  if (intent === "listing-manual" && draft.kind === "listing") {
+    const r = await markListedByHand(env, access, draft, String(form.get("url") ?? "").trim());
+    return r.ok ? { ok: true, message: r.message } : { ok: false, errors: [r.error] };
   }
   if (intent === "page-images" && draft.kind === "connpass_page") {
     const urls: Record<string, string> = {};

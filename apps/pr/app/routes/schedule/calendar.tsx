@@ -15,6 +15,7 @@ import { Form } from "react-router";
 import { latestBrief } from "~/features/briefs/brief.repository.server";
 import { requireCampaignAccess } from "~/features/campaigns/access.server";
 import { EnqueueError, enqueueDrafts } from "~/features/jobs/enqueue.server";
+import { createListingDrafts } from "~/features/listings/listing.server";
 import { constants, channelLabel } from "~/features/playbook/playbook";
 import { describeCondition, pendingConditions } from "~/features/schedule/blocked-by";
 import { buildCalendar, jstDate } from "~/features/schedule/calendar";
@@ -83,6 +84,11 @@ export async function action({ request, context, params }: Route.ActionArgs) {
   const id = Number(form.get("id"));
   if (intent === "draft") {
     const ids = form.getAll("itemIds").map(Number).filter(Number.isInteger);
+    const listings = await createListingDrafts(
+      env,
+      access,
+      (await listItems(env.DB, access.campaign.id)).filter((i) => ids.includes(i.id)),
+    );
     try {
       const jobs = await enqueueDrafts(
         env.DB,
@@ -93,7 +99,7 @@ export async function action({ request, context, params }: Route.ActionArgs) {
       );
       return {
         ok: true as const,
-        message: `${ids.length} 件の下書きを runner に頼みました（ジョブ ${jobs.length} 件）`,
+        message: `${ids.length} 件の下書きを runner に頼みました（ジョブ ${jobs.length} 件、掲載文 ${listings} 件）`,
       };
     } catch (error) {
       if (error instanceof EnqueueError) return { ok: false as const, message: error.message };

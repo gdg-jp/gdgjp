@@ -14,6 +14,11 @@ import {
   prUploadImage,
   prUpsertSurvey,
 } from "../app/features/jobs/pr-service.server";
+import {
+  LISTING_METHODS,
+  LISTING_PLATFORMS,
+  validateListing,
+} from "../app/features/listings/listing";
 
 const requestHandler = createRequestHandler(
   () => import("virtual:react-router/server-build"),
@@ -51,6 +56,18 @@ export class PrService extends WorkerEntrypoint<Env> implements ConnpassPrServic
   }
   createSubEvent(input: In<"createSubEvent">) {
     return prCreateSubEvent(this.env, this.ctx, input);
+  }
+  /** Validated, then `not_supported`: no platform's method is chosen yet (Stage 05 pre-checks). */
+  async createListing(input: In<"createListing">) {
+    if (!(LISTING_PLATFORMS as readonly string[]).includes(input.platform))
+      return { ok: false as const, code: "invalid_platform" };
+    const valid = validateListing(input.listing);
+    if (!valid.ok) return { ok: false as const, code: valid.error };
+    return {
+      ok: false as const,
+      code: "not_supported",
+      message: `${input.platform}: ${LISTING_METHODS[input.platform]}`,
+    };
   }
   getJob(input: In<"getJob">) {
     return prGetJob(this.env, input);

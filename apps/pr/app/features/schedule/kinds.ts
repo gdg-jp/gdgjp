@@ -81,13 +81,22 @@ export const REQUEST_KINDS: readonly ScheduleKind[] = [
   "sponsor_ask",
 ];
 
-/** Kinds whose drafts a runner job writes. */
+/** Listings on other platforms: drafts mapped from the brief (no runner). */
+export const LISTING_KINDS: readonly ScheduleKind[] = [
+  "luma_publish",
+  "techplay_publish",
+  "findy_submit",
+  "bevy_publish",
+];
+
+/** Kinds that get a draft from the schedule page (runner jobs, or listings from the brief). */
 export const DRAFTABLE_KINDS: readonly ScheduleKind[] = [
   "x_post",
   "ig_post",
   "live_post",
   "connpass_mail",
   "flyer_text",
+  ...LISTING_KINDS,
 ];
 
 export const ITEM_STATUSES = [

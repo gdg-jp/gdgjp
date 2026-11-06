@@ -14,7 +14,7 @@
 | Connpass UI automation and model parsing (QR check-in: `ui/checkin.ts`) | `app/features/connpass/ui/` |
 | Luma ticket QR parsing, api.luma.com client with KV bot session and password relogin, guest check-in | `app/features/luma/{checkin-url,client.server,checkin.server}.ts` |
 | Worker fetch/queue dispatch, acknowledgement/retry | `workers/app.ts` |
-| pr.gdgs.jp service binding (`PrService`: update / publish event, image, survey, event message, sub-event, job status, stats, participants for an actor; group-member mail is `not_supported`) | `workers/app.ts`, `app/features/jobs/pr-service.server.ts`, `app/features/auth/rpc-access.server.ts` (same `canReadGroup` / `canWriteGroup`); contracts in `@gdgjp/gdg-lib` `pr-rpc.ts` |
+| pr.gdgs.jp service binding (`PrService`: update / publish event, image, survey, event message, sub-event, job status, stats, participants for an actor; group-member mail is `not_supported`; `createListing` validates a platform-neutral listing (`app/features/listings/listing.ts`) and answers `not_supported` until each platform's method is chosen) | `workers/app.ts`, `app/features/jobs/pr-service.server.ts`, `app/features/auth/rpc-access.server.ts` (same `canReadGroup` / `canWriteGroup`); contracts in `@gdgjp/gdg-lib` `pr-rpc.ts` |
 
 - `app/routes.ts` owns public URLs. Route directory names identify the API domain.
 - The job dependency direction is submission → runner → repository → contracts. The repository never invokes the runner; queue submission occurs only after insertion succeeds.

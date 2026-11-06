@@ -124,7 +124,7 @@ export type ConnpassSurveyQuestion = {
   options: string[] | null;
 };
 
-export interface ConnpassPrService {
+export interface ConnpassPrService extends ConnpassListingService {
   /** Whether the actor may write the group (organizer of its chapter), without a job. */
   checkGroup(input: { actor: PrActor; groupSlug: string }): Promise<
     PrRpcResult<{ write: boolean; chapterId: string | null }>
@@ -164,4 +164,41 @@ export interface ConnpassPrService {
   >;
   getStats(input: ConnpassEventTarget): Promise<PrRpcResult<{ statistics: unknown }>>;
   listParticipants(input: ConnpassEventTarget): Promise<PrRpcResult<{ participants: unknown }>>;
+}
+
+// ── listings (Luma / TECH PLAY / Findy Conference / Bevy, through the connpass app) ──
+
+export type ListingPlatform = "luma" | "techplay" | "findy" | "bevy";
+
+/** One event's facts in platform-neutral form; each platform maps the fields it has. */
+export type EventListing = {
+  /** mirror: registration on that platform / pointer: send people to connpass. */
+  mode: "mirror" | "pointer";
+  title: string;
+  subtitle?: string;
+  /** The page's 3-line summary. */
+  summary: string;
+  /** Markdown or plain text. HTML is never sent to a platform. */
+  description: string;
+  /** ISO instants. */
+  startAt: string;
+  endAt: string;
+  venue: { name: string; address?: string; online?: boolean };
+  capacity?: number;
+  feeYen?: number;
+  /** Required when mode = pointer. */
+  registrationUrl?: string;
+  imageUrl?: string;
+  organizer: { name: string; contactEmail?: string };
+  tags?: string[];
+  tickets?: { name: string; priceYen: number; capacity?: number; audience?: string }[];
+};
+
+export type ListingTarget = { actor: PrActor; platform: ListingPlatform; targetId: string };
+
+export interface ConnpassListingService {
+  /** Creates (or, for Findy, submits) a listing as a job. `not_supported` until the platform's method is chosen. */
+  createListing(
+    input: ListingTarget & { listing: EventListing; dryRun?: boolean },
+  ): Promise<PrRpcResult<{ job: ConnpassJobSummary }>>;
 }

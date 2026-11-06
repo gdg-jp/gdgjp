@@ -4,7 +4,8 @@ export type ConnpassJobKind =
   | "upload_event_image"
   | "upsert_survey"
   | "send_event_message"
-  | "create_sub_event";
+  | "create_sub_event"
+  | "create_listing";
 
 export type LedgerRow = {
   jobId: string;

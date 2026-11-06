@@ -281,12 +281,21 @@ CREATE TABLE notifications_sent (
   key     TEXT PRIMARY KEY,
   sent_at INTEGER NOT NULL DEFAULT (unixepoch())
 );
-CREATE TABLE connpass_jobs (
+CREATE TABLE listing_targets (
+  campaign_id INTEGER NOT NULL REFERENCES campaigns(id) ON DELETE CASCADE,
+  platform    TEXT NOT NULL CHECK (platform IN ('luma','techplay','findy','bevy')),
+  external_id TEXT NOT NULL,
+  chapter_id  INTEGER NOT NULL,
+  updated_by  TEXT NOT NULL,
+  updated_at  INTEGER NOT NULL DEFAULT (unixepoch()),
+  PRIMARY KEY (campaign_id, platform)
+);
+CREATE TABLE IF NOT EXISTS "connpass_jobs" (
   job_id           TEXT PRIMARY KEY,
   campaign_id      INTEGER NOT NULL REFERENCES campaigns(id) ON DELETE CASCADE,
   schedule_item_id INTEGER REFERENCES schedule_items(id) ON DELETE SET NULL,
   target_id        INTEGER REFERENCES dispatch_targets(id) ON DELETE SET NULL,
-  kind             TEXT NOT NULL CHECK (kind IN ('update_event','publish_event','upload_event_image','upsert_survey','send_event_message','create_sub_event')),
+  kind             TEXT NOT NULL CHECK (kind IN ('update_event','publish_event','upload_event_image','upsert_survey','send_event_message','create_sub_event','create_listing')),
   status           TEXT NOT NULL DEFAULT 'queued' CHECK (status IN ('queued','running','succeeded','failed')),
   actor_snapshot   TEXT NOT NULL,
   error            TEXT,

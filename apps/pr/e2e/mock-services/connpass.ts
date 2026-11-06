@@ -81,6 +81,12 @@ export class PrService extends WorkerEntrypoint {
   createSubEvent(input: { actor: PrActor; groupSlug: string; eventId: string; title: string }) {
     return submit(input, "create_sub_event", { title: input.title });
   }
+  createListing(input: { actor: PrActor; platform: string; targetId: string; listing: unknown }) {
+    // The real connpass app answers not_supported until a method is chosen per platform.
+    if (input.platform === "luma")
+      return submit({ actor: input.actor, groupSlug: "group-1" }, "create_listing", input.listing);
+    return { ok: false as const, code: "not_supported" };
+  }
   getJob({ jobId }: { jobId: string }) {
     const job = jobs.get(jobId);
     if (!job) return { ok: false as const, code: "not_found" };

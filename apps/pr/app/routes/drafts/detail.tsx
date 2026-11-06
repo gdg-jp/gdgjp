@@ -21,6 +21,12 @@ import { DRAFT_KIND_LABELS } from "~/features/drafts/draft-kinds";
 import { getDraft, listReviews, listVersions } from "~/features/drafts/draft.repository.server";
 import { actorFor } from "~/features/drafts/review.server";
 import { DRAFT_STATUS_LABELS } from "~/features/drafts/state-machine";
+import { ListingCard } from "~/features/listings/components/ListingCard";
+import {
+  type ListingContent,
+  PLATFORM_LABELS,
+  listingAsText,
+} from "~/features/listings/from-brief";
 import { ConnpassPreview } from "~/features/pages/components/ConnpassPreview";
 import { jstDate, jstTime } from "~/features/schedule/calendar";
 import { CampaignLayout } from "~/layouts/CampaignLayout";
@@ -170,7 +176,7 @@ export default function DraftDetail({ loaderData, actionData }: Route.ComponentP
               {draft.kind === "copy" && content?.candidates ? (
                 <CopyCandidates candidates={content.candidates as never[]} />
               ) : null}
-              {!isPost && draft.kind !== "copy" && !content?.html ? (
+              {!isPost && draft.kind !== "copy" && draft.kind !== "listing" && !content?.html ? (
                 <pre className="overflow-x-auto whitespace-pre-wrap text-xs">
                   {JSON.stringify(content, null, 2)}
                 </pre>
@@ -238,6 +244,14 @@ export default function DraftDetail({ loaderData, actionData }: Route.ComponentP
           imageUrls={Object.fromEntries(
             (content.sections ?? []).map((s) => [s.id, s.slots.imageUrl ?? null]),
           )}
+          busy={busy}
+        />
+      ) : null}
+      {draft.kind === "listing" && content ? (
+        <ListingCard
+          platform={PLATFORM_LABELS[(content as unknown as ListingContent).platform]}
+          fields={listingAsText(content as unknown as ListingContent)}
+          approved={draft.status === "approved"}
           busy={busy}
         />
       ) : null}

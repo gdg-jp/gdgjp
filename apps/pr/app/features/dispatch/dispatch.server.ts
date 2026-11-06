@@ -8,6 +8,7 @@ import { latestVersion } from "~/features/drafts/draft.repository.server";
 import { actorOf, callRpc, snsService } from "~/features/integrations/bindings.server";
 import { ensureShortlink } from "~/features/links/create.server";
 import { withShortlink } from "~/features/links/slug";
+import { listingApprovalBlockers } from "~/features/listings/listing.server";
 import type { ScheduleItem } from "~/features/schedule/item";
 import { getItem, transitionItem } from "~/features/schedule/item.repository.server";
 import { type DeliverablePost, approvalBlockers, deliverablePost, isoAt } from "./content";
@@ -34,7 +35,10 @@ export async function prepareDraftApproval(
   access: CampaignAccess,
   draft: Draft,
 ): Promise<{ ok: true } | { ok: false; errors: string[] }> {
-  const connpass = pageApprovalBlockers(access, draft);
+  const connpass = [
+    ...pageApprovalBlockers(access, draft),
+    ...(await listingApprovalBlockers(env, access, draft)),
+  ];
   if (connpass.length) return { ok: false, errors: connpass };
   if (!draft.scheduleItemId) return { ok: true };
   const post = await deliverable(env, draft);

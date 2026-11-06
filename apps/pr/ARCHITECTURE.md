@@ -20,6 +20,7 @@
 | Cron jobs (minute: requeue, reminders; hourly: sns status, link health) | `app/features/cron/cron.server.ts` (crons match `wrangler.toml`, tested) |
 | connpass: page publishing on approval, survey, mails at their time, sub-events, thumbnail, publish, and the ledger of connpass jobs (`connpass_jobs`) the hourly cron follows | `app/features/connpass/` — writes only through `CONNPASS.PrService` jobs; never `create_event` |
 | connpass page rendering (slots → HTML with the Playbook's renderer and section templates) and the preview | `app/features/pages/` — the agent's HTML is never used |
+| Listings on Luma / TECH PLAY / Findy / Bevy: mapped from the brief (no runner), approval through `CONNPASS.createListing` or copy-and-mark-done by hand; Findy once per campaign | `app/features/listings/` |
 | Domain-free widgets | `app/components/RowTable.tsx` |
 | Shells | `app/layouts/AppLayout.tsx`, `CampaignLayout.tsx` (campaign tabs) |
 | Screens + loaders / actions | `app/routes/<domain>/` — URLs in `app/routes.ts` |

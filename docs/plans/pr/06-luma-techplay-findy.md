@@ -77,6 +77,12 @@ Techplay への掲載、Findy Conference への掲載（フォーム送信）は
 
 事前確認で決めた方式を**この表に書き戻し**、他の候補の実装は作らない。
 
+**現状（2026-11-07）: 4 媒体とも方式は未決定。** 事前確認 1〜6 はユーザーの入力が要る（Luma Plus か、TECH PLAY の bot
+資格情報と作成画面の HTML、Findy の申請フォーム URL、利用規約の確認、Bevy の可否）。それまでの実装は次のとおり:
+`apps/connpass` の `listings/listing.ts`（共通モデルの検証、`LISTING_METHODS` は全部 `undecided`）と `PrService.createListing`
+（検証のあと `not_supported`）。pr は brief から掲載文を組み、承認後は「コピーして手で掲載 → 手で掲載した」で完了にする。
+方式が決まったら、その媒体の `LISTING_METHODS` と job 種別だけを足す。
+
 ### 2. 共通の掲載モデル（`packages/gdg-lib/src/pr-rpc.ts` と `apps/connpass/app/features/listings/listing.ts`）
 
 ```ts

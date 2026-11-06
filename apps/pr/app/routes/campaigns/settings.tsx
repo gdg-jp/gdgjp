@@ -26,6 +26,8 @@ import { ConnpassSettingsCard } from "~/features/connpass/components/ConnpassSet
 import { listConnpassJobs } from "~/features/connpass/job-ledger.server";
 import { DeliverySettings } from "~/features/integrations/components/DeliverySettings";
 import { deliverySettings, deliverySettingsAction } from "~/features/integrations/settings.server";
+import { ListingTargetsCard } from "~/features/listings/components/ListingTargetsCard";
+import { listingTargets, setListingTarget } from "~/features/listings/listing.server";
 import { CampaignLayout } from "~/layouts/CampaignLayout";
 import type { Route } from "./+types/settings";
 
@@ -59,6 +61,9 @@ export async function loader({ request, context, params }: Route.LoaderArgs) {
     },
     canManage: access.permissions.manage,
     delivery: await deliverySettings(env, access),
+    listingTargets: Object.fromEntries(
+      (await listingTargets(env.DB, campaign.id)).map((t) => [t.platform, t.externalId]),
+    ),
     connpass: {
       configured: !!(campaign.connpassGroupSlug && campaign.connpassEventId),
       jobs: (await listConnpassJobs(env.DB, campaign.id)).map((j) => ({
@@ -80,6 +85,20 @@ export async function action({ request, context, params }: Route.ActionArgs) {
   const access = await requireCampaignAccess(env, request, params.slug, need);
   const delivery = await deliverySettingsAction(env, access, intent, form);
   if (delivery) return delivery;
+  if (intent === "listing-targets") {
+    for (const platform of ["luma", "techplay", "bevy"] as const)
+      await setListingTarget(
+        env.DB,
+        access.campaign.id,
+        {
+          platform,
+          externalId: String(form.get(`listing:${platform}`) ?? "").trim() || null,
+          chapterId: access.campaign.chapterId,
+        },
+        access.user.id,
+      );
+    return { ok: true as const, error: null, message: "掲載先を保存しました" };
+  }
   if (intent === "connpass-thumbnail" || intent === "connpass-publish") {
     const image = form.get("image");
     const result =
@@ -113,7 +132,8 @@ export async function action({ request, context, params }: Route.ActionArgs) {
 }
 
 export default function Settings({ loaderData, actionData }: Route.ComponentProps) {
-  const { user, accountsUrl, campaign, settings, canManage, delivery, connpass } = loaderData;
+  const { user, accountsUrl, campaign, settings, canManage, delivery, connpass, listingTargets } =
+    loaderData;
   const navigation = useNavigation();
   return (
     <CampaignLayout user={user} accountsUrl={accountsUrl} campaign={campaign} title="設定">
@@ -203,6 +223,11 @@ export default function Settings({ loaderData, actionData }: Route.ComponentProp
         jobs={connpass.jobs}
         canManage={canManage}
         busy={navigation.state === "submitting"}
+      />
+      <ListingTargetsCard
+        targets={listingTargets}
+        busy={navigation.state === "submitting"}
+        canManage={canManage}
       />
       <DeliverySettings
         data={delivery}

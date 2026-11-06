@@ -3,7 +3,7 @@ import { latestBrief } from "~/features/briefs/brief.repository.server";
 import { createDraft, draftForItem } from "~/features/drafts/draft.repository.server";
 import { pendingConditions } from "~/features/schedule/blocked-by";
 import { listItems } from "~/features/schedule/item.repository.server";
-import { DRAFTABLE_KINDS } from "~/features/schedule/kinds";
+import { DRAFTABLE_KINDS, LISTING_KINDS } from "~/features/schedule/kinds";
 import { insertJob, openJobs } from "./job.repository.server";
 
 export class EnqueueError extends Error {}
@@ -169,7 +169,10 @@ export async function enqueueDrafts(
 ): Promise<string[]> {
   const items = (await listItems(db, campaignId)).filter((i) => itemIds.includes(i.id));
   const mails = items.filter((i) => i.kind === "connpass_mail");
-  const posts = items.filter((i) => i.kind !== "connpass_mail").map((i) => i.id);
+  // Listings are not runner work (listings/listing.server.ts makes them from the brief).
+  const posts = items
+    .filter((i) => i.kind !== "connpass_mail" && !LISTING_KINDS.includes(i.kind))
+    .map((i) => i.id);
   const jobs = posts.length ? await enqueuePosts(db, campaignId, userId, posts, instructions) : [];
   for (const mail of mails)
     jobs.push(
@@ -179,6 +182,7 @@ export async function enqueueDrafts(
         instructions,
       }),
     );
-  if (!jobs.length) throw new EnqueueError("アイテムを選んでください");
+  if (!jobs.length && !items.some((i) => LISTING_KINDS.includes(i.kind)))
+    throw new EnqueueError("アイテムを選んでください");
   return jobs;
 }
