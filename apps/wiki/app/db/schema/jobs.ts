@@ -35,3 +35,13 @@ export const agentJobs = sqliteTable(
     index("idx_agent_jobs_space").on(t.spaceId, t.type, t.status),
   ],
 );
+
+// One row per runner host (Stage 04): liveness for /admin/runner and degraded answers.
+export const runnerStatus = sqliteTable("runner_status", {
+  host: text("host").primaryKey(),
+  version: text("version").notNull().default(""),
+  backend: text("backend").notNull().default(""),
+  lastSeenAt: integer("last_seen_at", { mode: "timestamp" }).notNull().default(sql`(unixepoch())`),
+  runningJobId: text("running_job_id"),
+  alertedAt: integer("alerted_at", { mode: "timestamp" }),
+});

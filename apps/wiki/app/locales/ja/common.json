@@ -145,7 +145,16 @@
       "move_description": "移動先を選択してください。共有設定は維持されます。",
       "search_pages": "ページを検索",
       "root": "ルート（最上位）"
-    }
+    },
+    "ask_agent": "エージェントに依頼",
+    "ask_agent_title": "このページの変更をエージェントに依頼",
+    "ask_agent_description": "エージェントが作成したページは直接編集できません。直してほしい内容を書くと、次の統合（最大 1 時間後）で反映され、結果を通知でお知らせします。",
+    "ask_agent_label": "依頼内容",
+    "ask_agent_submit": "依頼する",
+    "ask_agent_sent": "依頼しました。反映されたら通知が届きます。",
+    "ask_agent_error": "依頼を送れませんでした。",
+    "translate_now": "英語版を今すぐ更新",
+    "translate_now_queued": "英訳を依頼しました（数分〜で反映）"
   },
   "archived": {
     "title": "アーカイブ済みページ",
@@ -193,7 +202,8 @@
     "label": "管理",
     "nav": {
       "pages": "ページ",
-      "tags": "タグ"
+      "tags": "タグ",
+      "runner": "Runner"
     },
     "pages": {
       "heading": "ページ",
@@ -240,6 +250,16 @@
         "submit": "タグを作成",
         "update": "変更を保存"
       }
+    },
+    "runner": {
+      "title": "エージェント runner",
+      "description": "OCI 上の runner の稼働状況と、runner を待っているジョブ。",
+      "hosts": "runner",
+      "no_hosts": "runner からの応答がまだありません",
+      "last_seen": "{{minutes}} 分前に応答",
+      "rate_limited": "直近 24 時間のレート制限による失敗: {{count}} 件",
+      "queue": "ジョブ",
+      "recent": "直近のジョブ"
     }
   },
   "ingest": {

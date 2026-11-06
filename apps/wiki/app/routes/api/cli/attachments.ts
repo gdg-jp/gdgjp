@@ -1,7 +1,7 @@
-import { getBearerIdentity } from "@gdgjp/gdg-lib";
 import { eq } from "drizzle-orm";
 import type { ActionFunctionArgs, LoaderFunctionArgs } from "react-router";
 import * as schema from "~/db/schema";
+import { getCliOrRunnerIdentity } from "~/features/agent-api/runner-identity.server";
 import { getEffectivePagePermissions } from "~/features/pages/access.server";
 import { requirePageSpace } from "~/features/spaces/access.server";
 import { getDb } from "~/lib/db.server";
@@ -12,7 +12,7 @@ type OkResponse = components["schemas"]["SyncResult"] extends { ok: infer TOk }
   : never;
 
 async function permitted(request: Request, env: Env, attachmentId: string, write: boolean) {
-  const identity = await getBearerIdentity(request, env.ACCOUNTS_URL);
+  const identity = await getCliOrRunnerIdentity(request, env);
   if (!identity) return { error: new Response(null, { status: 401 }) };
   const db = getDb(env);
   const attachment = await db

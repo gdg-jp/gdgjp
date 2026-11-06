@@ -1,0 +1,62 @@
+#cloud-config
+# OCI Ampere A1 (VM.Standard.A1.Flex, 2 OCPU / 12 GB), Ubuntu 24.04 aarch64.
+# After boot: install gdg (scripts/install-gdg.sh), put RUNNER_TOKEN in /etc/gdg/runner.env,
+# log Codex in as `runner` (README.md §3), then `systemctl enable --now gdg-runner`.
+package_update: true
+packages: [git, curl, ca-certificates, unzip, bubblewrap, jq]
+
+users:
+  - default
+  - name: runner
+    shell: /bin/bash
+    homedir: /home/runner
+    lock_passwd: true
+
+write_files:
+  - path: /etc/gdg/runner.env
+    permissions: "0640"
+    owner: root:runner
+    content: |
+      GDG_WIKI_URL=https://wiki.gdgs.jp
+      # Same value as `wrangler secret put RUNNER_TOKEN` on the wiki Worker.
+      RUNNER_TOKEN=
+      RUNNER_BACKEND=codex
+      RUNNER_WORKDIR=/var/lib/gdg-runner
+      # RUNNER_MODEL=
+  - path: /etc/systemd/system/gdg-runner.service
+    permissions: "0644"
+    content: |
+      [Unit]
+      Description=GDG Japan knowledge runner (gdg wiki runner)
+      After=network-online.target
+      Wants=network-online.target
+
+      [Service]
+      User=runner
+      Group=runner
+      EnvironmentFile=/etc/gdg/runner.env
+      ExecStart=/usr/local/bin/gdg wiki runner
+      WorkingDirectory=/var/lib/gdg-runner
+      Restart=always
+      RestartSec=10
+      NoNewPrivileges=true
+      ProtectSystem=full
+      PrivateTmp=true
+
+      [Install]
+      WantedBy=multi-user.target
+
+runcmd:
+  - install -d -o runner -g runner -m 0700 /var/lib/gdg-runner
+  # Codex CLI, pinned by version and sha256 (bump both together).
+  - |
+    set -e
+    CODEX_VERSION=rust-v0.167.0
+    CODEX_SHA256=843489acb4d4b1079745c36b03c5963b887b83155af208fd53584e33ee8eb281
+    cd /tmp
+    curl -fsSL -o codex.tar.gz "https://github.com/openai/codex/releases/download/${CODEX_VERSION}/codex-aarch64-unknown-linux-musl.tar.gz"
+    echo "${CODEX_SHA256}  codex.tar.gz" | sha256sum -c -
+    tar -xzf codex.tar.gz
+    install -m 0755 codex-aarch64-unknown-linux-musl /usr/local/bin/codex
+    rm -f codex.tar.gz codex-aarch64-unknown-linux-musl
+  - systemctl daemon-reload

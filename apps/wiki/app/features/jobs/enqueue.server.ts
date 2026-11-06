@@ -201,3 +201,29 @@ export async function enqueuePendingSynthesis(db: Db): Promise<number> {
   }
   return enqueued;
 }
+
+/** Nightly: one consolidate job per space that has agent pages (none if one is queued). */
+export async function enqueueConsolidation(db: Db): Promise<number> {
+  const spaces = await db
+    .selectDistinct({ spaceId: schema.pages.spaceId })
+    .from(schema.pages)
+    .where(and(eq(schema.pages.origin, "agent"), eq(schema.pages.status, "published")))
+    .all();
+  let queued = 0;
+  for (const { spaceId } of spaces) {
+    const inserted = await db
+      .insert(schema.agentJobs)
+      .values({
+        id: crypto.randomUUID(),
+        type: "consolidate",
+        spaceId,
+        priority: JOB_PRIORITY.consolidate,
+        payload: "{}",
+      })
+      .onConflictDoNothing()
+      .returning({ id: schema.agentJobs.id })
+      .get();
+    if (inserted) queued += 1;
+  }
+  return queued;
+}

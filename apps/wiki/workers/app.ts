@@ -6,7 +6,9 @@ import { createAuth } from "../app/features/auth/auth.server";
 import { sendDueTaskReminders } from "../app/features/discord/reminders.server";
 import { collabRoomName } from "../app/features/editor/collab-room";
 import { processGoogleDocumentImport } from "../app/features/google/documents/import.server";
-import { enqueuePendingSynthesis } from "../app/features/jobs/enqueue.server";
+import { enqueueConsolidation, enqueuePendingSynthesis } from "../app/features/jobs/enqueue.server";
+import { alertIfRunnerDown, requeueExpiredJobs } from "../app/features/jobs/runner.server";
+import { enqueueNightlyTranslations } from "../app/features/jobs/translate.server";
 import {
   isKnowledgeSyncQueueBody,
   processKnowledgeSync,
@@ -15,6 +17,7 @@ import {
 import { getEffectivePagePermissions } from "../app/features/pages/access.server";
 import { pageAclClearance } from "../app/features/pages/acl-spans.server";
 import { backfillMarkdownContent } from "../app/features/pages/content-backfill.server";
+import { canHumanEditPage } from "../app/features/pages/origin-lock";
 import { pageInSpace } from "../app/features/pages/page-space.server";
 import { getSpaceBySlug, resolveSpaceAccess } from "../app/features/spaces/access.server";
 import { roleAtLeast } from "../app/features/spaces/shared";
@@ -32,6 +35,7 @@ import {
   rewriteSourceAudience,
 } from "./features/sources/audience-rewrite";
 import {
+  AGENT_NIGHTLY_CRON,
   SOURCE_REFRESH_CRON,
   TASK_REMINDER_CRON,
   enqueueDueSourceRefreshes,
@@ -106,11 +110,14 @@ export default {
           generalRole: schema.pages.generalRole,
           contentJa: schema.pages.contentJa,
           contentEn: schema.pages.contentEn,
+          origin: schema.pages.origin,
         })
         .from(schema.pages)
         .where(pageInSpace(space.id, slug))
         .get();
       if (!page) return new Response("Not Found", { status: 404 });
+      // Agent pages are read-only for people; the socket would otherwise be an edit path.
+      if (!canHumanEditPage(page)) return new Response("Forbidden", { status: 403 });
       let chapters: Array<{ chapterId: string; role: string }> = [];
       let claimsLoaded = false;
       try {
@@ -176,6 +183,15 @@ export default {
         }),
       );
       ctx.waitUntil(
+        (async () => {
+          const db = drizzle(env.DB, { schema });
+          await requeueExpiredJobs(db);
+          await alertIfRunnerDown(env, db);
+        })().catch((err) => {
+          console.error("[scheduled] runner maintenance failed:", err);
+        }),
+      );
+      ctx.waitUntil(
         scheduleAllKnowledgeSyncs(env, drizzle(env.DB, { schema })).catch((err) => {
           console.error("[scheduled] knowledge sync scheduling failed:", err);
         }),
@@ -186,6 +202,25 @@ export default {
           .catch((err) => {
             console.error("[scheduled] synthesize sweep failed:", err);
           }),
+      );
+      return;
+    }
+
+    if (event.cron === AGENT_NIGHTLY_CRON) {
+      ctx.waitUntil(
+        (async () => {
+          const db = drizzle(env.DB, { schema });
+          const translations = await enqueueNightlyTranslations(db, {
+            cap:
+              Number(
+                (env as unknown as { TRANSLATE_NIGHTLY_CAP?: string }).TRANSLATE_NIGHTLY_CAP,
+              ) || undefined,
+          });
+          const consolidations = await enqueueConsolidation(db);
+          console.log("[jobs] nightly:", JSON.stringify({ translations, consolidations }));
+        })().catch((err) => {
+          console.error("[scheduled] nightly agent jobs failed:", err);
+        }),
       );
       return;
     }

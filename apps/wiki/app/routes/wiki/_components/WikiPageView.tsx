@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import { Await, useFetcher, useLoaderData, useLocation, useRouteLoaderData } from "react-router";
 import ConfirmDialog from "~/components/ConfirmDialog";
 import { ArticleSkeleton, ListSkeleton, TocSkeleton } from "~/components/Skeleton";
+import { AskAgentDialog } from "~/features/pages/components/AskAgentDialog";
 import CommentSection from "~/features/pages/components/CommentSection";
 import ShareDialog from "~/features/pages/components/ShareDialog";
 import { usePageDisplay } from "~/features/pages/use-page-display";
@@ -24,6 +25,7 @@ export function WikiPageView() {
     isAuthenticated,
     canComment,
     canEdit,
+    canAskAgent,
     canManageAccess,
     canChangeVisibility,
     visibility,
@@ -53,6 +55,7 @@ export function WikiPageView() {
   const archiveFetcher = useFetcher();
   const [archiveDialogOpen, setArchiveDialogOpen] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
+  const [askOpen, setAskOpen] = useState(false);
 
   const jaUrl = `${location.pathname}?lang=ja`;
   const enUrl = `${location.pathname}?lang=en`;
@@ -70,6 +73,7 @@ export function WikiPageView() {
         jaUrl={jaUrl}
         enUrl={enUrl}
         canEdit={canEdit}
+        onAskAgent={canAskAgent ? () => setAskOpen(true) : undefined}
         isAuthenticated={isAuthenticated}
         canArchive={canArchive}
         pageMeta={pageMeta}
@@ -173,6 +177,7 @@ export function WikiPageView() {
           canChangeVisibility={canChangeVisibility}
         />
       )}
+      <AskAgentDialog open={askOpen} onOpenChange={setAskOpen} />
     </div>
   );
 }

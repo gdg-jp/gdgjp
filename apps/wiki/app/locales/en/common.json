@@ -145,7 +145,16 @@
       "move_description": "Choose a destination. Sharing permissions will be preserved.",
       "search_pages": "Search pages",
       "root": "Root (top level)"
-    }
+    },
+    "ask_agent": "Ask the agent",
+    "ask_agent_title": "Ask the agent to change this page",
+    "ask_agent_description": "Pages written by the agent cannot be edited directly. Describe the change; it is applied in the next integration (within an hour) and you get a notification.",
+    "ask_agent_label": "Request",
+    "ask_agent_submit": "Send request",
+    "ask_agent_sent": "Sent. You will be notified when it is applied.",
+    "ask_agent_error": "Could not send the request.",
+    "translate_now": "Update the English version now",
+    "translate_now_queued": "Translation requested (a few minutes)"
   },
   "archived": {
     "title": "Archived Pages",
@@ -193,7 +202,8 @@
     "label": "Admin",
     "nav": {
       "pages": "Pages",
-      "tags": "Tags"
+      "tags": "Tags",
+      "runner": "Runner"
     },
     "pages": {
       "heading": "Pages",
@@ -240,6 +250,16 @@
         "submit": "Create Tag",
         "update": "Save Changes"
       }
+    },
+    "runner": {
+      "title": "Agent runner",
+      "description": "Health of the OCI runner and the jobs waiting for it.",
+      "hosts": "Runners",
+      "no_hosts": "No runner has reported yet",
+      "last_seen": "seen {{minutes}} min ago",
+      "rate_limited": "Rate-limited failures in the last 24 h: {{count}}",
+      "queue": "Jobs",
+      "recent": "Recent jobs"
     }
   },
   "ingest": {

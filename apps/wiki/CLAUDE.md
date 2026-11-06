@@ -20,7 +20,8 @@ Re-run `cf-typegen` (or `typecheck`) after `wrangler.toml` binding edits.
 Single `ExportedHandler<Env>` — understand all three before touching:
 
 - `fetch` — authenticates `/agents/wiki-generation-agent/:session` and routes it through the Agents SDK; short-circuits `/ws/collab/:slug` to `COLLAB_DO`; otherwise → RR.
-- `scheduled` — crons: `0 15 * * *` (task Discord reminders, 00:00 JST), `0 * * * *` (hourly: source refresh enqueue for hourly/daily/weekly policies by age, and the `agent_jobs` synthesize sweep), `5 0 * * *` (v1 translation, removed in Stage 07).
+- `scheduled` — crons: `0 15 * * *` (task Discord reminders, 00:00 JST), `0 * * * *` (hourly: source refresh enqueue, knowledge index sweep, expired-lease requeue + runner-down alert, `agent_jobs` synthesize sweep), `0 17 * * *` (02:00 JST: nightly `translate` + `consolidate` jobs), `5 0 * * *` (v1 translation, removed in Stage 07).
+- Runner auth: secret `RUNNER_TOKEN` (32+ chars) is accepted only by `/api/runner/*` and the CLI routes in `tests/architecture/runner-identity-routes.test.ts`.
 - `queue` — consumes `TRANSLATION_QUEUE`, Google Docs import jobs, and `SOURCE_FETCH_QUEUE`. Source import continuation for Chat, Drive, Discord, and websites runs in `SOURCE_IMPORT_DO` alarms, not the queue.
 
 `CollabDurableObject` and `SourceImportDurableObject` are re-exported from the same file so wrangler registers them.
@@ -100,6 +101,7 @@ Details in `ARCHITECTURE.md`. Scan this table to narrow the location before you 
 | ソース取り込み（Worker 実行・DO alarm・refresh cron） | `workers/features/sources/` |
 | wiki 生成 AI（Agents SDK / Workflow） | `workers/features/ingestion/` — README あり |
 | wiki 生成 AI（クライアント配線 / ingest 画面） | `app/features/ingestion/`（README あり）, `app/routes/ingest/` |
+| エージェントジョブ（synthesize / consolidate / translate、runner API） | `app/features/jobs/`, `app/routes/api/runner/`, `app/routes/admin/runner.tsx`。runner 本体は `apps/cli/internal/wiki/runner/`、VM 配備は `infra/oci-runner/` |
 | 検索インデックス（AI Search、スペース別） | `app/features/knowledge/`（README あり） |
 | AI 検索（v1: Workers AI + Vectorize、Stage 07 で撤去） | `app/features/ai-search/` |
 | Google 連携（Drive / Docs / Forms / Chat / Picker） | `app/features/google/`（README あり。Docs インポートは `documents/`） |

@@ -183,7 +183,7 @@ class_name = "WikiGenerationPhaseWorkflow"
 # 0 16 * * * — automatic source refresh for daily/weekly policies
 # 5 0 * * *  — coalesced JA→EN translation dispatch (09:05 JST)
 [triggers]
-crons = ["0 15 * * *", "0 * * * *", "5 0 * * *"]
+crons = ["0 15 * * *", "0 * * * *", "5 0 * * *", "0 17 * * *"]
 
 # ---------------------------------------------------------------------------
 # Secrets (set via `wrangler secret put`)

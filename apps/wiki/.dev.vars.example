@@ -43,3 +43,6 @@ DISCORD_BOT_TOKEN=
 WIKI_DISCORD_SECRET=
 
 ENVIRONMENT=development
+
+# Knowledge runner (Stage 04): 32+ random chars, same value as /etc/gdg/runner.env on the VM
+RUNNER_TOKEN=

@@ -73,6 +73,13 @@ func (h *RemoteHelper) Run(ctx context.Context) error {
 			h.GitDir = filepath.Join(wd, h.GitDir)
 		}
 	}
+	if h.Client != nil && h.Client.Space == "" {
+		if root, rootErr := WorkTreeRoot(h.GitDir); rootErr == nil {
+			if cfg, cfgErr := ReadConfig(root); cfgErr == nil {
+				h.Client.Space = cfg.Space
+			}
+		}
+	}
 
 	scanner := bufio.NewScanner(h.Stdin)
 	// Git's protocol lines are intentionally small, but permit a complete ref

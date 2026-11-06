@@ -1,4 +1,4 @@
-import { and, asc, eq, inArray } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { redirect } from "react-router";
 import type { ActionFunctionArgs, LoaderFunctionArgs } from "react-router";
 import * as schema from "~/db/schema";
@@ -8,6 +8,7 @@ import { scheduleKnowledgeSync } from "~/features/knowledge/sync.server";
 import { getEffectivePagePermissions } from "~/features/pages/access.server";
 import { redactPageMarkdown } from "~/features/pages/acl-spans.server";
 import { archivePageAndDescendants } from "~/features/pages/archive.server";
+import { canHumanEditPage } from "~/features/pages/origin-lock";
 import { classifyWikiRequestPath, wikiPagePath } from "~/features/pages/wiki-page-path";
 import { getWikiCanonicalSlugPath } from "~/features/pages/wiki-page-path.server";
 import { requireSpace } from "~/features/spaces/access.server";
@@ -16,76 +17,11 @@ import { rememberLastSpace } from "~/features/spaces/viewer.server";
 import { getDb } from "~/lib/db.server";
 import { duplicatePage } from "./duplicate.server";
 import { movePage } from "./move.server";
+import { handlePageAgentIntent } from "./page-agent-actions.server";
+import { loadPageComments } from "./page-comments.server";
 import { pageInSpace } from "./page-space.server";
 
 type WikiDb = ReturnType<typeof getDb>;
-
-async function loadPageComments(db: WikiDb, pageId: string, sessionUserId: string | undefined) {
-  const commentsRaw = await db
-    .select({
-      id: schema.pageComments.id,
-      authorId: schema.pageComments.authorId,
-      authorName: schema.user.name,
-      authorImage: schema.user.image,
-      parentId: schema.pageComments.parentId,
-      contentJson: schema.pageComments.contentJson,
-      deletedAt: schema.pageComments.deletedAt,
-      createdAt: schema.pageComments.createdAt,
-    })
-    .from(schema.pageComments)
-    .innerJoin(schema.user, eq(schema.pageComments.authorId, schema.user.id))
-    .where(eq(schema.pageComments.pageId, pageId))
-    .orderBy(asc(schema.pageComments.createdAt))
-    .all();
-
-  const commentIds = commentsRaw.map((c) => c.id);
-  const reactionsRaw =
-    commentIds.length > 0
-      ? await db
-          .select()
-          .from(schema.commentReactions)
-          .where(inArray(schema.commentReactions.commentId, commentIds))
-          .orderBy(asc(schema.commentReactions.createdAt))
-          .all()
-      : [];
-
-  const reactionsByComment = new Map<
-    string,
-    { emoji: string; count: number; reactedByMe: boolean }[]
-  >();
-  for (const r of reactionsRaw) {
-    const list = reactionsByComment.get(r.commentId) ?? [];
-    const existing = list.find((x) => x.emoji === r.emoji);
-    if (existing) {
-      existing.count++;
-      if (r.userId === sessionUserId) existing.reactedByMe = true;
-    } else {
-      list.push({ emoji: r.emoji, count: 1, reactedByMe: r.userId === sessionUserId });
-    }
-    reactionsByComment.set(r.commentId, list);
-  }
-
-  type ReactionGroup = { emoji: string; count: number; reactedByMe: boolean };
-  type FlatComment = (typeof commentsRaw)[number] & {
-    reactions: ReactionGroup[];
-    replies: FlatComment[];
-  };
-  const flatComments: FlatComment[] = commentsRaw.map((c) => ({
-    ...c,
-    reactions: reactionsByComment.get(c.id) ?? [],
-    replies: [],
-  }));
-  const commentMap = new Map<string, FlatComment>(flatComments.map((c) => [c.id, c]));
-  const topLevelComments: FlatComment[] = [];
-  for (const c of flatComments) {
-    if (c.parentId) {
-      commentMap.get(c.parentId)?.replies.push(c);
-    } else {
-      topLevelComments.push(c);
-    }
-  }
-  return topLevelComments;
-}
 
 /** Data assembly behind the `/wiki/*` page loader. */
 export async function loadWikiPage({ request, context, params }: LoaderFunctionArgs) {
@@ -253,7 +189,10 @@ export async function loadWikiPage({ request, context, params }: LoaderFunctionA
     currentUserId: sessionUser?.id ?? null,
     isAuthenticated: !!sessionUser,
     canComment: permissions.canComment,
+    // Agent pages: people ask the agent instead of editing (§8-6).
+    canAskAgent: page.origin === "agent" && canEditInSpace && permissions.canView,
     canEdit:
+      canHumanEditPage(page) &&
       canEditInSpace &&
       page.pageType !== "wiki-index" &&
       page.pageType !== "wiki-log" &&
@@ -316,6 +255,17 @@ export async function handleWikiPageAction({ request, context, params }: ActionF
         { status: error instanceof Response ? error.status : 500 },
       );
     }
+  }
+
+  if (intent === "translateNow" || intent === "askAgent") {
+    return handlePageAgentIntent(request, env, {
+      intent,
+      spaceSlug: params.space,
+      spaceId: space.id,
+      leafSlug,
+      form,
+      user: sessionUser,
+    });
   }
 
   if (intent === "toggleFavorite") {

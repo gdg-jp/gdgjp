@@ -29,6 +29,15 @@ type wikiService struct {
 	credentials   store.CredentialStore
 	newClient     func() *wiki.Client
 	runAgent      func(ctx context.Context, root, agent, prompt string) error
+	// readSources overrides the trace-derived read set for verify-acl (nil = trace).
+	readSources []string
+}
+
+type cloneOptions struct {
+	Lang       string
+	Space      string
+	RawSources []string
+	NoRaw      bool
 }
 
 func newWikiCommand(credentials store.CredentialStore) *cobra.Command {
@@ -49,18 +58,21 @@ func newWikiCommandWithService(service *wikiService) *cobra.Command {
 	}
 
 	var cloneRemote string
-	var cloneLang string
+	var cloneOptions cloneOptions
 	clone := &cobra.Command{
 		Use:   "clone DIRECTORY",
 		Args:  cobra.ExactArgs(1),
 		Short: "Clone Wiki pages and raw sources into a Git working tree",
-		Long:  "Creates a single-language clone (default ja) with its raw primary sources.",
+		Long:  "Creates a single-language clone (default ja) of one space with its raw primary sources.",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return service.clone(cmd, args[0], cloneRemote, cloneLang)
+			return service.cloneWith(cmd, args[0], cloneRemote, cloneOptions)
 		},
 	}
 	clone.Flags().StringVar(&cloneRemote, "remote", defaultWikiRemote, "gdg-wiki Git remote URL")
-	clone.Flags().StringVar(&cloneLang, "lang", "ja", "Clone language (ja or en)")
+	clone.Flags().StringVar(&cloneOptions.Lang, "lang", "ja", "Clone language (ja or en)")
+	clone.Flags().StringVar(&cloneOptions.Space, "space", "", "Space slug to clone (default gdg-jp)")
+	clone.Flags().StringSliceVar(&cloneOptions.RawSources, "raw-sources", nil, "Download raw files of these source ids only")
+	clone.Flags().BoolVar(&cloneOptions.NoRaw, "no-raw", false, "Keep the source manifest but download no raw files")
 	command.AddCommand(clone)
 
 	var initRemote string
@@ -135,14 +147,22 @@ func newWikiCommandWithService(service *wikiService) *cobra.Command {
 	})
 	command.AddCommand(ingest)
 
-	command.AddCommand(&cobra.Command{
+	var readSources []string
+	verify := &cobra.Command{
 		Use:   "verify-acl",
 		Short: "Dry-run ACL validation for changed pages (fail-open on infrastructure errors)",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
+			if cmd.Flags().Changed("read-sources") {
+				service.readSources = append([]string{}, readSources...)
+			}
 			return service.verifyACL(cmd)
 		},
-	})
+	}
+	verify.Flags().StringSliceVar(&readSources, "read-sources", nil, "Source ids the agent read (replaces the ingest trace)")
+	command.AddCommand(verify)
+
+	command.AddCommand(newWikiRunnerCommand(service))
 
 	command.AddCommand(&cobra.Command{
 		Use:   "lint",
@@ -189,11 +209,19 @@ func runCodingAgent(ctx context.Context, root, agent, prompt string) error {
 }
 
 func (s *wikiService) clone(cmd *cobra.Command, directory, remote, lang string) error {
+	return s.cloneWith(cmd, directory, remote, cloneOptions{Lang: lang})
+}
+
+func (s *wikiService) cloneWith(cmd *cobra.Command, directory, remote string, options cloneOptions) error {
+	lang := options.Lang
 	if remote == "" {
 		return errors.New("Wiki remote URL cannot be empty")
 	}
 	if lang != "ja" && lang != "en" {
 		return fmt.Errorf("unsupported language %q (use ja or en)", lang)
+	}
+	if options.Space != "" && !wiki.ValidSpaceSlug(options.Space) {
+		return fmt.Errorf("invalid space %q", options.Space)
 	}
 	if _, err := s.ensureGitHelper(); err != nil {
 		return err
@@ -216,7 +244,9 @@ func (s *wikiService) clone(cmd *cobra.Command, directory, remote, lang string) 
 	if err = os.MkdirAll(root, 0o755); err != nil {
 		return err
 	}
-	if err = wiki.WriteConfig(root, wiki.CloneConfig{Lang: lang}); err != nil {
+	if err = wiki.WriteConfig(root, wiki.CloneConfig{
+		Lang: lang, Space: options.Space, RawSources: options.RawSources, NoRaw: options.NoRaw,
+	}); err != nil {
 		return err
 	}
 	if err = wiki.WriteCloneGitignore(root); err != nil {
@@ -346,6 +376,9 @@ func findWikiRoot(start string) (string, error) {
 }
 
 func (s *wikiService) withToken(ctx context.Context, fn func(string) error) error {
+	if token := os.Getenv(wiki.TokenEnv); token != "" {
+		return fn(token)
+	}
 	if s.credentials == nil {
 		return errors.New("credentials store is not configured")
 	}
@@ -663,7 +696,7 @@ func (s *wikiService) runVerifyACL(cmd *cobra.Command) (ok bool, err error) {
 	var result wiki.ValidateACLResult
 	err = s.withToken(cmd.Context(), func(token string) error {
 		var verifyErr error
-		result, verifyErr = wiki.VerifyACL(cmd.Context(), root, client, token, wiki.GitRunner(s.runGit))
+		result, verifyErr = wiki.VerifyACLWithReadSources(cmd.Context(), root, client, token, wiki.GitRunner(s.runGit), s.readSources)
 		return verifyErr
 	})
 	if err != nil {

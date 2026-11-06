@@ -35,7 +35,14 @@ export default defineConfig({
   projects: [
     {
       name: "chromium",
-      use: { ...devices["Desktop Chrome"] },
+      use: {
+        ...devices["Desktop Chrome"],
+        // Tests must not depend on the internet: third-party assets (analytics, sibling-app
+        // icons) fail fast instead of holding the page's load event on a slow network.
+        launchOptions: {
+          args: ["--host-resolver-rules=MAP * ~NOTFOUND, EXCLUDE localhost, EXCLUDE 127.0.0.1"],
+        },
+      },
     },
   ],
   webServer: {

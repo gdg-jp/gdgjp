@@ -5,7 +5,7 @@ import { createFakeKnowledge } from "./fake-binding";
 const state = vi.hoisted(() => ({ db: null as unknown }));
 vi.mock("~/lib/db.server", () => ({ getDb: () => state.db }));
 
-import { syncSpaceKnowledge } from "./sync.server";
+import { processKnowledgeSync, syncSpaceKnowledge } from "./sync.server";
 import { searchForReader } from "./viewer-search.server";
 
 function setup() {
@@ -136,5 +136,25 @@ describe("searchForReader", () => {
     expect(filters.layer.$in).toEqual(["page", "acl"]);
     expect(pages.map((page) => page.slug)).toEqual(["venue"]);
     expect(pages[0]?.matchedChunks.map((chunk) => chunk.text)).toEqual(["会場は梅田"]);
+  });
+});
+
+describe("processKnowledgeSync without a remote binding", () => {
+  it("acks instead of retrying when AI Search is remote-only (local dev / e2e)", async () => {
+    const { env } = setup();
+    const send = vi.fn();
+    const local = {
+      ...env,
+      SOURCE_FETCH_QUEUE: { send },
+      get KNOWLEDGE(): never {
+        throw Object.assign(new Error("Binding KNOWLEDGE needs to be run remotely"), {
+          remote: true,
+        });
+      },
+    };
+    await expect(
+      processKnowledgeSync(local as unknown as Env, { type: "knowledge_sync", spaceId: "gdg-jp" }),
+    ).resolves.toBeUndefined();
+    expect(send).not.toHaveBeenCalled();
   });
 });

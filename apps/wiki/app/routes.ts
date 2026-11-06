@@ -69,6 +69,14 @@ export default [
   route("/api/cli/wiki/chat-senders", "routes/api/cli/chat-senders.ts"),
   route("/api/cli/wiki/agents-md", "routes/api/cli/agents-md.ts"),
   route("/api/cli/wiki/attachments/:attachmentId", "routes/api/cli/attachments.ts"),
+  // OCI runner (Stage 04) — RUNNER_TOKEN only.
+  route("/api/runner/heartbeat", "routes/api/runner/heartbeat.ts"),
+  route("/api/runner/jobs/next", "routes/api/runner/jobs-next.ts"),
+  route("/api/runner/jobs/:id/context", "routes/api/runner/jobs-context.ts"),
+  route("/api/runner/jobs/:id/heartbeat", "routes/api/runner/jobs-heartbeat.ts"),
+  route("/api/runner/jobs/:id/result", "routes/api/runner/jobs-result.ts"),
+  route("/api/runner/pages/:id", "routes/api/runner/page.ts"),
+  route("/api/runner/pages/:id/translation", "routes/api/runner/page-translation.ts"),
   route("/api/agent/ls", "routes/api/agent/ls.ts"),
   route("/api/agent/cat", "routes/api/agent/cat.ts"),
   route("/api/agent/search", "routes/api/agent/search.ts"),
@@ -135,6 +143,7 @@ export default [
       index("routes/admin/index.tsx"),
       route("pages", "routes/admin/pages.tsx"),
       route("tags", "routes/admin/tags.tsx"),
+      route("runner", "routes/admin/runner.tsx"),
     ]),
   ]),
 ] satisfies RouteConfig;

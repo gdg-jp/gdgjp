@@ -1,8 +1,8 @@
-import { getBearerIdentity } from "@gdgjp/gdg-lib";
 import { inArray } from "drizzle-orm";
 import type { ActionFunctionArgs } from "react-router";
 import { z } from "zod";
 import * as schema from "~/db/schema";
+import { getCliOrRunnerIdentity } from "~/features/agent-api/runner-identity.server";
 import { canonicalMarkdown } from "~/features/editor/content-format";
 import {
   pageAclClearance,
@@ -52,7 +52,7 @@ type Finding = { slug: string; error: string; sourceId?: string };
 export async function action({ request, context }: ActionFunctionArgs) {
   if (request.method !== "POST") return new Response(null, { status: 405 });
   const { env } = context.cloudflare;
-  const identity = await getBearerIdentity(request, env.ACCOUNTS_URL);
+  const identity = await getCliOrRunnerIdentity(request, env);
   if (!identity) return Response.json({ error: "invalid_token" }, { status: 401 });
 
   const parsed = Body.safeParse(await request.json());

@@ -8,6 +8,8 @@ import { isRetryableFetchError } from "./retry-classification";
 /** Hourly: scheduled refreshes (hourly / daily / weekly by age) and the synthesize sweep. */
 export const SOURCE_REFRESH_CRON = "0 * * * *";
 export const TASK_REMINDER_CRON = "0 15 * * *";
+/** Nightly, JST 02:00: translate + consolidate jobs for the runner (off-peak quota). */
+export const AGENT_NIGHTLY_CRON = "0 17 * * *";
 
 export interface FetchSourceOutcome {
   status: "ready" | "skipped" | "error";

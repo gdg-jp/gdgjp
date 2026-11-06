@@ -1,4 +1,3 @@
-import { getBearerIdentity } from "@gdgjp/gdg-lib";
 import { and, eq, inArray } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import type { ActionFunctionArgs } from "react-router";
@@ -13,6 +12,8 @@ import {
   resolveSyncPageSharing,
   scheduleSyncPostCommit,
 } from "~/features/agent-api/cli-sync.server";
+import { getCliOrRunnerIdentity } from "~/features/agent-api/runner-identity.server";
+import { partitionRunnerOperations } from "~/features/agent-api/runner-sync.server";
 import { canonicalMarkdown } from "~/features/editor/content-format";
 import { scheduleKnowledgeSync } from "~/features/knowledge/sync.server";
 import {
@@ -36,7 +37,7 @@ import { getDb } from "~/lib/db.server";
 export async function action({ request, context }: ActionFunctionArgs) {
   if (request.method !== "POST") return new Response(null, { status: 405 });
   const { env } = context.cloudflare;
-  const identity = await getBearerIdentity(request, env.ACCOUNTS_URL);
+  const identity = await getCliOrRunnerIdentity(request, env);
   if (!identity) return Response.json({ error: "invalid_token" }, { status: 401 });
   const parsed = SyncBody.safeParse(await request.json());
   if (!parsed.success)
@@ -44,7 +45,7 @@ export async function action({ request, context }: ActionFunctionArgs) {
       { error: "invalid_request", details: parsed.error.flatten() },
       { status: 400 },
     );
-  const operations = parsed.data.operations;
+  let operations = parsed.data.operations;
   const agentsUpdate = parsed.data.agentsMd;
   const suppliedIds = operations.flatMap((operation) =>
     operation.kind === "archive" ? [operation.id] : operation.page.id ? [operation.page.id] : [],
@@ -112,6 +113,17 @@ export async function action({ request, context }: ActionFunctionArgs) {
   if (existing.some((page) => page.spaceId !== space.id))
     return Response.json({ error: "page_not_in_space" }, { status: 404 });
   const byId = new Map(existing.map((page) => [page.id, page]));
+
+  // Agent pages are written only by the runner (knowledge platform v2 §8-6): people ask
+  // the agent instead of editing. The runner, in turn, never overwrites a human page — its
+  // proposal goes to the space's review queue and the rest of the push still applies.
+  if (!identity.isRunner && operations.length > 0) {
+    return Response.json({ error: "agent_pages_runner_only" }, { status: 403 });
+  }
+  const { kept, skipped } = identity.isRunner
+    ? await partitionRunnerOperations(db, space.id, operations, byId)
+    : { kept: operations, skipped: [] };
+  operations = kept;
   const requestedById = new Map(
     operations.flatMap((operation) =>
       operation.kind === "upsert" && operation.page.id
@@ -345,8 +357,9 @@ export async function action({ request, context }: ActionFunctionArgs) {
     ctx,
     objectsToDelete.map((key) => env.BUCKET.delete(key)),
   );
-  const syncResult: WikiSyncResult = {
+  const syncResult: WikiSyncResult & { skipped: typeof skipped } = {
     ok: true,
+    skipped,
     pages: returned.map((page) => ({
       ...page,
       revision: revisions.find((r) => r.id === page.id)?.revision,

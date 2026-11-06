@@ -57,6 +57,8 @@ export const pages = sqliteTable(
     createdAt: integer("created_at", { mode: "timestamp" }).notNull().default(sql`(unixepoch())`),
     updatedAt: integer("updated_at", { mode: "timestamp" }).notNull().default(sql`(unixepoch())`),
     syncRevision: integer("sync_revision").notNull().default(1),
+    /** sha256 of content_ja the runner last translated from (Stage 04 translate jobs). */
+    translationSourceHash: text("translation_source_hash"),
   },
   (t) => [unique("pages_space_id_slug_unique").on(t.spaceId, t.slug)],
 );

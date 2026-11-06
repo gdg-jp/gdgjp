@@ -1,3 +1,4 @@
+import { Button } from "@gdgjp/design-system";
 import { Popover, PopoverContent, PopoverTrigger } from "@gdgjp/design-system";
 
 import { useEffect, useId, useRef, useState } from "react";
@@ -264,6 +265,7 @@ export default function WikiRightSidebar({
             {t("wiki.auto_translated")}
           </span>
         )}
+        {lang === "en" && translationStatusEn !== "human" && <TranslateNowButton />}
 
         {/* Sources (URLs, PDFs, and image attachments) */}
         {((sources && sources.length > 0) || (attachments && attachments.length > 0)) && (
@@ -363,5 +365,22 @@ export default function WikiRightSidebar({
         )}
       </div>
     </aside>
+  );
+}
+
+/** Queue a high-priority translate job for this page (editor role, checked on the server). */
+function TranslateNowButton() {
+  const { t } = useTranslation();
+  const fetcher = useFetcher<{ ok?: boolean; translateQueued?: boolean }>();
+  if (fetcher.data?.translateQueued) {
+    return <p className="text-xs text-muted">{t("wiki.translate_now_queued")}</p>;
+  }
+  return (
+    <fetcher.Form method="post">
+      <input type="hidden" name="intent" value="translateNow" />
+      <Button type="submit" size="sm" variant="ghost" loading={fetcher.state !== "idle"}>
+        {t("wiki.translate_now")}
+      </Button>
+    </fetcher.Form>
   );
 }

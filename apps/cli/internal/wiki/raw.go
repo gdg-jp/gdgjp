@@ -170,6 +170,9 @@ func PullRaw(ctx context.Context, root string, client *Client, token string) (So
 	if err != nil {
 		return SourcesManifest{}, err
 	}
+	if cfg.Space != "" {
+		client.Space = cfg.Space
+	}
 	chatSenders, err := client.ChatSenders(ctx, token)
 	if err != nil {
 		return SourcesManifest{}, err
@@ -188,6 +191,9 @@ func PullRaw(ctx context.Context, root string, client *Client, token string) (So
 		return SourcesManifest{}, err
 	}
 	for _, doc := range manifest.Documents {
+		if !rawWanted(cfg, doc) {
+			continue
+		}
 		localPath, pathErr := rawLocalPath(root, doc.Path)
 		if pathErr != nil {
 			return SourcesManifest{}, pathErr
@@ -236,6 +242,26 @@ func PullRaw(ctx context.Context, root string, client *Client, token string) (So
 		return SourcesManifest{}, fmt.Errorf("write ACL source metadata: %w", err)
 	}
 	return manifest, nil
+}
+
+// rawWanted applies the clone's raw filter: NoRaw downloads nothing, RawSources only those
+// sources' documents. The manifest itself is always kept (it is the ACL metadata).
+func rawWanted(cfg Config, doc SourcesManifestEntry) bool {
+	if cfg.NoRaw {
+		return false
+	}
+	if len(cfg.RawSources) == 0 {
+		return true
+	}
+	if doc.SourceID == nil {
+		return false
+	}
+	for _, id := range cfg.RawSources {
+		if id == *doc.SourceID {
+			return true
+		}
+	}
+	return false
 }
 
 func rewriteRawSourcePaths(data []byte, doc SourcesManifestEntry) []byte {

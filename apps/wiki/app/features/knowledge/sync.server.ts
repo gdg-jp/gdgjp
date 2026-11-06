@@ -279,9 +279,27 @@ export async function syncSpaceKnowledge(
 
 /** Queue consumer: sync, and continue through the queue while work remains. */
 export async function processKnowledgeSync(env: Env, message: KnowledgeSyncMessage): Promise<void> {
-  const result = await syncSpaceKnowledge(env, message.spaceId);
+  let result: Awaited<ReturnType<typeof syncSpaceKnowledge>>;
+  try {
+    result = await syncSpaceKnowledge(env, message.spaceId);
+  } catch (error) {
+    // Local dev / e2e: AI Search is remote-only. Ack instead of retrying forever.
+    if (isRemoteOnlyBindingError(error)) {
+      console.warn("knowledge: AI Search binding unavailable locally; sync skipped");
+      return;
+    }
+    throw error;
+  }
   console.log(JSON.stringify({ component: "knowledge", event: "sync", ...message, ...result }));
   if (!result.done) await env.SOURCE_FETCH_QUEUE.send(message);
+}
+
+function isRemoteOnlyBindingError(error: unknown): boolean {
+  return (
+    error instanceof Error &&
+    ((error as { remote?: unknown }).remote === true ||
+      /needs to be run remotely/.test(error.message))
+  );
 }
 
 /** Hourly: schedule a sync of every space (cheap when nothing changed). */

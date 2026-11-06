@@ -20,8 +20,38 @@ const defaultBaseURL = "https://wiki.gdgs.jp"
 type Client struct {
 	BaseURL    string
 	HTTPClient *http.Client
-	generated  *openapigen.ClientWithResponses
+	// Space scopes /api/cli/wiki/* calls to one space (`?space=`); empty = gdg-jp.
+	Space     string
+	generated *openapigen.ClientWithResponses
 }
+
+// TokenEnv carries a non-OAuth bearer (the runner's RUNNER_TOKEN) to the git remote helper
+// and wiki commands. The runner sets it only for its own git / gdg subprocesses.
+const TokenEnv = "GDG_WIKI_TOKEN"
+
+// withSpace appends `space=<slug>` to Wiki CLI API paths.
+func (c *Client) withSpace(path string) string {
+	if c.Space == "" || !strings.HasPrefix(path, "/api/cli/") {
+		return path
+	}
+	separator := "?"
+	if strings.Contains(path, "?") {
+		separator = "&"
+	}
+	return path + separator + "space=" + url.QueryEscape(c.Space)
+}
+
+func (c *Client) spaceEditor() openapigen.RequestEditorFn {
+	return func(_ context.Context, request *http.Request) error {
+		if c.Space != "" {
+			query := request.URL.Query()
+			query.Set("space", c.Space)
+			request.URL.RawQuery = query.Encode()
+		}
+		return nil
+	}
+}
+
 type HTTPError struct {
 	StatusCode int
 	Message    string
@@ -187,7 +217,7 @@ type SourcesManifest struct {
 }
 
 func (c *Client) request(ctx context.Context, token, method, path string, body io.Reader, contentType string) (*http.Response, error) {
-	req, err := http.NewRequestWithContext(ctx, method, c.BaseURL+path, body)
+	req, err := http.NewRequestWithContext(ctx, method, c.BaseURL+c.withSpace(path), body)
 	if err != nil {
 		return nil, err
 	}
@@ -286,7 +316,7 @@ func (c *Client) Sync(ctx context.Context, token string, input SyncRequest) (Syn
 	if err != nil {
 		return SyncResult{}, err
 	}
-	res, err := c.generatedClient().SyncWikiWithBodyWithResponse(ctx, "application/json", bytes.NewReader(raw), bearer(token))
+	res, err := c.generatedClient().SyncWikiWithBodyWithResponse(ctx, "application/json", bytes.NewReader(raw), bearer(token), c.spaceEditor())
 	if err != nil {
 		return SyncResult{}, err
 	}
@@ -320,7 +350,7 @@ func (c *Client) Download(ctx context.Context, token, rawURL string) ([]byte, er
 
 // Upload replaces bytes for an attachment allocated by Sync.
 func (c *Client) Upload(ctx context.Context, token, attachmentID string, data []byte, mime string) error {
-	res, err := c.generatedClient().UploadWikiAttachmentWithBodyWithResponse(ctx, attachmentID, mime, bytes.NewReader(data), bearer(token))
+	res, err := c.generatedClient().UploadWikiAttachmentWithBodyWithResponse(ctx, attachmentID, mime, bytes.NewReader(data), bearer(token), c.spaceEditor())
 	if err != nil {
 		return err
 	}

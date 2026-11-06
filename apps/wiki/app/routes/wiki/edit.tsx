@@ -15,6 +15,7 @@ import { getEffectivePagePermissions } from "~/features/pages/access.server";
 import { computeAclSourceIdsJson } from "~/features/pages/acl-spans";
 import { pageAclClearance, validatePageAclForSync } from "~/features/pages/acl-spans.server";
 import PageEditor from "~/features/pages/components/PageEditor";
+import { AGENT_PAGE_LOCKED, canHumanEditPage } from "~/features/pages/origin-lock";
 import { pageInSpace } from "~/features/pages/page-space.server";
 import { wikiPagePath } from "~/features/pages/wiki-page-path";
 import { getWikiCanonicalSlugPath } from "~/features/pages/wiki-page-path.server";
@@ -79,6 +80,7 @@ export async function loader({ request, context, params }: LoaderFunctionArgs) {
     .get();
 
   if (!page) throw new Response("Not Found", { status: 404 });
+  if (!canHumanEditPage(page)) throw new Response(AGENT_PAGE_LOCKED, { status: 403 });
   if (page.status === "archived") throw new Response("Not Found", { status: 404 });
   if (
     page.pageType === "wiki-index" ||
@@ -154,6 +156,7 @@ export async function action({ request, context, params }: ActionFunctionArgs) {
     .get();
 
   if (!page) throw new Response("Not Found", { status: 404 });
+  if (!canHumanEditPage(page)) throw new Response(AGENT_PAGE_LOCKED, { status: 403 });
   const slug = params.slug ?? "";
   if (
     page.pageType === "wiki-index" ||

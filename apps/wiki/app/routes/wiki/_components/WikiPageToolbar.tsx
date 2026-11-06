@@ -103,6 +103,7 @@ export function WikiPageToolbar({
   jaUrl,
   enUrl,
   canEdit,
+  onAskAgent,
   isAuthenticated,
   canArchive,
   pageMeta,
@@ -118,6 +119,8 @@ export function WikiPageToolbar({
   jaUrl: string;
   enUrl: string;
   canEdit: boolean;
+  /** Agent pages: shown instead of Edit (people ask the agent to change them). */
+  onAskAgent?: () => void;
   isAuthenticated: boolean;
   canArchive: boolean;
   pageMeta: Promise<{ isStarred: boolean }>;
@@ -175,6 +178,12 @@ export function WikiPageToolbar({
             {t("wiki.edit")}
           </Link>
         )}
+        {onAskAgent && (
+          <button type="button" onClick={onAskAgent} className={btnBase}>
+            <Icons name="Sparkles" size={14} />
+            {t("wiki.ask_agent")}
+          </button>
+        )}
         <Link to={wikiPageActionPath(page.slug, "history", spaceSlug)} className={btnBase}>
           <Icons name="History" size={14} />
           {t("wiki.history")}
@@ -213,6 +222,12 @@ export function WikiPageToolbar({
                   <Icons name="Pencil" size={14} />
                   {t("wiki.edit")}
                 </Link>
+              </DropdownMenuItem>
+            )}
+            {onAskAgent && (
+              <DropdownMenuItem onSelect={onAskAgent}>
+                <Icons name="Sparkles" size={14} />
+                {t("wiki.ask_agent")}
               </DropdownMenuItem>
             )}
             <DropdownMenuItem asChild>

@@ -4,6 +4,7 @@ import type { ActionFunctionArgs } from "react-router";
 import * as schema from "~/db/schema";
 import { requireUser } from "~/features/auth/utils.server";
 import { getEffectivePagePermissions } from "~/features/pages/access.server";
+import { AGENT_PAGE_LOCKED, canHumanEditPage } from "~/features/pages/origin-lock";
 import { pageInSpace } from "~/features/pages/page-space.server";
 import { requireSpace } from "~/features/spaces/access.server";
 import { DEFAULT_SPACE_SLUG } from "~/features/spaces/shared";
@@ -34,6 +35,7 @@ export async function action({ request, context, params }: ActionFunctionArgs) {
       authorId: schema.pages.authorId,
       visibility: schema.pages.visibility,
       generalRole: schema.pages.generalRole,
+      origin: schema.pages.origin,
     })
     .from(schema.pages)
     .where(pageInSpace(space.id, slug))
@@ -46,6 +48,7 @@ export async function action({ request, context, params }: ActionFunctionArgs) {
   if (page.status === "archived") {
     return new Response("Not Found", { status: 404 });
   }
+  if (!canHumanEditPage(page)) return new Response(AGENT_PAGE_LOCKED, { status: 403 });
 
   const permissions = await getEffectivePagePermissions(db, page, user, identity.chapters);
   if (!permissions.canEdit) {

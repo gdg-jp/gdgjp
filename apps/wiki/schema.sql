@@ -527,7 +527,7 @@ CREATE TABLE IF NOT EXISTS "pages" (
   sync_revision INTEGER NOT NULL DEFAULT 1,
   origin TEXT NOT NULL DEFAULT 'human' CHECK (origin IN ('human', 'agent')),
   acl_synced_with_parent INTEGER NOT NULL DEFAULT 1,
-  acl_source_ids TEXT NOT NULL DEFAULT '[]',
+  acl_source_ids TEXT NOT NULL DEFAULT '[]', "translation_source_hash" TEXT,
   UNIQUE (space_id, slug)
 );
 CREATE INDEX idx_pages_status_updated ON pages (status, updated_at DESC);
@@ -768,3 +768,11 @@ CREATE TABLE IF NOT EXISTS "knowledge_items" (
   PRIMARY KEY ("space_id", "item_key")
 );
 CREATE INDEX "idx_knowledge_items_subject" ON "knowledge_items" ("subject_type", "subject_id");
+CREATE TABLE IF NOT EXISTS "runner_status" (
+  "host"           TEXT NOT NULL PRIMARY KEY,
+  "version"        TEXT NOT NULL DEFAULT '',
+  "backend"        TEXT NOT NULL DEFAULT '',
+  "last_seen_at"   INTEGER NOT NULL DEFAULT (unixepoch()),
+  "running_job_id" TEXT,
+  "alerted_at"     INTEGER
+);

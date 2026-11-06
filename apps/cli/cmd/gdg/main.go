@@ -31,16 +31,20 @@ func runGitRemoteHelper(ctx context.Context, args []string) error {
 	if len(args) != 2 {
 		return errors.New("expected remote name and gdg-wiki URL")
 	}
+	base, err := wikiBaseURL(args[1])
+	if err != nil {
+		return err
+	}
+	// The runner passes its RUNNER_TOKEN to its own git subprocesses; no OAuth refresh.
+	if token := os.Getenv(wiki.TokenEnv); token != "" {
+		return wiki.RunRemoteHelper(ctx, args[0], args[1], wiki.NewClientAt(base), token, os.Stdin, os.Stdout, os.Stderr)
+	}
 	credentials := store.NewCredentials()
 	credential, err := credentials.Load()
 	if err != nil {
 		if errors.Is(err, store.ErrNotFound) {
 			return errors.New("not logged in; run gdg login")
 		}
-		return err
-	}
-	base, err := wikiBaseURL(args[1])
-	if err != nil {
 		return err
 	}
 	client := wiki.NewClientAt(base)

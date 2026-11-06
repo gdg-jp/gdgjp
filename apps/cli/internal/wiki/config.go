@@ -18,6 +18,25 @@ const (
 // never becomes a Git change and is available to the remote helper.
 type Config struct {
 	Lang string `json:"lang"`
+	// Space is the wiki space slug this clone tracks (empty = gdg-jp, the v1 wiki).
+	Space string `json:"space,omitempty"`
+	// RawSources limits raw pulls to these source ids (the runner's job sources).
+	RawSources []string `json:"rawSources,omitempty"`
+	// NoRaw keeps the source manifest (ACL metadata) but downloads no raw files.
+	NoRaw bool `json:"noRaw,omitempty"`
+}
+
+// ValidSpaceSlug matches the server's space slug rule (lowercase, digits, hyphen).
+func ValidSpaceSlug(slug string) bool {
+	if slug == "" || len(slug) > 64 || slug[0] == '-' {
+		return false
+	}
+	for _, r := range slug {
+		if !(r >= 'a' && r <= 'z' || r >= '0' && r <= '9' || r == '-') {
+			return false
+		}
+	}
+	return true
 }
 
 // CloneConfig is an alias used by the command layer.
@@ -48,6 +67,9 @@ func LoadConfig(root string) (Config, error) {
 	if config.Lang != "ja" && config.Lang != "en" {
 		return Config{}, fmt.Errorf("invalid Wiki clone language %q", config.Lang)
 	}
+	if config.Space != "" && !ValidSpaceSlug(config.Space) {
+		return Config{}, fmt.Errorf("invalid Wiki space %q", config.Space)
+	}
 	return config, nil
 }
 
@@ -59,6 +81,9 @@ func WriteConfig(root string, config Config) error {
 	}
 	if config.Lang != "ja" && config.Lang != "en" {
 		return fmt.Errorf("invalid Wiki clone language %q", config.Lang)
+	}
+	if config.Space != "" && !ValidSpaceSlug(config.Space) {
+		return fmt.Errorf("invalid Wiki space %q", config.Space)
 	}
 	if err := os.MkdirAll(ConfigDir(root), 0o755); err != nil {
 		return err

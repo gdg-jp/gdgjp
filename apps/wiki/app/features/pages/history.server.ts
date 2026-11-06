@@ -12,6 +12,7 @@ import {
   redactPageMarkdown,
   validatePageAclForSync,
 } from "~/features/pages/acl-spans.server";
+import { AGENT_PAGE_LOCKED, canHumanEditPage } from "~/features/pages/origin-lock";
 import { wikiPagePath } from "~/features/pages/wiki-page-path";
 import { getWikiCanonicalSlugPath } from "~/features/pages/wiki-page-path.server";
 import { requireSpace } from "~/features/spaces/access.server";
@@ -211,12 +212,14 @@ export async function revertPageVersion(
       status: schema.pages.status,
       visibility: schema.pages.visibility,
       generalRole: schema.pages.generalRole,
+      origin: schema.pages.origin,
     })
     .from(schema.pages)
     .where(pageInSpace(space.id, slug ?? ""))
     .get();
 
   if (!page || page.status !== "published") throw new Response("Not Found", { status: 404 });
+  if (!canHumanEditPage(page)) throw new Response(AGENT_PAGE_LOCKED, { status: 403 });
 
   const permissions = await getEffectivePagePermissions(db, page, user, identity.chapters);
   if (!permissions.canEdit) {

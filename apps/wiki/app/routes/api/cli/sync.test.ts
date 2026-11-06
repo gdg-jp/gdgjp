@@ -4,6 +4,7 @@ const mocks = vi.hoisted(() => ({
   allResults: [] as unknown[][],
   getResults: [] as unknown[],
   canEdit: true,
+  isRunner: true,
   identity: {
     user: { id: "oidc-subject-1", email: "admin@example.com", isAdmin: true as boolean },
     chapters: [] as Array<{ chapterId: string; role: string }>,
@@ -34,6 +35,15 @@ vi.mock("~/features/spaces/access.server", async (importOriginal) => {
     requireSourceSpace: vi.fn(async () => ({ spaceId: "gdg-jp", role: "owner" })),
   };
 });
+
+// Page writes through /sync are runner-only (agent pages); these cases run as the runner
+// unless a test switches `mocks.isRunner` off.
+vi.mock("~/features/agent-api/runner-identity.server", () => ({
+  getCliOrRunnerIdentity: vi.fn().mockImplementation(async () => ({
+    ...mocks.identity,
+    isRunner: mocks.isRunner,
+  })),
+}));
 
 vi.mock("@gdgjp/gdg-lib", async (importOriginal) => {
   const original = await importOriginal<typeof import("@gdgjp/gdg-lib")>();
@@ -553,5 +563,25 @@ describe("scheduleSyncPostCommit", () => {
     await expect(scheduled).resolves.toBeUndefined();
     expect(consoleError).toHaveBeenCalledWith(expect.stringContaining("queue down"));
     consoleError.mockRestore();
+  });
+
+  it("refuses page writes from anyone but the runner (agent pages are runner-only)", async () => {
+    mocks.isRunner = false;
+    try {
+      const response = await action({
+        request: new Request("http://localhost/api/cli/wiki/sync", {
+          method: "POST",
+          body: JSON.stringify({
+            operations: [{ kind: "archive", id: "p1", expectedRevision: 1 }],
+          }),
+        }),
+        context: { cloudflare: { env: { DB: {} }, ctx: { waitUntil: vi.fn() } } },
+        params: {},
+      } as never);
+      expect(response.status).toBe(403);
+      expect(await response.json()).toEqual({ error: "agent_pages_runner_only" });
+    } finally {
+      mocks.isRunner = true;
+    }
   });
 });

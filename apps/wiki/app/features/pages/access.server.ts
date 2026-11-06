@@ -5,12 +5,10 @@ import type {
   ChapterMembership,
   EffectivePagePermissions,
   EffectivePageRole,
-  GeneralAccess,
   PageAccessEntry,
   PagePermissionSubject,
   PageRole,
   PermissionSource,
-  ShareSubject,
   ShareSubjectType,
   UserLike,
 } from "./access-types";

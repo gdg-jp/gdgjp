@@ -377,9 +377,19 @@ func FormatACLFindings(findings []ValidateACLFinding) string {
 
 // VerifyACL builds the dry-run request and calls the server.
 func VerifyACL(ctx context.Context, root string, client *Client, token string, runGit GitRunner) (ValidateACLResult, error) {
+	return VerifyACLWithReadSources(ctx, root, client, token, runGit, nil)
+}
+
+// VerifyACLWithReadSources is VerifyACL with an explicit read set. The runner has no hooks
+// or trace, so the job's sources are what the agent read (`verify-acl --read-sources`).
+// A nil readSources falls back to the lock + trace resolution.
+func VerifyACLWithReadSources(ctx context.Context, root string, client *Client, token string, runGit GitRunner, readSources []string) (ValidateACLResult, error) {
 	config, err := ReadConfig(root)
 	if err != nil {
 		return ValidateACLResult{}, err
+	}
+	if config.Space != "" {
+		client.Space = config.Space
 	}
 	state, err := LoadState(root)
 	if err != nil {
@@ -407,6 +417,9 @@ func VerifyACL(ctx context.Context, root string, client *Client, token string, r
 		trace = IngestTrace{}
 	}
 	readIDs := ResolveReadSourceIDs(root, state, trace)
+	if readSources != nil {
+		readIDs = readSources
+	}
 	// After git push the worktree matches origin/main, so dirty/diff is empty.
 	// Recover pages changed since ingest start (BaseRev..HEAD) without loading
 	// the whole wiki. Trace writes remain a last-resort supplement.
