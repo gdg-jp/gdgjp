@@ -1,6 +1,6 @@
 import type { LoaderFunctionArgs } from "react-router";
 import * as schema from "~/db/schema";
-import { resolveAgentReader } from "~/features/agent-api/agent-reader.server";
+import { readerMaySeeSpace, resolveAgentReader } from "~/features/agent-api/agent-reader.server";
 import { canonicalMarkdown } from "~/features/editor/content-format";
 import { getEffectivePagePermissions } from "~/features/pages/access.server";
 import { redactPageMarkdown } from "~/features/pages/acl-spans.server";
@@ -26,6 +26,7 @@ export async function loader({ request, context }: LoaderFunctionArgs) {
   if (!spaceSlug || !slug)
     return Response.json({ error: "space_and_slug_required" }, { status: 400 });
   const notFound = Response.json({ error: "not_found" }, { status: 404 });
+  if (!readerMaySeeSpace(reader, spaceSlug)) return notFound;
   let space: Awaited<ReturnType<typeof requireSpaceForIdentity>>["space"];
   try {
     ({ space } = await requireSpaceForIdentity(

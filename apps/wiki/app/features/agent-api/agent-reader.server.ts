@@ -30,9 +30,41 @@ export type ReaderIdentity = SpaceIdentity & {
 export type AgentReader = {
   identity: ReaderIdentity;
   extraPrincipals: ExtraPrincipal[];
-  via: "user" | "principal" | "anonymous" | "job";
+  via: "user" | "principal" | "anonymous" | "job" | "eval";
   jobId?: string;
 };
+
+/**
+ * Eval readers (Stage 06) exist only inside spaces with this slug prefix. The eval harness
+ * asks as a synthetic member / organizer / guest; confining it to e2e spaces keeps that
+ * from ever being a way into real content.
+ */
+export const EVAL_SPACE_PREFIX = "e2e-";
+
+/** `x-agent-eval-as: guest | member:<chapterId> | organizer:<chapterId>` (service token only). */
+export function parseEvalHeader(value: string | null): ReaderIdentity | null | "invalid" {
+  if (!value) return null;
+  const trimmed = value.trim();
+  if (trimmed === "guest") return { user: null, chapters: [], claimsAvailable: false };
+  const match = /^(member|organizer):([A-Za-z0-9_-]{1,64})$/.exec(trimmed);
+  if (!match?.[1] || !match[2]) return "invalid";
+  return {
+    user: {
+      id: `eval:${match[1]}:${match[2]}`,
+      email: `eval-${match[1]}@wiki.gdgs.jp`,
+      name: `Eval ${match[1]}`,
+      image: null,
+      isAdmin: false,
+    },
+    chapters: [{ chapterId: match[2], role: match[1] }],
+    claimsAvailable: true,
+  };
+}
+
+/** Space-access filter for a reader: eval readers see only e2e spaces. */
+export function readerMaySeeSpace(reader: AgentReader, spaceSlug: string): boolean {
+  return reader.via !== "eval" || spaceSlug.startsWith(EVAL_SPACE_PREFIX);
+}
 
 export const JOB_TOKEN_PREFIX = "jt_";
 export const JOB_TOKEN_TTL_SECONDS = 10 * 60;
@@ -101,11 +133,25 @@ export async function resolveAgentReader(
       )
       .get();
     if (!row) return null;
-    const snapshot = JSON.parse(row.principal) as Pick<AgentReader, "identity" | "extraPrincipals">;
-    return { ...snapshot, via: "job", jobId: row.jobId };
+    const snapshot = JSON.parse(row.principal) as Pick<
+      AgentReader,
+      "identity" | "extraPrincipals"
+    > & {
+      evalOnly?: boolean;
+    };
+    // An eval asker's token stays confined to e2e spaces (readerMaySeeSpace).
+    return {
+      identity: snapshot.identity,
+      extraPrincipals: snapshot.extraPrincipals,
+      via: snapshot.evalOnly ? "eval" : "job",
+      jobId: row.jobId,
+    };
   }
   const secret = serviceSecret(env);
   if (secret && timingSafeEqual(token, secret)) {
+    const evalIdentity = parseEvalHeader(request.headers.get("x-agent-eval-as"));
+    if (evalIdentity === "invalid") return null;
+    if (evalIdentity) return { identity: evalIdentity, extraPrincipals: [], via: "eval" };
     const principal = parsePrincipalHeader(request.headers.get("x-agent-principal"));
     if (principal === "invalid") return null;
     return principal
@@ -135,7 +181,7 @@ export async function resolveAgentReader(
 export async function issueJobToken(
   db: Db,
   jobId: string,
-  snapshot: Pick<AgentReader, "identity" | "extraPrincipals">,
+  snapshot: Pick<AgentReader, "identity" | "extraPrincipals"> & { evalOnly?: boolean },
 ): Promise<string> {
   const bytes = crypto.getRandomValues(new Uint8Array(32));
   const token = `${JOB_TOKEN_PREFIX}${btoa(String.fromCharCode(...bytes)).replace(/[+/=]/g, "")}`;

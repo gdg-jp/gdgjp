@@ -203,7 +203,8 @@
     "nav": {
       "pages": "ページ",
       "tags": "タグ",
-      "runner": "Runner"
+      "runner": "Runner",
+      "stats": "統計"
     },
     "pages": {
       "heading": "ページ",
@@ -260,6 +261,18 @@
       "rate_limited": "直近 24 時間のレート制限による失敗: {{count}} 件",
       "queue": "ジョブ",
       "recent": "直近のジョブ"
+    },
+    "stats": {
+      "title": "鮮度と遅延",
+      "description": "直近 7 日の p50 / p95。夜間 cron が記録します。",
+      "kind": {
+        "freshness": "鮮度（取り込み → 索引）",
+        "integration": "統合遅延（取り込み → 統合ジョブ完了）",
+        "answer": "回答遅延",
+        "answer_expired": "回答の期限切れ率"
+      },
+      "percentiles": "p50 {{p50}} / p95 {{p95}}（{{count}} 件）",
+      "rate": "{{rate}}（{{count}} 件）"
     }
   },
   "ingest": {

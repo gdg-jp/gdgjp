@@ -14,6 +14,7 @@ import {
   processKnowledgeSync,
   scheduleAllKnowledgeSyncs,
 } from "../app/features/knowledge/sync.server";
+import { sampleFreshness } from "../app/features/observability/freshness.server";
 import { getEffectivePagePermissions } from "../app/features/pages/access.server";
 import { pageAclClearance } from "../app/features/pages/acl-spans.server";
 import { backfillMarkdownContent } from "../app/features/pages/content-backfill.server";
@@ -217,7 +218,11 @@ export default {
               ) || undefined,
           });
           const consolidations = await enqueueConsolidation(db);
-          console.log("[jobs] nightly:", JSON.stringify({ translations, consolidations }));
+          const samples = await sampleFreshness(db).catch((error) => {
+            console.error("[observability] freshness sampling failed:", error);
+            return 0;
+          });
+          console.log("[jobs] nightly:", JSON.stringify({ translations, consolidations, samples }));
         })().catch((err) => {
           console.error("[scheduled] nightly agent jobs failed:", err);
         }),

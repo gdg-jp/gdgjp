@@ -10,12 +10,15 @@
     "test": "vitest run",
     "migrate:local": "wrangler d1 migrations apply gdgjp-agent-db --local",
     "migrate:remote": "wrangler d1 migrations apply gdgjp-agent-db --remote",
-    "sync:discord-commands": "node scripts/sync-discord-commands.mjs"
+    "sync:discord-commands": "node scripts/sync-discord-commands.mjs",
+    "eval": "tsx eval/run.ts"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20250726.0",
     "typescript": "^5.7.2",
     "vitest": "^4.1.10",
-    "wrangler": "~4.73.0"
+    "wrangler": "~4.73.0",
+    "tsx": "^4.23.9",
+    "yaml": "^2.9.1"
   }
 }

@@ -12,6 +12,7 @@ const ADMIN_CHILDREN = [
   { to: "/admin/pages", labelKey: "admin.nav.pages", icon: "FileText" },
   { to: "/admin/tags", labelKey: "admin.nav.tags", icon: "Tag" },
   { to: "/admin/runner", labelKey: "admin.nav.runner", icon: "Bot" },
+  { to: "/admin/stats", labelKey: "admin.nav.stats", icon: "Activity" },
 ] as const;
 
 /**

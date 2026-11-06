@@ -4,6 +4,7 @@ import * as schema from "~/db/schema";
 import {
   type AgentReader,
   issueJobToken,
+  readerMaySeeSpace,
   revokeJobTokens,
 } from "~/features/agent-api/agent-reader.server";
 import { listAccessibleSpaces, resolveSpaceAccess } from "~/features/spaces/access.server";
@@ -15,13 +16,14 @@ type Db = ReturnType<typeof getDb>;
 
 /** The agent Worker degrades to search results after this; the runner aims for 75 s. */
 export const ANSWER_DEADLINE_SECONDS = 90;
+export const EVAL_ANSWER_PRIORITY = -20;
 export const MAX_BUNDLE_BYTES = 2 * 1024 * 1024;
 const BUNDLE_PATH = /^(question\.md|INSTRUCTIONS\.md|(index|hits|raw)\/[A-Za-z0-9_.-]+\.md)$/;
 
 export type AnswerPayload = {
   question: string;
   spaces: string[];
-  reader: Pick<AgentReader, "identity" | "extraPrincipals">;
+  reader: Pick<AgentReader, "identity" | "extraPrincipals"> & { evalOnly?: boolean };
 };
 
 export const bundleKey = (jobId: string) => `jobs/${jobId}/bundle.json`;
@@ -52,7 +54,9 @@ export async function enqueueAnswer(
   const access = await resolveSpaceAccess(db, reader.identity, reader.extraPrincipals);
   const reachable = await listAccessibleSpaces(db, access);
   const spaces = reachable.filter(
-    (space) => input.spaces.length === 0 || input.spaces.includes(space.slug),
+    (space) =>
+      readerMaySeeSpace(reader, space.slug) &&
+      (input.spaces.length === 0 || input.spaces.includes(space.slug)),
   );
   const jobId = nanoid();
   const deadline = Math.floor(Date.now() / 1000) + ANSWER_DEADLINE_SECONDS;
@@ -62,13 +66,18 @@ export async function enqueueAnswer(
   const payload: AnswerPayload = {
     question: input.question.slice(0, 2000),
     spaces: spaces.map((space) => space.slug),
-    reader: { identity: reader.identity, extraPrincipals: reader.extraPrincipals },
+    reader: {
+      identity: reader.identity,
+      extraPrincipals: reader.extraPrincipals,
+      ...(reader.via === "eval" ? { evalOnly: true } : {}),
+    },
   };
   await db.insert(schema.agentJobs).values({
     id: jobId,
     type: "answer",
     spaceId: spaces[0]?.id ?? DEFAULT_SPACE_ID,
-    priority: JOB_PRIORITY.answer,
+    // Eval answers never take a slot ahead of real work (Stage 06).
+    priority: reader.via === "eval" ? EVAL_ANSWER_PRIORITY : JOB_PRIORITY.answer,
     payload: JSON.stringify(payload),
     deadlineAt: new Date(deadline * 1000),
   });
@@ -140,4 +149,29 @@ export async function notifyAgent(
   } catch (error) {
     console.error("answer: agent notification failed", error);
   }
+}
+
+/** The agent / eval harness reads a job's outcome. */
+export async function getAnswerJob(db: Db, jobId: string) {
+  const job = await db
+    .select({
+      id: schema.agentJobs.id,
+      status: schema.agentJobs.status,
+      result: schema.agentJobs.result,
+      error: schema.agentJobs.error,
+      createdAt: schema.agentJobs.createdAt,
+      finishedAt: schema.agentJobs.finishedAt,
+    })
+    .from(schema.agentJobs)
+    .where(and(eq(schema.agentJobs.id, jobId), eq(schema.agentJobs.type, "answer")))
+    .get();
+  if (!job) return null;
+  return {
+    id: job.id,
+    status: job.status,
+    result: job.result ? JSON.parse(job.result) : null,
+    error: job.error,
+    createdAt: Math.floor(job.createdAt.getTime() / 1000),
+    finishedAt: job.finishedAt ? Math.floor(job.finishedAt.getTime() / 1000) : null,
+  };
 }

@@ -32,7 +32,8 @@
       ".cursor/**",
       "apps/agent-host/**/.cursor/**",
       "apps/learn/**",
-      "apps/xangi/**"
+      "apps/xangi/**",
+      "apps/agent/eval/results/**"
     ]
   },
   "formatter": {

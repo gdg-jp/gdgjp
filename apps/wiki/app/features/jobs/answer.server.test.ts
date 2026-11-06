@@ -125,6 +125,50 @@ describe("answer jobs", () => {
     ).toBeNull();
   });
 
+  it("confines eval readers to e2e spaces and queues their answers last", async () => {
+    const { db, env, sqlite } = setup();
+    sqlite.exec(`
+      INSERT INTO spaces (id, slug, name, kind) VALUES ('e2e-eval', 'e2e-eval', 'Eval', 'shared');
+      INSERT INTO space_members (space_id, principal_type, principal_id, role) VALUES
+        ('e2e-eval', 'chapter_role', 'e2e-chapter:member', 'viewer');
+    `);
+    const reader = await resolveAgentReader(
+      request(SERVICE, { "x-agent-eval-as": "organizer:e2e-chapter" }),
+      env,
+      db,
+    );
+    expect(reader).toMatchObject({ via: "eval", identity: { chapters: [{ role: "organizer" }] } });
+    if (!reader) throw new Error("no reader");
+    // gdg-jp is public, but an eval reader never reaches it.
+    const { jobId } = await enqueueAnswer(env, db, reader, {
+      question: "q",
+      spaces: [],
+      bundle: { "question.md": "q" },
+    });
+    const row = sqlite
+      .prepare("SELECT priority, payload FROM agent_jobs WHERE id = ?")
+      .get(jobId) as {
+      priority: number;
+      payload: string;
+    };
+    expect(row.priority).toBe(-20);
+    expect(JSON.parse(row.payload).spaces).toEqual(["e2e-eval"]);
+    // Its job token is confined the same way.
+    sqlite.prepare("UPDATE agent_jobs SET status = 'leased' WHERE id = ?").run(jobId);
+    const bundle = await leaseAnswerBundle(env, db, jobId);
+    const viaToken = await resolveAgentReader(request(bundle?.jobToken ?? ""), env, db, {
+      allowJobToken: true,
+    });
+    expect(viaToken?.via).toBe("eval");
+    expect(
+      await resolveAgentReader(request(SERVICE, { "x-agent-eval-as": "admin" }), env, db),
+    ).toBeNull();
+    // Without the service token the header means nothing.
+    expect(
+      await resolveAgentReader(request("jt_nope", { "x-agent-eval-as": "guest" }), env, db),
+    ).toBeNull();
+  });
+
   it("validates bundle paths and size", () => {
     expect(validateBundle({ "question.md": "q", "hits/01-a.md": "x" })).not.toBeNull();
     expect(validateBundle({ "question.md": "q", "../etc/passwd": "x" })).toBeNull();

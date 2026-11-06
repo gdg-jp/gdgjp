@@ -1,0 +1,10 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["verdict", "evidence", "unsupported"],
+  "properties": {
+    "verdict": { "type": "string", "enum": ["faithful", "unfaithful"] },
+    "evidence": { "type": "array", "items": { "type": "string" } },
+    "unsupported": { "type": "array", "items": { "type": "string" } }
+  }
+}

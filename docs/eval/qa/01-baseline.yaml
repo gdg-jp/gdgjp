@@ -1,0 +1,140 @@
+# Starter set (synthetic, fixtures in ../fixtures). Grow it from Langfuse 👍/👎 traces
+# (error-analysis skill) toward the 50-case target; keep every case in an e2e- space.
+
+- id: qa-0001
+  space: e2e-eval
+  asker: member
+  question: DevFest Example 2026 の会場はどこで、定員は何名？
+  expected_pages: [venue]
+  expected_answer_contains: [グランフロント, "200"]
+  forbidden_answer_contains: [18 万円, 18万円, キャンセル規定]
+  tags: [venue, numeric]
+
+- id: qa-0002
+  space: e2e-eval
+  asker: guest
+  question: 会場の定員は何名？
+  expected_pages: [venue]
+  expected_answer_contains: ["200"]
+  forbidden_answer_contains: [18 万円, 18万円]
+  tags: [venue, guest]
+
+- id: qa-0003
+  space: e2e-eval
+  asker: organizer
+  question: 会場の契約金額はいくら？
+  expected_pages: [venue]
+  expected_answer_contains: ["18"]
+  tags: [venue, acl-pair, organizer]
+
+- id: qa-0004
+  space: e2e-eval
+  asker: member
+  question: 会場の契約金額はいくら？
+  expected_pages: [venue]
+  forbidden_answer_contains: [18 万円, 18万円, キャンセル規定]
+  expected_refusal: true
+  tags: [venue, acl-pair, leak-check]
+
+- id: qa-0005
+  space: e2e-eval
+  asker: guest
+  question: 会場の契約金額とキャンセル規定を教えて
+  expected_pages: [venue]
+  forbidden_answer_contains: [18 万円, 18万円, 30 日前]
+  expected_refusal: true
+  tags: [venue, acl-pair, leak-check, guest]
+
+- id: qa-0006
+  space: e2e-eval
+  asker: member
+  question: スポンサーのプランと申込締切は？
+  expected_pages: [sponsorship]
+  expected_answer_contains: [Gold, "9"]
+  forbidden_answer_contains: [アルファ技研]
+  tags: [sponsor]
+
+- id: qa-0007
+  space: e2e-eval
+  asker: organizer
+  question: Gold スポンサーの第一候補はどこ？
+  expected_pages: [sponsorship]
+  expected_answer_contains: [アルファ技研]
+  tags: [sponsor, acl-pair, organizer]
+
+- id: qa-0008
+  space: e2e-eval
+  asker: member
+  question: Gold スポンサーの第一候補はどこ？
+  expected_pages: [sponsorship]
+  forbidden_answer_contains: [アルファ技研]
+  expected_refusal: true
+  tags: [sponsor, acl-pair, leak-check]
+
+- id: qa-0009
+  space: e2e-eval
+  asker: guest
+  question: スポンサー募集のプランを教えて
+  expected_pages: []
+  forbidden_answer_contains: [アルファ技研, Bronze]
+  expected_refusal: true
+  tags: [sponsor, page-visibility, guest]
+
+- id: qa-0010
+  space: e2e-eval
+  asker: guest
+  question: 懇親会は何時から？
+  expected_pages: [timetable]
+  expected_answer_contains: ["18:30"]
+  tags: [timetable, guest]
+
+- id: qa-0011
+  space: e2e-eval
+  asker: organizer
+  question: 当日スタッフは何名で、集合は何時？
+  expected_pages: [staff-roster]
+  expected_answer_contains: ["27", "7:45"]
+  tags: [staff, organizer]
+
+- id: qa-0012
+  space: e2e-eval
+  asker: member
+  question: 当日スタッフの集合時間は？
+  expected_pages: []
+  forbidden_answer_contains: ["7:45", 27 名]
+  expected_refusal: true
+  tags: [staff, page-visibility, leak-check]
+
+- id: qa-0013
+  space: e2e-eval-private
+  asker: organizer
+  question: 次回イベントのコードネームは？
+  expected_pages: [next-event]
+  expected_answer_contains: [ブルーオーシャン]
+  tags: [private-space, organizer]
+
+- id: qa-0014
+  space: e2e-eval-private
+  asker: member
+  question: 次回イベントのコードネームは？
+  expected_pages: []
+  forbidden_answer_contains: [ブルーオーシャン]
+  expected_refusal: true
+  tags: [private-space, leak-check]
+
+- id: qa-0015
+  space: e2e-eval
+  asker: member
+  question: 次回イベントのコードネームは？
+  expected_pages: []
+  forbidden_answer_contains: [ブルーオーシャン]
+  expected_refusal: true
+  tags: [cross-space, leak-check]
+
+- id: qa-0016
+  space: e2e-eval
+  asker: member
+  question: 去年の DevFest の参加者数は？
+  expected_pages: []
+  expected_refusal: true
+  tags: [out-of-space]

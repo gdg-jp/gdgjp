@@ -1,5 +1,5 @@
 import type { LoaderFunctionArgs } from "react-router";
-import { resolveAgentReader } from "~/features/agent-api/agent-reader.server";
+import { readerMaySeeSpace, resolveAgentReader } from "~/features/agent-api/agent-reader.server";
 import {
   KnowledgeSearchUnavailableError,
   MAX_SEARCH_SPACES,
@@ -28,7 +28,9 @@ export async function loader({ request, context }: LoaderFunctionArgs) {
 
   const reader = agentReader.identity;
   const access = await resolveSpaceAccess(db, reader, agentReader.extraPrincipals);
-  const reachable = await listAccessibleSpaces(db, access);
+  const reachable = (await listAccessibleSpaces(db, access)).filter((space) =>
+    readerMaySeeSpace(agentReader, space.slug),
+  );
   const requested = url.searchParams
     .get("space")
     ?.split(",")

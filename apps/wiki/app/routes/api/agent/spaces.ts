@@ -1,5 +1,5 @@
 import type { LoaderFunctionArgs } from "react-router";
-import { resolveAgentReader } from "~/features/agent-api/agent-reader.server";
+import { readerMaySeeSpace, resolveAgentReader } from "~/features/agent-api/agent-reader.server";
 import { listAccessibleSpaces, resolveSpaceAccess } from "~/features/spaces/access.server";
 import { getDb } from "~/lib/db.server";
 
@@ -10,7 +10,9 @@ export async function loader({ request, context }: LoaderFunctionArgs) {
   const reader = await resolveAgentReader(request, env, db);
   if (!reader) return Response.json({ error: "invalid_token" }, { status: 401 });
   const access = await resolveSpaceAccess(db, reader.identity, reader.extraPrincipals);
-  const spaces = await listAccessibleSpaces(db, access);
+  const spaces = (await listAccessibleSpaces(db, access)).filter((space) =>
+    readerMaySeeSpace(reader, space.slug),
+  );
   return Response.json({
     spaces: spaces.map((space) => ({
       id: space.id,

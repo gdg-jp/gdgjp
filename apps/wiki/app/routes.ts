@@ -87,6 +87,7 @@ export default [
   route("/api/agent/spaces", "routes/api/agent/spaces.ts"),
   route("/api/agent/spaces/:space/members", "routes/api/agent/space-members.ts"),
   route("/api/agent/jobs/answer", "routes/api/agent/jobs-answer.ts"),
+  route("/api/agent/jobs/:id", "routes/api/agent/jobs-get.ts"),
   route("/api/agent/jobs/:id/expire", "routes/api/agent/jobs-expire.ts"),
   route("/api/agent/runner-status", "routes/api/agent/runner-status.ts"),
   route("/api/agent/sources", "routes/api/agent/sources.ts"),
@@ -152,6 +153,7 @@ export default [
       route("pages", "routes/admin/pages.tsx"),
       route("tags", "routes/admin/tags.tsx"),
       route("runner", "routes/admin/runner.tsx"),
+      route("stats", "routes/admin/stats.tsx"),
     ]),
   ]),
 ] satisfies RouteConfig;

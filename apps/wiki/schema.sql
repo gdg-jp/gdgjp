@@ -786,3 +786,13 @@ CREATE TABLE IF NOT EXISTS "job_tokens" (
   "created_at" INTEGER NOT NULL DEFAULT (unixepoch())
 );
 CREATE INDEX "idx_job_tokens_job" ON "job_tokens" ("job_id");
+CREATE TABLE IF NOT EXISTS "freshness_samples" (
+  "id" TEXT PRIMARY KEY NOT NULL,
+  -- 'freshness' | 'integration' | 'answer' | 'answer_expired'
+  "kind" TEXT NOT NULL,
+  "space_id" TEXT,
+  "value_seconds" INTEGER NOT NULL,
+  "subject_id" TEXT,
+  "sampled_at" INTEGER NOT NULL DEFAULT (unixepoch())
+);
+CREATE INDEX "idx_freshness_samples_kind_time" ON "freshness_samples" ("kind", "sampled_at");

@@ -203,7 +203,8 @@
     "nav": {
       "pages": "Pages",
       "tags": "Tags",
-      "runner": "Runner"
+      "runner": "Runner",
+      "stats": "Stats"
     },
     "pages": {
       "heading": "Pages",
@@ -260,6 +261,18 @@
       "rate_limited": "Rate-limited failures in the last 24 h: {{count}}",
       "queue": "Jobs",
       "recent": "Recent jobs"
+    },
+    "stats": {
+      "title": "Freshness and latency",
+      "description": "p50 / p95 over the last 7 days, recorded by the nightly cron.",
+      "kind": {
+        "freshness": "Freshness (captured → indexed)",
+        "integration": "Integration latency (captured → synthesize done)",
+        "answer": "Answer latency",
+        "answer_expired": "Expired answers"
+      },
+      "percentiles": "p50 {{p50}} / p95 {{p95}} ({{count}} samples)",
+      "rate": "{{rate}} ({{count}} samples)"
     }
   },
   "ingest": {

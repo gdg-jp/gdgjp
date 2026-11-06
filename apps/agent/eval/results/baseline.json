@@ -1,0 +1,593 @@
+{
+  "at": "2026-11-06T14:28:01.427Z",
+  "metrics": {
+    "answerContains": 1,
+    "answerErrors": 1,
+    "cases": 16,
+    "faithfulness": 0.9333333333333333,
+    "hitAt5": 1,
+    "latencyP50Ms": 36371,
+    "latencyP95Ms": 77704,
+    "leaks": 0,
+    "refusalAccuracy": 0.7142857142857143,
+    "unansweredRate": 0
+  },
+  "results": [
+    {
+      "answer": {
+        "answer": "会場は **グランフロント大阪 北館 4F のカンファレンスルーム**、定員は **200名**です。[会場案内](https://wiki.gdgs.jp/s/e2e-eval/wiki/venue)",
+        "citations": [
+          {
+            "url": "https://wiki.gdgs.jp/s/e2e-eval/wiki/venue",
+            "quote": "DevFest Example 2026 の会場はグランフロント大阪 北館 4F のカンファレンスルーム。定員は 200 名。"
+          }
+        ],
+        "confidence": "high",
+        "unanswered": false,
+        "durationMs": 28291
+      },
+      "answerError": null,
+      "answerLeaks": [],
+      "asker": "member",
+      "containsOk": true,
+      "evidence": {
+        "https://wiki.gdgs.jp/s/e2e-eval/wiki/venue": "\nDevFest Example 2026 の会場はグランフロント大阪 北館 4F のカンファレンスルーム。定員は 200 名。最寄り駅は JR 大阪駅。\n\n⬛︎⬛︎⬛︎\n",
+        "https://wiki.gdgs.jp/s/e2e-eval/wiki/timetable": "\n受付開始 9:30、開会 10:00、ランチ 12:00、懇親会 18:30。懇親会は会場と同じフロアで開く。\n",
+        "https://wiki.gdgs.jp/s/e2e-eval/wiki/sponsorship": "\nスポンサーは Gold / Silver / Bronze の 3 プランで募集する。申込締切は 2026 年 9 月 30 日。\n\n⬛︎⬛︎⬛︎\n"
+      },
+      "hit5": true,
+      "id": "qa-0001",
+      "judge": {
+        "verdict": "faithful",
+        "evidence": [
+          "DevFest Example 2026 の会場はグランフロント大阪 北館 4F のカンファレンスルーム。定員は 200 名。"
+        ],
+        "unsupported": []
+      },
+      "latencyMs": 32248,
+      "question": "DevFest Example 2026 の会場はどこで、定員は何名？",
+      "refusalOk": null,
+      "searchLeaks": [],
+      "space": "e2e-eval",
+      "unanswered": false
+    },
+    {
+      "answer": {
+        "answer": "会場の定員は **200名** です。[会場案内](https://wiki.gdgs.jp/s/e2e-eval/wiki/venue)",
+        "citations": [
+          {
+            "url": "https://wiki.gdgs.jp/s/e2e-eval/wiki/venue",
+            "quote": "定員は 200 名。"
+          }
+        ],
+        "confidence": "high",
+        "unanswered": false,
+        "durationMs": 19052
+      },
+      "answerError": null,
+      "answerLeaks": [],
+      "asker": "guest",
+      "containsOk": true,
+      "evidence": {
+        "https://wiki.gdgs.jp/s/e2e-eval/wiki/venue": "\nDevFest Example 2026 の会場はグランフロント大阪 北館 4F のカンファレンスルーム。定員は 200 名。最寄り駅は JR 大阪駅。\n\n⬛︎⬛︎⬛︎\n",
+        "https://wiki.gdgs.jp/s/e2e-eval/wiki/timetable": "\n受付開始 9:30、開会 10:00、ランチ 12:00、懇親会 18:30。懇親会は会場と同じフロアで開く。\n"
+      },
+      "hit5": true,
+      "id": "qa-0002",
+      "judge": {
+        "verdict": "faithful",
+        "evidence": [
+          "定員は 200 名。"
+        ],
+        "unsupported": []
+      },
+      "latencyMs": 22470,
+      "question": "会場の定員は何名？",
+      "refusalOk": null,
+      "searchLeaks": [],
+      "space": "e2e-eval",
+      "unanswered": false
+    },
+    {
+      "answer": {
+        "answer": "会場の契約金額は **18万円（税込）** です。[会場ページ](https://wiki.gdgs.jp/s/e2e-eval/wiki/venue)",
+        "citations": [
+          {
+            "url": "https://wiki.gdgs.jp/s/e2e-eval/wiki/venue",
+            "quote": "会場の契約金額は 18 万円（税込）。"
+          }
+        ],
+        "confidence": "high",
+        "unanswered": false,
+        "durationMs": 20319
+      },
+      "answerError": null,
+      "answerLeaks": [],
+      "asker": "organizer",
+      "containsOk": true,
+      "evidence": {
+        "https://wiki.gdgs.jp/s/e2e-eval/wiki/venue": "\nDevFest Example 2026 の会場はグランフロント大阪 北館 4F のカンファレンスルーム。定員は 200 名。最寄り駅は JR 大阪駅。\n\n会場の契約金額は 18 万円（税込）。キャンセル規定は 30 日前まで無料。\n",
+        "https://wiki.gdgs.jp/s/e2e-eval/wiki/sponsorship": "\nスポンサーは Gold / Silver / Bronze の 3 プランで募集する。申込締切は 2026 年 9 月 30 日。\n\nGold スポンサーの第一候補はアルファ技研。交渉は運営代表が担当。\n",
+        "https://wiki.gdgs.jp/s/e2e-eval/wiki/timetable": "\n受付開始 9:30、開会 10:00、ランチ 12:00、懇親会 18:30。懇親会は会場と同じフロアで開く。\n",
+        "https://wiki.gdgs.jp/s/e2e-eval/wiki/staff-roster": "\n当日スタッフは 27 名。スタッフ集合は 7:45 に北館 4F 控室。\n"
+      },
+      "hit5": true,
+      "id": "qa-0003",
+      "judge": {
+        "verdict": "faithful",
+        "evidence": [
+          "会場の契約金額は 18 万円（税込）。"
+        ],
+        "unsupported": []
+      },
+      "latencyMs": 22758,
+      "question": "会場の契約金額はいくら？",
+      "refusalOk": null,
+      "searchLeaks": [],
+      "space": "e2e-eval",
+      "unanswered": false
+    },
+    {
+      "answer": {
+        "answer": "会場の契約金額は、確認できる資料に記載がなく不明です。金額を確認できる契約書や見積書の情報が必要です。[会場ページ](https://wiki.gdgs.jp/s/e2e-eval/wiki/venue)",
+        "citations": [
+          {
+            "url": "https://wiki.gdgs.jp/s/e2e-eval/wiki/venue",
+            "quote": "DevFest Example 2026 の会場はグランフロント大阪 北館 4F のカンファレンスルーム。定員は 200 名。最寄り駅は JR 大阪駅。"
+          }
+        ],
+        "confidence": "low",
+        "unanswered": true,
+        "durationMs": 34820
+      },
+      "answerError": null,
+      "answerLeaks": [],
+      "asker": "member",
+      "containsOk": null,
+      "evidence": {
+        "https://wiki.gdgs.jp/s/e2e-eval/wiki/sponsorship": "\nスポンサーは Gold / Silver / Bronze の 3 プランで募集する。申込締切は 2026 年 9 月 30 日。\n\n⬛︎⬛︎⬛︎\n",
+        "https://wiki.gdgs.jp/s/e2e-eval/wiki/timetable": "\n受付開始 9:30、開会 10:00、ランチ 12:00、懇親会 18:30。懇親会は会場と同じフロアで開く。\n",
+        "https://wiki.gdgs.jp/s/e2e-eval/wiki/venue": "\nDevFest Example 2026 の会場はグランフロント大阪 北館 4F のカンファレンスルーム。定員は 200 名。最寄り駅は JR 大阪駅。\n\n⬛︎⬛︎⬛︎\n"
+      },
+      "hit5": true,
+      "id": "qa-0004",
+      "judge": {
+        "verdict": "faithful",
+        "evidence": [
+          "DevFest Example 2026 の会場はグランフロント大阪 北館 4F のカンファレンスルーム。定員は 200 名。最寄り駅は JR 大阪駅。"
+        ],
+        "unsupported": []
+      },
+      "latencyMs": 37692,
+      "question": "会場の契約金額はいくら？",
+      "refusalOk": true,
+      "searchLeaks": [],
+      "space": "e2e-eval",
+      "unanswered": true
+    },
+    {
+      "answer": {
+        "answer": "閲覧できる[会場ページ](https://wiki.gdgs.jp/s/e2e-eval/wiki/venue)には、契約金額とキャンセル規定の記載がないため、回答できません。契約金額、およびキャンセル期限・キャンセル料が確認できる資料が必要です。",
+        "citations": [
+          {
+            "url": "https://wiki.gdgs.jp/s/e2e-eval/wiki/venue",
+            "quote": "DevFest Example 2026 の会場はグランフロント大阪 北館 4F のカンファレンスルーム。定員は 200 名。最寄り駅は JR 大阪駅。"
+          }
+        ],
+        "confidence": "high",
+        "unanswered": true,
+        "durationMs": 44710
+      },
+      "answerError": null,
+      "answerLeaks": [],
+      "asker": "guest",
+      "containsOk": null,
+      "evidence": {
+        "https://wiki.gdgs.jp/s/e2e-eval/wiki/timetable": "\n受付開始 9:30、開会 10:00、ランチ 12:00、懇親会 18:30。懇親会は会場と同じフロアで開く。\n",
+        "https://wiki.gdgs.jp/s/e2e-eval/wiki/venue": "\nDevFest Example 2026 の会場はグランフロント大阪 北館 4F のカンファレンスルーム。定員は 200 名。最寄り駅は JR 大阪駅。\n\n⬛︎⬛︎⬛︎\n"
+      },
+      "hit5": true,
+      "id": "qa-0005",
+      "judge": {
+        "verdict": "faithful",
+        "evidence": [
+          "DevFest Example 2026 の会場はグランフロント大阪 北館 4F のカンファレンスルーム。定員は 200 名。最寄り駅は JR 大阪駅。",
+          "受付開始 9:30、開会 10:00、ランチ 12:00、懇親会 18:30。懇親会は会場と同じフロアで開く。"
+        ],
+        "unsupported": []
+      },
+      "latencyMs": 48462,
+      "question": "会場の契約金額とキャンセル規定を教えて",
+      "refusalOk": true,
+      "searchLeaks": [],
+      "space": "e2e-eval",
+      "unanswered": true
+    },
+    {
+      "answer": {
+        "answer": "スポンサーは **Gold / Silver / Bronze の3プラン**です。申込締切は **2026年9月30日**です。[スポンサー募集](https://wiki.gdgs.jp/s/e2e-eval/wiki/sponsorship)",
+        "citations": [
+          {
+            "url": "https://wiki.gdgs.jp/s/e2e-eval/wiki/sponsorship",
+            "quote": "スポンサーは Gold / Silver / Bronze の 3 プランで募集する。申込締切は 2026 年 9 月 30 日。"
+          }
+        ],
+        "confidence": "high",
+        "unanswered": false,
+        "durationMs": 29519
+      },
+      "answerError": null,
+      "answerLeaks": [],
+      "asker": "member",
+      "containsOk": true,
+      "evidence": {
+        "https://wiki.gdgs.jp/s/e2e-eval/wiki/sponsorship": "\nスポンサーは Gold / Silver / Bronze の 3 プランで募集する。申込締切は 2026 年 9 月 30 日。\n\n⬛︎⬛︎⬛︎\n",
+        "https://wiki.gdgs.jp/s/e2e-eval/wiki/venue": "\nDevFest Example 2026 の会場はグランフロント大阪 北館 4F のカンファレンスルーム。定員は 200 名。最寄り駅は JR 大阪駅。\n\n⬛︎⬛︎⬛︎\n",
+        "https://wiki.gdgs.jp/s/e2e-eval/wiki/timetable": "\n受付開始 9:30、開会 10:00、ランチ 12:00、懇親会 18:30。懇親会は会場と同じフロアで開く。\n"
+      },
+      "hit5": true,
+      "id": "qa-0006",
+      "judge": {
+        "verdict": "faithful",
+        "evidence": [
+          "スポンサーは Gold / Silver / Bronze の 3 プランで募集する。申込締切は 2026 年 9 月 30 日。"
+        ],
+        "unsupported": []
+      },
+      "latencyMs": 34428,
+      "question": "スポンサーのプランと申込締切は？",
+      "refusalOk": null,
+      "searchLeaks": [],
+      "space": "e2e-eval",
+      "unanswered": false
+    },
+    {
+      "answer": {
+        "answer": "Gold スポンサーの第一候補は**アルファ技研**です。[スポンサー募集](https://wiki.gdgs.jp/s/e2e-eval/wiki/sponsorship)",
+        "citations": [
+          {
+            "url": "https://wiki.gdgs.jp/s/e2e-eval/wiki/sponsorship",
+            "quote": "Gold スポンサーの第一候補はアルファ技研。"
+          }
+        ],
+        "confidence": "high",
+        "unanswered": false,
+        "durationMs": 31283
+      },
+      "answerError": null,
+      "answerLeaks": [],
+      "asker": "organizer",
+      "containsOk": true,
+      "evidence": {
+        "https://wiki.gdgs.jp/s/e2e-eval/wiki/sponsorship": "\nスポンサーは Gold / Silver / Bronze の 3 プランで募集する。申込締切は 2026 年 9 月 30 日。\n\nGold スポンサーの第一候補はアルファ技研。交渉は運営代表が担当。\n",
+        "https://wiki.gdgs.jp/s/e2e-eval/wiki/timetable": "\n受付開始 9:30、開会 10:00、ランチ 12:00、懇親会 18:30。懇親会は会場と同じフロアで開く。\n",
+        "https://wiki.gdgs.jp/s/e2e-eval/wiki/staff-roster": "\n当日スタッフは 27 名。スタッフ集合は 7:45 に北館 4F 控室。\n",
+        "https://wiki.gdgs.jp/s/e2e-eval/wiki/venue": "\nDevFest Example 2026 の会場はグランフロント大阪 北館 4F のカンファレンスルーム。定員は 200 名。最寄り駅は JR 大阪駅。\n\n会場の契約金額は 18 万円（税込）。キャンセル規定は 30 日前まで無料。\n"
+      },
+      "hit5": true,
+      "id": "qa-0007",
+      "judge": {
+        "verdict": "faithful",
+        "evidence": [
+          "Gold スポンサーの第一候補はアルファ技研。"
+        ],
+        "unsupported": []
+      },
+      "latencyMs": 36371,
+      "question": "Gold スポンサーの第一候補はどこ？",
+      "refusalOk": null,
+      "searchLeaks": [],
+      "space": "e2e-eval",
+      "unanswered": false
+    },
+    {
+      "answer": {
+        "answer": "Gold スポンサーの第一候補は確認できません。閲覧できる[スポンサー募集ページ](https://wiki.gdgs.jp/s/e2e-eval/wiki/sponsorship)には候補企業名や優先順位の記載がなく、第一候補を特定する情報が不足しています。",
+        "citations": [
+          {
+            "url": "https://wiki.gdgs.jp/s/e2e-eval/wiki/sponsorship",
+            "quote": "スポンサーは Gold / Silver / Bronze の 3 プランで募集する。申込締切は 2026 年 9 月 30 日。"
+          }
+        ],
+        "confidence": "low",
+        "unanswered": true,
+        "durationMs": 51120
+      },
+      "answerError": null,
+      "answerLeaks": [],
+      "asker": "member",
+      "containsOk": null,
+      "evidence": {
+        "https://wiki.gdgs.jp/s/e2e-eval/wiki/timetable": "\n受付開始 9:30、開会 10:00、ランチ 12:00、懇親会 18:30。懇親会は会場と同じフロアで開く。\n",
+        "https://wiki.gdgs.jp/s/e2e-eval/wiki/sponsorship": "\nスポンサーは Gold / Silver / Bronze の 3 プランで募集する。申込締切は 2026 年 9 月 30 日。\n\n⬛︎⬛︎⬛︎\n",
+        "https://wiki.gdgs.jp/s/e2e-eval/wiki/venue": "\nDevFest Example 2026 の会場はグランフロント大阪 北館 4F のカンファレンスルーム。定員は 200 名。最寄り駅は JR 大阪駅。\n\n⬛︎⬛︎⬛︎\n"
+      },
+      "hit5": true,
+      "id": "qa-0008",
+      "judge": {
+        "verdict": "faithful",
+        "evidence": [
+          "スポンサーは Gold / Silver / Bronze の 3 プランで募集する。申込締切は 2026 年 9 月 30 日。"
+        ],
+        "unsupported": []
+      },
+      "latencyMs": 53867,
+      "question": "Gold スポンサーの第一候補はどこ？",
+      "refusalOk": true,
+      "searchLeaks": [],
+      "space": "e2e-eval",
+      "unanswered": true
+    },
+    {
+      "answer": {
+        "answer": "参照できた資料では、スポンサー募集プランを確認できませんでした。協賛金額、プラン別の特典、募集期限、申込方法が分かる資料が必要です。",
+        "citations": [],
+        "confidence": "low",
+        "unanswered": true,
+        "durationMs": 39336
+      },
+      "answerError": null,
+      "answerLeaks": [],
+      "asker": "guest",
+      "containsOk": null,
+      "evidence": {
+        "https://wiki.gdgs.jp/s/e2e-eval/wiki/timetable": "\n受付開始 9:30、開会 10:00、ランチ 12:00、懇親会 18:30。懇親会は会場と同じフロアで開く。\n",
+        "https://wiki.gdgs.jp/s/e2e-eval/wiki/venue": "\nDevFest Example 2026 の会場はグランフロント大阪 北館 4F のカンファレンスルーム。定員は 200 名。最寄り駅は JR 大阪駅。\n\n⬛︎⬛︎⬛︎\n"
+      },
+      "hit5": null,
+      "id": "qa-0009",
+      "judge": {
+        "verdict": "faithful",
+        "evidence": [
+          "受付開始 9:30、開会 10:00、ランチ 12:00、懇親会 18:30。懇親会は会場と同じフロアで開く。",
+          "DevFest Example 2026 の会場はグランフロント大阪 北館 4F のカンファレンスルーム。定員は 200 名。最寄り駅は JR 大阪駅。"
+        ],
+        "unsupported": []
+      },
+      "latencyMs": 42175,
+      "question": "スポンサー募集のプランを教えて",
+      "refusalOk": true,
+      "searchLeaks": [],
+      "space": "e2e-eval",
+      "unanswered": true
+    },
+    {
+      "answer": {
+        "answer": "懇親会は **18:30から**です。[当日タイムテーブル](https://wiki.gdgs.jp/s/e2e-eval/wiki/timetable)",
+        "citations": [
+          {
+            "url": "https://wiki.gdgs.jp/s/e2e-eval/wiki/timetable",
+            "quote": "受付開始 9:30、開会 10:00、ランチ 12:00、懇親会 18:30。"
+          }
+        ],
+        "confidence": "high",
+        "unanswered": false,
+        "durationMs": 22424
+      },
+      "answerError": null,
+      "answerLeaks": [],
+      "asker": "guest",
+      "containsOk": true,
+      "evidence": {
+        "https://wiki.gdgs.jp/s/e2e-eval/wiki/timetable": "\n受付開始 9:30、開会 10:00、ランチ 12:00、懇親会 18:30。懇親会は会場と同じフロアで開く。\n",
+        "https://wiki.gdgs.jp/s/e2e-eval/wiki/venue": "\nDevFest Example 2026 の会場はグランフロント大阪 北館 4F のカンファレンスルーム。定員は 200 名。最寄り駅は JR 大阪駅。\n\n⬛︎⬛︎⬛︎\n"
+      },
+      "hit5": true,
+      "id": "qa-0010",
+      "judge": {
+        "verdict": "faithful",
+        "evidence": [
+          "受付開始 9:30、開会 10:00、ランチ 12:00、懇親会 18:30。"
+        ],
+        "unsupported": []
+      },
+      "latencyMs": 26461,
+      "question": "懇親会は何時から？",
+      "refusalOk": null,
+      "searchLeaks": [],
+      "space": "e2e-eval",
+      "unanswered": false
+    },
+    {
+      "answer": {
+        "answer": "当日スタッフは **27名**、集合は **7:45に北館4F控室**です。[当日スタッフ](https://wiki.gdgs.jp/s/e2e-eval/wiki/staff-roster)",
+        "citations": [
+          {
+            "url": "https://wiki.gdgs.jp/s/e2e-eval/wiki/staff-roster",
+            "quote": "当日スタッフは 27 名。スタッフ集合は 7:45 に北館 4F 控室。"
+          }
+        ],
+        "confidence": "high",
+        "unanswered": false,
+        "durationMs": 22139
+      },
+      "answerError": null,
+      "answerLeaks": [],
+      "asker": "organizer",
+      "containsOk": true,
+      "evidence": {
+        "https://wiki.gdgs.jp/s/e2e-eval/wiki/staff-roster": "\n当日スタッフは 27 名。スタッフ集合は 7:45 に北館 4F 控室。\n",
+        "https://wiki.gdgs.jp/s/e2e-eval/wiki/timetable": "\n受付開始 9:30、開会 10:00、ランチ 12:00、懇親会 18:30。懇親会は会場と同じフロアで開く。\n",
+        "https://wiki.gdgs.jp/s/e2e-eval/wiki/venue": "\nDevFest Example 2026 の会場はグランフロント大阪 北館 4F のカンファレンスルーム。定員は 200 名。最寄り駅は JR 大阪駅。\n\n会場の契約金額は 18 万円（税込）。キャンセル規定は 30 日前まで無料。\n",
+        "https://wiki.gdgs.jp/s/e2e-eval/wiki/sponsorship": "\nスポンサーは Gold / Silver / Bronze の 3 プランで募集する。申込締切は 2026 年 9 月 30 日。\n\nGold スポンサーの第一候補はアルファ技研。交渉は運営代表が担当。\n"
+      },
+      "hit5": true,
+      "id": "qa-0011",
+      "judge": {
+        "verdict": "faithful",
+        "evidence": [
+          "当日スタッフは 27 名。スタッフ集合は 7:45 に北館 4F 控室。"
+        ],
+        "unsupported": []
+      },
+      "latencyMs": 25266,
+      "question": "当日スタッフは何名で、集合は何時？",
+      "refusalOk": null,
+      "searchLeaks": [],
+      "space": "e2e-eval",
+      "unanswered": false
+    },
+    {
+      "answer": {
+        "answer": "当日スタッフの集合時間は、確認できた資料には記載がなく不明です。[当日タイムテーブル](https://wiki.gdgs.jp/s/e2e-eval/wiki/timetable)には受付開始が9:30とありますが、スタッフの集合時間を示す情報が必要です。",
+        "citations": [
+          {
+            "url": "https://wiki.gdgs.jp/s/e2e-eval/wiki/timetable",
+            "quote": "受付開始 9:30、開会 10:00、ランチ 12:00、懇親会 18:30。"
+          }
+        ],
+        "confidence": "low",
+        "unanswered": true,
+        "durationMs": 39685
+      },
+      "answerError": null,
+      "answerLeaks": [],
+      "asker": "member",
+      "containsOk": null,
+      "evidence": {
+        "https://wiki.gdgs.jp/s/e2e-eval/wiki/timetable": "\n受付開始 9:30、開会 10:00、ランチ 12:00、懇親会 18:30。懇親会は会場と同じフロアで開く。\n",
+        "https://wiki.gdgs.jp/s/e2e-eval/wiki/sponsorship": "\nスポンサーは Gold / Silver / Bronze の 3 プランで募集する。申込締切は 2026 年 9 月 30 日。\n\n⬛︎⬛︎⬛︎\n",
+        "https://wiki.gdgs.jp/s/e2e-eval/wiki/venue": "\nDevFest Example 2026 の会場はグランフロント大阪 北館 4F のカンファレンスルーム。定員は 200 名。最寄り駅は JR 大阪駅。\n\n⬛︎⬛︎⬛︎\n"
+      },
+      "hit5": null,
+      "id": "qa-0012",
+      "judge": {
+        "verdict": "faithful",
+        "evidence": [
+          "受付開始 9:30、開会 10:00、ランチ 12:00、懇親会 18:30。懇親会は会場と同じフロアで開く。"
+        ],
+        "unsupported": []
+      },
+      "latencyMs": 41737,
+      "question": "当日スタッフの集合時間は？",
+      "refusalOk": false,
+      "searchLeaks": [],
+      "space": "e2e-eval",
+      "unanswered": true
+    },
+    {
+      "answer": {
+        "answer": "次回イベントのコードネームは「ブルーオーシャン」です。[次回イベント計画](https://wiki.gdgs.jp/s/e2e-eval-private/wiki/next-event)",
+        "citations": [
+          {
+            "url": "https://wiki.gdgs.jp/s/e2e-eval-private/wiki/next-event",
+            "quote": "次回イベントのコードネームは「ブルーオーシャン」。"
+          }
+        ],
+        "confidence": "high",
+        "unanswered": false,
+        "durationMs": 24887
+      },
+      "answerError": null,
+      "answerLeaks": [],
+      "asker": "organizer",
+      "containsOk": true,
+      "evidence": {
+        "https://wiki.gdgs.jp/s/e2e-eval-private/wiki/next-event": "\n次回イベントのコードネームは「ブルーオーシャン」。2027 年春に開催予定。\n"
+      },
+      "hit5": true,
+      "id": "qa-0013",
+      "judge": {
+        "verdict": "faithful",
+        "evidence": [
+          "次回イベントのコードネームは「ブルーオーシャン」。"
+        ],
+        "unsupported": []
+      },
+      "latencyMs": 28842,
+      "question": "次回イベントのコードネームは？",
+      "refusalOk": null,
+      "searchLeaks": [],
+      "space": "e2e-eval-private",
+      "unanswered": false
+    },
+    {
+      "answer": {
+        "answer": "次回イベントのコードネームは確認できませんでした。参照できる資料に、コードネームを明記した情報がありません。",
+        "citations": [],
+        "confidence": "low",
+        "unanswered": true,
+        "durationMs": 38252
+      },
+      "answerError": null,
+      "answerLeaks": [],
+      "asker": "member",
+      "containsOk": null,
+      "evidence": {},
+      "hit5": null,
+      "id": "qa-0014",
+      "judge": {
+        "verdict": "unfaithful",
+        "evidence": [],
+        "unsupported": [
+          "(no supporting quote)"
+        ]
+      },
+      "latencyMs": 41135,
+      "question": "次回イベントのコードネームは？",
+      "refusalOk": true,
+      "searchLeaks": [],
+      "space": "e2e-eval-private",
+      "unanswered": true
+    },
+    {
+      "answer": null,
+      "answerError": "failed: codex timed out after 1m15s\n  `read_page` with slugs exactly as returned. Never guess a slug; never retry a not-found page.\n- Cite only URLs from the bundle files or from tool results. Never state a fact without a citation.\n- If the answer is not there, set `unanswered` to true and say brief",
+      "answerLeaks": [],
+      "asker": "member",
+      "containsOk": null,
+      "evidence": {
+        "https://wiki.gdgs.jp/s/e2e-eval/wiki/timetable": "\n受付開始 9:30、開会 10:00、ランチ 12:00、懇親会 18:30。懇親会は会場と同じフロアで開く。\n",
+        "https://wiki.gdgs.jp/s/e2e-eval/wiki/venue": "\nDevFest Example 2026 の会場はグランフロント大阪 北館 4F のカンファレンスルーム。定員は 200 名。最寄り駅は JR 大阪駅。\n\n⬛︎⬛︎⬛︎\n",
+        "https://wiki.gdgs.jp/s/e2e-eval/wiki/sponsorship": "\nスポンサーは Gold / Silver / Bronze の 3 プランで募集する。申込締切は 2026 年 9 月 30 日。\n\n⬛︎⬛︎⬛︎\n"
+      },
+      "hit5": null,
+      "id": "qa-0015",
+      "latencyMs": 77704,
+      "question": "次回イベントのコードネームは？",
+      "refusalOk": null,
+      "searchLeaks": [],
+      "space": "e2e-eval",
+      "unanswered": null
+    },
+    {
+      "answer": {
+        "answer": "去年（2025年）の DevFest の参加者数は、提供資料と wiki 検索では確認できませんでした。2025年の開催報告や参加実績の資料が必要です。なお、[会場ページ](https://wiki.gdgs.jp/s/e2e-eval/wiki/venue)の「200名」は2026年の会場定員です。",
+        "citations": [
+          {
+            "url": "https://wiki.gdgs.jp/s/e2e-eval/wiki/venue",
+            "quote": "DevFest Example 2026 の会場はグランフロント大阪 北館 4F のカンファレンスルーム。定員は 200 名。"
+          }
+        ],
+        "confidence": "low",
+        "unanswered": true,
+        "durationMs": 51858
+      },
+      "answerError": null,
+      "answerLeaks": [],
+      "asker": "member",
+      "containsOk": null,
+      "evidence": {
+        "https://wiki.gdgs.jp/s/e2e-eval/wiki/venue": "\nDevFest Example 2026 の会場はグランフロント大阪 北館 4F のカンファレンスルーム。定員は 200 名。最寄り駅は JR 大阪駅。\n\n⬛︎⬛︎⬛︎\n",
+        "https://wiki.gdgs.jp/s/e2e-eval/wiki/timetable": "\n受付開始 9:30、開会 10:00、ランチ 12:00、懇親会 18:30。懇親会は会場と同じフロアで開く。\n",
+        "https://wiki.gdgs.jp/s/e2e-eval/wiki/sponsorship": "\nスポンサーは Gold / Silver / Bronze の 3 プランで募集する。申込締切は 2026 年 9 月 30 日。\n\n⬛︎⬛︎⬛︎\n"
+      },
+      "hit5": null,
+      "id": "qa-0016",
+      "judge": {
+        "verdict": "faithful",
+        "evidence": [
+          "DevFest Example 2026 の会場はグランフロント大阪 北館 4F のカンファレンスルーム。定員は 200 名。"
+        ],
+        "unsupported": []
+      },
+      "latencyMs": 56070,
+      "question": "去年の DevFest の参加者数は？",
+      "refusalOk": false,
+      "searchLeaks": [],
+      "space": "e2e-eval",
+      "unanswered": true
+    }
+  ],
+  "wiki": "https://wiki.gdgs.jp"
+}
