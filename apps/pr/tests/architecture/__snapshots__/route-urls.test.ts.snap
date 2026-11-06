@@ -22,9 +22,12 @@ exports[`public URLs > are exactly these (later stages add theirs here on purpos
   "/c/:slug/schedule",
   "/c/:slug/settings",
   "/contacts",
+  "/dev/cron",
   "/dev/login",
+  "/dev/mock-services",
   "/me",
   "/no-chapter",
+  "/settings/chapter",
   "/signin",
 ]
 `;

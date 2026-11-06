@@ -15,6 +15,8 @@ declare global {
     IDP_CLIENT_SECRET: string;
     /** The OCI runner's bearer token for /api/runner/* (32+ chars, distinct from the wiki's). */
     RUNNER_TOKEN: string;
+    /** Encrypts chapters' Discord webhook URLs at rest (chapter_settings). */
+    SETTINGS_ENCRYPTION_KEY: string;
   }
   /** Commit of the skills submodule the bundled Playbook came from (vite define). */
   const __PLAYBOOK_VERSION__: string;

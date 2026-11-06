@@ -11,6 +11,8 @@ import {
 } from "@gdgjp/design-system";
 import { Form, Link, useNavigation } from "react-router";
 import { requireCampaignAccess } from "~/features/campaigns/access.server";
+import { DeliveryCard } from "~/features/dispatch/components/DeliveryCard";
+import { deliveryView } from "~/features/dispatch/delivery.server";
 import { CheckResults } from "~/features/drafts/components/CheckResults";
 import { CopyCandidates } from "~/features/drafts/components/CopyCandidates";
 import { XPostPreview } from "~/features/drafts/components/XPostPreview";
@@ -62,6 +64,7 @@ export async function loader({ request, context, params }: Route.LoaderArgs) {
       at: `${jstDate(r.createdAt)} ${jstTime(r.createdAt)}`,
     })),
     actor: actorFor(access, draft),
+    delivery: await deliveryView(env, access, draft),
     people: {
       assignee: draft.assigneeUserId ? names[draft.assigneeUserId] : null,
       reviewer: draft.reviewerUserId ? names[draft.reviewerUserId] : null,
@@ -78,8 +81,18 @@ export async function action({ request, context, params }: Route.ActionArgs) {
 type Content = { posts?: { text?: string }[]; candidates?: unknown[] };
 
 export default function DraftDetail({ loaderData, actionData }: Route.ComponentProps) {
-  const { user, accountsUrl, campaign, draft, version, versions, reviews, actor, people } =
-    loaderData;
+  const {
+    user,
+    accountsUrl,
+    campaign,
+    draft,
+    version,
+    versions,
+    reviews,
+    actor,
+    people,
+    delivery,
+  } = loaderData;
   const navigation = useNavigation();
   const busy = navigation.state === "submitting";
   const content = (version?.content ?? null) as Content | null;
@@ -201,6 +214,7 @@ export default function DraftDetail({ loaderData, actionData }: Route.ComponentP
           </Form>
         </Card>
       ) : null}
+      {delivery ? <DeliveryCard view={delivery} busy={busy} /> : null}
       {version && draft.status !== "generating" ? (
         <Card>
           <Form method="post" key={version.version}>

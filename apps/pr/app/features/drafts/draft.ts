@@ -15,6 +15,7 @@ export type Draft = {
   reviewedBy: string | null;
   approvedBy: string | null;
   approvedAt: number | null;
+  dispatchMediaUrl: string | null;
   createdAt: number;
   updatedAt: number;
 };

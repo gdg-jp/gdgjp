@@ -1,4 +1,6 @@
 import type { CampaignAccess } from "~/features/campaigns/access.server";
+import { deliveryAction } from "~/features/dispatch/delivery.server";
+import { afterDraftApproval, prepareDraftApproval } from "~/features/dispatch/dispatch.server";
 import { EnqueueError, enqueueCopy, enqueuePosts } from "~/features/jobs/enqueue.server";
 import { autoFold } from "./content";
 import type { Draft } from "./draft";
@@ -29,11 +31,18 @@ export async function draftAction(
     intent === "approve" ||
     intent === "reject"
   ) {
+    if (intent === "approve") {
+      const ready = await prepareDraftApproval(env, access, draft);
+      if (!ready.ok) return { ok: false, errors: ready.errors };
+    }
     const result = await reviewDraft(env.DB, access, draft, intent, comment);
-    return result.ok
-      ? { ok: true, message: "更新しました" }
-      : { ok: false, errors: [result.error] };
+    if (!result.ok) return { ok: false, errors: [result.error] };
+    if (intent === "approve")
+      await afterDraftApproval(env, access.campaign, { ...draft, status: "approved" });
+    return { ok: true, message: "更新しました" };
   }
+  const delivery = await deliveryAction(env, access, draft, intent, form);
+  if (delivery) return delivery;
   if (intent === "edit-text")
     return editPostText(env, access, draft, String(form.get("text") ?? ""));
   if (intent === "edit-json") {

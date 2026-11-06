@@ -1,4 +1,13 @@
+import { WorkerEntrypoint } from "cloudflare:workers";
+import type { TinyurlPrService } from "@gdgjp/gdg-lib";
 import { createRequestHandler } from "react-router";
+import {
+  prCreateLink,
+  prEnsureCampaign,
+  prEnsureChannel,
+  prGetAnalytics,
+  prUpdateLink,
+} from "../app/features/campaigns/pr-service.server";
 import { serveCliInstaller } from "../app/features/cli-api/cli-installer.server";
 import { CloudflareContext } from "./context";
 
@@ -33,6 +42,25 @@ function isApexRedirect(request: Request, env: Env): { slug: string; hostname: s
     return { slug, hostname: apexHost };
   }
   return null;
+}
+
+/** pr.gdgs.jp's service binding (`entrypoint = "PrService"`). Each call authorizes its actor. */
+export class PrService extends WorkerEntrypoint<Env> implements TinyurlPrService {
+  ensureCampaign(input: Parameters<TinyurlPrService["ensureCampaign"]>[0]) {
+    return prEnsureCampaign(this.env, input);
+  }
+  ensureChannel(input: Parameters<TinyurlPrService["ensureChannel"]>[0]) {
+    return prEnsureChannel(this.env, input);
+  }
+  createLink(input: Parameters<TinyurlPrService["createLink"]>[0]) {
+    return prCreateLink(this.env, input);
+  }
+  updateLink(input: Parameters<TinyurlPrService["updateLink"]>[0]) {
+    return prUpdateLink(this.env, input);
+  }
+  getAnalytics(input: Parameters<TinyurlPrService["getAnalytics"]>[0]) {
+    return prGetAnalytics(this.env, input);
+  }
 }
 
 export default {

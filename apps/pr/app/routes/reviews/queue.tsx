@@ -1,7 +1,10 @@
-import { Card, EmptyState, Text } from "@gdgjp/design-system";
+import { Alert, Card, EmptyState, Text } from "@gdgjp/design-system";
+import { useNavigation } from "react-router";
 import { requireCampaignAccess } from "~/features/campaigns/access.server";
 import { DraftTable } from "~/features/drafts/components/DraftTable";
 import { draftRows } from "~/features/drafts/list.server";
+import { RequestsCard } from "~/features/requests/components/RequestsCard";
+import { requestAction, requestRows } from "~/features/requests/requests.server";
 import { CampaignLayout } from "~/layouts/CampaignLayout";
 import type { Route } from "./+types/queue";
 
@@ -31,11 +34,19 @@ export async function loader({ request, context, params }: Route.LoaderArgs) {
       access.members,
       approvals ? ["needs_approval"] : ["in_review", "drafting"],
     ),
+    requests: approvals ? await requestRows(env, access) : [],
   };
 }
 
-export default function Queue({ loaderData }: Route.ComponentProps) {
-  const { user, accountsUrl, campaign, approvals, drafts } = loaderData;
+export async function action({ request, context, params }: Route.ActionArgs) {
+  const env = context.cloudflare.env;
+  const access = await requireCampaignAccess(env, request, params.slug);
+  return requestAction(env, access, await request.formData());
+}
+
+export default function Queue({ loaderData, actionData }: Route.ComponentProps) {
+  const { user, accountsUrl, campaign, approvals, drafts, requests } = loaderData;
+  const busy = useNavigation().state === "submitting";
   return (
     <CampaignLayout
       user={user}
@@ -43,6 +54,16 @@ export default function Queue({ loaderData }: Route.ComponentProps) {
       campaign={campaign}
       title={approvals ? "承認待ち" : "レビュー待ち"}
     >
+      {actionData?.errors?.length ? (
+        <Alert tone="danger" title="できませんでした">
+          {actionData.errors.join(" / ")}
+        </Alert>
+      ) : null}
+      {actionData?.ok ? (
+        <Alert tone="success" title="完了">
+          {actionData.message}
+        </Alert>
+      ) : null}
       <Text tone="muted">
         {approvals
           ? "レビューを通った下書き。承認するのはリードか主催チャプターのオーガナイザーです。"
@@ -60,6 +81,7 @@ export default function Queue({ loaderData }: Route.ComponentProps) {
           />
         </Card>
       )}
+      {approvals ? <RequestsCard rows={requests} busy={busy} /> : null}
     </CampaignLayout>
   );
 }

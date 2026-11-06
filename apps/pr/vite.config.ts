@@ -23,6 +23,18 @@ function playbookVersion(): string {
   }
 }
 
+/**
+ * `pnpm dev` (and e2e) talk to local stand-ins for sns and tinyurl's PrService. Set
+ * PR_REAL_SERVICES=1 to resolve SNS / TINYURL through the dev registry to real dev servers.
+ */
+const mockServices = (command: string) =>
+  command === "serve" && !process.env.PR_REAL_SERVICES
+    ? [
+        { configPath: "./e2e/mock-services/sns.wrangler.toml" },
+        { configPath: "./e2e/mock-services/tinyurl.wrangler.toml" },
+      ]
+    : [];
+
 export default defineConfig(({ command }) => ({
   build: { reportCompressedSize: false, target: ["edge88", "firefox78", "chrome87", "safari14"] },
   define: { __PLAYBOOK_VERSION__: JSON.stringify(playbookVersion()) },
@@ -33,6 +45,7 @@ export default defineConfig(({ command }) => ({
       viteEnvironment: { name: "ssr" },
       remoteBindings: false,
       inspectorPort: process.env.CI ? false : 9291,
+      auxiliaryWorkers: mockServices(command),
     }),
     reactRouter(),
     tailwindcss(),

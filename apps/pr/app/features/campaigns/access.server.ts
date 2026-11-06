@@ -1,7 +1,12 @@
 import type { AuthUser, UserChapter } from "@gdgjp/gdg-lib";
 import { requireUserWithChapter } from "~/features/auth/access.server";
 import type { Campaign, CampaignChapter, CampaignMember } from "./campaign";
-import { getCampaignBySlug, listCampaignChapters, listMembers } from "./campaign.repository.server";
+import {
+  getCampaignBySlug,
+  listCampaignChapters,
+  listMembers,
+  recordMemberClaims,
+} from "./campaign.repository.server";
 import { normalizeSlug } from "./slug";
 
 export type CampaignPermissions = {
@@ -58,5 +63,7 @@ export async function requireCampaignAccess(
   const permissions = campaignPermissions(user, chapters, campaign, campaignChapters, members);
   if (!permissions) throw new Response(null, { status: 404 });
   if (!permissions[need]) throw new Response("Forbidden", { status: 403 });
+  if (members.some((m) => m.userId === user.id))
+    await recordMemberClaims(env.DB, campaign.id, user.id, JSON.stringify({ user, chapters }));
   return { user, chapters, campaign, campaignChapters, members, permissions };
 }

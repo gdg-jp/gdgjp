@@ -42,10 +42,26 @@ service = "gdgjp-accounts"
 binding = "WIKI"
 service = "gdgjp-wiki"
 
-[triggers]
-crons = ["* * * * *"]
+# Delivery (Stage 03): sns schedules X posts, tinyurl makes campaigns, channels and short links.
+# Both authorize the actor pr passes with their own permission rules. Locally, `pnpm dev`
+# replaces them with e2e/mock-services (vite.config.ts) unless PR_REAL_SERVICES=1.
+[[services]]
+binding = "SNS"
+service = "gdgjp-sns"
+entrypoint = "PrService"
 
-# Secrets: RP_SESSION_SECRET, IDP_CLIENT_SECRET, RUNNER_TOKEN (32+ chars; not the wiki's value).
+[[services]]
+binding = "TINYURL"
+service = "gdgjp-tinyurl"
+entrypoint = "PrService"
+
+# Every minute: runner lease requeue, staff reminders, Discord posts, review requests, follow-ups.
+# Hourly: sns post status, short-link health.
+[triggers]
+crons = ["* * * * *", "0 * * * *"]
+
+# Secrets: RP_SESSION_SECRET, IDP_CLIENT_SECRET, RUNNER_TOKEN (32+ chars; not the wiki's value),
+# SETTINGS_ENCRYPTION_KEY (AES-GCM key material for chapters' Discord webhook URLs).
 
 [observability]
 enabled = true

@@ -7,6 +7,8 @@ RP_SESSION_SECRET=""
 IDP_CLIENT_SECRET=""
 # The OCI runner token for /api/runner/* (32+ chars). Generate with `openssl rand -hex 24`.
 RUNNER_TOKEN=""
+# Encrypts chapters' Discord webhook URLs in D1. Generate with `openssl rand -base64 32`.
+SETTINGS_ENCRYPTION_KEY=""
 
 # Override prod URLs from wrangler.toml so dev points at the local accounts IdP.
 # APP_URL must be http://localhost:5191 in dev or gdg-lib marks cookies Secure

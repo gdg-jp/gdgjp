@@ -592,6 +592,7 @@ jobs:
           IDP_CLIENT_ID=pr
           ENVIRONMENT=development
           RUNNER_TOKEN=ci-pr-runner-token-0123456789abcdef0123
+          SETTINGS_ENCRYPTION_KEY=ci-pr-settings-key-0123456789abcdef
           EOF
       - name: Create Wiki E2E vars
         if: matrix.app == 'wiki'

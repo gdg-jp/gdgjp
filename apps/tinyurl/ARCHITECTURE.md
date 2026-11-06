@@ -21,6 +21,7 @@
 | Transport input contract | `app/http/request.ts` |
 | Neutral helpers | `use-media-query.ts` |
 | Worker integration | `workers/app.ts`, `workers/context.ts` |
+| pr.gdgs.jp service binding (`PrService` entrypoint: campaigns, channels, private links, analytics for an actor, through the `*ForActor` services) | `workers/app.ts`, `app/features/campaigns/pr-service.server.ts`; contracts in `@gdgjp/gdg-lib` `pr-rpc.ts` |
 | Schema/configuration | `migrations/`, `wrangler.toml` — `schema.sql` and Worker types are generated |
 
 - Registered route modules own page composition and loader/action adapters in the same file. Routes compose widgets and layouts; features contain domain code and widgets and do not import routes, including route types. There is no `features/*/pages/` or `_pages/` hierarchy.

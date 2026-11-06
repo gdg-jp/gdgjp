@@ -19,10 +19,13 @@ export default [
   route("api/runner/jobs/:id/heartbeat", "routes/api/runner/jobs-heartbeat.ts"),
   route("api/runner/jobs/:id/result", "routes/api/runner/jobs-result.ts"),
   route("contacts", "routes/contacts/list.tsx"),
+  route("settings/chapter", "routes/settings/chapter.tsx"),
   route("me", "routes/me.tsx"),
   route("signin", "routes/signin.tsx"),
   route("no-chapter", "routes/auth/no-chapter.tsx"),
   route("api/auth/*", "routes/api.auth.$.ts"),
   route("auth/signout", "routes/auth.signout.ts"),
   route("dev/login", "routes/dev.login.ts"),
+  route("dev/cron", "routes/dev/cron.ts"),
+  route("dev/mock-services", "routes/dev/mock-services.ts"),
 ] satisfies RouteConfig;

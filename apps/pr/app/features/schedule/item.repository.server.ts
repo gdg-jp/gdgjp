@@ -5,7 +5,7 @@ import type { ItemInput, ScheduleItem } from "./item";
 import type { ItemStatus } from "./kinds";
 import { isScheduleKind } from "./kinds";
 
-type ItemRow = {
+export type ItemRow = {
   id: number;
   campaign_id: number;
   kind: string;
@@ -299,4 +299,39 @@ export async function listItemsForUser(
     campaignSlug: row.campaign_slug,
     campaignName: row.campaign_name,
   }));
+}
+
+/** Items of open campaigns whose time has come, for the minute cron (one SQL filter each). */
+export async function dueItems(
+  db: D1Database,
+  where: string,
+  binds: unknown[],
+  limit = 50,
+): Promise<ScheduleItem[]> {
+  const { results } = await db
+    .prepare(
+      `SELECT i.* FROM schedule_items i JOIN campaigns c ON c.id = i.campaign_id
+       WHERE c.status != 'closed' AND ${where} ORDER BY i.due_at LIMIT ?`,
+    )
+    .bind(...binds, limit)
+    .all<ItemRow>();
+  return results.map(toItem);
+}
+
+export async function setRequestStatus(
+  db: D1Database,
+  campaignId: number,
+  id: number,
+  status: ScheduleItem["requestStatus"],
+  followupAt: number | null,
+): Promise<void> {
+  await db
+    .prepare(
+      `UPDATE schedule_items SET request_status = ?, request_followup_at = ?,
+         status = CASE WHEN ? IN ('replied','declined') THEN 'done' ELSE status END,
+         updated_at = unixepoch()
+       WHERE campaign_id = ? AND id = ?`,
+    )
+    .bind(status, followupAt, status, campaignId, id)
+    .run();
 }

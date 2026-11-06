@@ -16,6 +16,7 @@ type DraftRow = {
   reviewed_by: string | null;
   approved_by: string | null;
   approved_at: number | null;
+  dispatch_media_url?: string | null;
   created_at: number;
   updated_at: number;
 };
@@ -33,6 +34,7 @@ const toDraft = (r: DraftRow): Draft => ({
   reviewedBy: r.reviewed_by,
   approvedBy: r.approved_by,
   approvedAt: r.approved_at,
+  dispatchMediaUrl: r.dispatch_media_url ?? null,
   createdAt: r.created_at,
   updatedAt: r.updated_at,
 });
@@ -316,5 +318,13 @@ export async function updateDraftPeople(
       "UPDATE drafts SET assignee_user_id = ?, reviewer_user_id = ?, updated_at = unixepoch() WHERE id = ?",
     )
     .bind(people.assigneeUserId, people.reviewerUserId, draftId)
+    .run();
+}
+
+/** The image a person attached for delivery (sent to sns with the post). */
+export async function setDispatchMedia(db: D1Database, draftId: number, url: string | null) {
+  await db
+    .prepare("UPDATE drafts SET dispatch_media_url = ?, updated_at = unixepoch() WHERE id = ?")
+    .bind(url, draftId)
     .run();
 }

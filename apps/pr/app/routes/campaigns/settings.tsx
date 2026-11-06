@@ -21,6 +21,8 @@ import {
   updateCampaign,
 } from "~/features/campaigns/campaign.repository.server";
 import { normalizeSlug } from "~/features/campaigns/slug";
+import { DeliverySettings } from "~/features/integrations/components/DeliverySettings";
+import { deliverySettings, deliverySettingsAction } from "~/features/integrations/settings.server";
 import { CampaignLayout } from "~/layouts/CampaignLayout";
 import type { Route } from "./+types/settings";
 
@@ -53,13 +55,19 @@ export async function loader({ request, context, params }: Route.LoaderArgs) {
       parent: parent ?? "",
     },
     canManage: access.permissions.manage,
+    delivery: await deliverySettings(env, access),
   };
 }
 
 export async function action({ request, context, params }: Route.ActionArgs) {
   const env = context.cloudflare.env;
-  const access = await requireCampaignAccess(env, request, params.slug, "manage");
   const form = await request.formData();
+  const intent = String(form.get("intent") ?? "save");
+  // Adding your own chapter's account is open to editors; the rest needs manage.
+  const need = intent === "add-x" || intent === "add-handle" ? "edit" : "manage";
+  const access = await requireCampaignAccess(env, request, params.slug, need);
+  const delivery = await deliverySettingsAction(env, access, intent, form);
+  if (delivery) return delivery;
   const name = String(form.get("name") ?? "").trim();
   if (!name) return { ok: false as const, error: "名前を入れてください" };
   const status = String(form.get("status")) as CampaignStatus;
@@ -83,7 +91,7 @@ export async function action({ request, context, params }: Route.ActionArgs) {
 }
 
 export default function Settings({ loaderData, actionData }: Route.ComponentProps) {
-  const { user, accountsUrl, campaign, settings, canManage } = loaderData;
+  const { user, accountsUrl, campaign, settings, canManage, delivery } = loaderData;
   const navigation = useNavigation();
   return (
     <CampaignLayout user={user} accountsUrl={accountsUrl} campaign={campaign} title="設定">
@@ -94,7 +102,9 @@ export default function Settings({ loaderData, actionData }: Route.ComponentProp
       ) : null}
       {actionData?.ok ? (
         <Alert tone="success" title="保存しました">
-          設定を更新しました。
+          {"message" in actionData && actionData.message
+            ? actionData.message
+            : "設定を更新しました。"}
         </Alert>
       ) : null}
       <Card>
@@ -153,7 +163,12 @@ export default function Settings({ loaderData, actionData }: Route.ComponentProp
             </FormField>
             {canManage ? (
               <div className="flex justify-end">
-                <Button type="submit" loading={navigation.state === "submitting"}>
+                <Button
+                  type="submit"
+                  name="intent"
+                  value="save"
+                  loading={navigation.state === "submitting"}
+                >
                   保存
                 </Button>
               </div>
@@ -161,6 +176,12 @@ export default function Settings({ loaderData, actionData }: Route.ComponentProp
           </Stack>
         </Form>
       </Card>
+      <DeliverySettings
+        data={delivery}
+        status={settings.status}
+        canManage={canManage}
+        busy={navigation.state === "submitting"}
+      />
     </CampaignLayout>
   );
 }

@@ -28,6 +28,17 @@ Worker validates and checks it (`complete.server.ts`). Locally:
 GDG_PR_URL=http://localhost:5191 RUNNER_TOKEN=<.dev.vars value> YOMIYASU_DIR=… gdg pr runner --once
 ```
 
+## Delivery
+
+Nothing goes out without approval. A post's draft is approved once; then each X account
+(`campaign_accounts`, per chapter) is a dispatch target approved by a member of **that account's
+chapter**, and only that approval calls `SNS.createScheduledPost` as the approver. `{{shortlink}}`
+becomes a url.gdgs.jp link (`TINYURL.createLink`) created at draft approval. Crons follow sns status,
+send staff reminders / review requests / follow-ups to the chapter's Discord webhook
+(`/settings/chapter`, encrypted with `SETTINGS_ENCRYPTION_KEY`) and check link health. Locally,
+`pnpm dev` serves `SNS` / `TINYURL` from `e2e/mock-services`; `/dev/cron?name=minute|hourly` runs a
+cron (`PR_REAL_SERVICES=1` uses real sns / tinyurl dev servers instead).
+
 ## Access
 
 Campaigns belong to a host chapter; co-host chapters join through `campaign_chapters`. Members of

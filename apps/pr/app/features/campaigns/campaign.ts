@@ -14,6 +14,8 @@ export type Campaign = {
   connpassEventId: string | null;
   tinyurlCampaignId: number | null;
   budgetTotalYen: number;
+  /** Send derived staff reminders to Discord without a person pressing send. */
+  autoStaffReminders: boolean;
   playbookVersion: string;
   createdBy: string;
   createdAt: number;

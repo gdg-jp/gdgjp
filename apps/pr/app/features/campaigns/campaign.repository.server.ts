@@ -15,6 +15,7 @@ type CampaignRow = {
   connpass_event_id: string | null;
   tinyurl_campaign_id: number | null;
   budget_total_yen: number;
+  auto_staff_reminders?: number;
   playbook_version: string;
   created_by: string;
   created_at: number;
@@ -36,6 +37,7 @@ export function toCampaign(row: CampaignRow): Campaign {
     connpassEventId: row.connpass_event_id,
     tinyurlCampaignId: row.tinyurl_campaign_id,
     budgetTotalYen: row.budget_total_yen,
+    autoStaffReminders: row.auto_staff_reminders === 1,
     playbookVersion: row.playbook_version,
     createdBy: row.created_by,
     createdAt: row.created_at,
@@ -174,6 +176,7 @@ export type CampaignSettings = Partial<
     | "eventAt"
     | "venue"
     | "parentCampaignId"
+    | "autoStaffReminders"
   >
 >;
 
@@ -186,6 +189,7 @@ const SETTING_COLUMNS: Record<keyof CampaignSettings, string> = {
   eventAt: "event_at",
   venue: "venue",
   parentCampaignId: "parent_campaign_id",
+  autoStaffReminders: "auto_staff_reminders",
 };
 
 export async function updateCampaign(
@@ -201,7 +205,13 @@ export async function updateCampaign(
     .prepare(
       `UPDATE campaigns SET ${keys.map((k) => `${SETTING_COLUMNS[k]} = ?`).join(", ")}, updated_at = unixepoch() WHERE id = ?`,
     )
-    .bind(...keys.map((k) => patch[k] ?? null), id)
+    .bind(
+      ...keys.map((k) => {
+        const value = patch[k];
+        return typeof value === "boolean" ? (value ? 1 : 0) : (value ?? null);
+      }),
+      id,
+    )
     .run();
 }
 
@@ -307,4 +317,54 @@ export async function listKnownUsers(
     .prepare('SELECT id, name, email FROM "user" ORDER BY name LIMIT 500')
     .all<{ id: string; name: string; email: string }>();
   return results;
+}
+
+/** Keep the member's live claims so the precheck can ask sns about them later. */
+export async function recordMemberClaims(
+  db: D1Database,
+  campaignId: number,
+  userId: string,
+  claims: string,
+): Promise<void> {
+  await db
+    .prepare(
+      `UPDATE campaign_members SET claims_snapshot = ?
+       WHERE campaign_id = ? AND user_id = ? AND claims_snapshot IS NOT ?`,
+    )
+    .bind(claims, campaignId, userId, claims)
+    .run();
+}
+
+export async function listMemberClaims(
+  db: D1Database,
+  campaignId: number,
+): Promise<{ userId: string; name: string; claims: string | null }[]> {
+  const { results } = await db
+    .prepare("SELECT user_id, name, claims_snapshot FROM campaign_members WHERE campaign_id = ?")
+    .bind(campaignId)
+    .all<{ user_id: string; name: string; claims_snapshot: string | null }>();
+  return results.map((r) => ({ userId: r.user_id, name: r.name, claims: r.claims_snapshot }));
+}
+
+/** The `{ user, chapters }` cron calls to tinyurl act for (whoever last activated). */
+export async function setActorSnapshot(db: D1Database, id: number, actor: string): Promise<void> {
+  await db
+    .prepare("UPDATE campaigns SET actor_snapshot = ?, updated_at = unixepoch() WHERE id = ?")
+    .bind(actor, id)
+    .run();
+}
+
+export async function getActorSnapshot(db: D1Database, id: number): Promise<string | null> {
+  const row = await db
+    .prepare("SELECT actor_snapshot FROM campaigns WHERE id = ?")
+    .bind(id)
+    .first<{ actor_snapshot: string | null }>();
+  return row?.actor_snapshot ?? null;
+}
+
+export async function setTinyurlCampaign(db: D1Database, id: number, tinyurlId: number) {
+  await db
+    .prepare("UPDATE campaigns SET tinyurl_campaign_id = ?, updated_at = unixepoch() WHERE id = ?")
+    .bind(tinyurlId, id)
+    .run();
 }

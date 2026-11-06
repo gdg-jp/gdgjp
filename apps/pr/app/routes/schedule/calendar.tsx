@@ -28,6 +28,7 @@ import {
   listItems,
   updateItem,
 } from "~/features/schedule/item.repository.server";
+import { DRAFTABLE_KINDS } from "~/features/schedule/kinds";
 import { CampaignLayout } from "~/layouts/CampaignLayout";
 import { useHydrated } from "~/lib/use-hydrated";
 import type { Route } from "./+types/calendar";
@@ -193,6 +194,21 @@ export default function Calendar({ loaderData, actionData }: Route.ComponentProp
         </Button>
       }
     >
+      {actionData && "message" in actionData && actionData.message ? (
+        <Alert
+          tone={actionData.ok ? "success" : "danger"}
+          title={actionData.ok ? "完了" : "できませんでした"}
+        >
+          {actionData.message}
+        </Alert>
+      ) : null}
+      <Form method="post" id="draft-form" className="flex flex-wrap items-center gap-2">
+        <input type="hidden" name="intent" value="draft" />
+        <Text tone="muted">投稿を選んで、runner に下書きを頼めます。</Text>
+        <Button type="submit" variant="outline" size="sm">
+          選んだ投稿の下書きを runner に頼む
+        </Button>
+      </Form>
       {eventDate ? (
         <Text tone="muted">
           本番 {dayLabel(eventDate)}。灰色のアイテムは告知開始の条件を待っています。
@@ -230,6 +246,9 @@ export default function Calendar({ loaderData, actionData }: Route.ComponentProp
                               pending={pending[row.item.id] ?? []}
                               people={people}
                               onEdit={openFor}
+                              selectForm={
+                                DRAFTABLE_KINDS.includes(row.item.kind) ? "draft-form" : undefined
+                              }
                             />
                             {row.children.map((child) => (
                               <ItemRow

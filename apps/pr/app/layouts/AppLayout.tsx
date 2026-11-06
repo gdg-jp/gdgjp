@@ -9,6 +9,7 @@ const NAV = [
   { to: "/", label: "キャンペーン", icon: "LayoutGrid", end: true },
   { to: "/me", label: "自分のタスク", icon: "ListTodo", end: false },
   { to: "/contacts", label: "告知先", icon: "UsersRound", end: false },
+  { to: "/settings/chapter", label: "チャプター設定", icon: "Settings", end: false },
   { to: "/admin/runner", label: "Runner", icon: "Bot", end: false },
 ] as const;
 

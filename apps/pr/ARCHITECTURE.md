@@ -12,6 +12,12 @@
 | Runner HTTP API (`RUNNER_TOKEN` only here) | `app/routes/api/runner/*` |
 | Plans (runner output), adoption into the schedule | `app/features/plans/` — `adopt.ts` is pure, `adopt.server.ts` writes |
 | Drafts: append-only versions, create → review → approve state machine, reviews, edits | `app/features/drafts/` — `state-machine.ts` is the only place transitions are decided |
+| Delivery accounts per chapter, tinyurl activation, posting precheck, `SNS` / `TINYURL` bindings | `app/features/integrations/` — `bindings.server.ts` is the only place the bindings are cast to the gdg-lib `PrService` types |
+| Dispatch targets (one per item × X account, approved by that account's chapter), sns scheduling, delegation, status polling, reminders | `app/features/dispatch/` — `target.ts` decides who approves; `dispatch.server.ts` holds the `dispatching` compare-and-set |
+| Short links (`{{shortlink}}` → url.gdgs.jp) and their health | `app/features/links/` |
+| Discord webhooks (chapter settings, encrypted), message text from `constants.reminders.templates` | `app/features/notify/`, `app/features/settings/` |
+| Staff reminders to send, speaker requests, outreach replies (approvals page) | `app/features/requests/` |
+| Cron jobs (minute: requeue, reminders; hourly: sns status, link health) | `app/features/cron/cron.server.ts` (crons match `wrangler.toml`, tested) |
 | Domain-free widgets | `app/components/RowTable.tsx` |
 | Shells | `app/layouts/AppLayout.tsx`, `CampaignLayout.tsx` (campaign tabs) |
 | Screens + loaders / actions | `app/routes/<domain>/` — URLs in `app/routes.ts` |
@@ -26,4 +32,12 @@
 - `draft_versions` is append-only: an edit, a runner rewrite and a fix are each a new version.
 - The Worker never trusts runner output: `complete.server.ts` validates it against the Skill's
   output schema and runs the Playbook checks before anything is saved as a version.
+- Only a dispatch target's approval writes outside (sns, tinyurl), as the approver's live claims.
+  Cron only follows status and sends Discord messages; it acts for stored claims snapshots
+  (`dispatch_targets.actor_snapshot`, `campaigns.actor_snapshot`) and logs `no_actor` without one.
+- `{{shortlink}}` is replaced on the copy sent to sns; `draft_versions.content` keeps it.
+- Discord message text is never in TS (`reminders.server.test.ts`); webhook URLs are AES-GCM
+  encrypted with `SETTINGS_ENCRYPTION_KEY` and never shown or logged.
+- `pnpm dev` binds `SNS` / `TINYURL` to `e2e/mock-services` (auxiliary workers); set
+  `PR_REAL_SERVICES=1` to use real sns / tinyurl dev servers through the dev registry.
 - Times are epoch seconds in D1 and JST in every form (`schedule/calendar.ts`).

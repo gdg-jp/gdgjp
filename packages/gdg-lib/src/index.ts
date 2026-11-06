@@ -2,3 +2,4 @@ export * from "./auth";
 export * from "./auth/rp";
 export * from "./auth/cookie";
 export * from "./image-upload";
+export * from "./pr-rpc";
