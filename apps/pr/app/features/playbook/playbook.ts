@@ -44,6 +44,10 @@ export function provisionalConstants(): string[] {
   return out;
 }
 
+export function scopeForKind(kind: string): string {
+  return kind === "plan" ? "plan" : `draft.${kind}`;
+}
+
 /** Run the Playbook checks. The Worker cannot run yomiyasu; the runner's result is passed in. */
 export function runChecks(input: {
   kind: DraftKind;

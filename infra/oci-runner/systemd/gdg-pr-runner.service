@@ -1,0 +1,19 @@
+[Unit]
+Description=GDG Japan PR runner (gdg pr runner)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=runner
+Group=runner
+EnvironmentFile=/etc/gdg/pr-runner.env
+ExecStart=/usr/local/bin/gdg pr runner
+WorkingDirectory=/var/lib/gdg-pr-runner
+Restart=always
+RestartSec=10
+NoNewPrivileges=true
+ProtectSystem=full
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

@@ -42,6 +42,11 @@ service = "gdgjp-accounts"
 binding = "WIKI"
 service = "gdgjp-wiki"
 
+[triggers]
+crons = ["* * * * *"]
+
+# Secrets: RP_SESSION_SECRET, IDP_CLIENT_SECRET, RUNNER_TOKEN (32+ chars; not the wiki's value).
+
 [observability]
 enabled = true
 

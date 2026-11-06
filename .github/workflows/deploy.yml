@@ -48,7 +48,9 @@ jobs:
         with:
           fetch-depth: 0
       - name: Initialize shared UI submodule
-        run: git submodule update --init packages/design-system skills
+        run: git submodule update --init packages/design-system
+      - name: Initialize Playbook submodule
+        run: git submodule update --init skills
       - uses: pnpm/action-setup@v4
         with:
           version: "9.15.0"
@@ -96,7 +98,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Initialize shared UI submodule
-        run: git submodule update --init packages/design-system skills
+        run: git submodule update --init packages/design-system
+      - name: Initialize Playbook submodule
+        run: git submodule update --init skills
       - uses: pnpm/action-setup@v4
         with:
           version: "9.15.0"
@@ -127,7 +131,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Initialize shared UI submodule
-        run: git submodule update --init packages/design-system skills
+        run: git submodule update --init packages/design-system
+      - name: Initialize Playbook submodule
+        run: git submodule update --init skills
       - uses: pnpm/action-setup@v4
         with:
           version: "9.15.0"

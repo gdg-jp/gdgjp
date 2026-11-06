@@ -17,7 +17,11 @@ const TONE = { draft: "neutral", active: "success", closed: "info" } as const;
 export const CAMPAIGN_TABS = [
   { path: "", label: "概要" },
   { path: "brief", label: "brief" },
+  { path: "plan", label: "計画" },
   { path: "schedule", label: "スケジュール" },
+  { path: "drafts", label: "下書き" },
+  { path: "reviews", label: "レビュー" },
+  { path: "approvals", label: "承認" },
   { path: "members", label: "メンバー" },
   { path: "settings", label: "設定" },
 ] as const;

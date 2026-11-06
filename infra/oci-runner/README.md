@@ -88,3 +88,23 @@ heartbeat is older than 10 minutes the hourly cron posts once to `RUNNER_ALERT_W
 - `origin: human` pages are never changed by a runner push: `/sync` skips them and opens a
   `human-page-conflict` review flag.
 - Rebuilding is the recovery for anything odd: delete the VM and repeat §1–4.
+
+## pr runner (pr.gdgs.jp)
+
+The same VM runs `gdg pr runner` as a second unit, `gdg-pr-runner`: it leases pr.gdgs.jp jobs
+(plan / copy / post / fix), runs Codex **read-only** with the job's output schema on a bundle of
+files (the Skill, the Playbook parts it reads, the brief), runs yomiyasu on the Japanese text and
+returns the JSON. It never posts or pushes; the pr Worker validates, checks and delivers.
+Design: `docs/plans/pr/03-runner-and-drafts.md`.
+
+1. Put pr's token in `/etc/gdg/pr-runner.env` (`RUNNER_TOKEN=`, **a different value from the
+   wiki's**) and set the same on the Worker: `pnpm --filter @gdgjp/pr exec wrangler secret put RUNNER_TOKEN`.
+2. Check yomiyasu: `ls /home/runner/.agents/skills/yomiyasu/scripts/yomiyasu_check.py`
+   (cloud-init clones it; otherwise clone `nanaism/yomiyasu` and point `YOMIYASU_DIR` at
+   `skills/yomiyasu`). Without it the yomiyasu check is reported as unevaluated, not passed.
+3. `sudo -u runner -H /usr/local/bin/gdg pr runner --dry-run` with the env file loaded, then
+   `sudo systemctl enable --now gdg-pr-runner`.
+
+Both runners share one Codex login, so the pr runner has a single slot. `/admin/runner` on
+pr.gdgs.jp shows its heartbeat and queue.
+

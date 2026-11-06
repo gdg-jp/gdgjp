@@ -97,6 +97,7 @@ const workspaces = new Map([
   ["apps/mc", "@gdgjp/mc"],
   ["apps/ost", "@gdgjp/ost"],
   ["apps/pay", "@gdgjp/pay"],
+  ["apps/pr", "@gdgjp/pr"],
   ["apps/roster", "@gdgjp/roster"],
   ["apps/scheduler", "@gdgjp/scheduler"],
   ["apps/sns", "@gdgjp/sns"],

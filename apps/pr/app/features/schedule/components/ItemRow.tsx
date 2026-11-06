@@ -1,4 +1,4 @@
-import { Badge, Button, Icons } from "@gdgjp/design-system";
+import { Badge, Button, Checkbox, Icons } from "@gdgjp/design-system";
 import { jstTime } from "../calendar";
 import type { ScheduleItem } from "../item";
 import { KIND_LABELS, STATUS_LABELS } from "../kinds";
@@ -22,12 +22,15 @@ export function ItemRow({
   pending,
   people,
   onEdit,
+  selectForm,
 }: {
   item: ScheduleItem;
   derived?: boolean;
   pending: string[];
   people: Record<string, string>;
   onEdit: (item: ScheduleItem) => void;
+  /** When set, a checkbox submits this item's id with that form (draftable posts only). */
+  selectForm?: string;
 }) {
   const blocked = pending.length > 0;
   return (
@@ -35,6 +38,16 @@ export function ItemRow({
       className={`flex flex-wrap items-start gap-x-3 gap-y-1 rounded-md border border-border px-3 py-2 ${derived ? "ml-6 border-dashed" : ""} ${blocked ? "opacity-60" : ""}`}
       data-item-id={item.id}
     >
+      {selectForm ? (
+        <Checkbox
+          form={selectForm}
+          name="itemIds"
+          value={String(item.id)}
+          disabled={blocked}
+          aria-label={`「${item.title}」の下書きを作る`}
+          className="mt-0.5"
+        />
+      ) : null}
       <span className="w-12 shrink-0 font-mono text-sm text-muted">{jstTime(item.dueAt)}</span>
       <div className="min-w-0 flex-1 space-y-1">
         <div className="flex flex-wrap items-center gap-2">

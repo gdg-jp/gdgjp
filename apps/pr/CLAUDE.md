@@ -16,6 +16,18 @@ approval, delivery through sns / tinyurl / connpass, images, metrics and a learn
 - **Contacts' source of truth is the Wiki** page `WIKI_OUTREACH_TITLE`, read AS the signed-in user
   through the `WIKI` binding (`/api/agent/search`, `/api/agent/cat` only). pr never writes the Wiki.
 
+## Runner
+
+`gdg pr runner` (apps/cli/internal/pr/runner) on the OCI VM leases `agent_jobs` through
+`/api/runner/*` with secret `RUNNER_TOKEN` (not the wiki's). Each job gets a bundle of files
+(`app/features/jobs/bundle.server.ts`): the Skill's SKILL.md and output schema, the Playbook parts
+it reads, the check scripts, BRIEF.json and JOB.md. Codex runs read-only and returns JSON; the
+Worker validates and checks it (`complete.server.ts`). Locally:
+
+```sh
+GDG_PR_URL=http://localhost:5191 RUNNER_TOKEN=<.dev.vars value> YOMIYASU_DIR=… gdg pr runner --once
+```
+
 ## Access
 
 Campaigns belong to a host chapter; co-host chapters join through `campaign_chapters`. Members of

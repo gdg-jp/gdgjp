@@ -52,7 +52,9 @@ jobs:
           fetch-depth: 0
           submodules: false
       - name: Initialize shared UI submodule
-        run: git submodule update --init packages/design-system skills
+        run: git submodule update --init packages/design-system
+      - name: Initialize Playbook submodule
+        run: git submodule update --init skills
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
@@ -85,7 +87,9 @@ jobs:
         with:
           submodules: false
       - name: Initialize shared UI submodule
-        run: git submodule update --init packages/design-system skills
+        run: git submodule update --init packages/design-system
+      - name: Initialize Playbook submodule
+        run: git submodule update --init skills
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
@@ -110,7 +114,9 @@ jobs:
         with:
           submodules: false
       - name: Initialize shared UI submodule
-        run: git submodule update --init packages/design-system skills
+        run: git submodule update --init packages/design-system
+      - name: Initialize Playbook submodule
+        run: git submodule update --init skills
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
@@ -132,7 +138,9 @@ jobs:
         with:
           submodules: false
       - name: Initialize shared UI submodule
-        run: git submodule update --init packages/design-system skills
+        run: git submodule update --init packages/design-system
+      - name: Initialize Playbook submodule
+        run: git submodule update --init skills
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
@@ -172,7 +180,9 @@ jobs:
           fetch-depth: 0
           submodules: false
       - name: Initialize shared UI submodule
-        run: git submodule update --init packages/design-system skills
+        run: git submodule update --init packages/design-system
+      - name: Initialize Playbook submodule
+        run: git submodule update --init skills
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
@@ -215,7 +225,9 @@ jobs:
         with:
           submodules: false
       - name: Initialize shared UI submodule
-        run: git submodule update --init packages/design-system skills
+        run: git submodule update --init packages/design-system
+      - name: Initialize Playbook submodule
+        run: git submodule update --init skills
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
@@ -303,7 +315,9 @@ jobs:
         with:
           submodules: false
       - name: Initialize shared UI submodule
-        run: git submodule update --init packages/design-system skills
+        run: git submodule update --init packages/design-system
+      - name: Initialize Playbook submodule
+        run: git submodule update --init skills
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
@@ -385,7 +399,9 @@ jobs:
         with:
           submodules: false
       - name: Initialize shared UI submodule
-        run: git submodule update --init packages/design-system skills
+        run: git submodule update --init packages/design-system
+      - name: Initialize Playbook submodule
+        run: git submodule update --init skills
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
@@ -481,7 +497,9 @@ jobs:
         with:
           submodules: false
       - name: Initialize shared UI submodule
-        run: git submodule update --init packages/design-system skills
+        run: git submodule update --init packages/design-system
+      - name: Initialize Playbook submodule
+        run: git submodule update --init skills
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
@@ -573,6 +591,7 @@ jobs:
           IDP_URL=http://localhost:6173
           IDP_CLIENT_ID=pr
           ENVIRONMENT=development
+          RUNNER_TOKEN=ci-pr-runner-token-0123456789abcdef0123
           EOF
       - name: Create Wiki E2E vars
         if: matrix.app == 'wiki'

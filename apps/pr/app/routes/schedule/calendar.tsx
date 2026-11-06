@@ -1,7 +1,20 @@
-import { Button, Card, EmptyState, Heading, Icons, Stack, Text } from "@gdgjp/design-system";
+import {
+  Alert,
+  Button,
+  Card,
+  EmptyState,
+  FormField,
+  Heading,
+  Icons,
+  Input,
+  Stack,
+  Text,
+} from "@gdgjp/design-system";
 import { useEffect, useState } from "react";
+import { Form } from "react-router";
 import { latestBrief } from "~/features/briefs/brief.repository.server";
 import { requireCampaignAccess } from "~/features/campaigns/access.server";
+import { EnqueueError, enqueuePosts } from "~/features/jobs/enqueue.server";
 import { constants, channelLabel } from "~/features/playbook/playbook";
 import { describeCondition, pendingConditions } from "~/features/schedule/blocked-by";
 import { buildCalendar, jstDate } from "~/features/schedule/calendar";
@@ -67,6 +80,25 @@ export async function action({ request, context, params }: Route.ActionArgs) {
   const form = await request.formData();
   const intent = form.get("intent");
   const id = Number(form.get("id"));
+  if (intent === "draft") {
+    const ids = form.getAll("itemIds").map(Number).filter(Number.isInteger);
+    try {
+      const jobs = await enqueuePosts(
+        env.DB,
+        access.campaign.id,
+        access.user.id,
+        ids,
+        String(form.get("instructions") ?? "").trim() || undefined,
+      );
+      return {
+        ok: true as const,
+        message: `${ids.length} 件の下書きを runner に頼みました（ジョブ ${jobs.length} 件）`,
+      };
+    } catch (error) {
+      if (error instanceof EnqueueError) return { ok: false as const, message: error.message };
+      throw error;
+    }
+  }
   if (intent === "delete") {
     await deleteItem(env.DB, access.campaign.id, id);
     return { ok: true as const };
@@ -138,11 +170,11 @@ export default function Calendar({ loaderData, actionData }: Route.ComponentProp
   const weeks = buildCalendar(items as ScheduleItem[]);
   const people = Object.fromEntries(members.map((m) => [m.value, m.label]));
   const errors: ItemFormErrors =
-    actionData && !actionData.ok && "errors" in actionData ? actionData.errors : {};
+    actionData && !actionData.ok && "errors" in actionData ? (actionData.errors ?? {}) : {};
   // Keep the dialog open to show field errors; close it once a save succeeds.
   useEffect(() => {
     if (!actionData) return;
-    setOpen(!actionData.ok && "errors" in actionData);
+    setOpen(!actionData.ok && "errors" in actionData && !!actionData.errors);
   }, [actionData]);
   const openFor = (item: ScheduleItem | null) => {
     setEditing(item);

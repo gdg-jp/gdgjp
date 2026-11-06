@@ -25,6 +25,22 @@ const schemaFiles = import.meta.glob<string>(
     import: "default",
   },
 );
+const exampleOutputFiles = import.meta.glob<string>(
+  "../../../../../skills/pr-*/references/example-output.json",
+  {
+    eager: true,
+    query: "?raw",
+    import: "default",
+  },
+);
+const checkScriptFiles = import.meta.glob<string>(
+  "../../../../../skills/pr-playbook/scripts/checks/*.mjs",
+  {
+    eager: true,
+    query: "?raw",
+    import: "default",
+  },
+);
 const templateFiles = import.meta.glob<string>(
   "../../../../../skills/pr-playbook/templates/**/*.{html,json,md}",
   {
@@ -54,6 +70,18 @@ export const outputSchemas: Record<string, unknown> = Object.fromEntries(
     path.split("/")[0] as string,
     JSON.parse(text),
   ]),
+);
+
+/** "pr-x-post" → example output (raw JSON text) */
+export const exampleOutputs: Record<string, string> = Object.fromEntries(
+  Object.entries(strip(exampleOutputFiles)).map(([path, text]) => [
+    path.split("/")[0] as string,
+    text,
+  ]),
+);
+/** "pr-playbook/scripts/checks/x.mjs" → source; the runner bundle ships them so the agent can self-check. */
+export const checkScripts = Object.fromEntries(
+  Object.entries(strip(checkScriptFiles)).filter(([path]) => !path.endsWith(".test.mjs")),
 );
 
 /** Files a Skill asks for with `<!-- reads: a, b -->`, as playbook-relative paths. */

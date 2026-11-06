@@ -3,7 +3,7 @@
 # After boot: install gdg (scripts/install-gdg.sh), put RUNNER_TOKEN in /etc/gdg/runner.env,
 # log Codex in as `runner` (README.md §3), then `systemctl enable --now gdg-runner`.
 package_update: true
-packages: [git, curl, ca-certificates, unzip, bubblewrap, jq]
+packages: [git, curl, ca-certificates, unzip, bubblewrap, jq, python3, nodejs]
 
 users:
   - default
@@ -22,6 +22,38 @@ write_files:
       RUNNER_BACKEND=codex
       RUNNER_WORKDIR=/var/lib/gdg-runner
       # RUNNER_MODEL=
+  # pr.gdgs.jp drafts (gdg pr runner, docs/plans/pr/03-runner-and-drafts.md). Its own token.
+  - path: /etc/gdg/pr-runner.env
+    permissions: "0640"
+    content: |
+      GDG_PR_URL=https://pr.gdgs.jp
+      # Same value as `wrangler secret put RUNNER_TOKEN` on the pr Worker (not the wiki's).
+      RUNNER_TOKEN=
+      RUNNER_BACKEND=codex
+      RUNNER_WORKDIR=/var/lib/gdg-pr-runner
+      YOMIYASU_DIR=/home/runner/.agents/skills/yomiyasu
+  - path: /etc/systemd/system/gdg-pr-runner.service
+    permissions: "0644"
+    content: |
+      [Unit]
+      Description=GDG Japan PR runner (gdg pr runner)
+      After=network-online.target
+      Wants=network-online.target
+
+      [Service]
+      User=runner
+      Group=runner
+      EnvironmentFile=/etc/gdg/pr-runner.env
+      ExecStart=/usr/local/bin/gdg pr runner
+      WorkingDirectory=/var/lib/gdg-pr-runner
+      Restart=always
+      RestartSec=10
+      NoNewPrivileges=true
+      ProtectSystem=full
+      PrivateTmp=true
+
+      [Install]
+      WantedBy=multi-user.target
   # Ubuntu 24.04 restricts unprivileged user namespaces; Codex's sandbox (bubblewrap) needs them.
   - path: /etc/apparmor.d/bwrap
     permissions: "0644"
@@ -61,6 +93,12 @@ runcmd:
   # write_files runs before users are created, so the group is set here.
   - chown root:runner /etc/gdg/runner.env
   - install -d -o runner -g runner -m 0700 /var/lib/gdg-runner
+  - chown root:runner /etc/gdg/pr-runner.env
+  - install -d -o runner -g runner -m 0700 /var/lib/gdg-pr-runner
+  # yomiyasu (Japanese proofreading) for the pr runner's checks.
+  - sudo -u runner -H git clone --depth 1 https://github.com/nanaism/yomiyasu /home/runner/.cache/yomiyasu
+  - sudo -u runner -H mkdir -p /home/runner/.agents/skills
+  - sudo -u runner -H ln -sfn /home/runner/.cache/yomiyasu/skills/yomiyasu /home/runner/.agents/skills/yomiyasu
   # Codex CLI, pinned by version and sha256 (bump both together).
   - |
     set -e

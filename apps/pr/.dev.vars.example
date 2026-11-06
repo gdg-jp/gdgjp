@@ -5,6 +5,8 @@ RP_SESSION_SECRET=""
 # Client secret issued by the accounts IdP for this RP. Must equal the value set
 # as PR_CLIENT_SECRET on the accounts worker.
 IDP_CLIENT_SECRET=""
+# The OCI runner token for /api/runner/* (32+ chars). Generate with `openssl rand -hex 24`.
+RUNNER_TOKEN=""
 
 # Override prod URLs from wrangler.toml so dev points at the local accounts IdP.
 # APP_URL must be http://localhost:5191 in dev or gdg-lib marks cookies Secure
