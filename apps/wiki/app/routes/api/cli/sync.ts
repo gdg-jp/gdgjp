@@ -14,6 +14,7 @@ import {
   scheduleSyncPostCommit,
 } from "~/features/agent-api/cli-sync.server";
 import { canonicalMarkdown } from "~/features/editor/content-format";
+import { scheduleKnowledgeSync } from "~/features/knowledge/sync.server";
 import {
   getEffectivePagePermissions,
   isGeneralAccess,
@@ -351,5 +352,6 @@ export async function action({ request, context }: ActionFunctionArgs) {
       revision: revisions.find((r) => r.id === page.id)?.revision,
     })),
   };
+  ctx.waitUntil(scheduleKnowledgeSync(env, space.id));
   return Response.json(syncResult);
 }

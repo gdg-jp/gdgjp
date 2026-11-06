@@ -10,6 +10,7 @@ import { useLoaderData } from "react-router";
 import * as schema from "~/db/schema";
 import { requireUser } from "~/features/auth/utils.server";
 import { canonicalMarkdown } from "~/features/editor/content-format";
+import { scheduleKnowledgeSync } from "~/features/knowledge/sync.server";
 import { getEffectivePagePermissions } from "~/features/pages/access.server";
 import { computeAclSourceIdsJson } from "~/features/pages/acl-spans";
 import { pageAclClearance, validatePageAclForSync } from "~/features/pages/acl-spans.server";
@@ -275,6 +276,7 @@ export async function action({ request, context, params }: ActionFunctionArgs) {
   ];
 
   await env.DB.batch(statements);
+  context.cloudflare.ctx.waitUntil(scheduleKnowledgeSync(env, space.id));
 
   const savedAt = new Date().toISOString();
 

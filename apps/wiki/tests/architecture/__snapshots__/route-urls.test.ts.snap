@@ -14,6 +14,7 @@ exports[`routes.ts URL surface > exposes a stable set of URLs 1`] = `
   "/api/admin/refresh-all-sources",
   "/api/agent/cat",
   "/api/agent/instructions",
+  "/api/agent/knowledge-search",
   "/api/agent/log",
   "/api/agent/ls",
   "/api/agent/notes",

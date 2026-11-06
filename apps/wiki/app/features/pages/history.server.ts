@@ -4,6 +4,7 @@ import { redirect } from "react-router";
 import * as schema from "~/db/schema";
 import { requireUser } from "~/features/auth/utils.server";
 import { canonicalMarkdown } from "~/features/editor/content-format";
+import { scheduleKnowledgeSync } from "~/features/knowledge/sync.server";
 import { getEffectivePagePermissions } from "~/features/pages/access.server";
 import { computeAclSourceIdsJson } from "~/features/pages/acl-spans";
 import {
@@ -329,5 +330,6 @@ export async function revertPageVersion(
     ).bind(page.id, page.id),
   ]);
 
+  await scheduleKnowledgeSync(env, space.id);
   return redirect(wikiPagePath(await getWikiCanonicalSlugPath(env, page.id), space.slug));
 }

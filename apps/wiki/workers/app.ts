@@ -7,6 +7,11 @@ import { sendDueTaskReminders } from "../app/features/discord/reminders.server";
 import { collabRoomName } from "../app/features/editor/collab-room";
 import { processGoogleDocumentImport } from "../app/features/google/documents/import.server";
 import { enqueuePendingSynthesis } from "../app/features/jobs/enqueue.server";
+import {
+  isKnowledgeSyncQueueBody,
+  processKnowledgeSync,
+  scheduleAllKnowledgeSyncs,
+} from "../app/features/knowledge/sync.server";
 import { getEffectivePagePermissions } from "../app/features/pages/access.server";
 import { pageAclClearance } from "../app/features/pages/acl-spans.server";
 import { backfillMarkdownContent } from "../app/features/pages/content-backfill.server";
@@ -171,6 +176,11 @@ export default {
         }),
       );
       ctx.waitUntil(
+        scheduleAllKnowledgeSyncs(env, drizzle(env.DB, { schema })).catch((err) => {
+          console.error("[scheduled] knowledge sync scheduling failed:", err);
+        }),
+      );
+      ctx.waitUntil(
         enqueuePendingSynthesis(drizzle(env.DB, { schema }))
           .then((count) => console.log("[jobs] synthesize sweep queued:", count))
           .catch((err) => {
@@ -209,6 +219,12 @@ export default {
 
         if (isGoogleDocumentImportQueueBody(body)) {
           await processGoogleDocumentImport(env, body.jobId);
+          message.ack();
+          continue;
+        }
+
+        if (isKnowledgeSyncQueueBody(body)) {
+          await processKnowledgeSync(env, body);
           message.ack();
           continue;
         }

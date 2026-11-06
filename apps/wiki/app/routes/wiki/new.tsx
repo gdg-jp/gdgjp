@@ -22,6 +22,7 @@ import { getDb } from "~/lib/db.server";
 // ---------------------------------------------------------------------------
 
 import { Icons } from "@gdgjp/design-system";
+import { scheduleKnowledgeSync } from "~/features/knowledge/sync.server";
 export const meta: MetaFunction = () => [{ title: "New Page — GDG Japan Wiki" }];
 
 // ---------------------------------------------------------------------------
@@ -73,6 +74,7 @@ export async function action({ request, context, params }: ActionFunctionArgs) {
     lastEditedBy: user.id,
   });
   await applySpacePageDefaults(db, space, pageId, user.id);
+  context.cloudflare.ctx.waitUntil(scheduleKnowledgeSync(env, space.id));
 
   return redirect(wikiPagePath([slug], space.slug), { headers: { "X-Wiki-Page-Id": pageId } });
 }

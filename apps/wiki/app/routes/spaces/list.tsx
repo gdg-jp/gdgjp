@@ -5,6 +5,7 @@ import { Form, Link, redirect, useActionData, useLoaderData } from "react-router
 import type { ActionFunctionArgs, LoaderFunctionArgs, MetaFunction } from "react-router";
 import * as schema from "~/db/schema";
 import { getAccessIdentity, requireUser } from "~/features/auth/utils.server";
+import { scheduleKnowledgeSync } from "~/features/knowledge/sync.server";
 import { listAccessibleSpaces, resolveSpaceAccess } from "~/features/spaces/access.server";
 import { FormSelect } from "~/features/spaces/components/FormSelect";
 import { spacePath } from "~/features/spaces/shared";
@@ -106,6 +107,8 @@ export async function action({ request, context }: ActionFunctionArgs) {
     return { error: "unknown_intent" };
   }
   if (!result.ok) return { error: result.error };
+  // Creates the space's search instance (empty until pages or sources arrive).
+  context.cloudflare.ctx.waitUntil(scheduleKnowledgeSync(env, result.space.id));
   return redirect(spacePath(result.space.slug));
 }
 

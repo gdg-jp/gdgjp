@@ -638,12 +638,6 @@ CREATE TRIGGER page_tags_sync_revision_insert AFTER INSERT ON page_tags
 BEGIN UPDATE pages SET sync_revision = sync_revision + 1 WHERE id = NEW.page_id; END;
 CREATE TRIGGER page_tags_sync_revision_delete AFTER DELETE ON page_tags
 BEGIN UPDATE pages SET sync_revision = sync_revision + 1 WHERE id = OLD.page_id; END;
-CREATE TRIGGER page_sources_sync_revision_insert AFTER INSERT ON page_sources
-BEGIN UPDATE pages SET sync_revision = sync_revision + 1 WHERE id = NEW.page_id; END;
-CREATE TRIGGER page_sources_sync_revision_update AFTER UPDATE ON page_sources
-BEGIN UPDATE pages SET sync_revision = sync_revision + 1 WHERE id = NEW.page_id; END;
-CREATE TRIGGER page_sources_sync_revision_delete AFTER DELETE ON page_sources
-BEGIN UPDATE pages SET sync_revision = sync_revision + 1 WHERE id = OLD.page_id; END;
 CREATE TRIGGER page_attachments_sync_revision_insert AFTER INSERT ON page_attachments
 BEGIN UPDATE pages SET sync_revision = sync_revision + 1 WHERE id = NEW.page_id; END;
 CREATE TRIGGER page_attachments_sync_revision_update AFTER UPDATE ON page_attachments
@@ -725,6 +719,12 @@ CREATE TABLE IF NOT EXISTS "source_import_runs" (
   "created_at" INTEGER NOT NULL DEFAULT (unixepoch()),
   "updated_at" INTEGER NOT NULL DEFAULT (unixepoch())
 );
+CREATE TRIGGER page_sources_sync_revision_insert AFTER INSERT ON page_sources
+BEGIN UPDATE pages SET sync_revision = sync_revision + 1 WHERE id = NEW.page_id; END;
+CREATE TRIGGER page_sources_sync_revision_update AFTER UPDATE ON page_sources
+BEGIN UPDATE pages SET sync_revision = sync_revision + 1 WHERE id = NEW.page_id; END;
+CREATE TRIGGER page_sources_sync_revision_delete AFTER DELETE ON page_sources
+BEGIN UPDATE pages SET sync_revision = sync_revision + 1 WHERE id = OLD.page_id; END;
 CREATE TABLE IF NOT EXISTS "agent_jobs" (
   "id"          TEXT NOT NULL PRIMARY KEY,
   "type"        TEXT NOT NULL CHECK ("type" IN ('synthesize', 'answer', 'consolidate', 'translate')),
@@ -755,3 +755,16 @@ CREATE INDEX "idx_agent_jobs_space" ON "agent_jobs" ("space_id", "type", "status
 CREATE UNIQUE INDEX "idx_agent_jobs_one_queued_per_space"
   ON "agent_jobs" ("space_id", "type")
   WHERE "status" = 'queued' AND "type" IN ('synthesize', 'consolidate');
+CREATE TABLE IF NOT EXISTS "knowledge_items" (
+  "space_id"     TEXT NOT NULL REFERENCES "spaces"("id") ON DELETE CASCADE,
+  "item_key"     TEXT NOT NULL,
+  "item_id"      TEXT,
+  -- page id or source_documents id the item was built from
+  "subject_type" TEXT NOT NULL CHECK ("subject_type" IN ('page', 'document')),
+  "subject_id"   TEXT NOT NULL,
+  -- pages.sync_revision or source_documents.content_hash (+ audience) at upload
+  "version"      TEXT NOT NULL,
+  "updated_at"   INTEGER NOT NULL DEFAULT (unixepoch()),
+  PRIMARY KEY ("space_id", "item_key")
+);
+CREATE INDEX "idx_knowledge_items_subject" ON "knowledge_items" ("subject_type", "subject_id");

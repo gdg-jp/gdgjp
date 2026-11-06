@@ -31,6 +31,7 @@ Single `ExportedHandler<Env>` — understand all three before touching:
 |---|---|
 | `DB` | D1, primary store. Via Drizzle (`getDb(env)` in `app/lib/db.server.ts`). |
 | `BUCKET` | R2 — page attachments + ingestion uploads. |
+| `KNOWLEDGE` | AI Search namespace `gdgjp-knowledge`; one built-in-storage instance per space. `app/features/knowledge/`. |
 | `TRANSLATION_QUEUE` | Translation producer+consumer; `app/lib/queue-processors.server.ts`. |
 | `SOURCE_FETCH_QUEUE` | Source fetch start messages (`source_fetch`). Source import work continues via DO alarms. |
 | `BROWSER` | Browser Rendering, headless Chromium for PDF. |
@@ -99,7 +100,8 @@ Details in `ARCHITECTURE.md`. Scan this table to narrow the location before you 
 | ソース取り込み（Worker 実行・DO alarm・refresh cron） | `workers/features/sources/` |
 | wiki 生成 AI（Agents SDK / Workflow） | `workers/features/ingestion/` — README あり |
 | wiki 生成 AI（クライアント配線 / ingest 画面） | `app/features/ingestion/`（README あり）, `app/routes/ingest/` |
-| AI 検索（Workers AI + Vectorize） | `app/features/ai-search/` |
+| 検索インデックス（AI Search、スペース別） | `app/features/knowledge/`（README あり） |
+| AI 検索（v1: Workers AI + Vectorize、Stage 07 で撤去） | `app/features/ai-search/` |
 | Google 連携（Drive / Docs / Forms / Chat / Picker） | `app/features/google/`（README あり。Docs インポートは `documents/`） |
 | Discord 連携 | `app/features/discord/`（README あり） |
 | 認証（RP / セッション） | `app/features/auth/`（README あり） |

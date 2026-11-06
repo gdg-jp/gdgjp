@@ -75,3 +75,25 @@ export async function resolveReviewFlag(
     );
   return (result.meta?.changes ?? 0) > 0;
 }
+
+/** Create the flag unless an open one of the same kind already exists for the target. */
+export async function ensureOpenReviewFlag(
+  db: Db,
+  flag: Parameters<typeof createReviewFlag>[1],
+): Promise<string | null> {
+  const existing = await db
+    .select({ id: schema.reviewFlags.id })
+    .from(schema.reviewFlags)
+    .where(
+      and(
+        eq(schema.reviewFlags.spaceId, flag.spaceId),
+        eq(schema.reviewFlags.targetType, flag.targetType),
+        eq(schema.reviewFlags.targetId, flag.targetId),
+        eq(schema.reviewFlags.kind, flag.kind),
+        isNull(schema.reviewFlags.resolvedAt),
+      ),
+    )
+    .get();
+  if (existing) return null;
+  return createReviewFlag(db, flag);
+}

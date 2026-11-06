@@ -1,7 +1,7 @@
 import { drizzle } from "drizzle-orm/d1";
 import * as schema from "~/db/schema";
-import { indexPageEmbeddings } from "~/features/ai-search/embedding.server";
 import { canonicalMarkdown } from "~/features/editor/content-format";
+import { scheduleKnowledgeSync } from "~/features/knowledge/sync.server";
 import {
   FORMAT_VERSION,
   type TranslationSegmentStore,
@@ -248,11 +248,11 @@ export async function processTranslationMessage(env: Env, body: { pageId: string
       .bind(translated.stats.cacheHits, translated.stats.cacheMisses, body.pageId, sourceHash)
       .run();
 
-    try {
-      await indexPageEmbeddings(env, drizzle(env.DB, { schema }), body.pageId);
-    } catch (error) {
-      console.error("embedding-pipeline: failed after translation", body.pageId, error);
-    }
+    // The English body changed: refresh the page's knowledge mirror (replaces Vectorize).
+    const translatedPage = await env.DB.prepare("SELECT space_id FROM pages WHERE id = ?")
+      .bind(body.pageId)
+      .first<{ space_id: string }>();
+    if (translatedPage) await scheduleKnowledgeSync(env, translatedPage.space_id);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     if (error instanceof TranslationBudgetExceededError) {

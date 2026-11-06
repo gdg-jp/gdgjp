@@ -4,6 +4,7 @@ import type { ActionFunctionArgs, LoaderFunctionArgs } from "react-router";
 import * as schema from "~/db/schema";
 import { getAccessIdentity, requireUser } from "~/features/auth/utils.server";
 import { canonicalMarkdown } from "~/features/editor/content-format";
+import { scheduleKnowledgeSync } from "~/features/knowledge/sync.server";
 import { getEffectivePagePermissions } from "~/features/pages/access.server";
 import { redactPageMarkdown } from "~/features/pages/acl-spans.server";
 import { archivePageAndDescendants } from "~/features/pages/archive.server";
@@ -366,6 +367,7 @@ export async function handleWikiPageAction({ request, context, params }: ActionF
     const isAuthor = sessionUser.id === page.authorId;
     if (!isAuthor && !sessionUser.isAdmin) throw new Response("Forbidden", { status: 403 });
     await archivePageAndDescendants(env, db, page.id);
+    context.cloudflare.ctx.waitUntil(scheduleKnowledgeSync(env, space.id));
     return redirect(spacePath(space.slug));
   }
 

@@ -3,6 +3,7 @@ export * from "./discord";
 export * from "./google";
 export * from "./ingestion";
 export * from "./jobs";
+export * from "./knowledge";
 export * from "./notifications";
 export * from "./pages";
 export * from "./sources";

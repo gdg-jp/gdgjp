@@ -71,6 +71,12 @@ migrations_dir = "./migrations"
 # ---------------------------------------------------------------------------
 # Cloudflare R2 — object storage for page attachments / ingestion uploads
 # ---------------------------------------------------------------------------
+# Knowledge index (knowledge platform v2 Stage 03): one AI Search instance per space
+# (instance id = spaces.id), built-in storage filled through the Items API.
+[[ai_search_namespaces]]
+binding = "KNOWLEDGE"
+namespace = "gdgjp-knowledge"
+
 [[r2_buckets]]
 binding = "BUCKET"
 bucket_name = "gdgjp-wiki-storage"

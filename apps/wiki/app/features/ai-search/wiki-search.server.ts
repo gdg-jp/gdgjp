@@ -1,16 +1,15 @@
 import { type SQL, and, desc, eq, inArray, sql } from "drizzle-orm";
 import * as schema from "~/db/schema";
-import { type RagSearchResult, performRagSearch } from "~/features/ai-search/rag-search.server";
+import type { RagSearchResult } from "~/features/ai-search/rag-search.server";
 import { getAccessIdentity } from "~/features/auth/utils.server";
+import { MAX_SEARCH_SPACES } from "~/features/knowledge/search.server";
+import { searchForReader } from "~/features/knowledge/viewer-search.server";
 import { agentPagesFilter, pagesInSpaces } from "~/features/pages/page-space.server";
 import { buildVisibilityFilter } from "~/features/pages/visibility.server";
-import { wikiPagePath } from "~/features/pages/wiki-page-path";
-import { getWikiCanonicalSlugPaths } from "~/features/pages/wiki-page-path.server";
 import { getWikiPageUrls } from "~/features/pages/wiki-page-path.server";
 import { requireSpace } from "~/features/spaces/access.server";
 import { loadViewerContext } from "~/features/spaces/viewer.server";
 import { getDb } from "~/lib/db.server";
-import { createAccessContext } from "../../../shared/ingestion/domain";
 
 export type AiRagResult = Omit<RagSearchResult, "sources"> & {
   sources: Array<RagSearchResult["sources"][number] & { wikiPath: string }>;
@@ -68,33 +67,18 @@ export async function loadWikiSearch(request: Request, env: Env, spaceSlug?: str
       .all();
   }
 
-  // AI search mode — stream RAG so the search shell isn't blocked on Vectorize/Gemini.
+  // "AI" mode — Cloudflare AI Search over the spaces the reader can reach (Stage 03). No
+  // answer is generated here: the Worker never calls an LLM; agents answer in Discord.
   if (mode === "ai" && q) {
-    const access = createAccessContext({
-      userId: identity.user?.id ?? "anonymous",
-      email: identity.user?.email,
-      isAdmin: identity.user?.isAdmin,
-      chapterIds: identity.chapterIds,
-      chapters: identity.chapters,
-      claimsAvailable: identity.claimsAvailable,
-      source: "web",
-    });
-    const ragResult: Promise<AiRagResult> = performRagSearch(env, db, q, access)
-      .then(async (result) => {
-        const sourcePaths = await getWikiCanonicalSlugPaths(
-          env,
-          result.sources.map((s) => s.pageId),
-        );
-        return {
-          ...result,
-          sources: result.sources.map((s) => ({
-            ...s,
-            wikiPath: wikiPagePath(sourcePaths.get(s.pageId) ?? [s.slug]),
-          })),
-        };
-      })
-      .catch((err) => {
-        console.error("search: RAG search failed", err);
+    const spaceIds = (scoped ? [scoped] : viewer.visibleSpaceIds).slice(0, MAX_SEARCH_SPACES);
+    const ragResult: Promise<AiRagResult> = searchForReader(env, db, identity, {
+      spaceIds,
+      query: q,
+      hideAgentPages: viewer.hideAgentPages,
+    })
+      .then(({ pages }): AiRagResult => ({ answer: "", ragAvailable: true, sources: pages }))
+      .catch((err): AiRagResult => {
+        console.error("search: knowledge search failed", err);
         return { answer: "", sources: [], ragAvailable: false };
       });
 

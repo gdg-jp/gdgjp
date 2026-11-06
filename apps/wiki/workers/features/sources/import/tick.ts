@@ -1,5 +1,6 @@
 import { getGoogleDriveTokenRow } from "../../../../app/features/google/drive-token.server";
 import { enqueueSynthesizeForSource } from "../../../../app/features/jobs/enqueue.server";
+import { scheduleKnowledgeSync } from "../../../../app/features/knowledge/sync.server";
 import { SourceAuthorizationError } from "../retry-classification";
 import type { SubrequestBudget } from "../subrequest-budget";
 import { discordGuildImportDriver } from "./discord-guild/phases";
@@ -129,6 +130,7 @@ export async function advanceSourceImportTick(ctx: SourceImportTickContext): Pro
       await driver.complete(ctx, current);
       // Every driver ends here: hand new / changed documents to the runner. A failure is
       // logged only — the hourly sweep (enqueuePendingSynthesis) re-queues them.
+      await scheduleKnowledgeSync(ctx.env, current.source.spaceId);
       try {
         await enqueueSynthesizeForSource(current.db, current.source.id);
       } catch (error) {

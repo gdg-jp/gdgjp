@@ -57,6 +57,7 @@ describe("daily translation queue", () => {
     sqlite.exec(`
       CREATE TABLE pages (
         id TEXT PRIMARY KEY,
+        space_id TEXT NOT NULL DEFAULT 'gdg-jp',
         title_ja TEXT NOT NULL DEFAULT '', title_en TEXT NOT NULL DEFAULT '',
         summary_ja TEXT NOT NULL DEFAULT '', summary_en TEXT NOT NULL DEFAULT '',
         content_ja TEXT NOT NULL DEFAULT '', content_en TEXT NOT NULL DEFAULT '',
