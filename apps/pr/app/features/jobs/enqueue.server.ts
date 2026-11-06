@@ -186,3 +186,24 @@ export async function enqueueDrafts(
     throw new EnqueueError("アイテムを選んでください");
   return jobs;
 }
+
+/** An image from a template: for a post's draft, a connpass page's image slot, or the campaign. */
+export async function enqueueAsset(
+  db: D1Database,
+  campaignId: number,
+  userId: string,
+  input: {
+    templateId: string;
+    forDraftId?: number;
+    forScheduleItemId?: number;
+    forImageSlotId?: string;
+    instructions?: string;
+  },
+): Promise<string> {
+  const { version } = await requireBrief(db, campaignId);
+  return insertJob(db, {
+    campaignId,
+    payload: { type: "asset", briefVersion: version, ...input },
+    requestedBy: userId,
+  });
+}

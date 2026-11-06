@@ -33,6 +33,7 @@ const mockServices = (command: string) =>
         { configPath: "./e2e/mock-services/sns.wrangler.toml" },
         { configPath: "./e2e/mock-services/tinyurl.wrangler.toml" },
         { configPath: "./e2e/mock-services/connpass.wrangler.toml" },
+        { configPath: "./e2e/mock-services/img.wrangler.toml" },
       ]
     : [];
 

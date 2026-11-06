@@ -43,6 +43,13 @@ connpass goes through `CONNPASS.PrService` (the connpass app's jobs): the page's
 the runner's slots by `skills/pr-playbook/scripts/render/` (never the agent's HTML), approval sends
 `update_event`; mails go out at their item's time; pr never creates connpass events.
 
+## Images and live posts
+
+`asset` jobs return template slots (`skills/pr-asset`); the Worker renders them with Browser
+Rendering (locally the Playwright server the e2e setup starts, `PR_RENDER_URL`), stores PNGs in R2
+`IMAGES`, and on approval publishes to img.gdgs.jp and hands them to connpass / tinyurl / the post.
+`/c/:slug/live` generates live posts from the brief's timetable without an LLM.
+
 ## Access
 
 Campaigns belong to a host chapter; co-host chapters join through `campaign_chapters`. Members of

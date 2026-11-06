@@ -62,6 +62,21 @@ binding = "CONNPASS"
 service = "gdgjp-connpass"
 entrypoint = "PrService"
 
+# Images (Stage 06): rendered from Playbook templates by Browser Rendering, kept in R2, and
+# published to img.gdgs.jp on approval (as the approver). Locally, PR_RENDER_URL (a Playwright
+# server the e2e setup starts) renders instead, and IMG_UPLOAD is e2e/mock-services/img.ts.
+[browser]
+binding = "BROWSER"
+
+[[r2_buckets]]
+binding = "IMAGES"
+bucket_name = "gdgjp-pr-images"
+
+[[services]]
+binding = "IMG_UPLOAD"
+service = "gdgjp-img"
+entrypoint = "ImageUploadService"
+
 # Every minute: runner lease requeue, staff reminders, Discord posts, review requests, follow-ups.
 # Hourly: sns post status, short-link health.
 [triggers]

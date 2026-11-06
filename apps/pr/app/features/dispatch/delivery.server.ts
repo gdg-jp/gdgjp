@@ -2,6 +2,7 @@ import type { CampaignAccess } from "~/features/campaigns/access.server";
 import type { Draft } from "~/features/drafts/draft";
 import { latestVersion, setDispatchMedia } from "~/features/drafts/draft.repository.server";
 import { currentContent, editDraft } from "~/features/drafts/review.server";
+import { enqueueAsset } from "~/features/jobs/enqueue.server";
 import { linkForItem } from "~/features/links/link.repository.server";
 import { getItem } from "~/features/schedule/item.repository.server";
 import { deliverablePost, jstLabel } from "./content";
@@ -97,6 +98,15 @@ export async function deliveryAction(
     return { ok: true, message: url ? "画像を付けました" : "画像を外しました" };
   }
   if (intent === "link") return editLink(env, access, draft, form);
+  if (intent === "make-image") {
+    const templateId = String(form.get("templateId") ?? "x-post-16x9");
+    await enqueueAsset(env.DB, access.campaign.id, access.user.id, {
+      templateId,
+      forDraftId: draft.id,
+      forScheduleItemId: draft.scheduleItemId ?? undefined,
+    });
+    return { ok: true, message: "画像のジョブを積みました。承認すると添付画像になります" };
+  }
   return null;
 }
 

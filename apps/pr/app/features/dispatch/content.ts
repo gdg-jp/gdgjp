@@ -44,9 +44,12 @@ export function deliverablePost(content: unknown): DeliverablePost | null {
 export function approvalBlockers(
   post: DeliverablePost | null,
   fallbackUrl: string | null,
+  mediaUrl: string | null = null,
 ): string[] {
   if (!post) return [];
   const out: string[] = [];
+  if (post.attachmentKind === "image" && !mediaUrl)
+    out.push("画像付きの投稿です。画像を承認する（か、添付する画像の URL を入れる）と承認できます");
   if (post.attachmentKind === "ogp" && !post.ogImage)
     out.push("OGP カードで出す投稿に OGP 画像の URL がありません（OGP-ON-SHORTLINK）");
   if (post.text.includes("{{shortlink}}") && !post.linkUrl && !fallbackUrl)

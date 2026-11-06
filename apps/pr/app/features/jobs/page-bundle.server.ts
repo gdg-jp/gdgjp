@@ -1,6 +1,7 @@
 import type { Campaign } from "~/features/campaigns/campaign";
+import { latestVersion } from "~/features/drafts/draft.repository.server";
 import { adoptedPlan } from "~/features/plans/plan.repository.server";
-import { templates } from "~/features/playbook/guides.server";
+import { imageTemplates, templates } from "~/features/playbook/guides.server";
 import { jstDate, jstTime } from "~/features/schedule/calendar";
 import { getItem, listItems } from "~/features/schedule/item.repository.server";
 import { approvedCopy } from "./bundle.server";
@@ -52,5 +53,42 @@ export async function pageFiles(
     "brief と採用コピー（COPY.json）から connpass ページのセクションを組む。HTML は書かず、スロットだけを返す。",
     "使える画像は IMAGES.json の URL だけ（セクション id → URL）。無い画像は imageUrl を null にし、imageSlots に載せる。",
     "描画して確かめる: node skills/pr-playbook/scripts/render/run.mjs --input /dev/stdin <<'JSON' … JSON",
+  );
+}
+
+/** What an `asset` job adds: the template, its slot contract, the skin, copy and the post's text. */
+export async function assetFiles(
+  db: D1Database,
+  campaign: Campaign,
+  payload: Record<string, unknown>,
+  files: Record<string, string>,
+  task: string[],
+): Promise<void> {
+  const templateId = String(payload.templateId ?? "");
+  const dir = `pr-playbook/templates/images/${templateId}/`;
+  for (const [path, text] of Object.entries(templates))
+    if (
+      path.startsWith(dir) ||
+      path === "pr-playbook/templates/images/README.md" ||
+      path === "pr-playbook/templates/images/base.css"
+    )
+      files[`skills/${path}`] = text;
+  files["skills/pr-playbook/scripts/render/checks-script.js"] = imageTemplates.checksScript;
+  files["skills/gdg-design/assets/gdg.svg"] = imageTemplates.logoSvg;
+  const copy = await approvedCopy(db, campaign.id);
+  if (copy) files["COPY.json"] = json(copy);
+  if (typeof payload.forDraftId === "number") {
+    const version = await latestVersion(db, payload.forDraftId);
+    if (version) files["POST.json"] = json(version.content);
+  }
+  if (Array.isArray(payload.failures)) files["CHECKS.json"] = json(payload.failures);
+  task.push(
+    `テンプレート ${templateId} のスロットを埋める（skills/${dir}slots.schema.json）。`,
+    "使わないスロットは null。layoutVars は範囲の中だけ。",
+    copy ? "COPY.json の採用コピーに沿う。" : "",
+    files["POST.json"]
+      ? "POST.json の投稿に添える画像として、本文と重複しすぎない見出しにする。"
+      : "",
+    `描画して確かめる: node skills/pr-playbook/scripts/render/images.mjs --template ${templateId} --slots /dev/stdin --out /tmp/asset <<'JSON' … JSON（Playwright が無ければ省く）`,
   );
 }

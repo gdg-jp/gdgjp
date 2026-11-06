@@ -32,6 +32,14 @@ describe("approvalBlockers", () => {
   });
 });
 
+describe("image posts", () => {
+  it("need an approved image (or a media URL) before approval", () => {
+    const p = deliverablePost(post({ kind: "image", link: null }, "本文"));
+    expect(approvalBlockers(p, null)[0]).toContain("画像");
+    expect(approvalBlockers(p, null, "https://img.gdgs.jp/x")).toEqual([]);
+  });
+});
+
 describe("jstLabel", () => {
   it("shows Japan time", () => {
     expect(jstLabel(Date.UTC(2026, 11, 1, 9, 0) / 1000)).toBe("12/01 18:00");

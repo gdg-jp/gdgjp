@@ -19,3 +19,7 @@ IDP_URL=http://localhost:5173
 IDP_CLIENT_ID=pr
 # Enables /dev/login locally (it 404s when ENVIRONMENT === "production").
 ENVIRONMENT=development
+
+# Local only: render images with the Playwright server e2e/render-server.ts starts (Browser
+# Rendering does not run locally). Leave unset in production.
+PR_RENDER_URL=http://127.0.0.1:5298/snapshot

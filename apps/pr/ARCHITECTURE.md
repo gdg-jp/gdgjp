@@ -21,6 +21,8 @@
 | connpass: page publishing on approval, survey, mails at their time, sub-events, thumbnail, publish, and the ledger of connpass jobs (`connpass_jobs`) the hourly cron follows | `app/features/connpass/` — writes only through `CONNPASS.PrService` jobs; never `create_event` |
 | connpass page rendering (slots → HTML with the Playbook's renderer and section templates) and the preview | `app/features/pages/` — the agent's HTML is never used |
 | Listings on Luma / TECH PLAY / Findy / Bevy: mapped from the brief (no runner), approval through `CONNPASS.createListing` or copy-and-mark-done by hand; Findy once per campaign | `app/features/listings/` |
+| Images: template slots → HTML (`skills/pr-playbook/scripts/render/image-html.mjs`) → Browser Rendering snapshot → R2 `IMAGES`, render checks measured in the page; approval publishes to img.gdgs.jp (`IMG_UPLOAD`) and hands off (connpass thumbnail JPEG ≤ 1 MB, short-link OGP, post attachment, connpass page slot) | `app/features/assets/` |
+| Live posts from the timetable (no LLM), with optional session cards | `app/features/live/` |
 | Domain-free widgets | `app/components/RowTable.tsx` |
 | Shells | `app/layouts/AppLayout.tsx`, `CampaignLayout.tsx` (campaign tabs) |
 | Screens + loaders / actions | `app/routes/<domain>/` — URLs in `app/routes.ts` |
@@ -41,6 +43,11 @@
 - A connpass page's `html` is rebuilt from its slots on every import and edit
   (`pages/render.ts`, `skills/pr-playbook/scripts/render/`). A connpass mail is approved per group
   target but sent by the minute cron at the item's time, never on approval.
+- Images are never drawn by the agent: it returns slots and bounded `layoutVars`; the Worker
+  builds the HTML with the same function the Skill's local renderer uses. Locally,
+  `PR_RENDER_URL` points at `e2e/render-server.ts` (Playwright) because Browser Rendering does not
+  run locally. Fonts are not deployed yet (embedding rights to confirm), so `RENDER-FONTS-LOADED`
+  is `unevaluated`.
 - `{{shortlink}}` is replaced on the copy sent to sns; `draft_versions.content` keeps it.
 - Discord message text is never in TS (`reminders.server.test.ts`); webhook URLs are AES-GCM
   encrypted with `SETTINGS_ENCRYPTION_KEY` and never shown or logged.

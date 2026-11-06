@@ -49,8 +49,19 @@ const renderScriptFiles = import.meta.glob<string>(
     import: "default",
   },
 );
+const browserScriptFiles = import.meta.glob<string>(
+  [
+    "../../../../../skills/pr-playbook/scripts/render/checks-script.js",
+    "../../../../../skills/gdg-design/assets/gdg.svg",
+  ],
+  {
+    eager: true,
+    query: "?raw",
+    import: "default",
+  },
+);
 const templateFiles = import.meta.glob<string>(
-  "../../../../../skills/pr-playbook/templates/**/*.{html,json,md}",
+  "../../../../../skills/pr-playbook/templates/**/*.{html,json,md,css}",
   {
     eager: true,
     query: "?raw",
@@ -118,3 +129,21 @@ export function playbookFile(path: string): string | undefined {
     templates[`pr-playbook/${path}`]
   );
 }
+
+const IMAGES = "pr-playbook/templates/images/";
+/** What image-html.mjs needs in the Worker: per-template HTML and slot contracts, CSS, the check script, the logo. */
+export const imageTemplates = {
+  html: Object.fromEntries(
+    Object.entries(templates)
+      .filter(([p]) => p.startsWith(IMAGES) && p.endsWith("/template.html"))
+      .map(([p, text]) => [p.slice(IMAGES.length, -"/template.html".length), text]),
+  ),
+  schemas: Object.fromEntries(
+    Object.entries(templates)
+      .filter(([p]) => p.startsWith(IMAGES) && p.endsWith("/slots.schema.json"))
+      .map(([p, text]) => [p.slice(IMAGES.length, -"/slots.schema.json".length), JSON.parse(text)]),
+  ) as Record<string, { size: { width: number; height: number }; slots: Record<string, unknown> }>,
+  baseCss: templates[`${IMAGES}base.css`] ?? "",
+  checksScript: strip(browserScriptFiles)["pr-playbook/scripts/render/checks-script.js"] ?? "",
+  logoSvg: strip(browserScriptFiles)["gdg-design/assets/gdg.svg"] ?? "",
+};

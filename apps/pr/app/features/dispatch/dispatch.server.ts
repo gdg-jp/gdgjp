@@ -43,7 +43,7 @@ export async function prepareDraftApproval(
   if (!draft.scheduleItemId) return { ok: true };
   const post = await deliverable(env, draft);
   const fallback = await fallbackUrl(env, access.campaign.id);
-  const blockers = approvalBlockers(post, fallback);
+  const blockers = approvalBlockers(post, fallback, draft.dispatchMediaUrl);
   if (blockers.length) return { ok: false, errors: blockers };
   const item = await getItem(env.DB, access.campaign.id, draft.scheduleItemId);
   if (post && item && post.text.includes("{{shortlink}}")) {

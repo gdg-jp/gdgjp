@@ -103,9 +103,21 @@ export function DeliveryCard({ view, busy }: { view: DeliveryView; busy: boolean
             <FormField label="添付する画像の URL" description="予約時に sns に添付します">
               <Input name="mediaUrl" defaultValue={view.mediaUrl ?? ""} />
             </FormField>
-            <Button type="submit" name="intent" value="media" variant="outline" loading={busy}>
-              画像を保存
-            </Button>
+            <div className="flex gap-2">
+              <Button type="submit" name="intent" value="media" variant="outline" loading={busy}>
+                画像を保存
+              </Button>
+              <input type="hidden" name="templateId" value="x-post-16x9" />
+              <Button
+                type="submit"
+                name="intent"
+                value="make-image"
+                variant="outline"
+                loading={busy}
+              >
+                画像を作る
+              </Button>
+            </div>
           </div>
         </Form>
       </Stack>

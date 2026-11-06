@@ -1,7 +1,8 @@
 import { execFileSync } from "node:child_process";
 import { startCaptureServer } from "./capture-server";
+import { startRenderServer } from "./render-server";
 
-/** Apply D1 migrations, and start the Discord / dead-link stand-in for the delivery spec. */
+/** Apply D1 migrations; start the Discord / dead-link stand-in and the local image renderer. */
 export default async function globalSetup() {
   execFileSync(
     "pnpm",
@@ -11,6 +12,9 @@ export default async function globalSetup() {
       cwd: new URL("..", import.meta.url).pathname,
     },
   );
-  const server = await startCaptureServer();
-  return () => new Promise<void>((resolve) => server.close(() => resolve()));
+  const servers = [await startCaptureServer(), await startRenderServer()];
+  return () =>
+    Promise.all(servers.map((s) => new Promise<void>((resolve) => s.close(() => resolve())))).then(
+      () => undefined,
+    );
 }

@@ -23,6 +23,7 @@ import {
 } from "~/features/playbook/playbook";
 import { listItems } from "~/features/schedule/item.repository.server";
 import { skillFor } from "./bundle.server";
+import { importAsset } from "./import-asset.server";
 import { importPage } from "./import-page.server";
 import { insertJob } from "./job.repository.server";
 import type { FixTarget, Job, RunnerResult } from "./shared";
@@ -44,6 +45,7 @@ export async function importResult(
   db: D1Database,
   job: Job,
   result: RunnerResult,
+  env?: Env,
 ): Promise<CompleteOutcome> {
   if (result.status === "failed")
     return { status: "failed", summary: {}, error: result.error ?? "runner failed" };
@@ -105,6 +107,11 @@ export async function importResult(
           })));
     const saved = await saveVersion(db, job, draftId, "copy", output, brief, yomiyasu);
     return { status: "succeeded", summary: { draftIds: [draftId], mustFails: saved.mustFails } };
+  }
+
+  if (job.type === "asset") {
+    if (!env) return { status: "failed", summary: {}, error: "asset import needs the Worker env" };
+    return importAsset(env, job, output as Parameters<typeof importAsset>[2]);
   }
 
   if (job.type === "page" || kind === "connpass_page" || kind === "connpass_mail") {

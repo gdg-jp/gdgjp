@@ -24,7 +24,7 @@ export async function action({ request, context, params }: Route.ActionArgs) {
     });
     return Response.json({ ok: true, retried: true });
   }
-  const outcome = await importResult(env.DB, job, body);
+  const outcome = await importResult(env.DB, job, body, env);
   const ok = await finishJob(env.DB, job.id, host, {
     status: outcome.status,
     result: outcome.summary,

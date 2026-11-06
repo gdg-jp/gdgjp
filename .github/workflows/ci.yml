@@ -593,6 +593,7 @@ jobs:
           ENVIRONMENT=development
           RUNNER_TOKEN=ci-pr-runner-token-0123456789abcdef0123
           SETTINGS_ENCRYPTION_KEY=ci-pr-settings-key-0123456789abcdef
+          PR_RENDER_URL=http://127.0.0.1:5298/snapshot
           EOF
       - name: Create Wiki E2E vars
         if: matrix.app == 'wiki'
