@@ -14,6 +14,7 @@ type Sample = {
 
 const DAY = 24 * 60 * 60;
 export const FRESHNESS_SAMPLE_SIZE = 20;
+const INSERT_ROWS = 15;
 
 /**
  * Nightly (Stage 06): record the last day's latencies.
@@ -108,11 +109,14 @@ export async function sampleFreshness(db: Db, now = new Date()): Promise<number>
     }
   }
 
-  for (let i = 0; i < samples.length; i += 20) {
+  // 6 columns a row: D1 allows 100 bound parameters a statement, so at most 16 rows.
+  for (let i = 0; i < samples.length; i += INSERT_ROWS) {
     await db
       .insert(schema.freshnessSamples)
       .values(
-        samples.slice(i, i + 20).map((sample) => ({ id: nanoid(), ...sample, sampledAt: now })),
+        samples
+          .slice(i, i + INSERT_ROWS)
+          .map((sample) => ({ id: nanoid(), ...sample, sampledAt: now })),
       );
   }
   return samples.length;

@@ -18,7 +18,8 @@ function timeAgo(date: Date, t: (key: string, opts?: Record<string, unknown>) =>
 }
 
 export function SearchView() {
-  const { q, tag, mode, allTags, results, ragResult } = useLoaderData<typeof loader>();
+  const { q, tag, mode, allTags, results, ragResult, hideAgentPages } =
+    useLoaderData<typeof loader>();
   const { t, i18n } = useTranslation();
   const isJa = i18n.language === "ja";
   const navigate = useNavigate();
@@ -127,9 +128,25 @@ export function SearchView() {
           >
             <Await
               resolve={ragResult ?? Promise.resolve(null)}
-              errorElement={<AiSearchResults q={q} ragResult={null} isJa={isJa} t={t} />}
+              errorElement={
+                <AiSearchResults
+                  q={q}
+                  ragResult={null}
+                  isJa={isJa}
+                  hideAgentPages={hideAgentPages}
+                  t={t}
+                />
+              }
             >
-              {(resolved) => <AiSearchResults q={q} ragResult={resolved} isJa={isJa} t={t} />}
+              {(resolved) => (
+                <AiSearchResults
+                  q={q}
+                  ragResult={resolved}
+                  isJa={isJa}
+                  hideAgentPages={hideAgentPages}
+                  t={t}
+                />
+              )}
             </Await>
           </Suspense>
         )
@@ -143,6 +160,7 @@ export function SearchView() {
           {tag && !q
             ? t("search.no_results_tag", { tag: activeTagName })
             : t("search.no_results", { query: q })}
+          {hideAgentPages ? ` ${t("search.agent_pages_hidden")}` : null}
         </p>
       ) : (
         <>
@@ -201,11 +219,13 @@ function AiSearchResults({
   q,
   ragResult,
   isJa,
+  hideAgentPages,
   t,
 }: {
   q: string;
   ragResult: AiRagResult | null;
   isJa: boolean;
+  hideAgentPages: boolean;
   t: (key: string, opts?: Record<string, unknown>) => string;
 }) {
   if (!q) {
@@ -221,7 +241,12 @@ function AiSearchResults({
   }
 
   if (!ragResult.answer && ragResult.sources.length === 0) {
-    return <p className="text-sm text-muted">{t("search.ai_no_results")}</p>;
+    return (
+      <p className="text-sm text-muted">
+        {t("search.ai_no_results")}
+        {hideAgentPages ? ` ${t("search.agent_pages_hidden")}` : null}
+      </p>
+    );
   }
 
   return (

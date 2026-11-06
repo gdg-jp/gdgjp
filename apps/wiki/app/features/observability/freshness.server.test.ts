@@ -35,6 +35,19 @@ describe("freshness sampling", () => {
     expect(summary.find((s) => s.kind === "integration")?.p95).toBe(3500);
   });
 
+  it("stays under D1's 100 bound parameters when writing many samples", async () => {
+    const { db, sqlite } = createSpacesTestDb();
+    const now = 1_800_000_000;
+    const jobs = Array.from(
+      { length: 30 },
+      (_, i) => `('a${i}', 'answer', 'gdg-jp', 'succeeded', '{}', ${now - 200}, ${now - 100})`,
+    );
+    sqlite.exec(`INSERT INTO agent_jobs (id, type, space_id, status, payload, created_at, finished_at)
+      VALUES ${jobs.join(", ")};`);
+    expect(await sampleFreshness(db, new Date(now * 1000))).toBe(60);
+    expect(sqlite.prepare("SELECT count(*) AS n FROM freshness_samples").get()).toEqual({ n: 60 });
+  });
+
   it("computes nearest-rank percentiles", () => {
     expect(percentile([], 50)).toBeNull();
     expect(percentile([1, 2, 3, 4, 5, 6, 7, 8, 9, 10], 50)).toBe(5);

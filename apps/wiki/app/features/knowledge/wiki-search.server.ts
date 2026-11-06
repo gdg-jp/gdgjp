@@ -27,6 +27,14 @@ export type AiRagResult = {
   }>;
 };
 
+const SEARCH_LIMIT = 50;
+/** `pages_fts_trigram` uses the trigram tokenizer: a term shorter than this never matches. */
+const TRIGRAM_MIN_CHARS = 3;
+
+function escapeLike(value: string): string {
+  return value.replace(/[\\%_]/g, (c) => `\\${c}`);
+}
+
 /** Strip FTS5 special operators to prevent query injection */
 function sanitizeFtsQuery(raw: string): string {
   return raw.replace(/[*"():^{}~<>|]/g, "").trim();
@@ -47,6 +55,8 @@ export async function loadWikiSearch(request: Request, env: Env, spaceSlug?: str
   const scoped = spaceSlug
     ? (await requireSpace(request, env, spaceSlug, "viewer", identity)).space.id
     : null;
+  // The empty state says when the reader's own setting hid agent pages from the results.
+  const hideAgentPages = viewer.hideAgentPages;
   const visFilter = and(
     pagesInSpaces(scoped ? [scoped] : viewer.visibleSpaceIds),
     buildVisibilityFilter(identity.user, identity.chapters),
@@ -95,6 +105,7 @@ export async function loadWikiSearch(request: Request, env: Env, spaceSlug?: str
       });
 
     return {
+      hideAgentPages,
       q,
       tag,
       mode,
@@ -138,6 +149,7 @@ export async function loadWikiSearch(request: Request, env: Env, spaceSlug?: str
       pages.map((p) => p.id),
     );
     return {
+      hideAgentPages,
       q,
       tag,
       mode,
@@ -152,60 +164,73 @@ export async function loadWikiSearch(request: Request, env: Env, spaceSlug?: str
   }
 
   // Case B: no query at all
-  if (!q && !tag) return { q: "", tag: "", mode, allTags, results: [], ragResult: null };
+  if (!q && !tag)
+    return { hideAgentPages, q: "", tag: "", mode, allTags, results: [], ragResult: null };
 
   // Case B/C: text query (with or without tag)
   const sanitized = sanitizeFtsQuery(q);
-  if (!sanitized) return { q, tag, mode, allTags, results: [], ragResult: null };
+  if (!sanitized) return { hideAgentPages, q, tag, mode, allTags, results: [], ragResult: null };
 
-  const ftsQuery = `"${sanitized}"`;
+  // Filters go into the same query as the match, before the limit: cutting the FTS hits to
+  // 50 first let pages in other spaces (or hidden ones) crowd out the reader's own.
+  const tagFilter = tag
+    ? sql`${schema.pages.id} IN (SELECT page_id FROM page_tags WHERE tag_slug = ${tag})`
+    : undefined;
+  const columns = {
+    id: schema.pages.id,
+    slug: schema.pages.slug,
+    titleJa: schema.pages.titleJa,
+    titleEn: schema.pages.titleEn,
+    summaryJa: schema.pages.summaryJa,
+    summaryEn: schema.pages.summaryEn,
+    updatedAt: schema.pages.updatedAt,
+  };
 
-  const matched = await db.all<{
-    page_id: string;
-    rank: number;
-  }>(
-    sql`SELECT page_id, rank
-        FROM pages_fts_trigram
-        WHERE pages_fts_trigram MATCH ${ftsQuery}
-        ORDER BY rank
-        LIMIT 50`,
-  );
-
-  if (matched.length === 0) return { q, tag, mode, allTags, results: [], ragResult: null };
-
-  let pageIds = matched.map((r) => r.page_id);
-
-  // Case C: intersect with tag filter
-  if (tag) {
-    const taggedRows = await db
-      .select({ pageId: schema.pageTags.pageId })
-      .from(schema.pageTags)
-      .where(eq(schema.pageTags.tagSlug, tag))
+  let orderedPages: Array<{
+    id: string;
+    slug: string;
+    titleJa: string;
+    titleEn: string;
+    summaryJa: string;
+    summaryEn: string;
+    updatedAt: Date;
+  }>;
+  if (Array.from(sanitized).length < TRIGRAM_MIN_CHARS) {
+    // The FTS table is a trigram index: shorter terms (most Japanese words, 「関西」「会場」)
+    // can never match it, so search titles and summaries directly.
+    const pattern = `%${escapeLike(sanitized)}%`;
+    orderedPages = await db
+      .select(columns)
+      .from(schema.pages)
+      .where(
+        and(
+          sql`(${schema.pages.titleJa} LIKE ${pattern} ESCAPE '\\'
+            OR ${schema.pages.titleEn} LIKE ${pattern} ESCAPE '\\'
+            OR ${schema.pages.summaryJa} LIKE ${pattern} ESCAPE '\\'
+            OR ${schema.pages.summaryEn} LIKE ${pattern} ESCAPE '\\')`,
+          eq(schema.pages.status, "published"),
+          visFilter,
+          tagFilter,
+        ),
+      )
+      .orderBy(desc(schema.pages.updatedAt))
+      .limit(SEARCH_LIMIT)
       .all();
-    const taggedIds = new Set(taggedRows.map((r) => r.pageId));
-    pageIds = pageIds.filter((id) => taggedIds.has(id));
+  } else {
+    const ftsQuery = `"${sanitized}"`;
+    const pages = await db
+      .select({ ...columns, rank: sql<number>`fts.rank` })
+      .from(schema.pages)
+      .innerJoin(
+        sql`(SELECT page_id, rank FROM pages_fts_trigram WHERE pages_fts_trigram MATCH ${ftsQuery}) AS fts`,
+        sql`fts.page_id = ${schema.pages.id}`,
+      )
+      .where(and(eq(schema.pages.status, "published"), visFilter, tagFilter))
+      .orderBy(sql`fts.rank`)
+      .limit(SEARCH_LIMIT)
+      .all();
+    orderedPages = pages.map(({ rank: _rank, ...page }) => page);
   }
-
-  if (pageIds.length === 0) return { q, tag, mode, allTags, results: [], ragResult: null };
-
-  // Fetch full page data for matched IDs, filtered to published + visibility
-  const pages = await db
-    .select({
-      id: schema.pages.id,
-      slug: schema.pages.slug,
-      titleJa: schema.pages.titleJa,
-      titleEn: schema.pages.titleEn,
-      summaryJa: schema.pages.summaryJa,
-      summaryEn: schema.pages.summaryEn,
-      updatedAt: schema.pages.updatedAt,
-    })
-    .from(schema.pages)
-    .where(and(inArray(schema.pages.id, pageIds), eq(schema.pages.status, "published"), visFilter))
-    .all();
-
-  // Preserve FTS rank order
-  const pageById = new Map(pages.map((p) => [p.id, p]));
-  const orderedPages = pageIds.map((id) => pageById.get(id)).filter(Boolean) as typeof pages;
 
   const pageTags = await fetchTagsForPages(orderedPages.map((p) => p.id));
   const tagsByPage = new Map<string, PageTag[]>();
@@ -220,6 +245,7 @@ export async function loadWikiSearch(request: Request, env: Env, spaceSlug?: str
     orderedPages.map((p) => p.id),
   );
   return {
+    hideAgentPages,
     q,
     tag,
     mode,

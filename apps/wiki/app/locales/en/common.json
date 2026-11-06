@@ -488,6 +488,7 @@
     "results_count": "{{count}} results",
     "no_results": "No pages found for \"{{query}}\".",
     "no_results_tag": "No pages found with tag \"{{tag}}\".",
+    "agent_pages_hidden": "Pages written by the agent are not included because \"Hide pages written by the agent\" is on.",
     "empty_query": "Enter a search term to find pages.",
     "clear_tag": "Clear tag filter",
     "filter_by_tag": "Tag:",

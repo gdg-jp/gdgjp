@@ -488,6 +488,7 @@
     "results_count": "{{count}} 件の結果",
     "no_results": "「{{query}}」に一致するページは見つかりませんでした。",
     "no_results_tag": "タグ「{{tag}}」のページは見つかりませんでした。",
+    "agent_pages_hidden": "「エージェントが作成したページを隠す」が on のため、エージェントが作成したページは結果に含まれていません。",
     "empty_query": "検索キーワードを入力してページを探しましょう。",
     "clear_tag": "タグフィルターをクリア",
     "filter_by_tag": "タグ:",

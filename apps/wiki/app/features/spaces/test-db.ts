@@ -4,6 +4,8 @@ import { drizzle } from "drizzle-orm/sqlite-proxy";
 import * as schema from "~/db/schema";
 import type { getDb } from "~/lib/db.server";
 
+const D1_MAX_BOUND_PARAMETERS = 100;
+
 /**
  * Real SQLite from the generated schema dump plus the rows migration 0062 seeds (the dump
  * carries schema only). Space access is decided entirely in SQL predicates, so tests run
@@ -29,6 +31,10 @@ export function createSpacesTestDb() {
       ('gdg-jp', 'user', '*', 'editor');
   `);
   const execute = async (sql: string, params: unknown[], method: string) => {
+    // D1 rejects a statement with more than 100 bound parameters; local SQLite does not.
+    if (params.length > D1_MAX_BOUND_PARAMETERS) {
+      throw new Error(`too many SQL variables: ${params.length} > ${D1_MAX_BOUND_PARAMETERS}`);
+    }
     const statement = sqlite.prepare(sql);
     if (method === "run") {
       const result = statement.run(...(params as never[]));
