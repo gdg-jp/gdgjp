@@ -3,7 +3,9 @@
   "configurations": [
     {
       "name": "wiki-dev",
-      "url": "http://localhost:5177"
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["--filter", "@gdgjp/wiki", "dev"],
+      "port": 5177
     },
     {
       "name": "accounts",

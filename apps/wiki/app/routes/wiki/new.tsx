@@ -1,4 +1,3 @@
-import { eq } from "drizzle-orm";
 import { MdEditor } from "md-editor-rt";
 import "md-editor-rt/lib/style.css";
 import { useTheme } from "@gdgjp/design-system";
@@ -6,11 +5,16 @@ import { useTheme } from "@gdgjp/design-system";
 import { nanoid } from "nanoid";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Form, Link, redirect } from "react-router";
+import { Form, Link, redirect, useParams } from "react-router";
 import type { ActionFunctionArgs, MetaFunction } from "react-router";
 import * as schema from "~/db/schema";
 import { requireUser } from "~/features/auth/utils.server";
 import { generateSlug } from "~/features/ingestion/slug";
+import { pageInSpace } from "~/features/pages/page-space.server";
+import { wikiPagePath } from "~/features/pages/wiki-page-path";
+import { requireSpace } from "~/features/spaces/access.server";
+import { applySpacePageDefaults } from "~/features/spaces/page-defaults.server";
+import { spacePath } from "~/features/spaces/shared";
 import { getDb } from "~/lib/db.server";
 
 // ---------------------------------------------------------------------------
@@ -24,9 +28,11 @@ export const meta: MetaFunction = () => [{ title: "New Page — GDG Japan Wiki" 
 // Loader
 // ---------------------------------------------------------------------------
 
-export async function action({ request, context }: ActionFunctionArgs) {
+export async function action({ request, context, params }: ActionFunctionArgs) {
   const { env } = context.cloudflare;
   const user = await requireUser(request, env);
+  // New pages belong to the current space; creating one needs the editor role there.
+  const { space } = await requireSpace(request, env, params.space, "editor");
   const db = getDb(env);
 
   const formData = await request.formData();
@@ -41,7 +47,7 @@ export async function action({ request, context }: ActionFunctionArgs) {
   const existing = await db
     .select({ id: schema.pages.id })
     .from(schema.pages)
-    .where(eq(schema.pages.slug, slug))
+    .where(pageInSpace(space.id, slug))
     .get();
   if (existing) {
     slug = `${baseSlug}-${nanoid(6)}`;
@@ -51,6 +57,7 @@ export async function action({ request, context }: ActionFunctionArgs) {
 
   await db.insert(schema.pages).values({
     id: pageId,
+    spaceId: space.id,
     titleJa,
     titleEn,
     slug,
@@ -65,8 +72,9 @@ export async function action({ request, context }: ActionFunctionArgs) {
     authorId: user.id,
     lastEditedBy: user.id,
   });
+  await applySpacePageDefaults(db, space, pageId, user.id);
 
-  return redirect(`/wiki/${slug}`, { headers: { "X-Wiki-Page-Id": pageId } });
+  return redirect(wikiPagePath([slug], space.slug), { headers: { "X-Wiki-Page-Id": pageId } });
 }
 
 // ---------------------------------------------------------------------------
@@ -75,6 +83,8 @@ export async function action({ request, context }: ActionFunctionArgs) {
 
 export default function NewPage() {
   const { t } = useTranslation();
+  const params = useParams();
+  const homePath = spacePath(params.space ?? "gdg-jp");
   const { resolvedTheme } = useTheme();
   const theme = resolvedTheme === "dark" ? "dark" : "light";
 
@@ -100,7 +110,7 @@ export default function NewPage() {
         {/* Row 1 col 1 (mobile) / inline (desktop): back + title */}
         <div className="flex min-w-0 items-center gap-1 sm:flex-1">
           <Link
-            to="/"
+            to={homePath}
             className="shrink-0 rounded-md p-1.5 text-muted hover:bg-neutral hover:text-foreground"
             aria-label={t("editor.back_to_page")}
           >

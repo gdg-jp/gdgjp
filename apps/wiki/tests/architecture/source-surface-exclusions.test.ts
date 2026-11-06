@@ -16,8 +16,9 @@ describe("conversation source surface exclusions", () => {
     const json = routeSource("api/sources/list.ts");
     const manifest = routeSource("api/cli/sources.ts");
 
-    expect(page).toMatch(/\.where\(ne\(schema\.sources\.kind, "conversation"\)\)/);
-    expect(json).toMatch(/\.where\(ne\(schema\.sources\.kind, "conversation"\)\)/);
+    // Both queries also carry the space filter: `.where(and(eq(spaceId…), ne(kind…)))`.
+    expect(page).toMatch(/\.where\(and\([^;]*ne\(schema\.sources\.kind, "conversation"\)\)\)/);
+    expect(json).toMatch(/\.where\(and\([^;]*ne\(schema\.sources\.kind, "conversation"\)\)\)/);
     expect(manifest).toMatch(/ne\(schema\.sources\.kind, "conversation"\)/);
   });
 

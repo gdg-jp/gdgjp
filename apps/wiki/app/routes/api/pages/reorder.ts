@@ -1,7 +1,9 @@
 import type { ActionFunctionArgs } from "react-router";
 import { z } from "zod";
-import { requireUser } from "~/features/auth/utils.server";
+import { getAccessIdentity, requireUser } from "~/features/auth/utils.server";
 import { movePage } from "~/features/pages/move.server";
+import { requirePageSpace } from "~/features/spaces/access.server";
+import { getDb } from "~/lib/db.server";
 
 const BodySchema = z.object({
   pageId: z.string().min(1),
@@ -18,6 +20,8 @@ export async function action({ request, context }: ActionFunctionArgs) {
   const { pageId, newParentId, insertAfterId } = parsed.data;
 
   try {
+    // Reordering edits the tree of the page's space.
+    await requirePageSpace(getDb(env), await getAccessIdentity(request, env), pageId, "editor");
     await movePage(env, user, { pageId, newParentId, insertAfterId });
     return Response.json({ ok: true });
   } catch (error) {

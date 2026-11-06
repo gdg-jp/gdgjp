@@ -1,11 +1,16 @@
 import { and, eq, isNull, max, ne } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import * as schema from "../../../../app/db/schema";
+import {
+  IMPORT_FIRST_PHASE,
+  type SourceImportKind,
+  sourceKindSpec,
+} from "../../../../app/features/sources/kinds";
 import { getDb } from "../../../../app/lib/db.server";
 import { isRetryableFetchError } from "../retry-classification";
 import type { SubrequestBudget } from "../subrequest-budget";
 
-export type SourceImportKind = "google-chat-space" | "google-drive" | "website" | "discord-channel";
+export type { SourceImportKind } from "../../../../app/features/sources/kinds";
 
 export const MAX_CONSECUTIVE_FAILURES = 5;
 export const ALARM_CONTINUE_MS = 500;
@@ -17,7 +22,7 @@ export const ACCESS_TOKEN_SUBREQUESTS = 1;
 export const PERSIST_REPLACE_SUBREQUESTS = 4;
 export const PERSIST_MERGE_SUBREQUESTS = 5;
 /** archiveMissingDocuments: lease check + update + final lease check. */
-export const ARCHIVE_MISSING_SUBREQUESTS = 3;
+export const ARCHIVE_MISSING_SUBREQUESTS = 5;
 
 export interface SourceImportTickContext {
   env: Env;
@@ -51,10 +56,9 @@ export interface ClaimedSourceImport {
 }
 
 export function driverKindForSource(source: typeof schema.sources.$inferSelect): SourceImportKind {
-  if (source.kind === "google-chat-space") return "google-chat-space";
-  if (source.kind === "discord-channel") return "discord-channel";
-  if (source.kind === "website") return "website";
-  return "google-drive";
+  const driver = sourceKindSpec(source.kind)?.driver;
+  if (!driver) throw new Error(`No import driver for source kind ${source.kind}`);
+  return driver;
 }
 
 export async function currentRun(env: Env, runId: string) {
@@ -176,7 +180,7 @@ export async function claimSourceImport(
         kind,
         fetchAttemptId: request.fetchAttemptId,
         sinceCursor,
-        phase: kind === "google-chat-space" || kind === "discord-channel" ? "listing" : "start",
+        phase: IMPORT_FIRST_PHASE[kind],
       }),
     ]);
     if (!(await currentRun(env, id))) {

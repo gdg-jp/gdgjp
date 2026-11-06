@@ -28,11 +28,14 @@ vi.mock("~/lib/db.server", () => ({
 // drizzle `eq` is only used to build the predicate our fake `where` reads back.
 vi.mock("drizzle-orm", () => ({
   eq: (column: { name: string }, value: string) => ({ [column.name]: value }),
+  // pageInSpace(spaceId, slug) = and(eq(spaceId), eq(slug)); merge so `where` reads slug.
+  and: (...parts: Array<Record<string, string>>) => Object.assign({}, ...parts),
 }));
 
 vi.mock("~/db/schema", () => ({
   pages: {
     id: { name: "id" },
+    spaceId: { name: "spaceId" },
     slug: { name: "slug" },
     parentId: { name: "parentId" },
   },

@@ -8,9 +8,10 @@ import { CardGridSkeleton } from "~/components/Skeleton";
 import * as schema from "~/db/schema";
 import { getAccessIdentity } from "~/features/auth/utils.server";
 import TagChip from "~/features/pages/components/TagChip";
+import { agentPagesFilter } from "~/features/pages/page-space.server";
 import { buildVisibilityFilter } from "~/features/pages/visibility.server";
-import { wikiPagePath } from "~/features/pages/wiki-page-path";
-import { getWikiCanonicalSlugPaths } from "~/features/pages/wiki-page-path.server";
+import { getWikiPageUrls } from "~/features/pages/wiki-page-path.server";
+import { resolveHomeScope } from "~/features/spaces/shell.server";
 import { getDb } from "~/lib/db.server";
 import { timeAgo } from "~/lib/time";
 import { HomeCta } from "./_components/HomeCta";
@@ -42,12 +43,22 @@ export const meta: MetaFunction<typeof loader> = ({ matches }) => {
 // Loader
 // ---------------------------------------------------------------------------
 
-export async function loader({ request, context }: LoaderFunctionArgs) {
+export async function loader({ request, context, params }: LoaderFunctionArgs) {
   const { env } = context.cloudflare;
-  const identity = await getAccessIdentity(request, env);
-  const { user } = identity;
   const db = getDb(env);
-  const visFilter = buildVisibilityFilter(user, identity.chapters);
+  const { identity, spaceId, hideAgentPages } = await resolveHomeScope(
+    request,
+    env,
+    db,
+    await getAccessIdentity(request, env),
+    params.space,
+  );
+  const { user } = identity;
+  const visFilter = and(
+    eq(schema.pages.spaceId, spaceId),
+    buildVisibilityFilter(user, identity.chapters),
+    agentPagesFilter(hideAgentPages),
+  );
 
   if (!user) {
     const publicPages = db
@@ -65,13 +76,13 @@ export async function loader({ request, context }: LoaderFunctionArgs) {
       .orderBy(desc(schema.pages.updatedAt))
       .all()
       .then(async (pages) => {
-        const slugPaths = await getWikiCanonicalSlugPaths(
+        const urls = await getWikiPageUrls(
           env,
           pages.map((p) => p.id),
         );
         return pages.map((p) => ({
           ...p,
-          wikiPath: wikiPagePath(slugPaths.get(p.id) ?? [p.slug]),
+          wikiPath: urls.get(p.id) ?? "",
         }));
       });
 
@@ -126,7 +137,7 @@ export async function loader({ request, context }: LoaderFunctionArgs) {
       .limit(6)
       .all(),
   ]).then(async ([recentPages, allTags, recentComments]) => {
-    const slugPaths = await getWikiCanonicalSlugPaths(env, [
+    const urls = await getWikiPageUrls(env, [
       ...recentPages.map((p) => p.id),
       ...recentComments.map((c) => c.pageId),
     ]);
@@ -134,12 +145,12 @@ export async function loader({ request, context }: LoaderFunctionArgs) {
     return {
       recentPages: recentPages.map((p) => ({
         ...p,
-        wikiPath: wikiPagePath(slugPaths.get(p.id) ?? [p.slug]),
+        wikiPath: urls.get(p.id) ?? "",
       })),
       allTags,
       recentComments: recentComments.map((c) => ({
         ...c,
-        wikiPath: wikiPagePath(slugPaths.get(c.pageId) ?? [c.pageSlug]),
+        wikiPath: urls.get(c.pageId) ?? "",
       })),
     };
   });

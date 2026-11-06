@@ -2,11 +2,13 @@ import type { AuthUser } from "@gdgjp/gdg-lib";
 import { and, eq } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import * as schema from "~/db/schema";
+import { enqueueSynthesizeForSource } from "~/features/jobs/enqueue.server";
 import type { SourceRefreshPolicy, SourceVisibility } from "~/features/sources/shared";
 import { getDb } from "~/lib/db.server";
 import type { CreateSourceResult } from "./create.server";
 import type { Membership } from "./permissions";
 import { canAssignSourceVisibility, parseSourceVisibilitySelection } from "./permissions";
+import { rawObjectKey, rawObjectMetadata } from "./raw-object";
 
 export const MAX_INLINE_SOURCE_BYTES = 1_000_000;
 
@@ -76,6 +78,8 @@ export async function createInlineSource(
           eq(schema.sources.addedBy, input.user.id),
           eq(schema.sources.kind, "conversation"),
           eq(schema.sources.externalId, externalId),
+          // Inline (conversation) sources always live in the default space.
+          eq(schema.sources.spaceId, "gdg-jp"),
         ),
       )
       .get();
@@ -164,11 +168,11 @@ export async function createInlineSource(
         .get();
       const documentId = existingDocument?.id ?? nanoid();
       const contentHash = await inlineContentHash(content);
-      const r2Key = `raw/${source.id}/${documentId}/${contentHash}.md`;
+      const r2Key = rawObjectKey(source.spaceId, source.id, "conversation.md");
 
       await env.BUCKET.put(r2Key, content, {
         httpMetadata: { contentType: "text/markdown; charset=utf-8" },
-        customMetadata: { sha256: contentHash, path: "conversation.md" },
+        customMetadata: rawObjectMetadata(source, { sha256: contentHash, path: "conversation.md" }),
       });
 
       const now = new Date();
@@ -210,6 +214,12 @@ export async function createInlineSource(
         .returning()
         .get();
       if (!ready) return { ok: false, error: "conflict", status: 409 };
+      try {
+        await enqueueSynthesizeForSource(db, ready.id);
+      } catch (error) {
+        // The hourly sweep re-queues anything this misses.
+        console.error("[sources] synthesize enqueue failed", ready.id, error);
+      }
       return { ok: true, source: inlineSourceResponse(ready) };
     } catch (error) {
       console.error("[sources] inline source persistence failed", source.id, error);

@@ -5,6 +5,7 @@ import { useTranslation } from "react-i18next";
 import { Link } from "react-router";
 import type { FlatNode, PageNode } from "~/features/pages/tree";
 import { wikiPagePath } from "~/features/pages/wiki-page-path";
+import { useCurrentSpace } from "~/features/spaces/components/current-space";
 import { INDENT_WIDTH, getLocalizedTitle } from "./build-tree";
 
 // ---------------------------------------------------------------------------
@@ -38,6 +39,7 @@ export function SortableTreeItem({
   const { listeners, setNodeRef, transform, transition } = useSortable({ id: node.id });
   const title = getLocalizedTitle(node, i18n.language);
   const isCurrent = node.slug === currentSlug;
+  const { slug: spaceSlug } = useCurrentSpace();
   const hasChildren = node.children.length > 0;
 
   return (
@@ -107,7 +109,7 @@ export function SortableTreeItem({
           to={
             node.pageType === "task-list"
               ? `/tasks/${node.slug}`
-              : wikiPagePath(pathById.get(node.id) ?? [node.slug])
+              : wikiPagePath(pathById.get(node.id) ?? [node.slug], spaceSlug)
           }
           prefetch="intent"
           className="relative z-10 min-w-0 flex-1 truncate"
@@ -146,6 +148,7 @@ export function TreeNode({
   const hasChildren = node.children.length > 0;
   const expanded = expandedIds.has(node.id);
   const isCurrent = node.slug === currentSlug;
+  const { slug: spaceSlug } = useCurrentSpace();
   const title = getLocalizedTitle(node, i18n.language);
 
   return (
@@ -201,7 +204,7 @@ export function TreeNode({
             to={
               node.pageType === "task-list"
                 ? `/tasks/${node.slug}`
-                : wikiPagePath(pathById.get(node.id) ?? [node.slug])
+                : wikiPagePath(pathById.get(node.id) ?? [node.slug], spaceSlug)
             }
             prefetch="intent"
             className="relative z-10 min-w-0 flex-1 truncate"

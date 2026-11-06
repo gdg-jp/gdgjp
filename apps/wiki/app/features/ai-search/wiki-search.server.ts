@@ -1,10 +1,14 @@
-import { and, desc, eq, inArray, sql } from "drizzle-orm";
+import { type SQL, and, desc, eq, inArray, sql } from "drizzle-orm";
 import * as schema from "~/db/schema";
 import { type RagSearchResult, performRagSearch } from "~/features/ai-search/rag-search.server";
 import { getAccessIdentity } from "~/features/auth/utils.server";
+import { agentPagesFilter, pagesInSpaces } from "~/features/pages/page-space.server";
 import { buildVisibilityFilter } from "~/features/pages/visibility.server";
 import { wikiPagePath } from "~/features/pages/wiki-page-path";
 import { getWikiCanonicalSlugPaths } from "~/features/pages/wiki-page-path.server";
+import { getWikiPageUrls } from "~/features/pages/wiki-page-path.server";
+import { requireSpace } from "~/features/spaces/access.server";
+import { loadViewerContext } from "~/features/spaces/viewer.server";
 import { getDb } from "~/lib/db.server";
 import { createAccessContext } from "../../../shared/ingestion/domain";
 
@@ -18,7 +22,7 @@ function sanitizeFtsQuery(raw: string): string {
 }
 
 /** Data assembly behind the `/search` loader (keyword FTS + streamed AI RAG). */
-export async function loadWikiSearch(request: Request, env: Env) {
+export async function loadWikiSearch(request: Request, env: Env, spaceSlug?: string) {
   const url = new URL(request.url);
   const q = url.searchParams.get("q")?.trim() ?? "";
   const tag = url.searchParams.get("tag")?.trim() ?? "";
@@ -27,7 +31,16 @@ export async function loadWikiSearch(request: Request, env: Env) {
   const identity = await getAccessIdentity(request, env);
   const db = getDb(env);
 
-  const visFilter = buildVisibilityFilter(identity.user, identity.chapters);
+  const viewer = await loadViewerContext(request, env, identity);
+  // `/s/:space/search` searches one space; `/search` every reachable space.
+  const scoped = spaceSlug
+    ? (await requireSpace(request, env, spaceSlug, "viewer", identity)).space.id
+    : null;
+  const visFilter = and(
+    pagesInSpaces(scoped ? [scoped] : viewer.visibleSpaceIds),
+    buildVisibilityFilter(identity.user, identity.chapters),
+    agentPagesFilter(viewer.hideAgentPages),
+  ) as SQL;
 
   const allTagsPromise = db.select().from(schema.tags).orderBy(desc(schema.tags.pageCount)).all();
 
@@ -124,7 +137,7 @@ export async function loadWikiSearch(request: Request, env: Env) {
       tagsByPage.set(pt.pageId, arr);
     }
 
-    const slugPaths = await getWikiCanonicalSlugPaths(
+    const urls = await getWikiPageUrls(
       env,
       pages.map((p) => p.id),
     );
@@ -136,7 +149,7 @@ export async function loadWikiSearch(request: Request, env: Env) {
       results: pages.map((p) => ({
         ...p,
         tags: tagsByPage.get(p.id) ?? [],
-        wikiPath: wikiPagePath(slugPaths.get(p.id) ?? [p.slug]),
+        wikiPath: urls.get(p.id) ?? "",
       })),
       ragResult: null,
     };
@@ -206,7 +219,7 @@ export async function loadWikiSearch(request: Request, env: Env) {
     tagsByPage.set(pt.pageId, arr);
   }
 
-  const slugPaths = await getWikiCanonicalSlugPaths(
+  const urls = await getWikiPageUrls(
     env,
     orderedPages.map((p) => p.id),
   );
@@ -218,7 +231,7 @@ export async function loadWikiSearch(request: Request, env: Env) {
     results: orderedPages.map((p) => ({
       ...p,
       tags: tagsByPage.get(p.id) ?? [],
-      wikiPath: wikiPagePath(slugPaths.get(p.id) ?? [p.slug]),
+      wikiPath: urls.get(p.id) ?? "",
     })),
     ragResult: null,
   };

@@ -16,6 +16,7 @@
 
 | 探しもの | 場所 |
 |---|---|
+| スペース（テナント層・メンバー・レビューフラグ・表示設定） | `app/features/spaces/` — README あり。ルートは `app/routes/spaces/`（`/spaces`, `/spaces/:space/*`, `/s/:space`, v1 URL の 301） |
 | ページ本体 / ACL / 可視性 / ツリー / メタ / パス / アーカイブ | `app/features/pages/` — README あり。UI は `app/features/pages/components/` |
 | ソース取り込み（UI / API / loader・action 側） | `app/features/sources/` — README あり。ルートは `app/routes/sources/`, `app/routes/api/sources/` |
 | ソース取り込み（Worker 実行 / DO alarm / refresh cron） | `workers/features/sources/` — README あり |
@@ -87,6 +88,7 @@ app/routes/
 | `chapters.ts` | `chapters` |
 | `tags.ts` | `tags` |
 | `ingestion.ts` | `ingestionSessions` |
+| `spaces.ts` | `spaces`, `spaceMembers`, `reviewFlags` |
 | `sources.ts` | `sources`, `sourceDocuments`, `sourceAssets`, `sourceImportRuns`, `googleChatSenderProfiles`, `googleChatSenderSamples` |
 | `pages.ts` | `pages`, `wikiAgentInstructions`, `pageTags`, `pageAttachments`, `pageVersions`, `pageFavorites`, `pageSources`, `pageComments`, `commentReactions`, `pageEmbeddingStatus`, `pageViews`, `pageAccess` |
 | `google.ts` | `googleDriveTokens`, `googleDocumentImports`, `googleDocumentImportNodes`, `googleDocumentImportJobs` |

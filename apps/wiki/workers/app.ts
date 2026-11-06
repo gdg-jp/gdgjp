@@ -1,14 +1,18 @@
 import { routeAgentRequest } from "agents";
-import { eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/d1";
 import { createRequestHandler } from "react-router";
 import * as schema from "../app/db/schema";
 import { createAuth } from "../app/features/auth/auth.server";
 import { sendDueTaskReminders } from "../app/features/discord/reminders.server";
+import { collabRoomName } from "../app/features/editor/collab-room";
 import { processGoogleDocumentImport } from "../app/features/google/documents/import.server";
+import { enqueuePendingSynthesis } from "../app/features/jobs/enqueue.server";
 import { getEffectivePagePermissions } from "../app/features/pages/access.server";
 import { pageAclClearance } from "../app/features/pages/acl-spans.server";
 import { backfillMarkdownContent } from "../app/features/pages/content-backfill.server";
+import { pageInSpace } from "../app/features/pages/page-space.server";
+import { getSpaceBySlug, resolveSpaceAccess } from "../app/features/spaces/access.server";
+import { roleAtLeast } from "../app/features/spaces/shared";
 import {
   enqueuePendingTranslations,
   isGoogleDocumentImportQueueBody,
@@ -18,6 +22,10 @@ import {
 } from "../app/lib/queue-processors.server";
 import { WikiGenerationAgent } from "./agents/wiki-generation-agent";
 import { CollabDurableObject } from "./collab-durable-object";
+import {
+  isSourceAudienceRewriteQueueBody,
+  rewriteSourceAudience,
+} from "./features/sources/audience-rewrite";
 import {
   SOURCE_REFRESH_CRON,
   TASK_REMINDER_CRON,
@@ -67,8 +75,11 @@ export default {
       url.pathname.startsWith("/ws/collab/") &&
       request.headers.get("Upgrade")?.toLowerCase() === "websocket"
     ) {
-      const slug = url.pathname.split("/")[3];
-      if (!slug) return new Response("Missing slug", { status: 400 });
+      // /ws/collab/<spaceSlug>/<slug>
+      const [, , , rawSpace, rawSlug] = url.pathname.split("/");
+      const spaceSlug = rawSpace ? decodeURIComponent(rawSpace) : "";
+      const slug = rawSlug ? decodeURIComponent(rawSlug) : "";
+      if (!spaceSlug || !slug) return new Response("Missing slug", { status: 400 });
       const auth = createAuth(env);
       let user: Awaited<ReturnType<typeof auth.getSessionUser>>;
       try {
@@ -80,6 +91,8 @@ export default {
       }
       if (!user) return new Response("Unauthorized", { status: 401 });
       const db = drizzle(env.DB, { schema });
+      const space = await getSpaceBySlug(db, spaceSlug);
+      if (!space) return new Response("Not Found", { status: 404 });
       const page = await db
         .select({
           id: schema.pages.id,
@@ -90,17 +103,28 @@ export default {
           contentEn: schema.pages.contentEn,
         })
         .from(schema.pages)
-        .where(eq(schema.pages.slug, slug))
+        .where(pageInSpace(space.id, slug))
         .get();
       if (!page) return new Response("Not Found", { status: 404 });
       let chapters: Array<{ chapterId: string; role: string }> = [];
+      let claimsLoaded = false;
       try {
         chapters = (await auth.getFreshClaims(request)).chapters.map((chapter) => ({
           chapterId: String(chapter.chapterId),
           role: chapter.role,
         }));
+        claimsLoaded = true;
       } catch {
         // Chapter-derived access fails closed; email/general grants still work.
+      }
+      // Outer layer: editing needs the editor role in the space.
+      const spaceAccess = await resolveSpaceAccess(db, {
+        user,
+        chapters,
+        claimsAvailable: claimsLoaded,
+      });
+      if (!roleAtLeast(spaceAccess.get(space.id), "editor")) {
+        return new Response("Forbidden", { status: 403 });
       }
       const permissions = await getEffectivePagePermissions(db, page, user, chapters);
       if (!permissions.canEdit) return new Response("Forbidden", { status: 403 });
@@ -113,7 +137,7 @@ export default {
         chapters,
       );
       if (!clearance) return new Response("Forbidden", { status: 403 });
-      const doId = env.COLLAB_DO.idFromName(slug);
+      const doId = env.COLLAB_DO.idFromName(collabRoomName(space.id, slug));
       return env.COLLAB_DO.get(doId).fetch(request);
     }
 
@@ -145,6 +169,13 @@ export default {
         enqueueDueSourceRefreshes(env).catch((err) => {
           console.error("[scheduled] source refresh enqueue failed:", err);
         }),
+      );
+      ctx.waitUntil(
+        enqueuePendingSynthesis(drizzle(env.DB, { schema }))
+          .then((count) => console.log("[jobs] synthesize sweep queued:", count))
+          .catch((err) => {
+            console.error("[scheduled] synthesize sweep failed:", err);
+          }),
       );
       return;
     }
@@ -178,6 +209,12 @@ export default {
 
         if (isGoogleDocumentImportQueueBody(body)) {
           await processGoogleDocumentImport(env, body.jobId);
+          message.ack();
+          continue;
+        }
+
+        if (isSourceAudienceRewriteQueueBody(body)) {
+          await rewriteSourceAudience(env, body);
           message.ack();
           continue;
         }

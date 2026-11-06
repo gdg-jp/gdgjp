@@ -9,6 +9,8 @@ export type ClassifiedSource =
       url: string;
       externalId: string | null;
       title?: string;
+      /** Kind-specific settings stored in sources.config (JSON). */
+      config?: string;
     }
   | { ok: false; error: string };
 
@@ -128,5 +130,74 @@ export function classifyDiscordChannel(
     url: discordChannelSourceUrl(guildId, externalId),
     externalId,
     title: displayTitle,
+  };
+}
+
+/** Canonical Discord server link stored on the sources row. */
+export function discordGuildSourceUrl(guildId: string): string {
+  return `https://discord.com/channels/${guildId}`;
+}
+
+/** Which channels of a Discord server a `discord-guild` source imports. */
+export type DiscordGuildConfig = {
+  include: { categories: string[]; channels: string[] };
+  exclude: { channels: string[] };
+  /** Pick up channels created later under the included categories. */
+  autoDiscover: boolean;
+};
+
+function snowflakeList(value: unknown): string[] | null {
+  if (!Array.isArray(value)) return null;
+  const ids = value.filter(
+    (id): id is string => typeof id === "string" && DISCORD_SNOWFLAKE_RE.test(id),
+  );
+  return ids.length === value.length && ids.length <= 500 ? [...new Set(ids)] : null;
+}
+
+export function parseDiscordGuildConfig(value: unknown): DiscordGuildConfig | null {
+  const raw = typeof value === "string" ? safeJson(value) : value;
+  if (!raw || typeof raw !== "object") return null;
+  const config = raw as Record<string, unknown>;
+  const include = (config.include ?? {}) as Record<string, unknown>;
+  const exclude = (config.exclude ?? {}) as Record<string, unknown>;
+  const categories = snowflakeList(include.categories ?? []);
+  const channels = snowflakeList(include.channels ?? []);
+  const excluded = snowflakeList(exclude.channels ?? []);
+  if (!categories || !channels || !excluded) return null;
+  if (categories.length === 0 && channels.length === 0) return null;
+  return {
+    include: { categories, channels },
+    exclude: { channels: excluded },
+    autoDiscover: config.autoDiscover === true,
+  };
+}
+
+function safeJson(value: string): unknown {
+  try {
+    return JSON.parse(value);
+  } catch {
+    return null;
+  }
+}
+
+/** Classify a Discord server picked with a channel / category selection. */
+export function classifyDiscordGuild(
+  externalId: unknown,
+  title: unknown,
+  config: unknown,
+): ClassifiedSource {
+  if (typeof externalId !== "string" || !DISCORD_SNOWFLAKE_RE.test(externalId)) {
+    return { ok: false, error: "invalid_guild" };
+  }
+  const parsed = parseDiscordGuildConfig(config);
+  if (!parsed) return { ok: false, error: "invalid_guild_selection" };
+  const displayTitle = typeof title === "string" && title.trim() ? title.trim() : externalId;
+  return {
+    ok: true,
+    kind: "discord-guild",
+    url: discordGuildSourceUrl(externalId),
+    externalId,
+    title: displayTitle,
+    config: JSON.stringify(parsed),
   };
 }

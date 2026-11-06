@@ -55,6 +55,10 @@ describe("page tree operations", () => {
       ),
     );
     sqlite.exec("PRAGMA foreign_keys = ON");
+    // schema.sql carries no rows; seed the migrated default space every page belongs to.
+    sqlite.exec(
+      "INSERT INTO spaces (id, slug, name, kind) VALUES ('gdg-jp', 'gdg-jp', 'GDG Japan', 'shared')",
+    );
     sqlite.exec(`INSERT INTO user (id, name, email, created_at, updated_at) VALUES
       ('author','Author','author@example.com',0,0), ('other','Other','other@example.com',0,0);
       INSERT INTO tags (slug, label_ja, label_en, color) VALUES ('tag', 'タグ', 'Tag', 'blue');`);

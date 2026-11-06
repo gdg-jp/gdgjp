@@ -18,6 +18,8 @@ import { Form, Link, useFetcher, useLocation, useSearchParams } from "react-rout
 import NotificationBell from "~/features/notifications/components/NotificationBell";
 
 import { Icons } from "@gdgjp/design-system";
+import { useCurrentSpace } from "~/features/spaces/components/current-space";
+import { spacePath } from "~/features/spaces/shared";
 interface NavbarProps {
   user: { name: string; email: string; image?: string | null } | null;
   sidebarOpen?: boolean;
@@ -110,6 +112,7 @@ function ThemeSwitcher() {
 
 function NewPageDropdown({ onImportZip }: { onImportZip?: () => void }) {
   const { t } = useTranslation();
+  const currentSpace = useCurrentSpace();
 
   return (
     <DropdownMenu>
@@ -132,7 +135,7 @@ function NewPageDropdown({ onImportZip }: { onImportZip?: () => void }) {
           </Link>
         </DropdownMenuItem>
         <DropdownMenuItem asChild>
-          <Link to="/wiki/new">
+          <Link to={spacePath(currentSpace.slug, "wiki/new")}>
             <span>✎</span>
             <span>{t("pageTree.newPage_manual")}</span>
           </Link>

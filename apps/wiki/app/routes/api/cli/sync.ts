@@ -1,5 +1,5 @@
 import { getBearerIdentity } from "@gdgjp/gdg-lib";
-import { eq, inArray } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import type { ActionFunctionArgs } from "react-router";
 import * as schema from "~/db/schema";
@@ -22,6 +22,8 @@ import {
 import { computeAclSourceIdsJson } from "~/features/pages/acl-spans";
 import { pageAclClearance, validatePageAclForSync } from "~/features/pages/acl-spans.server";
 import { D1_MAX_BOUND_PARAMETERS, mapInChunks } from "~/features/pages/d1-chunk.server";
+import { requireSpaceForIdentity } from "~/features/spaces/access.server";
+import { DEFAULT_SPACE_SLUG } from "~/features/spaces/shared";
 import { getDb } from "~/lib/db.server";
 
 /** POST /api/cli/wiki/sync
@@ -49,6 +51,21 @@ export async function action({ request, context }: ActionFunctionArgs) {
   if (new Set(suppliedIds).size !== suppliedIds.length)
     return Response.json({ error: "duplicate_page_id" }, { status: 400 });
   const db = getDb(env);
+  // `?space=<slug>` (default gdg-jp, so v1 clones keep working). Pushing needs editor.
+  const spaceSlug = new URL(request.url).searchParams.get("space") ?? DEFAULT_SPACE_SLUG;
+  let space: Awaited<ReturnType<typeof requireSpaceForIdentity>>["space"];
+  try {
+    ({ space } = await requireSpaceForIdentity(
+      db,
+      { ...identity, claimsAvailable: true },
+      spaceSlug,
+      "editor",
+    ));
+  } catch (error) {
+    if (error instanceof Response)
+      return Response.json({ error: "space_not_found" }, { status: error.status });
+    throw error;
+  }
   if (agentsUpdate && !identity.user.isAdmin)
     return Response.json({ error: "agents_md_forbidden" }, { status: 403 });
   const currentAgents = agentsUpdate ? await getAgentInstructions(db) : null;
@@ -90,6 +107,9 @@ export async function action({ request, context }: ActionFunctionArgs) {
   const existing = await mapInChunks(existingIds, (chunk) =>
     db.select().from(schema.pages).where(inArray(schema.pages.id, chunk)).all(),
   );
+  // A page id from another space is treated as unknown — never updated through this space.
+  if (existing.some((page) => page.spaceId !== space.id))
+    return Response.json({ error: "page_not_in_space" }, { status: 404 });
   const byId = new Map(existing.map((page) => [page.id, page]));
   const requestedById = new Map(
     operations.flatMap((operation) =>
@@ -162,7 +182,11 @@ export async function action({ request, context }: ActionFunctionArgs) {
       const requestedParent = requestedById.get(page.parentId);
       const storedParent =
         byId.get(page.parentId) ??
-        (await db.select().from(schema.pages).where(eq(schema.pages.id, page.parentId)).get());
+        (await db
+          .select()
+          .from(schema.pages)
+          .where(and(eq(schema.pages.id, page.parentId), eq(schema.pages.spaceId, space.id)))
+          .get());
       if (!storedParent && !requestedParent)
         return Response.json({ error: "invalid_parent", id: page.parentId }, { status: 400 });
       if (!storedParent && requestedParent && !createdRequestIds.has(page.parentId))
@@ -230,6 +254,7 @@ export async function action({ request, context }: ActionFunctionArgs) {
           : undefined,
       },
       {
+        spaceId: space.id,
         pageVisibility: effectiveMeta.visibility,
         pageAccess: effectiveMeta.access,
         citedSourceIds: effectiveMeta.sources
@@ -278,6 +303,7 @@ export async function action({ request, context }: ActionFunctionArgs) {
       identity,
       statements,
       objectsToDelete,
+      spaceId: space.id,
     });
     if (written instanceof Response) return written;
     returned.push({ id, slug: page.slug, attachmentIds: written.attachmentIds });

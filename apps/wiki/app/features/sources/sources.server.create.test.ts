@@ -41,6 +41,7 @@ beforeEach(() => {
 describe("createSource", () => {
   it("stores the chosen chapter visibility and queues the fetch", async () => {
     const result = await createSource(env(), {
+      spaceId: "gdg-jp",
       url: DOC_URL,
       visibility: "chapter-member",
       chapter: "chapter-osaka",
@@ -64,6 +65,7 @@ describe("createSource", () => {
 
   it("stores chapter-organizer with an Accounts chapter id (no local chapters row required)", async () => {
     const result = await createSource(env(), {
+      spaceId: "gdg-jp",
       url: DOC_URL,
       visibility: "chapter-organizer",
       chapter: "accounts-chapter-1",
@@ -80,6 +82,7 @@ describe("createSource", () => {
 
   it("refuses to default a missing visibility to everyone", async () => {
     const result = await createSource(env(), {
+      spaceId: "gdg-jp",
       url: DOC_URL,
       visibility: null,
       chapter: null,
@@ -94,6 +97,7 @@ describe("createSource", () => {
 
   it("accepts an explicit all-members scope", async () => {
     const result = await createSource(env(), {
+      spaceId: "gdg-jp",
       url: DOC_URL,
       visibility: "member",
       chapter: null,
@@ -110,6 +114,7 @@ describe("createSource", () => {
 
   it("rejects a chapter the user does not belong to", async () => {
     const result = await createSource(env(), {
+      spaceId: "gdg-jp",
       url: DOC_URL,
       visibility: "chapter-member",
       chapter: "chapter-tokyo",
@@ -123,6 +128,7 @@ describe("createSource", () => {
 
   it("lets an admin assign any chapter", async () => {
     const result = await createSource(env(), {
+      spaceId: "gdg-jp",
       url: DOC_URL,
       visibility: "chapter-member",
       chapter: "chapter-tokyo",
@@ -139,6 +145,7 @@ describe("createSource", () => {
 
   it("rejects an unusable URL before touching the database", async () => {
     const result = await createSource(env(), {
+      spaceId: "gdg-jp",
       url: "not-a-url",
       visibility: "member",
       chapter: null,
@@ -155,6 +162,7 @@ describe("createSource", () => {
     findExistingMock.mockResolvedValue({ id: "existing-source" });
 
     const result = await createSource(env(), {
+      spaceId: "gdg-jp",
       url: DOC_URL,
       visibility: "member",
       chapter: null,
@@ -171,6 +179,7 @@ describe("createSource", () => {
     findExistingMock.mockResolvedValue({ id: "existing-website" });
 
     const result = await createSource(env(), {
+      spaceId: "gdg-jp",
       url: "https://example.com/page",
       visibility: "member",
       chapter: null,
@@ -186,6 +195,7 @@ describe("createSource", () => {
     findExistingMock.mockResolvedValue({ id: "existing-chat" });
 
     const result = await createSource(env(), {
+      spaceId: "gdg-jp",
       kind: "google-chat-space",
       externalId: "spaces/abc",
       title: "Chat",
@@ -203,6 +213,7 @@ describe("createSource", () => {
     sendMock.mockRejectedValue(new Error("queue unavailable"));
 
     const result = await createSource(env(), {
+      spaceId: "gdg-jp",
       url: DOC_URL,
       visibility: "member",
       chapter: null,

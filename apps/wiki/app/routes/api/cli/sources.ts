@@ -17,6 +17,8 @@ import { getEffectivePagePermissions } from "~/features/pages/access.server";
 import { removeAclSpans } from "~/features/pages/acl-spans";
 import { pageAclClearance } from "~/features/pages/acl-spans.server";
 import { canAccessSource } from "~/features/sources/sources.server";
+import { requireSpaceForIdentity } from "~/features/spaces/access.server";
+import { DEFAULT_SPACE_SLUG } from "~/features/spaces/shared";
 import { getDb } from "~/lib/db.server";
 import type { components } from "../../../../openapi/types.generated";
 
@@ -39,6 +41,17 @@ export async function loader({ request, context }: LoaderFunctionArgs) {
   if (!lang) return Response.json({ error: "invalid_lang" }, { status: 400 });
 
   const db = getDb(env);
+  // `?space=<slug>` — raw material of one space only (default gdg-jp).
+  const spaceSlug = new URL(request.url).searchParams.get("space") ?? DEFAULT_SPACE_SLUG;
+  let spaceId: string;
+  try {
+    spaceId = (await requireSpaceForIdentity(db, { ...identity, claimsAvailable: true }, spaceSlug))
+      .space.id;
+  } catch (error) {
+    if (error instanceof Response)
+      return Response.json({ error: "space_not_found" }, { status: error.status });
+    throw error;
+  }
 
   const [documents, assets, pages, tags, access, pageSources, attachments, allPages] =
     await Promise.all([
@@ -57,6 +70,7 @@ export async function loader({ request, context }: LoaderFunctionArgs) {
           schema.sources,
           and(
             eq(schema.sourceDocuments.sourceId, schema.sources.id),
+            eq(schema.sources.spaceId, spaceId),
             ne(schema.sources.kind, "conversation"),
           ),
         )
@@ -81,11 +95,16 @@ export async function loader({ request, context }: LoaderFunctionArgs) {
           schema.sources,
           and(
             eq(schema.sourceDocuments.sourceId, schema.sources.id),
+            eq(schema.sources.spaceId, spaceId),
             ne(schema.sources.kind, "conversation"),
           ),
         )
         .all(),
-      db.select().from(schema.pages).where(eq(schema.pages.origin, "human")).all(),
+      db
+        .select()
+        .from(schema.pages)
+        .where(and(eq(schema.pages.origin, "human"), eq(schema.pages.spaceId, spaceId)))
+        .all(),
       db
         .select()
         .from(schema.pageTags)
@@ -109,13 +128,20 @@ export async function loader({ request, context }: LoaderFunctionArgs) {
       db
         .select({ id: schema.pages.id, slug: schema.pages.slug, parentId: schema.pages.parentId })
         .from(schema.pages)
+        .where(eq(schema.pages.spaceId, spaceId))
         .all(),
     ]);
 
   const sources = await db
     .select()
     .from(schema.sources)
-    .where(and(eq(schema.sources.status, "ready"), ne(schema.sources.kind, "conversation")))
+    .where(
+      and(
+        eq(schema.sources.status, "ready"),
+        eq(schema.sources.spaceId, spaceId),
+        ne(schema.sources.kind, "conversation"),
+      ),
+    )
     .all();
   const sourceById = new Map(sources.map((source) => [source.id, source]));
   const sourceDirectoryByID = rawSourceDirectories(sources);

@@ -8,6 +8,8 @@ import type { PageDisplay } from "~/features/pages/use-page-display";
 import { PageActionsMenu } from "./PageActionsMenu";
 
 import { Icons } from "@gdgjp/design-system";
+import { wikiPageActionPath } from "~/features/pages/wiki-page-path";
+import { useCurrentSpace } from "~/features/spaces/components/current-space";
 const btnBase =
   "flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium text-muted transition-colors hover:bg-neutral hover:text-foreground";
 
@@ -126,6 +128,7 @@ export function WikiPageToolbar({
   display: PageDisplay;
   onDisplayChange: (value: PageDisplay) => void;
 }) {
+  const { slug: spaceSlug } = useCurrentSpace();
   const { t } = useTranslation("common");
 
   return (
@@ -167,12 +170,12 @@ export function WikiPageToolbar({
       {/* Desktop action buttons (md+) */}
       <div className="ml-auto hidden items-center gap-1 md:flex">
         {canEdit && (
-          <Link to={`/wiki/${page.slug}/edit`} className={btnBase}>
+          <Link to={wikiPageActionPath(page.slug, "edit", spaceSlug)} className={btnBase}>
             <Icons name="Pencil" size={14} />
             {t("wiki.edit")}
           </Link>
         )}
-        <Link to={`/wiki/${page.slug}/history`} className={btnBase}>
+        <Link to={wikiPageActionPath(page.slug, "history", spaceSlug)} className={btnBase}>
           <Icons name="History" size={14} />
           {t("wiki.history")}
         </Link>
@@ -206,14 +209,14 @@ export function WikiPageToolbar({
           <>
             {canEdit && (
               <DropdownMenuItem asChild>
-                <Link to={`/wiki/${page.slug}/edit`}>
+                <Link to={wikiPageActionPath(page.slug, "edit", spaceSlug)}>
                   <Icons name="Pencil" size={14} />
                   {t("wiki.edit")}
                 </Link>
               </DropdownMenuItem>
             )}
             <DropdownMenuItem asChild>
-              <Link to={`/wiki/${page.slug}/history`}>
+              <Link to={wikiPageActionPath(page.slug, "history", spaceSlug)}>
                 <Icons name="History" size={14} />
                 {t("wiki.history")}
               </Link>

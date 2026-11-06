@@ -1,8 +1,10 @@
-import { desc, ne, sql } from "drizzle-orm";
+import { and, desc, eq, ne, sql } from "drizzle-orm";
 import type { ActionFunctionArgs, LoaderFunctionArgs } from "react-router";
 import * as schema from "~/db/schema";
 import { getAccessIdentity, requireUser } from "~/features/auth/utils.server";
 import { canAccessSource, createSource } from "~/features/sources/sources.server";
+import { requireSpaceForIdentity } from "~/features/spaces/access.server";
+import { DEFAULT_SPACE_SLUG } from "~/features/spaces/shared";
 import { getDb } from "~/lib/db.server";
 
 export async function loader({ request, context }: LoaderFunctionArgs) {
@@ -10,6 +12,9 @@ export async function loader({ request, context }: LoaderFunctionArgs) {
   const user = await requireUser(request, env);
   const identity = await getAccessIdentity(request, env);
   const db = getDb(env);
+  // `?space=<slug>`; omitted means the default space (v1 clients).
+  const spaceSlug = new URL(request.url).searchParams.get("space") ?? DEFAULT_SPACE_SLUG;
+  const { space } = await requireSpaceForIdentity(db, identity, spaceSlug);
 
   const rows = await db
     .select({
@@ -30,7 +35,7 @@ export async function loader({ request, context }: LoaderFunctionArgs) {
       )`,
     })
     .from(schema.sources)
-    .where(ne(schema.sources.kind, "conversation"))
+    .where(and(eq(schema.sources.spaceId, space.id), ne(schema.sources.kind, "conversation")))
     .orderBy(desc(schema.sources.createdAt))
     .all();
 
@@ -54,7 +59,10 @@ export async function action({ request, context }: ActionFunctionArgs) {
     refreshPolicy?: unknown;
   } | null;
 
+  const spaceSlug = new URL(request.url).searchParams.get("space") ?? DEFAULT_SPACE_SLUG;
+  const { space } = await requireSpaceForIdentity(getDb(env), identity, spaceSlug, "editor");
   const result = await createSource(env, {
+    spaceId: space.id,
     url: body?.url,
     visibility: body?.visibility,
     chapter: body?.chapterId,

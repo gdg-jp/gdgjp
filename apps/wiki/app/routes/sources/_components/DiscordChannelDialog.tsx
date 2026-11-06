@@ -1,10 +1,13 @@
 import {
+  Button,
   Dialog,
   DialogContent,
   DialogDescription,
   DialogTitle,
+  FormField,
   Inline,
   Stack,
+  Switch,
 } from "@gdgjp/design-system";
 import {
   Select,
@@ -16,15 +19,18 @@ import {
 
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { buildDiscordSourceTitle } from "~/features/sources/staged-candidates";
+import { SOURCE_KINDS } from "~/features/sources/kinds";
 import type { StagedSource } from "~/features/sources/staged-candidates";
+import { DiscordChannelChecklist } from "./DiscordChannelChecklist";
+
+import { Icons } from "@gdgjp/design-system";
 
 /**
- * Guild / channel picker for staging Discord channels as sources. `error` is
- * owned by the parent so a duplicate-source message survives the dialog closing
- * (shown in the add-source section once `open` is false).
+ * Discord server picker: stages ONE `discord-guild` source per server with the chosen
+ * categories / channels (one visibility per server — register the server again for a
+ * category that needs a narrower visibility). `error` is owned by the parent so a
+ * duplicate-source message survives the dialog closing.
  */
-import { Icons } from "@gdgjp/design-system";
 export function DiscordChannelDialog({
   open,
   onOpenChange,
@@ -61,9 +67,6 @@ export function DiscordChannelDialog({
   const [discordGuildsLoading, setDiscordGuildsLoading] = useState(false);
   const [discordChannelsLoading, setDiscordChannelsLoading] = useState(false);
   const [selectedDiscordGuildId, setSelectedDiscordGuildId] = useState<string | null>(null);
-  const [discordChannels, setDiscordChannels] = useState<
-    Array<{ id: string; name: string; type: number; parentId: string | null }>
-  >([]);
   const [discordChannelGroups, setDiscordChannelGroups] = useState<
     Array<{
       categoryId: string | null;
@@ -74,15 +77,17 @@ export function DiscordChannelDialog({
   const [selectedDiscordChannelIds, setSelectedDiscordChannelIds] = useState<Set<string>>(
     () => new Set(),
   );
+  const [selectedCategoryIds, setSelectedCategoryIds] = useState<Set<string>>(() => new Set());
+  const [autoDiscover, setAutoDiscover] = useState(true);
   const [discordBotInviteUrl, setDiscordBotInviteUrl] = useState<string | null>(null);
   const [discordInviteUrl, setDiscordInviteUrl] = useState<string | null>(null);
 
   useEffect(() => {
     if (!open) return;
     setSelectedDiscordGuildId(null);
-    setDiscordChannels([]);
     setDiscordChannelGroups([]);
     setSelectedDiscordChannelIds(new Set());
+    setSelectedCategoryIds(new Set());
     setDiscordInviteUrl(null);
     void loadDiscordGuilds();
   }, [open]);
@@ -132,9 +137,9 @@ export function DiscordChannelDialog({
 
   async function selectDiscordGuild(guildId: string) {
     setSelectedDiscordGuildId(guildId);
-    setDiscordChannels([]);
     setDiscordChannelGroups([]);
     setSelectedDiscordChannelIds(new Set());
+    setSelectedCategoryIds(new Set());
     setDiscordInviteUrl(null);
     onErrorChange(null);
     const guild = discordGuilds.find((item) => item.id === guildId);
@@ -170,7 +175,6 @@ export function DiscordChannelDialog({
           ? [{ categoryId: null, categoryName: null, channels: body.channels }]
           : []);
       setDiscordChannelGroups(groups);
-      setDiscordChannels(body.channels);
     } catch {
       onErrorChange(t("sources.error_discord_channels"));
     } finally {
@@ -187,29 +191,69 @@ export function DiscordChannelDialog({
     });
   }
 
-  function stageSelectedDiscordChannels() {
-    if (!selectedDiscordGuildId) return;
-    const selected = discordChannels.filter((channel) => selectedDiscordChannelIds.has(channel.id));
-    if (selected.length === 0) return;
+  /** A whole category: its current channels, and (with auto-discover) later ones too. */
+  function toggleCategory(categoryId: string, channelIds: string[]) {
+    const selecting = !selectedCategoryIds.has(categoryId);
+    setSelectedCategoryIds((current) => {
+      const next = new Set(current);
+      if (selecting) next.add(categoryId);
+      else next.delete(categoryId);
+      return next;
+    });
+    setSelectedDiscordChannelIds((current) => {
+      const next = new Set(current);
+      for (const id of channelIds) {
+        if (selecting) next.add(id);
+        else next.delete(id);
+      }
+      return next;
+    });
+  }
+
+  const guildCandidateId = selectedDiscordGuildId
+    ? SOURCE_KINDS["discord-guild"].candidateId(selectedDiscordGuildId)
+    : null;
+  const guildAlreadyRegistered = guildCandidateId
+    ? registeredCandidateIds.has(guildCandidateId)
+    : false;
+
+  function stageSelectedDiscordGuild() {
+    if (!selectedDiscordGuildId || !guildCandidateId) return;
+    if (selectedDiscordChannelIds.size === 0 && selectedCategoryIds.size === 0) return;
     const guildName =
       discordGuilds.find((guild) => guild.id === selectedDiscordGuildId)?.name ?? "";
-    const categoryNameByChannelId = new Map<string, string | null>();
-    for (const group of discordChannelGroups) {
-      for (const channel of group.channels) {
-        categoryNameByChannelId.set(channel.id, group.categoryName);
-      }
-    }
-    const staged = selected.map((channel) => ({
-      id: `discord:${channel.id}`,
-      kind: "discord-channel" as const,
-      title: buildDiscordSourceTitle(
-        guildName,
-        categoryNameByChannelId.get(channel.id) ?? null,
-        channel.name,
-      ),
-      url: `https://discord.com/channels/${selectedDiscordGuildId}/${channel.id}`,
-      externalId: channel.id,
-    }));
+    const channelsInSelectedCategories = new Set(
+      discordChannelGroups
+        .filter((group) => group.categoryId && selectedCategoryIds.has(group.categoryId))
+        .flatMap((group) => group.channels.map((channel) => channel.id)),
+    );
+    // With auto-discover, a category stands for its channels now and later; without it,
+    // the selection is exactly the checked channels.
+    const config = {
+      include: {
+        categories: autoDiscover ? [...selectedCategoryIds] : [],
+        channels: [...selectedDiscordChannelIds].filter(
+          (id) => !autoDiscover || !channelsInSelectedCategories.has(id),
+        ),
+      },
+      // Unchecked channels inside a selected category are explicit exclusions.
+      exclude: {
+        channels: autoDiscover
+          ? [...channelsInSelectedCategories].filter((id) => !selectedDiscordChannelIds.has(id))
+          : [],
+      },
+      autoDiscover,
+    };
+    const staged: StagedSource[] = [
+      {
+        id: guildCandidateId,
+        kind: "discord-guild",
+        title: guildName || selectedDiscordGuildId,
+        url: `https://discord.com/channels/${selectedDiscordGuildId}`,
+        externalId: selectedDiscordGuildId,
+        config: JSON.stringify(config),
+      },
+    ];
     if (onStage(staged)) {
       onErrorChange(t("sources.error_duplicate_source"));
     } else {
@@ -236,13 +280,9 @@ export function DiscordChannelDialog({
               <p>
                 {needsReauth ? t("sources.discord_reauth_hint") : t("sources.connect_discord_hint")}
               </p>
-              <button
-                type="button"
-                onClick={connectDiscord}
-                className="w-fit font-medium text-link hover:text-link"
-              >
+              <Button type="button" variant="ghost" onClick={connectDiscord} className="w-fit">
                 {t("sources.connect_discord")}
-              </button>
+              </Button>
             </div>
           ) : (
             <>
@@ -284,9 +324,10 @@ export function DiscordChannelDialog({
                       {t("sources.discord_invite_bot")}
                     </a>
                     {discordInviteUrl ? (
-                      <button
+                      <Button
                         type="button"
-                        className="text-sm text-muted hover:underline"
+                        variant="ghost"
+                        size="sm"
                         onClick={() =>
                           selectedDiscordGuildId
                             ? void selectDiscordGuild(selectedDiscordGuildId)
@@ -294,7 +335,7 @@ export function DiscordChannelDialog({
                         }
                       >
                         {t("sources.discord_refresh_channels")}
-                      </button>
+                      </Button>
                     ) : null}
                   </div>
                 </div>
@@ -311,39 +352,25 @@ export function DiscordChannelDialog({
                     {t("sources.discord_channel_label")}
                   </p>
                   <div className="max-h-72 space-y-3 overflow-y-auto rounded-md border border-border p-2">
-                    {discordChannelGroups.map((group) => (
-                      <div key={group.categoryId ?? "__uncategorized"}>
-                        <p className="sticky top-0 bg-surface px-2 py-1 text-xs font-semibold tracking-wide text-muted uppercase">
-                          {group.categoryName ?? t("sources.discord_uncategorized")}
-                        </p>
-                        <ul className="space-y-0.5">
-                          {group.channels.map((channel) => {
-                            const already =
-                              registeredCandidateIds.has(`discord:${channel.id}`) &&
-                              !selectedDiscordChannelIds.has(channel.id);
-                            const checked = selectedDiscordChannelIds.has(channel.id);
-                            return (
-                              <li key={channel.id}>
-                                <label
-                                  className={`flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 text-sm hover:bg-neutral ${
-                                    already ? "opacity-50" : ""
-                                  }`}
-                                >
-                                  <input
-                                    type="checkbox"
-                                    checked={checked}
-                                    disabled={already && !checked}
-                                    onChange={() => toggleDiscordChannel(channel.id)}
-                                  />
-                                  <span>#{channel.name}</span>
-                                </label>
-                              </li>
-                            );
-                          })}
-                        </ul>
-                      </div>
-                    ))}
+                    <DiscordChannelChecklist
+                      groups={discordChannelGroups}
+                      selectedChannelIds={selectedDiscordChannelIds}
+                      selectedCategoryIds={selectedCategoryIds}
+                      onToggleChannel={toggleDiscordChannel}
+                      onToggleCategory={toggleCategory}
+                    />
                   </div>
+                </div>
+              ) : null}
+              {!discordChannelsLoading && discordChannelGroups.length > 0 ? (
+                <div className="space-y-2">
+                  <FormField label={t("sources.discord_auto_discover")}>
+                    <Switch checked={autoDiscover} onCheckedChange={setAutoDiscover} />
+                  </FormField>
+                  <p className="text-xs text-muted">{t("sources.discord_one_visibility_hint")}</p>
+                  {guildAlreadyRegistered ? (
+                    <p className="text-xs text-danger">{t("sources.error_duplicate_source")}</p>
+                  ) : null}
                 </div>
               ) : null}
             </>
@@ -351,21 +378,19 @@ export function DiscordChannelDialog({
           {error ? <p className="text-sm text-danger">{error}</p> : null}
         </div>
         <Inline className="border-t border-border px-5 py-4">
-          <button
-            type="button"
-            onClick={() => onOpenChange(false)}
-            className="rounded-md border border-border px-4 py-2 text-sm hover:bg-neutral"
-          >
+          <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
             {t("cancel")}
-          </button>
-          <button
+          </Button>
+          <Button
             type="button"
-            disabled={selectedDiscordChannelIds.size === 0}
-            onClick={stageSelectedDiscordChannels}
-            className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-60"
+            disabled={
+              guildAlreadyRegistered ||
+              (selectedDiscordChannelIds.size === 0 && selectedCategoryIds.size === 0)
+            }
+            onClick={stageSelectedDiscordGuild}
           >
-            {t("sources.stage_discord_channels")}
-          </button>
+            {t("sources.stage_discord_server")}
+          </Button>
         </Inline>
       </DialogContent>
     </Dialog>

@@ -10,6 +10,7 @@ import {
 import { rawDownloadContentType } from "~/features/agent-api/cli-wiki-raw-content.server";
 import { getEffectivePagePermissions } from "~/features/pages/access.server";
 import { canAccessSource } from "~/features/sources/sources.server";
+import { requirePageSpace, requireSourceSpace } from "~/features/spaces/access.server";
 import { getDb } from "~/lib/db.server";
 
 /** GET /api/cli/wiki/sources/:documentId/content */
@@ -34,6 +35,11 @@ export async function loader({ request, context, params }: LoaderFunctionArgs) {
       .where(eq(schema.pages.id, wikiHumanPageId))
       .get();
     if (!page || page.origin !== "human" || page.status !== "published") {
+      return Response.json({ error: "not_found" }, { status: 404 });
+    }
+    try {
+      await requirePageSpace(db, { ...identity, claimsAvailable: true }, page.id);
+    } catch {
       return Response.json({ error: "not_found" }, { status: 404 });
     }
     const permissions = await getEffectivePagePermissions(
@@ -146,6 +152,11 @@ export async function loader({ request, context, params }: LoaderFunctionArgs) {
     if (!source || source.status !== "ready") {
       return Response.json({ error: "not_found" }, { status: 404 });
     }
+    try {
+      await requireSourceSpace(db, { ...identity, claimsAvailable: true }, source.id);
+    } catch {
+      return Response.json({ error: "not_found" }, { status: 404 });
+    }
     if (!canAccessSource(source, identity.user, identity.chapters)) {
       return Response.json({ error: "forbidden" }, { status: 403 });
     }
@@ -173,6 +184,11 @@ export async function loader({ request, context, params }: LoaderFunctionArgs) {
     .where(eq(schema.sources.id, document.sourceId))
     .get();
   if (!source || source.status !== "ready") {
+    return Response.json({ error: "not_found" }, { status: 404 });
+  }
+  try {
+    await requireSourceSpace(db, { ...identity, claimsAvailable: true }, source.id);
+  } catch {
     return Response.json({ error: "not_found" }, { status: 404 });
   }
   if (!canAccessSource(source, identity.user, identity.chapters)) {

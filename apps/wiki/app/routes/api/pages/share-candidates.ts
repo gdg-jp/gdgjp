@@ -2,12 +2,13 @@ import { asc, eq, like, or } from "drizzle-orm";
 import type { LoaderFunctionArgs } from "react-router";
 import * as schema from "~/db/schema";
 import { createAuth } from "~/features/auth/auth.server";
-import { requireUser } from "~/features/auth/utils.server";
+import { getAccessIdentity, requireUser } from "~/features/auth/utils.server";
 import {
   getEffectivePagePermissions,
   getPageAccessList,
   normalizeEmail,
 } from "~/features/pages/access.server";
+import { requirePageSpace } from "~/features/spaces/access.server";
 import { loadChapterDirectory } from "~/lib/chapter-directory.server";
 import { getDb } from "~/lib/db.server";
 
@@ -22,6 +23,7 @@ export async function loader({ request, context }: LoaderFunctionArgs) {
   const db = getDb(env);
   if (authorOnly && !pageId) return new Response("Missing pageId", { status: 400 });
   if (pageId) {
+    await requirePageSpace(db, await getAccessIdentity(request, env), pageId);
     const page = await db
       .select({
         id: schema.pages.id,

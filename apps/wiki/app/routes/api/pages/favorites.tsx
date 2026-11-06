@@ -1,9 +1,11 @@
 import { and, eq } from "drizzle-orm";
 import type { ActionFunctionArgs, LoaderFunctionArgs } from "react-router";
 import * as schema from "~/db/schema";
-import { requireUser } from "~/features/auth/utils.server";
-import { wikiPagePath } from "~/features/pages/wiki-page-path";
-import { getWikiCanonicalSlugPaths } from "~/features/pages/wiki-page-path.server";
+import { getAccessIdentity, requireUser } from "~/features/auth/utils.server";
+import { pagesInSpaces } from "~/features/pages/page-space.server";
+import { getWikiPageUrls } from "~/features/pages/wiki-page-path.server";
+import { requirePageSpace } from "~/features/spaces/access.server";
+import { loadViewerContext } from "~/features/spaces/viewer.server";
 import { getDb } from "~/lib/db.server";
 
 export async function loader({ request, context }: LoaderFunctionArgs) {
@@ -20,10 +22,15 @@ export async function loader({ request, context }: LoaderFunctionArgs) {
     })
     .from(schema.pageFavorites)
     .innerJoin(schema.pages, eq(schema.pageFavorites.pageId, schema.pages.id))
-    .where(eq(schema.pageFavorites.userId, sessionUser.id))
+    .where(
+      and(
+        eq(schema.pageFavorites.userId, sessionUser.id),
+        pagesInSpaces((await loadViewerContext(request, env)).visibleSpaceIds),
+      ),
+    )
     .all();
 
-  const slugPaths = await getWikiCanonicalSlugPaths(
+  const urls = await getWikiPageUrls(
     env,
     favorites.map((p) => p.id),
   );
@@ -31,7 +38,7 @@ export async function loader({ request, context }: LoaderFunctionArgs) {
   return Response.json({
     favorites: favorites.map((p) => ({
       ...p,
-      wikiPath: wikiPagePath(slugPaths.get(p.id) ?? [p.slug]),
+      wikiPath: urls.get(p.id) ?? "",
     })),
   });
 }
@@ -46,6 +53,9 @@ export async function action({ request, context }: ActionFunctionArgs) {
 
   if (intent === "toggle") {
     const pageId = form.get("pageId");
+    if (typeof pageId === "string" && pageId) {
+      await requirePageSpace(db, await getAccessIdentity(request, env), pageId);
+    }
     if (typeof pageId !== "string" || !pageId) {
       return Response.json({ ok: false, error: "missing pageId" }, { status: 400 });
     }

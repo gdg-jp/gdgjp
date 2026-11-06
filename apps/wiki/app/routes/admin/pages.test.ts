@@ -101,13 +101,13 @@ describe("admin.pages loader", () => {
       {
         ...mockPages[0],
         depth: 0,
-        wikiPath: "/wiki/parent",
+        wikiPath: "/s/gdg-jp/wiki/parent",
         childCount: 1,
       },
       {
         ...mockPages[1],
         depth: 1,
-        wikiPath: "/wiki/parent/child",
+        wikiPath: "/s/gdg-jp/wiki/parent/child",
         childCount: 0,
       },
     ]);

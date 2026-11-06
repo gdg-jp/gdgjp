@@ -291,7 +291,7 @@ CREATE TABLE user_preferences (
   preferred_ui_language      TEXT NOT NULL DEFAULT 'ja',
   preferred_content_language TEXT NOT NULL DEFAULT 'ja',
   discord_id                 TEXT UNIQUE
-);
+, "last_space_id" TEXT, "hide_agent_pages" INTEGER NOT NULL DEFAULT 0);
 CREATE UNIQUE INDEX user_oidc_identity_idx ON "user" (oidc_issuer, oidc_subject);
 CREATE TABLE oidc_session (
   id TEXT PRIMARY KEY,
@@ -370,11 +370,139 @@ CREATE TABLE IF NOT EXISTS "google_document_import_jobs" (
   "created_at"       INTEGER NOT NULL DEFAULT (unixepoch()),
   "updated_at"       INTEGER NOT NULL DEFAULT (unixepoch())
 );
+CREATE TABLE IF NOT EXISTS "source_assets" (
+  "id"                 TEXT NOT NULL PRIMARY KEY,
+  "source_document_id" TEXT NOT NULL REFERENCES "source_documents"("id") ON DELETE CASCADE,
+  "path"               TEXT NOT NULL,
+  "r2_key"             TEXT NOT NULL,
+  "mime_type"          TEXT NOT NULL,
+  "byte_size"          INTEGER NOT NULL,
+  "content_hash"       TEXT NOT NULL
+);
+CREATE INDEX "idx_source_assets_source_document_id"
+  ON "source_assets" ("source_document_id");
+CREATE INDEX "idx_page_sources_source_id" ON "page_sources" ("source_id");
+CREATE TABLE IF NOT EXISTS "wiki_agent_instructions" (
+  "id" INTEGER NOT NULL PRIMARY KEY CHECK ("id" = 1),
+  "content" TEXT NOT NULL,
+  "content_hash" TEXT NOT NULL,
+  "updated_by" TEXT NOT NULL REFERENCES "user"("id"),
+  "updated_at" INTEGER NOT NULL DEFAULT (unixepoch())
+);
+CREATE TABLE IF NOT EXISTS "source_documents" (
+  "id" TEXT NOT NULL PRIMARY KEY,
+  "source_id" TEXT NOT NULL REFERENCES "sources"("id") ON DELETE CASCADE,
+  "path" TEXT NOT NULL,
+  "title" TEXT NOT NULL,
+  "r2_key" TEXT NOT NULL,
+  "content_hash" TEXT NOT NULL,
+  "media_type" TEXT NOT NULL DEFAULT 'text/markdown',
+  "captured_at" INTEGER NOT NULL,
+  "cursor" TEXT,
+  "metadata" TEXT,
+  "status" TEXT NOT NULL DEFAULT 'ready'
+    CHECK ("status" IN ('ready', 'error', 'archived')), "integrated_hash" TEXT,
+  UNIQUE ("source_id", "path")
+);
+CREATE INDEX "idx_source_documents_source_id" ON "source_documents" ("source_id");
+CREATE TABLE IF NOT EXISTS "google_chat_sender_profiles" (
+  "resource_name" TEXT NOT NULL PRIMARY KEY,
+  "display_name" TEXT NOT NULL,
+  "created_at" INTEGER NOT NULL DEFAULT (unixepoch()),
+  "updated_at" INTEGER NOT NULL DEFAULT (unixepoch())
+);
+CREATE TABLE IF NOT EXISTS "google_chat_sender_samples" (
+  "id" TEXT NOT NULL PRIMARY KEY,
+  "resource_name" TEXT NOT NULL,
+  "source_id" TEXT NOT NULL REFERENCES "sources"("id") ON DELETE CASCADE,
+  "message_name" TEXT NOT NULL,
+  "message_text" TEXT NOT NULL,
+  "created_at" INTEGER NOT NULL,
+  "updated_at" INTEGER NOT NULL DEFAULT (unixepoch()),
+  UNIQUE (resource_name, source_id, message_name)
+);
+CREATE INDEX "idx_google_chat_sender_samples_resource_created"
+  ON "google_chat_sender_samples" ("resource_name", "created_at" DESC);
+CREATE TABLE IF NOT EXISTS "discord_oauth_tokens" (
+  "user_id"       TEXT NOT NULL PRIMARY KEY REFERENCES "user"("id") ON DELETE CASCADE,
+  "access_token"  TEXT NOT NULL,
+  "refresh_token" TEXT,
+  "expires_at"    INTEGER NOT NULL,
+  "granted_scopes" TEXT,
+  "discord_user_id" TEXT,
+  "updated_at"    INTEGER NOT NULL DEFAULT (unixepoch())
+);
+CREATE TABLE translation_jobs (
+  page_id         TEXT PRIMARY KEY NOT NULL REFERENCES pages(id) ON DELETE CASCADE,
+  status          TEXT NOT NULL DEFAULT 'pending'
+                  CHECK (status IN ('pending', 'queued', 'processing', 'completed', 'failed')),
+  source_hash     TEXT,
+  requested_at    INTEGER NOT NULL DEFAULT (unixepoch()),
+  started_at      INTEGER,
+  completed_at    INTEGER,
+  lease_until     INTEGER,
+  next_attempt_at INTEGER,
+  attempts        INTEGER NOT NULL DEFAULT 0,
+  cache_hits      INTEGER NOT NULL DEFAULT 0,
+  cache_misses    INTEGER NOT NULL DEFAULT 0,
+  last_error      TEXT
+);
+CREATE INDEX translation_jobs_dispatch
+  ON translation_jobs(status, next_attempt_at, requested_at);
+CREATE TABLE translation_segments (
+  cache_key       TEXT PRIMARY KEY NOT NULL,
+  translated_text TEXT NOT NULL,
+  model_id        TEXT NOT NULL,
+  format_version  TEXT NOT NULL,
+  created_at      INTEGER NOT NULL DEFAULT (unixepoch())
+);
+CREATE TABLE IF NOT EXISTS "spaces" (
+  "id"                TEXT NOT NULL PRIMARY KEY,
+  "slug"              TEXT NOT NULL UNIQUE,
+  "name"              TEXT NOT NULL,
+  "kind"              TEXT NOT NULL CHECK ("kind" IN ('personal', 'chapter', 'shared')),
+  -- Opaque Accounts chapter id (not an FK: local `chapters` is unsynced). Chapter spaces only.
+  "chapter_id"        TEXT UNIQUE,
+  "lang"              TEXT NOT NULL DEFAULT 'ja' CHECK ("lang" IN ('ja', 'en')),
+  "translate_enabled" INTEGER NOT NULL DEFAULT 1,
+  -- NULL only for the migrated system space `gdg-jp`.
+  "created_by"        TEXT REFERENCES "user"("id") ON DELETE SET NULL,
+  "created_at"        INTEGER NOT NULL DEFAULT (unixepoch()),
+  "updated_at"        INTEGER NOT NULL DEFAULT (unixepoch()),
+  CHECK (("kind" = 'chapter') = ("chapter_id" IS NOT NULL))
+);
+CREATE TABLE IF NOT EXISTS "space_members" (
+  "space_id"       TEXT NOT NULL REFERENCES "spaces"("id") ON DELETE CASCADE,
+  -- user: user.id or '*' (any signed-in user); public: '*' (anyone, signed in or not);
+  -- chapter_role: '<chapterId>:<member|organizer>' or '*:<member|organizer>';
+  -- discord_guild: guild snowflake; chat_space: 'spaces/<id>'.
+  "principal_type" TEXT NOT NULL
+                   CHECK ("principal_type" IN ('user', 'public', 'chapter_role', 'discord_guild', 'chat_space')),
+  "principal_id"   TEXT NOT NULL,
+  "role"           TEXT NOT NULL CHECK ("role" IN ('owner', 'editor', 'viewer')),
+  "created_at"     INTEGER NOT NULL DEFAULT (unixepoch()),
+  PRIMARY KEY ("space_id", "principal_type", "principal_id"),
+  CHECK ("principal_type" <> 'public' OR ("principal_id" = '*' AND "role" = 'viewer'))
+);
+CREATE INDEX "idx_space_members_principal" ON "space_members" ("principal_type", "principal_id");
+CREATE TABLE IF NOT EXISTS "review_flags" (
+  "id"          TEXT NOT NULL PRIMARY KEY,
+  "space_id"    TEXT NOT NULL REFERENCES "spaces"("id") ON DELETE CASCADE,
+  "target_type" TEXT NOT NULL CHECK ("target_type" IN ('page', 'source', 'job')),
+  "target_id"   TEXT NOT NULL,
+  "kind"        TEXT NOT NULL,
+  "payload"     TEXT NOT NULL DEFAULT '{}',
+  "resolved_at" INTEGER,
+  "resolved_by" TEXT REFERENCES "user"("id") ON DELETE SET NULL,
+  "created_at"  INTEGER NOT NULL DEFAULT (unixepoch())
+);
+CREATE INDEX "idx_review_flags_open" ON "review_flags" ("space_id", "resolved_at", "created_at" DESC);
 CREATE TABLE IF NOT EXISTS "pages" (
   id TEXT NOT NULL PRIMARY KEY,
+  space_id TEXT NOT NULL DEFAULT 'gdg-jp' REFERENCES spaces(id),
   title_ja TEXT NOT NULL,
   title_en TEXT NOT NULL DEFAULT '',
-  slug TEXT NOT NULL UNIQUE,
+  slug TEXT NOT NULL,
   content_ja TEXT NOT NULL,
   content_en TEXT NOT NULL DEFAULT '',
   translation_status_ja TEXT NOT NULL DEFAULT 'human',
@@ -396,15 +524,21 @@ CREATE TABLE IF NOT EXISTS "pages" (
   chapter_id TEXT REFERENCES chapters(id) ON DELETE SET NULL,
   general_role TEXT NOT NULL DEFAULT 'viewer'
     CHECK (general_role IN ('viewer', 'commenter', 'editor')),
-  sync_revision INTEGER NOT NULL DEFAULT 1
-, "origin" TEXT NOT NULL DEFAULT 'human'
-  CHECK ("origin" IN ('human', 'agent')), acl_synced_with_parent INTEGER NOT NULL DEFAULT 1, acl_source_ids TEXT NOT NULL DEFAULT '[]');
+  sync_revision INTEGER NOT NULL DEFAULT 1,
+  origin TEXT NOT NULL DEFAULT 'human' CHECK (origin IN ('human', 'agent')),
+  acl_synced_with_parent INTEGER NOT NULL DEFAULT 1,
+  acl_source_ids TEXT NOT NULL DEFAULT '[]',
+  UNIQUE (space_id, slug)
+);
 CREATE INDEX idx_pages_status_updated ON pages (status, updated_at DESC);
 CREATE INDEX idx_pages_parent_order ON pages (parent_id, sort_order ASC);
 CREATE INDEX idx_pages_author ON pages (author_id, updated_at DESC);
 CREATE INDEX idx_pages_slug ON pages (slug);
 CREATE INDEX idx_pages_visibility ON pages (visibility);
 CREATE INDEX idx_pages_chapter_id ON pages (chapter_id);
+CREATE INDEX "idx_pages_origin" ON "pages" ("origin");
+CREATE INDEX idx_pages_parent_acl_sync ON pages (parent_id, acl_synced_with_parent);
+CREATE INDEX idx_pages_space_status ON pages (space_id, status, updated_at DESC);
 CREATE TRIGGER pages_fts_insert AFTER INSERT ON pages BEGIN
   INSERT INTO pages_fts(page_id, title_ja, title_en, summary_ja, summary_en, tags_text)
   VALUES (new.id, new.title_ja, new.title_en, new.summary_ja, new.summary_en, '');
@@ -448,179 +582,6 @@ AFTER UPDATE ON pages WHEN NEW.sync_revision = OLD.sync_revision
 BEGIN
   UPDATE pages SET sync_revision = sync_revision + 1 WHERE id = NEW.id;
 END;
-CREATE TRIGGER page_tags_sync_revision_insert AFTER INSERT ON page_tags
-BEGIN UPDATE pages SET sync_revision = sync_revision + 1 WHERE id = NEW.page_id; END;
-CREATE TRIGGER page_tags_sync_revision_delete AFTER DELETE ON page_tags
-BEGIN UPDATE pages SET sync_revision = sync_revision + 1 WHERE id = OLD.page_id; END;
-CREATE TRIGGER page_sources_sync_revision_insert AFTER INSERT ON page_sources
-BEGIN UPDATE pages SET sync_revision = sync_revision + 1 WHERE id = NEW.page_id; END;
-CREATE TRIGGER page_sources_sync_revision_update AFTER UPDATE ON page_sources
-BEGIN UPDATE pages SET sync_revision = sync_revision + 1 WHERE id = NEW.page_id; END;
-CREATE TRIGGER page_sources_sync_revision_delete AFTER DELETE ON page_sources
-BEGIN UPDATE pages SET sync_revision = sync_revision + 1 WHERE id = OLD.page_id; END;
-CREATE TRIGGER page_attachments_sync_revision_insert AFTER INSERT ON page_attachments
-BEGIN UPDATE pages SET sync_revision = sync_revision + 1 WHERE id = NEW.page_id; END;
-CREATE TRIGGER page_attachments_sync_revision_update AFTER UPDATE ON page_attachments
-BEGIN UPDATE pages SET sync_revision = sync_revision + 1 WHERE id = NEW.page_id; END;
-CREATE TRIGGER page_attachments_sync_revision_delete AFTER DELETE ON page_attachments
-BEGIN UPDATE pages SET sync_revision = sync_revision + 1 WHERE id = OLD.page_id; END;
-CREATE TRIGGER page_access_sync_revision_insert AFTER INSERT ON page_access
-BEGIN UPDATE pages SET sync_revision = sync_revision + 1 WHERE id = NEW.page_id; END;
-CREATE TRIGGER page_access_sync_revision_update AFTER UPDATE ON page_access
-BEGIN UPDATE pages SET sync_revision = sync_revision + 1 WHERE id = NEW.page_id; END;
-CREATE TRIGGER page_access_sync_revision_delete AFTER DELETE ON page_access
-BEGIN UPDATE pages SET sync_revision = sync_revision + 1 WHERE id = OLD.page_id; END;
-CREATE TABLE IF NOT EXISTS "source_assets" (
-  "id"                 TEXT NOT NULL PRIMARY KEY,
-  "source_document_id" TEXT NOT NULL REFERENCES "source_documents"("id") ON DELETE CASCADE,
-  "path"               TEXT NOT NULL,
-  "r2_key"             TEXT NOT NULL,
-  "mime_type"          TEXT NOT NULL,
-  "byte_size"          INTEGER NOT NULL,
-  "content_hash"       TEXT NOT NULL
-);
-CREATE INDEX "idx_source_assets_source_document_id"
-  ON "source_assets" ("source_document_id");
-CREATE INDEX "idx_pages_origin" ON "pages" ("origin");
-CREATE INDEX "idx_page_sources_source_id" ON "page_sources" ("source_id");
-CREATE TABLE IF NOT EXISTS "wiki_agent_instructions" (
-  "id" INTEGER NOT NULL PRIMARY KEY CHECK ("id" = 1),
-  "content" TEXT NOT NULL,
-  "content_hash" TEXT NOT NULL,
-  "updated_by" TEXT NOT NULL REFERENCES "user"("id"),
-  "updated_at" INTEGER NOT NULL DEFAULT (unixepoch())
-);
-CREATE TABLE IF NOT EXISTS "source_documents" (
-  "id" TEXT NOT NULL PRIMARY KEY,
-  "source_id" TEXT NOT NULL REFERENCES "sources"("id") ON DELETE CASCADE,
-  "path" TEXT NOT NULL,
-  "title" TEXT NOT NULL,
-  "r2_key" TEXT NOT NULL,
-  "content_hash" TEXT NOT NULL,
-  "media_type" TEXT NOT NULL DEFAULT 'text/markdown',
-  "captured_at" INTEGER NOT NULL,
-  "cursor" TEXT,
-  "metadata" TEXT,
-  "status" TEXT NOT NULL DEFAULT 'ready'
-    CHECK ("status" IN ('ready', 'error', 'archived')),
-  UNIQUE ("source_id", "path")
-);
-CREATE INDEX "idx_source_documents_source_id" ON "source_documents" ("source_id");
-CREATE TABLE IF NOT EXISTS "google_chat_sender_profiles" (
-  "resource_name" TEXT NOT NULL PRIMARY KEY,
-  "display_name" TEXT NOT NULL,
-  "created_at" INTEGER NOT NULL DEFAULT (unixepoch()),
-  "updated_at" INTEGER NOT NULL DEFAULT (unixepoch())
-);
-CREATE TABLE IF NOT EXISTS "google_chat_sender_samples" (
-  "id" TEXT NOT NULL PRIMARY KEY,
-  "resource_name" TEXT NOT NULL,
-  "source_id" TEXT NOT NULL REFERENCES "sources"("id") ON DELETE CASCADE,
-  "message_name" TEXT NOT NULL,
-  "message_text" TEXT NOT NULL,
-  "created_at" INTEGER NOT NULL,
-  "updated_at" INTEGER NOT NULL DEFAULT (unixepoch()),
-  UNIQUE (resource_name, source_id, message_name)
-);
-CREATE INDEX "idx_google_chat_sender_samples_resource_created"
-  ON "google_chat_sender_samples" ("resource_name", "created_at" DESC);
-CREATE INDEX idx_pages_parent_acl_sync
-  ON pages (parent_id, acl_synced_with_parent);
-CREATE TABLE IF NOT EXISTS "discord_oauth_tokens" (
-  "user_id"       TEXT NOT NULL PRIMARY KEY REFERENCES "user"("id") ON DELETE CASCADE,
-  "access_token"  TEXT NOT NULL,
-  "refresh_token" TEXT,
-  "expires_at"    INTEGER NOT NULL,
-  "granted_scopes" TEXT,
-  "discord_user_id" TEXT,
-  "updated_at"    INTEGER NOT NULL DEFAULT (unixepoch())
-);
-CREATE TABLE IF NOT EXISTS "source_import_runs" (
-  "id" TEXT NOT NULL PRIMARY KEY,
-  "source_id" TEXT NOT NULL UNIQUE REFERENCES "sources"("id") ON DELETE CASCADE,
-  "kind" TEXT NOT NULL CHECK (
-    "kind" IN ('google-chat-space', 'google-drive', 'website', 'discord-channel')
-  ),
-  "fetch_attempt_id" TEXT NOT NULL,
-  "phase" TEXT NOT NULL DEFAULT 'start',
-  "since_cursor" TEXT,
-  "progress" TEXT NOT NULL DEFAULT '{}',
-  "consecutive_failures" INTEGER NOT NULL DEFAULT 0,
-  "error_message" TEXT,
-  "created_at" INTEGER NOT NULL DEFAULT (unixepoch()),
-  "updated_at" INTEGER NOT NULL DEFAULT (unixepoch())
-);
-CREATE TABLE IF NOT EXISTS "sources" (
-  "id"               TEXT NOT NULL PRIMARY KEY,
-  "kind"             TEXT NOT NULL
-                     CHECK ("kind" IN (
-                       'google-doc',
-                       'google-sheet',
-                       'google-slides',
-                       'google-chat-space',
-                       'discord-channel',
-                       'website',
-                       'upload',
-                       'text',
-                       'conversation'
-                     )),
-  "external_id"      TEXT,
-  "url"              TEXT NOT NULL,
-  "title"            TEXT NOT NULL,
-  "chapter_id"       TEXT,
-  "added_by"         TEXT NOT NULL REFERENCES "user"("id"),
-  "status"           TEXT NOT NULL DEFAULT 'pending'
-                     CHECK ("status" IN ('pending', 'fetching', 'ready', 'error', 'archived')),
-  "refresh_policy"   TEXT NOT NULL DEFAULT 'manual'
-                     CHECK ("refresh_policy" IN ('manual', 'daily', 'weekly')),
-  "last_fetched_at"  INTEGER,
-  "error_message"    TEXT,
-  "created_at"       INTEGER NOT NULL DEFAULT (unixepoch()),
-  "updated_at"       INTEGER NOT NULL DEFAULT (unixepoch()),
-  "fetch_attempt_id" TEXT,
-  "visibility"       TEXT NOT NULL DEFAULT 'member'
-                     CHECK ("visibility" IN (
-                       'private',
-                       'member',
-                       'organizer',
-                       'chapter-member',
-                       'chapter-organizer'
-                     )),
-  CHECK (
-    ("visibility" IN ('chapter-member', 'chapter-organizer')) = ("chapter_id" IS NOT NULL)
-  )
-);
-CREATE INDEX "idx_sources_status" ON "sources" ("status");
-CREATE INDEX "idx_sources_chapter_id" ON "sources" ("chapter_id");
-CREATE INDEX "idx_sources_added_by" ON "sources" ("added_by");
-CREATE INDEX "idx_sources_refresh_policy" ON "sources" ("refresh_policy", "status");
-CREATE INDEX "idx_sources_visibility" ON "sources" ("visibility", "chapter_id");
-CREATE UNIQUE INDEX "idx_sources_owner_kind_external_id"
-  ON "sources" ("added_by", "kind", "external_id") WHERE "external_id" IS NOT NULL;
-CREATE TABLE translation_jobs (
-  page_id         TEXT PRIMARY KEY NOT NULL REFERENCES pages(id) ON DELETE CASCADE,
-  status          TEXT NOT NULL DEFAULT 'pending'
-                  CHECK (status IN ('pending', 'queued', 'processing', 'completed', 'failed')),
-  source_hash     TEXT,
-  requested_at    INTEGER NOT NULL DEFAULT (unixepoch()),
-  started_at      INTEGER,
-  completed_at    INTEGER,
-  lease_until     INTEGER,
-  next_attempt_at INTEGER,
-  attempts        INTEGER NOT NULL DEFAULT 0,
-  cache_hits      INTEGER NOT NULL DEFAULT 0,
-  cache_misses    INTEGER NOT NULL DEFAULT 0,
-  last_error      TEXT
-);
-CREATE INDEX translation_jobs_dispatch
-  ON translation_jobs(status, next_attempt_at, requested_at);
-CREATE TABLE translation_segments (
-  cache_key       TEXT PRIMARY KEY NOT NULL,
-  translated_text TEXT NOT NULL,
-  model_id        TEXT NOT NULL,
-  format_version  TEXT NOT NULL,
-  created_at      INTEGER NOT NULL DEFAULT (unixepoch())
-);
 CREATE TRIGGER pages_translation_insert
 AFTER INSERT ON pages
 WHEN NEW.translation_status_en <> 'human'
@@ -673,3 +634,124 @@ BEGIN
     next_attempt_at = NULL, last_error = NULL
   WHERE page_id = NEW.id;
 END;
+CREATE TRIGGER page_tags_sync_revision_insert AFTER INSERT ON page_tags
+BEGIN UPDATE pages SET sync_revision = sync_revision + 1 WHERE id = NEW.page_id; END;
+CREATE TRIGGER page_tags_sync_revision_delete AFTER DELETE ON page_tags
+BEGIN UPDATE pages SET sync_revision = sync_revision + 1 WHERE id = OLD.page_id; END;
+CREATE TRIGGER page_sources_sync_revision_insert AFTER INSERT ON page_sources
+BEGIN UPDATE pages SET sync_revision = sync_revision + 1 WHERE id = NEW.page_id; END;
+CREATE TRIGGER page_sources_sync_revision_update AFTER UPDATE ON page_sources
+BEGIN UPDATE pages SET sync_revision = sync_revision + 1 WHERE id = NEW.page_id; END;
+CREATE TRIGGER page_sources_sync_revision_delete AFTER DELETE ON page_sources
+BEGIN UPDATE pages SET sync_revision = sync_revision + 1 WHERE id = OLD.page_id; END;
+CREATE TRIGGER page_attachments_sync_revision_insert AFTER INSERT ON page_attachments
+BEGIN UPDATE pages SET sync_revision = sync_revision + 1 WHERE id = NEW.page_id; END;
+CREATE TRIGGER page_attachments_sync_revision_update AFTER UPDATE ON page_attachments
+BEGIN UPDATE pages SET sync_revision = sync_revision + 1 WHERE id = NEW.page_id; END;
+CREATE TRIGGER page_attachments_sync_revision_delete AFTER DELETE ON page_attachments
+BEGIN UPDATE pages SET sync_revision = sync_revision + 1 WHERE id = OLD.page_id; END;
+CREATE TRIGGER page_access_sync_revision_insert AFTER INSERT ON page_access
+BEGIN UPDATE pages SET sync_revision = sync_revision + 1 WHERE id = NEW.page_id; END;
+CREATE TRIGGER page_access_sync_revision_update AFTER UPDATE ON page_access
+BEGIN UPDATE pages SET sync_revision = sync_revision + 1 WHERE id = NEW.page_id; END;
+CREATE TRIGGER page_access_sync_revision_delete AFTER DELETE ON page_access
+BEGIN UPDATE pages SET sync_revision = sync_revision + 1 WHERE id = OLD.page_id; END;
+CREATE TABLE IF NOT EXISTS "sources" (
+  "id"                 TEXT NOT NULL PRIMARY KEY,
+  "kind"               TEXT NOT NULL
+                       CHECK ("kind" IN (
+                         'google-doc',
+                         'google-sheet',
+                         'google-slides',
+                         'google-chat-space',
+                         'discord-channel',
+                         'discord-guild',
+                         'website',
+                         'upload',
+                         'text',
+                         'conversation'
+                       )),
+  "external_id"        TEXT,
+  "url"                TEXT NOT NULL,
+  "title"              TEXT NOT NULL,
+  "chapter_id"         TEXT,
+  "added_by"           TEXT NOT NULL REFERENCES "user"("id"),
+  "status"             TEXT NOT NULL DEFAULT 'pending'
+                       CHECK ("status" IN ('pending', 'fetching', 'ready', 'error', 'archived')),
+  "refresh_policy"     TEXT NOT NULL DEFAULT 'manual'
+                       CHECK ("refresh_policy" IN ('manual', 'hourly', 'daily', 'weekly')),
+  "last_fetched_at"    INTEGER,
+  "error_message"      TEXT,
+  "created_at"         INTEGER NOT NULL DEFAULT (unixepoch()),
+  "updated_at"         INTEGER NOT NULL DEFAULT (unixepoch()),
+  "fetch_attempt_id"   TEXT,
+  "visibility"         TEXT NOT NULL DEFAULT 'member'
+                       CHECK ("visibility" IN (
+                         'private',
+                         'member',
+                         'organizer',
+                         'chapter-member',
+                         'chapter-organizer'
+                       )),
+  "space_id"           TEXT NOT NULL DEFAULT 'gdg-jp',
+  -- Kind-specific JSON settings (discord-guild: channel selection rules).
+  "config"             TEXT,
+  -- When the runner last folded this source's documents into pages (Stage 04).
+  "last_integrated_at" INTEGER,
+  CHECK (
+    ("visibility" IN ('chapter-member', 'chapter-organizer')) = ("chapter_id" IS NOT NULL)
+  )
+);
+CREATE INDEX "idx_sources_status" ON "sources" ("status");
+CREATE INDEX "idx_sources_chapter_id" ON "sources" ("chapter_id");
+CREATE INDEX "idx_sources_added_by" ON "sources" ("added_by");
+CREATE INDEX "idx_sources_refresh_policy" ON "sources" ("refresh_policy", "status");
+CREATE INDEX "idx_sources_visibility" ON "sources" ("visibility", "chapter_id");
+CREATE INDEX "idx_sources_space" ON "sources" ("space_id", "status");
+CREATE UNIQUE INDEX "idx_sources_owner_kind_external_id"
+  ON "sources" ("space_id", "added_by", "kind", "external_id") WHERE "external_id" IS NOT NULL;
+CREATE TABLE IF NOT EXISTS "source_import_runs" (
+  "id" TEXT NOT NULL PRIMARY KEY,
+  "source_id" TEXT NOT NULL UNIQUE REFERENCES "sources"("id") ON DELETE CASCADE,
+  "kind" TEXT NOT NULL CHECK (
+    "kind" IN ('google-chat-space', 'google-drive', 'website', 'discord-channel', 'discord-guild')
+  ),
+  "fetch_attempt_id" TEXT NOT NULL,
+  "phase" TEXT NOT NULL DEFAULT 'start',
+  "since_cursor" TEXT,
+  "progress" TEXT NOT NULL DEFAULT '{}',
+  "consecutive_failures" INTEGER NOT NULL DEFAULT 0,
+  "error_message" TEXT,
+  "created_at" INTEGER NOT NULL DEFAULT (unixepoch()),
+  "updated_at" INTEGER NOT NULL DEFAULT (unixepoch())
+);
+CREATE TABLE IF NOT EXISTS "agent_jobs" (
+  "id"          TEXT NOT NULL PRIMARY KEY,
+  "type"        TEXT NOT NULL CHECK ("type" IN ('synthesize', 'answer', 'consolidate', 'translate')),
+  "space_id"    TEXT NOT NULL REFERENCES "spaces"("id") ON DELETE CASCADE,
+  "status"      TEXT NOT NULL DEFAULT 'queued'
+                CHECK ("status" IN ('queued', 'leased', 'succeeded', 'failed', 'needs_review', 'expired')),
+  -- answer = 10, manual synthesize / translate-now = 5, synthesize = 0, translate = -5,
+  -- consolidate = -10
+  "priority"    INTEGER NOT NULL DEFAULT 0,
+  -- synthesize: { sourceIds, documentIds, requests? }; translate: { pageId, sourceHash };
+  -- answer: { bundleKey, … } (Stage 05)
+  "payload"     TEXT NOT NULL DEFAULT '{}',
+  "result"      TEXT,
+  "error"       TEXT,
+  "lease_owner" TEXT,
+  "lease_until" INTEGER,
+  "attempts"    INTEGER NOT NULL DEFAULT 0,
+  -- Earliest time the job may be leased (hourly batching of synthesize per space).
+  "run_after"   INTEGER NOT NULL DEFAULT (unixepoch()),
+  -- answer only: past this the job is expired and the asker gets the degraded reply.
+  "deadline_at" INTEGER,
+  "created_at"  INTEGER NOT NULL DEFAULT (unixepoch()),
+  "started_at"  INTEGER,
+  "finished_at" INTEGER
+);
+CREATE INDEX "idx_agent_jobs_queue" ON "agent_jobs" ("status", "priority" DESC, "run_after", "created_at");
+CREATE INDEX "idx_agent_jobs_space" ON "agent_jobs" ("space_id", "type", "status");
+CREATE UNIQUE INDEX "idx_agent_jobs_one_queued_per_space"
+  ON "agent_jobs" ("space_id", "type")
+  WHERE "status" = 'queued' AND "type" IN ('synthesize', 'consolidate');

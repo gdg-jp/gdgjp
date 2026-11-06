@@ -1,6 +1,8 @@
 import { getGoogleDriveTokenRow } from "../../../../app/features/google/drive-token.server";
+import { enqueueSynthesizeForSource } from "../../../../app/features/jobs/enqueue.server";
 import { SourceAuthorizationError } from "../retry-classification";
 import type { SubrequestBudget } from "../subrequest-budget";
+import { discordGuildImportDriver } from "./discord-guild/phases";
 import { discordImportDriver } from "./discord/phases";
 import { ensureSourceImportDoSchema } from "./do-store";
 import { driveImportDriver } from "./drive/phases";
@@ -46,6 +48,7 @@ export type ImportKindDriver<P extends string = string> = ImportKindDriverBase<P
 const drivers = new Map<SourceImportKind, ImportKindDriver>([
   ["google-chat-space", chatImportDriver],
   ["discord-channel", discordImportDriver],
+  ["discord-guild", discordGuildImportDriver],
   ["website", websiteImportDriver],
   ["google-drive", driveImportDriver],
 ]);
@@ -124,6 +127,13 @@ export async function advanceSourceImportTick(ctx: SourceImportTickContext): Pro
     const next = driver.phases[index + 1];
     if (!next) {
       await driver.complete(ctx, current);
+      // Every driver ends here: hand new / changed documents to the runner. A failure is
+      // logged only — the hourly sweep (enqueuePendingSynthesis) re-queues them.
+      try {
+        await enqueueSynthesizeForSource(current.db, current.source.id);
+      } catch (error) {
+        console.error("[sources] synthesize enqueue failed", current.source.id, error);
+      }
       return { finished: true, phase: "complete", subrequests: ctx.budget.spent };
     }
     if (!ctx.budget.canSpend(1)) {

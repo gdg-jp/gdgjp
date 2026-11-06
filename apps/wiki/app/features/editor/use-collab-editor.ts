@@ -28,6 +28,8 @@ export interface CollabPeer {
 
 interface UseCollabEditorOptions {
   slug: string;
+  /** Space of the page; collab rooms are per (space, slug). */
+  spaceSlug: string;
   initialContentJa: string;
   initialContentEn: string;
   user: CollabUser;
@@ -50,6 +52,7 @@ interface CursorAwarenessState {
 
 export function useCollabEditor({
   slug,
+  spaceSlug,
   initialContentJa,
   initialContentEn,
   user,
@@ -226,7 +229,9 @@ export function useCollabEditor({
       pendingContentJaRef.current = null;
       pendingContentEnRef.current = null;
       const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-      const ws = new WebSocket(`${protocol}//${window.location.host}/ws/collab/${slug}`);
+      const ws = new WebSocket(
+        `${protocol}//${window.location.host}/ws/collab/${encodeURIComponent(spaceSlug)}/${encodeURIComponent(slug)}`,
+      );
       ws.binaryType = "arraybuffer";
       wsRef.current = ws;
 
@@ -327,7 +332,7 @@ export function useCollabEditor({
       ydocRef.current = null;
       awarenessRef.current = null;
     };
-  }, [slug, user.id, user.name, user.image]);
+  }, [slug, spaceSlug, user.id, user.name, user.image]);
 
   // Editor → CRDT: apply string diff when content changes from local edits
   const setContentJa = useCallback((value: string) => {

@@ -6,9 +6,10 @@ import type { LoaderFunctionArgs, MetaFunction } from "react-router";
 import { CardGridSkeleton } from "~/components/Skeleton";
 import * as schema from "~/db/schema";
 import { getAccessIdentity, requireUser } from "~/features/auth/utils.server";
+import { agentPagesFilter, pagesInSpaces } from "~/features/pages/page-space.server";
 import { buildVisibilityFilter } from "~/features/pages/visibility.server";
-import { wikiPagePath } from "~/features/pages/wiki-page-path";
-import { getWikiCanonicalSlugPaths } from "~/features/pages/wiki-page-path.server";
+import { getWikiPageUrls } from "~/features/pages/wiki-page-path.server";
+import { loadViewerContext } from "~/features/spaces/viewer.server";
 import { getDb } from "~/lib/db.server";
 import { timeAgo } from "~/lib/time";
 
@@ -24,7 +25,13 @@ export async function loader({ request, context }: LoaderFunctionArgs) {
   const identity = await getAccessIdentity(request, env);
   const db = getDb(env);
 
-  const visFilter = buildVisibilityFilter(user, identity.chapters);
+  const viewer = await loadViewerContext(request, env, identity);
+  // Recent pages across every space the viewer can reach.
+  const visFilter = and(
+    pagesInSpaces(viewer.visibleSpaceIds),
+    buildVisibilityFilter(user, identity.chapters),
+    agentPagesFilter(viewer.hideAgentPages),
+  );
 
   const recentData = Promise.all([
     db
@@ -97,17 +104,17 @@ export async function loader({ request, context }: LoaderFunctionArgs) {
       tagsByPage.set(pt.pageId, arr);
     }
 
-    const slugPaths = await getWikiCanonicalSlugPaths(env, allIds);
+    const urls = await getWikiPageUrls(env, allIds);
     return {
       recentUpdated: recentUpdated.map((p) => ({
         ...p,
         tags: tagsByPage.get(p.id) ?? [],
-        wikiPath: wikiPagePath(slugPaths.get(p.id) ?? [p.slug]),
+        wikiPath: urls.get(p.id) ?? "",
       })),
       recentViewed: recentViewed.map((p) => ({
         ...p,
         tags: tagsByPage.get(p.id) ?? [],
-        wikiPath: wikiPagePath(slugPaths.get(p.id) ?? [p.slug]),
+        wikiPath: urls.get(p.id) ?? "",
       })),
     };
   });

@@ -3,6 +3,9 @@ import { and, eq, inArray } from "drizzle-orm";
 import type { LoaderFunctionArgs } from "react-router";
 import * as schema from "~/db/schema";
 import { removeAclSpans } from "~/features/pages/acl-spans";
+import { pageInSpace } from "~/features/pages/page-space.server";
+import { getSpaceBySlug, isSpacePublic } from "~/features/spaces/access.server";
+import { DEFAULT_SPACE_SLUG } from "~/features/spaces/shared";
 import { getDb } from "~/lib/db.server";
 import { buildOgImageHtml } from "~/lib/og-image.server";
 
@@ -24,6 +27,11 @@ export async function loader({ request, context, params }: LoaderFunctionArgs) {
   const { env } = context.cloudflare;
   const cache = (caches as CacheStorage & { default: Cache }).default;
   const db = getDb(env);
+  // OG images are fetched anonymously by crawlers: the space itself must be public.
+  const space = await getSpaceBySlug(db, params.space ?? DEFAULT_SPACE_SLUG);
+  if (!space || !(await isSpacePublic(db, space.id))) {
+    throw new Response("Not Found", { status: 404 });
+  }
   const pageRecord = await db
     .select({
       titleJa: schema.pages.titleJa,
@@ -34,7 +42,7 @@ export async function loader({ request, context, params }: LoaderFunctionArgs) {
     .from(schema.pages)
     .where(
       and(
-        eq(schema.pages.slug, params.slug ?? ""),
+        pageInSpace(space.id, params.slug ?? ""),
         eq(schema.pages.status, "published"),
         inArray(schema.pages.visibility, ["unlisted", "public"]),
       ),

@@ -2,9 +2,10 @@ import { and, desc, eq } from "drizzle-orm";
 import type { LoaderFunctionArgs } from "react-router";
 import * as schema from "~/db/schema";
 import { getAccessIdentity, requireUser } from "~/features/auth/utils.server";
+import { agentPagesFilter, pagesInSpaces } from "~/features/pages/page-space.server";
 import { buildVisibilityFilter } from "~/features/pages/visibility.server";
-import { wikiPagePath } from "~/features/pages/wiki-page-path";
-import { getWikiCanonicalSlugPaths } from "~/features/pages/wiki-page-path.server";
+import { getWikiPageUrls } from "~/features/pages/wiki-page-path.server";
+import { loadViewerContext } from "~/features/spaces/viewer.server";
 import { getDb } from "~/lib/db.server";
 
 export async function loader({ request, context }: LoaderFunctionArgs) {
@@ -13,7 +14,13 @@ export async function loader({ request, context }: LoaderFunctionArgs) {
   const identity = await getAccessIdentity(request, env);
   const db = getDb(env);
 
-  const visFilter = buildVisibilityFilter(user, identity.chapters);
+  const viewer = await loadViewerContext(request, env, identity);
+  // Recent pages across every space the viewer can reach.
+  const visFilter = and(
+    pagesInSpaces(viewer.visibleSpaceIds),
+    buildVisibilityFilter(user, identity.chapters),
+    agentPagesFilter(viewer.hideAgentPages),
+  );
 
   const [recentUpdated, recentViewed] = await Promise.all([
     db
@@ -48,7 +55,7 @@ export async function loader({ request, context }: LoaderFunctionArgs) {
       .all(),
   ]);
 
-  const slugPaths = await getWikiCanonicalSlugPaths(env, [
+  const urls = await getWikiPageUrls(env, [
     ...recentUpdated.map((p) => p.id),
     ...recentViewed.map((p) => p.id),
   ]);
@@ -56,11 +63,11 @@ export async function loader({ request, context }: LoaderFunctionArgs) {
   return Response.json({
     recentUpdated: recentUpdated.map((p) => ({
       ...p,
-      wikiPath: wikiPagePath(slugPaths.get(p.id) ?? [p.slug]),
+      wikiPath: urls.get(p.id) ?? "",
     })),
     recentViewed: recentViewed.map((p) => ({
       ...p,
-      wikiPath: wikiPagePath(slugPaths.get(p.id) ?? [p.slug]),
+      wikiPath: urls.get(p.id) ?? "",
     })),
   });
 }

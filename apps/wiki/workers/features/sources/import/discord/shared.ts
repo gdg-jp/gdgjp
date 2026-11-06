@@ -19,7 +19,13 @@ export type DiscordImportPhase =
 
 export type StepOutcome = { phaseComplete: boolean; continueAfterMs?: number };
 
-export type DiscordImportTickContext = SourceImportTickContext;
+export type DiscordImportTickContext = SourceImportTickContext & {
+  /**
+   * Set by the server (discord-guild) driver while it runs one channel through these
+   * steps: documents land under `channels/<channelId>/` and titles name the channel.
+   */
+  channelDocument?: { pathPrefix: string; titlePrefix: string };
+};
 export type Current = CurrentSourceImport;
 
 export function log(

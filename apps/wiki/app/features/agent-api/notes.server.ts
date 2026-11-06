@@ -4,9 +4,11 @@ import * as schema from "~/db/schema";
 import type { AgentWorkspaceContext } from "~/features/agent-api/workspace.server";
 import { canonicalMarkdown } from "~/features/editor/content-format";
 import { getEffectivePagePermissions, getPageAccessList } from "~/features/pages/access.server";
+import { pageInSpace } from "~/features/pages/page-space.server";
 import { upsertCatalogEntry } from "~/features/pages/wiki-catalog.server";
 import { wikiPagePath } from "~/features/pages/wiki-page-path";
 import { canAssignChapter } from "~/features/sources/sources.server";
+import { DEFAULT_SPACE_ID } from "~/features/spaces/shared";
 import { getDb } from "~/lib/db.server";
 import { createD1WikiWorkspaceStore } from "../../../workers/features/ingestion/persistence/d1/wiki-read-repository";
 import { normaliseAbsoluteWorkspacePath } from "../../../workers/features/ingestion/tools/workspace/paths";
@@ -178,12 +180,12 @@ export async function createOrReplaceAnswerNote(
     };
   }
 
-  // `pages.slug` is globally UNIQUE, so a read-then-insert is a race: two
+  // `(space_id, slug)` is UNIQUE (the default space here), so a read-then-insert is a race: two
   // concurrent filings both see no collision and the loser raises a constraint
   // error (a 500) instead of the documented 409. Let the database arbitrate.
   const id = nanoid();
   const inserted = await env.DB.prepare(
-    "INSERT INTO pages (id,title_ja,title_en,slug,content_ja,content_en,translation_status_ja,translation_status_en,summary_ja,summary_en,parent_id,acl_synced_with_parent,sort_order,status,page_type,page_metadata,visibility,general_role,chapter_id,origin,author_id,last_edited_by,acl_source_ids,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,unixepoch(),unixepoch()) ON CONFLICT(slug) DO NOTHING",
+    "INSERT INTO pages (id,title_ja,title_en,slug,content_ja,content_en,translation_status_ja,translation_status_en,summary_ja,summary_en,parent_id,acl_synced_with_parent,sort_order,status,page_type,page_metadata,visibility,general_role,chapter_id,origin,author_id,last_edited_by,acl_source_ids,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,unixepoch(),unixepoch()) ON CONFLICT(space_id, slug) DO NOTHING",
   )
     .bind(
       id,
@@ -216,7 +218,7 @@ export async function createOrReplaceAnswerNote(
     const existingSlug = await db
       .select({ slug: schema.pages.slug, parentId: schema.pages.parentId })
       .from(schema.pages)
-      .where(eq(schema.pages.slug, parsed.body.slug))
+      .where(pageInSpace(DEFAULT_SPACE_ID, parsed.body.slug))
       .get();
     // The slug may belong to a page outside answers/ — do not report a path
     // that claims otherwise.

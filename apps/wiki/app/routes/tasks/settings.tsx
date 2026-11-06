@@ -14,6 +14,8 @@ import { getDb } from "~/lib/db.server";
 // ---------------------------------------------------------------------------
 
 import { Icons } from "@gdgjp/design-system";
+import { pageInSpace } from "~/features/pages/page-space.server";
+import { DEFAULT_SPACE_ID } from "~/features/spaces/shared";
 export const meta: MetaFunction = () => [{ title: "Task List Settings — GDG Japan Wiki" }];
 
 // ---------------------------------------------------------------------------
@@ -32,7 +34,7 @@ export async function loader({ request, params, context }: LoaderFunctionArgs) {
   const page = await db
     .select()
     .from(schema.pages)
-    .where(and(eq(schema.pages.slug, slug), eq(schema.pages.pageType, "task-list")))
+    .where(and(pageInSpace(DEFAULT_SPACE_ID, slug), eq(schema.pages.pageType, "task-list")))
     .get();
 
   if (!page) throw new Response("Not found", { status: 404 });
@@ -66,7 +68,7 @@ export async function action({ request, params, context }: ActionFunctionArgs) {
   const page = await db
     .select()
     .from(schema.pages)
-    .where(and(eq(schema.pages.slug, slug), eq(schema.pages.pageType, "task-list")))
+    .where(and(pageInSpace(DEFAULT_SPACE_ID, slug), eq(schema.pages.pageType, "task-list")))
     .get();
 
   if (!page) throw new Response("Not found", { status: 404 });

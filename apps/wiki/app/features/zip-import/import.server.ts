@@ -1,6 +1,8 @@
 import { nanoid } from "nanoid";
 import * as schema from "~/db/schema";
 import { generateSlug } from "~/features/ingestion/slug";
+import { pageInSpace } from "~/features/pages/page-space.server";
+import { DEFAULT_SPACE_ID } from "~/features/spaces/shared";
 import { getDb } from "~/lib/db.server";
 import { basename, rewriteLinks } from "./zip-helpers";
 import type { ImagePlan, ZipImportPreview } from "./zip-parse.server";
@@ -22,7 +24,7 @@ async function uniqueSlug(env: Env, title: string, reserved: Set<string>): Promi
   let slug = base;
   while (
     reserved.has(slug) ||
-    (await db.query.pages.findFirst({ where: (pages, { eq }) => eq(pages.slug, slug) }))
+    (await db.query.pages.findFirst({ where: pageInSpace(DEFAULT_SPACE_ID, slug) }))
   ) {
     slug = `${base}-${nanoid(6)}`;
   }

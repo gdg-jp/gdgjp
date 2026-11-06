@@ -1,6 +1,6 @@
 import { eq } from "drizzle-orm";
 import * as schema from "~/db/schema";
-import { requireUser } from "~/features/auth/utils.server";
+import { getAccessIdentity, requireUser } from "~/features/auth/utils.server";
 import { sendPageShareEmail } from "~/features/notifications/email.server";
 import {
   type GeneralAccess,
@@ -17,6 +17,7 @@ import {
 } from "~/features/pages/access.server";
 import { wikiPagePath } from "~/features/pages/wiki-page-path";
 import { getWikiCanonicalSlugPath } from "~/features/pages/wiki-page-path.server";
+import { requirePageSpace } from "~/features/spaces/access.server";
 import { getDb } from "~/lib/db.server";
 import {
   type PageRecord,
@@ -41,6 +42,7 @@ export async function loadPageAccess(
   const db = getDb(env);
   const page = await loadPage(db, pageId);
   if (!page) return new Response("Not Found", { status: 404 });
+  await requirePageSpace(db, await getAccessIdentity(request, env), page.id);
   const { permissions, claimsUnavailable } = await requireSharingPermissions(
     db,
     page,
@@ -99,6 +101,7 @@ export async function handlePageAccessAction(
   const db = getDb(env);
   const page = await loadPage(db, pageId);
   if (!page) return new Response("Not Found", { status: 404 });
+  await requirePageSpace(db, await getAccessIdentity(request, env), page.id);
 
   let body: Record<string, unknown>;
   try {
@@ -135,7 +138,7 @@ export async function handlePageAccessAction(
       ),
     );
     await markAclChanged(db, page);
-    await invalidateCollaborationBestEffort(env, page.slug);
+    await invalidateCollaborationBestEffort(env, page);
 
     const notify = body.notify === true;
     const message = typeof body.message === "string" ? body.message.slice(0, 4000) : undefined;
@@ -182,7 +185,7 @@ export async function handlePageAccessAction(
     const ok = await updatePageAccessRole(db, accessId, pageId, role, user.id);
     if (ok) {
       await markAclChanged(db, page);
-      await invalidateCollaborationBestEffort(env, page.slug);
+      await invalidateCollaborationBestEffort(env, page);
     }
     return ok ? Response.json({ ok: true }) : new Response("Not Found", { status: 404 });
   }
@@ -194,7 +197,7 @@ export async function handlePageAccessAction(
     const result = await removePageAccess(db, accessId, pageId);
     if (result.ok) {
       await markAclChanged(db, page);
-      await invalidateCollaborationBestEffort(env, page.slug);
+      await invalidateCollaborationBestEffort(env, page);
     }
     return result.ok ? Response.json({ ok: true }) : new Response("Not Found", { status: 404 });
   }
@@ -267,7 +270,7 @@ export async function handlePageAccessAction(
         .where(eq(schema.pages.id, pageId)),
       db.delete(schema.pageAccess).where(eq(schema.pageAccess.id, accessId)),
     ]);
-    await invalidateCollaborationBestEffort(env, page.slug);
+    await invalidateCollaborationBestEffort(env, page);
     return Response.json({ ok: true });
   }
 
@@ -290,7 +293,7 @@ export async function handlePageAccessAction(
         updatedAt: new Date(),
       })
       .where(eq(schema.pages.id, pageId));
-    await invalidateCollaborationBestEffort(env, page.slug);
+    await invalidateCollaborationBestEffort(env, page);
     return Response.json({ ok: true });
   }
 
@@ -299,7 +302,7 @@ export async function handlePageAccessAction(
     const parent = await loadPage(db, page.parentId);
     if (!parent) return Response.json({ error: "parent_not_found" }, { status: 404 });
     await replaceAclFromParent(env, parent.id, page, user.id);
-    await invalidateCollaborationBestEffort(env, page.slug);
+    await invalidateCollaborationBestEffort(env, page);
     return Response.json({ ok: true });
   }
 
@@ -314,7 +317,7 @@ export async function handlePageAccessAction(
     while (queue.length) {
       const parent = queue.shift() as { id: string };
       const children = (await env.DB.prepare(
-        `SELECT id, slug, title_ja AS titleJa, page_type AS pageType, parent_id AS parentId,
+        `SELECT id, space_id AS spaceId, slug, title_ja AS titleJa, page_type AS pageType, parent_id AS parentId,
                 acl_synced_with_parent AS aclSyncedWithParent, author_id AS authorId,
                 visibility, general_role AS generalRole
          FROM pages WHERE parent_id = ? ORDER BY sort_order, id`,
@@ -332,7 +335,7 @@ export async function handlePageAccessAction(
           continue;
         }
         await replaceAclFromParent(env, parent.id, child, user.id);
-        await invalidateCollaborationBestEffort(env, child.slug);
+        await invalidateCollaborationBestEffort(env, child);
         updatedCount += 1;
         queue.push({ id: child.id });
       }

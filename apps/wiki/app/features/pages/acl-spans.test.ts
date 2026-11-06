@@ -238,6 +238,7 @@ function mockDb(sourceRows: unknown[]) {
 const tokyoSource = {
   id: "tokyo",
   addedBy: "owner",
+  spaceId: "gdg-jp",
   chapterId: "tokyo",
   visibility: "chapter-member",
   status: "ready",
@@ -245,6 +246,7 @@ const tokyoSource = {
 const osakaSource = {
   id: "osaka",
   addedBy: "owner",
+  spaceId: "gdg-jp",
   chapterId: "osaka",
   visibility: "chapter-member",
   status: "ready",
@@ -252,6 +254,7 @@ const osakaSource = {
 const organizerSource = {
   id: "org-src",
   addedBy: "owner",
+  spaceId: "gdg-jp",
   chapterId: null,
   visibility: "organizer",
   status: "ready",
@@ -339,7 +342,13 @@ describe("validatePageAclForSync", () => {
       validatePageAclForSync(
         db,
         { ja: { content: '<acl src="a"><acl src="b">x</acl></acl>' } },
-        { pageVisibility: "member", pageAccess: [], citedSourceIds: [], contentJa: "x" },
+        {
+          spaceId: "gdg-jp",
+          pageVisibility: "member",
+          pageAccess: [],
+          citedSourceIds: [],
+          contentJa: "x",
+        },
         memberUser,
         [{ chapterId: "tokyo", role: "member" }],
       ),
@@ -349,7 +358,13 @@ describe("validatePageAclForSync", () => {
       validatePageAclForSync(
         db,
         { ja: { title: 'Title <acl src="x">', content: "ok" } },
-        { pageVisibility: "member", pageAccess: [], citedSourceIds: [], contentJa: "ok" },
+        {
+          spaceId: "gdg-jp",
+          pageVisibility: "member",
+          pageAccess: [],
+          citedSourceIds: [],
+          contentJa: "ok",
+        },
         memberUser,
         [],
       ),
@@ -362,6 +377,7 @@ describe("validatePageAclForSync", () => {
         mockDb([]),
         { ja: { content: '<acl src="missing">x</acl>' } },
         {
+          spaceId: "gdg-jp",
           pageVisibility: "member",
           pageAccess: [],
           citedSourceIds: [],
@@ -377,6 +393,7 @@ describe("validatePageAclForSync", () => {
         mockDb([organizerSource]),
         { ja: { content: '<acl src="org-src">x</acl>' } },
         {
+          spaceId: "gdg-jp",
           pageVisibility: "member",
           pageAccess: [],
           citedSourceIds: [],
@@ -394,6 +411,7 @@ describe("validatePageAclForSync", () => {
         mockDb([organizerSource]),
         { ja: { content: "plain body with no span" } },
         {
+          spaceId: "gdg-jp",
           pageVisibility: "member",
           pageAccess: [],
           citedSourceIds: ["org-src"],
@@ -415,6 +433,7 @@ describe("validatePageAclForSync", () => {
         mockDb([organizerSource]),
         { ja: { content } },
         {
+          spaceId: "gdg-jp",
           pageVisibility: "member",
           pageAccess: [],
           citedSourceIds: ["org-src"],
@@ -437,6 +456,7 @@ describe("validatePageAclForSync", () => {
         mockDb([archivedOrganizer]),
         { ja: { content } },
         {
+          spaceId: "gdg-jp",
           pageVisibility: "member",
           pageAccess: [],
           citedSourceIds: ["org-src"],
@@ -453,6 +473,7 @@ describe("validatePageAclForSync", () => {
     const archivedMember = {
       id: "mem-src",
       addedBy: "owner",
+      spaceId: "gdg-jp",
       chapterId: null,
       visibility: "member",
       status: "archived",
@@ -462,6 +483,7 @@ describe("validatePageAclForSync", () => {
         mockDb([archivedMember]),
         { ja: { content: "plain body citing archived member source" } },
         {
+          spaceId: "gdg-jp",
           pageVisibility: "member",
           pageAccess: [],
           citedSourceIds: ["mem-src"],
@@ -478,6 +500,7 @@ describe("validatePageAclForSync", () => {
     const enSource = {
       id: "en1",
       addedBy: "owner",
+      spaceId: "gdg-jp",
       chapterId: null,
       visibility: "member",
       status: "ready",
@@ -489,6 +512,7 @@ describe("validatePageAclForSync", () => {
         db,
         { ja: { content: "ja-only update" } },
         {
+          spaceId: "gdg-jp",
           pageVisibility: "member",
           pageAccess: [],
           citedSourceIds: [],
@@ -608,5 +632,34 @@ describe("validateReadSourcesTagged", () => {
 describe("scrubResidualAclMarkup", () => {
   it("is a no-op when no acl markers remain", () => {
     expect(scrubResidualAclMarkup("plain")).toBe("plain");
+  });
+});
+
+describe("cross-space span references", () => {
+  const memberUser = { id: "member", isAdmin: false, email: "member@example.com" } as never;
+  it("rejects a span citing a source from another space as acl_unknown_source", async () => {
+    const otherSpaceSource = {
+      id: "elsewhere",
+      addedBy: "owner",
+      spaceId: "c-tokyo",
+      chapterId: null,
+      visibility: "member",
+      status: "ready",
+    };
+    await expect(
+      validatePageAclForSync(
+        mockDb([otherSpaceSource]),
+        { ja: { content: '<acl src="elsewhere">secret</acl>' } },
+        {
+          spaceId: "gdg-jp",
+          pageVisibility: "member",
+          pageAccess: [],
+          citedSourceIds: [],
+          contentJa: '<acl src="elsewhere">secret</acl>',
+        },
+        memberUser,
+        [{ chapterId: "tokyo", role: "member" }],
+      ),
+    ).resolves.toMatchObject({ ok: false, error: "acl_unknown_source", sourceId: "elsewhere" });
   });
 });

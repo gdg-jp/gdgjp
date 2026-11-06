@@ -18,9 +18,10 @@ export async function movePage(
     origin: string;
     page_type: string | null;
     status: string;
+    space_id: string;
   };
   const page = (await env.DB.prepare(
-    "SELECT id, parent_id, author_id, origin, page_type, status FROM pages WHERE id = ?",
+    "SELECT id, parent_id, author_id, origin, page_type, status, space_id FROM pages WHERE id = ?",
   )
     .bind(pageId)
     .first()) as PageRow | null;
@@ -45,10 +46,11 @@ export async function movePage(
       status: string;
       page_type: string | null;
     };
+    // Page trees never cross spaces: a parent in another space is "not found".
     const parent = (await env.DB.prepare(
-      "SELECT id, author_id, origin, status, page_type FROM pages WHERE id = ?",
+      "SELECT id, author_id, origin, status, page_type FROM pages WHERE id = ? AND space_id = ?",
     )
-      .bind(newParentId)
+      .bind(newParentId, page.space_id)
       .first()) as ParentRow | null;
     if (!parent || parent.status !== "published")
       throw new Response("Parent page not found", { status: 404 });
@@ -87,9 +89,9 @@ export async function movePage(
         .bind(newParentId, pageId)
         .all()) as D1Result<IdRow>)
     : ((await env.DB.prepare(
-        "SELECT id FROM pages WHERE parent_id IS NULL AND id != ? ORDER BY sort_order, id",
+        "SELECT id FROM pages WHERE parent_id IS NULL AND space_id = ? AND id != ? ORDER BY sort_order, id",
       )
-        .bind(pageId)
+        .bind(page.space_id, pageId)
         .all()) as D1Result<IdRow>);
 
   const siblings = siblingRows.results.map((r) => r.id);
@@ -139,9 +141,9 @@ export async function movePage(
           .bind(oldParentId, pageId)
           .all()) as D1Result<IdRow>)
       : ((await env.DB.prepare(
-          "SELECT id FROM pages WHERE parent_id IS NULL AND id != ? ORDER BY sort_order, id",
+          "SELECT id FROM pages WHERE parent_id IS NULL AND space_id = ? AND id != ? ORDER BY sort_order, id",
         )
-          .bind(pageId)
+          .bind(page.space_id, pageId)
           .all()) as D1Result<IdRow>);
 
     for (let i = 0; i < oldSiblingRows.results.length; i++) {

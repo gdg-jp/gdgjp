@@ -1,4 +1,4 @@
-import { eq, inArray } from "drizzle-orm";
+import { inArray } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import * as schema from "~/db/schema";
 import {
@@ -198,6 +198,8 @@ export async function buildSyncPageWriteStatements(args: {
   identity: BearerIdentity;
   statements: D1PreparedStatement[];
   objectsToDelete: string[];
+  /** Space the push targets; new pages are created in it. */
+  spaceId: string;
 }): Promise<Response | { attachmentIds: Record<string, string> }> {
   const {
     db,
@@ -215,6 +217,7 @@ export async function buildSyncPageWriteStatements(args: {
     identity,
     statements,
     objectsToDelete,
+    spaceId,
   } = args;
 
   if (!current) {
@@ -224,9 +227,10 @@ export async function buildSyncPageWriteStatements(args: {
     });
     statements.push(
       env.DB.prepare(
-        "INSERT INTO pages (id,title_ja,title_en,slug,content_ja,content_en,translation_status_ja,translation_status_en,summary_ja,summary_en,parent_id,acl_synced_with_parent,sort_order,status,page_type,page_metadata,visibility,general_role,chapter_id,origin,author_id,last_edited_by,acl_source_ids,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,unixepoch(),unixepoch())",
+        "INSERT INTO pages (id,space_id,title_ja,title_en,slug,content_ja,content_en,translation_status_ja,translation_status_en,summary_ja,summary_en,parent_id,acl_synced_with_parent,sort_order,status,page_type,page_metadata,visibility,general_role,chapter_id,origin,author_id,last_edited_by,acl_source_ids,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,unixepoch(),unixepoch())",
       ).bind(
         id,
+        spaceId,
         localeValues.titleJa,
         localeValues.titleEn,
         page.slug,

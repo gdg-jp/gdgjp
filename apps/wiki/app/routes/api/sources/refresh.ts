@@ -3,6 +3,7 @@ import type { ActionFunctionArgs } from "react-router";
 import * as schema from "~/db/schema";
 import { getAccessIdentity, requireUser } from "~/features/auth/utils.server";
 import { canAccessSource, enqueueSourceRefresh } from "~/features/sources/sources.server";
+import { requireSourceSpace } from "~/features/spaces/access.server";
 import { getDb } from "~/lib/db.server";
 
 export async function action({ request, context, params }: ActionFunctionArgs) {
@@ -16,6 +17,8 @@ export async function action({ request, context, params }: ActionFunctionArgs) {
   const { env } = context.cloudflare;
   const user = await requireUser(request, env);
   const identity = await getAccessIdentity(request, env);
+  // Outer layer first: the source's space must grant the editor role.
+  await requireSourceSpace(getDb(env), identity, sourceId, "editor");
   const db = getDb(env);
 
   const source = await db
@@ -30,10 +33,6 @@ export async function action({ request, context, params }: ActionFunctionArgs) {
   if (source.status === "archived") {
     return Response.json({ error: "archived" }, { status: 409 });
   }
-  if (source.kind === "conversation") {
-    return Response.json({ error: "unsupported_source_kind" }, { status: 409 });
-  }
-
   const result = await enqueueSourceRefresh(env, sourceId);
   if (!result.ok) return Response.json({ error: result.error }, { status: result.status });
 

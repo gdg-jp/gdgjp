@@ -16,6 +16,7 @@ export default [
   // API routes (no app shell)
   route("/api/set-ui-lang", "routes/api/user/set-ui-lang.tsx"),
   route("/api/set-content-lang", "routes/api/user/set-content-lang.tsx"),
+  route("/api/user/preferences", "routes/api/user/preferences.ts"),
   route("/api/ingest/:sessionId/status", "routes/api/ingest/status.ts"),
   route("/api/ingest/:sessionId/commit", "routes/api/ingest/commit.ts"),
   route("/api/ingest/:sessionId/clarify", "routes/api/ingest/clarify.ts"),
@@ -47,9 +48,13 @@ export default [
   route("/api/favorites", "routes/api/pages/favorites.tsx"),
   route("/api/images/*", "routes/api/pages/images.ts"),
   route("/api/wiki/:slug/upload-image", "routes/api/pages/upload-image.ts"),
+  route("/api/s/:space/wiki/:slug/upload-image", "routes/api/pages/upload-image.ts", {
+    id: "space-upload-image",
+  }),
   route("/api/wiki/import-zip/preview", "routes/api/pages/import-zip-preview.ts"),
   route("/api/wiki/import-zip", "routes/api/pages/import-zip.ts"),
   route("/api/admin/backfill-embeddings", "routes/api/admin/backfill-embeddings.ts"),
+  route("/api/admin/refresh-all-sources", "routes/api/admin/refresh-all-sources.ts"),
   route("/api/fcm-tokens", "routes/api/user/fcm-tokens.ts"),
   route("/api/recent", "routes/api/pages/recent.ts"),
   route("/api/archived", "routes/api/pages/archived.ts"),
@@ -75,6 +80,7 @@ export default [
 
   // Public OGP image for public and unlisted wiki pages.
   route("/og/wiki/:slug", "routes/wiki/og-image.tsx"),
+  route("/og/s/:space/wiki/:slug", "routes/wiki/og-image.tsx", { id: "space-og-image" }),
 
   // About / landing for logged-in users — no app shell
   route("/about", "routes/public/about.tsx"),
@@ -90,16 +96,31 @@ export default [
   layout("routes/_app.tsx", [
     index("routes/_index.tsx"),
     route("/search", "routes/wiki/search.tsx"),
-    route("/wiki/new", "routes/wiki/new.tsx"),
-    route("/wiki/*", "routes/wiki/page.tsx"),
-    route("/wiki/:slug/edit", "routes/wiki/edit.tsx"),
-    route("/wiki/:slug/history", "routes/wiki/history.tsx"),
+    // v1 URLs: permanent redirects into the migrated default space (kept indefinitely —
+    // Discord messages and external links still carry them).
+    route("/wiki/new", "routes/spaces/legacy-redirect.tsx", { id: "legacy-wiki-new" }),
+    route("/wiki/*", "routes/spaces/legacy-redirect.tsx", { id: "legacy-wiki-page" }),
+    route("/wiki/:slug/edit", "routes/spaces/legacy-redirect.tsx", { id: "legacy-wiki-edit" }),
+    route("/wiki/:slug/history", "routes/spaces/legacy-redirect.tsx", {
+      id: "legacy-wiki-history",
+    }),
+    route("/sources", "routes/spaces/legacy-redirect.tsx", { id: "legacy-sources" }),
+    // Spaces (knowledge platform v2 Stage 01).
+    route("/spaces", "routes/spaces/list.tsx"),
+    route("/spaces/:space/settings", "routes/spaces/settings.tsx"),
+    route("/spaces/:space/review", "routes/spaces/review.tsx"),
+    route("/s/:space", "routes/spaces/home.tsx"),
+    route("/s/:space/search", "routes/wiki/search.tsx", { id: "space-search" }),
+    route("/s/:space/sources", "routes/sources/page.tsx"),
+    route("/s/:space/wiki/new", "routes/wiki/new.tsx"),
+    route("/s/:space/wiki/*", "routes/wiki/page.tsx"),
+    route("/s/:space/wiki/:slug/edit", "routes/wiki/edit.tsx"),
+    route("/s/:space/wiki/:slug/history", "routes/wiki/history.tsx"),
     route("/recent", "routes/wiki/recent.tsx"),
     route("/archived", "routes/wiki/archived.tsx"),
     route("/ingest", "routes/ingest/start.tsx"),
     route("/ingest/:sessionId", "routes/ingest/session.tsx"),
     route("/analyze", "routes/ingest/analyze.tsx"),
-    route("/sources", "routes/sources/page.tsx"),
     route("/settings", "routes/settings.tsx"),
     route("/tasks/new", "routes/tasks/new.tsx"),
     route("/tasks/:slug", "routes/tasks/detail.tsx"),

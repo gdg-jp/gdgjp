@@ -1,6 +1,7 @@
+import { Badge } from "@gdgjp/design-system";
 import { Suspense, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Await, useFetcher, useLoaderData, useLocation } from "react-router";
+import { Await, useFetcher, useLoaderData, useLocation, useRouteLoaderData } from "react-router";
 import ConfirmDialog from "~/components/ConfirmDialog";
 import { ArticleSkeleton, ListSkeleton, TocSkeleton } from "~/components/Skeleton";
 import CommentSection from "~/features/pages/components/CommentSection";
@@ -28,6 +29,8 @@ export function WikiPageView() {
     visibility,
   } = useLoaderData<typeof loader>();
   const [display, setDisplay] = usePageDisplay(page.id, currentUserId);
+  const shell = useRouteLoaderData("routes/_app") as { hideAgentPages?: boolean } | undefined;
+  const isAgentPage = page.origin === "agent";
   const { t } = useTranslation("common");
   const location = useLocation();
   const contentLangFetcher = useFetcher();
@@ -75,6 +78,14 @@ export function WikiPageView() {
       />
 
       <div className="px-4 pt-6 md:px-10 md:pt-8">
+        {isAgentPage && shell?.hideAgentPages && (
+          <p role="note" className="mb-3 text-sm text-muted">
+            {t("spaces.agent_hidden_banner")}
+          </p>
+        )}
+        <Badge tone={isAgentPage ? "info" : "neutral"} className="mb-2">
+          {t(isAgentPage ? "pages.origin_agent" : "pages.origin_human")}
+        </Badge>
         <h1
           className={`${display.fullWidth ? "" : "max-w-3xl"} text-3xl font-bold text-foreground`}
         >

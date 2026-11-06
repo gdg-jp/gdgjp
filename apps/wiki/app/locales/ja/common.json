@@ -386,7 +386,6 @@
     "chat_space_placeholder": "スペースを選択",
     "add_candidate": "候補を追加",
     "add_chat_space": "Google Chat",
-    "add_discord_channel": "Discord",
     "discord_dialog_title": "Discord チャネルを追加",
     "discord_dialog_description": "サーバーを選び、取り込むテキストチャネルを選択します。Bot 未参加のサーバーは先に招待が必要です。",
     "discord_server_label": "サーバー",
@@ -400,7 +399,6 @@
     "discord_invite_hint_general": "取り込むサーバーに Wiki Bot が未参加の場合は、先に招待してください。",
     "discord_invite_bot": "Bot を招待",
     "discord_refresh_channels": "再読み込み",
-    "stage_discord_channels": "候補に追加",
     "connect_discord_hint": "Discord のサーバー一覧を表示するには、Discord アカウントを接続してください。",
     "connect_discord": "Discord を接続",
     "discord_reauth_hint": "Discord の権限が不足しています。再接続して identify と guilds スコープを許可してください。",
@@ -451,7 +449,9 @@
       "discord-channel": "Discord",
       "website": "Web サイト",
       "upload": "アップロード",
-      "text": "テキスト"
+      "text": "テキスト",
+      "discord-guild": "Discord サーバ",
+      "conversation": "会話ログ"
     },
     "status": {
       "pending": "待機中",
@@ -493,7 +493,23 @@
     "error_sender_name_required": "表示名を120文字以内で入力してください。",
     "error_not_archived": "アーカイブ済みのソースのみ操作できます",
     "error_delete_failed": "ソースの削除に失敗しました。もう一度お試しください。",
-    "error_duplicate_source": "この一次情報はすでに登録されています"
+    "error_duplicate_source": "この一次情報はすでに登録されています",
+    "add_discord_server": "Discord サーバを追加",
+    "add_google_drive": "Google Drive",
+    "add_google_chat": "Google Chat スペース",
+    "stage_discord_server": "このサーバを追加",
+    "discord_whole_category": "カテゴリ {{name}} 全体",
+    "discord_auto_discover": "選んだカテゴリに後から作られたチャンネルも取り込む",
+    "discord_one_visibility_hint": "公開範囲はサーバ単位で 1 つです。一部のカテゴリだけ狭い範囲にしたい場合は、同じサーバをもう 1 つのソースとして登録してください。",
+    "error_invalid_guild": "Discord サーバが正しくありません",
+    "error_invalid_guild_selection": "取り込むカテゴリかチャンネルを 1 つ以上選んでください",
+    "col_fetch": "取得",
+    "col_integrate": "統合",
+    "integrate_pending": "未統合 {{count}} 件",
+    "integrate_done": "統合済み",
+    "integrate_queue": "待ち {{queued}} / 実行中 {{leased}}",
+    "integrate_stale": "24 時間以上統合されていません",
+    "integrate_now": "今すぐ統合"
   },
   "settings": {
     "title": "設定",
@@ -756,5 +772,93 @@
     "s6_heading": "6. 規約の変更",
     "s6_body": "本規約はいつでも更新される場合があります。変更後に本サービスを継続して利用することにより、改定された規約に同意したものとみなします。",
     "footer_link": "プライバシーポリシー"
+  },
+  "spaces": {
+    "title": "スペース",
+    "description": "ページとソースはどれか 1 つのスペースに属します。閲覧できるのはそのスペースのメンバーだけです。",
+    "switcher_label": "表示するスペース",
+    "manage": "スペースの一覧と設定",
+    "settings": "設定",
+    "back_to_list": "スペース一覧へ",
+    "create_heading": "スペースを作る",
+    "create_personal": "個人スペースを作る",
+    "create_chapter": "チャプタースペースを作る",
+    "create_shared": "共有スペースを作る",
+    "personal_help": "自分だけが閲覧・編集できるスペースです。1 人 1 つ作れます。",
+    "chapter_help": "そのチャプターに所属しているメンバーだけが閲覧・編集できるスペースです。オーガナイザーが作れます。",
+    "chapter_select": "チャプター",
+    "shared_help": "メンバーを招待して使うスペースです。",
+    "name": "名前",
+    "slug": "URL 用の名前（英小文字・数字・ハイフン）",
+    "lang": "言語",
+    "translate_enabled": "英語版を自動で作る（1 日 1 回、変更があったページだけ）",
+    "settings_title": "{{name}} の設定",
+    "members": "メンバー",
+    "remove": "外す",
+    "add_member": "メンバーを追加",
+    "principal_type": "種類",
+    "principal_id": "ユーザー ID / チャプター ID",
+    "principal_id_help": "ユーザーはユーザー ID、チャプターはチャプター ID",
+    "chapter_role": "チャプター内の役割",
+    "member_role": "スペースでの役割",
+    "hide_agent_pages": "エージェントが作成したページを隠す",
+    "agent_hidden_banner": "このページはエージェントが作成したページです。一覧では非表示にしています。",
+    "review_title": "{{name}} のレビュー",
+    "review_empty": "未解決のレビューはありません",
+    "resolve": "解決済みにする",
+    "kind": {
+      "personal": "個人",
+      "chapter": "チャプター",
+      "shared": "共有"
+    },
+    "kind_help": {
+      "personal": "自分だけのスペースです。メンバーは追加できません。",
+      "chapter": "チャプターに所属しているメンバーだけが閲覧・編集できます。メンバーはチャプターの所属で決まり、追加はできません。",
+      "shared": "招待したメンバーが使うスペースです。"
+    },
+    "role": {
+      "owner": "オーナー",
+      "editor": "編集者",
+      "viewer": "閲覧者"
+    },
+    "principal": {
+      "user": "ユーザー",
+      "public": "誰でも",
+      "chapter_role": "チャプター",
+      "discord_guild": "Discord サーバ",
+      "chat_space": "Google Chat スペース"
+    },
+    "wildcard": {
+      "user": "サインインしている全員",
+      "public": "誰でも（サインイン不要）",
+      "chapter_role": "いずれかのチャプターのメンバー"
+    },
+    "flag": {
+      "human-page-conflict": "人間のページへの変更提案",
+      "acl-untagged": "黒塗り漏れの疑い",
+      "acl-ambiguous-span": "黒塗り範囲の指定が曖昧",
+      "broken-link": "リンク切れ",
+      "translate-stuck": "英訳できないページ"
+    },
+    "errors": {
+      "slug_taken": "その URL 名は使われています",
+      "invalid_slug": "URL 名が不正です",
+      "invalid_name": "名前が不正です",
+      "already_exists": "既に作成済みです",
+      "forbidden_chapter": "そのチャプターのオーガナイザーではありません",
+      "principal_not_allowed": "このスペースにはメンバーを追加できません",
+      "invalid_principal": "ID が不正です",
+      "invalid_role": "役割が不正です",
+      "last_owner": "最後のオーナーは外せません",
+      "slug_locked": "このスペースの URL 名は変えられません",
+      "invalid_lang": "言語が不正です",
+      "unknown_intent": "不明な操作です",
+      "not_found": "見つかりません",
+      "create_failed": "作成に失敗しました"
+    }
+  },
+  "pages": {
+    "origin_agent": "エージェントが作成",
+    "origin_human": "人間が作成"
   }
 }

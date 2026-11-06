@@ -21,7 +21,7 @@ describe("catch-all $ loader — bare path to /wiki redirect", () => {
       expect(response).toBeInstanceOf(Response);
       const res = response as Response;
       expect(res.status).toBe(301);
-      expect(res.headers.get("Location")).toBe("/wiki/child");
+      expect(res.headers.get("Location")).toBe("/s/gdg-jp/wiki/child");
     }
   });
 
@@ -33,7 +33,7 @@ describe("catch-all $ loader — bare path to /wiki redirect", () => {
       expect(response).toBeInstanceOf(Response);
       const res = response as Response;
       expect(res.status).toBe(301);
-      expect(res.headers.get("Location")).toBe("/wiki/foo/bar");
+      expect(res.headers.get("Location")).toBe("/s/gdg-jp/wiki/foo/bar");
     }
   });
 
@@ -43,7 +43,7 @@ describe("catch-all $ loader — bare path to /wiki redirect", () => {
       expect.unreachable("expected redirect");
     } catch (response) {
       const res = response as Response;
-      expect(res.headers.get("Location")).toBe("/wiki/child?lang=en");
+      expect(res.headers.get("Location")).toBe("/s/gdg-jp/wiki/child?lang=en");
     }
   });
 

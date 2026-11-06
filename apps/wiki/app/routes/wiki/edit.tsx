@@ -8,14 +8,16 @@ import type {
 } from "react-router";
 import { useLoaderData } from "react-router";
 import * as schema from "~/db/schema";
-import { getAccessIdentity, requireUser } from "~/features/auth/utils.server";
+import { requireUser } from "~/features/auth/utils.server";
 import { canonicalMarkdown } from "~/features/editor/content-format";
 import { getEffectivePagePermissions } from "~/features/pages/access.server";
 import { computeAclSourceIdsJson } from "~/features/pages/acl-spans";
 import { pageAclClearance, validatePageAclForSync } from "~/features/pages/acl-spans.server";
 import PageEditor from "~/features/pages/components/PageEditor";
+import { pageInSpace } from "~/features/pages/page-space.server";
 import { wikiPagePath } from "~/features/pages/wiki-page-path";
 import { getWikiCanonicalSlugPath } from "~/features/pages/wiki-page-path.server";
+import { requireSpace } from "~/features/spaces/access.server";
 import { getDb } from "~/lib/db.server";
 
 // ---------------------------------------------------------------------------
@@ -50,7 +52,8 @@ export const meta: MetaFunction<typeof loader> = ({ data }) => [
 export async function loader({ request, context, params }: LoaderFunctionArgs) {
   const { env } = context.cloudflare;
   const user = await requireUser(request, env);
-  const identity = await getAccessIdentity(request, env);
+  // Editing needs the editor role in the space before the inner page permission check.
+  const { space, identity } = await requireSpace(request, env, params.space, "editor");
   const db = getDb(env);
 
   const page = await db
@@ -71,7 +74,7 @@ export async function loader({ request, context, params }: LoaderFunctionArgs) {
       pageType: schema.pages.pageType,
     })
     .from(schema.pages)
-    .where(eq(schema.pages.slug, params.slug ?? ""))
+    .where(pageInSpace(space.id, params.slug ?? ""))
     .get();
 
   if (!page) throw new Response("Not Found", { status: 404 });
@@ -105,8 +108,9 @@ export async function loader({ request, context, params }: LoaderFunctionArgs) {
       ...page,
       contentJa: canonicalMarkdown(page.contentJa),
       contentEn: canonicalMarkdown(page.contentEn),
-      wikiPath: wikiPagePath(await getWikiCanonicalSlugPath(env, page.id)),
+      wikiPath: wikiPagePath(await getWikiCanonicalSlugPath(env, page.id), space.slug),
     },
+    space: { id: space.id, slug: space.slug },
     currentUser: { id: user.id, name: user.name, image: user.image ?? null },
   };
 }
@@ -118,7 +122,8 @@ export async function loader({ request, context, params }: LoaderFunctionArgs) {
 export async function action({ request, context, params }: ActionFunctionArgs) {
   const { env } = context.cloudflare;
   const user = await requireUser(request, env);
-  const identity = await getAccessIdentity(request, env);
+  // Editing needs the editor role in the space before the inner page permission check.
+  const { space, identity } = await requireSpace(request, env, params.space, "editor");
   const db = getDb(env);
 
   const formData = await request.formData();
@@ -144,7 +149,7 @@ export async function action({ request, context, params }: ActionFunctionArgs) {
       pageType: schema.pages.pageType,
     })
     .from(schema.pages)
-    .where(eq(schema.pages.slug, params.slug ?? ""))
+    .where(pageInSpace(space.id, params.slug ?? ""))
     .get();
 
   if (!page) throw new Response("Not Found", { status: 404 });
@@ -195,6 +200,7 @@ export async function action({ request, context, params }: ActionFunctionArgs) {
       en: { title: titleEn, content: contentEn },
     },
     {
+      spaceId: space.id,
       pageVisibility: page.visibility,
       pageAccess: accessRows,
       citedSourceIds: sourceRows

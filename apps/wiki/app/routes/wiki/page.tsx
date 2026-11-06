@@ -19,7 +19,7 @@ export const meta: MetaFunction<typeof loader> = ({ data, location, matches }) =
   return buildPageMeta({
     title,
     description,
-    imagePath: `/og/wiki/${encodeURIComponent(data.page.slug)}?lang=${isEnglish ? "en" : "ja"}&v=${new Date(data.page.updatedAt).getTime()}`,
+    imagePath: `/og/s/${encodeURIComponent(data.space.slug)}/wiki/${encodeURIComponent(data.page.slug)}?lang=${isEnglish ? "en" : "ja"}&v=${new Date(data.page.updatedAt).getTime()}`,
     visibility: data.page.visibility,
     origin: origin ?? "",
     pathname: isEnglish ? `${location.pathname}?lang=en` : location.pathname,

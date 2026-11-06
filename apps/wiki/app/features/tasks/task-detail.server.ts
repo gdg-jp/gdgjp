@@ -4,6 +4,8 @@ import * as schema from "~/db/schema";
 import { getAccessIdentity, requireUser } from "~/features/auth/utils.server";
 import { getEffectivePagePermissions } from "~/features/pages/access.server";
 import { archivePageAndDescendants } from "~/features/pages/archive.server";
+import { pageInSpace } from "~/features/pages/page-space.server";
+import { DEFAULT_SPACE_ID } from "~/features/spaces/shared";
 import { getDb } from "~/lib/db.server";
 
 /** Resolved shape of the `/tasks/:slug` loader data (used by `TaskListView`). */
@@ -20,7 +22,7 @@ export async function loadTaskDetail(request: Request, env: Env, slug: string | 
   const page = await db
     .select()
     .from(schema.pages)
-    .where(and(eq(schema.pages.slug, slug), eq(schema.pages.pageType, "task-list")))
+    .where(and(pageInSpace(DEFAULT_SPACE_ID, slug), eq(schema.pages.pageType, "task-list")))
     .get();
 
   if (!page) throw new Response("Not found", { status: 404 });
@@ -134,7 +136,7 @@ export async function handleTaskDetailAction(request: Request, env: Env, slug: s
   const page = await db
     .select()
     .from(schema.pages)
-    .where(and(eq(schema.pages.slug, slug), eq(schema.pages.pageType, "task-list")))
+    .where(and(pageInSpace(DEFAULT_SPACE_ID, slug), eq(schema.pages.pageType, "task-list")))
     .get();
 
   if (!page) throw new Response("Not found", { status: 404 });

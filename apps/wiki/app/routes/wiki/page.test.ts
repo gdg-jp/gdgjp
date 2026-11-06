@@ -9,6 +9,24 @@ vi.mock("~/lib/db.server", () => ({
   getDb: vi.fn(),
 }));
 
+// Outer layer: the default space resolves for every caller; identity comes from the
+// mocked getAccessIdentity so each case still controls the inner ACL inputs.
+vi.mock("~/features/spaces/access.server", async () => {
+  const { getAccessIdentity } = await import("~/features/auth/utils.server");
+  return {
+    requireSpace: vi.fn(async (request: Request, env: Env) => ({
+      space: { id: "gdg-jp", slug: "gdg-jp", name: "GDG Japan", kind: "shared" },
+      role: "editor",
+      identity: await getAccessIdentity(request, env),
+      access: new Map([["gdg-jp", "editor"]]),
+    })),
+  };
+});
+
+vi.mock("~/features/spaces/viewer.server", () => ({
+  rememberLastSpace: vi.fn(async () => undefined),
+}));
+
 vi.mock("~/features/pages/access.server", () => ({
   getEffectivePagePermissions: vi.fn(),
 }));
@@ -92,8 +110,8 @@ async function runLoader(path: string, splat: string) {
   return loader({
     request,
     context: mockContext,
-    params: { "*": splat },
-    unstable_pattern: "/wiki/*",
+    params: { space: "gdg-jp", "*": splat },
+    unstable_pattern: "/s/:space/wiki/*",
     unstable_url: new URL(request.url),
   });
 }
@@ -110,7 +128,7 @@ describe("wiki.$ loader path handling", () => {
     } as never);
     vi.mocked(getWikiCanonicalSlugPath).mockResolvedValueOnce(["parent", "child"]);
 
-    const result = await runLoader("/wiki/parent/child", "parent/child");
+    const result = await runLoader("/s/gdg-jp/wiki/parent/child", "parent/child");
     expect(result.page.slug).toBe("child");
     expect(result.content).toBeInstanceOf(Promise);
     expect(result.pageMeta).toBeInstanceOf(Promise);
@@ -135,13 +153,13 @@ describe("wiki.$ loader path handling", () => {
     vi.mocked(getWikiCanonicalSlugPath).mockResolvedValueOnce(["parent", "child"]);
 
     try {
-      await runLoader("/wiki/child?lang=en", "child");
+      await runLoader("/s/gdg-jp/wiki/child?lang=en", "child");
       expect.unreachable("expected redirect");
     } catch (response) {
       expect(response).toBeInstanceOf(Response);
       const res = response as Response;
       expect(res.status).toBe(301);
-      expect(res.headers.get("Location")).toBe("/wiki/parent/child?lang=en");
+      expect(res.headers.get("Location")).toBe("/s/gdg-jp/wiki/parent/child?lang=en");
     }
   });
 
@@ -157,7 +175,7 @@ describe("wiki.$ loader path handling", () => {
     vi.mocked(getWikiCanonicalSlugPath).mockResolvedValueOnce(["parent", "child"]);
 
     try {
-      await runLoader("/wiki/wrong/child", "wrong/child");
+      await runLoader("/s/gdg-jp/wiki/wrong/child", "wrong/child");
       expect.unreachable("expected 404");
     } catch (response) {
       expect(response).toBeInstanceOf(Response);
@@ -177,7 +195,7 @@ describe("wiki.$ loader path handling", () => {
     } as never);
     vi.mocked(getWikiCanonicalSlugPath).mockResolvedValueOnce(["about"]);
 
-    const result = await runLoader("/wiki/about", "about");
+    const result = await runLoader("/s/gdg-jp/wiki/about", "about");
     expect(result.page.slug).toBe("about");
   });
 
@@ -220,7 +238,7 @@ describe("wiki.$ loader path handling", () => {
     } as never);
 
     try {
-      await runLoader("/wiki/parent/child", "parent/child");
+      await runLoader("/s/gdg-jp/wiki/parent/child", "parent/child");
       expect.unreachable("expected 503");
     } catch (response) {
       expect(response).toBeInstanceOf(Response);

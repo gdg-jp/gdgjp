@@ -53,9 +53,13 @@ export const websiteImportDriver: ImportKindDriver<WebsitePhase> = {
     const path = pathForMediaType(document.path, HTML_MEDIA_TYPE);
     ctx.budget.spend(ARCHIVE_MISSING_SUBREQUESTS);
     if (
-      !(await archiveMissingDocuments(current.db, current.source.id, current.run.fetchAttemptId, [
-        path,
-      ]))
+      !(await archiveMissingDocuments(
+        current.db,
+        current.source.id,
+        current.run.fetchAttemptId,
+        [path],
+        ctx.env.BUCKET,
+      ))
     ) {
       return;
     }

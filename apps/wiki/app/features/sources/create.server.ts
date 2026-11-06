@@ -4,22 +4,25 @@ import { nanoid } from "nanoid";
 import * as schema from "~/db/schema";
 import type { SourceKind, SourceRefreshPolicy, SourceVisibility } from "~/features/sources/shared";
 import { getDb } from "~/lib/db.server";
-import type { ClassifiedSource } from "./classify";
-import { classifyDiscordChannel, classifyGoogleChatSpace, classifySourceUrl } from "./classify";
+import { SOURCE_KINDS, registrationSpec } from "./kinds";
 import type { Membership } from "./permissions";
 import { canAssignSourceVisibility, parseSourceVisibilitySelection } from "./permissions";
 
 export interface CreateSourceInput {
   url?: unknown;
-  /** When set with kind google-chat-space, registers a Chat Space instead of a URL. */
+  /** Registration entry point (`RegistrationKind`); omitted means a plain URL. */
   kind?: unknown;
   externalId?: unknown;
   title?: unknown;
+  /** Kind-specific settings, e.g. the Discord server channel selection. */
+  config?: unknown;
   visibility: unknown;
   chapter: unknown;
   refreshPolicy?: unknown;
   user: AuthUser;
   chapters: readonly Membership[];
+  /** Space the source is registered in (caller has already checked the editor role). */
+  spaceId: string;
 }
 
 export type CreateSourceResult =
@@ -51,14 +54,15 @@ export async function createSource(
   env: Env,
   input: CreateSourceInput,
 ): Promise<CreateSourceResult> {
-  const classified =
-    input.kind === "google-chat-space"
-      ? classifyGoogleChatSpace(input.externalId, input.title)
-      : input.kind === "discord-channel"
-        ? classifyDiscordChannel(input.externalId, input.title, input.url)
-        : typeof input.url === "string"
-          ? classifySourceUrl(input.url, input.title)
-          : { ok: false as const, error: "url_required" };
+  const registration = registrationSpec(input.kind ?? "url");
+  if (!registration) return { ok: false, error: "unsupported_source_kind", status: 400 };
+  const classified = registration.classify({
+    kind: registration.registration,
+    url: input.url,
+    externalId: input.externalId,
+    title: input.title,
+    config: input.config,
+  });
 
   if (!classified.ok) {
     return { ok: false, error: classified.error, status: 400 };
@@ -79,10 +83,12 @@ export async function createSource(
     return { ok: false, error: "forbidden_chapter", status: 403 };
   }
 
-  const refreshPolicy: SourceRefreshPolicy =
-    input.refreshPolicy === "daily" || input.refreshPolicy === "weekly"
-      ? input.refreshPolicy
-      : "manual";
+  const kindSpec = SOURCE_KINDS[classified.kind];
+  const refreshPolicy: SourceRefreshPolicy = kindSpec.refreshPolicies.includes(
+    input.refreshPolicy as SourceRefreshPolicy,
+  )
+    ? (input.refreshPolicy as SourceRefreshPolicy)
+    : kindSpec.defaultRefreshPolicy;
 
   const db = getDb(env);
   // Drive/Chat identity is external_id; websites have no external id so the
@@ -92,24 +98,33 @@ export async function createSource(
     ? await db
         .select({ id: schema.sources.id })
         .from(schema.sources)
-        .where(eq(schema.sources.externalId, classified.externalId))
+        .where(
+          and(
+            eq(schema.sources.spaceId, input.spaceId),
+            eq(schema.sources.externalId, classified.externalId),
+          ),
+        )
         .get()
     : await db
         .select({ id: schema.sources.id })
         .from(schema.sources)
-        .where(eq(schema.sources.url, classified.url))
+        .where(
+          and(eq(schema.sources.spaceId, input.spaceId), eq(schema.sources.url, classified.url)),
+        )
         .get();
   if (duplicate) {
     return { ok: false, error: "duplicate_source", status: 409 };
   }
 
   const id = nanoid();
-  const title = provisionalTitle(classified);
+  const title = kindSpec.provisionalTitle(classified);
 
   await db.insert(schema.sources).values({
     id,
+    spaceId: input.spaceId,
     kind: classified.kind,
     externalId: classified.externalId,
+    config: classified.config ?? null,
     url: classified.url,
     title,
     chapterId: selection.chapterId,
@@ -148,27 +163,4 @@ export async function createSource(
       refreshPolicy,
     },
   };
-}
-
-/** Placeholder until the fetcher reports the real document title. */
-function provisionalTitle(classified: Extract<ClassifiedSource, { ok: true }>): string {
-  if (classified.title) return classified.title;
-  if (
-    classified.kind === "google-doc" ||
-    classified.kind === "google-sheet" ||
-    classified.kind === "google-slides"
-  ) {
-    return `Google Doc ${classified.externalId}`;
-  }
-  if (classified.kind === "google-chat-space") {
-    return `Google Chat ${classified.externalId}`;
-  }
-  if (classified.kind === "discord-channel") {
-    return `Discord #${classified.externalId}`;
-  }
-  try {
-    return new URL(classified.url).hostname;
-  } catch {
-    return classified.url;
-  }
 }

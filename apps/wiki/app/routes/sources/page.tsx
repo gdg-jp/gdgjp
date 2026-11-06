@@ -1,31 +1,67 @@
+import { Button } from "@gdgjp/design-system";
 import { Suspense, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Await, useLoaderData, useRevalidator, useSearchParams } from "react-router";
+import { Await, useFetcher, useLoaderData, useRevalidator, useSearchParams } from "react-router";
 import type { ActionFunctionArgs, LoaderFunctionArgs, MetaFunction } from "react-router";
 import { TableSkeleton } from "~/components/Skeleton";
-import { getAccessIdentity, requireUser } from "~/features/auth/utils.server";
+import { requireUser } from "~/features/auth/utils.server";
 import SourceList from "~/features/sources/components/SourceList";
 import SourcesToolbar from "~/features/sources/components/SourcesToolbar";
 import { filterSources, parseSourceFilters } from "~/features/sources/components/filter-sources";
 import { handleSourcesAction, loadSourcesPageData } from "~/features/sources/sources-page.server";
+import { requireSpace } from "~/features/spaces/access.server";
 import { AddSourceSection } from "./_components/AddSourceSection";
 import { ChatSenderDialog } from "./_components/ChatSenderDialog";
 
 export const meta: MetaFunction = () => [{ title: "Sources — GDG Japan Wiki" }];
 
-export async function loader({ request, context }: LoaderFunctionArgs) {
-  return loadSourcesPageData(request, context.cloudflare.env);
+export async function loader({ request, context, params }: LoaderFunctionArgs) {
+  return loadSourcesPageData(request, context.cloudflare.env, params.space);
 }
 
-export async function action({ request, context }: ActionFunctionArgs) {
+export async function action({ request, context, params }: ActionFunctionArgs) {
   const { env } = context.cloudflare;
   const user = await requireUser(request, env);
-  const identity = await getAccessIdentity(request, env);
+  // Registering or changing sources needs the editor role in the space.
+  const { space, identity } = await requireSpace(request, env, params.space, "editor");
   const form = await request.formData();
-  return handleSourcesAction(env, form, user, identity);
+  return handleSourcesAction(env, form, user, identity, space);
 }
 
 type SourcesResolvedData = Awaited<Awaited<ReturnType<typeof loadSourcesPageData>>["sourcesData"]>;
+
+function IntegrationSummary({
+  integration,
+  canEditSpace,
+}: {
+  integration: SourcesResolvedData["integration"];
+  canEditSpace: boolean;
+}) {
+  const { t, i18n } = useTranslation();
+  const fetcher = useFetcher();
+  return (
+    <div className="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-md border border-border bg-surface px-3 py-2 text-sm text-muted">
+      <span>
+        {t("sources.col_integrate")}:{" "}
+        {t("sources.integrate_queue", {
+          queued: integration.queued,
+          leased: integration.leased,
+        })}
+        {integration.oldestQueuedAt
+          ? ` · ${new Date(integration.oldestQueuedAt).toLocaleString(i18n.language)}`
+          : ""}
+      </span>
+      {canEditSpace ? (
+        <fetcher.Form method="post">
+          <input type="hidden" name="intent" value="integrate-now" />
+          <Button type="submit" size="sm" variant="secondary" loading={fetcher.state !== "idle"}>
+            {t("sources.integrate_now")}
+          </Button>
+        </fetcher.Form>
+      ) : null}
+    </div>
+  );
+}
 
 function SourcesContent({
   allChapters,
@@ -34,9 +70,12 @@ function SourcesContent({
   currentUserId,
   isAdmin,
   sources,
+  integration,
+  canEditSpace,
 }: SourcesResolvedData & {
   currentUserId: string;
   isAdmin: boolean;
+  canEditSpace: boolean;
 }) {
   const { t, i18n } = useTranslation();
   const revalidator = useRevalidator();
@@ -79,7 +118,10 @@ function SourcesContent({
         </button>
       </header>
 
-      <AddSourceSection sources={sources} assignableChapters={assignableChapters} />
+      <IntegrationSummary integration={integration} canEditSpace={canEditSpace} />
+      {canEditSpace ? (
+        <AddSourceSection sources={sources} assignableChapters={assignableChapters} />
+      ) : null}
 
       {sources.length === 0 ? (
         <p className="text-sm text-muted">{t("sources.empty")}</p>
@@ -116,7 +158,7 @@ function SourcesContent({
 }
 
 export default function SourcesPage() {
-  const { currentUserId, isAdmin, sourcesData } = useLoaderData<typeof loader>();
+  const { currentUserId, isAdmin, sourcesData, canEditSpace } = useLoaderData<typeof loader>();
   const { t } = useTranslation();
 
   return (
@@ -151,6 +193,8 @@ export default function SourcesPage() {
               assignableChapters={data.assignableChapters}
               chatSenders={data.chatSenders}
               sources={data.sources}
+              integration={data.integration}
+              canEditSpace={canEditSpace}
               currentUserId={currentUserId}
               isAdmin={isAdmin}
             />

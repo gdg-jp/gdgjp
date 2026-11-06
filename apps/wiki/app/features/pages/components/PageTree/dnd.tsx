@@ -12,7 +12,7 @@ import {
   useSensors,
 } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useFetcher } from "react-router";
 import { type FlatNode, type PageNode, flattenTree } from "~/features/pages/tree";
@@ -38,6 +38,10 @@ export function DraggablePageTree({
   const { t } = useTranslation();
   const fetcher = useFetcher();
   const [flatNodes, setFlatNodes] = useState<FlatNode[]>(() => flattenTree(pages));
+  // Loader revalidation (new page, move, another space) replaces `pages`; follow it.
+  useEffect(() => {
+    setFlatNodes(flattenTree(pages));
+  }, [pages]);
   const [activeId, setActiveId] = useState<UniqueIdentifier | null>(null);
   const [overId, setOverId] = useState<UniqueIdentifier | null>(null);
   const [dragOffsetX, setDragOffsetX] = useState(0);

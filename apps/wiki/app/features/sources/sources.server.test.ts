@@ -176,13 +176,20 @@ describe("updateSourceVisibility", () => {
 
   it("clears chapter_id when moving away from chapter-scoped visibility", async () => {
     getMock.mockResolvedValue({ addedBy: "owner" });
-    const result = await updateSourceVisibility({} as Env, "src-1", {
-      visibility: "member",
-      chapter: null,
-      user: OWNER,
-      chapters: [OSAKA],
-    });
+    const send = vi.fn().mockResolvedValue(undefined);
+    const result = await updateSourceVisibility(
+      { SOURCE_FETCH_QUEUE: { send } } as never,
+      "src-1",
+      {
+        visibility: "member",
+        chapter: null,
+        user: OWNER,
+        chapters: [OSAKA],
+      },
+    );
     expect(result).toEqual({ ok: true, visibility: "member", chapterId: null });
+    // Search metadata is re-tagged for the new audience.
+    expect(send).toHaveBeenCalledWith({ type: "source_audience_rewrite", sourceId: "src-1" });
     expect(updateMock).toHaveBeenCalledWith({
       visibility: "member",
       chapterId: null,

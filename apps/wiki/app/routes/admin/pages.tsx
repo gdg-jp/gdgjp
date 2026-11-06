@@ -38,6 +38,8 @@ export async function loader({ request, context }: LoaderFunctionArgs) {
     })
     .from(schema.pages)
     .leftJoin(schema.user, eq(schema.pages.authorId, schema.user.id))
+    // The admin tree is the default space's tree; other spaces are managed by their owners.
+    .where(eq(schema.pages.spaceId, "gdg-jp"))
     .orderBy(schema.pages.sortOrder)
     .all()
     .then((rows) => buildAdminPageTree(rows));

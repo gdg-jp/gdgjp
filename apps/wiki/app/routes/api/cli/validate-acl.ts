@@ -10,6 +10,8 @@ import {
   validateReadSourcesTagged,
 } from "~/features/pages/acl-spans.server";
 import { mapInChunks } from "~/features/pages/d1-chunk.server";
+import { requireSpaceForIdentity } from "~/features/spaces/access.server";
+import { DEFAULT_SPACE_SLUG } from "~/features/spaces/shared";
 import { getDb } from "~/lib/db.server";
 
 const Access = z.object({
@@ -63,6 +65,17 @@ export async function action({ request, context }: ActionFunctionArgs) {
 
   const { lang, pages, readSourceIds } = parsed.data;
   const db = getDb(env);
+  // `?space=<slug>` — spans may only cite sources of this space (default gdg-jp).
+  const spaceSlug = new URL(request.url).searchParams.get("space") ?? DEFAULT_SPACE_SLUG;
+  let spaceId: string;
+  try {
+    spaceId = (await requireSpaceForIdentity(db, { ...identity, claimsAvailable: true }, spaceSlug))
+      .space.id;
+  } catch (error) {
+    if (error instanceof Response)
+      return Response.json({ error: "space_not_found" }, { status: error.status });
+    throw error;
+  }
   const findings: Finding[] = [];
 
   const pageIds = pages
@@ -116,6 +129,7 @@ export async function action({ request, context }: ActionFunctionArgs) {
       db,
       lang === "en" ? { en: locale } : { ja: locale },
       {
+        spaceId,
         pageVisibility: page.visibility,
         pageAccess: page.access,
         citedSourceIds: page.sources

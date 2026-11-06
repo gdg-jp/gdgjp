@@ -10,6 +10,8 @@ import {
   ingestionImageKeysFromMarkdown,
 } from "~/features/editor/content-format";
 import { generateSlug } from "~/features/ingestion/slug";
+import { pageInSpace } from "~/features/pages/page-space.server";
+import { DEFAULT_SPACE_ID } from "~/features/spaces/shared";
 
 // ---------------------------------------------------------------------------
 // Validation
@@ -111,7 +113,7 @@ export async function action({ request, context, params }: ActionFunctionArgs) {
       const collision = await db
         .select({ id: schema.pages.id })
         .from(schema.pages)
-        .where(eq(schema.pages.slug, slug))
+        .where(pageInSpace(DEFAULT_SPACE_ID, slug))
         .get();
       if (collision) slug = `${slug}-${nanoid(6)}`;
 

@@ -31,14 +31,14 @@ describe("buildAdminPageTree", () => {
       id: "p1",
       slug: "parent",
       depth: 0,
-      wikiPath: "/wiki/parent",
+      wikiPath: "/s/gdg-jp/wiki/parent",
       childCount: 1,
     });
     expect(result[1]).toMatchObject({
       id: "p2",
       slug: "child",
       depth: 1,
-      wikiPath: "/wiki/parent/child",
+      wikiPath: "/s/gdg-jp/wiki/parent/child",
       childCount: 0,
     });
   });
@@ -56,19 +56,19 @@ describe("buildAdminPageTree", () => {
     expect(result[0]).toMatchObject({
       id: "p1",
       depth: 0,
-      wikiPath: "/wiki/root",
+      wikiPath: "/s/gdg-jp/wiki/root",
       childCount: 1,
     });
     expect(result[1]).toMatchObject({
       id: "p2",
       depth: 1,
-      wikiPath: "/wiki/root/child",
+      wikiPath: "/s/gdg-jp/wiki/root/child",
       childCount: 1,
     });
     expect(result[2]).toMatchObject({
       id: "p3",
       depth: 2,
-      wikiPath: "/wiki/root/child/grandchild",
+      wikiPath: "/s/gdg-jp/wiki/root/child/grandchild",
       childCount: 0,
     });
   });
@@ -85,7 +85,7 @@ describe("buildAdminPageTree", () => {
       id: "orphan1",
       slug: "orphan-page",
       depth: 0,
-      wikiPath: "/wiki/orphan-page",
+      wikiPath: "/s/gdg-jp/wiki/orphan-page",
       childCount: 0,
     });
   });

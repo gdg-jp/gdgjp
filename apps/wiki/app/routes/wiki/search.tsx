@@ -6,8 +6,8 @@ export const meta: MetaFunction<typeof loader> = ({ data }) => [
   { title: data?.q ? `"${data.q}" — Search — GDG Japan Wiki` : "Search — GDG Japan Wiki" },
 ];
 
-export async function loader({ request, context }: LoaderFunctionArgs) {
-  return loadWikiSearch(request, context.cloudflare.env);
+export async function loader({ request, context, params }: LoaderFunctionArgs) {
+  return loadWikiSearch(request, context.cloudflare.env, params.space);
 }
 
 export default function SearchPage() {

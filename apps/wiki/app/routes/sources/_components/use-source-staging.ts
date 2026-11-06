@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useFetcher, useRevalidator } from "react-router";
+import { REGISTRATIONS, sourceKindSpec } from "~/features/sources/kinds";
 import { titleFromUrl } from "~/features/sources/staged-candidates";
 import type { StagedSource } from "~/features/sources/staged-candidates";
 import type { action } from "../page";
@@ -22,17 +23,11 @@ export function useSourceStaging(
     const ids = new Set<string>();
     for (const source of sources) {
       if (!source.externalId) continue;
-      if (source.kind === "google-chat-space") {
-        ids.add(`chat:${source.externalId}`);
-      } else if (source.kind === "discord-channel") {
-        ids.add(`discord:${source.externalId}`);
-      } else {
-        ids.add(`drive:${source.externalId}`);
-      }
+      const spec = sourceKindSpec(source.kind);
+      if (spec) ids.add(spec.candidateId(source.externalId));
     }
     for (const candidate of candidates) {
-      if (candidate.kind === "discord-channel") ids.add(candidate.id);
-      if (candidate.kind === "google-chat-space") ids.add(candidate.id);
+      if (REGISTRATIONS[candidate.kind].dedupeStaged) ids.add(candidate.id);
     }
     return ids;
   }, [sources, candidates]);
@@ -95,7 +90,7 @@ export function useSourceStaging(
   function updateUrlCandidate(id: string, url: string) {
     setCandidates((current) =>
       current.map((candidate) =>
-        candidate.id === id && candidate.kind === "url"
+        candidate.id === id && REGISTRATIONS[candidate.kind].editableUrl
           ? { ...candidate, url, title: url.trim() ? titleFromUrl(url.trim()) : "" }
           : candidate,
       ),

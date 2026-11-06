@@ -3,6 +3,31 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const getMock = vi.fn();
 const enqueueSourceRefreshMock = vi.fn();
 
+vi.mock("~/features/spaces/access.server", async (importOriginal) => {
+  // The outer (space) layer has its own tests in features/spaces; here every caller is
+  // an owner of the default space so these tests keep exercising the inner ACL.
+  const original = await importOriginal<typeof import("~/features/spaces/access.server")>();
+  const space = {
+    id: "gdg-jp",
+    slug: "gdg-jp",
+    name: "GDG Japan",
+    kind: "shared",
+    chapterId: null,
+  };
+  return {
+    ...original,
+    requireSpace: vi.fn(async () => ({
+      space,
+      role: "owner",
+      identity: { user: null, chapters: [], chapterIds: [], claimsAvailable: true },
+      access: new Map([["gdg-jp", "owner"]]),
+    })),
+    requireSpaceForIdentity: vi.fn(async () => ({ space, role: "owner" })),
+    requirePageSpace: vi.fn(async () => ({ spaceId: "gdg-jp", role: "owner" })),
+    requireSourceSpace: vi.fn(async () => ({ spaceId: "gdg-jp", role: "owner" })),
+  };
+});
+
 vi.mock("~/features/auth/utils.server", () => ({
   getAccessIdentity: vi.fn().mockResolvedValue({ chapterIds: [] }),
   requireUser: vi.fn().mockResolvedValue({ id: "user-1", isAdmin: true }),
@@ -61,13 +86,19 @@ describe("source refresh action", () => {
     expect(enqueueSourceRefreshMock).toHaveBeenCalledWith(expect.any(Object), source.id);
   });
 
-  it("rejects conversation sources before queueing", async () => {
+  it("passes on the lifecycle's refusal for kinds without a fetch driver", async () => {
+    // The route no longer branches on kind; enqueueSourceRefresh (SOURCE_KINDS.refreshable)
+    // decides, and its answer reaches the client unchanged.
     getMock.mockResolvedValue({ ...source, kind: "conversation" });
+    enqueueSourceRefreshMock.mockResolvedValue({
+      ok: false,
+      error: "unsupported_source_kind",
+      status: 409,
+    });
 
     const response = await action(requestArgs());
 
     expect(response.status).toBe(409);
     expect(await response.json()).toEqual({ error: "unsupported_source_kind" });
-    expect(enqueueSourceRefreshMock).not.toHaveBeenCalled();
   });
 });

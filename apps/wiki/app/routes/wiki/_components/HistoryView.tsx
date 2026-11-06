@@ -11,6 +11,8 @@ import { ArticleWithTitleSkeleton, ListSkeleton } from "~/components/Skeleton";
 import type { loader } from "../history";
 
 import { Icons } from "@gdgjp/design-system";
+import { wikiPageActionPath } from "~/features/pages/wiki-page-path";
+import { useCurrentSpace } from "~/features/spaces/components/current-space";
 type HistoryLoaderData = Awaited<ReturnType<typeof loader>>;
 
 function relativeTimeDiff(savedAt: number): { key: string; count?: number } {
@@ -62,6 +64,7 @@ function HistoryContent({
   currentContentEn: string;
 }) {
   const { t } = useTranslation("common");
+  const { slug: spaceSlug } = useCurrentSpace();
   const { resolvedTheme } = useTheme();
   const theme = resolvedTheme === "dark" ? "dark" : "light";
   const [diffMode, setDiffMode] = useState(false);
@@ -70,13 +73,13 @@ function HistoryContent({
 
   const versionUrl = (vId: string, l = lang) => {
     const p = new URLSearchParams({ lang: l, v: vId });
-    return `/wiki/${page.slug}/history?${p}`;
+    return `${wikiPageActionPath(page.slug, "history", spaceSlug)}?${p}`;
   };
 
   const langUrl = (l: string) => {
     const p = new URLSearchParams({ lang: l });
     if (selectedVersion) p.set("v", selectedVersion.id);
-    return `/wiki/${page.slug}/history?${p}`;
+    return `${wikiPageActionPath(page.slug, "history", spaceSlug)}?${p}`;
   };
 
   const displayTitle = selectedVersion

@@ -1,55 +1,65 @@
 import { sql } from "drizzle-orm";
-import { integer, primaryKey, sqliteTable, text } from "drizzle-orm/sqlite-core";
+import { integer, primaryKey, sqliteTable, text, unique } from "drizzle-orm/sqlite-core";
 import { chapters } from "./chapters";
 import { ingestionSessions } from "./ingestion";
 import { sources } from "./sources";
+import { spaces } from "./spaces";
 import { tags } from "./tags";
 import { user } from "./user";
 
 // ---------------------------------------------------------------------------
 // pages
 // ---------------------------------------------------------------------------
-export const pages = sqliteTable("pages", {
-  id: text("id").primaryKey(),
-  titleJa: text("title_ja").notNull(),
-  titleEn: text("title_en").notNull().default(""),
-  slug: text("slug").notNull().unique(),
-  contentJa: text("content_ja").notNull(),
-  contentEn: text("content_en").notNull().default(""),
-  translationStatusJa: text("translation_status_ja").notNull().default("human"),
-  // "human" | "ai" | "missing"
-  translationStatusEn: text("translation_status_en").notNull().default("missing"),
-  summaryJa: text("summary_ja").notNull().default(""),
-  summaryEn: text("summary_en").notNull().default(""),
-  parentId: text("parent_id"),
-  // self-reference; FK defined in migration SQL to avoid circular reference
-  aclSyncedWithParent: integer("acl_synced_with_parent", { mode: "boolean" })
-    .notNull()
-    .default(true),
-  sortOrder: integer("sort_order").notNull().default(0),
-  status: text("status").notNull().default("published"),
-  // "published" | "archived"
-  pageType: text("page_type"),
-  // existing ingestion types plus event/venue/vendor/person/organization/playbook/answer/wiki-index/wiki-log | null
-  pageMetadata: text("page_metadata"),
-  ingestionSessionId: text("ingestion_session_id").references(() => ingestionSessions.id),
-  actionabilityScore: integer("actionability_score"),
-  // "restricted" | "unlisted" | "public"
-  visibility: text("visibility").notNull().default("restricted"),
-  // Used for every non-restricted general-access audience.
-  generalRole: text("general_role").notNull().default("viewer"),
-  chapterId: text("chapter_id").references(() => chapters.id, { onDelete: "set null" }),
-  authorId: text("author_id").notNull(),
-  lastEditedBy: text("last_edited_by").notNull(),
-  // "human" | "agent" — human pages appear under raw/ in clones; agent pages under pages/
-  origin: text("origin").notNull().default("human"),
-  // JSON array of source ids referenced by <acl src> spans in content_ja ∪ content_en.
-  // Denormalized so listings / push gates avoid reparsing bodies.
-  aclSourceIds: text("acl_source_ids").notNull().default("[]"),
-  createdAt: integer("created_at", { mode: "timestamp" }).notNull().default(sql`(unixepoch())`),
-  updatedAt: integer("updated_at", { mode: "timestamp" }).notNull().default(sql`(unixepoch())`),
-  syncRevision: integer("sync_revision").notNull().default(1),
-});
+export const pages = sqliteTable(
+  "pages",
+  {
+    id: text("id").primaryKey(),
+    // Tenant. Slugs are unique per space, never globally — every slug lookup carries a space.
+    spaceId: text("space_id")
+      .notNull()
+      .default("gdg-jp")
+      .references(() => spaces.id),
+    titleJa: text("title_ja").notNull(),
+    titleEn: text("title_en").notNull().default(""),
+    slug: text("slug").notNull(),
+    contentJa: text("content_ja").notNull(),
+    contentEn: text("content_en").notNull().default(""),
+    translationStatusJa: text("translation_status_ja").notNull().default("human"),
+    // "human" | "ai" | "missing"
+    translationStatusEn: text("translation_status_en").notNull().default("missing"),
+    summaryJa: text("summary_ja").notNull().default(""),
+    summaryEn: text("summary_en").notNull().default(""),
+    parentId: text("parent_id"),
+    // self-reference; FK defined in migration SQL to avoid circular reference
+    aclSyncedWithParent: integer("acl_synced_with_parent", { mode: "boolean" })
+      .notNull()
+      .default(true),
+    sortOrder: integer("sort_order").notNull().default(0),
+    status: text("status").notNull().default("published"),
+    // "published" | "archived"
+    pageType: text("page_type"),
+    // existing ingestion types plus event/venue/vendor/person/organization/playbook/answer/wiki-index/wiki-log | null
+    pageMetadata: text("page_metadata"),
+    ingestionSessionId: text("ingestion_session_id").references(() => ingestionSessions.id),
+    actionabilityScore: integer("actionability_score"),
+    // "restricted" | "unlisted" | "public"
+    visibility: text("visibility").notNull().default("restricted"),
+    // Used for every non-restricted general-access audience.
+    generalRole: text("general_role").notNull().default("viewer"),
+    chapterId: text("chapter_id").references(() => chapters.id, { onDelete: "set null" }),
+    authorId: text("author_id").notNull(),
+    lastEditedBy: text("last_edited_by").notNull(),
+    // "human" | "agent" — human pages appear under raw/ in clones; agent pages under pages/
+    origin: text("origin").notNull().default("human"),
+    // JSON array of source ids referenced by <acl src> spans in content_ja ∪ content_en.
+    // Denormalized so listings / push gates avoid reparsing bodies.
+    aclSourceIds: text("acl_source_ids").notNull().default("[]"),
+    createdAt: integer("created_at", { mode: "timestamp" }).notNull().default(sql`(unixepoch())`),
+    updatedAt: integer("updated_at", { mode: "timestamp" }).notNull().default(sql`(unixepoch())`),
+    syncRevision: integer("sync_revision").notNull().default(1),
+  },
+  (t) => [unique("pages_space_id_slug_unique").on(t.spaceId, t.slug)],
+);
 
 // Globally shared instructions materialized as AGENTS.md in every Wiki clone.
 // This is deliberately a one-row table: instructions are not page content.

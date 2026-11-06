@@ -2,6 +2,7 @@ import { eq } from "drizzle-orm";
 import * as schema from "~/db/schema";
 import { createAuth } from "~/features/auth/auth.server";
 import type { requireUser } from "~/features/auth/utils.server";
+import { collabRoomName } from "~/features/editor/collab-room";
 import {
   type ShareSubject,
   getEffectivePagePermissions,
@@ -13,6 +14,7 @@ import type { getDb } from "~/lib/db.server";
 
 export type PageRecord = {
   id: string;
+  spaceId: string;
   slug: string;
   titleJa: string;
   pageType: string | null;
@@ -52,6 +54,7 @@ export async function loadPage(
     (await db
       .select({
         id: schema.pages.id,
+        spaceId: schema.pages.spaceId,
         slug: schema.pages.slug,
         titleJa: schema.pages.titleJa,
         pageType: schema.pages.pageType,
@@ -149,14 +152,16 @@ export function asShareSubject(value: unknown): ShareSubject | null {
   };
 }
 
-async function invalidateCollaboration(env: Env, slug: string): Promise<void> {
-  const id = env.COLLAB_DO.idFromName(slug);
+type CollabPage = { spaceId: string; slug: string };
+
+async function invalidateCollaboration(env: Env, page: CollabPage): Promise<void> {
+  const id = env.COLLAB_DO.idFromName(collabRoomName(page.spaceId, page.slug));
   await env.COLLAB_DO.get(id).fetch("https://collab.internal/access-changed", { method: "POST" });
 }
 
-export async function invalidateCollaborationBestEffort(env: Env, slug: string): Promise<void> {
+export async function invalidateCollaborationBestEffort(env: Env, page: CollabPage): Promise<void> {
   try {
-    await invalidateCollaboration(env, slug);
+    await invalidateCollaboration(env, page);
   } catch (error) {
     console.error("Failed to disconnect collaborative editing sessions", error);
   }

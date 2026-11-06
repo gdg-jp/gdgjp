@@ -2,7 +2,7 @@ import { eq } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import { redirect } from "react-router";
 import * as schema from "~/db/schema";
-import { getAccessIdentity, requireUser } from "~/features/auth/utils.server";
+import { requireUser } from "~/features/auth/utils.server";
 import { canonicalMarkdown } from "~/features/editor/content-format";
 import { getEffectivePagePermissions } from "~/features/pages/access.server";
 import { computeAclSourceIdsJson } from "~/features/pages/acl-spans";
@@ -13,7 +13,9 @@ import {
 } from "~/features/pages/acl-spans.server";
 import { wikiPagePath } from "~/features/pages/wiki-page-path";
 import { getWikiCanonicalSlugPath } from "~/features/pages/wiki-page-path.server";
+import { requireSpace } from "~/features/spaces/access.server";
 import { getDb } from "~/lib/db.server";
+import { pageInSpace } from "./page-space.server";
 
 type VersionRow = {
   id: string;
@@ -39,9 +41,14 @@ type VersionFullRaw = VersionRaw & {
 };
 
 /** Data assembly behind the `/wiki/:slug/history` loader. */
-export async function loadPageHistory(request: Request, env: Env, slug: string | undefined) {
+export async function loadPageHistory(
+  request: Request,
+  env: Env,
+  spaceSlug: string | undefined,
+  slug: string | undefined,
+) {
   const sessionUser = await requireUser(request, env);
-  const identity = await getAccessIdentity(request, env);
+  const { space, identity } = await requireSpace(request, env, spaceSlug);
   const db = getDb(env);
 
   const page = await db
@@ -59,7 +66,7 @@ export async function loadPageHistory(request: Request, env: Env, slug: string |
       contentEn: schema.pages.contentEn,
     })
     .from(schema.pages)
-    .where(eq(schema.pages.slug, slug ?? ""))
+    .where(pageInSpace(space.id, slug ?? ""))
     .get();
 
   if (!page || page.status !== "published") {
@@ -71,7 +78,7 @@ export async function loadPageHistory(request: Request, env: Env, slug: string |
     throw new Response("Not Found", { status: 404 });
   }
 
-  const wikiPath = wikiPagePath(await getWikiCanonicalSlugPath(env, page.id));
+  const wikiPath = wikiPagePath(await getWikiCanonicalSlugPath(env, page.id), space.slug);
   const url = new URL(request.url);
   const langParam = url.searchParams.get("lang");
   const lang: "ja" | "en" = langParam === "ja" || langParam === "en" ? langParam : "ja";
@@ -173,9 +180,14 @@ export async function loadPageHistory(request: Request, env: Env, slug: string |
 }
 
 /** Revert a page to a stored version — behind the `/wiki/:slug/history` action. */
-export async function revertPageVersion(request: Request, env: Env, slug: string | undefined) {
+export async function revertPageVersion(
+  request: Request,
+  env: Env,
+  spaceSlug: string | undefined,
+  slug: string | undefined,
+) {
   const user = await requireUser(request, env);
-  const identity = await getAccessIdentity(request, env);
+  const { space, identity } = await requireSpace(request, env, spaceSlug, "editor");
 
   const formData = await request.formData();
   const intent = formData.get("intent");
@@ -200,7 +212,7 @@ export async function revertPageVersion(request: Request, env: Env, slug: string
       generalRole: schema.pages.generalRole,
     })
     .from(schema.pages)
-    .where(eq(schema.pages.slug, slug ?? ""))
+    .where(pageInSpace(space.id, slug ?? ""))
     .get();
 
   if (!page || page.status !== "published") throw new Response("Not Found", { status: 404 });
@@ -261,6 +273,7 @@ export async function revertPageVersion(request: Request, env: Env, slug: string
       en: { title: vRow.title_en, content: restoredEn },
     },
     {
+      spaceId: space.id,
       pageVisibility: page.visibility,
       pageAccess: accessRows,
       citedSourceIds: sourceRows
@@ -316,5 +329,5 @@ export async function revertPageVersion(request: Request, env: Env, slug: string
     ).bind(page.id, page.id),
   ]);
 
-  return redirect(wikiPagePath(await getWikiCanonicalSlugPath(env, page.id)));
+  return redirect(wikiPagePath(await getWikiCanonicalSlugPath(env, page.id), space.slug));
 }

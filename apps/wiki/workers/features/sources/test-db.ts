@@ -113,6 +113,28 @@ export function createSourcesTestDb() {
       "utf8",
     ),
   );
+  // The sources half of 0062_spaces.sql (this harness has no pages / user_preferences).
+  sqlite.exec(`
+    ALTER TABLE "sources" ADD COLUMN "space_id" TEXT NOT NULL DEFAULT 'gdg-jp';
+    CREATE INDEX "idx_sources_space" ON "sources" ("space_id", "status");
+    DROP INDEX IF EXISTS "idx_sources_owner_kind_external_id";
+    CREATE UNIQUE INDEX "idx_sources_owner_kind_external_id"
+      ON "sources" ("space_id", "added_by", "kind", "external_id") WHERE "external_id" IS NOT NULL;
+  `);
+  // agent_jobs (0063) references spaces; 0063 also backs up page_sources. Only the columns
+  // matter here (this harness has no pages table).
+  sqlite.exec(`
+    CREATE TABLE "pages" ("id" TEXT PRIMARY KEY, "sync_revision" INTEGER NOT NULL DEFAULT 1);
+    CREATE TABLE "page_sources" (
+      "id" TEXT PRIMARY KEY, "page_id" TEXT NOT NULL, "url" TEXT NOT NULL, "title" TEXT NOT NULL,
+      "source_id" TEXT REFERENCES "sources"("id") ON DELETE SET NULL, "created_at" INTEGER
+    );
+    CREATE TABLE "spaces" ("id" TEXT PRIMARY KEY);
+    INSERT INTO "spaces" ("id") VALUES ('gdg-jp');
+  `);
+  sqlite.exec(
+    readFileSync(new URL("../../../migrations/0063_sources_v2.sql", import.meta.url), "utf8"),
+  );
 
   const execute = async (
     sql: string,

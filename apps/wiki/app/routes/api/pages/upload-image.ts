@@ -1,10 +1,12 @@
-import { eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/d1";
 import { nanoid } from "nanoid";
 import type { ActionFunctionArgs } from "react-router";
 import * as schema from "~/db/schema";
-import { getAccessIdentity, requireUser } from "~/features/auth/utils.server";
+import { requireUser } from "~/features/auth/utils.server";
 import { getEffectivePagePermissions } from "~/features/pages/access.server";
+import { pageInSpace } from "~/features/pages/page-space.server";
+import { requireSpace } from "~/features/spaces/access.server";
+import { DEFAULT_SPACE_SLUG } from "~/features/spaces/shared";
 
 const MAX_IMAGE_SIZE = 10 * 1024 * 1024; // 10 MB
 
@@ -15,7 +17,13 @@ export async function action({ request, context, params }: ActionFunctionArgs) {
 
   const { env } = context.cloudflare;
   const user = await requireUser(request, env);
-  const identity = await getAccessIdentity(request, env);
+  // `/api/wiki/:slug/upload-image` (v1 clients) targets the default space.
+  const { space, identity } = await requireSpace(
+    request,
+    env,
+    params.space ?? DEFAULT_SPACE_SLUG,
+    "editor",
+  );
   const db = drizzle(env.DB, { schema });
 
   const slug = params.slug ?? "";
@@ -28,7 +36,7 @@ export async function action({ request, context, params }: ActionFunctionArgs) {
       generalRole: schema.pages.generalRole,
     })
     .from(schema.pages)
-    .where(eq(schema.pages.slug, slug))
+    .where(pageInSpace(space.id, slug))
     .get();
 
   if (!page) {

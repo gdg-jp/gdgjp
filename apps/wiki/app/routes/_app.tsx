@@ -25,8 +25,12 @@ import GoogleDocumentImportDialog from "~/features/google/components/GoogleDocum
 import ArchivedContent from "~/features/pages/components/ArchivedContent";
 import RecentContent from "~/features/pages/components/RecentContent";
 import StarredContent from "~/features/pages/components/StarredContent";
+import { agentPagesFilter } from "~/features/pages/page-space.server";
 import { buildTree } from "~/features/pages/tree";
 import { buildVisibilityFilter } from "~/features/pages/visibility.server";
+import { CurrentSpaceProvider } from "~/features/spaces/components/current-space";
+import { resolveShellSpaces } from "~/features/spaces/shell.server";
+import { loadViewerContext } from "~/features/spaces/viewer.server";
 import ZipImportDialog from "~/features/zip-import/components/ZipImportDialog";
 import { useMediaQuery } from "~/hooks/useMediaQuery";
 import { getDb } from "~/lib/db.server";
@@ -48,18 +52,27 @@ export function shouldRevalidate({
 }: ShouldRevalidateFunctionArgs) {
   if (formMethod && formMethod.toUpperCase() !== "GET") return true;
   if (currentUrl.href === nextUrl.href) return defaultShouldRevalidate;
+  // The tree belongs to one space: reload it when navigation crosses spaces.
+  if (spaceSlugOf(currentUrl.pathname) !== spaceSlugOf(nextUrl.pathname)) return true;
   return false;
+}
+
+function spaceSlugOf(pathname: string): string | null {
+  const match = /^\/s\/([^/]+)/.exec(pathname);
+  return match?.[1] ?? null;
 }
 
 // ---------------------------------------------------------------------------
 // Loader
 // ---------------------------------------------------------------------------
 
-export async function loader({ request, context }: LoaderFunctionArgs) {
+export async function loader({ request, context, params }: LoaderFunctionArgs) {
   const { env } = context.cloudflare;
   const identity = await getAccessIdentity(request, env);
   const { user } = identity;
   const db = getDb(env);
+  const viewer = await loadViewerContext(request, env, identity);
+  const { spaces, currentSpace } = await resolveShellSpaces(db, viewer, params.space);
 
   const visFilter = buildVisibilityFilter(user, identity.chapters);
   // Stream the sidebar tree so the shell + leaf route can commit without waiting on it.
@@ -74,7 +87,14 @@ export async function loader({ request, context }: LoaderFunctionArgs) {
       sortOrder: schema.pages.sortOrder,
     })
     .from(schema.pages)
-    .where(and(eq(schema.pages.status, "published"), visFilter))
+    .where(
+      and(
+        eq(schema.pages.status, "published"),
+        eq(schema.pages.spaceId, currentSpace.id),
+        visFilter,
+        agentPagesFilter(viewer.hideAgentPages),
+      ),
+    )
     .orderBy(schema.pages.sortOrder)
     .all()
     .then(buildTree);
@@ -89,7 +109,14 @@ export async function loader({ request, context }: LoaderFunctionArgs) {
       )?.count ?? 0)
     : 0;
 
-  return { user, pageTree, unreadNotificationCount };
+  return {
+    user,
+    pageTree,
+    unreadNotificationCount,
+    spaces,
+    currentSpace,
+    hideAgentPages: viewer.hideAgentPages,
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -97,7 +124,8 @@ export async function loader({ request, context }: LoaderFunctionArgs) {
 // ---------------------------------------------------------------------------
 
 export default function AppLayout() {
-  const { user, pageTree, unreadNotificationCount } = useLoaderData<typeof loader>();
+  const { user, pageTree, unreadNotificationCount, spaces, currentSpace, hideAgentPages } =
+    useLoaderData<typeof loader>();
   const params = useParams();
   // Prefer :slug (edit/history/tasks); fall back to leaf of wiki splat path (/wiki/*).
   const currentSlug = params.slug ?? params["*"]?.split("/").filter(Boolean).at(-1);
@@ -245,117 +273,121 @@ export default function AppLayout() {
     onArchivedClick: () => setActivePanel((p) => (p === "archived" ? null : "archived")),
     archivedButtonRef,
     onImportZip: () => setZipImportOpen(true),
+    spaces,
+    hideAgentPages,
   } as const;
 
   return (
-    <SidebarProvider open={desktopOpen} onOpenChange={setDesktopOpen} className="flex-col">
-      <a className="gdg-skip-link" href="#wiki-main">
-        {t("nav.skip_to_content")}
-      </a>
-      <NavigationProgress />
-      <Navbar
-        user={user}
-        sidebarOpen={sidebarOpen}
-        onToggleSidebar={toggleSidebar}
-        unreadNotificationCount={unreadNotificationCount}
-        onImportZip={() => setZipImportOpen(true)}
-      />
-
-      <div className="flex flex-1 pt-14">
-        <Suspense
-          fallback={
-            <Sidebar pages={[]} {...sidebarProps} treeFallback={<ListSkeleton rows={10} />} />
-          }
-        >
-          <Await resolve={pageTree} errorElement={<Sidebar pages={[]} {...sidebarProps} />}>
-            {(pages) => <Sidebar pages={pages} {...sidebarProps} />}
-          </Await>
-        </Suspense>
-
-        {/* Main content */}
-        <div className="flex min-w-0 flex-1 flex-col">
-          <main id="wiki-main" tabIndex={-1} className="flex-1">
-            <Outlet />
-          </main>
-          <Footer />
-        </div>
-      </div>
-      {user && (
-        <GoogleDocumentImportDialog
-          open={googleDocumentImportOpen}
-          onOpenChange={setGoogleDocumentImportOpen}
+    <CurrentSpaceProvider value={currentSpace}>
+      <SidebarProvider open={desktopOpen} onOpenChange={setDesktopOpen} className="flex-col">
+        <a className="gdg-skip-link" href="#wiki-main">
+          {t("nav.skip_to_content")}
+        </a>
+        <NavigationProgress />
+        <Navbar
+          user={user}
+          sidebarOpen={sidebarOpen}
+          onToggleSidebar={toggleSidebar}
+          unreadNotificationCount={unreadNotificationCount}
+          onImportZip={() => setZipImportOpen(true)}
         />
-      )}
-      {user && <ZipImportDialog open={zipImportOpen} onOpenChange={setZipImportOpen} />}
-      {/* Signed-in only panels */}
-      {user &&
-        (isMobile ? (
-          <SidebarDialog open={activePanel === "recent"} onClose={() => setActivePanel(null)}>
-            <RecentContent
+
+        <div className="flex flex-1 pt-14">
+          <Suspense
+            fallback={
+              <Sidebar pages={[]} {...sidebarProps} treeFallback={<ListSkeleton rows={10} />} />
+            }
+          >
+            <Await resolve={pageTree} errorElement={<Sidebar pages={[]} {...sidebarProps} />}>
+              {(pages) => <Sidebar pages={pages} {...sidebarProps} />}
+            </Await>
+          </Suspense>
+
+          {/* Main content */}
+          <div className="flex min-w-0 flex-1 flex-col">
+            <main id="wiki-main" tabIndex={-1} className="flex-1">
+              <Outlet />
+            </main>
+            <Footer />
+          </div>
+        </div>
+        {user && (
+          <GoogleDocumentImportDialog
+            open={googleDocumentImportOpen}
+            onOpenChange={setGoogleDocumentImportOpen}
+          />
+        )}
+        {user && <ZipImportDialog open={zipImportOpen} onOpenChange={setZipImportOpen} />}
+        {/* Signed-in only panels */}
+        {user &&
+          (isMobile ? (
+            <SidebarDialog open={activePanel === "recent"} onClose={() => setActivePanel(null)}>
+              <RecentContent
+                open={activePanel === "recent"}
+                onClose={() => setActivePanel(null)}
+                lang={lang}
+              />
+            </SidebarDialog>
+          ) : (
+            <SidebarPopover
               open={activePanel === "recent"}
               onClose={() => setActivePanel(null)}
-              lang={lang}
-            />
-          </SidebarDialog>
-        ) : (
-          <SidebarPopover
-            open={activePanel === "recent"}
-            onClose={() => setActivePanel(null)}
-            anchorRef={recentButtonRef}
-          >
-            <RecentContent
-              open={activePanel === "recent"}
-              onClose={() => setActivePanel(null)}
-              lang={lang}
-            />
-          </SidebarPopover>
-        ))}
-      {/* Starred panel */}
-      {user &&
-        (isMobile ? (
-          <SidebarDialog open={activePanel === "starred"} onClose={() => setActivePanel(null)}>
-            <StarredContent
+              anchorRef={recentButtonRef}
+            >
+              <RecentContent
+                open={activePanel === "recent"}
+                onClose={() => setActivePanel(null)}
+                lang={lang}
+              />
+            </SidebarPopover>
+          ))}
+        {/* Starred panel */}
+        {user &&
+          (isMobile ? (
+            <SidebarDialog open={activePanel === "starred"} onClose={() => setActivePanel(null)}>
+              <StarredContent
+                open={activePanel === "starred"}
+                onClose={() => setActivePanel(null)}
+                lang={lang}
+              />
+            </SidebarDialog>
+          ) : (
+            <SidebarPopover
               open={activePanel === "starred"}
               onClose={() => setActivePanel(null)}
-              lang={lang}
-            />
-          </SidebarDialog>
-        ) : (
-          <SidebarPopover
-            open={activePanel === "starred"}
-            onClose={() => setActivePanel(null)}
-            anchorRef={starredButtonRef}
-          >
-            <StarredContent
-              open={activePanel === "starred"}
-              onClose={() => setActivePanel(null)}
-              lang={lang}
-            />
-          </SidebarPopover>
-        ))}
-      {/* Archived panel */}
-      {user &&
-        (isMobile ? (
-          <SidebarDialog open={activePanel === "archived"} onClose={() => setActivePanel(null)}>
-            <ArchivedContent
+              anchorRef={starredButtonRef}
+            >
+              <StarredContent
+                open={activePanel === "starred"}
+                onClose={() => setActivePanel(null)}
+                lang={lang}
+              />
+            </SidebarPopover>
+          ))}
+        {/* Archived panel */}
+        {user &&
+          (isMobile ? (
+            <SidebarDialog open={activePanel === "archived"} onClose={() => setActivePanel(null)}>
+              <ArchivedContent
+                open={activePanel === "archived"}
+                onClose={() => setActivePanel(null)}
+                lang={lang}
+              />
+            </SidebarDialog>
+          ) : (
+            <SidebarPopover
               open={activePanel === "archived"}
               onClose={() => setActivePanel(null)}
-              lang={lang}
-            />
-          </SidebarDialog>
-        ) : (
-          <SidebarPopover
-            open={activePanel === "archived"}
-            onClose={() => setActivePanel(null)}
-            anchorRef={archivedButtonRef}
-          >
-            <ArchivedContent
-              open={activePanel === "archived"}
-              onClose={() => setActivePanel(null)}
-              lang={lang}
-            />
-          </SidebarPopover>
-        ))}
-    </SidebarProvider>
+              anchorRef={archivedButtonRef}
+            >
+              <ArchivedContent
+                open={activePanel === "archived"}
+                onClose={() => setActivePanel(null)}
+                lang={lang}
+              />
+            </SidebarPopover>
+          ))}
+      </SidebarProvider>
+    </CurrentSpaceProvider>
   );
 }

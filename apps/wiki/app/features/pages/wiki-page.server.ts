@@ -9,9 +9,13 @@ import { redactPageMarkdown } from "~/features/pages/acl-spans.server";
 import { archivePageAndDescendants } from "~/features/pages/archive.server";
 import { classifyWikiRequestPath, wikiPagePath } from "~/features/pages/wiki-page-path";
 import { getWikiCanonicalSlugPath } from "~/features/pages/wiki-page-path.server";
+import { requireSpace } from "~/features/spaces/access.server";
+import { roleAtLeast, spacePath } from "~/features/spaces/shared";
+import { rememberLastSpace } from "~/features/spaces/viewer.server";
 import { getDb } from "~/lib/db.server";
 import { duplicatePage } from "./duplicate.server";
 import { movePage } from "./move.server";
+import { pageInSpace } from "./page-space.server";
 
 type WikiDb = ReturnType<typeof getDb>;
 
@@ -85,7 +89,8 @@ async function loadPageComments(db: WikiDb, pageId: string, sessionUserId: strin
 /** Data assembly behind the `/wiki/*` page loader. */
 export async function loadWikiPage({ request, context, params }: LoaderFunctionArgs) {
   const { env } = context.cloudflare;
-  const identity = await getAccessIdentity(request, env);
+  // Outer layer first: the space must be reachable, then the inner page ACL runs.
+  const { space, role: spaceRole, identity } = await requireSpace(request, env, params.space);
   const sessionUser = identity.user;
   const db = getDb(env);
 
@@ -112,9 +117,11 @@ export async function loadWikiPage({ request, context, params }: LoaderFunctionA
       authorId: schema.pages.authorId,
       lastEditedBy: schema.pages.lastEditedBy,
       updatedAt: schema.pages.updatedAt,
+      origin: schema.pages.origin,
+      spaceId: schema.pages.spaceId,
     })
     .from(schema.pages)
-    .where(eq(schema.pages.slug, leafSlug))
+    .where(pageInSpace(space.id, leafSlug))
     .get();
 
   if (!page || page.status !== "published") {
@@ -133,7 +140,7 @@ export async function loadWikiPage({ request, context, params }: LoaderFunctionA
   const classification = classifyWikiRequestPath(segments, canonical);
   if (classification === "redirect") {
     const url = new URL(request.url);
-    throw redirect(wikiPagePath(canonical) + url.search, 301);
+    throw redirect(wikiPagePath(canonical, space.slug) + url.search, 301);
   }
   if (classification === "not-found") {
     throw new Response("Not Found", { status: 404 });
@@ -204,6 +211,7 @@ export async function loadWikiPage({ request, context, params }: LoaderFunctionA
 
   // Fire-and-forget view tracking
   if (sessionUser) {
+    context.cloudflare.ctx.waitUntil(rememberLastSpace(env, sessionUser.id, space.id));
     context.cloudflare.ctx.waitUntil(
       db
         .insert(schema.pageViews)
@@ -226,7 +234,10 @@ export async function loadWikiPage({ request, context, params }: LoaderFunctionA
 
   const { contentJa: _ja, contentEn: _en, ...pageMetadata } = page;
 
+  const canEditInSpace = roleAtLeast(spaceRole, "editor");
   return {
+    space: { id: space.id, slug: space.slug, name: space.name, kind: space.kind },
+    spaceRole,
     page: pageMetadata,
     content,
     pageMeta,
@@ -241,7 +252,11 @@ export async function loadWikiPage({ request, context, params }: LoaderFunctionA
     currentUserId: sessionUser?.id ?? null,
     isAuthenticated: !!sessionUser,
     canComment: permissions.canComment,
-    canEdit: page.pageType !== "wiki-index" && page.pageType !== "wiki-log" && permissions.canEdit,
+    canEdit:
+      canEditInSpace &&
+      page.pageType !== "wiki-index" &&
+      page.pageType !== "wiki-log" &&
+      permissions.canEdit,
     visibility: page.visibility,
     canChangeVisibility: permissions.canManageSharing,
     canManageAccess: permissions.canManageSharing,
@@ -253,6 +268,7 @@ export async function loadWikiPage({ request, context, params }: LoaderFunctionA
 export async function handleWikiPageAction({ request, context, params }: ActionFunctionArgs) {
   const { env } = context.cloudflare;
   const sessionUser = await requireUser(request, env);
+  const { space } = await requireSpace(request, env, params.space);
   const db = getDb(env);
 
   const segments = (params["*"] ?? "").split("/").filter(Boolean);
@@ -265,7 +281,7 @@ export async function handleWikiPageAction({ request, context, params }: ActionF
     const page = await db
       .select({ id: schema.pages.id })
       .from(schema.pages)
-      .where(eq(schema.pages.slug, leafSlug))
+      .where(pageInSpace(space.id, leafSlug))
       .get();
     if (!page) return Response.json({ error: "not_found" }, { status: 404 });
     try {
@@ -289,7 +305,7 @@ export async function handleWikiPageAction({ request, context, params }: ActionF
           insertAfterId: null,
           append: true,
         });
-        path = wikiPagePath(await getWikiCanonicalSlugPath(env, page.id));
+        path = wikiPagePath(await getWikiCanonicalSlugPath(env, page.id), space.slug);
       }
       return redirect(`${path}?lang=${form.get("lang") === "en" ? "en" : "ja"}`);
     } catch (error) {
@@ -341,7 +357,7 @@ export async function handleWikiPageAction({ request, context, params }: ActionF
         pageType: schema.pages.pageType,
       })
       .from(schema.pages)
-      .where(eq(schema.pages.slug, leafSlug))
+      .where(pageInSpace(space.id, leafSlug))
       .get();
     if (!page) throw new Response("Not Found", { status: 404 });
     if (page.pageType === "wiki-index" || page.pageType === "wiki-log") {
@@ -350,7 +366,7 @@ export async function handleWikiPageAction({ request, context, params }: ActionF
     const isAuthor = sessionUser.id === page.authorId;
     if (!isAuthor && !sessionUser.isAdmin) throw new Response("Forbidden", { status: 403 });
     await archivePageAndDescendants(env, db, page.id);
-    return redirect("/");
+    return redirect(spacePath(space.slug));
   }
 
   if (intent === "changeAuthor") {
@@ -364,7 +380,7 @@ export async function handleWikiPageAction({ request, context, params }: ActionF
       db
         .select({ id: schema.pages.id })
         .from(schema.pages)
-        .where(eq(schema.pages.slug, leafSlug))
+        .where(pageInSpace(space.id, leafSlug))
         .get(),
       db.select({ id: schema.user.id }).from(schema.user).where(eq(schema.user.id, authorId)).get(),
     ]);

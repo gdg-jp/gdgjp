@@ -10,6 +10,8 @@ import { getDb } from "~/lib/db.server";
 import { timeAgo } from "~/lib/time";
 
 import { Icons } from "@gdgjp/design-system";
+import { pageInSpace } from "~/features/pages/page-space.server";
+import { DEFAULT_SPACE_ID } from "~/features/spaces/shared";
 export const meta: MetaFunction<typeof loader> = ({ data }) => [
   {
     title: data
@@ -40,7 +42,7 @@ export async function loader({ request, params, context }: LoaderFunctionArgs) {
       createdAt: schema.pages.createdAt,
     })
     .from(schema.pages)
-    .where(and(eq(schema.pages.slug, slug), eq(schema.pages.pageType, "task-list")))
+    .where(and(pageInSpace(DEFAULT_SPACE_ID, slug), eq(schema.pages.pageType, "task-list")))
     .get();
 
   if (!page) throw new Response("Not found", { status: 404 });

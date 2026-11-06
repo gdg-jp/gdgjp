@@ -71,6 +71,7 @@ export async function completeDriveImport(
       current.source.id,
       current.run.fetchAttemptId,
       paths,
+      ctx.env.BUCKET,
     ))
   ) {
     return;

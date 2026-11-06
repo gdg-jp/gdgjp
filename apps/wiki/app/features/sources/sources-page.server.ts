@@ -1,7 +1,9 @@
-import { desc, eq, inArray, ne } from "drizzle-orm";
+import { and, desc, eq, inArray, ne, sql } from "drizzle-orm";
 import * as schema from "~/db/schema";
 import type { AccessIdentity, AuthUser } from "~/features/auth/utils.server";
-import { getAccessIdentity, requireUser } from "~/features/auth/utils.server";
+import { requireUser } from "~/features/auth/utils.server";
+import { enqueueSynthesize } from "~/features/jobs/enqueue.server";
+import { REGISTRATIONS } from "~/features/sources/kinds";
 import {
   canAccessSource,
   createSource,
@@ -11,6 +13,7 @@ import {
   updateSourceVisibility,
 } from "~/features/sources/sources.server";
 import { parseBatchCandidates } from "~/features/sources/staged-candidates";
+import { requireSpace } from "~/features/spaces/access.server";
 import { loadChapterDirectory } from "~/lib/chapter-directory.server";
 import { getDb } from "~/lib/db.server";
 import {
@@ -19,16 +22,21 @@ import {
 } from "../../../workers/features/sources/chat-sender-registry";
 
 /** Data assembly behind the `/sources` loader — see `app/routes/sources/page.tsx`. */
-export async function loadSourcesPageData(request: Request, env: Env) {
+export async function loadSourcesPageData(
+  request: Request,
+  env: Env,
+  spaceSlug: string | undefined,
+) {
   const user = await requireUser(request, env);
-  const identity = await getAccessIdentity(request, env);
+  // Outer layer: only this space's sources, then canAccessSource inside it.
+  const { space, role, identity } = await requireSpace(request, env, spaceSlug);
   const db = getDb(env);
 
   const sourcesData = (async () => {
     const rows = await db
       .select()
       .from(schema.sources)
-      .where(ne(schema.sources.kind, "conversation"))
+      .where(and(eq(schema.sources.spaceId, space.id), ne(schema.sources.kind, "conversation")))
       .orderBy(desc(schema.sources.createdAt))
       .all();
 
@@ -48,6 +56,7 @@ export async function loadSourcesPageData(request: Request, env: Env) {
               mediaType: schema.sourceDocuments.mediaType,
               capturedAt: schema.sourceDocuments.capturedAt,
               status: schema.sourceDocuments.status,
+              integratedHash: schema.sourceDocuments.integratedHash,
             })
             .from(schema.sourceDocuments)
             .where(inArray(schema.sourceDocuments.sourceId, sourceIds))
@@ -142,16 +151,27 @@ export async function loadSourcesPageData(request: Request, env: Env) {
         profiles,
         samples: visibleSamples,
       },
-      sources: visible.map((source) => ({
-        ...source,
-        documents: documentsBySource.get(source.id) ?? [],
-      })),
+      sources: visible.map((source) => {
+        const docs = documentsBySource.get(source.id) ?? [];
+        return {
+          ...source,
+          documents: docs,
+          // "Fetched" ≠ "in the wiki": documents whose current content the runner has not
+          // integrated into pages yet.
+          pendingIntegration: docs.filter(
+            (doc) => doc.status === "ready" && doc.integratedHash !== doc.contentHash,
+          ).length,
+        };
+      }),
+      integration: await loadIntegrationSummary(db, space.id),
     };
   })();
 
   return {
     currentUserId: user.id,
     isAdmin: user.isAdmin,
+    space: { id: space.id, slug: space.slug, name: space.name },
+    canEditSpace: role === "owner" || role === "editor",
     sourcesData,
   };
 }
@@ -162,8 +182,19 @@ export async function handleSourcesAction(
   form: FormData,
   user: AuthUser,
   identity: AccessIdentity,
+  space: { id: string },
 ) {
   const intent = String(form.get("intent") ?? "create");
+  // Every intent that names a source must stay inside the current space.
+  const namedSourceId = form.get("sourceId");
+  if (typeof namedSourceId === "string" && namedSourceId) {
+    const owner = await getDb(env)
+      .select({ spaceId: schema.sources.spaceId })
+      .from(schema.sources)
+      .where(eq(schema.sources.id, namedSourceId))
+      .get();
+    if (!owner || owner.spaceId !== space.id) return { ok: false as const, error: "not_found" };
+  }
 
   if (intent === "create-batch") {
     const candidates = parseBatchCandidates(form.get("candidates"));
@@ -173,16 +204,8 @@ export async function handleSourcesAction(
     const failed: Array<{ id: string; error: string }> = [];
     for (const candidate of candidates) {
       const result = await createSource(env, {
-        ...(candidate.kind === "google-chat-space"
-          ? { kind: candidate.kind, externalId: candidate.externalId }
-          : candidate.kind === "discord-channel"
-            ? {
-                kind: candidate.kind,
-                externalId: candidate.externalId,
-                url: candidate.url,
-              }
-            : { url: candidate.url }),
-        title: candidate.title,
+        spaceId: space.id,
+        ...REGISTRATIONS[candidate.kind].toCreateInput(candidate),
         visibility: form.get("visibility"),
         chapter: form.get("chapter"),
         refreshPolicy: form.get("refreshPolicy"),
@@ -203,6 +226,7 @@ export async function handleSourcesAction(
 
   if (intent === "create") {
     const result = await createSource(env, {
+      spaceId: space.id,
       url: form.get("url"),
       title: form.get("title"),
       visibility: form.get("visibility"),
@@ -216,6 +240,7 @@ export async function handleSourcesAction(
 
   if (intent === "create-chat-space") {
     const result = await createSource(env, {
+      spaceId: space.id,
       kind: "google-chat-space",
       externalId: form.get("externalId"),
       title: form.get("title"),
@@ -248,6 +273,12 @@ export async function handleSourcesAction(
     }
     await saveChatSenderName(env, resourceName, displayName);
     return { ok: true as const, senderSaved: true };
+  }
+
+  if (intent === "integrate-now") {
+    // "Integrate now": lift the hourly wait for this space's synthesize job.
+    await enqueueSynthesize(getDb(env), { spaceId: space.id, manual: true });
+    return { ok: true as const };
   }
 
   if (intent === "update-visibility") {
@@ -304,4 +335,32 @@ export async function handleSourcesAction(
   }
 
   return { ok: false as const, error: "unknown_intent" };
+}
+
+/** Space-level state of the synthesize queue for the sources screen. */
+async function loadIntegrationSummary(db: ReturnType<typeof getDb>, spaceId: string) {
+  const rows = await db
+    .select({
+      status: schema.agentJobs.status,
+      count: sql<number>`count(*)`,
+      oldest: sql<number | null>`min(${schema.agentJobs.createdAt})`,
+    })
+    .from(schema.agentJobs)
+    .where(
+      and(
+        eq(schema.agentJobs.spaceId, spaceId),
+        eq(schema.agentJobs.type, "synthesize"),
+        inArray(schema.agentJobs.status, ["queued", "leased"]),
+      ),
+    )
+    .groupBy(schema.agentJobs.status)
+    .all();
+  const queued = rows.find((row) => row.status === "queued");
+  const leased = rows.find((row) => row.status === "leased");
+  const oldest = Math.min(...rows.map((row) => row.oldest ?? Number.POSITIVE_INFINITY));
+  return {
+    queued: queued?.count ?? 0,
+    leased: leased?.count ?? 0,
+    oldestQueuedAt: Number.isFinite(oldest) ? oldest * 1000 : null,
+  };
 }

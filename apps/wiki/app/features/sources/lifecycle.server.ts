@@ -1,8 +1,9 @@
 import type { AuthUser } from "@gdgjp/gdg-lib";
-import { and, eq, ne } from "drizzle-orm";
+import { and, eq, ne, notInArray } from "drizzle-orm";
 import * as schema from "~/db/schema";
 import type { SourceVisibility } from "~/features/sources/shared";
 import { getDb } from "~/lib/db.server";
+import { NON_REFRESHABLE_KINDS, sourceKindSpec } from "./kinds";
 import type { Membership } from "./permissions";
 import { canAssignSourceVisibility, parseSourceVisibilitySelection } from "./permissions";
 
@@ -85,7 +86,7 @@ export async function enqueueSourceRefresh(
     .from(schema.sources)
     .where(eq(schema.sources.id, sourceId))
     .get();
-  if (source?.kind === "conversation") {
+  if (source && !sourceKindSpec(source.kind)?.refreshable) {
     return { ok: false, error: "unsupported_source_kind", status: 409 };
   }
   const refreshRequestId = crypto.randomUUID();
@@ -101,7 +102,7 @@ export async function enqueueSourceRefresh(
       and(
         eq(schema.sources.id, sourceId),
         ne(schema.sources.status, "archived"),
-        ne(schema.sources.kind, "conversation"),
+        notInArray(schema.sources.kind, [...NON_REFRESHABLE_KINDS]),
       ),
     )
     .returning({ id: schema.sources.id })
@@ -112,7 +113,7 @@ export async function enqueueSourceRefresh(
       .from(schema.sources)
       .where(eq(schema.sources.id, sourceId))
       .get();
-    if (current?.kind === "conversation") {
+    if (current && !sourceKindSpec(current.kind)?.refreshable) {
       return { ok: false, error: "unsupported_source_kind", status: 409 };
     }
     return { ok: false, error: "archived", status: 409 };
@@ -200,6 +201,10 @@ export async function updateSourceVisibility(
       updatedAt: new Date(),
     })
     .where(eq(schema.sources.id, sourceId));
+
+  // Search filters on the `audience` stored with each raw object; re-tag them now or the
+  // old audience keeps matching readers after a narrowing change.
+  await env.SOURCE_FETCH_QUEUE.send({ type: "source_audience_rewrite", sourceId });
 
   return { ok: true, visibility: selection.visibility, chapterId: selection.chapterId };
 }

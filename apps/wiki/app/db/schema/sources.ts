@@ -7,9 +7,10 @@ import { user } from "./user";
 // ---------------------------------------------------------------------------
 export const sources = sqliteTable("sources", {
   id: text("id").primaryKey(),
-  // "google-doc" | "google-sheet" | "google-slides" | "google-chat-space" |
-  // "discord-channel" | "website" | "upload" | "text" | "conversation"
+  // SourceKind — see app/features/sources/kinds.ts (the only place that branches on it)
   kind: text("kind").notNull(),
+  // Tenant (knowledge platform v2). No FK in SQL (added with ADD COLUMN); app writes real ids.
+  spaceId: text("space_id").notNull().default("gdg-jp"),
   externalId: text("external_id"),
   url: text("url").notNull(),
   title: text("title").notNull(),
@@ -23,12 +24,16 @@ export const sources = sqliteTable("sources", {
     .references(() => user.id),
   // "pending" | "fetching" | "ready" | "error" | "archived"
   status: text("status").notNull().default("pending"),
-  // "manual" | "daily" | "weekly"
+  // "manual" | "hourly" | "daily" | "weekly"
   refreshPolicy: text("refresh_policy").notNull().default("manual"),
   /** Ownership token for the pending refresh request or active fetch attempt. */
   fetchAttemptId: text("fetch_attempt_id"),
   lastFetchedAt: integer("last_fetched_at", { mode: "timestamp" }),
   errorMessage: text("error_message"),
+  /** Kind-specific JSON settings (discord-guild: channel selection). */
+  config: text("config"),
+  /** When the runner last folded this source into pages (knowledge platform v2). */
+  lastIntegratedAt: integer("last_integrated_at", { mode: "timestamp" }),
   createdAt: integer("created_at", { mode: "timestamp" }).notNull().default(sql`(unixepoch())`),
   updatedAt: integer("updated_at", { mode: "timestamp" }).notNull().default(sql`(unixepoch())`),
 });
@@ -51,6 +56,8 @@ export const sourceDocuments = sqliteTable(
     metadata: text("metadata"),
     // "ready" | "error" | "archived"
     status: text("status").notNull().default("ready"),
+    /** content_hash the runner last integrated; differs from content_hash = pending. */
+    integratedHash: text("integrated_hash"),
   },
   (t) => [unique("source_documents_source_id_path_unique").on(t.sourceId, t.path)],
 );

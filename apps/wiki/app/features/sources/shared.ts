@@ -4,12 +4,13 @@ export type SourceKind =
   | "google-slides"
   | "google-chat-space"
   | "discord-channel"
+  | "discord-guild"
   | "website"
   | "upload"
   | "text"
   | "conversation";
 
-export type SourceRefreshPolicy = "manual" | "daily" | "weekly";
+export type SourceRefreshPolicy = "manual" | "hourly" | "daily" | "weekly";
 
 export {
   SOURCE_VISIBILITIES,

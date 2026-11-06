@@ -26,6 +26,9 @@ export type SourceListItemSource = {
   addedBy: string;
   errorMessage: string | null;
   lastFetchedAt: Date | string | null;
+  lastIntegratedAt?: Date | string | null;
+  /** Ready documents whose current content is not in the pages yet. */
+  pendingIntegration?: number;
   documents: Array<{
     id: string;
     path: string;
@@ -75,6 +78,13 @@ export default function SourceListItem({
     deleteFetcher.state !== "idle" ||
     visibilityFetcher.state !== "idle";
 
+  // Fetched material not integrated for a day means the runner is stuck or down.
+  const integrationStale =
+    (source.pendingIntegration ?? 0) > 0 &&
+    !!source.lastFetchedAt &&
+    Date.now() - new Date(source.lastFetchedAt).getTime() > 24 * 60 * 60 * 1000 &&
+    (!source.lastIntegratedAt ||
+      new Date(source.lastIntegratedAt).getTime() < new Date(source.lastFetchedAt).getTime());
   const fetchedLabel = source.lastFetchedAt
     ? timeAgo(new Date(source.lastFetchedAt), t)
     : t("sources.never_fetched");
@@ -135,7 +145,17 @@ export default function SourceListItem({
             <span aria-hidden="true">·</span>
             <span>{t("sources.doc_count", { count: source.documents.length })}</span>
             <span aria-hidden="true">·</span>
-            <span>{fetchedLabel}</span>
+            <span>
+              {t("sources.col_fetch")}: {fetchedLabel}
+            </span>
+            <span aria-hidden="true">·</span>
+            <span className={integrationStale ? "font-medium text-danger" : undefined}>
+              {t("sources.col_integrate")}:{" "}
+              {(source.pendingIntegration ?? 0) > 0
+                ? t("sources.integrate_pending", { count: source.pendingIntegration })
+                : t("sources.integrate_done")}
+              {integrationStale ? ` — ${t("sources.integrate_stale")}` : ""}
+            </span>
           </div>
 
           <div className="mt-2 flex flex-wrap items-center gap-2">

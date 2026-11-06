@@ -3,6 +3,7 @@ import type { ActionFunctionArgs } from "react-router";
 import * as schema from "~/db/schema";
 import { getAccessIdentity, requireUser } from "~/features/auth/utils.server";
 import { canAccessSource } from "~/features/sources/sources.server";
+import { requireSourceSpace } from "~/features/spaces/access.server";
 import { getDb } from "~/lib/db.server";
 
 export async function action({ request, context, params }: ActionFunctionArgs) {
@@ -16,6 +17,8 @@ export async function action({ request, context, params }: ActionFunctionArgs) {
   const { env } = context.cloudflare;
   const user = await requireUser(request, env);
   const identity = await getAccessIdentity(request, env);
+  // Outer layer first: the source's space must grant the editor role.
+  await requireSourceSpace(getDb(env), identity, sourceId, "editor");
   const db = getDb(env);
 
   const source = await db

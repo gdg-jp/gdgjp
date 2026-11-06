@@ -9,6 +9,8 @@ import {
 import { getGoogleDriveAccessToken } from "~/features/google/drive-token.server";
 import { getGoogleDocumentWithTabs } from "~/features/google/drive.server";
 import { generateSlug } from "~/features/ingestion/slug";
+import { pageInSpace } from "~/features/pages/page-space.server";
+import { DEFAULT_SPACE_ID } from "~/features/spaces/shared";
 import { getDb } from "~/lib/db.server";
 
 /**
@@ -216,7 +218,7 @@ export async function uniqueSlug(env: Env, title: string, reserved: Set<string>)
     (await db
       .select({ id: schema.pages.id })
       .from(schema.pages)
-      .where(eq(schema.pages.slug, slug))
+      .where(pageInSpace(DEFAULT_SPACE_ID, slug))
       .get())
   ) {
     slug = `${base}-${nanoid(6)}`;

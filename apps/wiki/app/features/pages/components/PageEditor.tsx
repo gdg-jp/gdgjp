@@ -8,6 +8,7 @@ import { Link, useBlocker, useFetcher } from "react-router";
 import PresenceAvatars from "~/features/editor/components/PresenceAvatars";
 import type { CollabUser } from "~/features/editor/use-collab-editor";
 import { useCollabEditor } from "~/features/editor/use-collab-editor";
+import { useCurrentSpace } from "~/features/spaces/components/current-space";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -55,6 +56,7 @@ function formatRelativeTime(
 
 export default function PageEditor({ page, currentUser }: PageEditorProps) {
   const { t } = useTranslation();
+  const { slug: spaceSlug } = useCurrentSpace();
   const fetcher = useFetcher<{ ok: boolean; savedAt: string }>();
   const { resolvedTheme } = useTheme();
   const theme = resolvedTheme === "dark" ? "dark" : "light";
@@ -76,6 +78,7 @@ export default function PageEditor({ page, currentUser }: PageEditorProps) {
     connected,
     setActiveLang: setCollabActiveLang,
   } = useCollabEditor({
+    spaceSlug,
     slug: page.slug,
     initialContentJa: page.contentJa,
     initialContentEn: page.contentEn,
@@ -147,10 +150,13 @@ export default function PageEditor({ page, currentUser }: PageEditorProps) {
       for (const file of files) {
         const fd = new FormData();
         fd.set("image", file);
-        const res = await fetch(`/api/wiki/${page.slug}/upload-image`, {
-          method: "post",
-          body: fd,
-        });
+        const res = await fetch(
+          `/api/s/${encodeURIComponent(spaceSlug)}/wiki/${encodeURIComponent(page.slug)}/upload-image`,
+          {
+            method: "post",
+            body: fd,
+          },
+        );
         if (res.ok) {
           const data = (await res.json()) as { url: string };
           urls.push(data.url);
@@ -158,7 +164,7 @@ export default function PageEditor({ page, currentUser }: PageEditorProps) {
       }
       callback(urls);
     },
-    [page.slug],
+    [page.slug, spaceSlug],
   );
 
   // Autosave status text

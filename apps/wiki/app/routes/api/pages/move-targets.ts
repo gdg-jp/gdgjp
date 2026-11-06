@@ -25,10 +25,11 @@ export async function loader({ request, context }: LoaderFunctionArgs) {
     UNION SELECT p.id FROM pages p JOIN descendants d ON p.parent_id = d.id
   ) SELECT id, title_ja AS titleJa, title_en AS titleEn, slug FROM pages
     WHERE status = 'published' AND id NOT IN (SELECT id FROM descendants)
+    AND space_id = (SELECT space_id FROM pages WHERE id = ?)
     AND (page_type IS NULL OR page_type NOT IN ('wiki-index', 'wiki-log'))
     AND (? = 1 OR author_id = ?) AND (? != 'agent' OR origin != 'human')
     ORDER BY title_ja, id`)
-    .bind(pageId, user.isAdmin ? 1 : 0, user.id, page.origin)
+    .bind(pageId, pageId, user.isAdmin ? 1 : 0, user.id, page.origin)
     .all<{ id: string; titleJa: string; titleEn: string; slug: string }>();
   return Response.json({ targets: result.results });
 }

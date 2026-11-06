@@ -386,7 +386,6 @@
     "chat_space_placeholder": "Choose a space",
     "add_candidate": "Add sources",
     "add_chat_space": "Google Chat",
-    "add_discord_channel": "Discord",
     "discord_dialog_title": "Add Discord channels",
     "discord_dialog_description": "Pick a server, then choose text channels to import. Servers without the bot need an invite first.",
     "discord_server_label": "Server",
@@ -400,7 +399,6 @@
     "discord_invite_hint_general": "If the Wiki bot is not in the server yet, invite it first.",
     "discord_invite_bot": "Invite bot",
     "discord_refresh_channels": "Refresh",
-    "stage_discord_channels": "Add to list",
     "connect_discord_hint": "Connect Discord to list the servers you belong to.",
     "connect_discord": "Connect Discord",
     "discord_reauth_hint": "Discord permission is missing. Reconnect and approve the identify and guilds scopes.",
@@ -451,7 +449,9 @@
       "discord-channel": "Discord",
       "website": "Website",
       "upload": "Upload",
-      "text": "Text"
+      "text": "Text",
+      "discord-guild": "Discord server",
+      "conversation": "Conversation"
     },
     "status": {
       "pending": "Pending",
@@ -493,7 +493,23 @@
     "error_sender_name_required": "Enter a display name of 120 characters or fewer.",
     "error_not_archived": "Only archived sources can be changed this way",
     "error_delete_failed": "Could not delete this source. Please try again.",
-    "error_duplicate_source": "This primary source is already registered"
+    "error_duplicate_source": "This primary source is already registered",
+    "add_discord_server": "Add a Discord server",
+    "add_google_drive": "Google Drive",
+    "add_google_chat": "Google Chat space",
+    "stage_discord_server": "Add this server",
+    "discord_whole_category": "Whole category {{name}}",
+    "discord_auto_discover": "Also import channels created later in the chosen categories",
+    "discord_one_visibility_hint": "A server has one visibility. To give some categories a narrower one, register the same server again as another source.",
+    "error_invalid_guild": "Invalid Discord server",
+    "error_invalid_guild_selection": "Choose at least one category or channel",
+    "col_fetch": "Fetch",
+    "col_integrate": "Integration",
+    "integrate_pending": "{{count}} not integrated",
+    "integrate_done": "Integrated",
+    "integrate_queue": "Queued {{queued}} / running {{leased}}",
+    "integrate_stale": "Not integrated for 24 hours",
+    "integrate_now": "Integrate now"
   },
   "settings": {
     "title": "Settings",
@@ -756,5 +772,93 @@
     "s6_heading": "6. Changes to terms",
     "s6_body": "These terms may be updated at any time. Continued use of the wiki after changes constitutes acceptance of the revised terms.",
     "footer_link": "Privacy Policy"
+  },
+  "spaces": {
+    "title": "Spaces",
+    "description": "Every page and source belongs to one space. Only that space's members can read it.",
+    "switcher_label": "Space",
+    "manage": "Spaces and settings",
+    "settings": "Settings",
+    "back_to_list": "All spaces",
+    "create_heading": "Create a space",
+    "create_personal": "Create a personal space",
+    "create_chapter": "Create a chapter space",
+    "create_shared": "Create a shared space",
+    "personal_help": "Only you can read and edit it. One per person.",
+    "chapter_help": "Only members of the chapter can read and edit it. Organizers can create one.",
+    "chapter_select": "Chapter",
+    "shared_help": "A space for the members you invite.",
+    "name": "Name",
+    "slug": "URL name (lowercase letters, digits, hyphens)",
+    "lang": "Language",
+    "translate_enabled": "Keep an English version (daily, changed pages only)",
+    "settings_title": "{{name}} settings",
+    "members": "Members",
+    "remove": "Remove",
+    "add_member": "Add member",
+    "principal_type": "Type",
+    "principal_id": "User ID / chapter ID",
+    "principal_id_help": "A user ID for users, a chapter ID for chapters",
+    "chapter_role": "Role in the chapter",
+    "member_role": "Role in the space",
+    "hide_agent_pages": "Hide pages written by the agent",
+    "agent_hidden_banner": "This page was written by the agent. You are hiding such pages from lists.",
+    "review_title": "Review — {{name}}",
+    "review_empty": "Nothing to review",
+    "resolve": "Mark resolved",
+    "kind": {
+      "personal": "Personal",
+      "chapter": "Chapter",
+      "shared": "Shared"
+    },
+    "kind_help": {
+      "personal": "Your own space. Members cannot be added.",
+      "chapter": "Only chapter members can read and edit. Membership follows the chapter and cannot be extended.",
+      "shared": "A space for invited members."
+    },
+    "role": {
+      "owner": "Owner",
+      "editor": "Editor",
+      "viewer": "Viewer"
+    },
+    "principal": {
+      "user": "User",
+      "public": "Anyone",
+      "chapter_role": "Chapter",
+      "discord_guild": "Discord server",
+      "chat_space": "Google Chat space"
+    },
+    "wildcard": {
+      "user": "Everyone signed in",
+      "public": "Anyone (no sign-in)",
+      "chapter_role": "Members of any chapter"
+    },
+    "flag": {
+      "human-page-conflict": "Proposed change to a human page",
+      "acl-untagged": "Possible unredacted text",
+      "acl-ambiguous-span": "Ambiguous redaction span",
+      "broken-link": "Broken link",
+      "translate-stuck": "Page could not be translated"
+    },
+    "errors": {
+      "slug_taken": "That URL name is taken",
+      "invalid_slug": "Invalid URL name",
+      "invalid_name": "Invalid name",
+      "already_exists": "Already created",
+      "forbidden_chapter": "You are not an organizer of that chapter",
+      "principal_not_allowed": "Members cannot be added to this space",
+      "invalid_principal": "Invalid ID",
+      "invalid_role": "Invalid role",
+      "last_owner": "The last owner cannot be removed",
+      "slug_locked": "This space's URL name cannot change",
+      "invalid_lang": "Invalid language",
+      "unknown_intent": "Unknown action",
+      "not_found": "Not found",
+      "create_failed": "Could not create the space"
+    }
+  },
+  "pages": {
+    "origin_agent": "Written by the agent",
+    "origin_human": "Written by a person"
   }
 }

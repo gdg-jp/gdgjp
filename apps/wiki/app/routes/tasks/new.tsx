@@ -1,5 +1,3 @@
-import { eq } from "drizzle-orm";
-
 import { nanoid } from "nanoid";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -15,6 +13,8 @@ import { getDb } from "~/lib/db.server";
 // ---------------------------------------------------------------------------
 
 import { Icons } from "@gdgjp/design-system";
+import { pageInSpace } from "~/features/pages/page-space.server";
+import { DEFAULT_SPACE_ID } from "~/features/spaces/shared";
 export const meta: MetaFunction = () => [{ title: "New Task List — GDG Japan Wiki" }];
 
 // ---------------------------------------------------------------------------
@@ -49,7 +49,7 @@ export async function action({ request, context }: ActionFunctionArgs) {
   const existing = await db
     .select({ id: schema.pages.id })
     .from(schema.pages)
-    .where(eq(schema.pages.slug, slug))
+    .where(pageInSpace(DEFAULT_SPACE_ID, slug))
     .get();
   if (existing) {
     slug = `${baseSlug}-${nanoid(6)}`;

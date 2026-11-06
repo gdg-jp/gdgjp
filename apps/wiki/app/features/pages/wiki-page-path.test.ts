@@ -2,13 +2,13 @@ import { describe, expect, it } from "vitest";
 import { classifyWikiRequestPath, wikiPagePath } from "./wiki-page-path";
 
 describe("wikiPagePath", () => {
-  it("joins segments under /wiki", () => {
-    expect(wikiPagePath(["about"])).toBe("/wiki/about");
-    expect(wikiPagePath(["about", "results"])).toBe("/wiki/about/results");
+  it("joins segments under /s/<space>/wiki", () => {
+    expect(wikiPagePath(["about"])).toBe("/s/gdg-jp/wiki/about");
+    expect(wikiPagePath(["about", "results"])).toBe("/s/gdg-jp/wiki/about/results");
   });
 
   it("percent-encodes each segment", () => {
-    expect(wikiPagePath(["hello world", "a/b"])).toBe("/wiki/hello%20world/a%2Fb");
+    expect(wikiPagePath(["hello world", "a/b"])).toBe("/s/gdg-jp/wiki/hello%20world/a%2Fb");
   });
 });
 

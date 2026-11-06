@@ -7,6 +7,8 @@ import { canonicalMarkdown } from "~/features/editor/content-format";
 import { getEffectivePagePermissions } from "~/features/pages/access.server";
 import { removeAclSpans } from "~/features/pages/acl-spans";
 import { pageAclClearance } from "~/features/pages/acl-spans.server";
+import { requireSpaceForIdentity } from "~/features/spaces/access.server";
+import { DEFAULT_SPACE_SLUG } from "~/features/spaces/shared";
 import { getDb } from "~/lib/db.server";
 import type { components } from "../../../../openapi/types.generated";
 
@@ -31,8 +33,19 @@ export async function loader({ request, context }: LoaderFunctionArgs) {
   if (langParam !== null && langParam !== "ja" && langParam !== "en")
     return Response.json({ error: "invalid_lang" }, { status: 400 });
   const locale = langParam === "en" ? "en" : "ja";
+  // `?space=<slug>` — one clone is one space (default gdg-jp for v1 clones).
+  const spaceSlug = new URL(request.url).searchParams.get("space") ?? DEFAULT_SPACE_SLUG;
+  let spaceId: string;
+  try {
+    spaceId = (await requireSpaceForIdentity(db, { ...identity, claimsAvailable: true }, spaceSlug))
+      .space.id;
+  } catch (error) {
+    if (error instanceof Response)
+      return Response.json({ error: "space_not_found" }, { status: error.status });
+    throw error;
+  }
   const [pages, tags, access, sources, attachments, agents] = await Promise.all([
-    db.select().from(schema.pages).all(),
+    db.select().from(schema.pages).where(eq(schema.pages.spaceId, spaceId)).all(),
     db.select().from(schema.pageTags).all(),
     db.select().from(schema.pageAccess).all(),
     db.select().from(schema.pageSources).all(),

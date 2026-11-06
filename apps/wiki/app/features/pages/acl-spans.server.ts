@@ -150,6 +150,11 @@ export type AclSyncContext = {
   pageAccess: readonly { subjectType: string; subjectKey: string }[];
   /** Cited source IDs from front matter sources[]. */
   citedSourceIds: readonly string[];
+  /**
+   * Space of the page. A span may only cite sources of the same space — a cross-space
+   * reference would let one tenant's page carry (and gate on) another tenant's source.
+   */
+  spaceId: string;
   /** Existing opposite-locale body, used when only one locale is in the upsert. */
   storedContentJa?: string | null;
   storedContentEn?: string | null;
@@ -197,6 +202,7 @@ export async function validatePageAclForSync(
           chapterId: schema.sources.chapterId,
           visibility: schema.sources.visibility,
           status: schema.sources.status,
+          spaceId: schema.sources.spaceId,
         })
         .from(schema.sources)
         .where(inArray(schema.sources.id, chunk))
@@ -206,7 +212,7 @@ export async function validatePageAclForSync(
     for (const id of uniqueSrcIds) {
       const source = byId.get(id);
       // Archived sources remain citeable; only truly missing ids are unknown.
-      if (!source) {
+      if (!source || source.spaceId !== ctx.spaceId) {
         return { ok: false, error: "acl_unknown_source", sourceId: id };
       }
       if (!canAccessSource(source, user, chapters)) {

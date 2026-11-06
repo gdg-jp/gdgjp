@@ -2,6 +2,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router";
 import { type PageNode, buildSlugPathById, getAncestorIdsForSlug } from "~/features/pages/tree";
+import { useCurrentSpace } from "~/features/spaces/components/current-space";
+import { spacePath } from "~/features/spaces/shared";
 import { findNodeIdBySlug } from "./build-tree";
 import { DraggablePageTree } from "./dnd";
 import { TreeNode } from "./row";
@@ -31,6 +33,7 @@ export default function PageTree({
   onImportZip,
 }: PageTreeProps) {
   const { t } = useTranslation();
+  const currentSpace = useCurrentSpace();
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const pagesRef = useRef(pages);
@@ -136,7 +139,7 @@ export default function PageTree({
                 <span>{t("pageTree.newPage_analyze")}</span>
               </Link>
               <Link
-                to="/wiki/new"
+                to={spacePath(currentSpace.slug, "wiki/new")}
                 onClick={() => setDropdownOpen(false)}
                 className="flex items-center gap-2 px-3 py-2 text-sm text-muted hover:bg-background"
               >

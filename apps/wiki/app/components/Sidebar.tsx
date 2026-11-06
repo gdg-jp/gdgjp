@@ -5,6 +5,9 @@ import BaseSidebar from "~/components/BaseSidebar";
 import { NavItem } from "~/components/NavItem";
 import PageTree from "~/features/pages/components/PageTree";
 import type { PageNode } from "~/features/pages/tree";
+import { HideAgentPagesToggle, SpaceSwitcher } from "~/features/spaces/components/SpaceSwitcher";
+import { type SpaceSummary, useCurrentSpace } from "~/features/spaces/components/current-space";
+import { spacePath } from "~/features/spaces/shared";
 
 import { Icons, SidebarMenu, SidebarMenuButton, SidebarMenuItem } from "@gdgjp/design-system";
 interface SidebarProps {
@@ -24,6 +27,8 @@ interface SidebarProps {
   onImportZip?: () => void;
   /** When set, replaces the page tree (used as Suspense fallback). */
   treeFallback?: React.ReactNode;
+  spaces?: readonly SpaceSummary[];
+  hideAgentPages?: boolean;
 }
 
 export default function Sidebar({
@@ -42,9 +47,14 @@ export default function Sidebar({
   archivedButtonRef,
   onImportZip,
   treeFallback,
+  spaces = [],
+  hideAgentPages = false,
 }: SidebarProps) {
   const { t } = useTranslation();
   const location = useLocation();
+  const currentSpace = useCurrentSpace();
+  const sourcesPath = spacePath(currentSpace.slug, "sources");
+  const canEditSpace = currentSpace.role === "editor" || currentSpace.role === "owner";
 
   return (
     <BaseSidebar
@@ -55,6 +65,9 @@ export default function Sidebar({
     >
       {({ isCollapsed }) => (
         <div className="flex h-full flex-col">
+          {(isAuthenticated || spaces.length > 1) && (
+            <SpaceSwitcher spaces={spaces} isCollapsed={isCollapsed} />
+          )}
           {/* Nav items */}
           <nav aria-label={t("nav.navigation")} className="px-2 pb-1 pt-3">
             <SidebarMenu>
@@ -175,11 +188,13 @@ export default function Sidebar({
           <div className="min-h-0 flex-1">
             {treeFallback ?? (
               <PageTree
+                // Tree state (expansion, drag items) belongs to one space.
+                key={currentSpace.id}
                 pages={pages}
                 currentSlug={currentSlug}
                 isCollapsed={isCollapsed}
                 canReorder={isAuthenticated && !isMobile && !isCollapsed}
-                canCreate={isAuthenticated}
+                canCreate={isAuthenticated && canEditSpace}
                 onImportZip={onImportZip}
               />
             )}
@@ -195,13 +210,14 @@ export default function Sidebar({
             >
               <SidebarMenu>
                 <NavItem
-                  to="/sources"
+                  to={sourcesPath}
                   icon={<Icons name="FileInput" size={16} />}
                   label={t("nav.sources")}
                   isCollapsed={isCollapsed}
-                  isActive={location.pathname.startsWith("/sources")}
+                  isActive={location.pathname.startsWith(sourcesPath)}
                 />
               </SidebarMenu>
+              {!isCollapsed && <HideAgentPagesToggle hideAgentPages={hideAgentPages} />}
             </nav>
           )}
         </div>

@@ -3,6 +3,7 @@ import { eq } from "drizzle-orm";
 import type { ActionFunctionArgs, LoaderFunctionArgs } from "react-router";
 import * as schema from "~/db/schema";
 import { getEffectivePagePermissions } from "~/features/pages/access.server";
+import { requirePageSpace } from "~/features/spaces/access.server";
 import { getDb } from "~/lib/db.server";
 import type { components } from "../../../../openapi/types.generated";
 
@@ -33,6 +34,18 @@ async function permitted(request: Request, env: Env, attachmentId: string, write
     attachment.page.pageType === "task-list"
   ) {
     return { error: new Response(null, { status: 404 }) };
+  }
+  try {
+    await requirePageSpace(
+      db,
+      { ...identity, claimsAvailable: true },
+      attachment.pageId,
+      write ? "editor" : "viewer",
+    );
+  } catch (error) {
+    return {
+      error: new Response(null, { status: error instanceof Response ? error.status : 404 }),
+    };
   }
   const permissions = await getEffectivePagePermissions(
     db,

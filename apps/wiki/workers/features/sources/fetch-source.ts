@@ -1,10 +1,12 @@
 import { and, eq, ne } from "drizzle-orm";
 import * as schema from "../../../app/db/schema";
+import { sourceKindSpec } from "../../../app/features/sources/kinds";
 import { getDb } from "../../../app/lib/db.server";
 import { startSourceImport } from "./import/run";
 import { isRetryableFetchError } from "./retry-classification";
 
-export const SOURCE_REFRESH_CRON = "0 16 * * *";
+/** Hourly: scheduled refreshes (hourly / daily / weekly by age) and the synthesize sweep. */
+export const SOURCE_REFRESH_CRON = "0 * * * *";
 export const TASK_REMINDER_CRON = "0 15 * * *";
 
 export interface FetchSourceOutcome {
@@ -61,16 +63,9 @@ export async function fetchSource(env: Env, sourceId: string): Promise<FetchSour
     );
   }
 
-  if (
-    source.kind !== "google-chat-space" &&
-    source.kind !== "discord-channel" &&
-    source.kind !== "google-doc" &&
-    source.kind !== "google-sheet" &&
-    source.kind !== "google-slides" &&
-    source.kind !== "website"
-  ) {
-    // Inline conversation logs are already persisted in R2 by createInlineSource;
-    // there is no remote fetch driver for this kind.
+  if (!sourceKindSpec(source.kind)?.driver) {
+    // Inline kinds (conversation / upload / text) are persisted once when created;
+    // there is no remote fetch driver for them.
     console.warn("[sources] fetch skipped; unsupported source kind", source.kind);
     return { status: "skipped", retryable: false };
   }
@@ -88,11 +83,19 @@ export async function fetchSource(env: Env, sourceId: string): Promise<FetchSour
   }
 }
 
+const HOUR_MS = 60 * 60 * 1000;
+/** Minimum age of the last fetch before a scheduled refresh; `manual` never schedules. */
+const REFRESH_INTERVAL_MS: Record<string, number | undefined> = {
+  // A few minutes of slack so the hourly cron does not skip a source fetched 59m ago.
+  hourly: HOUR_MS - 5 * 60 * 1000,
+  daily: 24 * HOUR_MS,
+  weekly: 7 * 24 * HOUR_MS,
+};
+
 /** Enqueue scheduled refreshes and repair stale pending messages of any policy. */
 export async function enqueueDueSourceRefreshes(env: Env): Promise<number> {
   const db = getDb(env);
   const nowMs = Date.now();
-  const dayMs = 24 * 60 * 60 * 1000;
   const candidates = await db
     .select({
       id: schema.sources.id,
@@ -109,19 +112,17 @@ export async function enqueueDueSourceRefreshes(env: Env): Promise<number> {
 
   let enqueued = 0;
   for (const source of candidates) {
-    // Inline conversation logs have no remote fetch driver, even if an operator
-    // manually changes refresh_policy. Keep them out of the scheduled queue too.
-    if (source.kind === "conversation") continue;
+    // Kinds without a fetch driver stay out of the scheduled queue even if an operator
+    // manually changes refresh_policy.
+    if (!sourceKindSpec(source.kind)?.refreshable) continue;
     const last = source.lastFetchedAt?.getTime() ?? 0;
-    const scheduledDue =
-      source.refreshPolicy === "daily" ? nowMs - last >= dayMs : nowMs - last >= 7 * dayMs;
+    const intervalMs = REFRESH_INTERVAL_MS[source.refreshPolicy];
+    const scheduledDue = intervalMs !== undefined && nowMs - last >= intervalMs;
     // Refresh sets a non-null fetchAttemptId before enqueue; create leaves it null.
     // Either way, a dropped queue message must be re-enqueued after an hour.
     const orphanedPending =
       source.status === "pending" && nowMs - source.updatedAt.getTime() >= 60 * 60 * 1000;
-    const due =
-      orphanedPending ||
-      ((source.refreshPolicy === "daily" || source.refreshPolicy === "weekly") && scheduledDue);
+    const due = orphanedPending || scheduledDue;
     if (!due) continue;
 
     const claimed = await db

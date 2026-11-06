@@ -90,7 +90,7 @@ export class CollabDurableObject extends DurableObject<Env> {
   /**
    * Load persisted Y.Doc state from DO KV storage, falling back to D1 page content.
    */
-  private async initialize(slug: string): Promise<void> {
+  private async initialize(spaceSlug: string, slug: string): Promise<void> {
     if (this.initialized) return;
     this.initialized = true;
 
@@ -102,8 +102,12 @@ export class CollabDurableObject extends DurableObject<Env> {
     }
 
     // Fall back to D1 content
-    const row = await this.env.DB.prepare("SELECT content_ja, content_en FROM pages WHERE slug = ?")
-      .bind(slug)
+    const row = await this.env.DB.prepare(
+      `SELECT pages.content_ja, pages.content_en FROM pages
+       JOIN spaces ON spaces.id = pages.space_id
+       WHERE spaces.slug = ? AND pages.slug = ?`,
+    )
+      .bind(spaceSlug, slug)
       .first<{ content_ja: string | null; content_en: string | null }>();
 
     if (row) {
@@ -156,11 +160,13 @@ export class CollabDurableObject extends DurableObject<Env> {
       return new Response("Unauthorized", { status: 401 });
     }
 
-    // Extract slug from URL
-    const slug = url.pathname.split("/")[3];
-    if (!slug) return new Response("Missing slug", { status: 400 });
+    // Extract space and slug from /ws/collab/<spaceSlug>/<slug>
+    const [, , , rawSpace, rawSlug] = url.pathname.split("/");
+    const spaceSlug = rawSpace ? decodeURIComponent(rawSpace) : "";
+    const slug = rawSlug ? decodeURIComponent(rawSlug) : "";
+    if (!spaceSlug || !slug) return new Response("Missing slug", { status: 400 });
 
-    await this.initialize(slug);
+    await this.initialize(spaceSlug, slug);
 
     // Create WebSocket pair and accept with Hibernation API
     const pair = new WebSocketPair();

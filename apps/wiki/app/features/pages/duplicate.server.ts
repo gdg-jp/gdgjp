@@ -7,7 +7,7 @@ import { pageAclClearance } from "~/features/pages/acl-spans.server";
 import { getDb } from "~/lib/db.server";
 import { rewriteCopiedLinks } from "./page-menu-content";
 import { wikiPagePath } from "./wiki-page-path";
-import { getWikiCanonicalSlugPaths } from "./wiki-page-path.server";
+import { getPageSpaceSlugs, getWikiCanonicalSlugPaths } from "./wiki-page-path.server";
 
 type Page = typeof schema.pages.$inferSelect;
 
@@ -54,6 +54,8 @@ export async function duplicatePage(
     env,
     pages.map((page) => page.id),
   );
+  // A copied tree stays in the space of its root.
+  const spaceSlug = (await getPageSpaceSlugs(env, [pageId])).get(pageId) ?? "gdg-jp";
   const lookup = (map: Map<string, string>, key: string | null) => {
     const value = key ? map.get(key) : undefined;
     if (!value) throw new Response("Invalid page tree", { status: 409 });
@@ -70,12 +72,18 @@ export async function duplicatePage(
       segments.unshift(lookup(slugs, parent.id));
       page = parent;
     }
-    return wikiPagePath(segments);
+    return wikiPagePath(segments, spaceSlug);
   };
   const links = new Map<string, string>();
   for (const page of pages) {
-    links.set(wikiPagePath(oldPaths.get(page.id) ?? [page.slug]), newPath(page));
-    links.set(wikiPagePath([page.slug]), newPath(page));
+    const oldSegments = oldPaths.get(page.id) ?? [page.slug];
+    links.set(wikiPagePath(oldSegments, spaceSlug), newPath(page));
+    links.set(wikiPagePath([page.slug], spaceSlug), newPath(page));
+    // v1 bodies still carry /wiki/… links (served by a 301 into gdg-jp).
+    if (spaceSlug === "gdg-jp") {
+      links.set(`/wiki/${oldSegments.map(encodeURIComponent).join("/")}`, newPath(page));
+      links.set(`/wiki/${encodeURIComponent(page.slug)}`, newPath(page));
+    }
   }
 
   // Copy objects first; publish the complete relational graph in one transaction.
@@ -114,6 +122,7 @@ export async function duplicatePage(
     for (const page of pages) {
       insert("pages", {
         id: lookup(ids, page.id),
+        space_id: page.spaceId,
         slug: lookup(slugs, page.id),
         title_ja: page.titleJa ? page.titleJa + (page.id === pageId ? " コピー" : "") : "",
         title_en: page.titleEn ? page.titleEn + (page.id === pageId ? " (Copy)" : "") : "",

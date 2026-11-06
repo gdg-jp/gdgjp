@@ -24,4 +24,7 @@ export const userPreferences = sqliteTable("user_preferences", {
   preferredUiLanguage: text("preferred_ui_language").notNull().default("ja"),
   preferredContentLanguage: text("preferred_content_language").notNull().default("ja"),
   discordId: text("discord_id").unique(),
+  lastSpaceId: text("last_space_id"),
+  // Hide origin=agent pages from the tree, catalog and search (display only, not a permission).
+  hideAgentPages: integer("hide_agent_pages", { mode: "boolean" }).notNull().default(false),
 });

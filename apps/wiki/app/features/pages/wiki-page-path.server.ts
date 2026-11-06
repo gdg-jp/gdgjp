@@ -1,3 +1,4 @@
+import { wikiPagePath } from "./wiki-page-path";
 const ANCESTRY_DEPTH_CAP = 32;
 const BATCH_CHUNK_SIZE = 50;
 
@@ -61,4 +62,48 @@ export async function getWikiCanonicalSlugPaths(
   }
 
   return paths;
+}
+
+/**
+ * Full browser URLs (`/s/<space>/wiki/<root>/…/<leaf>`) for many pages. Use this for any
+ * listing that may contain pages from more than one space.
+ */
+export async function getWikiPageUrls(
+  env: Env,
+  pageIds: readonly string[],
+): Promise<Map<string, string>> {
+  const urls = new Map<string, string>();
+  if (pageIds.length === 0) return urls;
+  const [paths, spaceSlugs] = await Promise.all([
+    getWikiCanonicalSlugPaths(env, pageIds),
+    getPageSpaceSlugs(env, pageIds),
+  ]);
+  for (const id of new Set(pageIds)) {
+    const segments = paths.get(id);
+    if (!segments || segments.length === 0) continue;
+    urls.set(id, wikiPagePath(segments, spaceSlugs.get(id)));
+  }
+  return urls;
+}
+
+/** Space slug of each page. */
+export async function getPageSpaceSlugs(
+  env: Env,
+  pageIds: readonly string[],
+): Promise<Map<string, string>> {
+  const slugs = new Map<string, string>();
+  const uniqueIds = [...new Set(pageIds)];
+  for (let i = 0; i < uniqueIds.length; i += BATCH_CHUNK_SIZE) {
+    const chunk = uniqueIds.slice(i, i + BATCH_CHUNK_SIZE);
+    const placeholders = chunk.map(() => "?").join(", ");
+    const result = await env.DB.prepare(
+      `SELECT pages.id AS id, spaces.slug AS space_slug
+       FROM pages JOIN spaces ON spaces.id = pages.space_id
+       WHERE pages.id IN (${placeholders})`,
+    )
+      .bind(...chunk)
+      .all<{ id: string; space_slug: string }>();
+    for (const row of result.results) slugs.set(row.id, row.space_slug);
+  }
+  return slugs;
 }

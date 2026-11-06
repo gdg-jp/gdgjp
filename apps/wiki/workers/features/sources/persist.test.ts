@@ -15,7 +15,7 @@ vi.mock("nanoid", () => ({
   },
 }));
 
-import { contentR2Key, persistSourceDocument, sha256Hex } from "./persist";
+import { persistSourceDocument, rawObjectKey, sha256Hex } from "./persist";
 
 const SOURCE_ID = "src-1";
 const ATTEMPT_ID = "attempt-1";
@@ -61,6 +61,47 @@ describe("persistSourceDocument", () => {
     expect(putMock).not.toHaveBeenCalled();
   });
 
+  it("moves an unchanged v1-layout document to its v2 key (layout migration)", async () => {
+    const input = {
+      sourceId: SOURCE_ID,
+      fetchAttemptId: ATTEMPT_ID,
+      path: "index",
+      title: "Hello",
+      body: markdownBody("# Hello"),
+      mediaType: MARKDOWN_MEDIA_TYPE,
+    };
+    await persistSourceDocument(env(), input);
+    sqlite.exec(`UPDATE source_documents SET r2_key = 'raw/src-1/doc/legacy.md'`);
+    putMock.mockClear();
+
+    const result = await persistSourceDocument(env(), input);
+
+    expect(result).toMatchObject({ written: true, contentChanged: false });
+    expect(putMock).toHaveBeenCalledWith(
+      rawObjectKey("gdg-jp", SOURCE_ID, "index"),
+      expect.any(Uint8Array),
+      expect.any(Object),
+    );
+    expect(sqlite.prepare("SELECT r2_key FROM source_documents").get()).toEqual({
+      r2_key: rawObjectKey("gdg-jp", SOURCE_ID, "index"),
+    });
+  });
+
+  it("tags raw objects with the source's audience", async () => {
+    sqlite.exec(`UPDATE sources SET visibility = 'organizer'`);
+    await persistSourceDocument(env(), {
+      sourceId: SOURCE_ID,
+      fetchAttemptId: ATTEMPT_ID,
+      path: "index",
+      title: "Hello",
+      body: markdownBody("# Secret"),
+      mediaType: MARKDOWN_MEDIA_TYPE,
+    });
+    expect(putMock.mock.calls[0]?.[2]).toMatchObject({
+      customMetadata: { audience: "organizer", layer: "raw", source_id: SOURCE_ID },
+    });
+  });
+
   it("writes content and its replacement assets together", async () => {
     const result = await persistSourceDocument(env(), {
       sourceId: SOURCE_ID,
@@ -82,10 +123,17 @@ describe("persistSourceDocument", () => {
 
     const hash = await sha256Hex(new TextEncoder().encode("# Hello"));
     expect(result).toMatchObject({ skipped: false, written: true, contentHash: hash });
+    // v2 layout: one object per document under its space, tagged for AI Search.
     expect(putMock).toHaveBeenCalledWith(
-      contentR2Key(SOURCE_ID, "doc-fixed-id", hash, MARKDOWN_MEDIA_TYPE),
+      rawObjectKey("gdg-jp", SOURCE_ID, "index"),
       expect.any(Uint8Array),
-      expect.any(Object),
+      expect.objectContaining({
+        customMetadata: expect.objectContaining({
+          layer: "raw",
+          source_id: SOURCE_ID,
+          audience: expect.any(String),
+        }),
+      }),
     );
     expect(sqlite.prepare("SELECT path FROM source_assets ORDER BY path").all()).toEqual([
       { path: "raw/src-1/assets/hello.png" },
@@ -246,7 +294,8 @@ describe("persistSourceDocument", () => {
     });
 
     const hash = await sha256Hex(body);
-    expect(result.r2Key).toBe(contentR2Key(SOURCE_ID, "doc-fixed-id", hash, PDF_MEDIA_TYPE));
+    expect(result.r2Key).toBe(rawObjectKey("gdg-jp", SOURCE_ID, "slides.pdf"));
+    expect(hash).toMatch(/^[0-9a-f]{64}$/);
     expect(putMock).toHaveBeenCalledWith(
       expect.stringMatching(/\.pdf$/),
       body,

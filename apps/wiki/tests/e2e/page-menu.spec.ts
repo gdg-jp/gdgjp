@@ -8,7 +8,7 @@ async function createPage(
   contentEn = content,
 ) {
   const title = `${label} ${crypto.randomUUID()}`;
-  const response = await page.request.post("/wiki/new", {
+  const response = await page.request.post("/s/gdg-jp/wiki/new", {
     form: { titleJa: title, titleEn: title, contentJa: content, contentEn },
     maxRedirects: 0,
   });
@@ -142,7 +142,7 @@ test("duplicates a subtree, moves it using search, and archives it with restorat
     .getByRole("button", { name: new RegExp(destination.title) })
     .click();
   await expect(authorPage).toHaveURL(
-    new RegExp(`${destination.path}${copiedPath.replace("/wiki", "")}`),
+    new RegExp(`${destination.path}${copiedPath.replace("/s/gdg-jp/wiki", "")}`),
   );
   const movedPath = new URL(authorPage.url()).pathname;
   await more(authorPage).click();
@@ -151,7 +151,8 @@ test("duplicates a subtree, moves it using search, and archives it with restorat
     .getByRole("alertdialog")
     .getByRole("button", { name: "Archive", exact: true })
     .click();
-  await expect(authorPage).toHaveURL(/\/$/);
+  // Archiving returns to the space home.
+  await expect(authorPage).toHaveURL(/\/s\/gdg-jp$/);
   expect((await authorPage.request.get(movedPath)).status()).toBe(404);
   await authorPage.goto("/archived");
   const archivedTitle = authorPage.getByText(`${source.title} (Copy)`, { exact: true });

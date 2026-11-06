@@ -1,6 +1,8 @@
 import { and, eq, sql } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import * as schema from "../../../app/db/schema";
+import { rawObjectKey, rawObjectMetadata } from "../../../app/features/sources/raw-object";
+export { rawObjectKey, rawObjectMetadata };
 import { getDb } from "../../../app/lib/db.server";
 import { extensionFor } from "./media-type";
 
@@ -34,6 +36,8 @@ export interface PersistDocumentResult {
   contentHash?: string;
   r2Key?: string;
   written?: boolean;
+  /** New document or new content (not just a re-placed or restored object). */
+  contentChanged?: boolean;
 }
 
 /**
@@ -55,8 +59,23 @@ export async function isSourceFetchAttemptCurrent(
   sourceId: string,
   fetchAttemptId: string,
 ): Promise<boolean> {
-  const source = await db
-    .select({ id: schema.sources.id })
+  return Boolean(await currentLeasedSource(db, sourceId, fetchAttemptId));
+}
+
+/** The source row while the given fetch lease is current (else undefined). */
+async function currentLeasedSource(
+  db: ReturnType<typeof getDb>,
+  sourceId: string,
+  fetchAttemptId: string,
+) {
+  return db
+    .select({
+      id: schema.sources.id,
+      spaceId: schema.sources.spaceId,
+      visibility: schema.sources.visibility,
+      chapterId: schema.sources.chapterId,
+      addedBy: schema.sources.addedBy,
+    })
     .from(schema.sources)
     .where(
       and(
@@ -66,7 +85,6 @@ export async function isSourceFetchAttemptCurrent(
       ),
     )
     .get();
-  return Boolean(source);
 }
 
 export async function sha256Hex(value: Uint8Array): Promise<string> {
@@ -77,6 +95,7 @@ export async function sha256Hex(value: Uint8Array): Promise<string> {
   return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
 }
 
+/** v1 layout (immutable, one object per content hash). Read-only now; removed in Stage 07. */
 export function contentR2Key(
   sourceId: string,
   sourceDocumentId: string,
@@ -100,9 +119,8 @@ export async function persistSourceDocument(
   input: PersistDocumentInput,
 ): Promise<PersistDocumentResult> {
   const db = getDb(env);
-  if (!(await isSourceFetchAttemptCurrent(db, input.sourceId, input.fetchAttemptId))) {
-    return { skipped: true };
-  }
+  const source = await currentLeasedSource(db, input.sourceId, input.fetchAttemptId);
+  if (!source) return { skipped: true };
 
   const contentHash = await sha256Hex(input.body);
 
@@ -117,7 +135,15 @@ export async function persistSourceDocument(
     )
     .get();
 
-  if (existing && existing.contentHash === contentHash) {
+  const targetKey = rawObjectKey(source.spaceId, input.sourceId, input.path);
+  // Unchanged content is not rewritten — unless the object is not at its v2 key yet (v1
+  // layout or a space move) or the document was archived (archiving deletes the object).
+  if (
+    existing &&
+    existing.contentHash === contentHash &&
+    existing.r2Key === targetKey &&
+    existing.status === "ready"
+  ) {
     // Content is unchanged, so nothing is written — but a path that was archived by
     // reconciliation and has since reappeared has to come back, or an unchanged
     // document could stay retired forever. Cursor / metadata may still advance.
@@ -161,15 +187,16 @@ export async function persistSourceDocument(
   }
 
   const id = existing?.id ?? nanoid();
-  const r2Key = contentR2Key(input.sourceId, id, contentHash, input.mediaType);
+  const r2Key = targetKey;
   await env.BUCKET.put(r2Key, input.body, {
     httpMetadata: {
       contentType: input.mediaType.startsWith("text/")
         ? `${input.mediaType}; charset=utf-8`
         : input.mediaType,
     },
-    customMetadata: { sha256: contentHash, path: input.path },
+    customMetadata: rawObjectMetadata(source, { sha256: contentHash, path: input.path }),
   });
+  const contentChanged = !existing || existing.contentHash !== contentHash;
 
   const now = new Date();
   const documentMutation = existing
@@ -209,6 +236,8 @@ export async function persistSourceDocument(
               cursor: sql<string | null>`${input.cursor ?? null}`.as("cursor"),
               metadata: sql<string | null>`${input.metadata ?? null}`.as("metadata"),
               status: sql<string>`'ready'`.as("status"),
+              // New content: not integrated into pages yet.
+              integratedHash: sql<string | null>`NULL`.as("integrated_hash"),
             })
             .from(schema.sources)
             .where(
@@ -274,5 +303,13 @@ export async function persistSourceDocument(
   const documentRows = batchResults[0];
   if (!Array.isArray(documentRows) || documentRows.length === 0) return { skipped: true };
 
-  return { skipped: false, id, path: input.path, contentHash, r2Key, written: true };
+  return {
+    skipped: false,
+    id,
+    path: input.path,
+    contentHash,
+    r2Key,
+    written: true,
+    contentChanged,
+  };
 }

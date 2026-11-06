@@ -40,7 +40,9 @@ export default defineConfig({
   ],
   webServer: {
     command: process.env.CI ? `node ../../scripts/run-e2e-dev.mjs ${PORT}` : "pnpm dev",
-    url: `http://localhost:${PORT}`,
+    // A static asset: readiness must not depend on the database, which globalSetup
+    // migrates only after the server is up.
+    url: `http://localhost:${PORT}/og-image.png`,
     env: webServerEnvironment,
     gracefulShutdown: { signal: "SIGTERM", timeout: 5_000 },
     reuseExistingServer: false,

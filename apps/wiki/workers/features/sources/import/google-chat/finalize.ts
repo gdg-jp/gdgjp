@@ -260,6 +260,7 @@ export async function completeImport(ctx: ChatImportTickContext, current: Curren
     current.source.id,
     current.run.fetchAttemptId,
     retainedPaths,
+    ctx.env.BUCKET,
   );
 
   ctx.budget.spend(1);

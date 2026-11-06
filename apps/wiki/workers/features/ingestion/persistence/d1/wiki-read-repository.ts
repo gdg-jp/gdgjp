@@ -4,6 +4,8 @@ import type { DrizzleD1Database } from "drizzle-orm/d1";
 import * as schema from "../../../../../app/db/schema";
 import { getEffectivePagePermissions } from "../../../../../app/features/pages/access.server";
 import { redactPageMarkdown } from "../../../../../app/features/pages/acl-spans.server";
+import { pageInSpace } from "../../../../../app/features/pages/page-space.server";
+import { DEFAULT_SPACE_ID } from "../../../../../app/features/spaces/shared";
 import type {
   WikiWorkspaceStore,
   WorkspaceActor,
@@ -135,9 +137,10 @@ export function createD1WikiWorkspaceStore(db: Db, actor: WorkspaceActor): WikiW
     );
   };
   return {
-    getRootPage: (slug) => getPage(and(eq(schema.pages.slug, slug), isNull(schema.pages.parentId))),
+    getRootPage: (slug) =>
+      getPage(and(pageInSpace(DEFAULT_SPACE_ID, slug), isNull(schema.pages.parentId))),
     getChildPage: (parentId, slug) =>
-      getPage(and(eq(schema.pages.slug, slug), eq(schema.pages.parentId, parentId))),
+      getPage(and(pageInSpace(DEFAULT_SPACE_ID, slug), eq(schema.pages.parentId, parentId))),
     getPageById: (id) => getPage(eq(schema.pages.id, id)),
     getPageBody: bodyFor,
     listChildren: async (parentId, { limit, offset }) =>

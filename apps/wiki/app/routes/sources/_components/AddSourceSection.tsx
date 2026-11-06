@@ -13,7 +13,6 @@ import { ChapterSelect, VisibilitySelect } from "~/features/sources/components/s
 import { isSourceVisibility, sourceVisibilityNeedsChapter } from "~/features/sources/shared";
 import {
   SOURCE_MIME_TYPES,
-  isHttpUrl,
   sourceUrlFromGoogleDocument,
 } from "~/features/sources/staged-candidates";
 import { DiscordChannelDialog } from "./DiscordChannelDialog";
@@ -28,6 +27,7 @@ import { useSourceStaging } from "./use-source-staging";
  * auth hint or duplicate message shows in this section after the dialog closes.
  */
 import { Icons } from "@gdgjp/design-system";
+import { REGISTRATIONS, SOURCE_KINDS } from "~/features/sources/kinds";
 export function AddSourceSection({
   sources,
   assignableChapters,
@@ -67,7 +67,7 @@ export function AddSourceSection({
   const submitting = batchFetcher.state !== "idle";
   const needsChapter = isSourceVisibility(visibility) && sourceVisibilityNeedsChapter(visibility);
   const urlCandidatesValid = candidates.every(
-    (candidate) => candidate.kind !== "url" || isHttpUrl(candidate.url),
+    (candidate) => REGISTRATIONS[candidate.kind].validate(candidate) === null,
   );
   const canSubmitImport = Boolean(
     visibility && (!needsChapter || chapter) && candidates.length > 0 && urlCandidatesValid,
@@ -179,14 +179,15 @@ export function AddSourceSection({
   }
 
   function addChatSpace(space: (typeof chatSpaces)[number]) {
-    if (registeredCandidateIds.has(`chat:${space.name}`)) {
+    const candidateId = SOURCE_KINDS["google-chat-space"].candidateId(space.name);
+    if (registeredCandidateIds.has(candidateId)) {
       setChatError(t("sources.error_duplicate_source"));
       return;
     }
     setChatError(null);
     addCandidates([
       {
-        id: `chat:${space.name}`,
+        id: candidateId,
         kind: "google-chat-space",
         title: space.displayName,
         url: `https://mail.google.com/chat/u/0/#chat/space/${space.name.slice("spaces/".length)}`,
@@ -237,7 +238,9 @@ export function AddSourceSection({
                 chatSpaces.map((space) => (
                   <DropdownMenuItem
                     key={space.name}
-                    disabled={registeredCandidateIds.has(`chat:${space.name}`)}
+                    disabled={registeredCandidateIds.has(
+                      SOURCE_KINDS["google-chat-space"].candidateId(space.name),
+                    )}
                     onSelect={() => addChatSpace(space)}
                   >
                     {space.displayName}
@@ -252,7 +255,7 @@ export function AddSourceSection({
             className="inline-flex shrink-0 items-center justify-center gap-2 rounded-md border border-border px-3 py-2 text-sm font-medium text-muted hover:bg-neutral"
           >
             <Icons name="Hash" className="size-4" />
-            {t("sources.add_discord_channel")}
+            {t("sources.add_discord_server")}
           </button>
           <button
             type="button"

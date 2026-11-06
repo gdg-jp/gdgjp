@@ -127,8 +127,11 @@ export async function stepFinalizing(
     await persistSourceDocument(ctx.env, {
       sourceId: current.source.id,
       fetchAttemptId: current.run.fetchAttemptId,
-      path: pathForMediaType(normalized.path, MARKDOWN_MEDIA_TYPE),
-      title: normalized.title,
+      path: pathForMediaType(
+        `${ctx.channelDocument?.pathPrefix ?? ""}${normalized.path}`,
+        MARKDOWN_MEDIA_TYPE,
+      ),
+      title: `${ctx.channelDocument?.titlePrefix ?? ""}${normalized.title}`,
       body: markdownBody(markdown),
       mediaType: MARKDOWN_MEDIA_TYPE,
       cursor: normalized.cursor,
@@ -179,6 +182,7 @@ export async function completeImport(
     current.source.id,
     current.run.fetchAttemptId,
     retainedPaths,
+    ctx.env.BUCKET,
   );
 
   ctx.budget.spend(1);
@@ -216,7 +220,7 @@ export async function completeImport(
   });
 }
 
-async function deleteRunTempObjects(
+export async function deleteRunTempObjects(
   ctx: DiscordImportTickContext,
   sourceId: string,
 ): Promise<void> {

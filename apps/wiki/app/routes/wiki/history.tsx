@@ -12,11 +12,11 @@ export const meta: MetaFunction<typeof loader> = ({ data }) => [
 ];
 
 export async function loader({ request, context, params }: LoaderFunctionArgs) {
-  return loadPageHistory(request, context.cloudflare.env, params.slug);
+  return loadPageHistory(request, context.cloudflare.env, params.space, params.slug);
 }
 
 export async function action({ request, context, params }: ActionFunctionArgs) {
-  return revertPageVersion(request, context.cloudflare.env, params.slug);
+  return revertPageVersion(request, context.cloudflare.env, params.space, params.slug);
 }
 
 export default function WikiHistory() {

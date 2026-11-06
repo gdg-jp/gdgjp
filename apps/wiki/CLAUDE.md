@@ -20,7 +20,7 @@ Re-run `cf-typegen` (or `typecheck`) after `wrangler.toml` binding edits.
 Single `ExportedHandler<Env>` — understand all three before touching:
 
 - `fetch` — authenticates `/agents/wiki-generation-agent/:session` and routes it through the Agents SDK; short-circuits `/ws/collab/:slug` to `COLLAB_DO`; otherwise → RR.
-- `scheduled` — two crons: `0 15 * * *` (task Discord reminders, 00:00 JST) and `0 16 * * *` (daily/weekly source refresh enqueue).
+- `scheduled` — crons: `0 15 * * *` (task Discord reminders, 00:00 JST), `0 * * * *` (hourly: source refresh enqueue for hourly/daily/weekly policies by age, and the `agent_jobs` synthesize sweep), `5 0 * * *` (v1 translation, removed in Stage 07).
 - `queue` — consumes `TRANSLATION_QUEUE`, Google Docs import jobs, and `SOURCE_FETCH_QUEUE`. Source import continuation for Chat, Drive, Discord, and websites runs in `SOURCE_IMPORT_DO` alarms, not the queue.
 
 `CollabDurableObject` and `SourceImportDurableObject` are re-exported from the same file so wrangler registers them.
@@ -93,6 +93,7 @@ Details in `ARCHITECTURE.md`. Scan this table to narrow the location before you 
 
 | 探しもの | 場所 |
 |---|---|
+| スペース（外側 ACL・メンバー・レビュー） | `app/features/spaces/`（README あり）, `app/routes/spaces/` |
 | ページ本体 / ACL / 可視性 / ツリー / メタ / アーカイブ | `app/features/pages/`（README あり。UI は `components/`） |
 | ソース取り込み（UI・API 側） | `app/features/sources/`（README あり）, `app/routes/sources/`, `app/routes/api/sources/` |
 | ソース取り込み（Worker 実行・DO alarm・refresh cron） | `workers/features/sources/` |

@@ -5,6 +5,7 @@ import * as schema from "~/db/schema";
 import { getAccessIdentity, requireUser } from "~/features/auth/utils.server";
 import { createNotification } from "~/features/notifications/notify.server";
 import { getEffectivePagePermissions } from "~/features/pages/access.server";
+import { requirePageSpace } from "~/features/spaces/access.server";
 import { getDb } from "~/lib/db.server";
 
 export async function action({ request, context }: ActionFunctionArgs) {
@@ -17,6 +18,7 @@ export async function action({ request, context }: ActionFunctionArgs) {
   const intent = form.get("intent");
 
   async function requireCommentPermission(pageId: string) {
+    await requirePageSpace(db, identity, pageId);
     const page = await db
       .select({
         id: schema.pages.id,

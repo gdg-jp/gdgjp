@@ -1,6 +1,9 @@
 import type { ActionFunctionArgs } from "react-router";
 import { agentUnauthorized, resolveAgentWorkspace } from "~/features/agent-api/workspace.server";
 import { createSource } from "~/features/sources/sources.server";
+import { requireSpaceForIdentity } from "~/features/spaces/access.server";
+import { DEFAULT_SPACE_SLUG } from "~/features/spaces/shared";
+import { getDb } from "~/lib/db.server";
 
 /** POST /api/agent/sources — register a source as the Bearer token's user. */
 export async function action({ request, context }: ActionFunctionArgs) {
@@ -19,7 +22,15 @@ export async function action({ request, context }: ActionFunctionArgs) {
     refreshPolicy?: unknown;
   } | null;
 
+  const spaceSlug = new URL(request.url).searchParams.get("space") ?? DEFAULT_SPACE_SLUG;
+  const { space } = await requireSpaceForIdentity(
+    getDb(env),
+    { ...resolved.identity, claimsAvailable: true },
+    spaceSlug,
+    "editor",
+  );
   const result = await createSource(env, {
+    spaceId: space.id,
     url: body?.url,
     visibility: body?.visibility,
     chapter: body?.chapter,
