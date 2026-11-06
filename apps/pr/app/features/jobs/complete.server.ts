@@ -23,6 +23,7 @@ import {
 } from "~/features/playbook/playbook";
 import { listItems } from "~/features/schedule/item.repository.server";
 import { skillFor } from "./bundle.server";
+import { importPage } from "./import-page.server";
 import { insertJob } from "./job.repository.server";
 import type { FixTarget, Job, RunnerResult } from "./shared";
 
@@ -104,6 +105,18 @@ export async function importResult(
           })));
     const saved = await saveVersion(db, job, draftId, "copy", output, brief, yomiyasu);
     return { status: "succeeded", summary: { draftIds: [draftId], mustFails: saved.mustFails } };
+  }
+
+  if (job.type === "page" || kind === "connpass_page" || kind === "connpass_mail") {
+    return importPage(
+      db,
+      job,
+      kind as "connpass_page" | "connpass_mail",
+      output,
+      brief,
+      yomiyasu,
+      (target, report) => maybeFix(db, job, target, kind, report),
+    );
   }
 
   if (job.type === "post" || job.type === "fix") {

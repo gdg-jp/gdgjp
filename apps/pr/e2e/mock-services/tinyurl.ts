@@ -4,6 +4,8 @@ import type { PrActor } from "@gdgjp/gdg-lib";
 
 const campaigns = new Map<string, { id: number; chapterId: number; name: string }>();
 const channels = new Map<string, { id: number; campaignId: number; code: string }>();
+// Ids stay unique across dev-server restarts (pr keeps them in D1).
+const RUN = Date.now().toString(36);
 const links = new Map<
   string,
   { id: string; slug: string; destinationUrl: string; campaignChannelId: number | null }
@@ -39,7 +41,7 @@ export class PrService extends WorkerEntrypoint {
     if (!inChapter(input.actor, input.chapterId)) return { ok: false as const, code: "forbidden" };
     if ([...links.values()].some((l) => l.slug === input.slug))
       return { ok: false as const, code: "slug_taken" };
-    const id = `link-${links.size + 1}`;
+    const id = `link-${RUN}-${links.size + 1}`;
     links.set(id, {
       id,
       slug: input.slug,

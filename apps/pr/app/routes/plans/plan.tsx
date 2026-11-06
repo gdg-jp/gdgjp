@@ -12,8 +12,15 @@ import {
 } from "@gdgjp/design-system";
 import { Form, Link, useNavigation } from "react-router";
 import { requireCampaignAccess } from "~/features/campaigns/access.server";
+import { applySurvey, createSubEvent } from "~/features/connpass/actions.server";
+import { ConnpassPlanCard } from "~/features/connpass/components/ConnpassPlanCard";
 import { CheckResults } from "~/features/drafts/components/CheckResults";
-import { EnqueueError, enqueueCopy, enqueuePlan } from "~/features/jobs/enqueue.server";
+import {
+  EnqueueError,
+  enqueueCopy,
+  enqueuePage,
+  enqueuePlan,
+} from "~/features/jobs/enqueue.server";
 import { openJobs } from "~/features/jobs/job.repository.server";
 import { adoptPlan } from "~/features/plans/adopt.server";
 import { listPlans } from "~/features/plans/plan.repository.server";
@@ -67,6 +74,22 @@ export async function action({ request, context, params }: Route.ActionArgs) {
     if (intent === "copy") {
       await enqueueCopy(env.DB, access.campaign.id, access.user.id, { instructions });
       return { message: "コピーのジョブを積みました。下書きに出ます。", error: null };
+    }
+    if (intent === "connpass-page") {
+      await enqueuePage(env.DB, access.campaign.id, access.user.id, {
+        kind: "connpass_page",
+        instructions,
+      });
+      return { message: "connpass ページのジョブを積みました。下書きに出ます。", error: null };
+    }
+    if (intent === "connpass-survey" || intent === "connpass-subevent") {
+      const result =
+        intent === "connpass-survey"
+          ? await applySurvey(env, access)
+          : await createSubEvent(env, access, String(form.get("title") ?? ""));
+      return result.ok
+        ? { message: result.message, error: null }
+        : { message: null, error: result.error };
     }
     if (intent === "adopt") {
       if (!access.permissions.manage)
@@ -132,6 +155,11 @@ export default function PlanPage({ loaderData, actionData }: Route.ComponentProp
           </Stack>
         </Form>
       </Card>
+      <ConnpassPlanCard
+        ideas={plan?.body.segmentContentIdeas ?? []}
+        hasPlan={versions.some((v) => v.status === "adopted")}
+        busy={busy}
+      />
       {versions.length ? (
         <nav aria-label="版" className="flex flex-wrap gap-2">
           {versions.map((v) => (

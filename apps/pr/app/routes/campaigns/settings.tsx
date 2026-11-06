@@ -21,6 +21,9 @@ import {
   updateCampaign,
 } from "~/features/campaigns/campaign.repository.server";
 import { normalizeSlug } from "~/features/campaigns/slug";
+import { publishEvent, uploadThumbnail } from "~/features/connpass/actions.server";
+import { ConnpassSettingsCard } from "~/features/connpass/components/ConnpassSettingsCard";
+import { listConnpassJobs } from "~/features/connpass/job-ledger.server";
 import { DeliverySettings } from "~/features/integrations/components/DeliverySettings";
 import { deliverySettings, deliverySettingsAction } from "~/features/integrations/settings.server";
 import { CampaignLayout } from "~/layouts/CampaignLayout";
@@ -56,6 +59,15 @@ export async function loader({ request, context, params }: Route.LoaderArgs) {
     },
     canManage: access.permissions.manage,
     delivery: await deliverySettings(env, access),
+    connpass: {
+      configured: !!(campaign.connpassGroupSlug && campaign.connpassEventId),
+      jobs: (await listConnpassJobs(env.DB, campaign.id)).map((j) => ({
+        jobId: j.jobId,
+        kind: j.kind,
+        status: j.status,
+        error: j.error,
+      })),
+    },
   };
 }
 
@@ -68,6 +80,16 @@ export async function action({ request, context, params }: Route.ActionArgs) {
   const access = await requireCampaignAccess(env, request, params.slug, need);
   const delivery = await deliverySettingsAction(env, access, intent, form);
   if (delivery) return delivery;
+  if (intent === "connpass-thumbnail" || intent === "connpass-publish") {
+    const image = form.get("image");
+    const result =
+      intent === "connpass-thumbnail"
+        ? await uploadThumbnail(env, access, image instanceof File && image.size ? image : null)
+        : await publishEvent(env, access, form.get("confirm") === "on");
+    return result.ok
+      ? { ok: true as const, error: null, message: result.message }
+      : { ok: false as const, error: result.error };
+  }
   const name = String(form.get("name") ?? "").trim();
   if (!name) return { ok: false as const, error: "名前を入れてください" };
   const status = String(form.get("status")) as CampaignStatus;
@@ -91,7 +113,7 @@ export async function action({ request, context, params }: Route.ActionArgs) {
 }
 
 export default function Settings({ loaderData, actionData }: Route.ComponentProps) {
-  const { user, accountsUrl, campaign, settings, canManage, delivery } = loaderData;
+  const { user, accountsUrl, campaign, settings, canManage, delivery, connpass } = loaderData;
   const navigation = useNavigation();
   return (
     <CampaignLayout user={user} accountsUrl={accountsUrl} campaign={campaign} title="設定">
@@ -176,6 +198,12 @@ export default function Settings({ loaderData, actionData }: Route.ComponentProp
           </Stack>
         </Form>
       </Card>
+      <ConnpassSettingsCard
+        configured={connpass.configured}
+        jobs={connpass.jobs}
+        canManage={canManage}
+        busy={navigation.state === "submitting"}
+      />
       <DeliverySettings
         data={delivery}
         status={settings.status}

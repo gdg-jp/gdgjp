@@ -36,8 +36,12 @@ chapter**, and only that approval calls `SNS.createScheduledPost` as the approve
 becomes a url.gdgs.jp link (`TINYURL.createLink`) created at draft approval. Crons follow sns status,
 send staff reminders / review requests / follow-ups to the chapter's Discord webhook
 (`/settings/chapter`, encrypted with `SETTINGS_ENCRYPTION_KEY`) and check link health. Locally,
-`pnpm dev` serves `SNS` / `TINYURL` from `e2e/mock-services`; `/dev/cron?name=minute|hourly` runs a
-cron (`PR_REAL_SERVICES=1` uses real sns / tinyurl dev servers instead).
+`pnpm dev` serves `SNS` / `TINYURL` / `CONNPASS` from `e2e/mock-services`; `/dev/cron?name=minute|hourly` runs a
+cron (`PR_REAL_SERVICES=1` uses real sns / tinyurl / connpass dev servers instead).
+
+connpass goes through `CONNPASS.PrService` (the connpass app's jobs): the page's HTML is rendered from
+the runner's slots by `skills/pr-playbook/scripts/render/` (never the agent's HTML), approval sends
+`update_event`; mails go out at their item's time; pr never creates connpass events.
 
 ## Access
 

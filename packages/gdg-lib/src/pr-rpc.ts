@@ -101,3 +101,67 @@ export interface TinyurlPrService {
     bucket?: "hour" | "day";
   }): Promise<PrRpcResult<{ analytics: unknown }>>;
 }
+
+// ── connpass ───────────────────────────────────────────────────────────────────
+
+/** connpass app's job, as /api/jobs/:id returns it (request redacted). */
+export type ConnpassJobSummary = {
+  id: string;
+  type: string;
+  status: "queued" | "running" | "succeeded" | "failed";
+  groupId: string;
+  eventId: string | null;
+  result: unknown;
+  error: string | null;
+};
+
+export type ConnpassEventTarget = { actor: PrActor; groupSlug: string; eventId: string };
+
+export type ConnpassSurveyQuestion = {
+  title: string;
+  answerType: "free_text" | "checkbox" | "radio" | "dropdown";
+  required: boolean;
+  options: string[] | null;
+};
+
+export interface ConnpassPrService {
+  /** Whether the actor may write the group (organizer of its chapter), without a job. */
+  checkGroup(input: { actor: PrActor; groupSlug: string }): Promise<
+    PrRpcResult<{ write: boolean; chapterId: string | null }>
+  >;
+  updateEvent(
+    input: ConnpassEventTarget & {
+      fields: {
+        title?: string;
+        subtitle?: string;
+        description?: string;
+        participantOnlyInfo?: string;
+      };
+    },
+  ): Promise<PrRpcResult<{ job: ConnpassJobSummary }>>;
+  publishEvent(input: ConnpassEventTarget): Promise<PrRpcResult<{ job: ConnpassJobSummary }>>;
+  uploadImage(
+    input: ConnpassEventTarget & { bytes: ArrayBuffer; contentType: string; name: string },
+  ): Promise<PrRpcResult<{ job: ConnpassJobSummary }>>;
+  upsertSurvey(
+    input: ConnpassEventTarget & { questions: ConnpassSurveyQuestion[] },
+  ): Promise<PrRpcResult<{ job: ConnpassJobSummary }>>;
+  sendMessage(
+    input: ConnpassEventTarget & { subject: string; body: string },
+  ): Promise<PrRpcResult<{ job: ConnpassJobSummary }>>;
+  /** Mail to the group's members (not an event's participants). Not supported yet: `not_supported`. */
+  sendGroupMessage(input: {
+    actor: PrActor;
+    groupSlug: string;
+    subject: string;
+    body: string;
+  }): Promise<PrRpcResult<{ job: ConnpassJobSummary }>>;
+  createSubEvent(
+    input: ConnpassEventTarget & { title: string },
+  ): Promise<PrRpcResult<{ job: ConnpassJobSummary }>>;
+  getJob(input: { actor: PrActor; jobId: string }): Promise<
+    PrRpcResult<{ job: ConnpassJobSummary }>
+  >;
+  getStats(input: ConnpassEventTarget): Promise<PrRpcResult<{ statistics: unknown }>>;
+  listParticipants(input: ConnpassEventTarget): Promise<PrRpcResult<{ participants: unknown }>>;
+}

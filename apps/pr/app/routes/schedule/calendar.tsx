@@ -14,7 +14,7 @@ import { useEffect, useState } from "react";
 import { Form } from "react-router";
 import { latestBrief } from "~/features/briefs/brief.repository.server";
 import { requireCampaignAccess } from "~/features/campaigns/access.server";
-import { EnqueueError, enqueuePosts } from "~/features/jobs/enqueue.server";
+import { EnqueueError, enqueueDrafts } from "~/features/jobs/enqueue.server";
 import { constants, channelLabel } from "~/features/playbook/playbook";
 import { describeCondition, pendingConditions } from "~/features/schedule/blocked-by";
 import { buildCalendar, jstDate } from "~/features/schedule/calendar";
@@ -84,7 +84,7 @@ export async function action({ request, context, params }: Route.ActionArgs) {
   if (intent === "draft") {
     const ids = form.getAll("itemIds").map(Number).filter(Number.isInteger);
     try {
-      const jobs = await enqueuePosts(
+      const jobs = await enqueueDrafts(
         env.DB,
         access.campaign.id,
         access.user.id,

@@ -16,9 +16,19 @@ type PostLike = {
 const str = (v: unknown) => (typeof v === "string" && v.trim() ? v : null);
 
 export function deliverablePost(content: unknown): DeliverablePost | null {
-  const root = content as { posts?: PostLike[]; text?: unknown; body?: unknown } | null;
+  const root = content as {
+    posts?: PostLike[];
+    text?: unknown;
+    body?: unknown;
+    subject?: unknown;
+    bodyLines?: unknown;
+    footer?: unknown;
+  } | null;
   const post = root?.posts?.[0];
-  const text = str(post?.text) ?? str(root?.text) ?? str(root?.body);
+  const mail = Array.isArray(root?.bodyLines)
+    ? [root.bodyLines.join("\n"), str(root.footer)].filter(Boolean).join("\n\n")
+    : null;
+  const text = str(post?.text) ?? str(root?.text) ?? str(root?.body) ?? str(mail);
   if (!text) return null;
   const kind = post?.attachment?.kind;
   return {

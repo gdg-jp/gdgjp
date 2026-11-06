@@ -1,7 +1,9 @@
 import type { CampaignAccess } from "~/features/campaigns/access.server";
+import { publishApprovedPage } from "~/features/connpass/page.server";
 import { deliveryAction } from "~/features/dispatch/delivery.server";
 import { afterDraftApproval, prepareDraftApproval } from "~/features/dispatch/dispatch.server";
 import { EnqueueError, enqueueCopy, enqueuePosts } from "~/features/jobs/enqueue.server";
+import { type ConnpassPageContent, setSectionImages } from "~/features/pages/render";
 import { autoFold } from "./content";
 import type { Draft } from "./draft";
 import { getDraft, latestVersion, updateDraftPeople } from "./draft.repository.server";
@@ -37,9 +39,36 @@ export async function draftAction(
     }
     const result = await reviewDraft(env.DB, access, draft, intent, comment);
     if (!result.ok) return { ok: false, errors: [result.error] };
-    if (intent === "approve")
-      await afterDraftApproval(env, access.campaign, { ...draft, status: "approved" });
+    if (intent === "approve") {
+      const approved = { ...draft, status: "approved" as const };
+      await afterDraftApproval(env, access.campaign, approved);
+      if (draft.kind === "connpass_page") {
+        const page = await publishApprovedPage(env, access, approved);
+        return page.ok
+          ? { ok: true, message: `承認しました。${page.message}` }
+          : { ok: false, errors: [`承認しましたが、${page.error}`] };
+      }
+    }
     return { ok: true, message: "更新しました" };
+  }
+  if (
+    intent === "connpass-retry" &&
+    draft.kind === "connpass_page" &&
+    draft.status === "approved"
+  ) {
+    const page = await publishApprovedPage(env, access, draft);
+    return page.ok ? { ok: true, message: page.message } : { ok: false, errors: [page.error] };
+  }
+  if (intent === "page-images" && draft.kind === "connpass_page") {
+    const urls: Record<string, string> = {};
+    for (const [key, value] of form.entries())
+      if (key.startsWith("image:")) urls[key.slice(6)] = String(value).trim();
+    const content = (await currentContent(env.DB, draft)) as ConnpassPageContent | null;
+    if (!content) return { ok: false, errors: ["版がありません"] };
+    const result = await editDraft(env.DB, access, draft, setSectionImages(content, urls));
+    return result.ok
+      ? { ok: true, message: `画像を入れて版 ${result.version} を保存しました` }
+      : { ok: false, errors: result.errors };
   }
   const delivery = await deliveryAction(env, access, draft, intent, form);
   if (delivery) return delivery;

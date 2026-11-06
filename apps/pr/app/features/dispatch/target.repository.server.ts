@@ -46,18 +46,36 @@ const toTarget = (r: Row): DispatchTarget => ({
   },
 });
 
-const SELECT = `SELECT t.*, a.campaign_id, a.kind, a.chapter_id, a.external_id, a.label, a.role
+const SELECT = `SELECT t.*, t.actor_snapshot, a.campaign_id, a.kind, a.chapter_id, a.external_id, a.label, a.role
   FROM dispatch_targets t JOIN campaign_accounts a ON a.id = t.account_id`;
 
-/** One target per X account of the campaign; existing ones are kept. */
-export async function ensureTargets(db: D1Database, campaignId: number, itemId: number) {
+/** One target per account of that kind (X for posts, connpass groups for mails); kept if present. */
+export async function ensureTargets(
+  db: D1Database,
+  campaignId: number,
+  itemId: number,
+  kind: AccountKind = "x",
+) {
   await db
     .prepare(
       `INSERT OR IGNORE INTO dispatch_targets (schedule_item_id, account_id)
-       SELECT ?, id FROM campaign_accounts WHERE campaign_id = ? AND kind = 'x'`,
+       SELECT ?, id FROM campaign_accounts WHERE campaign_id = ? AND kind = ?`,
     )
-    .bind(itemId, campaignId)
+    .bind(itemId, campaignId, kind)
     .run();
+}
+
+/** Approved mail targets whose item's time has come (the minute cron sends them). */
+export async function dueMailTargets(db: D1Database, now: number, limit = 20) {
+  const { results } = await db
+    .prepare(
+      `${SELECT} JOIN schedule_items i ON i.id = t.schedule_item_id
+       JOIN drafts d ON d.schedule_item_id = i.id AND d.status = 'approved'
+       WHERE i.kind = 'connpass_mail' AND t.status = 'approved' AND i.due_at <= ? LIMIT ?`,
+    )
+    .bind(now, limit)
+    .all<Row & { actor_snapshot: string | null }>();
+  return results.map((r) => ({ ...toTarget(r), actorSnapshot: r.actor_snapshot }));
 }
 
 export async function listTargets(db: D1Database, itemId: number): Promise<DispatchTarget[]> {
@@ -132,7 +150,7 @@ export async function actorSnapshotFor(db: D1Database, id: number): Promise<stri
 export async function scheduledTargets(db: D1Database, limit = 100) {
   const { results } = await db
     .prepare(
-      `${SELECT.replace("SELECT t.*", "SELECT t.*, t.actor_snapshot")}
+      `${SELECT}
        WHERE t.status = 'scheduled' ORDER BY t.updated_at LIMIT ?`,
     )
     .bind(limit)

@@ -41,6 +41,14 @@ const checkScriptFiles = import.meta.glob<string>(
     import: "default",
   },
 );
+const renderScriptFiles = import.meta.glob<string>(
+  ["../../../../../skills/pr-playbook/scripts/render/*.mjs", "!**/*.test.mjs"],
+  {
+    eager: true,
+    query: "?raw",
+    import: "default",
+  },
+);
 const templateFiles = import.meta.glob<string>(
   "../../../../../skills/pr-playbook/templates/**/*.{html,json,md}",
   {
@@ -81,7 +89,17 @@ export const exampleOutputs: Record<string, string> = Object.fromEntries(
 );
 /** "pr-playbook/scripts/checks/x.mjs" → source; the runner bundle ships them so the agent can self-check. */
 export const checkScripts = Object.fromEntries(
-  Object.entries(strip(checkScriptFiles)).filter(([path]) => !path.endsWith(".test.mjs")),
+  Object.entries({ ...strip(checkScriptFiles), ...strip(renderScriptFiles) }).filter(
+    ([path]) => !path.endsWith(".test.mjs"),
+  ),
+);
+
+const SECTIONS = "pr-playbook/templates/connpass-page/sections/";
+/** connpass section id → template source, for the Worker's renderer. */
+export const connpassSectionTemplates: Record<string, string> = Object.fromEntries(
+  Object.entries(templates)
+    .filter(([path]) => path.startsWith(SECTIONS) && path.endsWith(".html"))
+    .map(([path, text]) => [path.slice(SECTIONS.length, -".html".length), text]),
 );
 
 /** Files a Skill asks for with `<!-- reads: a, b -->`, as playbook-relative paths. */

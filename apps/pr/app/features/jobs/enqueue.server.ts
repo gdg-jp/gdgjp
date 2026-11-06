@@ -135,3 +135,50 @@ export async function enqueuePosts(
   }
   return jobs;
 }
+
+/** A connpass page (one per campaign) or one connpass mail (for its schedule item). */
+export async function enqueuePage(
+  db: D1Database,
+  campaignId: number,
+  userId: string,
+  input: {
+    kind: "connpass_page" | "connpass_mail";
+    scheduleItemId?: number;
+    draftId?: number;
+    imageUrls?: Record<string, string>;
+    instructions?: string;
+  },
+): Promise<string> {
+  const { version } = await requireBrief(db, campaignId);
+  if (input.kind === "connpass_mail" && !input.scheduleItemId)
+    throw new EnqueueError("メールはスケジュールの connpass メールから作ります");
+  return insertJob(db, {
+    campaignId,
+    payload: { type: "page", briefVersion: version, ...input },
+    requestedBy: userId,
+  });
+}
+
+/** The schedule page's "ask the runner": posts in batches, each connpass mail on its own. */
+export async function enqueueDrafts(
+  db: D1Database,
+  campaignId: number,
+  userId: string,
+  itemIds: number[],
+  instructions?: string,
+): Promise<string[]> {
+  const items = (await listItems(db, campaignId)).filter((i) => itemIds.includes(i.id));
+  const mails = items.filter((i) => i.kind === "connpass_mail");
+  const posts = items.filter((i) => i.kind !== "connpass_mail").map((i) => i.id);
+  const jobs = posts.length ? await enqueuePosts(db, campaignId, userId, posts, instructions) : [];
+  for (const mail of mails)
+    jobs.push(
+      await enqueuePage(db, campaignId, userId, {
+        kind: "connpass_mail",
+        scheduleItemId: mail.id,
+        instructions,
+      }),
+    );
+  if (!jobs.length) throw new EnqueueError("アイテムを選んでください");
+  return jobs;
+}

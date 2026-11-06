@@ -2,7 +2,8 @@ import { validateSchema } from "@skills/pr-playbook/scripts/checks/index.mjs";
 import { latestBrief } from "~/features/briefs/brief.repository.server";
 import type { CampaignAccess } from "~/features/campaigns/access.server";
 import { SKILL_FOR_KIND } from "~/features/jobs/skill-kinds";
-import { outputSchemas } from "~/features/playbook/guides.server";
+import { type ConnpassPageContent, withRenderedHtml } from "~/features/pages/render";
+import { connpassSectionTemplates, outputSchemas } from "~/features/playbook/guides.server";
 import {
   type DraftKind as CheckKind,
   PLAYBOOK_VERSION,
@@ -77,21 +78,32 @@ export async function editDraft(
 ): Promise<{ ok: true; version: number } | { ok: false; errors: string[] }> {
   const skill = SKILL_FOR_KIND[draft.kind];
   const schema = skill ? outputSchemas[skill] : undefined;
+  // A connpass page carries what the Worker added (skin, html): validate the slots only.
+  const slots =
+    draft.kind === "connpass_page" && content && typeof content === "object"
+      ? (({ html: _h, skin: _s, renderWarnings: _w, ...rest }) => rest)(
+          content as Record<string, unknown>,
+        )
+      : content;
   if (schema) {
-    const errors = validateSchema(schema, content);
+    const errors = validateSchema(schema, slots);
     if (errors.length) return { ok: false, errors };
   }
   const brief = (await latestBrief(db, access.campaign.id))?.brief ?? null;
+  const saved =
+    draft.kind === "connpass_page"
+      ? withRenderedHtml(slots as ConnpassPageContent, brief, connpassSectionTemplates)
+      : content;
   const checkable = (DRAFT_KINDS as readonly string[]).includes(draft.kind);
   const report = checkable
-    ? runChecks({ kind: draft.kind as CheckKind, draft: content, brief })
+    ? runChecks({ kind: draft.kind as CheckKind, draft: saved, brief })
     : { results: [] };
   const status = statusAfterEdit(draft.status);
   const version = await appendVersion(db, draft.id, {
     author: "human",
     userId: access.user.id,
     jobId: null,
-    content,
+    content: saved,
     playbookVersion: PLAYBOOK_VERSION,
     checkResults: report.results,
     status,

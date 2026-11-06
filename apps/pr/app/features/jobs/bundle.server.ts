@@ -14,6 +14,7 @@ import {
 import { playbook, scopeForKind } from "~/features/playbook/playbook";
 import { jstDate, jstTime } from "~/features/schedule/calendar";
 import { getItem, listItems } from "~/features/schedule/item.repository.server";
+import { pageFiles } from "./page-bundle.server";
 import { JOB_TIMEOUT_SECONDS, type Job } from "./shared";
 import { SKILL_FOR_KIND } from "./skill-kinds";
 
@@ -29,6 +30,10 @@ export function skillFor(job: Job): { skill: string; kind: string } {
       return { skill: "pr-copy", kind: "copy" };
     case "post":
       return { skill: "pr-x-post", kind: payload.channel === "ig" ? "ig_post" : "x_post" };
+    case "page":
+      return payload.kind === "connpass_mail"
+        ? { skill: "pr-connpass-mail", kind: "connpass_mail" }
+        : { skill: "pr-connpass-page", kind: "connpass_page" };
     case "fix":
       return {
         skill: SKILL_FOR_KIND[payload.kind ?? ""] ?? "pr-playbook",
@@ -121,6 +126,8 @@ export async function buildBundle(db: D1Database, job: Job, campaign: Campaign):
       "各投稿の scheduleItemId に targets の scheduleItemId をそのまま入れ、scheduledAt も targets の値を使う。",
     );
     if (copy) task.push("COPY.json の採用コピーに沿って書く。");
+  } else if (job.type === "page") {
+    await pageFiles(db, campaign, payload, files, task);
   } else if (job.type === "fix") {
     const target = payload.target as { table: string; id: number; version: number };
     if (target.table === "plans") {
@@ -193,7 +200,7 @@ async function briefFor(
 }
 
 /** The approved copy (first candidate) or, failing that, the newest copy draft. */
-async function approvedCopy(db: D1Database, campaignId: number): Promise<unknown | null> {
+export async function approvedCopy(db: D1Database, campaignId: number): Promise<unknown | null> {
   const drafts = await listDrafts(db, campaignId);
   const copy =
     drafts.find((d) => d.kind === "copy" && d.status === "approved") ??

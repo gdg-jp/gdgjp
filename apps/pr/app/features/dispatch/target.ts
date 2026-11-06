@@ -25,7 +25,11 @@ export const TARGET_STATUS_LABELS: Record<TargetStatus, string> = {
   delegated: "依頼に回した",
 };
 
-export type TargetRef = { snsPostId?: string; publishedXPostId?: string | null };
+export type TargetRef = {
+  snsPostId?: string;
+  publishedXPostId?: string | null;
+  connpassJobId?: string;
+};
 
 export type DispatchTarget = {
   id: number;
@@ -39,8 +43,10 @@ export type DispatchTarget = {
   account: CampaignAccount;
 };
 
-/** Kinds that go out through sns, one target per X account. */
-export const DISPATCH_KINDS = ["x_post", "live_post"] as const;
+/** Kinds that go out through sns (one target per X account) or connpass (per group). */
+export const DISPATCH_KINDS = ["x_post", "live_post", "connpass_mail"] as const;
+export const targetAccountKind = (kind: string) =>
+  kind === "connpass_mail" ? "connpass_group" : "x";
 export const isDispatchKind = (kind: string) =>
   (DISPATCH_KINDS as readonly string[]).includes(kind);
 

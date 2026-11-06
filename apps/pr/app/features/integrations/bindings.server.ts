@@ -1,13 +1,16 @@
 import type {
   AuthUser,
+  ConnpassPrService,
   PrActor,
   SnsPrService,
   TinyurlPrService,
   UserChapter,
 } from "@gdgjp/gdg-lib";
 
-/** The sns / tinyurl `PrService` entrypoints (service bindings with `entrypoint = "PrService"`). */
+/** The sns / tinyurl / connpass `PrService` entrypoints (service bindings with `entrypoint = "PrService"`). */
 export const snsService = (env: Env): SnsPrService => env.SNS as unknown as SnsPrService;
+export const connpassService = (env: Env): ConnpassPrService =>
+  env.CONNPASS as unknown as ConnpassPrService;
 export const tinyurlService = (env: Env): TinyurlPrService =>
   env.TINYURL as unknown as TinyurlPrService;
 

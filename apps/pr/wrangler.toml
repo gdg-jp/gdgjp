@@ -55,6 +55,13 @@ binding = "TINYURL"
 service = "gdgjp-tinyurl"
 entrypoint = "PrService"
 
+# connpass (Stage 04): page, survey, image, mail, sub-events and publishing, as jobs of the connpass
+# app (it holds the bot session). pr never touches connpass.com itself.
+[[services]]
+binding = "CONNPASS"
+service = "gdgjp-connpass"
+entrypoint = "PrService"
+
 # Every minute: runner lease requeue, staff reminders, Discord posts, review requests, follow-ups.
 # Hourly: sns post status, short-link health.
 [triggers]

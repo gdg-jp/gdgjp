@@ -2,6 +2,7 @@ import type { PrActor } from "@gdgjp/gdg-lib";
 import { latestBrief } from "~/features/briefs/brief.repository.server";
 import type { CampaignAccess } from "~/features/campaigns/access.server";
 import type { Campaign } from "~/features/campaigns/campaign";
+import { pageApprovalBlockers } from "~/features/connpass/page.server";
 import type { Draft } from "~/features/drafts/draft";
 import { latestVersion } from "~/features/drafts/draft.repository.server";
 import { actorOf, callRpc, snsService } from "~/features/integrations/bindings.server";
@@ -11,7 +12,7 @@ import type { ScheduleItem } from "~/features/schedule/item";
 import { getItem, transitionItem } from "~/features/schedule/item.repository.server";
 import { type DeliverablePost, approvalBlockers, deliverablePost, isoAt } from "./content";
 import { logDispatch } from "./log.server";
-import { canApproveTarget, isDispatchKind, rollupItemStatus } from "./target";
+import { canApproveTarget, isDispatchKind, rollupItemStatus, targetAccountKind } from "./target";
 import { ensureTargets, getTarget, listTargets, moveTarget } from "./target.repository.server";
 
 export type DispatchResult = { ok: true; message: string } | { ok: false; error: string };
@@ -33,6 +34,8 @@ export async function prepareDraftApproval(
   access: CampaignAccess,
   draft: Draft,
 ): Promise<{ ok: true } | { ok: false; errors: string[] }> {
+  const connpass = pageApprovalBlockers(access, draft);
+  if (connpass.length) return { ok: false, errors: connpass };
   if (!draft.scheduleItemId) return { ok: true };
   const post = await deliverable(env, draft);
   const fallback = await fallbackUrl(env, access.campaign.id);
@@ -49,10 +52,10 @@ export async function prepareDraftApproval(
 /** After approval: one dispatch target per X account, each waiting for its chapter's approval. */
 export async function afterDraftApproval(env: Env, campaign: Campaign, draft: Draft) {
   if (!draft.scheduleItemId || !isDispatchKind(draft.kind)) return;
-  await ensureTargets(env.DB, campaign.id, draft.scheduleItemId);
+  await ensureTargets(env.DB, campaign.id, draft.scheduleItemId, targetAccountKind(draft.kind));
 }
 
-async function rollup(env: Env, itemId: number) {
+export async function rollup(env: Env, itemId: number) {
   const status = rollupItemStatus((await listTargets(env.DB, itemId)).map((t) => t.status));
   if (status)
     await transitionItem(
@@ -95,6 +98,12 @@ export async function approveTarget(
     error: null,
   });
   if (!approved) return { ok: true, message: "この配信先はもう処理されています" };
+  // A mail goes out at its time (Tips 10), never on approval: the minute cron sends it.
+  if (draft.kind === "connpass_mail")
+    return {
+      ok: true,
+      message: `${target.account.label} への送信を承認しました。予定の時刻に送ります`,
+    };
   return dispatchTarget(env, access.campaign, draft, target.id, actor);
 }
 

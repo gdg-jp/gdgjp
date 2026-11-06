@@ -8,6 +8,8 @@ const posts = new Map<
   SnsPostSummary & { chapterId: number; text: string; xAccountId: string; actor: string }
 >();
 let calls = 0;
+// Ids stay unique across dev-server restarts (pr keeps them in D1).
+const RUN = Date.now().toString(36);
 
 const canPost = (actor: PrActor, chapterId: number) =>
   actor.user.isAdmin ||
@@ -32,7 +34,7 @@ export class PrService extends WorkerEntrypoint {
     if (!canPost(input.actor, input.chapterId)) return { ok: false as const, code: "forbidden" };
     if (input.xAccountId !== `x-${input.chapterId}`)
       return { ok: false as const, code: "account_not_found" };
-    const id = `post-${posts.size + 1}`;
+    const id = `post-${RUN}-${posts.size + 1}`;
     const post = {
       id,
       status: "scheduled",

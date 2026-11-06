@@ -25,13 +25,14 @@ function playbookVersion(): string {
 
 /**
  * `pnpm dev` (and e2e) talk to local stand-ins for sns and tinyurl's PrService. Set
- * PR_REAL_SERVICES=1 to resolve SNS / TINYURL through the dev registry to real dev servers.
+ * PR_REAL_SERVICES=1 to resolve SNS / TINYURL / CONNPASS through the dev registry to real dev servers.
  */
 const mockServices = (command: string) =>
   command === "serve" && !process.env.PR_REAL_SERVICES
     ? [
         { configPath: "./e2e/mock-services/sns.wrangler.toml" },
         { configPath: "./e2e/mock-services/tinyurl.wrangler.toml" },
+        { configPath: "./e2e/mock-services/connpass.wrangler.toml" },
       ]
     : [];
 

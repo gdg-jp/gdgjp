@@ -21,6 +21,7 @@ import { DRAFT_KIND_LABELS } from "~/features/drafts/draft-kinds";
 import { getDraft, listReviews, listVersions } from "~/features/drafts/draft.repository.server";
 import { actorFor } from "~/features/drafts/review.server";
 import { DRAFT_STATUS_LABELS } from "~/features/drafts/state-machine";
+import { ConnpassPreview } from "~/features/pages/components/ConnpassPreview";
 import { jstDate, jstTime } from "~/features/schedule/calendar";
 import { CampaignLayout } from "~/layouts/CampaignLayout";
 import type { Route } from "./+types/detail";
@@ -78,7 +79,22 @@ export async function action({ request, context, params }: Route.ActionArgs) {
   return draftAction(env, access, Number(params.id), await request.formData());
 }
 
-type Content = { posts?: { text?: string }[]; candidates?: unknown[] };
+type Content = {
+  posts?: { text?: string }[];
+  candidates?: unknown[];
+  html?: string;
+  renderWarnings?: string[];
+  imageSlots?: { id: string; purpose: string; text: string }[];
+  sections?: { id: string; slots: { imageUrl?: string | null } }[];
+  skin?: unknown;
+};
+
+/** The editable part of a version: a connpass page's HTML and skin are the Worker's. */
+const editable = (content: Content | null) => {
+  if (!content?.html) return content;
+  const { html: _h, skin: _s, renderWarnings: _w, ...slots } = content;
+  return slots;
+};
 
 export default function DraftDetail({ loaderData, actionData }: Route.ComponentProps) {
   const {
@@ -154,7 +170,7 @@ export default function DraftDetail({ loaderData, actionData }: Route.ComponentP
               {draft.kind === "copy" && content?.candidates ? (
                 <CopyCandidates candidates={content.candidates as never[]} />
               ) : null}
-              {!isPost && draft.kind !== "copy" ? (
+              {!isPost && draft.kind !== "copy" && !content?.html ? (
                 <pre className="overflow-x-auto whitespace-pre-wrap text-xs">
                   {JSON.stringify(content, null, 2)}
                 </pre>
@@ -214,6 +230,30 @@ export default function DraftDetail({ loaderData, actionData }: Route.ComponentP
           </Form>
         </Card>
       ) : null}
+      {content?.html ? (
+        <ConnpassPreview
+          html={content.html}
+          warnings={content.renderWarnings ?? []}
+          imageSlots={content.imageSlots ?? []}
+          imageUrls={Object.fromEntries(
+            (content.sections ?? []).map((s) => [s.id, s.slots.imageUrl ?? null]),
+          )}
+          busy={busy}
+        />
+      ) : null}
+      {draft.kind === "connpass_page" && draft.status === "approved" ? (
+        <Form method="post">
+          <Button
+            type="submit"
+            name="intent"
+            value="connpass-retry"
+            variant="outline"
+            loading={busy}
+          >
+            connpass にもう一度反映する
+          </Button>
+        </Form>
+      ) : null}
       {delivery ? <DeliveryCard view={delivery} busy={busy} /> : null}
       {version && draft.status !== "generating" ? (
         <Card>
@@ -231,7 +271,11 @@ export default function DraftDetail({ loaderData, actionData }: Route.ComponentP
                 </FormField>
               ) : (
                 <FormField label="JSON" description="出力スキーマの形のまま直す">
-                  <Textarea name="json" rows={12} defaultValue={JSON.stringify(content, null, 2)} />
+                  <Textarea
+                    name="json"
+                    rows={12}
+                    defaultValue={JSON.stringify(editable(content), null, 2)}
+                  />
                 </FormField>
               )}
               <div className="flex flex-wrap gap-2">

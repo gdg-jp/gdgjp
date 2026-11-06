@@ -1,0 +1,9 @@
+# Dev-only stand-in for gdgjp-connpass (see ../../vite.config.ts).
+name = "gdgjp-connpass"
+main = "./connpass.ts"
+compatibility_date = "2026-07-28"
+compatibility_flags = ["nodejs_compat"]
+
+# run-e2e-dev.mjs runs with CLOUDFLARE_ENV=e2e, which would suffix the name; pr binds this one.
+[env.e2e]
+name = "gdgjp-connpass"

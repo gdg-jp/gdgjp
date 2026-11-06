@@ -8,34 +8,10 @@ import {
   resolveGroupSlug,
 } from "~/features/auth/authorize.server";
 import { getSurveyInBrowser } from "~/features/connpass/connpass-browser-read.server";
-import type { SurveyQuestion } from "~/features/connpass/ui/survey";
+import { parseSurveyQuestions as parseQuestions } from "~/features/connpass/survey-questions";
 import { jobToJson } from "~/features/jobs/job-presentation";
 import { createJob } from "~/features/jobs/job-submission.server";
 import type { components } from "../../../../openapi/types.generated";
-
-const ANSWER_TYPES = new Set(["free_text", "checkbox", "radio", "dropdown"]);
-
-function parseQuestions(value: unknown): SurveyQuestion[] | null {
-  if (!Array.isArray(value)) return null;
-  const questions: SurveyQuestion[] = [];
-  for (const entry of value) {
-    if (typeof entry !== "object" || entry === null) return null;
-    const item = entry as Record<string, unknown>;
-    if (typeof item.title !== "string") return null;
-    if (typeof item.answerType !== "string" || !ANSWER_TYPES.has(item.answerType)) return null;
-    if (typeof item.required !== "boolean") return null;
-    const options = Array.isArray(item.options)
-      ? item.options.filter((o): o is string => typeof o === "string")
-      : null;
-    questions.push({
-      title: item.title,
-      answerType: item.answerType as SurveyQuestion["answerType"],
-      required: item.required,
-      options,
-    });
-  }
-  return questions;
-}
 
 export async function loader({ request, context, params }: LoaderFunctionArgs) {
   const { env } = context.cloudflare;
