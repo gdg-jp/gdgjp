@@ -138,14 +138,6 @@ binding = "WIKI_AI_TELEMETRY"
 dataset = "wiki_ai_model_calls"
 
 # ---------------------------------------------------------------------------
-# Vectorize — semantic search index for page embeddings
-# Create with: wrangler vectorize create gdgjp-wiki-pages --dimensions 1024 --metric cosine
-# ---------------------------------------------------------------------------
-[[vectorize]]
-binding = "VECTORIZE"
-index_name = "gdgjp-wiki-pages"
-
-# ---------------------------------------------------------------------------
 # Durable Objects — realtime collaborative editing
 # ---------------------------------------------------------------------------
 [durable_objects]

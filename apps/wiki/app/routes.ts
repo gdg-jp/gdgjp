@@ -53,7 +53,6 @@ export default [
   }),
   route("/api/wiki/import-zip/preview", "routes/api/pages/import-zip-preview.ts"),
   route("/api/wiki/import-zip", "routes/api/pages/import-zip.ts"),
-  route("/api/admin/backfill-embeddings", "routes/api/admin/backfill-embeddings.ts"),
   route("/api/admin/refresh-all-sources", "routes/api/admin/refresh-all-sources.ts"),
   route("/api/fcm-tokens", "routes/api/user/fcm-tokens.ts"),
   route("/api/recent", "routes/api/pages/recent.ts"),

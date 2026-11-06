@@ -37,8 +37,7 @@ Single `ExportedHandler<Env>` — understand all three before touching:
 | `TRANSLATION_QUEUE` | Translation producer+consumer; `app/lib/queue-processors.server.ts`. |
 | `SOURCE_FETCH_QUEUE` | Source fetch start messages (`source_fetch`). Source import work continues via DO alarms. |
 | `BROWSER` | Browser Rendering, headless Chromium for PDF. |
-| `AI` | Workers AI; `bge-m3` for 1024-dim embeddings. |
-| `VECTORIZE` | Index `gdgjp-wiki-pages`, cosine, 1024 dims — semantic page search. |
+| `AI` | Workers AI — v1 translation only (`m2m100`), removed with `TRANSLATION_QUEUE`. |
 | `COLLAB_DO` | `CollabDurableObject`; one instance per page slug (`idFromName(slug)`). |
 | `SOURCE_IMPORT_DO` | `SourceImportDurableObject`; one instance per source (`getByName(sourceId)`). Alarm self-chain drives each driver's resumable phases. |
 | `WikiGenerationAgent` / `GENERATION_WORKFLOW` | Durable Wiki generation state and workflow. The Agent binding name must match the exported class for automatic `/agents/*` routing. |
@@ -70,7 +69,7 @@ Agents SDK multi-phase flow: user-uploaded docs / URLs / Google Drive → wiki p
   `ls/cat/search`; generation never uses Vectorize.
 - `/ingest/:sessionId` consumes display-safe realtime events through `useAgent()` while D1-backed
   loaders remain authoritative and provide the reconnect fallback.
-- AI search remains independent under `app/features/ai-search/` and continues to use Workers AI + Vectorize.
+- `/search` (keyword FTS + "AI" mode) reads the AI Search index via `app/features/knowledge/`; no LLM.
 
 ## Realtime collab editor
 
@@ -104,7 +103,6 @@ Details in `ARCHITECTURE.md`. Scan this table to narrow the location before you 
 | wiki 生成 AI（クライアント配線 / ingest 画面） | `app/features/ingestion/`（README あり）, `app/routes/ingest/` |
 | エージェントジョブ（synthesize / consolidate / translate、runner API） | `app/features/jobs/`, `app/routes/api/runner/`, `app/routes/admin/runner.tsx`。runner 本体は `apps/cli/internal/wiki/runner/`、VM 配備は `infra/oci-runner/` |
 | 検索インデックス（AI Search、スペース別） | `app/features/knowledge/`（README あり） |
-| AI 検索（v1: Workers AI + Vectorize、Stage 07 で撤去） | `app/features/ai-search/` |
 | Google 連携（Drive / Docs / Forms / Chat / Picker） | `app/features/google/`（README あり。Docs インポートは `documents/`） |
 | Discord 連携 | `app/features/discord/`（README あり） |
 | 認証（RP / セッション） | `app/features/auth/`（README あり） |

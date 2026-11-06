@@ -2,7 +2,7 @@ import { Suspense } from "react";
 import { useTranslation } from "react-i18next";
 import { Await, Link, useLoaderData, useNavigate, useNavigation } from "react-router";
 import { ListSkeleton } from "~/components/Skeleton";
-import type { AiRagResult } from "~/features/ai-search/wiki-search.server";
+import type { AiRagResult } from "~/features/knowledge/wiki-search.server";
 import TagChip from "~/features/pages/components/TagChip";
 import type { loader } from "../search";
 

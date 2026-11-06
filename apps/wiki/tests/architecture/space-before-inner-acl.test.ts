@@ -50,7 +50,6 @@ const EXEMPT: Record<string, string> = {
   "app/routes/tasks/settings.tsx": "task lists live in gdg-jp only",
   "app/features/agent-api/notes.server.ts": "answer notes are filed into gdg-jp only",
   "app/features/agent-api/cli-sync.server.ts": "called from /sync after requireSpaceForIdentity",
-  "app/features/ai-search/knowledge-retriever.server.ts": "v1 RAG, removed in Stage 07",
   "app/features/knowledge/viewer-search.server.ts":
     "takes spaceIds its callers resolved with resolveSpaceAccess; drops hits outside them",
   "workers/features/ingestion/persistence/d1/wiki-read-repository.ts":

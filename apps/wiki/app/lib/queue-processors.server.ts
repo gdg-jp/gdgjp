@@ -248,7 +248,7 @@ export async function processTranslationMessage(env: Env, body: { pageId: string
       .bind(translated.stats.cacheHits, translated.stats.cacheMisses, body.pageId, sourceHash)
       .run();
 
-    // The English body changed: refresh the page's knowledge mirror (replaces Vectorize).
+    // The English body changed: refresh the page's knowledge mirror.
     const translatedPage = await env.DB.prepare("SELECT space_id FROM pages WHERE id = ?")
       .bind(body.pageId)
       .first<{ space_id: string }>();

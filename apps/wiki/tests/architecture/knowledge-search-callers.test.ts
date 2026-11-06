@@ -34,7 +34,7 @@ describe("knowledge search callers", () => {
 
   it("UI search never asks for raw material", () => {
     const source = readFileSync(
-      join(WIKI_ROOT, "app/features/ai-search/wiki-search.server.ts"),
+      join(WIKI_ROOT, "app/features/knowledge/wiki-search.server.ts"),
       "utf8",
     );
     expect(source).not.toMatch(/layers:\s*\[[^\]]*"raw"/);

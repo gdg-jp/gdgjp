@@ -8,7 +8,6 @@ import ConfirmDialog from "~/components/ConfirmDialog";
 import { CardGridSkeleton } from "~/components/Skeleton";
 import Tooltip from "~/components/Tooltip";
 import * as schema from "~/db/schema";
-import { deletePageEmbeddings } from "~/features/ai-search/embedding.server";
 import { requireUser } from "~/features/auth/utils.server";
 import { getDb } from "~/lib/db.server";
 import { timeAgo } from "~/lib/time";
@@ -85,11 +84,6 @@ export async function action({ request, context }: ActionFunctionArgs) {
 
   if (intent === "deletePage") {
     if (!user.isAdmin) throw new Response("Forbidden", { status: 403 });
-    try {
-      await deletePageEmbeddings(env, db, pageId);
-    } catch {
-      // best-effort cleanup
-    }
     await db.batch([
       db.delete(schema.pageTags).where(eq(schema.pageTags.pageId, pageId)),
       db.delete(schema.pageAttachments).where(eq(schema.pageAttachments.pageId, pageId)),

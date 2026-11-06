@@ -1,5 +1,5 @@
 import type { LoaderFunctionArgs, MetaFunction } from "react-router";
-import { loadWikiSearch } from "~/features/ai-search/wiki-search.server";
+import { loadWikiSearch } from "~/features/knowledge/wiki-search.server";
 import { SearchView } from "./_components/SearchView";
 
 export const meta: MetaFunction<typeof loader> = ({ data }) => [

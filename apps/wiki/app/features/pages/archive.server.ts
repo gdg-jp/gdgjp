@@ -1,4 +1,3 @@
-import { deletePageEmbeddings } from "~/features/ai-search/embedding.server";
 import type { getDb } from "~/lib/db.server";
 
 type Db = ReturnType<typeof getDb>;
@@ -11,13 +10,11 @@ const descendantsCte = `
   )
 `;
 
-/** Archives a page and every descendant in its page tree. */
-export async function archivePageAndDescendants(env: Env, db: Db, pageId: string): Promise<void> {
-  const result = await env.DB.prepare(`${descendantsCte} SELECT id FROM descendants`)
-    .bind(pageId)
-    .all<{ id: string }>();
-  const pageIds = result.results.map((page) => page.id);
-
+/**
+ * Archives a page and every descendant in its page tree. The knowledge index drops
+ * archived pages on its next sync (app/features/knowledge/sync.server.ts).
+ */
+export async function archivePageAndDescendants(env: Env, _db: Db, pageId: string): Promise<void> {
   await env.DB.prepare(
     `${descendantsCte}
      UPDATE pages SET status = 'archived', updated_at = unixepoch()
@@ -25,14 +22,4 @@ export async function archivePageAndDescendants(env: Env, db: Db, pageId: string
   )
     .bind(pageId)
     .run();
-
-  await Promise.all(
-    pageIds.map(async (id) => {
-      try {
-        await deletePageEmbeddings(env, db, id);
-      } catch {
-        // Embedding cleanup must not prevent archiving a page tree.
-      }
-    }),
-  );
 }

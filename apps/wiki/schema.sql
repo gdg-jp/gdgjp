@@ -197,17 +197,6 @@ CREATE TABLE IF NOT EXISTS "comment_reactions" (
   "created_at" INTEGER NOT NULL DEFAULT (unixepoch()),
   PRIMARY KEY ("comment_id", "user_id", "emoji")
 );
-CREATE TABLE page_embedding_status (
-  page_id TEXT PRIMARY KEY REFERENCES pages(id) ON DELETE CASCADE,
-  status TEXT NOT NULL DEFAULT 'pending',
-  -- 'pending' | 'indexed' | 'error'
-  chunk_count INTEGER NOT NULL DEFAULT 0,
-  content_hash TEXT,
-  last_indexed_at INTEGER,
-  error_message TEXT,
-  created_at INTEGER NOT NULL DEFAULT (unixepoch()),
-  updated_at INTEGER NOT NULL DEFAULT (unixepoch())
-);
 CREATE TABLE IF NOT EXISTS "fcm_tokens" (
   "token"        TEXT NOT NULL PRIMARY KEY,
   "user_id"      TEXT NOT NULL REFERENCES "user"("id") ON DELETE CASCADE,
@@ -564,18 +553,6 @@ CREATE TRIGGER pages_fts_trigram_update AFTER UPDATE ON pages BEGIN
 END;
 CREATE TRIGGER pages_fts_trigram_delete AFTER DELETE ON pages BEGIN
   DELETE FROM pages_fts_trigram WHERE page_id = old.id;
-END;
-CREATE TRIGGER trg_page_embedding_insert
-AFTER INSERT ON pages WHEN NEW.status = 'published'
-BEGIN
-  INSERT OR IGNORE INTO page_embedding_status (page_id, status) VALUES (NEW.id, 'pending');
-END;
-CREATE TRIGGER trg_page_embedding_update
-AFTER UPDATE ON pages WHEN NEW.status = 'published'
-BEGIN
-  INSERT INTO page_embedding_status (page_id, status, updated_at)
-  VALUES (NEW.id, 'pending', unixepoch())
-  ON CONFLICT(page_id) DO UPDATE SET status = 'pending', updated_at = unixepoch();
 END;
 CREATE TRIGGER pages_sync_revision_update
 AFTER UPDATE ON pages WHEN NEW.sync_revision = OLD.sync_revision

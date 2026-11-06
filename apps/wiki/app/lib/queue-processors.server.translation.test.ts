@@ -6,10 +6,6 @@ import {
   processTranslationMessage,
 } from "~/lib/queue-processors.server";
 
-vi.mock("~/features/ai-search/embedding.server", () => ({
-  indexPageEmbeddings: vi.fn().mockResolvedValue(undefined),
-}));
-
 class TestD1Statement {
   private values: SQLInputValue[] = [];
 

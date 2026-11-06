@@ -1,6 +1,5 @@
 import { type SQL, and, desc, eq, inArray, sql } from "drizzle-orm";
 import * as schema from "~/db/schema";
-import type { RagSearchResult } from "~/features/ai-search/rag-search.server";
 import { getAccessIdentity } from "~/features/auth/utils.server";
 import { MAX_SEARCH_SPACES } from "~/features/knowledge/search.server";
 import { searchForReader } from "~/features/knowledge/viewer-search.server";
@@ -11,8 +10,21 @@ import { requireSpace } from "~/features/spaces/access.server";
 import { loadViewerContext } from "~/features/spaces/viewer.server";
 import { getDb } from "~/lib/db.server";
 
-export type AiRagResult = Omit<RagSearchResult, "sources"> & {
-  sources: Array<RagSearchResult["sources"][number] & { wikiPath: string }>;
+/** "AI" search mode result: AI Search page hits (no generated answer; the Worker calls no LLM). */
+export type AiRagResult = {
+  answer: string;
+  ragAvailable: boolean;
+  sources: Array<{
+    pageId: string;
+    slug: string;
+    titleJa: string;
+    titleEn: string;
+    summaryJa: string;
+    summaryEn: string;
+    relevanceScore: number;
+    matchedChunks: Array<{ text: string; sectionHeading: string | null }>;
+    wikiPath: string;
+  }>;
 };
 
 /** Strip FTS5 special operators to prevent query injection */

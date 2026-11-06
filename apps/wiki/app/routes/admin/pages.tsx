@@ -5,7 +5,6 @@ import { Await, useLoaderData } from "react-router";
 import type { ActionFunctionArgs, LoaderFunctionArgs } from "react-router";
 import { TableSkeleton } from "~/components/Skeleton";
 import * as schema from "~/db/schema";
-import { deletePageEmbeddings } from "~/features/ai-search/embedding.server";
 import { requireAdmin } from "~/features/auth/utils.server";
 import { archivePageAndDescendants } from "~/features/pages/archive.server";
 import { getDb } from "~/lib/db.server";
@@ -60,11 +59,6 @@ export async function action({ request, context }: ActionFunctionArgs) {
   if (intent === "deletePage") {
     const pageId = form.get("pageId") as string;
     const db = getDb(env);
-    try {
-      await deletePageEmbeddings(env, db, pageId);
-    } catch {
-      // best-effort cleanup
-    }
     await db.batch([
       db.delete(schema.pageTags).where(eq(schema.pageTags.pageId, pageId)),
       db.delete(schema.pageAttachments).where(eq(schema.pageAttachments.pageId, pageId)),

@@ -190,23 +190,6 @@ export const commentReactions = sqliteTable(
 );
 
 // ---------------------------------------------------------------------------
-// page_embedding_status (Vectorize embedding tracking)
-// ---------------------------------------------------------------------------
-export const pageEmbeddingStatus = sqliteTable("page_embedding_status", {
-  pageId: text("page_id")
-    .primaryKey()
-    .references(() => pages.id, { onDelete: "cascade" }),
-  status: text("status").notNull().default("pending"),
-  // "pending" | "indexed" | "error"
-  chunkCount: integer("chunk_count").notNull().default(0),
-  contentHash: text("content_hash"),
-  lastIndexedAt: integer("last_indexed_at", { mode: "timestamp" }),
-  errorMessage: text("error_message"),
-  createdAt: integer("created_at", { mode: "timestamp" }).notNull().default(sql`(unixepoch())`),
-  updatedAt: integer("updated_at", { mode: "timestamp" }).notNull().default(sql`(unixepoch())`),
-});
-
-// ---------------------------------------------------------------------------
 // page_views (per-user view tracking for "Recently Viewed")
 // ---------------------------------------------------------------------------
 export const pageViews = sqliteTable(

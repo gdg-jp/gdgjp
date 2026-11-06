@@ -1,7 +1,6 @@
 import { and, desc, eq } from "drizzle-orm";
 import type { ActionFunctionArgs, LoaderFunctionArgs } from "react-router";
 import * as schema from "~/db/schema";
-import { deletePageEmbeddings } from "~/features/ai-search/embedding.server";
 import { requireUser } from "~/features/auth/utils.server";
 import { getDb } from "~/lib/db.server";
 
@@ -68,11 +67,6 @@ export async function action({ request, context }: ActionFunctionArgs) {
   if (intent === "deletePage") {
     if (!user.isAdmin) {
       return Response.json({ ok: false, error: "Forbidden" }, { status: 403 });
-    }
-    try {
-      await deletePageEmbeddings(env, db, pageId);
-    } catch {
-      // best-effort cleanup
     }
     await db.batch([
       db.delete(schema.pageTags).where(eq(schema.pageTags.pageId, pageId)),

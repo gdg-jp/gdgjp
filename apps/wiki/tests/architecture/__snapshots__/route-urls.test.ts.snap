@@ -12,7 +12,6 @@ exports[`routes.ts URL surface > exposes a stable set of URLs 1`] = `
   "/admin/stats",
   "/admin/tags",
   "/analyze",
-  "/api/admin/backfill-embeddings",
   "/api/admin/refresh-all-sources",
   "/api/agent/cat",
   "/api/agent/instructions",

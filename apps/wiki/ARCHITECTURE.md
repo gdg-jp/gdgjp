@@ -22,7 +22,7 @@
 | ソース取り込み（Worker 実行 / DO alarm / refresh cron） | `workers/features/sources/` — README あり |
 | wiki 生成 AI（Agents SDK / Workflow / model・tools） | `workers/features/ingestion/` — README あり |
 | 生成 AI のクライアント配線・slug | `app/features/ingestion/` — README あり。ルートは `app/routes/ingest/`, `app/routes/api/ingest/`。UI は `app/features/ingestion/components/` |
-| AI 検索（Workers AI + Vectorize） | `app/features/ai-search/` — README あり |
+| 検索インデックス（AI Search、スペース別）と `/search` | `app/features/knowledge/` — README あり |
 | AI モデル共通ラッパ（Vercel AI SDK / structured output） | `app/features/ai/model/` — README あり |
 | 翻訳（JA→EN、Workers AI、`TRANSLATION_QUEUE`） | `app/features/translation/` — D1で日次集約・断片キャッシュ。振り分けは `app/lib/queue-processors.server.ts` |
 | ZIP インポート | `app/features/zip-import/` — README あり。ルートは `app/routes/api/pages/import-zip*.ts` |
@@ -69,7 +69,6 @@ app/routes/
     ingest/         /api/ingest/:sessionId/*（status/commit/clarify/select-urls/regenerate）
     discord/        /api/discord/*（auth/callback/guilds/guild-channels）
     tasks/          /api/tasks/*（list/task/teams/reorder）
-    admin/          /api/admin/backfill-embeddings
 ```
 
 どのディレクトリも 25 ファイル以下。`route-urls.test.ts` が公開 URL 全集合を
@@ -90,7 +89,7 @@ app/routes/
 | `ingestion.ts` | `ingestionSessions` |
 | `spaces.ts` | `spaces`, `spaceMembers`, `reviewFlags` |
 | `sources.ts` | `sources`, `sourceDocuments`, `sourceAssets`, `sourceImportRuns`, `googleChatSenderProfiles`, `googleChatSenderSamples` |
-| `pages.ts` | `pages`, `wikiAgentInstructions`, `pageTags`, `pageAttachments`, `pageVersions`, `pageFavorites`, `pageSources`, `pageComments`, `commentReactions`, `pageEmbeddingStatus`, `pageViews`, `pageAccess` |
+| `pages.ts` | `pages`, `wikiAgentInstructions`, `pageTags`, `pageAttachments`, `pageVersions`, `pageFavorites`, `pageSources`, `pageComments`, `commentReactions`, `pageViews`, `pageAccess` |
 | `google.ts` | `googleDriveTokens`, `googleDocumentImports`, `googleDocumentImportNodes`, `googleDocumentImportJobs` |
 | `discord.ts` | `discordOauthTokens`, `discordGuildSettings` |
 | `notifications.ts` | `notifications`, `fcmTokens` |
@@ -175,5 +174,5 @@ app/routes/
 | `tests/architecture/design-token-policy.test.ts` | セマンティックトークンのみ使用（`DESIGN.md`）。走査対象は `app/{components,routes}` + `app/features/*/components/` |
 | `tests/architecture/theme-tokens.test.ts` | ライト / ダークのトークン定義が揃っている |
 | `tests/architecture/source-surface-exclusions.test.ts` | conversation ソースが 3 サーフェスで DB クエリ時に除外される |
-| `tests/architecture/search-source-exclusions.test.ts` | 生ソースが Vectorize / pages FTS に入らない |
+| `tests/architecture/search-source-exclusions.test.ts` | キーワード `/search` が生ソースを引かない（pages FTS のみ） |
 | `tests/architecture/agent-workspace-routes.test.ts` | エージェント API のパス解決契約（contracts / paths / wiki-adapter 横断） |

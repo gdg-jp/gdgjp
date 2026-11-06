@@ -1,7 +1,7 @@
 # @gdgjp/wiki
 
 Community wiki for GDG Japan, deployed at wiki.gdgs.jp on Cloudflare Workers. It is the most
-feature-rich package in the monorepo: D1, R2, Queues, Browser Rendering, Workers AI, Vectorize,
+feature-rich package in the monorepo: D1, R2, Queues, Browser Rendering, Workers AI, AI Search,
 and a Durable Object pair power realtime collaborative editing, AI-assisted page generation from
 uploaded documents/URLs/Google Drive, semantic search, and multi-source ingestion (Google Docs,
 Google Chat, Discord, websites). It is an OAuth relying party of `accounts/` and the only app in
@@ -27,8 +27,8 @@ multi-phase wiki-generation workflow.
 | `GOOGLE_DOCUMENT_IMPORT_QUEUE` | Queue | Google Docs import jobs (long-running; outlives the browser request). |
 | `SOURCE_FETCH_QUEUE` | Queue | Source-fetch start messages; the import itself continues via DO alarms, not the queue. |
 | `BROWSER` | Browser Rendering | Headless Chromium for PDF export. |
-| `AI` | Workers AI | `bge-m3` embeddings (1024-dim) for semantic page search. |
-| `VECTORIZE` | Vectorize | Index `gdgjp-wiki-pages`, cosine metric, 1024 dims. |
+| `AI` | Workers AI | v1 translation (`m2m100`), until the translation queue is removed. |
+| `KNOWLEDGE` | AI Search | Namespace `gdgjp-knowledge`, one instance per space. |
 | `WIKI_AI_TELEMETRY` | Analytics Engine | AI generation model-call metrics (`wiki_ai_model_calls`). |
 | `COLLAB_DO` | Durable Object | `CollabDurableObject` — one instance per page slug (`idFromName(slug)`); Yjs CRDT over WebSocket at `/ws/collab/:slug`. |
 | `SOURCE_IMPORT_DO` | Durable Object | `SourceImportDurableObject` — one instance per source (`getByName(sourceId)`); alarm self-chain drives resumable import phases for Chat, Drive, Discord, and website sources. |
