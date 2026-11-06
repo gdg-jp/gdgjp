@@ -52,7 +52,7 @@ jobs:
           fetch-depth: 0
           submodules: false
       - name: Initialize shared UI submodule
-        run: git submodule update --init packages/design-system
+        run: git submodule update --init packages/design-system skills
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
@@ -85,7 +85,7 @@ jobs:
         with:
           submodules: false
       - name: Initialize shared UI submodule
-        run: git submodule update --init packages/design-system
+        run: git submodule update --init packages/design-system skills
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
@@ -110,7 +110,7 @@ jobs:
         with:
           submodules: false
       - name: Initialize shared UI submodule
-        run: git submodule update --init packages/design-system
+        run: git submodule update --init packages/design-system skills
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
@@ -132,7 +132,7 @@ jobs:
         with:
           submodules: false
       - name: Initialize shared UI submodule
-        run: git submodule update --init packages/design-system
+        run: git submodule update --init packages/design-system skills
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
@@ -172,7 +172,7 @@ jobs:
           fetch-depth: 0
           submodules: false
       - name: Initialize shared UI submodule
-        run: git submodule update --init packages/design-system
+        run: git submodule update --init packages/design-system skills
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
@@ -215,7 +215,7 @@ jobs:
         with:
           submodules: false
       - name: Initialize shared UI submodule
-        run: git submodule update --init packages/design-system
+        run: git submodule update --init packages/design-system skills
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
@@ -271,6 +271,9 @@ jobs:
           - name: Typecheck roulette
             if: contains(fromJSON(needs.changes.outputs.ci), '@gdgjp/roulette')
             run: pnpm --filter @gdgjp/roulette typecheck
+          - name: Typecheck pr
+            if: contains(fromJSON(needs.changes.outputs.ci), '@gdgjp/pr')
+            run: pnpm --filter @gdgjp/pr typecheck
           - name: Typecheck website
             if: contains(fromJSON(needs.changes.outputs.ci), '@gdgjp/website')
             run: pnpm --filter @gdgjp/website typecheck
@@ -300,7 +303,7 @@ jobs:
         with:
           submodules: false
       - name: Initialize shared UI submodule
-        run: git submodule update --init packages/design-system
+        run: git submodule update --init packages/design-system skills
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
@@ -350,6 +353,9 @@ jobs:
           - name: Test roulette
             if: contains(fromJSON(needs.changes.outputs.ci), '@gdgjp/roulette')
             run: pnpm --filter @gdgjp/roulette test
+          - name: Test pr
+            if: contains(fromJSON(needs.changes.outputs.ci), '@gdgjp/pr')
+            run: pnpm --filter @gdgjp/pr test
           - name: Test website
             if: contains(fromJSON(needs.changes.outputs.ci), '@gdgjp/website')
             run: pnpm --filter @gdgjp/website test
@@ -379,7 +385,7 @@ jobs:
         with:
           submodules: false
       - name: Initialize shared UI submodule
-        run: git submodule update --init packages/design-system
+        run: git submodule update --init packages/design-system skills
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
@@ -433,6 +439,9 @@ jobs:
           - name: Build roulette
             if: contains(fromJSON(needs.changes.outputs.build), '@gdgjp/roulette')
             run: pnpm --filter @gdgjp/roulette build
+          - name: Build pr
+            if: contains(fromJSON(needs.changes.outputs.build), '@gdgjp/pr')
+            run: pnpm --filter @gdgjp/pr build
           - name: Build website
             if: contains(fromJSON(needs.changes.outputs.build), '@gdgjp/website')
             run: pnpm --filter @gdgjp/website build
@@ -472,7 +481,7 @@ jobs:
         with:
           submodules: false
       - name: Initialize shared UI submodule
-        run: git submodule update --init packages/design-system
+        run: git submodule update --init packages/design-system skills
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
@@ -553,6 +562,16 @@ jobs:
           ACCOUNTS_URL=http://localhost:6173
           IDP_URL=http://localhost:6173
           IDP_CLIENT_ID=roulette
+          ENVIRONMENT=development
+          EOF
+
+          cat > apps/pr/.dev.vars <<EOF
+          RP_SESSION_SECRET=ci-rp-session-secret
+          IDP_CLIENT_SECRET=ci-idp-client-secret
+          APP_URL=http://localhost:6191
+          ACCOUNTS_URL=http://localhost:6173
+          IDP_URL=http://localhost:6173
+          IDP_CLIENT_ID=pr
           ENVIRONMENT=development
           EOF
       - name: Create Wiki E2E vars

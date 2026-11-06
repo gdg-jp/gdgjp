@@ -1,0 +1,52 @@
+name = "gdgjp-pr"
+main = "./workers/app.ts"
+compatibility_date = "2026-07-28"
+compatibility_flags = ["nodejs_compat"]
+
+[alias]
+"virtual:react-router/server-build" = "./build/server/index.js"
+
+[vars]
+ENVIRONMENT = "production"
+APP_URL = "https://pr.gdgs.jp"
+ACCOUNTS_URL = "https://accounts.gdgs.jp"
+IDP_URL = "https://accounts.gdgs.jp"
+IDP_CLIENT_ID = "pr"
+WIKI_URL = "https://wiki.gdgs.jp"
+# Title of the Wiki page that is the source of truth for outreach targets (contacts).
+WIKI_OUTREACH_TITLE = "イベント告知対象とコネクション保有者"
+
+[assets]
+binding = "ASSETS"
+directory = "./build/client"
+
+[[routes]]
+pattern = "pr.gdgs.jp"
+custom_domain = true
+
+# Relying-party auth tables (user, oidc_session) and the PR domain tables.
+[[d1_databases]]
+binding = "DB"
+database_name = "gdgjp-pr-db"
+database_id = "00000000-0000-0000-0000-000000000000"
+migrations_dir = "./migrations"
+
+# Worker-to-Worker OIDC (discovery, token, UserInfo) stays on Cloudflare's
+# internal network instead of looping through public HTTPS.
+[[services]]
+binding = "ACCOUNTS"
+service = "gdgjp-accounts"
+
+# Read-only: the outreach targets page, read AS the signed-in user (their access token).
+[[services]]
+binding = "WIKI"
+service = "gdgjp-wiki"
+
+[observability]
+enabled = true
+
+[observability.logs]
+enabled = true
+head_sampling_rate = 1
+persist = true
+invocation_logs = true

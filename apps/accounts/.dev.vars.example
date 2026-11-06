@@ -52,5 +52,8 @@ DECK_CLIENT_ID=deck
 DECK_REDIRECT_URLS=http://localhost:5189/api/auth/callback/gdgjp
 ROULETTE_CLIENT_ID=roulette
 ROULETTE_REDIRECT_URLS=http://localhost:5190/api/auth/callback/gdgjp
+PR_CLIENT_SECRET=""
+PR_CLIENT_ID=pr
+PR_REDIRECT_URLS=http://localhost:5191/api/auth/callback/gdgjp
 
 RESEND_API_KEY=""

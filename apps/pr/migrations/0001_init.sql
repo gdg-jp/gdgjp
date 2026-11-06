@@ -1,0 +1,143 @@
+-- Relying-party auth tables (gdg-lib) + campaigns, members, briefs, schedule and contacts.
+
+CREATE TABLE "user" (
+  id           TEXT PRIMARY KEY,
+  email        TEXT NOT NULL UNIQUE,
+  name         TEXT NOT NULL,
+  image        TEXT,
+  oidc_issuer  TEXT,
+  oidc_subject TEXT,
+  created_at   INTEGER NOT NULL DEFAULT (unixepoch()),
+  updated_at   INTEGER NOT NULL DEFAULT (unixepoch())
+);
+
+CREATE UNIQUE INDEX user_oidc_identity
+  ON "user" (oidc_issuer, oidc_subject)
+  WHERE oidc_issuer IS NOT NULL AND oidc_subject IS NOT NULL;
+
+CREATE TABLE oidc_session (
+  id TEXT PRIMARY KEY,
+  user_id TEXT NOT NULL,
+  issuer TEXT NOT NULL,
+  subject TEXT NOT NULL,
+  access_token TEXT NOT NULL,
+  refresh_token TEXT,
+  id_token TEXT NOT NULL,
+  access_token_expires_at INTEGER NOT NULL,
+  expires_at INTEGER NOT NULL,
+  created_at INTEGER NOT NULL DEFAULT (unixepoch()),
+  updated_at INTEGER NOT NULL DEFAULT (unixepoch()),
+  FOREIGN KEY (user_id) REFERENCES "user" (id) ON DELETE CASCADE
+);
+
+CREATE INDEX oidc_session_user_idx ON oidc_session (user_id);
+
+-- One event's PR. Owned by the host chapter; co-host chapters join through campaign_chapters.
+CREATE TABLE campaigns (
+  id                  INTEGER PRIMARY KEY AUTOINCREMENT,
+  chapter_id          INTEGER NOT NULL,
+  chapter_slug        TEXT NOT NULL,
+  parent_campaign_id  INTEGER REFERENCES campaigns(id) ON DELETE SET NULL,
+  slug                TEXT NOT NULL UNIQUE,
+  name                TEXT NOT NULL,
+  event_at            INTEGER,
+  venue               TEXT,
+  status              TEXT NOT NULL DEFAULT 'draft' CHECK (status IN ('draft','active','closed')),
+  connpass_group_slug TEXT,
+  connpass_event_id   TEXT,
+  tinyurl_campaign_id INTEGER,
+  budget_total_yen    INTEGER NOT NULL DEFAULT 0,
+  playbook_version    TEXT NOT NULL,
+  created_by          TEXT NOT NULL,
+  created_at          INTEGER NOT NULL DEFAULT (unixepoch()),
+  updated_at          INTEGER NOT NULL DEFAULT (unixepoch())
+);
+CREATE INDEX campaigns_chapter ON campaigns (chapter_id, status, event_at);
+
+CREATE TABLE campaign_chapters (
+  campaign_id  INTEGER NOT NULL REFERENCES campaigns(id) ON DELETE CASCADE,
+  chapter_id   INTEGER NOT NULL,
+  chapter_slug TEXT NOT NULL,
+  role         TEXT NOT NULL CHECK (role IN ('host','co-host')),
+  PRIMARY KEY (campaign_id, chapter_id)
+);
+CREATE INDEX campaign_chapters_chapter ON campaign_chapters (chapter_id);
+
+CREATE TABLE campaign_members (
+  campaign_id    INTEGER NOT NULL REFERENCES campaigns(id) ON DELETE CASCADE,
+  user_id        TEXT NOT NULL,
+  name           TEXT NOT NULL,
+  email          TEXT NOT NULL,
+  roles          TEXT NOT NULL DEFAULT '[]',
+  discord_handle TEXT,
+  added_by       TEXT NOT NULL,
+  created_at     INTEGER NOT NULL DEFAULT (unixepoch()),
+  PRIMARY KEY (campaign_id, user_id)
+);
+
+-- Versioned: a save inserts version + 1, never updates.
+CREATE TABLE briefs (
+  id          INTEGER PRIMARY KEY AUTOINCREMENT,
+  campaign_id INTEGER NOT NULL REFERENCES campaigns(id) ON DELETE CASCADE,
+  version     INTEGER NOT NULL,
+  body        TEXT NOT NULL,
+  author      TEXT NOT NULL,
+  created_at  INTEGER NOT NULL DEFAULT (unixepoch()),
+  UNIQUE (campaign_id, version)
+);
+
+-- `kind` is validated in app/features/schedule/kinds.ts (the set grows), status here.
+CREATE TABLE schedule_items (
+  id                   INTEGER PRIMARY KEY AUTOINCREMENT,
+  campaign_id          INTEGER NOT NULL REFERENCES campaigns(id) ON DELETE CASCADE,
+  kind                 TEXT NOT NULL,
+  channel              TEXT,
+  due_at               INTEGER NOT NULL,
+  title                TEXT NOT NULL,
+  note                 TEXT,
+  draft_id             INTEGER,
+  assignee_user_id     TEXT,
+  reviewer_user_id     TEXT,
+  requires_approval    INTEGER NOT NULL DEFAULT 1,
+  status               TEXT NOT NULL DEFAULT 'planned'
+                       CHECK (status IN ('planned','drafting','in_review','needs_approval','approved','dispatching','scheduled','done','failed','skipped')),
+  blocked_by           TEXT NOT NULL DEFAULT '[]',
+  request_status       TEXT CHECK (request_status IN ('sent','replied','declined')),
+  request_followup_at  INTEGER,
+  external_ref         TEXT,
+  derived_from_item_id INTEGER REFERENCES schedule_items(id) ON DELETE CASCADE,
+  offset_minutes       INTEGER,
+  speaker_id           TEXT,
+  session_id           TEXT,
+  purpose              TEXT,
+  variant              TEXT,
+  plan_version         INTEGER,
+  created_at           INTEGER NOT NULL DEFAULT (unixepoch()),
+  updated_at           INTEGER NOT NULL DEFAULT (unixepoch())
+);
+CREATE INDEX schedule_items_due ON schedule_items (campaign_id, due_at);
+CREATE INDEX schedule_items_derived ON schedule_items (derived_from_item_id);
+CREATE INDEX schedule_items_assignee ON schedule_items (assignee_user_id, status);
+
+-- Outreach operations table. The source of truth is the Wiki page; this keeps who, when, result.
+CREATE TABLE contacts (
+  id                    INTEGER PRIMARY KEY AUTOINCREMENT,
+  chapter_id            INTEGER NOT NULL,
+  organization          TEXT NOT NULL,
+  kind                  TEXT NOT NULL CHECK (kind IN ('person','org','community','circle','lab','school','company','media')),
+  name                  TEXT NOT NULL,
+  relation              TEXT,
+  channel               TEXT,
+  owner_user_id         TEXT,
+  wiki_person           TEXT,
+  wiki_path             TEXT,
+  synced_at             INTEGER,
+  manual                INTEGER NOT NULL DEFAULT 0,
+  last_used_campaign_id INTEGER REFERENCES campaigns(id) ON DELETE SET NULL,
+  notes                 TEXT,
+  outcomes              TEXT NOT NULL DEFAULT '[]',
+  created_at            INTEGER NOT NULL DEFAULT (unixepoch()),
+  updated_at            INTEGER NOT NULL DEFAULT (unixepoch())
+);
+CREATE INDEX contacts_chapter ON contacts (chapter_id, organization);
+CREATE UNIQUE INDEX contacts_wiki ON contacts (chapter_id, organization, wiki_person) WHERE manual = 0;

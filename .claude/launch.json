@@ -52,6 +52,12 @@
       "runtimeExecutable": "pnpm",
       "runtimeArgs": ["--filter", "@gdgjp/deck", "dev"],
       "port": 5189
+    },
+    {
+      "name": "pr-dev",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["--filter", "@gdgjp/pr", "dev"],
+      "port": 5191
     }
   ]
 }

@@ -48,7 +48,7 @@ jobs:
         with:
           fetch-depth: 0
       - name: Initialize shared UI submodule
-        run: git submodule update --init packages/design-system
+        run: git submodule update --init packages/design-system skills
       - uses: pnpm/action-setup@v4
         with:
           version: "9.15.0"
@@ -96,7 +96,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Initialize shared UI submodule
-        run: git submodule update --init packages/design-system
+        run: git submodule update --init packages/design-system skills
       - uses: pnpm/action-setup@v4
         with:
           version: "9.15.0"
@@ -127,7 +127,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Initialize shared UI submodule
-        run: git submodule update --init packages/design-system
+        run: git submodule update --init packages/design-system skills
       - uses: pnpm/action-setup@v4
         with:
           version: "9.15.0"
@@ -225,6 +225,12 @@ jobs:
               pnpm --filter @gdgjp/roulette build
               pnpm --filter @gdgjp/roulette run deploy
               pnpm --filter @gdgjp/roulette migrate:remote
+          - name: Build, deploy, and migrate pr
+            if: contains(fromJSON(needs.changes.outputs.deploy-apps), 'pr')
+            run: |
+              pnpm --filter @gdgjp/pr build
+              pnpm --filter @gdgjp/pr run deploy
+              pnpm --filter @gdgjp/pr migrate:remote
           - name: Build and deploy website
             if: contains(fromJSON(needs.changes.outputs.deploy-apps), 'website')
             run: |
