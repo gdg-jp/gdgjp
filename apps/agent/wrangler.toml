@@ -4,11 +4,10 @@ name = "gdgjp-agent"
 main = "src/index.ts"
 compatibility_date = "2026-07-25"
 compatibility_flags = ["nodejs_compat"]
-# Until agent.gdgs.jp moves off Vercel (v1), the Worker answers on workers.dev. Cut-over:
-# delete the Vercel CNAME for agent.gdgs.jp, uncomment `routes`, deploy, then point the
-# Discord Interactions URL and the Google Chat endpoint at https://agent.gdgs.jp/api/chat.
+# Discord's Interactions URL is https://agent.gdgs.jp/api/chat. workers.dev stays on so a
+# rollback can point Discord there without a DNS change.
 workers_dev = true
-# routes = [{ pattern = "agent.gdgs.jp", custom_domain = true }]
+routes = [{ pattern = "agent.gdgs.jp", custom_domain = true }]
 
 [vars]
 APP_URL = "https://agent.gdgs.jp"
