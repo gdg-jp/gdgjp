@@ -1,6 +1,6 @@
 import type { GoogleDocsInlineImage } from "../../../app/features/google/docs-markdown.server";
 import type { GoogleDocsMarkdownNode } from "../../../app/features/google/docs-markdown.server";
-import { googleDocsPathSegment } from "../ingestion/tools/google-docs/workspace";
+import { googleDocsPathSegment } from "./google-docs-workspace";
 
 export interface FetchedSourceDocument {
   path: string;

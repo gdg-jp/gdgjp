@@ -10,13 +10,10 @@ import { wikiPagePath } from "~/features/pages/wiki-page-path";
 import { canAssignChapter } from "~/features/sources/sources.server";
 import { DEFAULT_SPACE_ID } from "~/features/spaces/shared";
 import { getDb } from "~/lib/db.server";
-import { createD1WikiWorkspaceStore } from "../../../workers/features/ingestion/persistence/d1/wiki-read-repository";
-import { normaliseAbsoluteWorkspacePath } from "../../../workers/features/ingestion/tools/workspace/paths";
-import {
-  type WorkspaceActor,
-  resolveWikiWorkspacePage,
-} from "../../../workers/features/ingestion/tools/workspace/wiki-adapter";
 import { parseNoteBody } from "./note-body";
+import { normaliseAbsoluteWorkspacePath } from "./workspace/paths";
+import { type WorkspaceActor, resolveWikiWorkspacePage } from "./workspace/wiki-adapter";
+import { createD1WikiWorkspaceStore } from "./workspace/wiki-read-repository";
 
 export const NS_ANSWERS = "ns-answers";
 export const ANSWERS_SLUG = "answers";

@@ -1,7 +1,7 @@
 import { nanoid } from "nanoid";
 import * as schema from "~/db/schema";
-import { generateSlug } from "~/features/ingestion/slug";
 import { pageInSpace } from "~/features/pages/page-space.server";
+import { generateSlug } from "~/features/pages/slug";
 import { DEFAULT_SPACE_ID } from "~/features/spaces/shared";
 import { getDb } from "~/lib/db.server";
 import { basename, rewriteLinks } from "./zip-helpers";

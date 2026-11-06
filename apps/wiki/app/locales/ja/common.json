@@ -276,77 +276,9 @@
     }
   },
   "ingest": {
-    "title": "コンテンツを追加する",
-    "description": "テキスト・画像・Googleドキュメント/スライドをもとに、AIがWikiページの提案を作成します。",
-    "complete_toast": "AIによる取り込みが完了しました！提案を確認してください。",
-    "processing_message": "AIが分析中...",
-    "processing_hint": "少々お待ちください",
-    "processing_leave_hint": "このページを離れても大丈夫です — 処理はバックグラウンドで続きます。",
-    "phase_step_1": "入力を処理中",
-    "phase_step_2": "ページ構成を計画中",
-    "phase_step_3": "ページ内容を生成中",
-    "phase_step_4": "完了",
-    "clarification_heading": "確認事項があります",
-    "clarification_summary_label": "AIが理解した内容",
-    "clarification_submit": "回答して続ける",
-    "clarification_hint": "より正確なWikiページを生成するために、以下の情報をお聞かせください",
-    "nothing_in_particular": "特になし",
-    "url_selection_heading": "外部URLが見つかりました",
-    "url_selection_hint": "AIページ生成の参考として取得するURLを選択してください。",
-    "url_selection_submit": "選択したURLを取得して続ける",
-    "url_selection_skip": "スキップして続ける",
     "url_source_user_text": "テキスト入力から",
     "url_source_google_doc": "Googleドキュメントから",
-    "error_heading": "処理中にエラーが発生しました",
-    "retry": "もう一度試す",
-    "review_not_found": "レビュー対象の提案が見つかりません。",
-    "review_heading": "提案を確認する",
-    "review_subtitle": "AIが作成した提案を確認・編集してから公開してください。",
-    "form": {
-      "text_label": "テキスト入力",
-      "text_placeholder": "イベントや活動について自由に書いてください（最低50文字）\n例: 先日のTech Talkは参加者45名で盛況でした。スピーカーの田中さんは...",
-      "char_count": "{{count}} 文字",
-      "images_label": "画像添付（最大{{max}}枚・各10MB以下）",
-      "drop_hint": "クリックまたはドラッグ&ドロップで画像を追加",
-      "doc_url_label": "Googleドキュメント / スライド / スプレッドシート URL",
-      "drive_connected": "接続済み",
-      "drive_connect": "Driveを接続",
-      "pdfs_label": "PDFファイル（最大{{max}}件・各20MB以下）",
-      "pdfs_hint": "AI分析のソースとしてPDFドキュメントをアップロードします",
-      "pdfs_drop_hint": "クリックまたはドラッグ&ドロップでPDFファイルを追加",
-      "submit": "AI で作成する →"
-    },
-    "errors": {
-      "text_too_short": "入力が少なすぎます。最低{{min}}文字以上入力してください。",
-      "too_many_images": "画像は最大{{max}}枚までです。",
-      "image_too_large": "{{name}} は10MBを超えています。",
-      "not_an_image": "{{name}} は画像ファイルではありません。",
-      "invalid_drive_url": "Googleドキュメント、スライドまたはスプレッドシートの有効なURLを入力してください。",
-      "too_many_pdfs": "PDFファイルは最大{{max}}件までです。",
-      "pdf_too_large": "{{name}} は20MBを超えています。",
-      "not_a_pdf": "{{name}} はPDFファイルではありません。",
-      "enqueue_failed": "取り込みジョブの開始に失敗しました。もう一度お試しください。"
-    },
     "review": {
-      "ai_rationale": "AIの判断理由",
-      "warnings": "注意",
-      "op_create": "新規作成",
-      "op_update": "更新",
-      "actionability_score": "アクション可能性スコア: {{score}}/3",
-      "actionability_regen_hint": "— 入力を補強して再生成することを推奨します",
-      "field_title": "ページタイトル",
-      "field_summary": "要約",
-      "field_page_type": "ページタイプ",
-      "field_tags": "タグ（最大5つ）",
-      "field_body": "本文",
-      "field_feedback": "再生成フィードバック",
-      "feedback_placeholder": "改善してほしい点を入力...",
-      "regenerating": "生成中...",
-      "regenerate": "再生成",
-      "regenerate_error_generic": "再生成に失敗しました。もう一度お試しください。",
-      "publishing": "公開中...",
-      "publish": "公開する",
-      "error": "エラー: {{message}}",
       "pageType": {
         "event-report": "イベントレポート",
         "speaker-profile": "スピーカープロファイル",
@@ -364,23 +296,9 @@
         "community-ops": "コミュニティ運営",
         "technical": "技術",
         "template": "テンプレート"
-      },
-      "field_parent_page": "親ページ",
-      "parent_none": "（なし — ルートレベル）",
-      "existing_pages": "既存ページ",
-      "new_pages_in_changeset": "今回作成する新規ページ",
-      "structure_preview": "ページ構造プレビュー",
-      "sibling_warning": "{{count}} 件の新規ページがルートレベルに追加されます。親ページでまとめることを検討してください。",
-      "add_parent_page": "親ページを追加してまとめる"
+      }
     },
     "sensitive": {
-      "title": "機微情報が見つかりました",
-      "subtitle": "以下の項目について、公開前に対応を選択してください。",
-      "location": "場所: {{location}}",
-      "resolution_keep": "そのまま含める",
-      "resolution_delete": "削除する",
-      "resolution_replace": "[要確認] に置換する",
-      "proceed": "下書きを確認する →",
       "type": {
         "email": "メールアドレス",
         "phone": "電話番号",
@@ -390,25 +308,6 @@
         "credential": "認証情報",
         "other": "その他"
       }
-    }
-  },
-  "analyze": {
-    "title": "AIで分析する (Beta)",
-    "description": "Google フォームのURLを入力すると、アンケート分析のWikiページをグラフ付きで自動作成します。",
-    "form": {
-      "form_url_label": "Google フォーム URL",
-      "event_title_label": "イベント名",
-      "event_title_placeholder": "例: GDG Tech Talk 2025",
-      "connect_hint": "Google フォームへのアクセスにはGoogleアカウントの接続が必要です。Google ドライブと同じ接続を使用します。",
-      "connect_google": "Google を接続",
-      "submit": "AI で分析する →"
-    },
-    "errors": {
-      "form_not_connected": "まず Google アカウントを接続してください。",
-      "invalid_form_url": "有効な Google フォーム URL を入力してください。",
-      "form_url_required": "Google フォーム URL は必須です。",
-      "event_title_required": "イベント名は必須です。",
-      "enqueue_failed": "分析ジョブの開始に失敗しました。もう一度お試しください。"
     }
   },
   "sources": {

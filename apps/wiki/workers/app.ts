@@ -1,4 +1,3 @@
-import { routeAgentRequest } from "agents";
 import { drizzle } from "drizzle-orm/d1";
 import { createRequestHandler } from "react-router";
 import * as schema from "../app/db/schema";
@@ -29,7 +28,6 @@ import {
   isTranslationQueueBody,
   processTranslationMessage,
 } from "../app/lib/queue-processors.server";
-import { WikiGenerationAgent } from "./agents/wiki-generation-agent";
 import { CollabDurableObject } from "./collab-durable-object";
 import {
   isSourceAudienceRewriteQueueBody,
@@ -43,7 +41,6 @@ import {
   fetchSource,
 } from "./features/sources/fetch-source";
 import { SourceImportDurableObject } from "./source-import-durable-object";
-import { WikiGenerationPhaseWorkflow } from "./workflows/wiki-generation-phase-workflow";
 
 const TRANSLATION_CRON = "5 0 * * *";
 
@@ -53,34 +50,10 @@ const requestHandler = createRequestHandler(
   import.meta.env?.MODE ?? "production",
 );
 
-async function authorizeGenerationAgentRequest(
-  request: Request,
-  env: Env,
-): Promise<Response | undefined> {
-  const url = new URL(request.url);
-  const match = /^\/agents\/wiki-generation-agent\/([^/]+)/.exec(url.pathname);
-  if (!match) return new Response("Not Found", { status: 404 });
-  const sessionId = decodeURIComponent(match[1]);
-  const user = await createAuth(env).getSessionUser(request);
-  if (!user) return new Response("Unauthorized", { status: 401 });
-  const session = await env.DB.prepare("SELECT user_id FROM ingestion_sessions WHERE id = ?")
-    .bind(sessionId)
-    .first<{ user_id: string }>();
-  if (!session) return new Response("Not Found", { status: 404 });
-  if (session.user_id !== user.id) return new Response("Forbidden", { status: 403 });
-}
-
 export default {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     // Route WebSocket collab connections to Durable Object
     const url = new URL(request.url);
-    if (url.pathname.startsWith("/agents/wiki-generation-agent/")) {
-      const response = await routeAgentRequest(request, env, {
-        onBeforeConnect: (agentRequest) => authorizeGenerationAgentRequest(agentRequest, env),
-        onBeforeRequest: (agentRequest) => authorizeGenerationAgentRequest(agentRequest, env),
-      });
-      return response ?? new Response("Not Found", { status: 404 });
-    }
     if (
       url.pathname.startsWith("/ws/collab/") &&
       request.headers.get("Upgrade")?.toLowerCase() === "websocket"
@@ -297,4 +270,4 @@ export default {
 // Re-export Durable Object class so wrangler registers it
 export { CollabDurableObject };
 export { SourceImportDurableObject };
-export { WikiGenerationAgent, WikiGenerationPhaseWorkflow };
+export { WikiGenerationAgent, WikiGenerationPhaseWorkflow } from "./decommissioned";

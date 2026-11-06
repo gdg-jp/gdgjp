@@ -1,6 +1,6 @@
 import { driveFilesUrl, extractFileId } from "../../../../../app/features/google/drive.server";
-import { googleDocsPathSegment } from "../../../ingestion/tools/google-docs/workspace";
 import { withUniqueNames } from "../../google-doc";
+import { googleDocsPathSegment } from "../../google-docs-workspace";
 import { MARKDOWN_MEDIA_TYPE, PDF_MEDIA_TYPE } from "../../media-type";
 import type { CurrentSourceImport, SourceImportTickContext } from "../run";
 import { InvalidPdfExportError } from "./pdf";

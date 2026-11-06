@@ -20,8 +20,7 @@
 | ページ本体 / ACL / 可視性 / ツリー / メタ / パス / アーカイブ | `app/features/pages/` — README あり。UI は `app/features/pages/components/` |
 | ソース取り込み（UI / API / loader・action 側） | `app/features/sources/` — README あり。ルートは `app/routes/sources/`, `app/routes/api/sources/` |
 | ソース取り込み（Worker 実行 / DO alarm / refresh cron） | `workers/features/sources/` — README あり |
-| wiki 生成 AI（Agents SDK / Workflow / model・tools） | `workers/features/ingestion/` — README あり |
-| 生成 AI のクライアント配線・slug | `app/features/ingestion/` — README あり。ルートは `app/routes/ingest/`, `app/routes/api/ingest/`。UI は `app/features/ingestion/components/` |
+| エージェントの wiki ワークスペース（ls / cat / search、ノート） | `app/features/agent-api/workspace/` |
 | 検索インデックス（AI Search、スペース別）と `/search` | `app/features/knowledge/` — README あり |
 | AI モデル共通ラッパ（Vercel AI SDK / structured output） | `app/features/ai/model/` — README あり |
 | 翻訳（JA→EN、Workers AI、`TRANSLATION_QUEUE`） | `app/features/translation/` — D1で日次集約・断片キャッシュ。振り分けは `app/lib/queue-processors.server.ts` |
@@ -57,7 +56,6 @@ app/routes/
   wiki/             /wiki/*・閲覧系（page/edit/history/new/recent/archived/search/og-image）。ビュー部品は _components/
   sources/          /sources（page.tsx + テスト）。フォーム部品は _components/
   tasks/            /tasks/*（detail/settings/history/new）
-  ingest/           /ingest/*・/analyze（start/session/analyze）
   admin/            /admin/*（layout/index/pages/tags/stats）
   api/
     agent/          /api/agent/*        — architecture.test.ts はここに留める
@@ -66,7 +64,6 @@ app/routes/
     google/         Drive auth・Chat spaces・Documents インポート
     sources/        /api/sources/*（list/archive/unarchive/refresh/visibility）
     user/           言語切替 / 通知 / FCM / ユーザ検索
-    ingest/         /api/ingest/:sessionId/*（status/commit/clarify/select-urls/regenerate）
     discord/        /api/discord/*（auth/callback/guilds/guild-channels）
     tasks/          /api/tasks/*（list/task/teams/reorder）
 ```
@@ -120,8 +117,7 @@ app/routes/
    被験対象名と一致しない名前は禁止。
 6. **1 ファイル 400 行以下**（テスト・生成物を除く）。既存超過分は縮小専用の allowlist で管理する。
 7. **`workers/` はランタイム境界（Worker entry / DO / Workflow / Agent）と、Worker 側でしか
-   動かない feature 実装だけ。** `workers/features/<x>/` は ingestion の 4 層（orchestration /
-   model / tools / persistence）を手本にする。
+   動かない feature 実装だけ。**
 
 ## ランタイム境界
 
@@ -129,8 +125,7 @@ app/routes/
 |---|---|
 | Worker entry（fetch / scheduled / queue） | `workers/app.ts` |
 | Durable Object | `workers/collab-durable-object.ts`, `workers/source-import-durable-object.ts` |
-| Workflow | `workers/workflows/wiki-generation-phase-workflow.ts` |
-| Agents SDK | `workers/agents/wiki-generation-agent.ts` |
+| v1 生成（撤去済み、空クラス） | `workers/decommissioned.ts` |
 
 ## 読まないファイル
 
@@ -155,8 +150,7 @@ app/routes/
 `app/**` `workers/**` `shared/**` のユニットテストは被験対象と同じディレクトリに置き、
 ファイル名の先頭は被験ソースの basename に一致させる（`test-colocation.test.ts` が強制）。
 ソースツリーを走査する検査テストは `tests/architecture/` へ。ただし
-`architecture.test.ts` で終わる 2 本（`workers/features/ingestion/`,
-`app/routes/api/agent/`）は多数の相対パスを持つため現在地に留める。
+`app/routes/api/agent/architecture.test.ts` は多数の相対パスを持つため現在地に留める。
 
 ## 規約を強制しているテスト
 
@@ -164,7 +158,6 @@ app/routes/
 
 | テスト | 強制する規約 |
 |---|---|
-| `workers/features/ingestion/architecture.test.ts` | ingestion 4 層（orchestration / model / tools / persistence）の import 境界 |
 | `app/routes/api/agent/architecture.test.ts` | エージェント読み取り API が Vectorize / embedding を使わない |
 | `workers/app.scheduled.test.ts` | `scheduled` の 2 cron 分岐が移動後の feature モジュールへ届く（cron は本番のみ実行） |
 | `tests/architecture/test-colocation.test.ts` | ユニットテストが被験ソースの隣に `<subject>.test.ts` で置かれている |

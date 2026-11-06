@@ -24,7 +24,7 @@ import { describe, expect, it } from "vitest";
  * the test, never extend this list.
  */
 const WIKI_ROOT = fileURLToPath(new URL("../../", import.meta.url));
-const ROOTS = ["app", "workers", "shared"];
+const ROOTS = ["app", "workers"];
 
 const ALLOWLIST = new Set([
   // exercises OperationPlan / PageDraft / SectionPatch / Clarification schemas together

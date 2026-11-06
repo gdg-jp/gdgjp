@@ -51,8 +51,6 @@ APP_URL = "https://wiki.gdgs.jp"
 ACCOUNTS_URL = "https://accounts.gdgs.jp"
 IDP_URL = "https://accounts.gdgs.jp"
 IDP_CLIENT_ID = "wiki"
-GEMINI_MODEL_ID = "gemini-3.5-flash-lite"
-AI_GATEWAY_BASE_URL = "https://gateway.ai.cloudflare.com/v1/ca5917238ec18ca3365e7b05b11eee5e/gdgjp-wiki-generation/google-ai-studio/v1beta"
 TRANSLATION_MODEL_ID = "@cf/meta/m2m100-1.2b"
 TRANSLATION_AI_GATEWAY_ID = "gdgjp-wiki-translation"
 FIREBASE_API_KEY = "AIzaSyBDHVMd25wph9m8x4smxTvfGJ3C6OmfrDY"
@@ -131,18 +129,13 @@ binding = "BROWSER"
 binding = "AI"
 
 # ---------------------------------------------------------------------------
-# Cloudflare Analytics Engine — AI generation model-call metrics
-# ---------------------------------------------------------------------------
-[[analytics_engine_datasets]]
-binding = "WIKI_AI_TELEMETRY"
-dataset = "wiki_ai_model_calls"
-
-# ---------------------------------------------------------------------------
 # Durable Objects — realtime collaborative editing
 # ---------------------------------------------------------------------------
 [durable_objects]
 bindings = [
   { name = "COLLAB_DO", class_name = "CollabDurableObject" },
+  # v1 generation (removed in Stage 07): an inert class keeps its stored state until an
+  # operator retires it with a deleted_classes migration.
   { name = "WikiGenerationAgent", class_name = "WikiGenerationAgent" },
   { name = "SOURCE_IMPORT_DO", class_name = "SourceImportDurableObject" },
 ]
@@ -168,6 +161,7 @@ new_sqlite_classes = ["GoogleChatImportDurableObject"]
 tag = "v5"
 renamed_classes = [{ from = "GoogleChatImportDurableObject", to = "SourceImportDurableObject" }]
 
+# v1 generation workflow (inert since Stage 07; workers/decommissioned.ts).
 [[workflows]]
 name = "gdgjp-wiki-generation"
 binding = "GENERATION_WORKFLOW"
@@ -187,8 +181,6 @@ crons = ["0 15 * * *", "0 * * * *", "5 0 * * *", "0 17 * * *"]
 # RP_SESSION_SECRET       — HMAC key for the RP's signed session + OIDC tx cookies
 # IDP_CLIENT_SECRET       — OAuth client secret shared with accounts IdP
 #                           (matches WIKI_CLIENT_SECRET in accounts)
-# GEMINI_API_KEY          — Google Gemini API key (for AI features)
-# AI_GATEWAY_TOKEN        — Cloudflare AI Gateway token (for generation observability)
 # GOOGLE_DOCS_CLIENT_ID   — Google Docs API client ID (for ingestion)
 # GOOGLE_DOCS_CLIENT_SECRET — Google Docs API client secret (for ingestion)
 # GOOGLE_PICKER_API_KEY    — browser-restricted API key for Google Picker

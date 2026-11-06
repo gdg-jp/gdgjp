@@ -1,16 +1,10 @@
 import type { BearerIdentity } from "@gdgjp/gdg-lib";
 import { getBearerIdentity } from "@gdgjp/gdg-lib";
 import { getDb } from "~/lib/db.server";
-import { createD1WikiWorkspaceStore } from "../../../workers/features/ingestion/persistence/d1/wiki-read-repository";
-import type { WorkspaceResult } from "../../../workers/features/ingestion/tools/workspace/contracts";
-import {
-  WikiWorkspaceAdapter,
-  type WorkspaceActor,
-} from "../../../workers/features/ingestion/tools/workspace/wiki-adapter";
-import {
-  type MountedWorkspace,
-  createMountedWorkspace,
-} from "../../../workers/features/ingestion/tools/workspace/workspace";
+import type { WorkspaceResult } from "./workspace/contracts";
+import { WikiWorkspaceAdapter, type WorkspaceActor } from "./workspace/wiki-adapter";
+import { createD1WikiWorkspaceStore } from "./workspace/wiki-read-repository";
+import { type MountedWorkspace, createMountedWorkspace } from "./workspace/workspace";
 
 export type AgentWorkspaceContext = {
   identity: BearerIdentity;

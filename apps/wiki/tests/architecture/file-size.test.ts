@@ -16,19 +16,10 @@ import { describe, expect, it } from "vitest";
  * test fails, so the exception cannot become a licence to keep bloating.
  */
 const WIKI_ROOT = fileURLToPath(new URL("../../", import.meta.url));
-const ROOTS = ["app", "workers", "shared"];
+const ROOTS = ["app", "workers"];
 const MAX_LINES = 400;
 
-const ALLOWLIST: Record<string, number> = {
-  // `workers/features/ingestion/` is out of scope for Stage 06, and
-  // `architecture.test.ts` pins 10+ layering constraints to this gateway — a
-  // split would rewrite all of them.
-  "workers/features/ingestion/model/ingestion-model-gateway.ts": 631,
-  // Agents SDK class definition: the RPC surface is required to live on one
-  // class, and splitting it would not separate anything read for a different
-  // reason.
-  "workers/agents/wiki-generation-agent.ts": 410,
-};
+const ALLOWLIST: Record<string, number> = {};
 
 const EXCLUDED_DIRS = new Set(["node_modules", "locales", "__snapshots__"]);
 const isTestFile = (name: string): boolean => /\.test\.tsx?$/.test(name);

@@ -19,7 +19,7 @@ Re-run `cf-typegen` (or `typecheck`) after `wrangler.toml` binding edits.
 
 Single `ExportedHandler<Env>` — understand all three before touching:
 
-- `fetch` — authenticates `/agents/wiki-generation-agent/:session` and routes it through the Agents SDK; short-circuits `/ws/collab/:slug` to `COLLAB_DO`; otherwise → RR.
+- `fetch` — short-circuits `/ws/collab/:space/:slug` to `COLLAB_DO`; otherwise → RR.
 - `scheduled` — crons: `0 15 * * *` (task Discord reminders, 00:00 JST), `0 * * * *` (hourly: source refresh enqueue, knowledge index sweep, expired-lease requeue + runner-down alert, `agent_jobs` synthesize sweep), `0 17 * * *` (02:00 JST: nightly `translate` + `consolidate` jobs), `5 0 * * *` (v1 translation, removed in Stage 07).
 - Runner auth: secret `RUNNER_TOKEN` (32+ chars) is accepted only by `/api/runner/*` and the CLI routes in `tests/architecture/runner-identity-routes.test.ts`.
 - `queue` — consumes `TRANSLATION_QUEUE`, Google Docs import jobs, and `SOURCE_FETCH_QUEUE`. Source import continuation for Chat, Drive, Discord, and websites runs in `SOURCE_IMPORT_DO` alarms, not the queue.
@@ -31,7 +31,7 @@ Single `ExportedHandler<Env>` — understand all three before touching:
 | Binding | Purpose |
 |---|---|
 | `DB` | D1, primary store. Via Drizzle (`getDb(env)` in `app/lib/db.server.ts`). |
-| `BUCKET` | R2 — page attachments + ingestion uploads. |
+| `BUCKET` | R2 — page attachments, source raw objects, answer-job bundles. |
 | `AGENT` | Service binding → `gdgjp-agent` (Discord / Chat). `completeJob` calls its `/internal/answer-ready` when an `answer` job ends. Shared secret `AGENT_SERVICE_TOKEN`. |
 | `KNOWLEDGE` | AI Search namespace `gdgjp-knowledge`; one built-in-storage instance per space. `app/features/knowledge/`. |
 | `TRANSLATION_QUEUE` | Translation producer+consumer; `app/lib/queue-processors.server.ts`. |
@@ -40,7 +40,7 @@ Single `ExportedHandler<Env>` — understand all three before touching:
 | `AI` | Workers AI — v1 translation only (`m2m100`), removed with `TRANSLATION_QUEUE`. |
 | `COLLAB_DO` | `CollabDurableObject`; one instance per page slug (`idFromName(slug)`). |
 | `SOURCE_IMPORT_DO` | `SourceImportDurableObject`; one instance per source (`getByName(sourceId)`). Alarm self-chain drives each driver's resumable phases. |
-| `WikiGenerationAgent` / `GENERATION_WORKFLOW` | Durable Wiki generation state and workflow. The Agent binding name must match the exported class for automatic `/agents/*` routing. |
+| `WikiGenerationAgent` / `GENERATION_WORKFLOW` | v1 generation, removed in Stage 07: inert classes in `workers/decommissioned.ts` keep the bindings (and stored state) until an operator retires them. |
 
 `worker-configuration.d.ts` is generated — don't hand-edit. Access via `context.cloudflare.env`.
 
@@ -57,19 +57,11 @@ OAuth **client** of accounts.gdgs.jp. No local password / better-auth (migration
 
 Wiki is the only app on Drizzle. Schema in `app/db/schema/` (domain modules + `index.ts` re-export; `~/db/schema` resolves to the directory), `drizzle.config.ts` writes to `migrations/`. Migrations are **hand-written SQL** (not generated). `schema.sql` is the generated post-migration dump — edit migrations, not the dump.
 
-## Wiki generation
+## Knowledge integration (v2)
 
-Agents SDK multi-phase flow: user-uploaded docs / URLs / Google Drive → wiki pages via the configured AI SDK model.
-
-- `WikiGenerationAgent` is a runtime adapter for RPC, coarse state projection, Workflow tracking,
-  and realtime broadcasts. Each user checkpoint starts a separate
-  `WikiGenerationPhaseWorkflow` instance.
-- Business logic lives under `workers/features/ingestion/`, split into orchestration, model,
-  tools, and persistence. The bounded, permission-aware Wiki workspace exposes
-  `ls/cat/search`; generation never uses Vectorize.
-- `/ingest/:sessionId` consumes display-safe realtime events through `useAgent()` while D1-backed
-  loaders remain authoritative and provide the reconnect fallback.
-- `/search` (keyword FTS + "AI" mode) reads the AI Search index via `app/features/knowledge/`; no LLM.
+Pages are written by the OCI runner (`gdg wiki runner`, Codex) through `/sync`, from sources
+added per space. The Worker never calls an LLM. The v1 `/ingest` flow (Agents SDK + Gemini)
+was removed in Stage 07; `/ingest` and `/analyze` 301 to `/s/gdg-jp/sources`.
 
 ## Realtime collab editor
 
@@ -99,8 +91,6 @@ Details in `ARCHITECTURE.md`. Scan this table to narrow the location before you 
 | ページ本体 / ACL / 可視性 / ツリー / メタ / アーカイブ | `app/features/pages/`（README あり。UI は `components/`） |
 | ソース取り込み（UI・API 側） | `app/features/sources/`（README あり）, `app/routes/sources/`, `app/routes/api/sources/` |
 | ソース取り込み（Worker 実行・DO alarm・refresh cron） | `workers/features/sources/` |
-| wiki 生成 AI（Agents SDK / Workflow） | `workers/features/ingestion/` — README あり |
-| wiki 生成 AI（クライアント配線 / ingest 画面） | `app/features/ingestion/`（README あり）, `app/routes/ingest/` |
 | エージェントジョブ（synthesize / consolidate / translate、runner API） | `app/features/jobs/`, `app/routes/api/runner/`, `app/routes/admin/runner.tsx`。runner 本体は `apps/cli/internal/wiki/runner/`、VM 配備は `infra/oci-runner/` |
 | 検索インデックス（AI Search、スペース別） | `app/features/knowledge/`（README あり） |
 | Google 連携（Drive / Docs / Forms / Chat / Picker） | `app/features/google/`（README あり。Docs インポートは `documents/`） |

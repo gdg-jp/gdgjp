@@ -8,8 +8,8 @@ import {
 } from "~/features/google/docs-markdown.server";
 import { getGoogleDriveAccessToken } from "~/features/google/drive-token.server";
 import { getGoogleDocumentWithTabs } from "~/features/google/drive.server";
-import { generateSlug } from "~/features/ingestion/slug";
 import { pageInSpace } from "~/features/pages/page-space.server";
+import { generateSlug } from "~/features/pages/slug";
 import { DEFAULT_SPACE_ID } from "~/features/spaces/shared";
 import { getDb } from "~/lib/db.server";
 

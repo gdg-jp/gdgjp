@@ -2,8 +2,7 @@
 
 Community wiki for GDG Japan, deployed at wiki.gdgs.jp on Cloudflare Workers. It is the most
 feature-rich package in the monorepo: D1, R2, Queues, Browser Rendering, Workers AI, AI Search,
-and a Durable Object pair power realtime collaborative editing, AI-assisted page generation from
-uploaded documents/URLs/Google Drive, semantic search, and multi-source ingestion (Google Docs,
+and a Durable Object pair power realtime collaborative editing, per-space knowledge search (AI Search) and multi-source import (Google Docs,
 Google Chat, Discord, websites). It is an OAuth relying party of `accounts/` and the only app in
 the repo with a Git-based CLI workflow (`gdg wiki clone`; see the root README's "Wiki through
 Git" section) and a bounded `/api/agent/*` read surface consumed by the separate `agents-index/`
@@ -16,24 +15,22 @@ summary.
 
 React Router v7 SSR on Cloudflare Workers, Drizzle ORM over D1 (wiki is the only app on Drizzle;
 every other app uses Kysely), TipTap + Yjs for realtime collaborative editing, the Vercel AI SDK
-(`@ai-sdk/google`) for Gemini-backed generation, and `agents` (Cloudflare Agents SDK) for the
-multi-phase wiki-generation workflow.
+(pages are integrated by the OCI runner; the Worker calls no LLM).
 
 | Binding | Type | Purpose |
 |---|---|---|
 | `DB` | D1 | Primary store, via Drizzle (`getDb(env)` in `app/lib/db.server.ts`). Schema in `app/db/schema/`. |
-| `BUCKET` | R2 | Page attachments and ingestion uploads (bucket `gdgjp-wiki-storage`). |
+| `BUCKET` | R2 | Attachments, source raw objects, answer bundles (bucket `gdgjp-wiki-storage`). |
 | `TRANSLATION_QUEUE` | Queue | Daily coalesced JA→EN Workers AI translation jobs. |
 | `GOOGLE_DOCUMENT_IMPORT_QUEUE` | Queue | Google Docs import jobs (long-running; outlives the browser request). |
 | `SOURCE_FETCH_QUEUE` | Queue | Source-fetch start messages; the import itself continues via DO alarms, not the queue. |
 | `BROWSER` | Browser Rendering | Headless Chromium for PDF export. |
 | `AI` | Workers AI | v1 translation (`m2m100`), until the translation queue is removed. |
 | `KNOWLEDGE` | AI Search | Namespace `gdgjp-knowledge`, one instance per space. |
-| `WIKI_AI_TELEMETRY` | Analytics Engine | AI generation model-call metrics (`wiki_ai_model_calls`). |
 | `COLLAB_DO` | Durable Object | `CollabDurableObject` — one instance per page slug (`idFromName(slug)`); Yjs CRDT over WebSocket at `/ws/collab/:slug`. |
 | `SOURCE_IMPORT_DO` | Durable Object | `SourceImportDurableObject` — one instance per source (`getByName(sourceId)`); alarm self-chain drives resumable import phases for Chat, Drive, Discord, and website sources. |
-| `WikiGenerationAgent` | Durable Object (Agents SDK) | Runtime adapter for the ingestion RPC/state/realtime-broadcast surface at `/agents/wiki-generation-agent/:sessionId`. |
-| `GENERATION_WORKFLOW` | Workflow | `WikiGenerationPhaseWorkflow` — a fresh instance per user checkpoint in the generation flow. |
+| `WikiGenerationAgent` | Durable Object | v1 generation, inert since Stage 07 (keeps stored state until retired). |
+| `GENERATION_WORKFLOW` | Workflow | v1 generation workflow, inert since Stage 07. |
 | `ACCOUNTS` | Service binding | Worker-to-worker OIDC discovery/token/userinfo against `accounts/` (remote-bound, so `wrangler dev` needs no local `accounts` process). |
 | `ASSETS` | Assets | Static client build output. |
 
@@ -63,9 +60,6 @@ Also set in `.dev.vars.example`, pre-filled to point local dev at a local `accou
 
 Optional, feature-gated:
 
-- `GEMINI_API_KEY` — AI ingestion/generation features (translation uses Workers AI).
-- `AI_GATEWAY_BASE_URL` / `AI_GATEWAY_TOKEN` — AI generation observability via Cloudflare AI
-  Gateway; leave both empty locally to fall back to direct Gemini calls.
 - `GOOGLE_DOCS_CLIENT_ID` / `GOOGLE_DOCS_CLIENT_SECRET` / `GOOGLE_PICKER_API_KEY` /
   `GOOGLE_CLOUD_PROJECT_NUMBER` — Google Drive/Docs direct import (Picker key must be restricted
   to the local/prod origins and the Picker API).

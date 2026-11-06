@@ -276,77 +276,9 @@
     }
   },
   "ingest": {
-    "title": "Add Content",
-    "description": "AI will prepare a wiki-page proposal from your text, images, and Google Drive files.",
-    "complete_toast": "AI ingestion complete! Review the proposal below.",
-    "processing_message": "AI is analyzing...",
-    "processing_hint": "Please wait a moment",
-    "processing_leave_hint": "You can safely leave this page — processing will continue in the background.",
-    "phase_step_1": "Processing input",
-    "phase_step_2": "Planning page structure",
-    "phase_step_3": "Generating page content",
-    "phase_step_4": "Complete",
-    "clarification_heading": "Clarification needed",
-    "clarification_summary_label": "What AI understood",
-    "clarification_submit": "Submit and continue",
-    "clarification_hint": "Please provide the following information to generate more accurate wiki pages",
-    "nothing_in_particular": "Nothing in particular",
-    "url_selection_heading": "External URLs Found",
-    "url_selection_hint": "Select URLs to fetch and include as additional context for AI page generation.",
-    "url_selection_submit": "Fetch selected URLs and continue",
-    "url_selection_skip": "Skip and continue",
     "url_source_user_text": "From your text",
     "url_source_google_doc": "From Google Doc",
-    "error_heading": "An error occurred during processing",
-    "retry": "Try again",
-    "review_not_found": "Review proposal not found.",
-    "review_heading": "Review Proposal",
-    "review_subtitle": "Review and edit the AI-generated proposal before publishing.",
-    "form": {
-      "text_label": "Text input",
-      "text_placeholder": "Write freely about an event or activity (min. 50 chars)\nE.g. Our Tech Talk last week had 45 attendees. Speaker Tanaka-san shared...",
-      "char_count": "{{count}} chars",
-      "images_label": "Images (max {{max}}, up to 10MB each)",
-      "drop_hint": "Click or drag & drop to add images",
-      "doc_url_label": "Google Docs / Slides / Sheets URL",
-      "drive_connected": "Connected",
-      "drive_connect": "Connect Drive",
-      "pdfs_label": "PDF Files (max {{max}}, up to 20 MB each)",
-      "pdfs_hint": "Upload PDF documents as source material for AI analysis",
-      "pdfs_drop_hint": "Click or drag & drop to add PDF files",
-      "submit": "Create with AI →"
-    },
-    "errors": {
-      "text_too_short": "Not enough text. Please enter at least {{min}} characters.",
-      "too_many_images": "You can attach up to {{max}} images.",
-      "image_too_large": "{{name}} exceeds 10MB.",
-      "not_an_image": "{{name}} is not an image file.",
-      "invalid_drive_url": "Please enter a valid Google Docs, Slides, or Sheets URL.",
-      "too_many_pdfs": "You can attach up to {{max}} PDF files.",
-      "pdf_too_large": "{{name}} exceeds 20 MB.",
-      "not_a_pdf": "{{name}} is not a PDF file.",
-      "enqueue_failed": "Failed to start ingestion. Please try again."
-    },
     "review": {
-      "ai_rationale": "AI's Reasoning",
-      "warnings": "Warnings",
-      "op_create": "New",
-      "op_update": "Update",
-      "actionability_score": "Actionability Score: {{score}}/3",
-      "actionability_regen_hint": "— Consider adding more context and regenerating",
-      "field_title": "Page Title",
-      "field_summary": "Summary",
-      "field_page_type": "Page Type",
-      "field_tags": "Tags (max 5)",
-      "field_body": "Body",
-      "field_feedback": "Regeneration Feedback",
-      "feedback_placeholder": "Enter what you'd like improved...",
-      "regenerating": "Generating...",
-      "regenerate": "Regenerate",
-      "regenerate_error_generic": "Regeneration failed. Please try again.",
-      "publishing": "Publishing...",
-      "publish": "Publish",
-      "error": "Error: {{message}}",
       "pageType": {
         "event-report": "Event Report",
         "speaker-profile": "Speaker Profile",
@@ -364,23 +296,9 @@
         "community-ops": "Community Operations",
         "technical": "Technical",
         "template": "Template"
-      },
-      "field_parent_page": "Parent Page",
-      "parent_none": "(None — root level)",
-      "existing_pages": "Existing Pages",
-      "new_pages_in_changeset": "New Pages in This Import",
-      "structure_preview": "Page Structure Preview",
-      "sibling_warning": "{{count}} new pages will be added at the root level. Consider grouping them under a parent page.",
-      "add_parent_page": "Add a parent page to group them"
+      }
     },
     "sensitive": {
-      "title": "Sensitive Information Found",
-      "subtitle": "Please choose how to handle the following items before publishing.",
-      "location": "Location: {{location}}",
-      "resolution_keep": "Keep as-is",
-      "resolution_delete": "Delete",
-      "resolution_replace": "Replace with [REVIEW]",
-      "proceed": "Review Draft →",
       "type": {
         "email": "Email Address",
         "phone": "Phone Number",
@@ -390,25 +308,6 @@
         "credential": "Credentials",
         "other": "Other"
       }
-    }
-  },
-  "analyze": {
-    "title": "Analyze with AI (Beta)",
-    "description": "Paste a Google Form URL to auto-generate a survey analysis wiki page with charts.",
-    "form": {
-      "form_url_label": "Google Form URL",
-      "event_title_label": "Event Title",
-      "event_title_placeholder": "e.g. GDG Tech Talk 2025",
-      "connect_hint": "Google Forms access requires connecting your Google account. This uses the same connection as Google Drive.",
-      "connect_google": "Connect Google",
-      "submit": "Analyze with AI →"
-    },
-    "errors": {
-      "form_not_connected": "Please connect your Google account first.",
-      "invalid_form_url": "Please enter a valid Google Forms URL.",
-      "form_url_required": "Google Form URL is required.",
-      "event_title_required": "Event title is required.",
-      "enqueue_failed": "Failed to start analysis. Please try again."
     }
   },
   "sources": {

@@ -28,13 +28,12 @@ vi.mock("./features/sources/fetch-source", async (importOriginal) => {
 
 // Runtime-boundary modules pull `cloudflare:`-scheme imports the node test loader
 // cannot resolve; the `scheduled` handler never touches them.
-vi.mock("agents", () => ({ routeAgentRequest: vi.fn() }));
-vi.mock("./agents/wiki-generation-agent", () => ({ WikiGenerationAgent: class {} }));
-vi.mock("./collab-durable-object", () => ({ CollabDurableObject: class {} }));
-vi.mock("./source-import-durable-object", () => ({ SourceImportDurableObject: class {} }));
-vi.mock("./workflows/wiki-generation-phase-workflow", () => ({
+vi.mock("./decommissioned", () => ({
+  WikiGenerationAgent: class {},
   WikiGenerationPhaseWorkflow: class {},
 }));
+vi.mock("./collab-durable-object", () => ({ CollabDurableObject: class {} }));
+vi.mock("./source-import-durable-object", () => ({ SourceImportDurableObject: class {} }));
 
 const { default: worker } = await import("./app");
 

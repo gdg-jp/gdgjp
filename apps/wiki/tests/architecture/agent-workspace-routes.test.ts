@@ -1,12 +1,12 @@
 import type { BearerIdentity } from "@gdgjp/gdg-lib";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { WORKSPACE_LIMITS } from "../../workers/features/ingestion/tools/workspace/contracts";
-import { encodeOffsetCursor } from "../../workers/features/ingestion/tools/workspace/paths";
+import { WORKSPACE_LIMITS } from "../../app/features/agent-api/workspace/contracts";
+import { encodeOffsetCursor } from "../../app/features/agent-api/workspace/paths";
 import type {
   WikiWorkspacePage,
   WikiWorkspaceStore,
   WorkspaceActor,
-} from "../../workers/features/ingestion/tools/workspace/wiki-adapter";
+} from "../../app/features/agent-api/workspace/wiki-adapter";
 
 const getBearerIdentityMock = vi.fn<(...args: unknown[]) => unknown>();
 const createStoreMock = vi.fn<(...args: unknown[]) => unknown>();
@@ -24,7 +24,7 @@ vi.mock("~/lib/db.server", () => ({
   getDb: (...args: unknown[]) => getDbMock(...args),
 }));
 
-vi.mock("../../workers/features/ingestion/persistence/d1/wiki-read-repository", () => ({
+vi.mock("../../app/features/agent-api/workspace/wiki-read-repository", () => ({
   createD1WikiWorkspaceStore: (...args: unknown[]) => createStoreMock(...args),
 }));
 

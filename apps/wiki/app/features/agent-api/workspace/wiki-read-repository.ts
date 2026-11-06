@@ -1,17 +1,17 @@
 import { and, asc, eq, inArray, isNull, like, or } from "drizzle-orm";
 import type { SQL } from "drizzle-orm";
 import type { DrizzleD1Database } from "drizzle-orm/d1";
-import * as schema from "../../../../../app/db/schema";
-import { getEffectivePagePermissions } from "../../../../../app/features/pages/access.server";
-import { redactPageMarkdown } from "../../../../../app/features/pages/acl-spans.server";
-import { pageInSpace } from "../../../../../app/features/pages/page-space.server";
-import { DEFAULT_SPACE_ID } from "../../../../../app/features/spaces/shared";
+import * as schema from "~/db/schema";
+import { getEffectivePagePermissions } from "~/features/pages/access.server";
+import { redactPageMarkdown } from "~/features/pages/acl-spans.server";
+import { pageInSpace } from "~/features/pages/page-space.server";
+import { DEFAULT_SPACE_ID } from "~/features/spaces/shared";
 import type {
   WikiWorkspaceStore,
   WorkspaceActor,
   WikiWorkspacePage as WorkspacePage,
   WikiWorkspacePageBody as WorkspacePageBody,
-} from "../../tools/workspace/wiki-adapter";
+} from "./wiki-adapter";
 
 type Db = DrizzleD1Database<typeof schema>;
 type PageRow = Omit<WorkspacePage, "updatedAt"> & { updatedAt: Date };

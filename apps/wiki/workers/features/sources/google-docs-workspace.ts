@@ -1,9 +1,4 @@
 import type {
-  GoogleDocsDocument,
-  GoogleDocsStructuralElement,
-  GoogleDocsTab,
-} from "../../../../../app/features/google/drive.server";
-import type {
   AdapterResult,
   ListOptions,
   ListResult,
@@ -11,14 +6,19 @@ import type {
   ReadResult,
   WorkspaceAdapter,
   WorkspaceEntry,
-} from "../workspace/contracts";
-import { WORKSPACE_LIMITS } from "../workspace/contracts";
+} from "../../../app/features/agent-api/workspace/contracts";
+import { WORKSPACE_LIMITS } from "../../../app/features/agent-api/workspace/contracts";
 import {
   boundedLimit,
   decodeOffsetCursor,
   encodeOffsetCursor,
   normaliseRelativeWorkspacePath,
-} from "../workspace/paths";
+} from "../../../app/features/agent-api/workspace/paths";
+import type {
+  GoogleDocsDocument,
+  GoogleDocsStructuralElement,
+  GoogleDocsTab,
+} from "../../../app/features/google/drive.server";
 
 export interface GoogleDocsWorkspaceDocument {
   document: GoogleDocsDocument;

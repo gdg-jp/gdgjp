@@ -70,10 +70,7 @@ const LIB_FEATURE_IMPORT_ALLOWLIST = new Set([
 // files are the known exception to the worker-internals import ban. Pre-existing
 // drift, not introduced by Stage 06 (which may not touch
 // `workers/features/ingestion/`). Also shrink-only — see below.
-const WORKER_INTERNALS_IMPORT_ALLOWLIST = new Set([
-  "app/features/agent-api/workspace.server.ts",
-  "app/features/agent-api/notes.server.ts",
-]);
+const WORKER_INTERNALS_IMPORT_ALLOWLIST = new Set<string>([]);
 
 const LIB_ALLOWED_FILES = new Set([
   "db.server.ts",

@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
-import type { GoogleDocsDocument } from "../../../../../app/features/google/drive.server";
+import type { GoogleDocsDocument } from "../../../app/features/google/drive.server";
 import {
   createGoogleDocsWorkspaceAdapter,
   flattenGoogleDocsWorkspaceNodes,
   googleDocsPathSegment,
-} from "./workspace";
+} from "./google-docs-workspace";
 
 function documentFixture(): GoogleDocsDocument {
   return {

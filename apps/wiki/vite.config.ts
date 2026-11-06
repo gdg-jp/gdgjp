@@ -1,7 +1,6 @@
 import { cloudflare } from "@cloudflare/vite-plugin";
 import { reactRouter } from "@react-router/dev/vite";
 import tailwindcss from "@tailwindcss/vite";
-import agents from "agents/vite";
 import { defineConfig } from "vite";
 import { E2E_PERSISTENCE_ENV, resolveE2EPersistencePath } from "./tests/e2e/setup";
 
@@ -18,7 +17,6 @@ export default defineConfig({
   // regardless of which app `pnpm dev` starts first.
   server: { port: 5177, strictPort: true },
   plugins: [
-    agents(),
     cloudflare({
       configPath: process.env.CLOUDFLARE_VITE_WRANGLER_CONFIG_PATH,
       viteEnvironment: { name: "ssr" },

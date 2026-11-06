@@ -57,7 +57,7 @@ vi.mock("~/features/sources/sources.server", () => ({
 /** Chapter every cited page resolves to; set per test. */
 let citedChapterId: string | null = "A";
 
-vi.mock("../../../workers/features/ingestion/persistence/d1/wiki-read-repository", () => ({
+vi.mock("../../../app/features/agent-api/workspace/wiki-read-repository", () => ({
   createD1WikiWorkspaceStore: () => ({
     getRootPage: async (slug: string) => ({
       id: `cited-${slug}`,

@@ -18,7 +18,7 @@ vi.mock("~/lib/db.server", () => ({
   getDb: (...args: unknown[]) => getDbMock(...args),
 }));
 
-vi.mock("../../workers/features/ingestion/persistence/d1/wiki-read-repository", () => ({
+vi.mock("../../app/features/agent-api/workspace/wiki-read-repository", () => ({
   createD1WikiWorkspaceStore: (...args: unknown[]) => createStoreMock(...args),
 }));
 
