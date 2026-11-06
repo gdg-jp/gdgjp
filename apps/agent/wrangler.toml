@@ -14,6 +14,9 @@ workers_dev = true
 APP_URL = "https://agent.gdgs.jp"
 ACCOUNTS_URL = "https://accounts.gdgs.jp"
 IDP_CLIENT_ID = "agents"
+# Public values from the Discord Developer Portal ("GDG Agent").
+DISCORD_APPLICATION_ID = "1535835155774709880"
+DISCORD_PUBLIC_KEY = "e9957ee98bf5afc6c788b528d67f9bd33d6b6836ede6d6f2b264cbcf157d7f02"
 
 [[d1_databases]]
 binding = "DB"
