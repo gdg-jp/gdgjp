@@ -89,8 +89,7 @@ git config --local gdgjp.ciNode /absolute/path/to/arm64/bin/node
 ```
 
 This runtime applies to full and staged checks. Application unit tests use isolated threads with
-at most two workers per application. `agents-index` unit tests keep the invoking Node to match their installed
-native addon; Wiki's SQLite tests use Node's built-in SQLite. `GDG_CI_NODE` can override the setting
+at most two workers per application. Wiki's SQLite tests use Node's built-in SQLite. `GDG_CI_NODE` can override the setting
 for one run. Invalid executables fail CI; `git config --local --unset gdgjp.ciNode` restores the
 invoking Node. Each step's selected runtime is recorded and participates in Turbo's cache key.
 
@@ -199,7 +198,6 @@ because that grant has no single-column id.
 | `apps/accounts/` | `@gdgjp/accounts` | accounts.gdgs.jp | Auth IdP — built on `@cloudflare/workers-oauth-provider` over D1 + KV, issues OAuth credentials to the other apps. |
 | `apps/accounts-oidc-client-demo/` | `@gdgjp/accounts-oidc-client-demo` | Cloudflare Workers demo | Independent OpenID Connect relying-party example for GDG Accounts; uses encrypted cookies and no D1, KV, or service binding. |
 | `apps/agent/` | `@gdgjp/agent` | agent.gdgs.jp | Discord / Google Chat front door of the knowledge platform: verifies webhooks, reads the wiki as the asker, queues `answer` jobs for the OCI runner. No LLM. |
-| `apps/agent-host/` | — | — | Self-hosted v1 agent host (removed in knowledge platform v2 Stage 07): xangi + Cursor CLI (Composer 2.5) driving the LLM Wiki from a home Ubuntu server. |
 | `apps/cli/` | `github.com/gdg-jp/gdgjp/cli` | — | Go-based `gdg` command-line tool for authenticating with GDG Accounts, managing OAuth clients, and installing updates. |
 | `packages/gdg-lib/` | `@gdgjp/gdg-lib` | — | Shared RP factory (`initializeRpAuth`) + signed-cookie HMAC helpers, consumed via `workspace:*`. Source-only (no build step). |
 | `apps/go-extension/` | `@gdgjp/go-extension` | Chrome extension | Manifest V3 extension for GDG Japan Go Links. Redirects `go/<slug>` URLs, supports the `go` omnibox keyword, and recognizes exact searches. |

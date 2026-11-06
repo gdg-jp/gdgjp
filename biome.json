@@ -25,14 +25,11 @@
       "apps/screen/app/features/rtc/denoise/df-glue.js",
       "**/openapi.gen.go",
       "**/openapigen/**",
-      "apps/cli/internal/wiki/hooks/acl.ts",
       "apps/connpass/fixtures/html/*_files/**",
       ".agents/**",
       ".claude/**",
       ".cursor/**",
-      "apps/agent-host/**/.cursor/**",
       "apps/learn/**",
-      "apps/xangi/**",
       "apps/agent/eval/results/**"
     ]
   },

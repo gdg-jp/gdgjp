@@ -3,7 +3,7 @@
 ## Project Structure & Module Organization
 
 Applications live in `apps/` and shared libraries in `packages/`. Workspace globs in
-`pnpm-workspace.yaml` includes `apps/*`, `packages/*`, and `apps/agent-host/*`, excluding `apps/xangi` and `apps/agent-host/agents-index`:
+`pnpm-workspace.yaml` includes `apps/*` and `packages/*`:
 
 - `apps/accounts/` is the GDG Accounts OAuth/OIDC identity provider on Cloudflare Workers, backed by
   D1 and KV.
@@ -82,14 +82,12 @@ Applications live in `apps/` and shared libraries in `packages/`. Workspace glob
   the entrypoint for the design harness: contracts in `design/`, `pnpm --filter @gdgjp/design-system
   design:*` checks, the `gdg-design` MCP server, and the `design-build` / `design-review` /
   `design-improve` Skills.
-- `apps/agents-index/` is the local, ACL-filtered semantic navigation MCP service for the shared wiki
-  worktree. Its results must never include indexed document text.
 - `apps/tinyurl-gateway/` is a Vercel Edge gateway for TinyURL custom domains.
 - `apps/go-extension/` is a Manifest V3 Chrome extension.
 - `apps/accounts-oidc-client-demo/` is a standalone Cloudflare Worker demonstrating an OIDC relying
   party; it does not use D1, KV, or service bindings.
 
-`apps/cli/` contains the Go-based `gdg` CLI and is not a pnpm workspace. `apps/agent-host/` is the self-hosted agent host. `apps/learn/` and `apps/xangi/` are Git submodules. Repository automation lives
+`apps/cli/` contains the Go-based `gdg` CLI and is not a pnpm workspace. `apps/learn/` is a Git submodule. `infra/oci-runner/` deploys the knowledge runner (`gdg wiki runner`) on an OCI VM. Repository automation lives
 in `scripts/`; supporting documentation lives in `docs/`.
 
 Application code is feature-first; consult each application's `ARCHITECTURE.md` and

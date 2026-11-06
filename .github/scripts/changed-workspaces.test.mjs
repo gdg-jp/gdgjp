@@ -71,7 +71,7 @@ test("propagates gdg-lib changes to every dependent application", () => {
 test("fans common configuration changes out to every target", () => {
   const result = classifyChanges(["pnpm-lock.yaml"]);
 
-  assert.equal(result.ci.length, 22);
+  assert.equal(result.ci.length, 21);
   assert.equal(result.build.length, 20);
   assert.equal(result.deploy.length, 18);
   assert.equal(result.openapi, true);
@@ -82,11 +82,11 @@ test("treats workflow and detector changes as global for their consumers", () =>
   const deploy = classifyChanges([".github/workflows/deploy.yml"]);
   const detector = classifyChanges([".github/scripts/changed-workspaces.mjs"]);
 
-  assert.equal(ci.ci.length, 22);
+  assert.equal(ci.ci.length, 21);
   assert.equal(ci.deploy.length, 0);
   assert.equal(deploy.ci.length, 0);
   assert.equal(deploy.deploy.length, 18);
-  assert.equal(detector.ci.length, 22);
+  assert.equal(detector.ci.length, 21);
   assert.equal(detector.deploy.length, 18);
 });
 
@@ -125,67 +125,10 @@ test("manual execution selects every CI and deploy target", () => {
   const result = classifyChanges([], { forceAll: true });
 
   assert.equal(result.full, true);
-  assert.equal(result.ci.length, 22);
+  assert.equal(result.ci.length, 21);
   assert.equal(result.deploy.length, 18);
   assert.equal(result.lint, true);
   assert.equal(result.cli, true);
-});
-
-test("gates the CLI Go job on cli/ changes", () => {
-  assert.equal(classifyChanges(["apps/cli/internal/command/wiki.go"]).cli, true);
-  assert.equal(classifyChanges(["packages/gdg-lib/src/acl/agent.ts"]).cli, true);
-  assert.equal(classifyChanges(["packages/gdg-lib/scripts/build-acl.mjs"]).cli, true);
-  assert.equal(classifyChanges(["scripts/run-go-ci.mjs"]).cli, true);
-  assert.equal(classifyChanges(["docs/operations.md"]).cli, false);
-  assert.equal(classifyChanges(["pnpm-lock.yaml"]).cli, true);
-});
-
-test("gates script-tests on workflow scripts and agent-host components", () => {
-  assert.equal(classifyChanges([".github/scripts/gdg-agent-layout.test.mjs"]).scriptTests, true);
-  assert.equal(classifyChanges(["scripts/install-gdg-agent-host.sh"]).scriptTests, true);
-  assert.equal(classifyChanges(["apps/agent-host/config/permissions.json"]).scriptTests, true);
-  assert.equal(classifyChanges(["apps/agents-index/src/proxy.ts"]).scriptTests, true);
-  assert.equal(classifyChanges(["apps/cli/internal/wiki/hooks/acl-gate.ts"]).scriptTests, true);
-  assert.equal(classifyChanges(["apps/wiki/app/routes/home.tsx"]).scriptTests, false);
-  assert.equal(classifyChanges(["docs/operations.md"]).scriptTests, false);
-  assert.equal(classifyChanges(["apps/accounts/src/index.ts"]).scriptTests, false);
-  assert.equal(classifyChanges(["scripts/check-ui-conventions.mjs"]).scriptTests, true);
-  assert.equal(classifyChanges(["scripts/run-ci.mjs"]).scriptTests, true);
-  assert.equal(classifyChanges([".github/scripts/shell-allowlist.txt"]).scriptTests, true);
-  assert.equal(classifyChanges(["apps/screen/scripts/dfn/build.sh"]).scriptTests, true);
-  assert.equal(classifyChanges(["scripts/run-go-ci.mjs"]).scriptTests, true);
-  assert.equal(classifyChanges(["packages/gdg-lib/scripts/build-acl.mjs"]).scriptTests, true);
-  assert.equal(
-    classifyChanges(["apps/wiki/tests/architecture/ui-conventions-baseline.json"]).scriptTests,
-    true,
-  );
-});
-
-test("selects nested workspace @gdgjp/langfuse-forwarder on agent-host/langfuse-forwarder changes", () => {
-  const result = classifyChanges(["apps/agent-host/langfuse-forwarder/src/index.ts"]);
-  assert.deepEqual(result.ci, ["@gdgjp/langfuse-forwarder"]);
-  assert.deepEqual(result.build, []);
-  assert.deepEqual(result.e2e, []);
-});
-
-test("agent-host non-forwarder changes do not select @gdgjp/langfuse-forwarder", () => {
-  const result = classifyChanges(["apps/agent-host/workspace/AGENTS.md"]);
-  assert.deepEqual(result.ci, []);
-  assert.equal(result.scriptTests, true);
-  assert.equal(result.agentHostWorkspace, true);
-});
-
-test("detects agent-host/workspace changes with agentHostWorkspace predicate", () => {
-  assert.equal(
-    classifyChanges(["apps/agent-host/workspace/.agents/skills/wiki-ingest/SKILL.md"])
-      .agentHostWorkspace,
-    true,
-  );
-  assert.equal(
-    classifyChanges(["apps/agent-host/config/cli-config.json"]).agentHostWorkspace,
-    false,
-  );
-  assert.equal(classifyChanges(["apps/wiki/app/routes/home.tsx"]).agentHostWorkspace, false);
 });
 
 test("GDG UI changes validate and deploy its consumers", () => {
@@ -254,4 +197,12 @@ test("UI gitlink updates select the same targets as library source changes", () 
     classifyChanges(["packages/design-system"]),
     classifyChanges(["packages/design-system/README.md"]),
   );
+});
+
+test("gates the CLI Go job on cli/ changes", () => {
+  assert.equal(classifyChanges(["apps/cli/internal/command/wiki.go"]).cli, true);
+  assert.equal(classifyChanges(["packages/gdg-lib/src/acl/agent.ts"]).cli, true);
+  assert.equal(classifyChanges(["scripts/run-go-ci.mjs"]).cli, true);
+  assert.equal(classifyChanges(["docs/operations.md"]).cli, false);
+  assert.equal(classifyChanges(["pnpm-lock.yaml"]).cli, true);
 });

@@ -28,8 +28,7 @@ type wikiService struct {
 	installHelper func(string) (string, error)
 	credentials   store.CredentialStore
 	newClient     func() *wiki.Client
-	runAgent      func(ctx context.Context, root, agent, prompt string) error
-	// readSources overrides the trace-derived read set for verify-acl (nil = trace).
+	// readSources is verify-acl's --read-sources (the job's sources); required.
 	readSources []string
 }
 
@@ -47,7 +46,6 @@ func newWikiCommand(credentials store.CredentialStore) *cobra.Command {
 		installHelper: wiki.InstallGitRemoteHelper,
 		credentials:   credentials,
 		newClient:     wiki.NewClient,
-		runAgent:      runCodingAgent,
 	})
 }
 
@@ -98,82 +96,25 @@ func newWikiCommandWithService(service *wikiService) *cobra.Command {
 	})
 	command.AddCommand(raw)
 
-	var ingestCommit bool
-	var ingestAgent string
-	var ingestCommitDocumentID string
-	ingest := &cobra.Command{
-		Use:   "ingest",
-		Short: "Write INGEST_QUEUE.md from the local raw snapshot",
-		Args:  cobra.NoArgs,
-		RunE: func(cmd *cobra.Command, _ []string) error {
-			return service.ingest(cmd, ingestCommit, ingestAgent, ingestCommitDocumentID)
-		},
-	}
-	ingest.Flags().BoolVar(&ingestCommit, "commit", false, "Mark a queue item as ingested in local state")
-	ingest.Flags().StringVar(&ingestCommitDocumentID, "document-id", "", "With --commit, mark this document_id instead of the queue head")
-	ingest.Flags().StringVar(&ingestAgent, "agent", "", "Shell out to claude, codex, or cursor with the ingest prompt")
-	ingest.MarkFlagsMutuallyExclusive("commit", "agent")
-
-	ingest.AddCommand(&cobra.Command{
-		Use:   "lock [DOCUMENT_ID]",
-		Short: "Claim the next unlocked pending ingest document_id, or a specific one",
-		// Document IDs may start with '-' (nanoid-style).
-		DisableFlagParsing: true,
-		RunE: func(cmd *cobra.Command, args []string) error {
-			if len(args) > 1 {
-				return fmt.Errorf("usage: gdg wiki ingest lock [DOCUMENT_ID]")
-			}
-			documentID := ""
-			if len(args) == 1 {
-				documentID = args[0]
-			}
-			return service.ingestLock(cmd, documentID)
-		},
-	})
-	ingest.AddCommand(&cobra.Command{
-		Use:   "unlock DOCUMENT_ID",
-		Short: "Release an ingest lock on a document_id",
-		Args:  cobra.ArbitraryArgs,
-		// Document IDs may start with '-' (nanoid-style). Disable cobra flag
-		// parsing so those are not treated as shorthand flags.
-		DisableFlagParsing: true,
-		RunE: func(cmd *cobra.Command, args []string) error {
-			docID, force, err := parseIngestUnlockArgs(args)
-			if err != nil {
-				return err
-			}
-			return service.ingestUnlock(cmd, docID, force)
-		},
-	})
-	command.AddCommand(ingest)
-
 	var readSources []string
 	verify := &cobra.Command{
 		Use:   "verify-acl",
 		Short: "Dry-run ACL validation for changed pages (fail-open on infrastructure errors)",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			if cmd.Flags().Changed("read-sources") {
-				service.readSources = append([]string{}, readSources...)
+			if !cmd.Flags().Changed("read-sources") {
+				return errors.New("--read-sources is required (the source ids the agent read; may be empty: --read-sources=)")
 			}
+			service.readSources = append([]string{}, readSources...)
 			return service.verifyACL(cmd)
 		},
 	}
-	verify.Flags().StringSliceVar(&readSources, "read-sources", nil, "Source ids the agent read (replaces the ingest trace)")
+	verify.Flags().StringSliceVar(&readSources, "read-sources", nil, "Source ids the agent read (required; empty for page-only runs)")
 	command.AddCommand(verify)
 
 	command.AddCommand(newWikiRunnerCommand(service))
 	command.AddCommand(newWikiMCPCommand())
 	command.AddCommand(newWikiJudgeCommand())
-
-	command.AddCommand(&cobra.Command{
-		Use:   "lint",
-		Short: "Print a lint prompt for the coding agent",
-		Args:  cobra.NoArgs,
-		RunE: func(cmd *cobra.Command, _ []string) error {
-			return service.lint(cmd)
-		},
-	})
 
 	return command
 }
@@ -188,26 +129,6 @@ func runGit(ctx context.Context, directory string, args ...string) (string, erro
 		return "", fmt.Errorf("git %s: %s", strings.Join(args, " "), strings.TrimSpace(string(output)))
 	}
 	return string(output), nil
-}
-
-func runCodingAgent(ctx context.Context, root, agent, prompt string) error {
-	var name string
-	switch agent {
-	case "claude":
-		name = "claude"
-	case "codex":
-		name = "codex"
-	case "cursor":
-		name = "cursor-agent"
-	default:
-		return fmt.Errorf("unsupported agent %q (use claude, codex, or cursor)", agent)
-	}
-	command := exec.CommandContext(ctx, name, prompt)
-	command.Dir = root
-	command.Stdin = os.Stdin
-	command.Stdout = os.Stdout
-	command.Stderr = os.Stderr
-	return command.Run()
 }
 
 func (s *wikiService) clone(cmd *cobra.Command, directory, remote, lang string) error {
@@ -437,246 +358,6 @@ func (s *wikiService) syncRaw(ctx context.Context, root string) error {
 	})
 }
 
-func (s *wikiService) ingestLock(cmd *cobra.Command, documentID string) error {
-	root, err := s.findRoot()
-	if err != nil {
-		return err
-	}
-	state, err := wiki.ReadState(root)
-	if err != nil {
-		return err
-	}
-	if state.Manifest == nil {
-		return errors.New("no local raw snapshot; run gdg wiki raw pull first")
-	}
-	_, pending, err := wiki.BuildIngestQueue(root, *state.Manifest, state)
-	if err != nil {
-		return err
-	}
-	if len(pending) == 0 {
-		return errors.New("no claimable pending documents")
-	}
-	owner := wiki.LockOwner()
-	locks, err := wiki.LoadLocks(root)
-	if err != nil {
-		return err
-	}
-	var lastErr error
-	for _, item := range pending {
-		if documentID != "" && item.DocumentID != documentID {
-			continue
-		}
-		if existing, ok := locks.Locks[item.DocumentID]; ok && existing.Owner != owner {
-			continue
-		}
-		entry, lockErr := wiki.LockDocument(root, item.DocumentID, owner, item.ContentHash)
-		if lockErr != nil {
-			lastErr = lockErr
-			// Another owner claimed it between LoadLocks and LockDocument; try next.
-			continue
-		}
-		_, err = fmt.Fprintf(cmd.OutOrStdout(), "Locked %s (owner %s).\n", entry.DocumentID, entry.Owner)
-		if err != nil {
-			return err
-		}
-		baseRev, revErr := s.runGit(cmd.Context(), root, "rev-parse", "HEAD")
-		baseRev = strings.TrimSpace(baseRev)
-		if revErr != nil || baseRev == "" {
-			_ = wiki.UnlockDocument(root, entry.DocumentID, owner, false)
-			if revErr != nil {
-				return fmt.Errorf("cannot record BaseRev for ingest lock: %w", revErr)
-			}
-			return errors.New("cannot record BaseRev for ingest lock: empty HEAD")
-		}
-		if err = wiki.ResetIngestTrace(root, entry.DocumentID, baseRev); err != nil {
-			_ = wiki.UnlockDocument(root, entry.DocumentID, owner, false)
-			return err
-		}
-		if runID := strings.TrimSpace(os.Getenv("GDG_WIKI_RUN_ID")); runID != "" {
-			if err = wiki.ResetIngestTraceForRun(root, runID, entry.DocumentID, baseRev); err != nil {
-				_ = wiki.UnlockDocument(root, entry.DocumentID, owner, false)
-				return err
-			}
-		}
-		return nil
-	}
-	if documentID != "" {
-		if lastErr != nil {
-			return fmt.Errorf("document %s is not a claimable pending document: %w", documentID, lastErr)
-		}
-		return fmt.Errorf("document %s is not a claimable pending document", documentID)
-	}
-	if lastErr != nil {
-		return fmt.Errorf("no claimable pending documents: %w", lastErr)
-	}
-	return errors.New("no claimable pending documents")
-}
-
-func (s *wikiService) ingestUnlock(cmd *cobra.Command, documentID string, force bool) error {
-	root, err := s.findRoot()
-	if err != nil {
-		return err
-	}
-	if err = wiki.UnlockDocument(root, documentID, wiki.LockOwner(), force); err != nil {
-		return err
-	}
-	_, err = fmt.Fprintf(cmd.OutOrStdout(), "Unlocked %s.\n", documentID)
-	return err
-}
-
-func parseIngestUnlockArgs(args []string) (docID string, force bool, err error) {
-	return parseIngestDocArgs("unlock", args, true)
-}
-
-func parseIngestDocArgs(command string, args []string, allowForce bool) (docID string, force bool, err error) {
-	var ids []string
-	for _, arg := range args {
-		switch {
-		case arg == "--":
-			return "", false, fmt.Errorf("unexpected argument: --")
-		case arg == "--force":
-			if !allowForce {
-				return "", false, fmt.Errorf("unknown flag: %s", arg)
-			}
-			force = true
-		case arg == "-h", arg == "--help":
-			return "", false, fmt.Errorf("help requested")
-		case strings.HasPrefix(arg, "-") && arg != "-":
-			// Nanoid-style IDs may start with '-'; treat any dashed token that
-			// is not a known flag as the document id when we still need one.
-			if allowForce && (arg == "-f") {
-				force = true
-				continue
-			}
-			if len(ids) == 0 && !isKnownIngestLockFlag(arg) {
-				ids = append(ids, arg)
-				continue
-			}
-			return "", false, fmt.Errorf("unknown flag: %s", arg)
-		default:
-			ids = append(ids, arg)
-		}
-	}
-	if len(ids) != 1 {
-		return "", false, fmt.Errorf("%s accepts 1 arg(s), received %d", command, len(ids))
-	}
-	return ids[0], force, nil
-}
-
-func isKnownIngestLockFlag(arg string) bool {
-	switch arg {
-	case "-h", "--help", "--force", "-f":
-		return true
-	default:
-		return false
-	}
-}
-
-func (s *wikiService) ingest(cmd *cobra.Command, commit bool, agent, commitDocumentID string) error {
-	root, err := s.findRoot()
-	if err != nil {
-		return err
-	}
-	if commitDocumentID != "" && !commit {
-		return errors.New("--document-id requires --commit")
-	}
-	var pending []wiki.SourcesManifestEntry
-	state, err := wiki.ReadState(root)
-	if err != nil {
-		return err
-	}
-	if state.Manifest == nil {
-		return errors.New("no local raw snapshot; run gdg wiki raw pull first")
-	}
-	_, pending, err = wiki.BuildIngestQueue(root, *state.Manifest, state)
-	if err != nil {
-		return err
-	}
-	if commit {
-		if len(pending) == 0 {
-			return errors.New("no pending documents to mark as ingested")
-		}
-		if err = s.verifyACLStrict(cmd); err != nil {
-			return err
-		}
-		target, findErr := selectIngestCommitTarget(pending, commitDocumentID)
-		if findErr != nil {
-			return findErr
-		}
-		state.Ingested[target.DocumentID] = target.ContentHash
-		if err = wiki.WriteState(root, state); err != nil {
-			return err
-		}
-		if err = wiki.ClearIngestTrace(root); err != nil {
-			return err
-		}
-		_, pending, err = wiki.BuildIngestQueue(root, *state.Manifest, state)
-		if err != nil {
-			return err
-		}
-		if _, err = fmt.Fprintf(cmd.OutOrStdout(), "Marked %s as ingested.\n", target.DocumentID); err != nil {
-			return err
-		}
-		if err = wiki.UnlockDocument(root, target.DocumentID, wiki.LockOwner(), true); err != nil {
-			return err
-		}
-		_, err = fmt.Fprintf(cmd.OutOrStdout(), "Unlocked %s.\n", target.DocumentID)
-	}
-	if err != nil {
-		return err
-	}
-	if commit {
-		_, err = fmt.Fprintf(cmd.OutOrStdout(), "Queue refreshed; %d pending item(s) remain. Start a new ingest task to process the next item.\n", len(pending))
-		return err
-	}
-
-	queueHeadID := ""
-	if len(pending) > 0 {
-		queueHeadID = pending[0].DocumentID
-	}
-	baseRev, revErr := s.runGit(cmd.Context(), root, "rev-parse", "HEAD")
-	if revErr != nil {
-		baseRev = ""
-	}
-	if err = wiki.ResetIngestTrace(root, queueHeadID, strings.TrimSpace(baseRev)); err != nil {
-		return err
-	}
-
-	prompt := wiki.IngestPrompt(root, len(pending))
-	if _, err = fmt.Fprintln(cmd.OutOrStdout(), prompt); err != nil {
-		return err
-	}
-	if agent != "" {
-		if agent == "cursor" {
-			_, warnings, hookErr := wiki.EnsureCursorHooks(root)
-			if hookErr != nil {
-				return hookErr
-			}
-			_, _ = fmt.Fprintln(cmd.OutOrStdout(), "Cursor ACL gating uses ~/.cursor/hooks.json; this clone is not a hook install target.")
-			for _, warning := range warnings {
-				fmt.Fprintf(cmd.ErrOrStderr(), "warning: %s\n", warning)
-			}
-			if len(warnings) == 0 {
-				_, _ = fmt.Fprintln(cmd.OutOrStdout(), "Cursor user hooks look correctly installed.")
-			}
-		}
-		return s.runAgent(cmd.Context(), root, agent, prompt)
-	}
-	return nil
-}
-
-func selectIngestCommitTarget(pending []wiki.SourcesManifestEntry, documentID string) (wiki.SourcesManifestEntry, error) {
-	if documentID == "" {
-		return pending[0], nil
-	}
-	for _, doc := range pending {
-		if doc.DocumentID == documentID {
-			return doc, nil
-		}
-	}
-	return wiki.SourcesManifestEntry{}, fmt.Errorf("document %s is not pending in the ingest queue", documentID)
-}
-
 // runVerifyACL executes the dry-run gate. Infrastructure failures return a
 // warning and ok=true (fail open). ACL findings return ok=false with no error.
 func (s *wikiService) runVerifyACL(cmd *cobra.Command) (ok bool, err error) {
@@ -712,19 +393,6 @@ func (s *wikiService) runVerifyACL(cmd *cobra.Command) (ok bool, err error) {
 	return false, nil
 }
 
-// verifyACLStrict fails closed on ACL violations but still fail-opens on
-// infrastructure errors, matching `gdg wiki verify-acl`.
-func (s *wikiService) verifyACLStrict(cmd *cobra.Command) error {
-	ok, err := s.runVerifyACL(cmd)
-	if err != nil {
-		return err
-	}
-	if ok {
-		return nil
-	}
-	return errors.New("ACL validation failed; fix <acl> tags or page visibility before --commit")
-}
-
 func (s *wikiService) verifyACL(cmd *cobra.Command) error {
 	ok, err := s.runVerifyACL(cmd)
 	if err != nil {
@@ -735,13 +403,4 @@ func (s *wikiService) verifyACL(cmd *cobra.Command) error {
 	}
 	// Cobra maps returned errors to exit 1 — the only fail-closed path.
 	return errors.New("ACL validation failed")
-}
-
-func (s *wikiService) lint(cmd *cobra.Command) error {
-	root, err := s.findRoot()
-	if err != nil {
-		return err
-	}
-	_, err = fmt.Fprintln(cmd.OutOrStdout(), wiki.LintPrompt(root))
-	return err
 }

@@ -15,11 +15,9 @@
     "./ui/app-links": "./src/ui/app-links.ts"
   },
   "scripts": {
-    "typecheck": "pnpm build:acl && tsc --noEmit",
-    "pretest": "pnpm build:acl",
+    "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "build:acl": "node scripts/build-acl.mjs",
     "build": "node scripts/build-publish-package.mjs",
     "publish:gh-packages": "cd dist && npm publish"
   },

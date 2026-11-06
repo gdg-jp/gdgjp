@@ -40,12 +40,6 @@ const CI_WORKSPACES = [
   },
   { directory: "apps/agent", workspace: "@gdgjp/agent", build: true, e2e: false },
   { directory: "apps/go-extension", workspace: "@gdgjp/go-extension", build: true, e2e: false },
-  {
-    directory: "apps/agent-host/langfuse-forwarder",
-    workspace: "@gdgjp/langfuse-forwarder",
-    build: false,
-    e2e: false,
-  },
 ];
 
 const DEPLOY_TARGETS = [
@@ -193,7 +187,6 @@ function allResults() {
     openapi: true,
     scriptTests: true,
     cli: true,
-    agentHostWorkspace: true,
     designSource: true,
     full: true,
   };
@@ -285,12 +278,8 @@ export function classifyChanges(files, { forceAll = false } = {}) {
         file === "scripts/check-design-harness.mjs" ||
         file === "scripts/run-ci.mjs" ||
         file === "scripts/run-go-ci.mjs" ||
-        file === "packages/gdg-lib/scripts/build-acl.mjs" ||
         file === "scripts/run-e2e-dev.mjs" ||
         file === "apps/wiki/tests/architecture/ui-conventions-baseline.json" ||
-        /^apps\/agent-host\//.test(file) ||
-        /^apps\/agents-index\//.test(file) ||
-        /^apps\/cli\/internal\/wiki\/hooks\//.test(file) ||
         file === ".github/scripts/shell-allowlist.txt" ||
         file.endsWith(".sh"),
     ),
@@ -300,12 +289,8 @@ export function classifyChanges(files, { forceAll = false } = {}) {
         (file) =>
           file.startsWith("apps/cli/") ||
           file.startsWith("packages/gdg-lib/src/acl/") ||
-          file === "packages/gdg-lib/scripts/build-acl.mjs" ||
           file === "scripts/run-go-ci.mjs",
       ),
-    agentHostWorkspace: normalizedFiles.some((file) =>
-      file.startsWith("apps/agent-host/workspace/"),
-    ),
     designSource: normalizedFiles.some((file) => isDesignSourceFile(file)),
     full: false,
   };
@@ -360,7 +345,6 @@ function workflowOutputs(result, base, head) {
     openapi: String(result.openapi),
     "script-tests": String(result.scriptTests),
     cli: String(result.cli),
-    "agent-host-workspace": String(result.agentHostWorkspace),
     "design-source": String(result.designSource),
     full: String(result.full),
     base: base ?? "",

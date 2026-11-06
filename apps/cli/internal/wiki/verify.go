@@ -1,15 +1,11 @@
 package wiki
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
-	"os"
 	"path/filepath"
 	"strings"
-
-	"gopkg.in/yaml.v3"
 )
 
 // ValidateACLAccess is the subset of AccessEntry needed for dry-run ACL checks.
@@ -90,13 +86,6 @@ func pageRelFromPath(name string) string {
 	return strings.Join(dirParts, "/")
 }
 
-// PageRelsFromTraceWrites recovers submitted page dirs from Cursor afterFileEdit
-// writes. Prefer CollectCommittedPageRels for agent-agnostic --commit recovery;
-// Writes remain a Cursor-only supplement when shell tee/cat bypassed the hook.
-func PageRelsFromTraceWrites(writes []string) []string {
-	return uniquePageRels(writes)
-}
-
 func uniquePageRels(paths []string) []string {
 	seen := map[string]struct{}{}
 	var rels []string
@@ -110,24 +99,6 @@ func uniquePageRels(paths []string) []string {
 		}
 		seen[rel] = struct{}{}
 		rels = append(rels, rel)
-	}
-	return rels
-}
-
-func mergePageRels(sets ...[]string) []string {
-	seen := map[string]struct{}{}
-	var rels []string
-	for _, set := range sets {
-		for _, rel := range set {
-			if rel == "" {
-				continue
-			}
-			if _, ok := seen[rel]; ok {
-				continue
-			}
-			seen[rel] = struct{}{}
-			rels = append(rels, rel)
-		}
 	}
 	return rels
 }
@@ -161,25 +132,6 @@ func CollectChangedPageRels(ctx context.Context, root string, runGit GitRunner) 
 		rels = append(rels, rel)
 	}
 	return rels, nil
-}
-
-// CollectCommittedPageRels recovers pages/ dirs changed since baseRev (typically
-// HEAD at ingest start). Used after push when dirty/diff is empty so --commit
-// run-level checks work for claude/codex and shell-written pages.
-//
-// When baseRev is empty (legacy traces), returns nil — tip walking without a
-// baseline falsely attributes prior commits to the current queue head.
-// Never loads the whole wiki.
-func CollectCommittedPageRels(ctx context.Context, root string, runGit GitRunner, baseRev string) ([]string, error) {
-	baseRev = strings.TrimSpace(baseRev)
-	if baseRev == "" {
-		return nil, nil
-	}
-	out, err := runGit(ctx, root, "diff", "--name-only", baseRev+"..HEAD", "--", "pages/")
-	if err != nil {
-		return nil, err
-	}
-	return uniquePageRels(strings.Split(out, "\n")), nil
 }
 
 func pageSourceIDs(sources any) []ValidateACLSource {
@@ -292,67 +244,6 @@ func addSourceID(seen map[string]struct{}, ids *[]string, id string) {
 	*ids = append(*ids, id)
 }
 
-// ResolveReadSourceIDs includes source ids from documents this run locked,
-// ids recorded directly on the invocation trace (memory uploads), and ids
-// resolved from traced raw/ reads. It does not use the ingest queue head.
-func ResolveReadSourceIDs(root string, state State, trace IngestTrace) []string {
-	seen := map[string]struct{}{}
-	var ids []string
-
-	if state.Manifest == nil {
-		return ids
-	}
-
-	for _, id := range LockedSourceIDs(root, state) {
-		addSourceID(seen, &ids, id)
-	}
-	for _, id := range trace.SourceIDs {
-		addSourceID(seen, &ids, id)
-	}
-
-	for _, readPath := range trace.Reads {
-		readPath = filepath.ToSlash(strings.TrimPrefix(readPath, "./"))
-		if strings.HasPrefix(readPath, "memories/") {
-			addSourceID(seen, &ids, sourceIDFromMemoryFile(root, readPath))
-			continue
-		}
-		for _, doc := range state.Manifest.Documents {
-			docPath := filepath.ToSlash(doc.Path)
-			matched := readPath == docPath ||
-				strings.HasPrefix(readPath, docPath+"/") ||
-				(doc.SourceID != nil && strings.HasPrefix(readPath, "raw/"+*doc.SourceID+"/"))
-			if matched && doc.SourceID != nil {
-				addSourceID(seen, &ids, *doc.SourceID)
-			}
-		}
-	}
-	return ids
-}
-
-type memoryFrontMatter struct {
-	UploadedSourceID *string `yaml:"uploaded_source_id"`
-}
-
-func sourceIDFromMemoryFile(root, rel string) string {
-	raw, err := os.ReadFile(filepath.Join(root, filepath.FromSlash(rel)))
-	if err != nil {
-		return ""
-	}
-	if !bytes.HasPrefix(raw, []byte("---\n")) {
-		return ""
-	}
-	rest := raw[4:]
-	n := bytes.Index(rest, []byte("\n---\n"))
-	if n < 0 {
-		return ""
-	}
-	var fm memoryFrontMatter
-	if err = yaml.Unmarshal(rest[:n], &fm); err != nil || fm.UploadedSourceID == nil {
-		return ""
-	}
-	return strings.TrimSpace(*fm.UploadedSourceID)
-}
-
 // FormatACLFindings renders findings for agents and --commit output.
 func FormatACLFindings(findings []ValidateACLFinding) string {
 	if len(findings) == 0 {
@@ -376,14 +267,17 @@ func FormatACLFindings(findings []ValidateACLFinding) string {
 }
 
 // VerifyACL builds the dry-run request and calls the server.
-func VerifyACL(ctx context.Context, root string, client *Client, token string, runGit GitRunner) (ValidateACLResult, error) {
-	return VerifyACLWithReadSources(ctx, root, client, token, runGit, nil)
+func VerifyACL(ctx context.Context, root string, client *Client, token string, runGit GitRunner, readSources []string) (ValidateACLResult, error) {
+	return VerifyACLWithReadSources(ctx, root, client, token, runGit, readSources)
 }
 
-// VerifyACLWithReadSources is VerifyACL with an explicit read set. The runner has no hooks
-// or trace, so the job's sources are what the agent read (`verify-acl --read-sources`).
-// A nil readSources falls back to the lock + trace resolution.
+// VerifyACLWithReadSources dry-runs the ACL checks for the clone's changed pages. The read
+// set is explicit: the runner passes its job's sources (`verify-acl --read-sources`); a nil
+// set is an error, so a caller can never fall back to "checked nothing".
 func VerifyACLWithReadSources(ctx context.Context, root string, client *Client, token string, runGit GitRunner, readSources []string) (ValidateACLResult, error) {
+	if readSources == nil {
+		return ValidateACLResult{}, fmt.Errorf("read sources are required (pass --read-sources)")
+	}
 	config, err := ReadConfig(root)
 	if err != nil {
 		return ValidateACLResult{}, err
@@ -402,52 +296,12 @@ func VerifyACLWithReadSources(ctx context.Context, root string, client *Client, 
 	if err != nil {
 		return ValidateACLResult{}, err
 	}
+	if len(rels) == 0 {
+		return ValidateACLResult{OK: true}, nil
+	}
 	pages, err := BuildValidateACLPages(root, rels)
 	if err != nil {
 		return ValidateACLResult{}, err
 	}
-	var trace IngestTrace
-	if runID := os.Getenv("GDG_WIKI_RUN_ID"); runID != "" {
-		trace, err = LoadTraceForRun(root, runID)
-	} else {
-		trace, err = LoadTrace(root)
-	}
-	if err != nil {
-		// Broken trace must not invent source ids. Lock + read traces are the set.
-		trace = IngestTrace{}
-	}
-	readIDs := ResolveReadSourceIDs(root, state, trace)
-	if readSources != nil {
-		readIDs = readSources
-	}
-	// After git push the worktree matches origin/main, so dirty/diff is empty.
-	// Recover pages changed since ingest start (BaseRev..HEAD) without loading
-	// the whole wiki. Trace writes remain a last-resort supplement.
-	if len(pages) == 0 {
-		commitRels, commitErr := CollectCommittedPageRels(ctx, root, runGit, trace.BaseRev)
-		if commitErr != nil {
-			return ValidateACLResult{}, commitErr
-		}
-		recovered := mergePageRels(commitRels, PageRelsFromTraceWrites(trace.Writes))
-		if len(recovered) > 0 {
-			pages, err = BuildValidateACLPages(root, recovered)
-			if err != nil {
-				return ValidateACLResult{}, err
-			}
-		}
-	}
-	// No submitted pages (dirty/diff, tip history, and Writes all empty) →
-	// nothing to dry-run. Do not call the server with empty pages +
-	// readSourceIds; that fails acl_untagged_read_source even when the agent
-	// never wrote a page. (Server-side empty-pages behavior is intentional for
-	// direct API callers — see validateReadSourcesTagged tests.)
-	if len(pages) == 0 {
-		return ValidateACLResult{OK: true}, nil
-	}
-	req := ValidateACLRequest{
-		Lang:          config.Lang,
-		Pages:         pages,
-		ReadSourceIDs: readIDs,
-	}
-	return client.ValidateACL(ctx, token, req)
+	return client.ValidateACL(ctx, token, ValidateACLRequest{Lang: config.Lang, Pages: pages, ReadSourceIDs: readSources})
 }

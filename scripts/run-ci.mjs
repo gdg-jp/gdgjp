@@ -23,11 +23,7 @@ const quickSteps = [
   ["test:scripts", "node --test --test-reporter=dot .github/scripts/*.test.mjs"],
   [
     "test",
-    "pnpm exec turbo test --filter='!@gdgjp/agents-index' --concurrency=6 --output-logs=errors-only -- --reporter=minimal --pool=threads --maxWorkers=2",
-  ],
-  [
-    "test:addons",
-    "pnpm --filter @gdgjp/agents-index exec vitest run --reporter=minimal --pool=threads --maxWorkers=2",
+    "pnpm exec turbo test --concurrency=6 --output-logs=errors-only -- --reporter=minimal --pool=threads --maxWorkers=2",
   ],
   ["go", "node scripts/run-go-ci.mjs"],
 ];
@@ -72,14 +68,11 @@ export function completeSteps(mode) {
     ([name, command]) => [
       name,
       command,
-      // Native addons in unit tests must use the Node that installed them.
-      name === "test:addons"
-        ? undefined
-        : name === "prepare:e2e:ui" || name === "design-harness:scenarios"
-          ? { ...runtime, CI: "true" }
-          : name.startsWith("e2e:")
-            ? { ...runtime, GDG_E2E_BUILT: builtE2EApps.join(",") }
-            : runtime,
+      name === "prepare:e2e:ui" || name === "design-harness:scenarios"
+        ? { ...runtime, CI: "true" }
+        : name.startsWith("e2e:")
+          ? { ...runtime, GDG_E2E_BUILT: builtE2EApps.join(",") }
+          : runtime,
     ],
   );
 }
@@ -97,7 +90,6 @@ const workspaces = new Map([
   ["apps/accounts", "@gdgjp/accounts"],
   ["apps/accounts-oidc-client-demo", "@gdgjp/accounts-oidc-client-demo"],
   ["apps/agent", "@gdgjp/agent"],
-  ["apps/agents-index", "@gdgjp/agents-index"],
   ["packages/gdg-lib", "@gdgjp/gdg-lib"],
   ["packages/design-system", "@gdgjp/design-system"],
   ["apps/go-extension", "@gdgjp/go-extension"],
@@ -451,7 +443,7 @@ export function changedSteps(mode, files) {
     steps.push([
       `test:${workspace}`,
       `pnpm --filter ${workspace} exec vitest related --run --reporter=minimal --pool=threads --maxWorkers=2 ${workspaceNodeFiles.map(shellQuote).join(" ")}`,
-      workspace === "@gdgjp/agents-index" ? undefined : runtime,
+      runtime,
     ]);
   }
 

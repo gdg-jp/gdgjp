@@ -57,10 +57,6 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      # The Wiki CLI tests import this ignored generated module. Build it in a
-      # clean release checkout rather than relying on a developer worktree.
-      - run: pnpm build:acl
-      - run: pnpm sync:agent-host-assets
       - uses: actions/setup-go@v5
         with:
           go-version-file: apps/cli/go.mod

@@ -133,16 +133,6 @@ test("Pay frontend and browser harness changes select its browser suite", () => 
   }
 });
 
-test("index service changes run their workspace checks", () => {
-  const steps = changedSteps("full", ["apps/agents-index/src/daemon/server.ts"]);
-  assert.match(
-    steps.find(([name]) => name === "typecheck+build")[1],
-    /@gdgjp\/agents-index#typecheck/,
-  );
-  assert.ok(steps.some(([name]) => name === "test:@gdgjp/agents-index"));
-  assert.ok(steps.some(([name]) => name.includes("build")));
-});
-
 test("staged typechecks and builds share dependencies without widening test-only changes", () => {
   const steps = changedSteps("full", [
     "apps/roster/app/features/demand/impact.ts",
@@ -158,7 +148,7 @@ test("staged typechecks and builds share dependencies without widening test-only
   assert.ok(steps.some(([name]) => name === "e2e:@gdgjp/roster"));
 });
 
-test("the selected runtime covers applications while native addons keep their invoking Node", () => {
+test("the selected runtime covers applications", () => {
   const steps = changedSteps("full", ["apps/wiki/app/root.tsx"]);
   const preparation = steps.find(([name]) => name === "typecheck+build")[2];
   const browser = steps.find(([name]) => name === "e2e:@gdgjp/wiki")[2];
@@ -168,12 +158,6 @@ test("the selected runtime covers applications while native addons keep their in
   assert.equal(
     steps.find(([name]) => name === "test:@gdgjp/wiki")[2].GDG_CI_RUNTIME,
     preparation.GDG_CI_RUNTIME,
-  );
-  assert.equal(
-    changedSteps("full", ["apps/agents-index/src/indexer/store.ts"]).find(
-      ([name]) => name === "test:@gdgjp/agents-index",
-    )[2],
-    undefined,
   );
 });
 
@@ -226,7 +210,6 @@ test("full CI schedules the Wiki E2E target once", () => {
   assert.equal(steps.filter(([name]) => name.startsWith("e2e")).length, 11);
   assert.ok(steps.find(([name]) => name === "typecheck+build")[2].PATH);
   assert.ok(steps.find(([name]) => name === "test")[2].PATH);
-  assert.equal(steps.find(([name]) => name === "test:addons")[2], undefined);
   for (const app of ["wiki", "accounts", "scheduler", "tinyurl", "img", "pay"]) {
     assert.equal(
       steps.find(([name]) => name === `e2e:@gdgjp/${app}`)[2].GDG_E2E_BUILT,
@@ -258,23 +241,6 @@ test("Go runner edits select its execution and regression tests", () => {
   const steps = changedSteps("full", ["scripts/run-go-ci.mjs"]);
   assert.ok(steps.some(([name, command]) => name === "go" && command.includes("run-go-ci.mjs")));
   assert.match(steps.find(([name]) => name === "test:scripts")[1], /ci-metrics\.test\.mjs/);
-});
-
-test("ACL generation changes select embedded Go checks and the subprocess regression", () => {
-  for (const file of [
-    "packages/gdg-lib/scripts/build-acl.mjs",
-    "packages/gdg-lib/src/acl/agent.ts",
-  ]) {
-    const steps = changedSteps("full", [file]);
-    assert.ok(steps.some(([name]) => name === "typecheck:node-scripts"));
-    assert.ok(steps.some(([name]) => name === "go"));
-    if (file.endsWith(".mjs")) {
-      assert.match(
-        steps.find(([name]) => name === "test:@gdgjp/gdg-lib")[1],
-        /'scripts\/build-acl.test.ts'/,
-      );
-    }
-  }
 });
 
 test("repository script edits do not run every workspace's checks", () => {
@@ -470,7 +436,6 @@ test("every package-installing job initializes the UI submodule first", () => {
     "deploy.yml",
     "gdg-lib-publish.yml",
     "google-photos-import.yml",
-    "agent-host-release.yml",
   ]) {
     for (const [jobName, job] of Object.entries(readWorkflow(workflowName).jobs)) {
       const installIndex =

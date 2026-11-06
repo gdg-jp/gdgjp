@@ -26,7 +26,6 @@ func NewRoot() *cobra.Command {
 	root.AddCommand(newTinyurlCommand(credentials))
 	root.AddCommand(newSnsCommand(credentials))
 	root.AddCommand(newAgentCommand(credentials))
-	root.AddCommand(newAgentHostCommand())
 	return root
 }
 

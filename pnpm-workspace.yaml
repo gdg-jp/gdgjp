@@ -1,6 +1,3 @@
 packages:
   - "apps/*"
   - "packages/*"
-  - "apps/agent-host/*"
-  - "!apps/xangi"
-  - "!apps/agent-host/agents-index"

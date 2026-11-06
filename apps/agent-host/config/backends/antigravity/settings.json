@@ -1,5 +1,0 @@
-{
-  "permissions": {
-    "allow": ["command(wk)", "command(gws)"]
-  }
-}

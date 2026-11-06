@@ -4,9 +4,6 @@
 [submodule "skills"]
 	path = skills
 	url = https://github.com/gdg-jp/skills.git
-[submodule "xangi"]
-	path = apps/xangi
-	url = https://github.com/gdg-jp/xangi.git
 [submodule "design-system"]
 	path = packages/design-system
 	url = https://github.com/gdg-jp/design-system.git

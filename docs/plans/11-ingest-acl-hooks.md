@@ -1,5 +1,8 @@
 # Stage 11 — Ingest ACL gate (Cursor hooks + server-side validation)
 
+> **hooks は撤去済み**（knowledge platform v2 Stage 07）。`validate-acl` / `verify-acl`（`--read-sources` 必須）は OCI runner が使用する。
+
+
 > このファイルは `docs/plans/11-ingest-acl-hooks.md` として保存する前提で書いてある。
 
 ## Context — 背景とリポジトリ状況

@@ -17,7 +17,7 @@ pnpm --filter @gdgjp/gdg-lib exec vitest run src/auth/cookie.test.ts   # single 
 
 `pnpm --filter @gdgjp/gdg-lib build` compiles **only `src/acl/**`** (not the rest of the
 package) to `packages/gdg-lib/dist/`, via `scripts/build-publish-package.mjs`. This is not used by
-anything inside this monorepo — every in-repo consumer (including `agents-index`) keeps
+anything inside this monorepo — every in-repo consumer keeps
 importing `@gdgjp/gdg-lib/acl/agent` as workspace TS source, unaffected by this build.
 
 It exists solely so `packages/gdg-lib/dist/` can be `npm publish`-ed to GitHub Packages as

@@ -1,5 +1,8 @@
 # LLM Wiki Integration — Overall Strategy
 
+> **v2 に置き換えられた**（`docs/plans/knowledge-platform-v2/`）。取り込み・生成・agent-host・hooks は撤去済み。ACL スパン（Stage 09〜10）は v2 の内側 ACL として継続。
+
+
 **Status:** Plan finalized / Not started
 **Related:** `llm-wiki.md` (the source pattern), `wiki/CLAUDE.md`
 
