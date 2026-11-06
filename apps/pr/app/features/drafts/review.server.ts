@@ -2,6 +2,7 @@ import { validateSchema } from "@skills/pr-playbook/scripts/checks/index.mjs";
 import { latestBrief } from "~/features/briefs/brief.repository.server";
 import type { CampaignAccess } from "~/features/campaigns/access.server";
 import { SKILL_FOR_KIND } from "~/features/jobs/skill-kinds";
+import { recordEdits } from "~/features/learning/edits.server";
 import { type ConnpassPageContent, withRenderedHtml } from "~/features/pages/render";
 import { connpassSectionTemplates, outputSchemas } from "~/features/playbook/guides.server";
 import {
@@ -99,6 +100,7 @@ export async function editDraft(
     ? runChecks({ kind: draft.kind as CheckKind, draft: saved, brief })
     : { results: [] };
   const status = statusAfterEdit(draft.status);
+  const previous = await latestVersion(db, draft.id);
   const version = await appendVersion(db, draft.id, {
     author: "human",
     userId: access.user.id,
@@ -109,6 +111,19 @@ export async function editDraft(
     status,
     itemStatus: itemStatusFor(status),
   });
+  if (previous)
+    await recordEdits(db, {
+      campaignId: access.campaign.id,
+      draftId: draft.id,
+      fromVersion: previous.version,
+      toVersion: version,
+      kind: draft.kind,
+      before: previous.content,
+      after: saved,
+      beforeChecks: previous.checkResults,
+      afterChecks: report.results,
+      userId: access.user.id,
+    });
   return { ok: true, version };
 }
 

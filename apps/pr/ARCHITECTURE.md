@@ -26,6 +26,7 @@
 | Metrics: hourly tinyurl / connpass snapshots (aggregates only), ads CSV import with saved column maps, the dashboard with the goal curve | `app/features/metrics/` |
 | Ad flights (from the adopted plan's budget), overrun alerts once per flight, X : IG split | `app/features/budget/` |
 | Weekly analysis (`analyze` job, `pr-analyze`): report draft, proposals applied by a person | `app/features/analyze/` |
+| Learning loop: human edits recorded per JSON leaf (`draft_edits`), the `retro` job (`pr-retro`), Playbook proposals decided by organizers and exported for `skills/pr-playbook/scripts/feedback.mjs` | `app/features/learning/`, `app/routes/playbook/` |
 | Domain-free widgets | `app/components/RowTable.tsx` |
 | Shells | `app/layouts/AppLayout.tsx`, `CampaignLayout.tsx` (campaign tabs) |
 | Screens + loaders / actions | `app/routes/<domain>/` — URLs in `app/routes.ts` |
@@ -56,4 +57,7 @@
   encrypted with `SETTINGS_ENCRYPTION_KEY` and never shown or logged.
 - `pnpm dev` binds `SNS` / `TINYURL` / `CONNPASS` to `e2e/mock-services` (auxiliary workers); set
   `PR_REAL_SERVICES=1` to use real sns / tinyurl dev servers through the dev registry.
+- The Worker never writes the Playbook or the Wiki: accepted proposals are exported and written
+  back by `feedback.mjs` (rules with an existing check and constants only, refused on a stale
+  `baseRevision` or personal data); the retro's Wiki update is shown for a person to paste.
 - Times are epoch seconds in D1 and JST in every form (`schedule/calendar.ts`).

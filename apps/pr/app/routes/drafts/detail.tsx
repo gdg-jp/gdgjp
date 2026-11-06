@@ -23,6 +23,7 @@ import { DRAFT_KIND_LABELS } from "~/features/drafts/draft-kinds";
 import { getDraft, listReviews, listVersions } from "~/features/drafts/draft.repository.server";
 import { actorFor } from "~/features/drafts/review.server";
 import { DRAFT_STATUS_LABELS } from "~/features/drafts/state-machine";
+import { RetroReportCard } from "~/features/learning/components/RetroCard";
 import { ListingCard } from "~/features/listings/components/ListingCard";
 import {
   type ListingContent,
@@ -249,7 +250,12 @@ export default function DraftDetail({ loaderData, actionData }: Route.ComponentP
           busy={busy}
         />
       ) : null}
-      {draft.kind === "report" && content ? (
+      {draft.kind === "report" && content && "retro" in content ? (
+        <RetroReportCard
+          content={content as unknown as Parameters<typeof RetroReportCard>[0]["content"]}
+        />
+      ) : null}
+      {draft.kind === "report" && content && !("retro" in content) ? (
         <ReportCard
           report={content as unknown as AnalyzeReport}
           canApply={actor.canApprove}

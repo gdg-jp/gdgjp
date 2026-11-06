@@ -34,6 +34,9 @@ exports[`public URLs > are exactly these (later stages add theirs here on purpos
   "/dev/mock-services",
   "/me",
   "/no-chapter",
+  "/playbook/proposals",
+  "/playbook/proposals/:id",
+  "/playbook/proposals/export",
   "/settings/chapter",
   "/signin",
 ]

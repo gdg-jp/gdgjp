@@ -14,6 +14,7 @@ import {
   getDraftById,
 } from "~/features/drafts/draft.repository.server";
 import { itemStatusFor } from "~/features/drafts/state-machine";
+import { importRetro } from "~/features/learning/retro.server";
 import type { PlanBody } from "~/features/plans/plan";
 import { insertPlan } from "~/features/plans/plan.repository.server";
 import { outputSchemas } from "~/features/playbook/guides.server";
@@ -108,6 +109,11 @@ export async function importResult(
           })));
     const saved = await saveVersion(db, job, draftId, "copy", output, brief, yomiyasu);
     return { status: "succeeded", summary: { draftIds: [draftId], mustFails: saved.mustFails } };
+  }
+
+  if (job.type === "retro") {
+    if (!env) return { status: "failed", summary: {}, error: "retro import needs the Worker env" };
+    return importRetro(env, job, output as Parameters<typeof importRetro>[2]);
   }
 
   if (job.type === "analyze") {

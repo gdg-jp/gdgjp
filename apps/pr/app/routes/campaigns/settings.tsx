@@ -26,6 +26,9 @@ import { ConnpassSettingsCard } from "~/features/connpass/components/ConnpassSet
 import { listConnpassJobs } from "~/features/connpass/job-ledger.server";
 import { DeliverySettings } from "~/features/integrations/components/DeliverySettings";
 import { deliverySettings, deliverySettingsAction } from "~/features/integrations/settings.server";
+import { EnqueueError } from "~/features/jobs/enqueue.server";
+import { RetroNotesCard } from "~/features/learning/components/RetroCard";
+import { enqueueRetro, retroNotes, setRetroNotes } from "~/features/learning/retro.server";
 import { ListingTargetsCard } from "~/features/listings/components/ListingTargetsCard";
 import { listingTargets, setListingTarget } from "~/features/listings/listing.server";
 import { CampaignLayout } from "~/layouts/CampaignLayout";
@@ -61,6 +64,7 @@ export async function loader({ request, context, params }: Route.LoaderArgs) {
     },
     canManage: access.permissions.manage,
     delivery: await deliverySettings(env, access),
+    retroNotes: await retroNotes(env.DB, campaign.id),
     listingTargets: Object.fromEntries(
       (await listingTargets(env.DB, campaign.id)).map((t) => [t.platform, t.externalId]),
     ),
@@ -85,6 +89,18 @@ export async function action({ request, context, params }: Route.ActionArgs) {
   const access = await requireCampaignAccess(env, request, params.slug, need);
   const delivery = await deliverySettingsAction(env, access, intent, form);
   if (delivery) return delivery;
+  if (intent === "retro-notes" || intent === "retro") {
+    await setRetroNotes(env.DB, access.campaign.id, String(form.get("retroNotes") ?? "").trim());
+    if (intent === "retro-notes")
+      return { ok: true as const, error: null, message: "メモを保存しました" };
+    try {
+      await enqueueRetro(env.DB, access.campaign.id, access.user.id);
+    } catch (error) {
+      if (error instanceof EnqueueError) return { ok: false as const, error: error.message };
+      throw error;
+    }
+    return { ok: true as const, error: null, message: "振り返りのジョブを積みました" };
+  }
   if (intent === "listing-targets") {
     for (const platform of ["luma", "techplay", "bevy"] as const)
       await setListingTarget(
@@ -121,6 +137,10 @@ export async function action({ request, context, params }: Route.ActionArgs) {
       return { ok: false as const, error: "本番のキャンペーンが見つかりません" };
     parentCampaignId = parent.id;
   }
+  if (status === "closed" && access.campaign.status !== "closed")
+    await enqueueRetro(env.DB, access.campaign.id, access.user.id).catch((error) => {
+      if (!(error instanceof EnqueueError)) throw error;
+    });
   await updateCampaign(env.DB, access.campaign.id, {
     name,
     status,
@@ -132,8 +152,17 @@ export async function action({ request, context, params }: Route.ActionArgs) {
 }
 
 export default function Settings({ loaderData, actionData }: Route.ComponentProps) {
-  const { user, accountsUrl, campaign, settings, canManage, delivery, connpass, listingTargets } =
-    loaderData;
+  const {
+    user,
+    accountsUrl,
+    campaign,
+    settings,
+    canManage,
+    delivery,
+    connpass,
+    listingTargets,
+    retroNotes: notes,
+  } = loaderData;
   const navigation = useNavigation();
   return (
     <CampaignLayout user={user} accountsUrl={accountsUrl} campaign={campaign} title="設定">
@@ -224,6 +253,7 @@ export default function Settings({ loaderData, actionData }: Route.ComponentProp
         canManage={canManage}
         busy={navigation.state === "submitting"}
       />
+      <RetroNotesCard notes={notes} busy={navigation.state === "submitting"} />
       <ListingTargetsCard
         targets={listingTargets}
         busy={navigation.state === "submitting"}

@@ -17,6 +17,7 @@ import { createAndRender } from "~/features/assets/create.server";
 import { approveAsset } from "~/features/assets/distribute.server";
 import { requireCampaignAccess } from "~/features/campaigns/access.server";
 import { CheckResults } from "~/features/drafts/components/CheckResults";
+import { recordEdits } from "~/features/learning/edits.server";
 import { constants } from "~/features/playbook/playbook";
 import { CampaignLayout } from "~/layouts/CampaignLayout";
 import type { Route } from "./+types/detail";
@@ -85,6 +86,17 @@ export async function action({ request, context, params }: Route.ActionArgs) {
       forScheduleItemId: asset.forScheduleItemId,
       forImageSlotId: asset.forImageSlotId,
       derivedFromAssetId: asset.id,
+    });
+    await recordEdits(env.DB, {
+      campaignId: access.campaign.id,
+      assetId: created.id,
+      fromVersion: asset.id,
+      toVersion: created.id,
+      kind: "asset_spec",
+      before: { slots: asset.slots, layoutVars: asset.layoutVars },
+      after: { slots, layoutVars },
+      beforeChecks: asset.checks,
+      userId: access.user.id,
     });
     throw new Response(null, {
       status: 303,

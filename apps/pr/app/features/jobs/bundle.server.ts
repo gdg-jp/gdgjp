@@ -3,6 +3,7 @@ import type { Brief } from "~/features/briefs/brief";
 import { briefVersion, latestBrief } from "~/features/briefs/brief.repository.server";
 import type { Campaign } from "~/features/campaigns/campaign";
 import { getDraftById, latestVersion, listDrafts } from "~/features/drafts/draft.repository.server";
+import { retroFiles } from "~/features/learning/retro.server";
 import { adoptedPlan, getPlanById, listPlans } from "~/features/plans/plan.repository.server";
 import {
   checkScripts,
@@ -35,6 +36,8 @@ export function skillFor(job: Job): { skill: string; kind: string } {
       return { skill: "pr-asset", kind: "asset_spec" };
     case "analyze":
       return { skill: "pr-analyze", kind: "plan" };
+    case "retro":
+      return { skill: "pr-retro", kind: "plan" };
     case "page":
       return payload.kind === "connpass_mail"
         ? { skill: "pr-connpass-mail", kind: "connpass_mail" }
@@ -136,6 +139,8 @@ export async function buildBundle(
       "各投稿の scheduleItemId に targets の scheduleItemId をそのまま入れ、scheduledAt も targets の値を使う。",
     );
     if (copy) task.push("COPY.json の採用コピーに沿って書く。");
+  } else if (job.type === "retro" && env) {
+    await retroFiles(env, campaign, files, task);
   } else if (job.type === "analyze" && env) {
     await analyzeFiles(env, campaign, files, task);
   } else if (job.type === "asset") {

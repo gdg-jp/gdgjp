@@ -63,11 +63,15 @@ Applications live in `apps/` and shared libraries in `packages/`. Workspace glob
   `/<slug>`, which never shows stock or exclusions. Runs on the Workers Free plan: D1 only (no Durable Objects, KV,
   Queues or R2); each spin is one atomic D1 batch.
 - `apps/pr/` is the event PR assistant (`pr.gdgs.jp`): one campaign per event (host chapter +
-  co-host chapters), a versioned brief, and a schedule of posts, mails, asks and derived reminders.
-  An `apps/accounts/` relying party gated by chapter membership; D1 only, plus a read-only `WIKI`
-  service binding for outreach contacts (the Wiki page is their source of truth). It never calls an
-  LLM. Its rules come from the `skills/pr-playbook` Playbook (gdg-jp/skills submodule), bundled at
-  build time; see `docs/plans/pr/`.
+  co-host chapters), a versioned brief, a schedule of posts, mails, asks and derived reminders,
+  runner-written drafts with review and approval, delivery through `SNS` / `TINYURL` / `CONNPASS`
+  service bindings (`PrService` entrypoints, each approved by the account's own chapter), images
+  from Playbook templates (Browser Rendering, R2 `IMAGES`, img.gdgs.jp via `IMG_UPLOAD`), metrics
+  and ads CSVs, and a learning loop back into the Playbook. An `apps/accounts/` relying party gated
+  by chapter membership; D1 plus a read-only `WIKI` binding for outreach contacts (the Wiki page is
+  their source of truth). It never calls an LLM (the OCI runner, `gdg pr runner`, does). Its rules
+  come from the `skills/pr-playbook` Playbook (gdg-jp/skills submodule), bundled at build time; see
+  `docs/plans/pr/`.
 - `apps/agent/` is the knowledge-platform front door for Discord and Google Chat
   (`agent.gdgs.jp`, v2 Stage 05): a plain Cloudflare Worker (D1, KV, one `PendingSweeper`
   Durable Object, `WIKI` service binding) that verifies webhooks, links chat accounts to GDG

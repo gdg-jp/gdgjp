@@ -49,6 +49,18 @@ const renderScriptFiles = import.meta.glob<string>(
     import: "default",
   },
 );
+// Read by the retro job only (it must not re-propose what decisions.md rejected).
+const rootDocFiles = import.meta.glob<string>(
+  [
+    "../../../../../skills/pr-playbook/decisions.md",
+    "../../../../../skills/pr-playbook/proposals/README.md",
+  ],
+  {
+    eager: true,
+    query: "?raw",
+    import: "default",
+  },
+);
 const browserScriptFiles = import.meta.glob<string>(
   [
     "../../../../../skills/pr-playbook/scripts/render/checks-script.js",
@@ -126,7 +138,8 @@ export function playbookFile(path: string): string | undefined {
   return (
     guides[`pr-playbook/${path}`] ??
     examples[`pr-playbook/${path}`] ??
-    templates[`pr-playbook/${path}`]
+    templates[`pr-playbook/${path}`] ??
+    strip(rootDocFiles)[`pr-playbook/${path}`]
   );
 }
 
