@@ -46,3 +46,6 @@ ENVIRONMENT=development
 
 # Knowledge runner (Stage 04): 32+ random chars, same value as /etc/gdg/runner.env on the VM
 RUNNER_TOKEN=
+
+# Agent Worker (Stage 05): same value as AGENT_SERVICE_TOKEN in apps/agent. 32+ chars.
+AGENT_SERVICE_TOKEN=

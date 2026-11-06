@@ -30,6 +30,8 @@ type Config struct {
 	Executable string // the gdg binary, for `gdg wiki clone`
 	Once       bool
 	DryRun     bool
+	// Types limits the job types this runner leases (RUNNER_TYPES, comma-separated; empty = all).
+	Types []string
 }
 
 func ConfigFromEnv() Config {
@@ -41,6 +43,11 @@ func ConfigFromEnv() Config {
 		Model:   os.Getenv("RUNNER_MODEL"),
 		Workdir: os.Getenv("RUNNER_WORKDIR"),
 		Host:    host,
+	}
+	for _, t := range strings.Split(os.Getenv("RUNNER_TYPES"), ",") {
+		if t = strings.TrimSpace(t); t != "" {
+			cfg.Types = append(cfg.Types, t)
+		}
 	}
 	if cfg.BaseURL == "" {
 		cfg.BaseURL = "https://wiki.gdgs.jp"
@@ -91,9 +98,38 @@ func New(cfg Config, logger *log.Logger) (*Runner, error) {
 		"synthesize":  r.synthesize,
 		"consolidate": r.consolidate,
 		"translate":   r.translate,
+		"answer":      r.answer,
 	}
-	r.slots = [][]string{{"synthesize", "consolidate", "translate"}}
+	// `answer` has its own slot and never lends it out, so replies are not stuck behind a
+	// 30-minute synthesize.
+	r.slots = filterSlots([][]string{{"answer"}, {"synthesize", "consolidate", "translate"}}, cfg.Types)
+	if len(r.slots) == 0 {
+		return nil, fmt.Errorf("RUNNER_TYPES %v matches no job type", cfg.Types)
+	}
 	return r, nil
+}
+
+func filterSlots(slots [][]string, allowed []string) [][]string {
+	if len(allowed) == 0 {
+		return slots
+	}
+	keep := map[string]bool{}
+	for _, t := range allowed {
+		keep[t] = true
+	}
+	var out [][]string
+	for _, slot := range slots {
+		var types []string
+		for _, t := range slot {
+			if keep[t] {
+				types = append(types, t)
+			}
+		}
+		if len(types) > 0 {
+			out = append(out, types)
+		}
+	}
+	return out
 }
 
 // Run serves jobs until ctx ends (or after one job with Once).

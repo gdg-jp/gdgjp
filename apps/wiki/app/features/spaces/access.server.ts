@@ -213,10 +213,11 @@ export async function requireSpaceForIdentity(
   identity: SpaceIdentity,
   spaceSlug: string,
   minRole: SpaceRole = "viewer",
+  extraPrincipals: readonly ExtraPrincipal[] = [],
 ): Promise<{ space: SpaceRow & { kind: SpaceKind }; role: SpaceRole }> {
   const space = await getSpaceBySlug(db, spaceSlug);
   if (!space) throw new Response("Not Found", { status: 404 });
-  const role = (await resolveSpaceAccess(db, identity)).get(space.id);
+  const role = (await resolveSpaceAccess(db, identity, extraPrincipals)).get(space.id);
   if (!roleAtLeast(role, "viewer")) throw new Response("Not Found", { status: 404 });
   if (!roleAtLeast(role, minRole)) throw new Response("Forbidden", { status: 403 });
   return { space: space as SpaceRow & { kind: SpaceKind }, role: role as SpaceRole };

@@ -1,5 +1,5 @@
-import { getBearerIdentity } from "@gdgjp/gdg-lib";
 import type { LoaderFunctionArgs } from "react-router";
+import { resolveAgentReader } from "~/features/agent-api/agent-reader.server";
 import {
   KnowledgeSearchUnavailableError,
   MAX_SEARCH_SPACES,
@@ -12,21 +12,22 @@ import { getDb } from "~/lib/db.server";
 /**
  * GET /api/agent/knowledge-search?q=…&space=gdg-jp,team&layers=page,acl,raw&limit=10
  *
- * Bearer-authenticated knowledge search for agents (Stage 05) and the runner's MCP. The
+ * Knowledge search for agent readers (Stage 05): a user token, the agent Worker as a guild /
+ * Chat-space principal, or an answer job's token (runner MCP). The
  * caller's reachable spaces and readable audiences are computed HERE from its identity;
  * the request can only narrow them (space / layers), never widen them.
  */
 export async function loader({ request, context }: LoaderFunctionArgs) {
   const { env } = context.cloudflare;
-  const identity = await getBearerIdentity(request, env.ACCOUNTS_URL);
-  if (!identity) return Response.json({ error: "invalid_token" }, { status: 401 });
+  const db = getDb(env);
+  const agentReader = await resolveAgentReader(request, env, db, { allowJobToken: true });
+  if (!agentReader) return Response.json({ error: "invalid_token" }, { status: 401 });
   const url = new URL(request.url);
   const query = url.searchParams.get("q")?.trim() ?? "";
   if (!query) return Response.json({ error: "q_required" }, { status: 400 });
 
-  const db = getDb(env);
-  const reader = { ...identity, claimsAvailable: true };
-  const access = await resolveSpaceAccess(db, reader);
+  const reader = agentReader.identity;
+  const access = await resolveSpaceAccess(db, reader, agentReader.extraPrincipals);
   const reachable = await listAccessibleSpaces(db, access);
   const requested = url.searchParams
     .get("space")

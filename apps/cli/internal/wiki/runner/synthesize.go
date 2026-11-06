@@ -15,7 +15,7 @@ import (
 	"github.com/gdg-jp/gdgjp/cli/internal/wiki"
 )
 
-//go:embed prompts/*.md
+//go:embed prompts/*.md prompts/*.json
 var prompts embed.FS
 
 func prompt(name string) string {

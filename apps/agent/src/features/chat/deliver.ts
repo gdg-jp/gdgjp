@@ -1,0 +1,84 @@
+import type { Reply } from "../inquiry/inquiry";
+import type { Delivery } from "../inquiry/pending";
+import { chatAccessToken } from "./gchat-auth";
+
+const DISCORD_API = "https://discord.com/api/v10";
+
+export function discordComponents(reply: Reply) {
+  const buttons: Array<Record<string, unknown>> = [
+    { type: 2, style: 2, emoji: { name: "👍" }, custom_id: `fb:up:${reply.jobId}` },
+    { type: 2, style: 2, emoji: { name: "👎" }, custom_id: `fb:down:${reply.jobId}` },
+  ];
+  if (reply.publicReply) {
+    buttons.push({
+      type: 2,
+      style: 1,
+      label: "自分の権限で再回答",
+      custom_id: `ra:${reply.jobId}`,
+    });
+  }
+  return reply.degraded ? [] : [{ type: 1, components: buttons }];
+}
+
+/** Replace the deferred "thinking" response (15-minute interaction token). */
+export async function deliverDiscord(
+  delivery: Extract<Delivery, { platform: "discord" }>,
+  reply: Reply,
+  fetchImpl: typeof fetch = fetch,
+): Promise<void> {
+  const response = await fetchImpl(
+    `${DISCORD_API}/webhooks/${delivery.applicationId}/${delivery.interactionToken}/messages/@original`,
+    {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        content: reply.text.slice(0, 2000),
+        components: discordComponents(reply),
+        allowed_mentions: { parse: [] },
+      }),
+    },
+  );
+  if (!response.ok) throw new Error(`discord_deliver_failed:${response.status}`);
+}
+
+export function chatCard(reply: Reply) {
+  if (reply.degraded) return undefined;
+  const button = (text: string, fn: string, value: string) => ({
+    text,
+    onClick: {
+      action: {
+        function: fn,
+        parameters: [
+          { key: "jobId", value: reply.jobId },
+          { key: "value", value },
+        ],
+      },
+    },
+  });
+  const buttons = [button("👍", "feedback", "up"), button("👎", "feedback", "down")];
+  if (reply.publicReply) buttons.push(button("自分の権限で再回答（DM）", "reanswer", ""));
+  return [{ cardId: "feedback", card: { sections: [{ widgets: [{ buttonList: { buttons } }] }] } }];
+}
+
+/** Post the answer into the Chat thread with the app's service account. */
+export async function deliverChat(
+  delivery: Extract<Delivery, { platform: "google-chat" }>,
+  reply: Reply,
+  credentials: string | undefined,
+  fetchImpl: typeof fetch = fetch,
+): Promise<void> {
+  const token = await chatAccessToken(credentials, fetchImpl);
+  const url = new URL(`https://chat.googleapis.com/v1/${delivery.space}/messages`);
+  if (delivery.thread)
+    url.searchParams.set("messageReplyOption", "REPLY_MESSAGE_FALLBACK_TO_NEW_THREAD");
+  const response = await fetchImpl(url.toString(), {
+    method: "POST",
+    headers: { authorization: `Bearer ${token}`, "content-type": "application/json" },
+    body: JSON.stringify({
+      text: reply.text.replace(/<(https?:[^>]+)>/g, "$1"),
+      ...(delivery.thread ? { thread: { name: delivery.thread } } : {}),
+      ...(chatCard(reply) ? { cardsV2: chatCard(reply) } : {}),
+    }),
+  });
+  if (!response.ok) throw new Error(`chat_deliver_failed:${response.status}`);
+}

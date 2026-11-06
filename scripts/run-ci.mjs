@@ -96,7 +96,7 @@ const nodeConfigurationFilePattern =
 const workspaces = new Map([
   ["apps/accounts", "@gdgjp/accounts"],
   ["apps/accounts-oidc-client-demo", "@gdgjp/accounts-oidc-client-demo"],
-  ["apps/agents", "@gdgjp/agents"],
+  ["apps/agent", "@gdgjp/agent"],
   ["apps/agents-index", "@gdgjp/agents-index"],
   ["packages/gdg-lib", "@gdgjp/gdg-lib"],
   ["packages/design-system", "@gdgjp/design-system"],

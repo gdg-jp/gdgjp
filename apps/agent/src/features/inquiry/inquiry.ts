@@ -1,0 +1,197 @@
+import { nowSeconds } from "../../lib";
+import { MAX_BUNDLE_PAGES, buildBundle } from "./bundle";
+import type { DegradedHit, Delivery, PendingAnswer, PendingStore } from "./pending";
+import type { Venue } from "./reader";
+import type { PageRead, Reader, WikiClient } from "./wiki";
+
+/** The runner counts as down when its heartbeat is older than this. */
+export const RUNNER_STALE_SECONDS = 60;
+
+export type AnswerResult = {
+  answer: string;
+  citations: Array<{ url: string; quote?: string }>;
+  confidence: "high" | "medium" | "low";
+  unanswered: boolean;
+  durationMs?: number;
+};
+
+export type Reply = {
+  text: string;
+  citations: string[];
+  degraded: boolean;
+  publicReply: boolean;
+  jobId: string;
+};
+
+export type InquiryDeps = {
+  wiki: WikiClient;
+  pending: PendingStore;
+  deliver(delivery: Delivery, reply: Reply): Promise<void>;
+  /** Make sure the pending sweep alarm is armed. */
+  schedule(): Promise<void>;
+  now?: () => number;
+};
+
+export type InquiryInput = {
+  question: string;
+  reader: Reader;
+  venue: Venue;
+  /** Spaces chosen for this guild / Chat space (empty = everything the reader can reach). */
+  spaces: string[];
+  delivery: Delivery;
+  publicReply: boolean;
+  platform: "discord" | "google-chat";
+  chatUserId: string;
+};
+
+/**
+ * Search → read (as the reader, redacted by the wiki) → bundle → `answer` job. The reply is
+ * delivered later by `answerReady` (wiki callback) or `sweepOverdue` (degraded). When the
+ * runner is already known to be down, reply with search results at once.
+ */
+export async function startInquiry(input: InquiryInput, deps: InquiryDeps): Promise<PendingAnswer> {
+  const now = (deps.now ?? nowSeconds)();
+  const search = await deps.wiki.search(input.reader, input.question, input.spaces);
+  const wanted = uniquePages(search.pages).slice(0, MAX_BUNDLE_PAGES);
+  const pages = (
+    await Promise.all(wanted.map((hit) => deps.wiki.page(input.reader, hit.space, hit.slug)))
+  ).filter((page): page is PageRead => page !== null);
+  const indexes = (
+    await Promise.all(
+      search.spaces.slice(0, 3).map((space) => deps.wiki.page(input.reader, space, "index")),
+    )
+  ).filter((page): page is PageRead => page !== null);
+  const hits: DegradedHit[] = [
+    ...search.pages.map((page) => ({
+      title: page.title,
+      url: page.url,
+      snippet: page.snippets[0] ?? "",
+    })),
+    ...search.raw
+      .filter((hit) => hit.url)
+      .map((hit) => ({ title: hit.title, url: hit.url as string, snippet: hit.snippet })),
+  ].slice(0, 5);
+  const excludedSpaces = search.truncatedSpaces
+    ? input.spaces.filter((space) => !search.spaces.includes(space))
+    : [];
+  const base = {
+    delivery: input.delivery,
+    question: input.question,
+    hits,
+    spaces: search.spaces,
+    excludedSpaces,
+    publicReply: input.publicReply,
+    platform: input.platform,
+    chatUserId: input.chatUserId,
+    venue: input.venue.kind,
+    readerKind: input.reader.kind,
+    createdAt: now,
+  };
+
+  const lastSeen = await deps.wiki.runnerLastSeen().catch(() => null);
+  if (lastSeen === null || now - lastSeen > RUNNER_STALE_SECONDS) {
+    const row: PendingAnswer = {
+      ...base,
+      jobId: `degraded-${crypto.randomUUID()}`,
+      deadlineAt: now,
+      status: "degraded",
+    };
+    await deps.deliver(input.delivery, degradedReply(row));
+    return row;
+  }
+  const bundle = buildBundle({ question: input.question, search, pages, indexes });
+  const job = await deps.wiki.enqueueAnswer(input.reader, {
+    question: input.question,
+    spaces: search.spaces,
+    bundle,
+  });
+  const row: PendingAnswer = {
+    ...base,
+    jobId: job.jobId,
+    deadlineAt: job.deadlineAt,
+    status: "pending",
+  };
+  await deps.pending.insert(row);
+  await deps.schedule();
+  return row;
+}
+
+function uniquePages<T extends { space: string; slug: string }>(pages: readonly T[]): T[] {
+  const seen = new Set<string>();
+  return pages.filter((page) => {
+    const key = `${page.space}/${page.slug}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+/** Wiki callback: the runner finished. Deliver once; a late result after a degraded reply is dropped. */
+export async function answerReady(
+  jobId: string,
+  outcome: { status: string; result?: AnswerResult },
+  deps: InquiryDeps,
+): Promise<{ delivered: boolean; row: PendingAnswer | null }> {
+  const row = await deps.pending.get(jobId);
+  if (!row || row.status !== "pending") return { delivered: false, row };
+  if (outcome.status !== "succeeded" || !outcome.result) {
+    if (!(await deps.pending.settle(jobId, "degraded"))) return { delivered: false, row };
+    await deps.deliver(row.delivery, degradedReply(row));
+    return { delivered: true, row: { ...row, status: "degraded" } };
+  }
+  if (!(await deps.pending.settle(jobId, "answered"))) return { delivered: false, row };
+  await deps.deliver(row.delivery, answerReply(row, outcome.result));
+  return { delivered: true, row: { ...row, status: "answered" } };
+}
+
+/** Alarm: answers past their deadline get the search-results-only reply; the job expires. */
+export async function sweepOverdue(deps: InquiryDeps): Promise<number> {
+  const now = (deps.now ?? nowSeconds)();
+  let count = 0;
+  for (const row of await deps.pending.overdue(now)) {
+    if (!(await deps.pending.settle(row.jobId, "degraded"))) continue;
+    await deps.wiki.expireJob(row.jobId).catch(() => undefined);
+    await deps.deliver(row.delivery, degradedReply(row));
+    count += 1;
+  }
+  return count;
+}
+
+const MAX_TEXT = 1800;
+
+export function answerReply(row: PendingAnswer, result: AnswerResult): Reply {
+  const citations = [...new Set(result.citations.map((citation) => citation.url))].slice(0, 5);
+  const lines = [result.answer.trim().slice(0, MAX_TEXT)];
+  if (result.unanswered) {
+    lines.push(
+      "",
+      `見つかりませんでした（検索したスペース: ${row.spaces.join(", ") || "なし"}）。`,
+    );
+  }
+  if (citations.length > 0) lines.push("", ...citations.map((url) => `- <${url}>`));
+  if (row.excludedSpaces.length > 0)
+    lines.push("", `対象外にしたスペース: ${row.excludedSpaces.join(", ")}`);
+  return {
+    text: lines.join("\n"),
+    citations,
+    degraded: false,
+    publicReply: row.publicReply,
+    jobId: row.jobId,
+  };
+}
+
+export function degradedReply(row: PendingAnswer): Reply {
+  const lines = ["エージェントが応答していないため、検索結果のみを表示します。"];
+  if (row.hits.length === 0) lines.push("", "該当するページは見つかりませんでした。");
+  for (const hit of row.hits) {
+    const snippet = hit.snippet.replace(/\s+/g, " ").trim().slice(0, 160);
+    lines.push("", `**${hit.title}** <${hit.url}>`, snippet ? `> ${snippet}` : "");
+  }
+  return {
+    text: lines.join("\n").slice(0, MAX_TEXT + 150),
+    citations: row.hits.map((hit) => hit.url),
+    degraded: true,
+    publicReply: row.publicReply,
+    jobId: row.jobId,
+  };
+}

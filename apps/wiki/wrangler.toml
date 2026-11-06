@@ -37,6 +37,11 @@ binding = "ACCOUNTS"
 service = "gdgjp-accounts"
 remote = true
 
+# Stage 05: tell the agent Worker (Discord / Chat) when an answer job finishes.
+[[services]]
+binding = "AGENT"
+service = "gdgjp-agent"
+
 [vars]
 ENVIRONMENT = "production"
 # Kill switch for AI auto-translation (JA→EN). "true" enqueues/runs jobs; anything else skips.

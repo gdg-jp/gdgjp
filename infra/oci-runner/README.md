@@ -22,6 +22,10 @@ Worker never calls an LLM. Design: `docs/plans/knowledge-platform-v2/04-runner-a
 4. Advanced options → Management → cloud-init script: paste `cloud-init.yaml`.
 5. Create, then `ssh ubuntu@<ip>` and wait for `cloud-init status --wait`.
 
+`Out of capacity for shape VM.Standard.A1.Flex` is common in Tokyo (one AD): retry later, or
+from the OCI CLI in a loop (`oci compute instance launch …` every few minutes). If no public
+IPv4 was assigned, add an ephemeral one on the VNIC (Instance → Networking → IPv4 addresses).
+
 ## 2. Install gdg and the token
 
 ```sh

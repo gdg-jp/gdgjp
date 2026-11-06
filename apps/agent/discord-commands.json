@@ -1,0 +1,22 @@
+[
+  {
+    "name": "ask",
+    "description": "Ask the GDG Japan Wiki assistant",
+    "options": [
+      {
+        "name": "question",
+        "description": "Your question for the Wiki assistant",
+        "type": 3,
+        "required": true
+      }
+    ]
+  },
+  { "name": "login", "description": "Link this Discord account to GDG Accounts" },
+  { "name": "unlink", "description": "Unlink this Discord account from GDG Accounts" },
+  {
+    "name": "setup",
+    "description": "Choose the wiki spaces /ask searches in this server (server managers)",
+    "dm_permission": false,
+    "default_member_permissions": "32"
+  }
+]

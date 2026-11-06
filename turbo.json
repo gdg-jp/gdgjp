@@ -19,9 +19,6 @@
     "typecheck": {
       "dependsOn": ["^build"]
     },
-    "@gdgjp/agents#typecheck": {
-      "dependsOn": ["build"]
-    },
     "test": {
       "dependsOn": ["^build"],
       "outputs": ["coverage/**"]

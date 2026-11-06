@@ -46,7 +46,6 @@ test("propagates gdg-lib changes to every dependent application", () => {
     "@gdgjp/roulette",
     "@gdgjp/website",
     "@gdgjp/gdg-lib",
-    "@gdgjp/agents",
   ]);
   assert.deepEqual(
     result.deploy.map(({ app }) => app),
@@ -65,7 +64,6 @@ test("propagates gdg-lib changes to every dependent application", () => {
       "deck",
       "roulette",
       "website",
-      "agents",
     ],
   );
 });

@@ -112,7 +112,7 @@ test("unit-test-only changes keep typecheck and related tests without production
 });
 
 test("frontend edits without a configured browser suite retain other checks", () => {
-  for (const app of ["sns", "website", "agents"]) {
+  for (const app of ["sns", "website"]) {
     const steps = changedSteps("full", [`apps/${app}/app/root.tsx`]);
     assert.ok(steps.some(([name]) => name === "typecheck+build"));
     assert.ok(steps.some(([name]) => name.startsWith("test:")));
@@ -275,11 +275,6 @@ test("ACL generation changes select embedded Go checks and the subprocess regres
       );
     }
   }
-});
-
-test("Next typechecking waits for its generated route types", () => {
-  const { tasks } = JSON.parse(readFileSync(new URL("../../turbo.json", import.meta.url), "utf8"));
-  assert.ok(tasks["@gdgjp/agents#typecheck"].dependsOn.includes("build"));
 });
 
 test("repository script edits do not run every workspace's checks", () => {

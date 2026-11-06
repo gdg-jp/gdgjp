@@ -289,9 +289,9 @@ jobs:
           - name: Typecheck tinyurl gateway
             if: contains(fromJSON(needs.changes.outputs.ci), '@gdgjp/tinyurl-gateway')
             run: pnpm --filter @gdgjp/tinyurl-gateway typecheck
-          - name: Typecheck agents
-            if: contains(fromJSON(needs.changes.outputs.ci), '@gdgjp/agents')
-            run: pnpm --filter @gdgjp/agents typecheck
+          - name: Typecheck agent
+            if: contains(fromJSON(needs.changes.outputs.ci), '@gdgjp/agent')
+            run: pnpm --filter @gdgjp/agent typecheck
           - name: Typecheck go extension
             if: contains(fromJSON(needs.changes.outputs.ci), '@gdgjp/go-extension')
             run: pnpm --filter @gdgjp/go-extension typecheck
@@ -371,9 +371,9 @@ jobs:
           - name: Test tinyurl gateway
             if: contains(fromJSON(needs.changes.outputs.ci), '@gdgjp/tinyurl-gateway')
             run: pnpm --filter @gdgjp/tinyurl-gateway test
-          - name: Test agents
-            if: contains(fromJSON(needs.changes.outputs.ci), '@gdgjp/agents')
-            run: pnpm --filter @gdgjp/agents test
+          - name: Test agent
+            if: contains(fromJSON(needs.changes.outputs.ci), '@gdgjp/agent')
+            run: pnpm --filter @gdgjp/agent test
           - name: Test go extension
             if: contains(fromJSON(needs.changes.outputs.ci), '@gdgjp/go-extension')
             run: pnpm --filter @gdgjp/go-extension test
@@ -454,9 +454,9 @@ jobs:
           - name: Build tinyurl gateway
             if: contains(fromJSON(needs.changes.outputs.build), '@gdgjp/tinyurl-gateway')
             run: pnpm --filter @gdgjp/tinyurl-gateway build
-          - name: Build agents
-            if: contains(fromJSON(needs.changes.outputs.build), '@gdgjp/agents')
-            run: pnpm --filter @gdgjp/agents build
+          - name: Build agent
+            if: contains(fromJSON(needs.changes.outputs.build), '@gdgjp/agent')
+            run: pnpm --filter @gdgjp/agent build
           - name: Build go extension
             if: contains(fromJSON(needs.changes.outputs.build), '@gdgjp/go-extension')
             run: |

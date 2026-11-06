@@ -1,0 +1,41 @@
+# gdgjp-agent — Discord / Google Chat front door for the knowledge platform (Stage 05).
+# No AI binding and no LLM keys: answers come from the OCI runner (`answer` jobs).
+name = "gdgjp-agent"
+main = "src/index.ts"
+compatibility_date = "2026-07-25"
+compatibility_flags = ["nodejs_compat"]
+# Until agent.gdgs.jp moves off Vercel (v1), the Worker answers on workers.dev. Cut-over:
+# delete the Vercel CNAME for agent.gdgs.jp, uncomment `routes`, deploy, then point the
+# Discord Interactions URL and the Google Chat endpoint at https://agent.gdgs.jp/api/chat.
+workers_dev = true
+# routes = [{ pattern = "agent.gdgs.jp", custom_domain = true }]
+
+[vars]
+APP_URL = "https://agent.gdgs.jp"
+ACCOUNTS_URL = "https://accounts.gdgs.jp"
+IDP_CLIENT_ID = "agents"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "gdgjp-agent-db"
+database_id = "fa1245a8-96c3-4107-9f7e-9dd89b8b5b7e"
+migrations_dir = "migrations"
+
+[[kv_namespaces]]
+binding = "KV"
+id = "672523d9b72c475ca8426fb8e8f5a60b"
+
+[[services]]
+binding = "WIKI"
+service = "gdgjp-wiki"
+
+[[durable_objects.bindings]]
+name = "PENDING"
+class_name = "PendingSweeper"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["PendingSweeper"]
+
+[observability]
+enabled = true

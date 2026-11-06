@@ -45,3 +45,19 @@ export const runnerStatus = sqliteTable("runner_status", {
   runningJobId: text("running_job_id"),
   alertedAt: integer("alerted_at", { mode: "timestamp" }),
 });
+
+// Stage 05: asker-scoped tokens for an answer job's MCP reads (hash only, 10-minute TTL).
+export const jobTokens = sqliteTable(
+  "job_tokens",
+  {
+    tokenHash: text("token_hash").primaryKey(),
+    jobId: text("job_id")
+      .notNull()
+      .references(() => agentJobs.id, { onDelete: "cascade" }),
+    principal: text("principal").notNull(),
+    expiresAt: integer("expires_at", { mode: "timestamp" }).notNull(),
+    revokedAt: integer("revoked_at", { mode: "timestamp" }),
+    createdAt: integer("created_at", { mode: "timestamp" }).notNull().default(sql`(unixepoch())`),
+  },
+  (t) => [index("idx_job_tokens_job").on(t.jobId)],
+);

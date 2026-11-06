@@ -1,0 +1,16 @@
+# Secrets for gdgjp-agent (wrangler secret put <NAME> in production).
+IDP_CLIENT_SECRET=
+# JSON {"1":"<base64 32-byte key>"}; same keyring as v1 apps/agents so links stay valid.
+TOKEN_ENCRYPTION_KEYS=
+# Shared with the wiki Worker (same name there). 32+ random characters.
+AGENT_SERVICE_TOKEN=
+DISCORD_PUBLIC_KEY=
+DISCORD_BOT_TOKEN=
+DISCORD_APPLICATION_ID=
+GOOGLE_CHAT_AUDIENCE=
+# Service account JSON used to post answers with the Chat API.
+GOOGLE_CHAT_CREDENTIALS=
+LANGFUSE_PUBLIC_KEY=
+LANGFUSE_SECRET_KEY=
+LANGFUSE_BASE_URL=https://cloud.langfuse.com
+TELEMETRY_ID_SALT=

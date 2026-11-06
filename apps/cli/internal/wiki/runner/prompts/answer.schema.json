@@ -1,0 +1,35 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["answer", "citations", "confidence", "unanswered", "filing"],
+  "properties": {
+    "answer": { "type": "string" },
+    "citations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["url", "quote"],
+        "properties": { "url": { "type": "string" }, "quote": { "type": "string" } }
+      }
+    },
+    "confidence": { "type": "string", "enum": ["high", "medium", "low"] },
+    "unanswered": { "type": "boolean" },
+    "filing": {
+      "anyOf": [
+        { "type": "null" },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["slug", "title", "summary", "content"],
+          "properties": {
+            "slug": { "type": "string" },
+            "title": { "type": "string" },
+            "summary": { "type": "string" },
+            "content": { "type": "string" }
+          }
+        }
+      ]
+    }
+  }
+}

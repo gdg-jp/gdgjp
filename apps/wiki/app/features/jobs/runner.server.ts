@@ -6,6 +6,7 @@ import { pageInSpace } from "~/features/pages/page-space.server";
 import { wikiPagePath } from "~/features/pages/wiki-page-path";
 import { ensureOpenReviewFlag } from "~/features/spaces/review.server";
 import type { getDb } from "~/lib/db.server";
+import { finishAnswer, notifyAgent } from "./answer.server";
 import type { AgentJobStatus, AgentJobType, SynthesizePayload } from "./shared";
 
 type Db = ReturnType<typeof getDb>;
@@ -146,6 +147,11 @@ export async function completeJob(
       leaseUntil: null,
     })
     .where(eq(schema.agentJobs.id, job.id));
+
+  if (job.type === "answer") {
+    await finishAnswer(env, db, job.id);
+    await notifyAgent(env, { jobId: job.id, status: input.status, result: input.result });
+  }
 
   if (job.type === "synthesize") {
     const payload = parsePayload(job);

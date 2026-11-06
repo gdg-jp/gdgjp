@@ -1,5 +1,8 @@
 # agents/ LLM observability (Langfuse)
 
+> v2: `@gdgjp/agents` (Vercel) was replaced by `@gdgjp/agent` (Cloudflare Worker, `apps/agent/`),
+> which sends traces and 👍/👎 scores through the Langfuse ingestion API with the same masking rules.
+
 Online tracing and evaluation for `@gdgjp/agents`. Offline datasets / CI regression
 harnesses are intentionally out of scope — see the decisions in the implementation plan.
 

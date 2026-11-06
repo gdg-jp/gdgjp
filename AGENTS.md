@@ -62,6 +62,18 @@ Applications live in `apps/` and shared libraries in `packages/`. Workspace glob
   shows the draw log (CSV download); visitors spin a roulette wheel once per device at the public
   `/<slug>`, which never shows stock or exclusions. Runs on the Workers Free plan: D1 only (no Durable Objects, KV,
   Queues or R2); each spin is one atomic D1 batch.
+- `apps/agent/` is the knowledge-platform front door for Discord and Google Chat
+  (`agent.gdgs.jp`, v2 Stage 05): a plain Cloudflare Worker (D1, KV, one `PendingSweeper`
+  Durable Object, `WIKI` service binding) that verifies webhooks, links chat accounts to GDG
+  Accounts, searches and reads the wiki **as the asker or the guild / Chat-space principal**,
+  and queues `answer` jobs for the OCI runner. It never calls an LLM. It replaced the Vercel
+  `apps/agents`.
+- `apps/agent/` is the knowledge-platform front door for Discord and Google Chat
+  (`agent.gdgs.jp`, v2 Stage 05): a plain Cloudflare Worker (D1, KV, one `PendingSweeper`
+  Durable Object, `WIKI` service binding) that verifies webhooks, links chat accounts to GDG
+  Accounts, searches and reads the wiki **as the asker or the guild / Chat-space principal**,
+  and queues `answer` jobs for the OCI runner. It never calls an LLM. It replaced the Vercel
+  `apps/agents`.
 - `packages/gdg-lib/` is the source-only shared TypeScript package (`@gdgjp/gdg-lib`) for relying-party
   auth and signed-cookie helpers. Keep code app-local unless it is genuinely shared here.
 - `packages/design-system/` is the `gdg-jp/design-system` Git submodule and shared React 19 workspace (`@gdgjp/design-system`).

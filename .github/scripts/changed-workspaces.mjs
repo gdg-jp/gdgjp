@@ -38,7 +38,7 @@ const CI_WORKSPACES = [
     build: true,
     e2e: false,
   },
-  { directory: "apps/agents", workspace: "@gdgjp/agents", build: true, e2e: false },
+  { directory: "apps/agent", workspace: "@gdgjp/agent", build: true, e2e: false },
   { directory: "apps/go-extension", workspace: "@gdgjp/go-extension", build: true, e2e: false },
   {
     directory: "apps/agent-host/langfuse-forwarder",
@@ -136,12 +136,7 @@ const DEPLOY_TARGETS = [
     provider: "vercel-gateway",
     migrate: false,
   },
-  {
-    app: "agents",
-    workspace: "@gdgjp/agents",
-    provider: "vercel-agents",
-    migrate: false,
-  },
+  { app: "agent", workspace: "@gdgjp/agent", provider: "cloudflare", migrate: true },
 ];
 
 const GDG_LIB_DEPENDENTS = new Set([
@@ -154,7 +149,6 @@ const GDG_LIB_DEPENDENTS = new Set([
   "connpass",
   "pay",
   "website",
-  "agents",
   "roster",
   "mc",
   "screen",

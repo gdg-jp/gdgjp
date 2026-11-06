@@ -32,6 +32,7 @@ Single `ExportedHandler<Env>` — understand all three before touching:
 |---|---|
 | `DB` | D1, primary store. Via Drizzle (`getDb(env)` in `app/lib/db.server.ts`). |
 | `BUCKET` | R2 — page attachments + ingestion uploads. |
+| `AGENT` | Service binding → `gdgjp-agent` (Discord / Chat). `completeJob` calls its `/internal/answer-ready` when an `answer` job ends. Shared secret `AGENT_SERVICE_TOKEN`. |
 | `KNOWLEDGE` | AI Search namespace `gdgjp-knowledge`; one built-in-storage instance per space. `app/features/knowledge/`. |
 | `TRANSLATION_QUEUE` | Translation producer+consumer; `app/lib/queue-processors.server.ts`. |
 | `SOURCE_FETCH_QUEUE` | Source fetch start messages (`source_fetch`). Source import work continues via DO alarms. |

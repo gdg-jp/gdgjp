@@ -44,7 +44,7 @@ func TestAgentProcessHasNoRunnerToken(t *testing.T) {
 
 func TestCodexArgsKeepTheSandbox(t *testing.T) {
 	args := strings.Join((&CodexBackend{Model: "gpt-x"}).Args("/w", "do it"), " ")
-	for _, want := range []string{"exec", "--sandbox workspace-write", "-C /w", "-m gpt-x"} {
+	for _, want := range []string{"exec", "--sandbox workspace-write", "--ignore-user-config", "-C /w", "-m gpt-x"} {
 		if !strings.Contains(args, want) {
 			t.Fatalf("codex args %q missing %q", args, want)
 		}
@@ -193,5 +193,56 @@ func TestCompleteMapsConflictToLeaseLost(t *testing.T) {
 func TestNewRejectsShortToken(t *testing.T) {
 	if _, err := New(Config{Token: "short"}, nil); err == nil {
 		t.Fatal("expected an error for a short RUNNER_TOKEN")
+	}
+}
+
+func TestAnswerArgsAreReadOnlyWithMCP(t *testing.T) {
+	args := strings.Join((&CodexBackend{}).AnswerArgs("/w", "q", "/w/s.json", "/w/o.json", &MCPConfig{
+		Command: "/usr/local/bin/gdg",
+		Args:    []string{"wiki", "mcp", "--spaces", "tokyo"},
+		Env:     map[string]string{"GDG_WIKI_JOB_TOKEN": "jt_x"},
+	}), " ")
+	for _, want := range []string{"--sandbox read-only", "--output-schema /w/s.json", `mcp_servers.wiki.command="/usr/local/bin/gdg"`, `mcp_servers.wiki.args=["wiki","mcp","--spaces","tokyo"]`, `mcp_servers.wiki.env={GDG_WIKI_JOB_TOKEN="jt_x"}`, `mcp_servers.wiki.default_tools_approval_mode="approve"`} {
+		if !strings.Contains(args, want) {
+			t.Fatalf("answer args %q missing %q", args, want)
+		}
+	}
+	if strings.Contains(args, "workspace-write") || strings.Contains(args, "RUNNER_TOKEN") {
+		t.Fatalf("answer runs must be read-only and never carry the runner token: %q", args)
+	}
+}
+
+func TestAnswerDropsCitationsTheAgentNeverSaw(t *testing.T) {
+	dir := t.TempDir()
+	log := filepath.Join(dir, "urls.txt")
+	_ = os.WriteFile(log, []byte("https://wiki/s/a/wiki/from-mcp\n"), 0o600)
+	allowed := allowedURLs(map[string]string{"hits/01.md": "---\nurl: \"https://wiki/s/a/wiki/hit\"\n---\n\nbody"}, log)
+	result, err := parseAnswer([]byte(`{"answer":"x","citations":[{"url":"https://wiki/s/a/wiki/hit","quote":""},{"url":"https://wiki/s/a/wiki/from-mcp","quote":""},{"url":"https://evil.example/made-up","quote":""}],"confidence":"high","unanswered":false,"filing":null}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	result = dropUnknownCitations(result, allowed)
+	if len(result.Citations) != 2 || result.Filing != nil {
+		t.Fatalf("citations = %+v filing=%s", result.Citations, result.Filing)
+	}
+	only, _ := parseAnswer([]byte(`{"answer":"x","citations":[{"url":"https://evil.example","quote":""}],"confidence":"high","unanswered":false}`))
+	if dropped := dropUnknownCitations(only, allowed); len(dropped.Citations) != 0 || dropped.Confidence != "low" {
+		t.Fatalf("a fully hallucinated answer must lose its citations and confidence: %+v", dropped)
+	}
+}
+
+func TestWriteBundleRejectsEscapes(t *testing.T) {
+	if err := writeBundle(filepath.Join(t.TempDir(), "b"), map[string]string{"../x.md": "x"}); err == nil {
+		t.Fatal("expected an error for a path outside the job directory")
+	}
+}
+
+func TestRunnerTypesLimitSlots(t *testing.T) {
+	got := filterSlots([][]string{{"answer"}, {"synthesize", "translate"}}, []string{"answer", "translate"})
+	if len(got) != 2 || got[0][0] != "answer" || len(got[1]) != 1 || got[1][0] != "translate" {
+		t.Fatalf("filterSlots = %v", got)
+	}
+	if _, err := New(Config{Token: strings.Repeat("x", 32), Types: []string{"nope"}}, nil); err == nil {
+		t.Fatal("expected an error when RUNNER_TYPES matches nothing")
 	}
 }

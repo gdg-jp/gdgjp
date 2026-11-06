@@ -15,7 +15,6 @@ users:
 write_files:
   - path: /etc/gdg/runner.env
     permissions: "0640"
-    owner: root:runner
     content: |
       GDG_WIKI_URL=https://wiki.gdgs.jp
       # Same value as `wrangler secret put RUNNER_TOKEN` on the wiki Worker.
@@ -47,6 +46,8 @@ write_files:
       WantedBy=multi-user.target
 
 runcmd:
+  # write_files runs before users are created, so the group is set here.
+  - chown root:runner /etc/gdg/runner.env
   - install -d -o runner -g runner -m 0700 /var/lib/gdg-runner
   # Codex CLI, pinned by version and sha256 (bump both together).
   - |

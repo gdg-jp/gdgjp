@@ -163,6 +163,7 @@ func newWikiCommandWithService(service *wikiService) *cobra.Command {
 	command.AddCommand(verify)
 
 	command.AddCommand(newWikiRunnerCommand(service))
+	command.AddCommand(newWikiMCPCommand())
 
 	command.AddCommand(&cobra.Command{
 		Use:   "lint",
