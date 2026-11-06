@@ -57,7 +57,31 @@ export class PrService extends WorkerEntrypoint {
     return { ok: false as const, code: "not_implemented" };
   }
   getAnalytics() {
-    return { ok: true as const, analytics: { buckets: [] } };
+    return {
+      ok: true as const,
+      analytics: {
+        totalClicks: 120,
+        trend: [],
+        links: [],
+        sources: [
+          {
+            channelId: 1,
+            channelName: "X（投稿）",
+            sourceCode: "x_post",
+            sourceName: null,
+            clicks: 80,
+          },
+          {
+            channelId: 2,
+            channelName: "GDG の Discord",
+            sourceCode: null,
+            sourceName: null,
+            clicks: 40,
+          },
+        ],
+        acquisition: null,
+      },
+    };
   }
   mockState() {
     return {

@@ -94,7 +94,15 @@ export class PrService extends WorkerEntrypoint {
     return { ok: true as const, job: summary };
   }
   getStats() {
-    return { ok: true as const, statistics: { participants: 0 } };
+    return {
+      ok: true as const,
+      statistics: {
+        registeredCount: 312,
+        waitlistedCount: 4,
+        canceledCount: 10,
+        checkedInCount: 0,
+      },
+    };
   }
   listParticipants() {
     return { ok: true as const, participants: [] };

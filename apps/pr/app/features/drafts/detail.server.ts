@@ -1,3 +1,5 @@
+import { applyProposal } from "~/features/analyze/analyze.server";
+import type { AnalyzeReport } from "~/features/analyze/report";
 import type { CampaignAccess } from "~/features/campaigns/access.server";
 import { publishApprovedPage } from "~/features/connpass/page.server";
 import { deliveryAction } from "~/features/dispatch/delivery.server";
@@ -65,6 +67,13 @@ export async function draftAction(
   ) {
     const page = await publishApprovedPage(env, access, draft);
     return page.ok ? { ok: true, message: page.message } : { ok: false, errors: [page.error] };
+  }
+  if (intent.startsWith("apply-") && draft.kind === "report") {
+    if (!access.permissions.manage)
+      return { ok: false, errors: ["適用できるのはリードとオーガナイザーです"] };
+    const report = (await currentContent(env.DB, draft)) as AnalyzeReport | null;
+    const applied = report ? await applyProposal(env, access, report, form) : null;
+    return applied ?? { ok: false, errors: ["提案がありません"] };
   }
   if (intent === "listing-manual" && draft.kind === "listing") {
     const r = await markListedByHand(env, access, draft, String(form.get("url") ?? "").trim());

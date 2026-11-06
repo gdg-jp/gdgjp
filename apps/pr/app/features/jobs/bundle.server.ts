@@ -1,3 +1,4 @@
+import { analyzeFiles } from "~/features/analyze/analyze.server";
 import type { Brief } from "~/features/briefs/brief";
 import { briefVersion, latestBrief } from "~/features/briefs/brief.repository.server";
 import type { Campaign } from "~/features/campaigns/campaign";
@@ -32,6 +33,8 @@ export function skillFor(job: Job): { skill: string; kind: string } {
       return { skill: "pr-x-post", kind: payload.channel === "ig" ? "ig_post" : "x_post" };
     case "asset":
       return { skill: "pr-asset", kind: "asset_spec" };
+    case "analyze":
+      return { skill: "pr-analyze", kind: "plan" };
     case "page":
       return payload.kind === "connpass_mail"
         ? { skill: "pr-connpass-mail", kind: "connpass_mail" }
@@ -58,7 +61,12 @@ export type Bundle = {
 };
 
 /** Everything the runner needs for one job, as files. The runner holds no repository. */
-export async function buildBundle(db: D1Database, job: Job, campaign: Campaign): Promise<Bundle> {
+export async function buildBundle(
+  db: D1Database,
+  job: Job,
+  campaign: Campaign,
+  env?: Env,
+): Promise<Bundle> {
   const { skill, kind } = skillFor(job);
   const files: Record<string, string> = {};
   const skillMd = skills[skill];
@@ -128,6 +136,8 @@ export async function buildBundle(db: D1Database, job: Job, campaign: Campaign):
       "各投稿の scheduleItemId に targets の scheduleItemId をそのまま入れ、scheduledAt も targets の値を使う。",
     );
     if (copy) task.push("COPY.json の採用コピーに沿って書く。");
+  } else if (job.type === "analyze" && env) {
+    await analyzeFiles(env, campaign, files, task);
   } else if (job.type === "asset") {
     await assetFiles(db, campaign, payload, files, task);
   } else if (job.type === "page") {

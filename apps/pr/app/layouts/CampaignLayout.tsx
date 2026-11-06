@@ -22,6 +22,7 @@ export const CAMPAIGN_TABS = [
   { path: "drafts", label: "下書き" },
   { path: "assets", label: "画像" },
   { path: "live", label: "当日実況" },
+  { path: "metrics", label: "数値" },
   { path: "reviews", label: "レビュー" },
   { path: "approvals", label: "承認" },
   { path: "members", label: "メンバー" },

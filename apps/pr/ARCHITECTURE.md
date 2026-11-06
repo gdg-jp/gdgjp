@@ -23,6 +23,9 @@
 | Listings on Luma / TECH PLAY / Findy / Bevy: mapped from the brief (no runner), approval through `CONNPASS.createListing` or copy-and-mark-done by hand; Findy once per campaign | `app/features/listings/` |
 | Images: template slots → HTML (`skills/pr-playbook/scripts/render/image-html.mjs`) → Browser Rendering snapshot → R2 `IMAGES`, render checks measured in the page; approval publishes to img.gdgs.jp (`IMG_UPLOAD`) and hands off (connpass thumbnail JPEG ≤ 1 MB, short-link OGP, post attachment, connpass page slot) | `app/features/assets/` |
 | Live posts from the timetable (no LLM), with optional session cards | `app/features/live/` |
+| Metrics: hourly tinyurl / connpass snapshots (aggregates only), ads CSV import with saved column maps, the dashboard with the goal curve | `app/features/metrics/` |
+| Ad flights (from the adopted plan's budget), overrun alerts once per flight, X : IG split | `app/features/budget/` |
+| Weekly analysis (`analyze` job, `pr-analyze`): report draft, proposals applied by a person | `app/features/analyze/` |
 | Domain-free widgets | `app/components/RowTable.tsx` |
 | Shells | `app/layouts/AppLayout.tsx`, `CampaignLayout.tsx` (campaign tabs) |
 | Screens + loaders / actions | `app/routes/<domain>/` — URLs in `app/routes.ts` |

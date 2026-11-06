@@ -78,9 +78,9 @@ service = "gdgjp-img"
 entrypoint = "ImageUploadService"
 
 # Every minute: runner lease requeue, staff reminders, Discord posts, review requests, follow-ups.
-# Hourly: sns post status, short-link health.
+# Hourly: sns post status, connpass jobs, short-link health, metrics. Weekly (Mon 02:00 JST): analyze.
 [triggers]
-crons = ["* * * * *", "0 * * * *"]
+crons = ["* * * * *", "0 * * * *", "0 17 * * 0"]
 
 # Secrets: RP_SESSION_SECRET, IDP_CLIENT_SECRET, RUNNER_TOKEN (32+ chars; not the wiki's value),
 # SETTINGS_ENCRYPTION_KEY (AES-GCM key material for chapters' Discord webhook URLs).

@@ -1,3 +1,5 @@
+import { latestBrief } from "~/features/briefs/brief.repository.server";
+import { replacePlanFlights } from "~/features/budget/flight.repository.server";
 import type { CampaignMember } from "~/features/campaigns/campaign";
 import { createDerivedItem, createItem } from "~/features/schedule/item.repository.server";
 import { planToItems } from "./adopt";
@@ -29,5 +31,23 @@ export async function adoptPlan(
     created++;
   }
   await markAdopted(db, campaignId, version);
+  // Ad flights from the budget allocation, measured from the event's start.
+  const brief = (await latestBrief(db, campaignId))?.brief;
+  const eventAt = brief ? Math.floor(Date.parse(brief.event.startAt) / 1000) : null;
+  if (eventAt)
+    await replacePlanFlights(
+      db,
+      campaignId,
+      eventAt,
+      version,
+      plan.body.budgetAllocation.flights.map((f) => ({
+        medium: f.medium,
+        name: f.name,
+        startDaysBefore: f.startDaysBefore,
+        endDaysBefore: f.endDaysBefore,
+        plannedYen: f.plannedYen,
+        phases: f.phases,
+      })),
+    );
   return { created, removed, problems };
 }

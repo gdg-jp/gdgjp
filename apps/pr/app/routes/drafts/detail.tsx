@@ -10,6 +10,8 @@ import {
   Textarea,
 } from "@gdgjp/design-system";
 import { Form, Link, useNavigation } from "react-router";
+import { ReportCard } from "~/features/analyze/components/ReportCard";
+import type { AnalyzeReport } from "~/features/analyze/report";
 import { requireCampaignAccess } from "~/features/campaigns/access.server";
 import { DeliveryCard } from "~/features/dispatch/components/DeliveryCard";
 import { deliveryView } from "~/features/dispatch/delivery.server";
@@ -176,7 +178,7 @@ export default function DraftDetail({ loaderData, actionData }: Route.ComponentP
               {draft.kind === "copy" && content?.candidates ? (
                 <CopyCandidates candidates={content.candidates as never[]} />
               ) : null}
-              {!isPost && draft.kind !== "copy" && draft.kind !== "listing" && !content?.html ? (
+              {!isPost && !["copy", "listing", "report"].includes(draft.kind) && !content?.html ? (
                 <pre className="overflow-x-auto whitespace-pre-wrap text-xs">
                   {JSON.stringify(content, null, 2)}
                 </pre>
@@ -244,6 +246,13 @@ export default function DraftDetail({ loaderData, actionData }: Route.ComponentP
           imageUrls={Object.fromEntries(
             (content.sections ?? []).map((s) => [s.id, s.slots.imageUrl ?? null]),
           )}
+          busy={busy}
+        />
+      ) : null}
+      {draft.kind === "report" && content ? (
+        <ReportCard
+          report={content as unknown as AnalyzeReport}
+          canApply={actor.canApprove}
           busy={busy}
         />
       ) : null}

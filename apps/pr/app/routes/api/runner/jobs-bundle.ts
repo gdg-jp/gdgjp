@@ -14,5 +14,5 @@ export async function loader({ request, context, params }: Route.LoaderArgs) {
   }
   const campaign = await getCampaignById(env.DB, job.campaignId);
   if (!campaign) return Response.json({ error: "campaign_gone" }, { status: 410 });
-  return Response.json(await buildBundle(env.DB, job, campaign));
+  return Response.json(await buildBundle(env.DB, job, campaign, env));
 }

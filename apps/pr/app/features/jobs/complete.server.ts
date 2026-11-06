@@ -3,6 +3,7 @@ import {
   mustFailures,
   validateSchema,
 } from "@skills/pr-playbook/scripts/checks/index.mjs";
+import { importReport } from "~/features/analyze/analyze.server";
 import type { Brief } from "~/features/briefs/brief";
 import { briefVersion, latestBrief } from "~/features/briefs/brief.repository.server";
 import type { DraftKind } from "~/features/drafts/draft-kinds";
@@ -107,6 +108,12 @@ export async function importResult(
           })));
     const saved = await saveVersion(db, job, draftId, "copy", output, brief, yomiyasu);
     return { status: "succeeded", summary: { draftIds: [draftId], mustFails: saved.mustFails } };
+  }
+
+  if (job.type === "analyze") {
+    if (!env)
+      return { status: "failed", summary: {}, error: "analyze import needs the Worker env" };
+    return importReport(env, job, output as Parameters<typeof importReport>[2]);
   }
 
   if (job.type === "asset") {
