@@ -1,6 +1,18 @@
 {
   "version": 1,
   "skills": {
+    "browser-use": {
+      "source": "browser-use/browser-use",
+      "sourceType": "github",
+      "skillPath": "skills/browser-use/SKILL.md",
+      "computedHash": "2ec338a6678e4b285af4781958f7a59ccbfd67485dfa947caec897a412080f6a"
+    },
+    "build-design-harness": {
+      "source": "mitame-ai/skills",
+      "sourceType": "github",
+      "skillPath": "build-design-harness/SKILL.md",
+      "computedHash": "ba7becae119291897c92f42594d166001ede9f9c79e260472ffe74703a1adc47"
+    },
     "grill-with-docs": {
       "source": "mattpocock/skills",
       "sourceType": "github",
