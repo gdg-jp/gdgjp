@@ -14,7 +14,7 @@ import { GdgAccountMenu, GdgAppLauncher } from "@gdgjp/gdg-lib/ui";
 
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Form, Link, useFetcher, useLocation, useSearchParams } from "react-router";
+import { Form, Link, useFetcher, useLocation, useParams, useSearchParams } from "react-router";
 import NotificationBell from "~/features/notifications/components/NotificationBell";
 
 import { Icons } from "@gdgjp/design-system";
@@ -83,15 +83,18 @@ function UserMenu({ user }: { user: NonNullable<NavbarProps["user"]> }) {
 
 function ThemeSwitcher() {
   const { t } = useTranslation();
-  const { theme, resolvedTheme, setTheme } = useTheme();
+  const { theme, setTheme } = useTheme();
   const title = t("theme.label");
-  const iconName = resolvedTheme === "dark" ? "Moon" : "Sun";
 
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <IconButton variant="ghost" title={title} aria-label={title} className="text-muted">
-          <Icons name={iconName} size={18} aria-hidden="true" />
+          {/* The resolved theme is only known in the browser (localStorage, media query): the
+              `dark` class on <html> is set before hydration, so CSS picks the icon and the
+              server and client render the same markup. */}
+          <Icons name="Sun" size={18} aria-hidden="true" className="dark:hidden" />
+          <Icons name="Moon" size={18} aria-hidden="true" className="hidden dark:inline-flex" />
         </IconButton>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
@@ -167,6 +170,9 @@ export default function Navbar({
   const [searchParams] = useSearchParams();
   const currentQuery = searchParams.get("q") ?? "";
   const [queryInput, setQueryInput] = useState(currentQuery);
+  // Searching from inside `/s/:space/…` stays in that space.
+  const { space: spaceParam } = useParams();
+  const searchAction = spaceParam ? spacePath(spaceParam, "search") : "/search";
 
   // Sync input value when the URL q param changes (e.g. back/forward nav)
   useEffect(() => {
@@ -205,7 +211,7 @@ export default function Navbar({
       </Link>
 
       {/* Search */}
-      <Form action="/search" method="get" className="flex min-w-0 flex-1 justify-center">
+      <Form action={searchAction} method="get" className="flex min-w-0 flex-1 justify-center">
         <Input
           id="wiki-search"
           aria-label={t("nav.search")}

@@ -231,9 +231,16 @@ export default function NotificationBell({ initialCount }: { initialCount: numbe
               >
                 {typeIcon(n.type)}
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm">{title(n)}</p>
+                  <p className={`truncate text-sm ${n.readAt ? "" : "font-medium"}`}>{title(n)}</p>
                   <p className="text-xs text-muted">{relativeTime(t, n.createdAt)}</p>
                 </div>
+                {!n.readAt && (
+                  <span
+                    aria-hidden="true"
+                    className="h-2 w-2 shrink-0 rounded-full bg-primary"
+                    data-testid="notification-unread-dot"
+                  />
+                )}
               </button>
             ))}
           </div>

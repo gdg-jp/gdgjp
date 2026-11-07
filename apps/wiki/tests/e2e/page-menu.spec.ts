@@ -29,9 +29,9 @@ test("desktop menu copies Markdown and persists page-local display settings", as
   const first = await createPage(authorPage, "Menu display");
   const second = await createPage(authorPage, "Menu other");
   await authorPage.goto(`${first.path}?lang=en`);
-  await expect(authorPage.locator("article")).toBeVisible();
+  await expect(authorPage.locator("article:visible")).toBeVisible();
   const normalWidth = await authorPage
-    .locator("article")
+    .locator("article:visible")
     .evaluate((element) => element.getBoundingClientRect().width);
   await more(authorPage).click();
   const menu = authorPage.getByRole("menu");
@@ -49,10 +49,12 @@ test("desktop menu copies Markdown and persists page-local display settings", as
   await menu.getByRole("menuitemcheckbox", { name: "Small text" }).click();
   await expect(menu).toBeVisible();
   await menu.getByRole("menuitemcheckbox", { name: "Full width" }).click();
-  await expect(authorPage.locator("article")).toHaveAttribute("data-small-text", "true");
+  await expect(authorPage.locator("article:visible")).toHaveAttribute("data-small-text", "true");
   await expect
     .poll(() =>
-      authorPage.locator("article").evaluate((element) => element.getBoundingClientRect().width),
+      authorPage
+        .locator("article:visible")
+        .evaluate((element) => element.getBoundingClientRect().width),
     )
     .toBeGreaterThan(normalWidth);
   await expect
@@ -107,7 +109,7 @@ test("mobile dark menu retains existing actions and handles clipboard/storage fa
     animations: "disabled",
   });
   await authorPage.getByRole("menuitemcheckbox", { name: "Small text" }).click();
-  await expect(authorPage.locator("article")).toHaveAttribute("data-small-text", "true");
+  await expect(authorPage.locator("article:visible")).toHaveAttribute("data-small-text", "true");
   await authorPage.getByRole("menuitem", { name: "Copy link", exact: true }).click();
   await expect(authorPage.getByText("Could not copy", { exact: true }).last()).toBeVisible();
 });
@@ -184,7 +186,7 @@ test("read-only viewers can copy and change display but cannot mutate", async ({
     await expect(memberPage.getByRole("menuitem", { name, exact: true })).toBeDisabled();
   }
   await memberPage.getByRole("menuitemcheckbox", { name: "Small text" }).click();
-  await expect(memberPage.locator("article")).toHaveAttribute("data-small-text", "true");
+  await expect(memberPage.locator("article:visible")).toHaveAttribute("data-small-text", "true");
   expect(
     (await memberPage.request.post(source.path, { form: { intent: "duplicatePage" } })).status(),
   ).toBe(403);
@@ -204,16 +206,16 @@ test("display settings stay separate for another user and anonymous readers", as
   await authorPage.goto(source.path);
   await more(authorPage).click();
   await authorPage.getByRole("menuitemcheckbox", { name: "Small text" }).click();
-  await expect(authorPage.locator("article")).toHaveAttribute("data-small-text", "true");
+  await expect(authorPage.locator("article:visible")).toHaveAttribute("data-small-text", "true");
   await authorPage.context().clearCookies();
   await authorPage.context().addCookies(await memberPage.context().cookies());
   await authorPage.reload();
-  await expect(authorPage.locator("article")).toHaveAttribute("data-small-text", "false");
+  await expect(authorPage.locator("article:visible")).toHaveAttribute("data-small-text", "false");
   await more(authorPage).click();
   await authorPage.getByRole("menuitemcheckbox", { name: "Small text" }).click();
   await authorPage.context().clearCookies();
   await authorPage.reload();
-  await expect(authorPage.locator("article")).toHaveAttribute("data-small-text", "false");
+  await expect(authorPage.locator("article:visible")).toHaveAttribute("data-small-text", "false");
 });
 
 test("Markdown copy uses the redacted displayed content and language fallback", async ({
@@ -227,7 +229,7 @@ test("Markdown copy uses the redacted displayed content and language fallback", 
     "",
   );
   await authorPage.goto(`${source.path}?lang=en`);
-  await expect(authorPage.locator("article")).not.toContainText("PRIVATE_SECRET");
+  await expect(authorPage.locator("article:visible")).not.toContainText("PRIVATE_SECRET");
   await more(authorPage).click();
   await authorPage.getByRole("menuitem", { name: "Copy page contents" }).click();
   await expect

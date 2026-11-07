@@ -1,4 +1,4 @@
-import { and, desc, eq, isNull, sql } from "drizzle-orm";
+import { and, desc, eq, gt, isNull, or, sql } from "drizzle-orm";
 import type { ActionFunctionArgs, LoaderFunctionArgs } from "react-router";
 import * as schema from "~/db/schema";
 import { requireUser } from "~/features/auth/utils.server";
@@ -21,7 +21,16 @@ export async function loader({ request, context }: LoaderFunctionArgs) {
       createdAt: schema.notifications.createdAt,
     })
     .from(schema.notifications)
-    .where(eq(schema.notifications.userId, user.id))
+    // Read notifications fall off the list after 30 days; unread ones stay until read.
+    .where(
+      and(
+        eq(schema.notifications.userId, user.id),
+        or(
+          isNull(schema.notifications.readAt),
+          gt(schema.notifications.createdAt, new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)),
+        ),
+      ),
+    )
     .orderBy(desc(schema.notifications.createdAt))
     .limit(50)
     .all();

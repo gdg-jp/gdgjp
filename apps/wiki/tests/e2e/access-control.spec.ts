@@ -188,7 +188,7 @@ test("general access has five modes and hides the role for Restricted", async ({
   ).toBeVisible();
   await expect(page.getByRole("option", { name: "Public", exact: true })).toBeVisible();
   await expect(page.getByRole("option", { name: "Organizer", exact: true })).toBeVisible();
-  await expect(page.getByRole("option", { name: "Member", exact: true })).toBeVisible();
+  await expect(page.getByRole("option", { name: "GDG members", exact: true })).toBeVisible();
   await page.keyboard.press("Escape");
   await setGeneralAccess(page, "unlisted");
   const accessSelect = page.locator("#general-access");
