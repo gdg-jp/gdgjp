@@ -6,7 +6,8 @@ vi.mock("~/features/memberships/repository.server", () => ({
 }));
 
 import { sha256Base64Url } from "~/lib/crypto.server";
-import { handleRpSessionCheck } from "./rp-session.server";
+import { firstPartyRpClientIds, handleRpSessionCheck } from "./rp-session.server";
+import { collectSpecs } from "./seed-clients.server";
 
 type Row = Record<string, unknown> | null;
 
@@ -135,5 +136,16 @@ describe("handleRpSessionCheck", () => {
     const { db } = fakeDb(await liveSession());
     const response = await handleRpSessionCheck(env(db), check({ sid: 1 }));
     expect(response.status).toBe(400);
+  });
+
+  it("accepts every seeded gdg-lib relying party (all but the agents client)", () => {
+    // Each `<APP>_CLIENT_ID` resolves to its own name, so a client seeded but missing here fails.
+    const all = new Proxy({} as Env, {
+      get: (_, key) => (typeof key === "string" ? key.toLowerCase() : undefined),
+    });
+    const seeded = collectSpecs(all)
+      .map((spec) => spec.clientId)
+      .filter((id) => id !== "agents_client_id");
+    expect(firstPartyRpClientIds(all).sort()).toEqual(seeded.sort());
   });
 });
