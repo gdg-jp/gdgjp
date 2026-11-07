@@ -1,14 +1,23 @@
+import { buildDesignHtml, svgDataUri } from "@skills/pr-playbook/scripts/render/design-html.mjs";
 import { buildImageHtml, readChecks } from "@skills/pr-playbook/scripts/render/image-html.mjs";
 import type { Brief } from "~/features/briefs/brief";
 import { skinFromBrief } from "~/features/pages/render";
-import { imageTemplates } from "~/features/playbook/guides.server";
+import { designAssets, imageTemplates } from "~/features/playbook/guides.server";
 import { constants, runChecks } from "~/features/playbook/playbook";
 import type { Asset } from "./asset";
-import { finishRender } from "./asset.repository.server";
+import { finishRender, kitAssets } from "./asset.repository.server";
+import { photoKey } from "./photos.server";
 
 type Snapshot = { content: string; screenshot: Uint8Array };
 
 const base64ToBytes = (b64: string) => Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
+const bytesToBase64 = (bytes: ArrayBuffer) => {
+  let binary = "";
+  const view = new Uint8Array(bytes);
+  for (let i = 0; i < view.length; i += 0x8000)
+    binary += String.fromCharCode(...view.subarray(i, i + 0x8000));
+  return btoa(binary);
+};
 
 /** Browser Rendering's snapshot (or, locally, the Playwright server at PR_RENDER_URL). */
 async function snapshot(
@@ -45,7 +54,14 @@ export function templateSize(templateId: string) {
   return imageTemplates.schemas[templateId]?.size ?? null;
 }
 
-/** The template's HTML for these slots (the same builder the Skill's local renderer uses). */
+export const renderLimits = () => ({
+  thumbnailScale: constants.render.thumbnailScale,
+  minFontPxAtThumbnail: constants.render.minFontPxAtThumbnail,
+  minContrast: constants.render.minContrast,
+  minContrastLarge: constants.render.minContrastLarge,
+});
+
+/** Template mode: the template's HTML for these slots (the same builder the Skill's local renderer uses). */
 export function buildHtml(asset: Pick<Asset, "templateId" | "slots" | "layoutVars" | "skin">) {
   const template = imageTemplates.html[asset.templateId];
   const schema = imageTemplates.schemas[asset.templateId];
@@ -59,12 +75,51 @@ export function buildHtml(asset: Pick<Asset, "templateId" | "slots" | "layoutVar
     slots: asset.slots,
     layoutVars: asset.layoutVars,
     skin: asset.skin,
-    render: {
-      thumbnailScale: constants.render.thumbnailScale,
-      minFontPxAtThumbnail: constants.render.minFontPxAtThumbnail,
-      minContrast: constants.render.minContrast,
-    },
+    render: renderLimits(),
   });
+}
+
+/**
+ * The `assets/…` paths the agent's HTML may reference, as data URIs: the GDG logo and stickers
+ * (from the skills), the campaign's speaker photos and event logo (from R2).
+ */
+export async function assetsMap(env: Env, campaignId: number, html: string) {
+  const map: Record<string, string> = { "assets/gdg.svg": svgDataUri(imageTemplates.logoSvg) };
+  for (const [file, svg] of Object.entries(designAssets.stickers))
+    map[`assets/stickers/${file}`] = svgDataUri(svg);
+  const refs = new Set(
+    [...html.matchAll(/assets\/(photos\/[\w.-]+|logo\.[a-z0-9]+)/g)].map((m) => m[1] as string),
+  );
+  for (const ref of refs) {
+    const object = await env.IMAGES.get(photoKey(campaignId, ref));
+    if (!object) continue;
+    const type = object.httpMetadata?.contentType ?? "image/jpeg";
+    map[`assets/${ref}`] = `data:${type};base64,${bytesToBase64(await object.arrayBuffer())}`;
+  }
+  return map;
+}
+
+/** Design mode: the agent's HTML wrapped into the page (fonts, checks, CSP), resources inlined. */
+export async function buildDesign(
+  env: Env,
+  asset: Pick<Asset, "campaignId" | "templateId" | "html" | "width" | "height">,
+) {
+  const schema = imageTemplates.schemas[asset.templateId];
+  const html = asset.html ?? "";
+  const built = buildDesignHtml({
+    html,
+    width: asset.width,
+    height: asset.height,
+    fontsBase: `${env.APP_URL.replace(/\/$/, "")}/fonts`,
+    assets: await assetsMap(env, asset.campaignId, html),
+    checksScript: imageTemplates.checksScript,
+    render: renderLimits(),
+    safeInset: constants.design.safeInset,
+  });
+  const requiredSlots = Object.entries(schema?.slots ?? {})
+    .filter(([, s]) => (s as { required?: boolean }).required)
+    .map(([k]) => k);
+  return { ...built, requiredSlots };
 }
 
 export const assetSkin = (brief: Brief | null) => skinFromBrief(brief);
@@ -80,12 +135,15 @@ export async function renderAsset(
   brief: Brief | null,
 ): Promise<{ mustFails: number; status: Asset["status"] }> {
   try {
-    const built = buildHtml(asset);
+    const design = asset.html !== null && asset.html !== undefined;
+    const built = design
+      ? await buildDesign(env, asset)
+      : { ...buildHtml(asset), requiredSlots: [] as string[] };
     const shot = await snapshot(env, built.html, built.width, built.height, { type: "png" });
     const r2Key = `campaigns/${asset.campaignId}/assets/${asset.id}.png`;
     await env.IMAGES.put(r2Key, shot.screenshot, { httpMetadata: { contentType: "image/png" } });
     let r2KeyJpeg: string | null = null;
-    if (asset.templateId === "connpass-thumbnail") {
+    if (asset.templateId === "connpass-thumbnail" && asset.purpose === "image") {
       const { maxBytes } = constants.images.connpassThumbnail;
       for (
         let q = constants.images.jpegQualityStart;
@@ -116,26 +174,37 @@ export async function renderAsset(
       }
     }
     const rendered = readChecks(shot.content) ?? [];
+    const kit = design
+      ? ((await kitAssets(env.DB, asset.campaignId)).adopted?.notes.kit ?? null)
+      : null;
     const report = runChecks({
       kind: "asset_spec",
       draft: {
         templateId: asset.templateId,
         slots: asset.slots,
         skinSource: asset.skin.source ?? "gdg-design",
+        html: design ? asset.html : undefined,
+        selfReviewMd: asset.notes.selfReviewMd ?? "",
       },
       brief,
-      related: { render: rendered },
+      related: {
+        render: rendered,
+        requiredSlots: built.requiredSlots,
+        sanitizer: { problems: built.problems },
+        kit: asset.purpose === "kit" ? null : kit,
+      },
     });
-    const slotResults = built.problems.length
-      ? [
-          {
-            ruleId: "SLOTS-CONTRACT",
-            strength: "MUST" as const,
-            status: "fail" as const,
-            detail: built.problems.join(" / "),
-          },
-        ]
-      : [];
+    const slotResults =
+      !design && built.problems.length
+        ? [
+            {
+              ruleId: "SLOTS-CONTRACT",
+              strength: "MUST" as const,
+              status: "fail" as const,
+              detail: built.problems.join(" / "),
+            },
+          ]
+        : [];
     const checks = [...slotResults, ...report.results];
     const mustFails = checks.filter((c) => c.strength === "MUST" && c.status === "fail").length;
     await finishRender(env.DB, asset.id, {
@@ -144,6 +213,7 @@ export async function renderAsset(
       checks,
       status: "needs_approval",
       error: null,
+      notes: design ? { ...asset.notes, sanitizer: built.problems } : undefined,
     });
     return { mustFails, status: "needs_approval" };
   } catch (error) {

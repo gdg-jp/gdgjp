@@ -10,12 +10,20 @@ import {
   PageHeader,
   RadioGroup,
   RadioGroupItem,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
   Stack,
   Text,
 } from "@gdgjp/design-system";
 import { Form, Link, useNavigation } from "react-router";
+import { REFERENCE_KINDS, REFERENCE_KIND_LABELS } from "~/features/assets/asset";
 import { requireUserWithChapter } from "~/features/auth/access.server";
 import { chapterLabel } from "~/features/auth/current-chapter";
+import { listReferences } from "~/features/design/reference.repository.server";
+import { addReference, removeReference } from "~/features/design/references.server";
 import { runnerStatuses } from "~/features/jobs/job.repository.server";
 import {
   assistantSettings,
@@ -34,10 +42,11 @@ export function meta() {
 export async function loader({ request, context }: Route.LoaderArgs) {
   const env = context.cloudflare.env;
   const { user, chapter } = await requireUserWithChapter(env, request);
-  const [webhook, assistant, runners] = await Promise.all([
+  const [webhook, assistant, runners, references] = await Promise.all([
     maskedDiscordWebhook(env, chapter.chapterId),
     assistantSettings(env.DB, chapter.chapterId),
     runnerStatuses(env.DB),
+    listReferences(env.DB, chapter.chapterId),
   ]);
   const now = Math.floor(Date.now() / 1000);
   return {
@@ -48,6 +57,13 @@ export async function loader({ request, context }: Route.LoaderArgs) {
     runner: runners[0]
       ? { ago: now - runners[0].last_seen_at, running: !!runners[0].running_job_id }
       : null,
+    references: references.map((r) => ({
+      id: r.id,
+      kind: r.kind,
+      event: r.event,
+      madeOn: r.madeOn,
+      note: r.note,
+    })),
   };
 }
 
@@ -58,6 +74,27 @@ export async function action({ request, context }: Route.ActionArgs) {
     return { ok: false as const, error: "設定を変えられるのはオーガナイザーです" };
   const form = await request.formData();
   const intent = String(form.get("intent"));
+  if (intent === "reference-add") {
+    const file = form.get("file");
+    if (!(file instanceof File) || !file.size)
+      return { ok: false as const, error: "画像を選んでください" };
+    const result = await addReference(env, chapter.chapterId, user.id, {
+      file,
+      kind: String(form.get("kind") ?? ""),
+      event: String(form.get("event") ?? ""),
+      madeOn: String(form.get("madeOn") ?? ""),
+      note: String(form.get("note") ?? ""),
+    });
+    return result.ok
+      ? { ok: true as const, message: "参考に加えました" }
+      : { ok: false as const, error: result.error };
+  }
+  if (intent === "reference-remove") {
+    const ok = await removeReference(env, chapter.chapterId, String(form.get("id") ?? ""));
+    return ok
+      ? { ok: true as const, message: "参考から外しました" }
+      : { ok: false as const, error: "見つかりません" };
+  }
   if (intent === "assistant") {
     await saveAssistantSettings(
       env.DB,
@@ -79,7 +116,7 @@ export async function action({ request, context }: Route.ActionArgs) {
 }
 
 export default function Settings({ loaderData, actionData }: Route.ComponentProps) {
-  const { chapter, canManage, webhook, assistant, runner } = loaderData;
+  const { chapter, canManage, webhook, assistant, runner, references } = loaderData;
   const busy = useNavigation().state === "submitting";
   return (
     <AppLayout>
@@ -189,6 +226,91 @@ export default function Settings({ loaderData, actionData }: Route.ComponentProp
                 詳しく
               </Link>
             </div>
+          </Stack>
+        </Card>
+        <Card>
+          <Stack>
+            <Heading level={2} className="text-lg">
+              デザインの参考
+            </Heading>
+            <Text tone="muted">
+              このチャプターの人が作った画像です。秘書が画像を作るとき、同じ種類のものを新しい順に見ます。
+              同じ絵を出すためではなく、判断の高さを合わせるためのものです。
+            </Text>
+            {references.length ? (
+              <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-4">
+                {references.map((r) => (
+                  <div key={r.id} className="flex flex-col gap-1 text-sm">
+                    <img
+                      src={`/settings/references/${r.id}`}
+                      alt={[r.event, REFERENCE_KIND_LABELS[r.kind]].filter(Boolean).join(" ")}
+                      className="w-full border border-border"
+                      loading="lazy"
+                    />
+                    <span>
+                      {REFERENCE_KIND_LABELS[r.kind]}
+                      {r.event ? ` · ${r.event}` : ""}
+                      {r.madeOn ? ` · ${r.madeOn}` : ""}
+                    </span>
+                    {r.note ? <span className="text-muted">{r.note}</span> : null}
+                    {canManage ? (
+                      <Form method="post">
+                        <input type="hidden" name="intent" value="reference-remove" />
+                        <input type="hidden" name="id" value={r.id} />
+                        <Button type="submit" size="sm" variant="ghost">
+                          外す
+                        </Button>
+                      </Form>
+                    ) : null}
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <Text tone="muted">まだありません。</Text>
+            )}
+            {canManage ? (
+              <Form method="post" encType="multipart/form-data">
+                <input type="hidden" name="intent" value="reference-add" />
+                <div className="grid gap-3 md:grid-cols-[1fr_12rem_12rem_10rem]">
+                  <FormField label="画像" description="JPEG / PNG / WebP、8 MB まで">
+                    <Input
+                      name="file"
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp"
+                      required
+                    />
+                  </FormField>
+                  <FormField label="種類">
+                    <Select name="kind" defaultValue="thumbnail">
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {REFERENCE_KINDS.map((k) => (
+                          <SelectItem key={k} value={k}>
+                            {REFERENCE_KIND_LABELS[k]}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </FormField>
+                  <FormField label="イベント" description="任意">
+                    <Input name="event" maxLength={80} />
+                  </FormField>
+                  <FormField label="作った日" description="新しいほど重く見ます">
+                    <Input name="madeOn" type="date" />
+                  </FormField>
+                </div>
+                <div className="mt-3 flex items-end gap-3">
+                  <FormField label="メモ" description="任意。なぜこの形にしたか">
+                    <Input name="note" maxLength={200} />
+                  </FormField>
+                  <Button type="submit" loading={busy}>
+                    参考に加える
+                  </Button>
+                </div>
+              </Form>
+            ) : null}
           </Stack>
         </Card>
         {canManage ? (

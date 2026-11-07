@@ -16,6 +16,8 @@ export type Campaign = {
   budgetTotalYen: number;
   /** Send derived staff reminders to Discord without a person pressing send. */
   autoStaffReminders: boolean;
+  /** The adopted design kit (an asset with purpose "kit"): every image follows it. */
+  kitAssetId: number | null;
   playbookVersion: string;
   createdBy: string;
   createdAt: number;

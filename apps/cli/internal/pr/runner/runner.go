@@ -29,6 +29,8 @@ type Config struct {
 	Model       string // RUNNER_MODEL
 	Workdir     string // RUNNER_WORKDIR
 	YomiyasuDir string // YOMIYASU_DIR
+	RenderDir   string // GDG_RENDER_DIR: a directory with node_modules/playwright and browsers/ (the render broker)
+	FontsDir    string // GDG_FONTS_DIR: the design fonts the broker serves to rendered pages
 	Python      string
 	Host        string
 	Version     string
@@ -45,6 +47,8 @@ func ConfigFromEnv() Config {
 		Model:       os.Getenv("RUNNER_MODEL"),
 		Workdir:     os.Getenv("RUNNER_WORKDIR"),
 		YomiyasuDir: os.Getenv("YOMIYASU_DIR"),
+		RenderDir:   os.Getenv("GDG_RENDER_DIR"),
+		FontsDir:    os.Getenv("GDG_FONTS_DIR"),
 		Python:      "python3",
 		Host:        host,
 	}

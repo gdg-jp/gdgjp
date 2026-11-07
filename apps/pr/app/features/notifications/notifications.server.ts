@@ -18,6 +18,7 @@ import { type Notice, collapse, urgencyOf } from "./notice";
 export type Viewer = { userId: string; chapterIds: number[]; organizer: boolean };
 
 const OPEN = ["planned", "drafting", "in_review", "needs_approval"];
+const MAX_CAMPAIGNS = 40;
 const SOON = 3 * 86_400;
 
 /** What waits on people in one campaign, what the assistant proposes, today and what is running. */
@@ -114,6 +115,21 @@ export async function campaignNotices(
       action: { kind: "link", label: "開いて承認", href: `${base}/drafts/${draft.id}` },
     });
   }
+  if (
+    brief &&
+    brief.brief.sessions.length > 0 &&
+    !campaign.kitAssetId &&
+    !jobs.some((j) => j.type === "asset" && ["queued", "leased"].includes(j.status))
+  )
+    add({
+      key: `${campaign.id}:kit`,
+      group: "proposal",
+      urgency: 0,
+      title: "イベントのデザインキット（色と顔）がまだありません",
+      detail: "秘書に案を 2〜3 つ作らせて、1 つ選ぶと画像が揃います",
+      href: `${base}/assets`,
+      action: { kind: "link", label: "案を作る", href: `${base}/assets` },
+    });
   const latestPlan = plans[0];
   if (latestPlan && latestPlan.status === "draft" && !plans.some((p) => p.status === "adopted"))
     add({
@@ -261,9 +277,11 @@ export async function chapterNotices(
   env: Env,
   viewer: Viewer & { chapterId: number },
 ): Promise<Notice[]> {
-  const campaigns = (await listCampaignsForChapters(env.DB, [viewer.chapterId])).filter(
-    (c) => c.status !== "closed",
-  );
+  // The events still being worked on, newest first; a chapter never has dozens live at once.
+  const campaigns = (await listCampaignsForChapters(env.DB, [viewer.chapterId]))
+    .filter((c) => c.status !== "closed")
+    .sort((a, b) => b.updatedAt - a.updatedAt)
+    .slice(0, MAX_CAMPAIGNS);
   const last = await lastMessages(
     env.DB,
     campaigns.map((c) => c.id),

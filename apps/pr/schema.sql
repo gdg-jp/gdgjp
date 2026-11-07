@@ -47,7 +47,7 @@ CREATE TABLE campaigns (
   created_by          TEXT NOT NULL,
   created_at          INTEGER NOT NULL DEFAULT (unixepoch()),
   updated_at          INTEGER NOT NULL DEFAULT (unixepoch())
-, auto_staff_reminders INTEGER NOT NULL DEFAULT 0, actor_snapshot TEXT, retro_notes_md TEXT);
+, auto_staff_reminders INTEGER NOT NULL DEFAULT 0, actor_snapshot TEXT, retro_notes_md TEXT, kit_asset_id INTEGER REFERENCES assets(id) ON DELETE SET NULL);
 CREATE INDEX campaigns_chapter ON campaigns (chapter_id, status, event_at);
 CREATE TABLE campaign_chapters (
   campaign_id  INTEGER NOT NULL REFERENCES campaigns(id) ON DELETE CASCADE,
@@ -311,7 +311,7 @@ CREATE TABLE assets (
   approved_by           TEXT,
   approved_at           INTEGER,
   created_at            INTEGER NOT NULL DEFAULT (unixepoch())
-);
+, purpose TEXT NOT NULL DEFAULT 'image', html TEXT, notes TEXT NOT NULL DEFAULT '{}');
 CREATE INDEX assets_campaign ON assets (campaign_id, status);
 CREATE INDEX assets_item ON assets (for_schedule_item_id);
 CREATE TABLE metric_snapshots (
@@ -440,3 +440,17 @@ CREATE TABLE IF NOT EXISTS "agent_jobs" (
 );
 CREATE INDEX agent_jobs_queue ON agent_jobs (status, priority DESC, run_after, created_at);
 CREATE INDEX agent_jobs_campaign ON agent_jobs (campaign_id, type, status);
+CREATE TABLE design_references (
+  id           TEXT PRIMARY KEY,
+  chapter_id   INTEGER NOT NULL,
+  kind         TEXT NOT NULL CHECK (kind IN ('thumbnail','session','speaker','post','ad','ig','print','other')),
+  event        TEXT NOT NULL DEFAULT '',
+  made_on      TEXT NOT NULL DEFAULT '',
+  note         TEXT NOT NULL DEFAULT '',
+  content_type TEXT NOT NULL,
+  bytes        INTEGER NOT NULL,
+  r2_key       TEXT NOT NULL,
+  created_by   TEXT NOT NULL,
+  created_at   INTEGER NOT NULL DEFAULT (unixepoch())
+);
+CREATE INDEX design_references_chapter ON design_references (chapter_id, made_on DESC, created_at DESC);

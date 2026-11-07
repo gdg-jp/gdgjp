@@ -54,10 +54,21 @@ the runner's slots by `skills/pr-playbook/scripts/render/` (never the agent's HT
 
 ## Images and live posts
 
-`asset` jobs return template slots (`skills/pr-asset`); the Worker renders them with Browser
-Rendering (locally the Playwright server the e2e setup starts, `PR_RENDER_URL`), stores PNGs in R2
-`IMAGES`, and on approval publishes to img.gdgs.jp and hands them to connpass / tinyurl / the post.
-`/c/:slug/live` generates live posts from the brief's timetable without an LLM.
+`asset` jobs are designed by the agent (`skills/pr-asset`, design mode): it writes HTML and CSS by
+`skills/pr-playbook/guides/design.md` (the judgement distilled from the chapter designer's work),
+renders it on the VM through a broker the runner starts outside Codex's sandbox (Chromium cannot
+start inside it), looks at the PNG with `view_image`, and returns the HTML. The Worker never takes
+pixels: `design-html.mjs` strips scripts and outside URLs, inlines `assets/` (the GDG logo, the
+gdg-design stickers, speaker photos from R2 `design/<campaign>/`), injects the OFL fonts
+(`/fonts/:file` from R2 `fonts/`) and the checks script, renders with Browser Rendering (locally
+the Playwright server the e2e setup starts, `PR_RENDER_URL`), measures the `RENDER-*` rules, and
+stores the PNG in R2 `IMAGES`. The first job for an event is the kit (`purpose: "kit"`): 2–3
+directions for the face (connpass thumbnail); a person adopts one (`campaigns.kit_asset_id`) and
+every later image gets KIT.json + KIT.html in its bundle. Each job also gets the chapter's
+reference designs (設定 → デザインの参考, `design_references`) attached as images, newest first.
+Template mode (slots into `templates/images/*/template.html`) remains for `/c/:slug/live`, which
+generates live posts and cards from the brief's timetable without an LLM. On approval an image
+goes to img.gdgs.jp and to connpass / tinyurl / the post.
 
 ## Access
 

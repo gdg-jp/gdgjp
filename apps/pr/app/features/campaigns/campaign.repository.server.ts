@@ -13,6 +13,7 @@ type CampaignRow = {
   status: Campaign["status"];
   connpass_group_slug: string | null;
   connpass_event_id: string | null;
+  kit_asset_id: number | null;
   tinyurl_campaign_id: number | null;
   budget_total_yen: number;
   auto_staff_reminders?: number;
@@ -35,6 +36,7 @@ export function toCampaign(row: CampaignRow): Campaign {
     status: row.status,
     connpassGroupSlug: row.connpass_group_slug,
     connpassEventId: row.connpass_event_id,
+    kitAssetId: row.kit_asset_id ?? null,
     tinyurlCampaignId: row.tinyurl_campaign_id,
     budgetTotalYen: row.budget_total_yen,
     autoStaffReminders: row.auto_staff_reminders === 1,

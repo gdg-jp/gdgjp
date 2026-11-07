@@ -16,3 +16,30 @@ func TestImageAnswerArgsPutThePromptAfterDoubleDash(t *testing.T) {
 		t.Fatalf("args = %v", plain)
 	}
 }
+
+func TestOptionsArgsWorkspaceWriteAndEnv(t *testing.T) {
+	b := &CodexBackend{}
+	args := b.OptionsArgs("/job", "prompt", "/job/s.json", "/job/o.json", AnswerOptions{
+		Images:         []string{"/job/a.png"},
+		WorkspaceWrite: true,
+		Env:            map[string]string{"GDG_RENDER_BROKER": ".render"},
+	})
+	joined := strings.Join(args, " ")
+	for _, want := range []string{
+		"--sandbox workspace-write",
+		`shell_environment_policy.inherit="core"`,
+		`shell_environment_policy.set.GDG_RENDER_BROKER=".render"`,
+		"--image /job/a.png -- prompt",
+	} {
+		if !strings.Contains(joined, want) {
+			t.Fatalf("args miss %q: %s", want, joined)
+		}
+	}
+	if strings.Contains(joined, "read-only") {
+		t.Fatalf("read-only left in: %s", joined)
+	}
+	plain := strings.Join(b.OptionsArgs("/job", "prompt", "/job/s.json", "/job/o.json", AnswerOptions{}), " ")
+	if !strings.Contains(plain, "--sandbox read-only") || !strings.HasSuffix(plain, " prompt") {
+		t.Fatalf("default stays read-only with the prompt last: %s", plain)
+	}
+}

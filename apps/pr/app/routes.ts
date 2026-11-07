@@ -28,6 +28,8 @@ export default [
     route("playbook/proposals/:id", "routes/playbook/proposal.tsx"),
   ]),
   route("c/:slug/assets/:id/image", "routes/assets/image.ts"),
+  route("fonts/:file", "routes/fonts.ts"),
+  route("settings/references/:id", "routes/settings/reference.ts"),
   route("c/:slug/files/:id", "routes/assistant/file.ts"),
   route("playbook/proposals/export", "routes/playbook/export.ts"),
   route("chapter", "routes/chapter.ts"),

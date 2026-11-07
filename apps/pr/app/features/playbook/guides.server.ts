@@ -5,7 +5,7 @@ const guideFiles = import.meta.glob<string>("../../../../../skills/pr-playbook/g
   import: "default",
 });
 const exampleFiles = import.meta.glob<string>(
-  "../../../../../skills/pr-playbook/examples/**/*.{json,md}",
+  "../../../../../skills/pr-playbook/examples/**/*.{json,md,html}",
   {
     eager: true,
     query: "?raw",
@@ -26,7 +26,7 @@ const schemaFiles = import.meta.glob<string>(
   },
 );
 const exampleOutputFiles = import.meta.glob<string>(
-  "../../../../../skills/pr-*/references/example-output.json",
+  "../../../../../skills/pr-*/references/example-*output.json",
   {
     eager: true,
     query: "?raw",
@@ -72,6 +72,15 @@ const browserScriptFiles = import.meta.glob<string>(
     import: "default",
   },
 );
+// The gdg-design stickers: the design vocabulary the agent's HTML references as assets/stickers/<file>.
+const stickerFiles = import.meta.glob<string>(
+  "../../../../../skills/gdg-design/assets/stickers/*.svg",
+  {
+    eager: true,
+    query: "?raw",
+    import: "default",
+  },
+);
 const templateFiles = import.meta.glob<string>(
   "../../../../../skills/pr-playbook/templates/**/*.{html,json,md,css}",
   {
@@ -103,13 +112,14 @@ export const outputSchemas: Record<string, unknown> = Object.fromEntries(
   ]),
 );
 
-/** "pr-x-post" → example output (raw JSON text) */
+/** "pr-x-post" → example output (raw JSON text); "pr-asset/references/example-template-output.json" style extras in exampleOutputFiles. */
 export const exampleOutputs: Record<string, string> = Object.fromEntries(
-  Object.entries(strip(exampleOutputFiles)).map(([path, text]) => [
-    path.split("/")[0] as string,
-    text,
-  ]),
+  Object.entries(strip(exampleOutputFiles))
+    .filter(([path]) => path.endsWith("/example-output.json"))
+    .map(([path, text]) => [path.split("/")[0] as string, text]),
 );
+/** Every "pr-x/references/example-*output.json" by its skills-relative path. */
+export const exampleOutputFilesByPath: Record<string, string> = strip(exampleOutputFiles);
 /** "pr-playbook/scripts/checks/x.mjs" → source; the runner bundle ships them so the agent can self-check. */
 export const checkScripts = Object.fromEntries(
   Object.entries({ ...strip(checkScriptFiles), ...strip(renderScriptFiles) }).filter(
@@ -159,4 +169,16 @@ export const imageTemplates = {
   baseCss: templates[`${IMAGES}base.css`] ?? "",
   checksScript: strip(browserScriptFiles)["pr-playbook/scripts/render/checks-script.js"] ?? "",
   logoSvg: strip(browserScriptFiles)["gdg-design/assets/gdg.svg"] ?? "",
+};
+
+const STICKERS = "gdg-design/assets/stickers/";
+/** Design mode's assets: "<file>.svg" → SVG text; the kits and the HTML examples as playbook paths. */
+export const designAssets = {
+  stickers: Object.fromEntries(
+    Object.entries(strip(stickerFiles)).map(([p, text]) => [p.slice(STICKERS.length), text]),
+  ) as Record<string, string>,
+  /** "pr-playbook/examples/design/…" → text */
+  examples: Object.fromEntries(
+    Object.entries(examples).filter(([p]) => p.startsWith("pr-playbook/examples/design/")),
+  ) as Record<string, string>,
 };

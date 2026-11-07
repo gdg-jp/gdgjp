@@ -11,12 +11,13 @@ import {
 } from "@gdgjp/design-system";
 import { useState } from "react";
 import { Form, Link, useNavigation } from "react-router";
-import { ASSET_STATUS_LABELS } from "~/features/assets/asset";
-import { getAsset, moveAsset } from "~/features/assets/asset.repository.server";
+import { ASSET_STATUS_LABELS, TEMPLATE_LABELS } from "~/features/assets/asset";
+import { adoptKit, getAsset, moveAsset } from "~/features/assets/asset.repository.server";
 import { createAndRender } from "~/features/assets/create.server";
 import { approveAsset } from "~/features/assets/distribute.server";
 import { requireCampaignAccess } from "~/features/campaigns/access.server";
 import { CheckResults } from "~/features/drafts/components/CheckResults";
+import { EnqueueError, enqueueAsset } from "~/features/jobs/enqueue.server";
 import { recordEdits } from "~/features/learning/edits.server";
 import { constants } from "~/features/playbook/playbook";
 import { CampaignLayout } from "~/layouts/CampaignLayout";
@@ -33,15 +34,9 @@ export async function loader({ request, context, params }: Route.LoaderArgs) {
   if (!asset) throw new Response(null, { status: 404 });
   const { campaign } = access;
   return {
-    user: { name: access.user.name, email: access.user.email, image: access.user.image },
-    accountsUrl: env.ACCOUNTS_URL,
-    campaign: {
-      slug: campaign.slug,
-      name: campaign.name,
-      status: campaign.status,
-      chapterSlug: campaign.chapterSlug,
-    },
+    campaign: { slug: campaign.slug, name: campaign.name, status: campaign.status },
     asset,
+    isKitAdopted: campaign.kitAssetId === asset.id,
     canApprove: access.permissions.manage,
     thumbnailScale: constants.render.thumbnailScale,
   };
@@ -54,30 +49,64 @@ export async function action({ request, context, params }: Route.ActionArgs) {
   if (!asset) throw new Response(null, { status: 404 });
   const form = await request.formData();
   const intent = String(form.get("intent"));
-  if (intent === "approve" || intent === "reject") {
+  if (intent === "approve" || intent === "reject" || intent === "adopt") {
     if (!access.permissions.manage)
       return { ok: false as const, error: "承認できるのはリードとオーガナイザーです" };
     if (intent === "reject") {
       await moveAsset(env.DB, asset.id, ["needs_approval", "failed"], "rejected", access.user.id);
       return { ok: true as const, message: "却下しました" };
     }
+    if (intent === "adopt") {
+      const ok = await adoptKit(env.DB, access.campaign.id, asset.id, access.user.id);
+      return ok
+        ? { ok: true as const, message: "この案をキットにしました" }
+        : { ok: false as const, error: "この案はもう選べません" };
+    }
     const result = await approveAsset(env, access, asset);
     return result.ok
       ? { ok: true as const, message: result.message }
       : { ok: false as const, error: result.error };
   }
-  if (intent === "edit") {
-    let slots: Record<string, unknown>;
-    let layoutVars: Record<string, unknown>;
+  if (intent === "revise") {
+    const instructions = String(form.get("instructions") ?? "").trim();
+    if (!instructions) return { ok: false as const, error: "直してほしいことを書いてください" };
     try {
-      slots = JSON.parse(String(form.get("slots") ?? "{}"));
-      layoutVars = JSON.parse(String(form.get("layoutVars") ?? "{}"));
-    } catch {
-      return { ok: false as const, error: "JSON として読めません" };
+      await enqueueAsset(env.DB, access.campaign.id, access.user.id, {
+        templateId: asset.templateId,
+        purpose: asset.purpose,
+        forDraftId: asset.forDraftId ?? undefined,
+        forScheduleItemId: asset.forScheduleItemId ?? undefined,
+        forImageSlotId: asset.forImageSlotId ?? undefined,
+        revisionOf: asset.id,
+        instructions,
+      });
+    } catch (error) {
+      if (error instanceof EnqueueError) return { ok: false as const, error: error.message };
+      throw error;
+    }
+    return { ok: true as const, message: "秘書に直しを頼みました。できたら画像の一覧に出ます" };
+  }
+  if (intent === "edit") {
+    let slots: Record<string, unknown> = asset.slots;
+    let layoutVars: Record<string, unknown> = asset.layoutVars;
+    let html: string | null = asset.html;
+    if (asset.html !== null) {
+      html = String(form.get("html") ?? "");
+      if (!html.trim()) return { ok: false as const, error: "HTML が空です" };
+    } else {
+      try {
+        slots = JSON.parse(String(form.get("slots") ?? "{}"));
+        layoutVars = JSON.parse(String(form.get("layoutVars") ?? "{}"));
+      } catch {
+        return { ok: false as const, error: "JSON として読めません" };
+      }
     }
     const created = await createAndRender(env, {
       campaignId: access.campaign.id,
       templateId: asset.templateId,
+      purpose: asset.purpose,
+      html,
+      notes: asset.notes,
       slots,
       layoutVars,
       skinSource: String(asset.skin.source ?? "gdg-design"),
@@ -93,8 +122,11 @@ export async function action({ request, context, params }: Route.ActionArgs) {
       fromVersion: asset.id,
       toVersion: created.id,
       kind: "asset_spec",
-      before: { slots: asset.slots, layoutVars: asset.layoutVars },
-      after: { slots, layoutVars },
+      before:
+        asset.html !== null
+          ? { html: asset.html }
+          : { slots: asset.slots, layoutVars: asset.layoutVars },
+      after: asset.html !== null ? { html } : { slots, layoutVars },
       beforeChecks: asset.checks,
       userId: access.user.id,
     });
@@ -109,22 +141,23 @@ export async function action({ request, context, params }: Route.ActionArgs) {
 const SIZES = ["1x", "縮小", "2x"] as const;
 
 export default function AssetDetail({ loaderData, actionData }: Route.ComponentProps) {
-  const { user, accountsUrl, campaign, asset, canApprove, thumbnailScale } = loaderData;
+  const { campaign, asset, isKitAdopted, canApprove, thumbnailScale } = loaderData;
   const busy = useNavigation().state === "submitting";
   const [size, setSize] = useState<(typeof SIZES)[number]>("1x");
   const width =
     size === "1x" ? asset.width : size === "2x" ? asset.width * 2 : asset.width * thumbnailScale;
+  const label = TEMPLATE_LABELS[asset.templateId] ?? asset.templateId;
+  const title =
+    asset.purpose === "kit"
+      ? `顔の案: ${asset.notes.label ?? `#${asset.id}`}`
+      : `${label} #${asset.id}`;
   return (
-    <CampaignLayout
-      user={user}
-      accountsUrl={accountsUrl}
-      campaign={campaign}
-      title={`${asset.templateId} #${asset.id}`}
-    >
+    <CampaignLayout campaign={campaign} title={title}>
       <div className="flex flex-wrap items-center gap-2">
         <Badge tone={asset.status === "approved" ? "success" : "warning"}>
-          {ASSET_STATUS_LABELS[asset.status]}
+          {isKitAdopted ? "キット" : ASSET_STATUS_LABELS[asset.status]}
         </Badge>
+        {asset.html !== null ? <Badge tone="info">秘書のデザイン</Badge> : null}
         {asset.imgUrl ? <Text tone="muted">{asset.imgUrl}</Text> : null}
         {asset.error ? <Badge tone="danger">{asset.error}</Badge> : null}
         <Link to={`/c/${campaign.slug}/assets`} className="ml-auto text-sm text-link">
@@ -161,7 +194,7 @@ export default function AssetDetail({ loaderData, actionData }: Route.ComponentP
               {asset.r2Key ? (
                 <img
                   src={`/c/${campaign.slug}/assets/${asset.id}/image`}
-                  alt={asset.templateId}
+                  alt={label}
                   style={{ width, maxWidth: "none" }}
                   className="border border-border"
                 />
@@ -171,11 +204,49 @@ export default function AssetDetail({ loaderData, actionData }: Route.ComponentP
             </div>
           </Stack>
         </Card>
-        <Card>
-          <CheckResults results={asset.checks} />
-        </Card>
+        <Stack>
+          <Card>
+            <CheckResults results={asset.checks} />
+          </Card>
+          {asset.notes.rationaleMd || asset.notes.selfReviewMd || asset.notes.kit ? (
+            <Card>
+              <Stack>
+                <Heading level={2} className="text-lg">
+                  秘書の判断
+                </Heading>
+                {asset.notes.kit ? (
+                  <Text>
+                    <strong>{asset.notes.kit.feel}</strong>
+                    <span className="block text-muted">{asset.notes.kit.why}</span>
+                  </Text>
+                ) : null}
+                {asset.notes.rationaleMd ? (
+                  <Text className="whitespace-pre-wrap">{asset.notes.rationaleMd}</Text>
+                ) : null}
+                {asset.notes.selfReviewMd ? (
+                  <details>
+                    <summary className="cursor-pointer text-sm text-muted">セルフレビュー</summary>
+                    <Text className="whitespace-pre-wrap" tone="muted">
+                      {asset.notes.selfReviewMd}
+                    </Text>
+                  </details>
+                ) : null}
+              </Stack>
+            </Card>
+          ) : null}
+        </Stack>
       </div>
-      {asset.status === "needs_approval" && canApprove ? (
+      {canApprove && asset.purpose === "kit" && !isKitAdopted && asset.status !== "rejected" ? (
+        <Form method="post" className="flex gap-2">
+          <Button type="submit" name="intent" value="adopt" loading={busy}>
+            この案をキットにする
+          </Button>
+          <Button type="submit" name="intent" value="reject" variant="ghost" loading={busy}>
+            却下
+          </Button>
+        </Form>
+      ) : null}
+      {asset.status === "needs_approval" && asset.purpose === "image" && canApprove ? (
         <Form method="post" className="flex gap-2">
           <Button type="submit" name="intent" value="approve" loading={busy}>
             承認して配る
@@ -189,21 +260,58 @@ export default function AssetDetail({ loaderData, actionData }: Route.ComponentP
         <Form method="post">
           <Stack>
             <Heading level={2} className="text-lg">
-              直して描画し直す
+              秘書に直してもらう
             </Heading>
-            <FormField label="スロット（JSON）">
-              <Textarea name="slots" rows={8} defaultValue={JSON.stringify(asset.slots, null, 2)} />
-            </FormField>
             <FormField
-              label="layoutVars（JSON）"
-              description="titleScale 0.8〜1.2、align left / center、emphasis は 3 語まで"
+              label="直してほしいこと"
+              description="例: 題をもう少し大きく、写真を左に、色をもっと落ち着いた青に"
             >
-              <Textarea
-                name="layoutVars"
-                rows={3}
-                defaultValue={JSON.stringify(asset.layoutVars, null, 2)}
-              />
+              <Textarea name="instructions" rows={2} />
             </FormField>
+            <div>
+              <Button type="submit" name="intent" value="revise" variant="outline" loading={busy}>
+                直しを頼む
+              </Button>
+            </div>
+          </Stack>
+        </Form>
+      </Card>
+      <Card>
+        <Form method="post">
+          <Stack>
+            <Heading level={2} className="text-lg">
+              自分で直して描画し直す
+            </Heading>
+            {asset.html !== null ? (
+              <FormField label="HTML" description="script と外部 URL は描画時に消されます">
+                <Textarea
+                  name="html"
+                  rows={14}
+                  defaultValue={asset.html}
+                  className="font-mono text-xs"
+                />
+              </FormField>
+            ) : (
+              <>
+                <FormField label="スロット（JSON）">
+                  <Textarea
+                    name="slots"
+                    rows={8}
+                    defaultValue={JSON.stringify(asset.slots, null, 2)}
+                  />
+                </FormField>
+                <FormField
+                  label="layoutVars（JSON）"
+                  description="titleScale 0.8〜1.2、align left / center、emphasis は 3 語まで"
+                >
+                  <Textarea
+                    name="layoutVars"
+                    rows={3}
+                    defaultValue={JSON.stringify(asset.layoutVars, null, 2)}
+                  />
+                </FormField>
+              </>
+            )}
             <div>
               <Button type="submit" name="intent" value="edit" variant="outline" loading={busy}>
                 新しい画像として描画

@@ -113,6 +113,8 @@ AI が読んで従える形（ルール・ガイド・事例・検査器）に�
     入れる。
 
 Tips 26〜37 は 2026-11-07 に DevFest Kansai 2026 の議事録（[`00a`](00a-devfest-2026-usecase-review.md) §5）から採用したもの。
+Tips 38〜50 は 2026-11-07 に、Figma「GDG Design Kit」の Greater Kwansai ページ（DevFest Kansai 2026、Innovative Crosstalk 2026、
+I/O Extended Osaka 2026）のデザイナーの制作物とユーザーの指示から言語化したデザインの判断基準（`guides/design.md`、`examples/design/`）。
 同じ §5 のうち「告知効果の目安（connpass > リファラル > X ≫ フライヤー）」「X Ads の CPA / CPC / CPM / CPV」「当日投稿は
 『終わりました』でもよい」の 3 件は**採用しない**（`decisions.md` に却下として書く）。
 

@@ -61,6 +61,8 @@ export type Brief = {
     tone?: string;
     referenceAssetUrls?: string[];
     brandGuideUrl?: string;
+    /** The event's official logo image, when one exists (never imitated in type). */
+    logoUrl?: string;
   };
   copyConstraints?: string[];
   chapters?: { chapterId: number; role: "host" | "co-host"; name?: string }[];

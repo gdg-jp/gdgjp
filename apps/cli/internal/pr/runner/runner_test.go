@@ -214,3 +214,13 @@ func TestRunnerServesTheAssistant(t *testing.T) {
 	}
 	t.Fatalf("JobTypes %v leave assist jobs queued", JobTypes)
 }
+
+func TestBundleRenderFieldsDecode(t *testing.T) {
+	var b Bundle
+	if err := json.Unmarshal([]byte(`{"files":{},"prompt":"p","skill":"pr-asset","kind":"asset_spec","timeoutSeconds":1,"workspaceWrite":true,"render":true}`), &b); err != nil {
+		t.Fatal(err)
+	}
+	if !b.WorkspaceWrite || !b.Render {
+		t.Fatalf("workspaceWrite/render not decoded: %+v", b)
+	}
+}

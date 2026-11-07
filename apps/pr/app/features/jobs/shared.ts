@@ -34,7 +34,7 @@ export const JOB_TIMEOUT_SECONDS: Record<JobType, number> = {
   copy: 480,
   post: 480,
   page: 600,
-  asset: 480,
+  asset: 900,
   analyze: 900,
   review: 300,
   retro: 1200,
@@ -69,7 +69,27 @@ export type JobPayload =
     }
   | { type: "fix"; target: FixTarget; kind: string; failures: { ruleId: string; detail: string }[] }
   | { type: "assist"; upTo: number; briefErrors?: string[] }
-  | { type: Exclude<JobType, "plan" | "copy" | "post" | "fix" | "assist">; [key: string]: unknown };
+  | {
+      type: "asset";
+      briefVersion: number;
+      templateId: string;
+      /** "kit": the event's design kit and 2–3 directions for its face. */
+      purpose?: "image" | "kit";
+      forDraftId?: number;
+      forScheduleItemId?: number;
+      forImageSlotId?: string;
+      sessionId?: string;
+      speakerId?: string;
+      /** A revision of this asset, with the person's instructions. */
+      revisionOf?: number;
+      retryOf?: number;
+      failures?: { ruleId: string; detail: string }[];
+      instructions?: string;
+    }
+  | {
+      type: Exclude<JobType, "plan" | "copy" | "post" | "fix" | "assist" | "asset">;
+      [key: string]: unknown;
+    };
 
 export type Job = {
   id: string;

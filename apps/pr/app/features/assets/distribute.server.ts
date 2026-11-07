@@ -29,6 +29,8 @@ type ImageUpload = {
  * connpass page's image slot (a new page version).
  */
 export async function approveAsset(env: Env, access: CampaignAccess, asset: Asset) {
+  if (asset.purpose === "kit")
+    return { ok: false as const, error: "顔の案は「この案をキットにする」で選びます" };
   if (asset.checks.some((c) => c.strength === "MUST" && c.status === "fail"))
     return { ok: false as const, error: "MUST の検査が落ちています。直して描画し直してください" };
   if (!asset.r2Key) return { ok: false as const, error: "画像がありません" };

@@ -63,6 +63,10 @@ export type Bundle = {
   /** Base64 files (images) the runner writes beside `files`; `images` are attached to the prompt. */
   binaryFiles?: Record<string, string>;
   images?: string[];
+  /** The agent may write files in the job directory (design drafts); default read-only. */
+  workspaceWrite?: boolean;
+  /** The runner starts the render broker (scripts/render/broker.mjs) beside the agent. */
+  render?: boolean;
   prompt: string;
   skill: string;
   kind: string;
@@ -130,6 +134,7 @@ export async function buildBundle(
   if (!brief) throw new Error("campaign has no brief");
   files["BRIEF.json"] = json(brief);
   const task: string[] = [];
+  let extra: Partial<Bundle> = {};
 
   if (job.type === "plan") {
     const previous = (await listPlans(db, campaign.id))[0];
@@ -175,7 +180,8 @@ export async function buildBundle(
   } else if (job.type === "analyze" && env) {
     await analyzeFiles(env, campaign, files, task);
   } else if (job.type === "asset") {
-    await assetFiles(db, campaign, payload, files, task);
+    if (!env) throw new Error("asset bundles need the Worker env");
+    extra = await assetFiles(env, campaign, brief, payload, files, task);
   } else if (job.type === "page") {
     await pageFiles(db, campaign, payload, files, task);
   } else if (job.type === "fix") {
@@ -219,15 +225,24 @@ export async function buildBundle(
     "",
     "## 進め方",
     `- skills/${skill}/SKILL.md の手順に従う。Playbook は skills/pr-playbook にある（このジョブに要る部分だけ）。`,
-    "- ファイルは書けない。検査は標準入力で渡す:",
-    `  node skills/pr-playbook/scripts/checks/run.mjs --kind ${kind} --input /dev/stdin --brief BRIEF.json --no-yomiyasu <<'JSON'`,
-    "  {…下書きの JSON…}",
-    "  JSON",
+    ...(extra.workspaceWrite
+      ? [
+          "- このディレクトリにはファイルを書ける（draft.html、out/）。描画器は GDG_RENDER_BROKER の broker。",
+          "- 描画した PNG は view_image で必ず見る。検査結果は out/checks.json。",
+        ]
+      : [
+          "- ファイルは書けない。検査は標準入力で渡す:",
+          `  node skills/pr-playbook/scripts/checks/run.mjs --kind ${kind} --input /dev/stdin --brief BRIEF.json --no-yomiyasu <<'JSON'`,
+          "  {…下書きの JSON…}",
+          "  JSON",
+        ]),
     "- MUST が落ちたら直してから返す。日本語は yomiyasu の方針（不自然な比喩・コピー調・曖昧な主述を避ける）で書く。",
     "- 最後のメッセージは出力スキーマに合う JSON だけ。",
     "",
   ].join("\n");
-  const prompt = `You are running the ${skill} Skill for GDG Japan. Read JOB.md, then skills/${skill}/SKILL.md, and do what they say. Reply with the JSON object only.`;
+  const prompt = extra.images?.length
+    ? `You are running the ${skill} Skill for GDG Japan. Read JOB.md, then skills/${skill}/SKILL.md, look at every attached image, and do what they say. Reply with the JSON object only.`
+    : `You are running the ${skill} Skill for GDG Japan. Read JOB.md, then skills/${skill}/SKILL.md, and do what they say. Reply with the JSON object only.`;
   const bytes = Object.values(files).reduce(
     (n, text) => n + new TextEncoder().encode(text).length,
     0,
@@ -235,7 +250,7 @@ export async function buildBundle(
   if (bytes > MAX_BUNDLE_BYTES) {
     for (const path of Object.keys(files)) if (path.includes("/examples/")) delete files[path];
   }
-  return { files, prompt, skill, kind, timeoutSeconds: JOB_TIMEOUT_SECONDS[job.type] };
+  return { files, ...extra, prompt, skill, kind, timeoutSeconds: JOB_TIMEOUT_SECONDS[job.type] };
 }
 
 async function briefFor(

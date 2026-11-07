@@ -194,13 +194,24 @@ export async function enqueueAsset(
   userId: string,
   input: {
     templateId: string;
+    purpose?: "image" | "kit";
     forDraftId?: number;
     forScheduleItemId?: number;
     forImageSlotId?: string;
+    sessionId?: string;
+    speakerId?: string;
+    revisionOf?: number;
     instructions?: string;
   },
 ): Promise<string> {
   const { version } = await requireBrief(db, campaignId);
+  if (
+    input.purpose === "kit" &&
+    (await openJobs(db, campaignId, "asset")).some(
+      (j) => (j.payload as { purpose?: string }).purpose === "kit",
+    )
+  )
+    throw new EnqueueError("キットのジョブがもう動いています");
   return insertJob(db, {
     campaignId,
     payload: { type: "asset", briefVersion: version, ...input },

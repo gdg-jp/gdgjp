@@ -58,6 +58,8 @@ export async function announceJob(env: Env, job: Job, outcome: CompleteOutcome):
     mustFails?: number;
     draftIds?: number[];
     assetId?: number;
+    assetIds?: number[];
+    directions?: number;
   };
   const fixQueued = job.type !== "fix" && (summary.mustFails ?? 0) > 0;
   if (outcome.status === "failed") {
@@ -114,6 +116,16 @@ export async function announceJob(env: Env, job: Job, outcome: CompleteOutcome):
     await postEvent(env.DB, campaign.id, key, "振り返りから Playbook への提案を作りました。", [
       open("提案を開く", "/playbook/proposals"),
     ]);
+    return;
+  }
+  if (job.type === "asset" && summary.directions) {
+    await postEvent(
+      env.DB,
+      campaign.id,
+      key,
+      `デザインキットと顔の案を ${summary.directions} 件作りました。見比べて 1 つ選んでください。選ぶと、これからの画像はその色と形で作ります。`,
+      [open("案を見る", `${base}/assets`)],
+    );
     return;
   }
   if (job.type === "asset" && summary.assetId) {

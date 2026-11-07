@@ -23,12 +23,16 @@ type Bundle struct {
 	Files map[string]string `json:"files"`
 	// BinaryFiles are base64 (images the assistant reads); Images are the ones attached to the
 	// prompt, as paths under the job directory.
-	BinaryFiles    map[string]string `json:"binaryFiles,omitempty"`
-	Images         []string          `json:"images,omitempty"`
-	Prompt         string            `json:"prompt"`
-	Skill          string            `json:"skill"`
-	Kind           string            `json:"kind"`
-	TimeoutSeconds int               `json:"timeoutSeconds"`
+	BinaryFiles map[string]string `json:"binaryFiles,omitempty"`
+	Images      []string          `json:"images,omitempty"`
+	// WorkspaceWrite lets the agent write files in the job directory (design drafts); Render
+	// starts the render broker beside it so the agent can draw and look at its drafts.
+	WorkspaceWrite bool   `json:"workspaceWrite,omitempty"`
+	Render         bool   `json:"render,omitempty"`
+	Prompt         string `json:"prompt"`
+	Skill          string `json:"skill"`
+	Kind           string `json:"kind"`
+	TimeoutSeconds int    `json:"timeoutSeconds"`
 }
 
 // JobOutput is the result body the Worker imports: the agent's JSON and the runner's checks.
@@ -76,14 +80,29 @@ func (r *Runner) handle(ctx context.Context, job *wikirunner.Job) wikirunner.Res
 	if timeout <= 0 {
 		timeout = 10 * time.Minute
 	}
-	var log string
-	if images, ok := r.backend.(imageAnswerer); ok && len(bundle.Images) > 0 {
-		paths := make([]string, 0, len(bundle.Images))
-		for _, image := range bundle.Images {
-			if _, isFile := bundle.BinaryFiles[image]; isFile {
-				paths = append(paths, filepath.Join(dir, filepath.Clean(image)))
-			}
+	paths := make([]string, 0, len(bundle.Images))
+	for _, image := range bundle.Images {
+		if _, isFile := bundle.BinaryFiles[image]; isFile {
+			paths = append(paths, filepath.Join(dir, filepath.Clean(image)))
 		}
+	}
+	opts := wikirunner.AnswerOptions{Images: paths, WorkspaceWrite: bundle.WorkspaceWrite}
+	if bundle.Render {
+		if r.cfg.RenderDir == "" {
+			r.log.Printf("job %s: wants the render broker but GDG_RENDER_DIR is not set; the agent cannot see its drafts", job.ID)
+		} else {
+			broker, err := startBroker(ctx, dir, r.cfg, r.log)
+			if err != nil {
+				return failed(fmt.Errorf("render broker: %w", err), true)
+			}
+			defer broker.stop()
+			opts.Env = map[string]string{"GDG_RENDER_BROKER": ".render"}
+		}
+	}
+	var log string
+	if withOptions, ok := r.backend.(optionsAnswerer); ok && (len(paths) > 0 || opts.WorkspaceWrite || len(opts.Env) > 0) {
+		log, err = withOptions.AnswerWithOptions(ctx, dir, bundle.Prompt, schemaPath, outPath, opts, timeout)
+	} else if images, ok := r.backend.(imageAnswerer); ok && len(paths) > 0 {
 		log, err = images.AnswerWithImages(ctx, dir, bundle.Prompt, schemaPath, outPath, paths, timeout)
 	} else {
 		log, err = structured.Answer(ctx, dir, bundle.Prompt, schemaPath, outPath, nil, timeout)
@@ -108,6 +127,11 @@ func (r *Runner) handle(ctx context.Context, job *wikirunner.Job) wikirunner.Res
 // imageAnswerer is a backend that can attach images to the prompt (codex).
 type imageAnswerer interface {
 	AnswerWithImages(ctx context.Context, dir, prompt, schemaPath, outPath string, images []string, timeout time.Duration) (string, error)
+}
+
+// optionsAnswerer is a backend that takes AnswerOptions (images, a writable workspace, env).
+type optionsAnswerer interface {
+	AnswerWithOptions(ctx context.Context, dir, prompt, schemaPath, outPath string, opts wikirunner.AnswerOptions, timeout time.Duration) (string, error)
 }
 
 // WriteBinary writes base64 files under dir (after WriteBundle), refusing paths that escape it.

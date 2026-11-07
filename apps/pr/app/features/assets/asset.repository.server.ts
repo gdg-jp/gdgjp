@@ -1,9 +1,12 @@
-import type { Asset, AssetStatus } from "./asset";
+import { type Asset, type AssetNotes, type AssetStatus, parseNotes } from "./asset";
 
 type Row = {
   id: number;
   campaign_id: number;
   template_id: string;
+  purpose: string;
+  html: string | null;
+  notes: string;
   slots: string;
   layout_vars: string;
   skin: string;
@@ -39,6 +42,9 @@ const toAsset = (r: Row): Asset => ({
   id: r.id,
   campaignId: r.campaign_id,
   templateId: r.template_id,
+  purpose: r.purpose === "kit" ? "kit" : "image",
+  html: r.html,
+  notes: parseNotes(r.notes),
   slots: json(r.slots, {}),
   layoutVars: json(r.layout_vars, {}),
   skin: json(r.skin, {}),
@@ -71,21 +77,31 @@ export async function insertAsset(
     Partial<
       Pick<
         Asset,
-        "forDraftId" | "forScheduleItemId" | "forImageSlotId" | "derivedFromAssetId" | "jobId"
+        | "purpose"
+        | "html"
+        | "forDraftId"
+        | "forScheduleItemId"
+        | "forImageSlotId"
+        | "derivedFromAssetId"
+        | "jobId"
       >
     > & {
+      notes?: AssetNotes;
       playbookVersion: string;
     },
 ): Promise<number> {
   const row = await db
     .prepare(
-      `INSERT INTO assets (campaign_id, template_id, slots, layout_vars, skin, width, height, author, for_draft_id,
-         for_schedule_item_id, for_image_slot_id, derived_from_asset_id, job_id, playbook_version)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id`,
+      `INSERT INTO assets (campaign_id, template_id, purpose, html, notes, slots, layout_vars, skin, width, height, author,
+         for_draft_id, for_schedule_item_id, for_image_slot_id, derived_from_asset_id, job_id, playbook_version)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id`,
     )
     .bind(
       a.campaignId,
       a.templateId,
+      a.purpose ?? "image",
+      a.html ?? null,
+      JSON.stringify(a.notes ?? {}),
       JSON.stringify(a.slots),
       JSON.stringify(a.layoutVars),
       JSON.stringify(a.skin),
@@ -141,13 +157,22 @@ export async function finishRender(
     checks: unknown[];
     status: AssetStatus;
     error: string | null;
+    notes?: AssetNotes;
   },
 ) {
   await db
     .prepare(
-      "UPDATE assets SET r2_key = ?, r2_key_jpeg = ?, checks = ?, status = ?, error = ? WHERE id = ?",
+      "UPDATE assets SET r2_key = ?, r2_key_jpeg = ?, checks = ?, status = ?, error = ?, notes = COALESCE(?, notes) WHERE id = ?",
     )
-    .bind(r.r2Key, r.r2KeyJpeg, JSON.stringify(r.checks), r.status, r.error, id)
+    .bind(
+      r.r2Key,
+      r.r2KeyJpeg,
+      JSON.stringify(r.checks),
+      r.status,
+      r.error,
+      r.notes ? JSON.stringify(r.notes) : null,
+      id,
+    )
     .run();
 }
 
@@ -177,20 +202,25 @@ export async function setPublished(db: D1Database, id: number, imgId: string, im
     .run();
 }
 
-/** An older image for the same purpose is replaced by a new one. */
+/**
+ * An older image for the same purpose is replaced by a new one. Kit directions are not: they are
+ * compared side by side until one is adopted.
+ */
 export async function supersedeOthers(
   db: D1Database,
   asset: {
     id: number;
     campaignId: number;
     templateId: string;
+    purpose: Asset["purpose"];
     forScheduleItemId: number | null;
     forImageSlotId: string | null;
   },
 ) {
+  if (asset.purpose === "kit") return;
   await db
     .prepare(
-      `UPDATE assets SET status = 'superseded' WHERE campaign_id = ? AND template_id = ? AND id != ?
+      `UPDATE assets SET status = 'superseded' WHERE campaign_id = ? AND template_id = ? AND id != ? AND purpose = 'image'
          AND COALESCE(for_schedule_item_id, 0) = COALESCE(?, 0) AND COALESCE(for_image_slot_id, '') = COALESCE(?, '')
          AND status IN ('needs_approval','failed','rendering')`,
     )
@@ -202,4 +232,49 @@ export async function supersedeOthers(
       asset.forImageSlotId,
     )
     .run();
+}
+
+/** The campaign's adopted kit (the face) and its pending directions. */
+export async function kitAssets(
+  db: D1Database,
+  campaignId: number,
+): Promise<{ adopted: Asset | null; directions: Asset[] }> {
+  const { results } = await db
+    .prepare(
+      "SELECT * FROM assets WHERE campaign_id = ? AND purpose = 'kit' AND status IN ('needs_approval','approved','failed') ORDER BY id DESC LIMIT 12",
+    )
+    .bind(campaignId)
+    .all<Row>();
+  const all = results.map(toAsset);
+  const adoptedId = await db
+    .prepare("SELECT kit_asset_id FROM campaigns WHERE id = ?")
+    .bind(campaignId)
+    .first<{ kit_asset_id: number | null }>();
+  const adopted = all.find((a) => a.id === adoptedId?.kit_asset_id) ?? null;
+  return {
+    adopted,
+    directions: all.filter((a) => a.status !== "approved" && a.id !== adopted?.id),
+  };
+}
+
+/** Adopt one direction: the campaign points at it, it is approved, the other pending ones are rejected. */
+export async function adoptKit(
+  db: D1Database,
+  campaignId: number,
+  assetId: number,
+  userId: string,
+): Promise<boolean> {
+  const moved = await moveAsset(db, assetId, ["needs_approval", "approved"], "approved", userId);
+  if (!moved) return false;
+  await db.batch([
+    db
+      .prepare("UPDATE campaigns SET kit_asset_id = ?, updated_at = unixepoch() WHERE id = ?")
+      .bind(assetId, campaignId),
+    db
+      .prepare(
+        "UPDATE assets SET status = 'rejected' WHERE campaign_id = ? AND purpose = 'kit' AND id != ? AND status = 'needs_approval'",
+      )
+      .bind(campaignId, assetId),
+  ]);
+  return true;
 }

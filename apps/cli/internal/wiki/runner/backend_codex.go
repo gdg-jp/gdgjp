@@ -3,6 +3,7 @@ package runner
 import (
 	"context"
 	"encoding/json"
+	"sort"
 	"strings"
 	"time"
 )
@@ -39,11 +40,46 @@ func (b *CodexBackend) AnswerWithImages(ctx context.Context, dir, prompt, schema
 }
 
 func (b *CodexBackend) ImageAnswerArgs(dir, prompt, schemaPath, outPath string, images []string) []string {
+	return b.OptionsArgs(dir, prompt, schemaPath, outPath, AnswerOptions{Images: images})
+}
+
+// AnswerOptions: what a structured run may add to the read-only default. WorkspaceWrite lets the
+// agent write inside dir (design drafts); the network stays off. Env is set for the agent's shell
+// commands (the agent's shell otherwise inherits only the core variables, never tokens).
+type AnswerOptions struct {
+	Images         []string
+	WorkspaceWrite bool
+	Env            map[string]string
+}
+
+// AnswerWithOptions runs a structured session with the options.
+func (b *CodexBackend) AnswerWithOptions(ctx context.Context, dir, prompt, schemaPath, outPath string, opts AnswerOptions, timeout time.Duration) (string, error) {
+	return runAgent(ctx, dir, timeout, "codex", b.OptionsArgs(dir, prompt, schemaPath, outPath, opts)...)
+}
+
+func (b *CodexBackend) OptionsArgs(dir, prompt, schemaPath, outPath string, opts AnswerOptions) []string {
 	args := b.AnswerArgs(dir, prompt, schemaPath, outPath, nil)
-	if len(images) == 0 {
-		return args
+	args = args[:len(args)-1] // the prompt goes last
+	if opts.WorkspaceWrite {
+		for i := range args {
+			if args[i] == "--sandbox" && i+1 < len(args) {
+				args[i+1] = "workspace-write"
+			}
+		}
+		args = append(args, "-c", `shell_environment_policy.inherit="core"`)
 	}
-	return append(args[:len(args)-1], "--image", strings.Join(images, ","), "--", prompt)
+	keys := make([]string, 0, len(opts.Env))
+	for key := range opts.Env {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	for _, key := range keys {
+		args = append(args, "-c", "shell_environment_policy.set."+key+"="+tomlString(opts.Env[key]))
+	}
+	if len(opts.Images) == 0 {
+		return append(args, prompt)
+	}
+	return append(args, "--image", strings.Join(opts.Images, ","), "--", prompt)
 }
 
 func (b *CodexBackend) AnswerArgs(dir, prompt, schemaPath, outPath string, mcp *MCPConfig) []string {
