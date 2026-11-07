@@ -5,6 +5,8 @@ import * as schema from "~/db/schema";
 import type { getDb } from "~/lib/db.server";
 
 const D1_MAX_BOUND_PARAMETERS = 100;
+/** D1 rejects a LIKE pattern over 50 bytes ("LIKE or GLOB pattern too complex"). */
+const D1_MAX_LIKE_PATTERN_BYTES = 50;
 
 /**
  * Real SQLite from the generated schema dump plus the rows migration 0062 seeds (the dump
@@ -34,6 +36,17 @@ export function createSpacesTestDb() {
     // D1 rejects a statement with more than 100 bound parameters; local SQLite does not.
     if (params.length > D1_MAX_BOUND_PARAMETERS) {
       throw new Error(`too many SQL variables: ${params.length} > ${D1_MAX_BOUND_PARAMETERS}`);
+    }
+    // Node 22's SQLite cannot lower its own limit, so check bound patterns (%…%) here.
+    if (/\bLIKE\b/i.test(sql)) {
+      for (const param of params) {
+        if (
+          typeof param === "string" &&
+          /^%|%$/.test(param) &&
+          new TextEncoder().encode(param).length > D1_MAX_LIKE_PATTERN_BYTES
+        )
+          throw new Error("LIKE or GLOB pattern too complex");
+      }
     }
     const statement = sqlite.prepare(sql);
     if (method === "run") {

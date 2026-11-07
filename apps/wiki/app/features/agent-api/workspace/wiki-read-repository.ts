@@ -1,5 +1,5 @@
-import { and, asc, eq, inArray, isNull, like, or } from "drizzle-orm";
-import type { SQL } from "drizzle-orm";
+import { and, asc, eq, inArray, isNull, or, sql } from "drizzle-orm";
+import type { AnyColumn, SQL } from "drizzle-orm";
 import type { DrizzleD1Database } from "drizzle-orm/d1";
 import * as schema from "~/db/schema";
 import { getEffectivePagePermissions } from "~/features/pages/access.server";
@@ -24,6 +24,14 @@ function actorAsUser(actor: WorkspaceActor) {
     image: null as string | null,
     isAdmin: actor.isAdmin,
   };
+}
+
+/**
+ * Case-insensitive (ASCII, as LIKE) substring match. Not LIKE: D1 rejects LIKE patterns over 50
+ * bytes, which a 17-character Japanese query already exceeds.
+ */
+function contains(column: AnyColumn, query: string): SQL {
+  return sql`instr(lower(${column}), ${query.toLowerCase()}) > 0`;
 }
 
 export function createD1WikiWorkspaceStore(db: Db, actor: WorkspaceActor): WikiWorkspaceStore {
@@ -74,7 +82,6 @@ export function createD1WikiWorkspaceStore(db: Db, actor: WorkspaceActor): WikiW
     };
   }
   const findPages: WikiWorkspaceStore["findPages"] = async (query, { limit, offset }) => {
-    const pattern = `%${query.replace(/[%_\\]/g, "\\$&")}%`;
     return db
       .select(pageColumns)
       .from(schema.pages)
@@ -82,9 +89,9 @@ export function createD1WikiWorkspaceStore(db: Db, actor: WorkspaceActor): WikiW
         and(
           eq(schema.pages.status, "published"),
           or(
-            like(schema.pages.slug, pattern),
-            like(schema.pages.titleJa, pattern),
-            like(schema.pages.titleEn, pattern),
+            contains(schema.pages.slug, query),
+            contains(schema.pages.titleJa, query),
+            contains(schema.pages.titleEn, query),
           ),
         ),
       )
@@ -97,7 +104,6 @@ export function createD1WikiWorkspaceStore(db: Db, actor: WorkspaceActor): WikiW
     query,
     { limit, offset },
   ) => {
-    const pattern = `%${query.replace(/[%_\\]/g, "\\$&")}%`;
     const rows = await db
       .select({
         ...pageColumns,
@@ -108,7 +114,7 @@ export function createD1WikiWorkspaceStore(db: Db, actor: WorkspaceActor): WikiW
       .where(
         and(
           eq(schema.pages.status, "published"),
-          or(like(schema.pages.contentJa, pattern), like(schema.pages.contentEn, pattern)),
+          or(contains(schema.pages.contentJa, query), contains(schema.pages.contentEn, query)),
         ),
       )
       .orderBy(asc(schema.pages.updatedAt), asc(schema.pages.id))
