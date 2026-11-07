@@ -205,6 +205,18 @@ test("UI gitlink updates select the same targets as library source changes", () 
   );
 });
 
+test("a skills submodule update builds, tests and deploys pr", () => {
+  for (const files of [["skills"], ["skills/pr-playbook/rules.json"]]) {
+    const result = classifyChanges(files);
+    assert.deepEqual(result.ci, ["@gdgjp/pr"]);
+    assert.deepEqual(result.e2e, ["pr"]);
+    assert.deepEqual(
+      result.deploy.map(({ app }) => app),
+      ["pr"],
+    );
+  }
+});
+
 test("gates the CLI Go job on cli/ changes", () => {
   assert.equal(classifyChanges(["apps/cli/internal/command/wiki.go"]).cli, true);
   assert.equal(classifyChanges(["packages/gdg-lib/src/acl/agent.ts"]).cli, true);

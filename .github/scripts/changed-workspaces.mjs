@@ -227,6 +227,10 @@ export function classifyChanges(files, { forceAll = false } = {}) {
     }
   }
 
+  // pr bundles the Playbook (rules, templates, check scripts) from the skills submodule at build
+  // time, so a skills update is a pr change.
+  if (directDirectories.has("skills")) affectedDirectories.add("apps/pr");
+
   // A submodule update appears as the path itself, without changed source filenames.
   if (directDirectories.has("packages/design-system")) {
     for (const directory of [
