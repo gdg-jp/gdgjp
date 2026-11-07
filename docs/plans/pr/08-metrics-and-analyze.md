@@ -177,7 +177,7 @@ cron は Stage 03 の毎時分岐に足す。1 キャンペーン 1 回の呼び
 - `app/features/jobs/bundle.server.ts`、`complete.server.ts`（`analyze`）
 - `app/features/plans/adopt.server.ts`（`ad_flights` の展開）
 - `app/routes/metrics/{dashboard.tsx,import.tsx}`、`app/routes/budget/flights.tsx`、`app/routes/analyze/report.tsx`、`app/routes.ts`
-- `workers/app.ts`（毎時 / 日次 / 週次の分岐。`[triggers] crons` に `30 17 * * *`（02:30 JST）と `0 17 * * 0`）
+- `workers/app.ts`（毎時 / 日次 / 週次の分岐。`[triggers] crons` に `30 17 * * *`（02:30 JST）と `0 17 * * SUN`）
 - `fixtures/ads/{x-sample.csv,meta-sample.csv}`（伏せ字）
 - `tests/architecture/route-urls.test.ts`、`ARCHITECTURE.md`
 

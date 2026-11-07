@@ -11,7 +11,7 @@ import { collectMetrics } from "~/features/metrics/collect.server";
 export const MINUTE_CRON = "* * * * *";
 export const HOURLY_CRON = "0 * * * *";
 /** Monday 02:00 JST. */
-export const WEEKLY_CRON = "0 17 * * 0";
+export const WEEKLY_CRON = "0 17 * * SUN";
 
 /** Each job runs on its own; one failing never stops the others. */
 export async function runCron(env: Env, cron: string): Promise<Record<string, unknown>> {
