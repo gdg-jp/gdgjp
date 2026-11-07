@@ -65,7 +65,12 @@ export async function importAsset(
         templateId: KIT_TEMPLATE,
         purpose: "kit",
         html: d.html,
-        notes: { label: d.label.slice(0, 40), rationaleMd: d.rationaleMd, kit: d.kit },
+        notes: {
+          label: d.label.slice(0, 40),
+          rationaleMd: d.rationaleMd,
+          selfReviewMd: output.selfReviewMd ?? undefined,
+          kit: d.kit,
+        },
         skinSource: output.skinSource,
         author: "agent",
         jobId: job.id,
