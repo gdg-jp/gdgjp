@@ -85,6 +85,14 @@ test("the assistant reads a pasted page and its image, rewrites the brief, and s
     questions: ["予算はいくらですか？"],
     actions: [
       {
+        type: "run_plan",
+        label: "計画を作る",
+        scheduleItemIds: [],
+        dueAt: null,
+        path: null,
+        instructions: null,
+      },
+      {
         type: "open_page",
         label: "予定表を見る",
         scheduleItemIds: [],
@@ -117,7 +125,7 @@ test("the assistant reads a pasted page and its image, rewrites the brief, and s
   await expect(page.getByText("予算はいくらですか？", { exact: true })).toBeVisible();
   await expect(page.getByRole("link", { name: "予定表を見る" })).toBeVisible();
   await expect(page.getByRole("link", { name: "外へ" })).toHaveCount(0);
-  // The brief is complete, so the assistant started the plan itself (chapter default: auto).
+  // The assistant offered the plan and pressed it itself (chapter default: auto).
   await expect(page.getByText("計画を作る: 計画を作り始めました")).toBeVisible();
 
   await page.goto("/");

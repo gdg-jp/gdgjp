@@ -80,10 +80,11 @@ export function collapse(
     out.push({
       ...first,
       key: `${k}:all`,
+      // "レビュー待ち: 「a」" → "「a」": the summary line already says what they wait for.
       detail: list
         .slice(0, 3)
-        .map((x) => x.title)
-        .join(" / "),
+        .map((x) => x.title.replace(/^[^「]*(?=「)/, ""))
+        .join("、"),
       ...summary(k, list),
     });
   }

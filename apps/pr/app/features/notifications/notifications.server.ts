@@ -83,7 +83,9 @@ export async function campaignNotices(
         key: `draft:${d.id}`,
         group: "proposal",
         title: `${d.title}が出ました`,
-        detail: "予算と予定の付け替えの提案があります",
+        detail: d.title.startsWith("週次")
+          ? "予算と予定の付け替えの提案があります"
+          : "Playbook への提案があります",
         href: `${base}/drafts/${d.id}`,
         action: { kind: "link", label: "開く", href: `${base}/drafts/${d.id}` },
       });

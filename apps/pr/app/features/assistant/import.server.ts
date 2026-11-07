@@ -2,9 +2,8 @@ import { parseBrief } from "~/features/briefs/brief";
 import { latestBrief, saveBrief } from "~/features/briefs/brief.repository.server";
 import { getCampaignById, updateCampaign } from "~/features/campaigns/campaign.repository.server";
 import type { CompleteOutcome } from "~/features/jobs/complete.server";
-import { insertJob, openJobs } from "~/features/jobs/job.repository.server";
+import { insertJob } from "~/features/jobs/job.repository.server";
 import type { Job } from "~/features/jobs/shared";
-import { listPlans } from "~/features/plans/plan.repository.server";
 import { listItems } from "~/features/schedule/item.repository.server";
 import { assistantSettings } from "~/features/settings/chapter-settings.server";
 import { AUTO_ACTIONS, type RawAction, sanitizeActions } from "./actions";
@@ -75,15 +74,7 @@ export async function importAssist(
     ? ((await latestBrief(db, campaign.id))?.brief ?? null)
     : (previous?.brief ?? null);
   const ready = briefGaps(brief).length === 0;
-  const plans = await listPlans(db, campaign.id);
-  // The first time the brief is complete, a plan is the obvious next step.
-  if (
-    ready &&
-    !plans.length &&
-    !actions.some((a) => a.type === "run_plan") &&
-    !(await openJobs(db, campaign.id, "plan")).length
-  )
-    actions.unshift({ type: "run_plan", label: "計画を作る", status: "proposed" });
+  // Only buttons the assistant chose: a person who said "not yet" is not overridden.
   if (!ready) actions = actions.filter((a) => a.type !== "run_plan");
   if (saved && previous)
     actions.push({
