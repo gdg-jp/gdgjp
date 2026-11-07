@@ -5,8 +5,12 @@ import { MAX_SEARCH_SPACES } from "~/features/knowledge/search.server";
 import { searchForReader } from "~/features/knowledge/viewer-search.server";
 import { agentPagesFilter, pagesInSpaces } from "~/features/pages/page-space.server";
 import { buildVisibilityFilter } from "~/features/pages/visibility.server";
-import { getWikiPageUrls } from "~/features/pages/wiki-page-path.server";
-import { requireSpace } from "~/features/spaces/access.server";
+import {
+  type WikiAncestor,
+  getWikiAncestry,
+  getWikiPageUrls,
+} from "~/features/pages/wiki-page-path.server";
+import { listAccessibleSpaces, requireSpace } from "~/features/spaces/access.server";
 import { loadViewerContext } from "~/features/spaces/viewer.server";
 import { getDb } from "~/lib/db.server";
 
@@ -24,8 +28,25 @@ export type AiRagResult = {
     relevanceScore: number;
     matchedChunks: Array<{ text: string; sectionHeading: string | null }>;
     wikiPath: string;
+    /** Parent chain (root first), for the breadcrumb under the title. */
+    ancestors: Breadcrumb[];
+    spaceName: string;
   }>;
 };
+
+export type Breadcrumb = { titleJa: string; titleEn: string };
+
+/** Parents only (root first), never the page itself. */
+export function parentCrumbs(chain: WikiAncestor[] | undefined): Breadcrumb[] {
+  return (chain ?? []).slice(0, -1).map(({ titleJa, titleEn }) => ({ titleJa, titleEn }));
+}
+
+/** Names of the spaces a listing may contain, so results from other spaces say where they are. */
+async function spaceNamesById(db: ReturnType<typeof getDb>, viewer: { access: SpaceAccessLike }) {
+  const rows = await listAccessibleSpaces(db, viewer.access as never);
+  return new Map(rows.map((space) => [space.id, { slug: space.slug, name: space.name }]));
+}
+type SpaceAccessLike = Parameters<typeof listAccessibleSpaces>[1];
 
 const SEARCH_LIMIT = 50;
 /** `pages_fts_trigram` uses the trigram tokenizer: a term shorter than this never matches. */
@@ -52,13 +73,17 @@ export async function loadWikiSearch(request: Request, env: Env, spaceSlug?: str
 
   const viewer = await loadViewerContext(request, env, identity);
   // `/s/:space/search` searches one space; `/search` every reachable space.
-  const scoped = spaceSlug
+  const scopedId = spaceSlug
     ? (await requireSpace(request, env, spaceSlug, "viewer", identity)).space.id
     : null;
   // The empty state says when the reader's own setting hid agent pages from the results.
   const hideAgentPages = viewer.hideAgentPages;
+  // `/search` lists pages from every reachable space: each result then names its space.
+  const scoped = Boolean(spaceSlug);
+  const spaceNames = scoped ? null : await spaceNamesById(db, viewer);
+  const spaceNameOf = (spaceId: string) => (scoped ? "" : (spaceNames?.get(spaceId)?.name ?? ""));
   const visFilter = and(
-    pagesInSpaces(scoped ? [scoped] : viewer.visibleSpaceIds),
+    pagesInSpaces(scopedId ? [scopedId] : viewer.visibleSpaceIds),
     buildVisibilityFilter(identity.user, identity.chapters),
     agentPagesFilter(viewer.hideAgentPages),
   ) as SQL;
@@ -92,13 +117,27 @@ export async function loadWikiSearch(request: Request, env: Env, spaceSlug?: str
   // "AI" mode — Cloudflare AI Search over the spaces the reader can reach (Stage 03). No
   // answer is generated here: the Worker never calls an LLM; agents answer in Discord.
   if (mode === "ai" && q) {
-    const spaceIds = (scoped ? [scoped] : viewer.visibleSpaceIds).slice(0, MAX_SEARCH_SPACES);
+    const spaceIds = (scopedId ? [scopedId] : viewer.visibleSpaceIds).slice(0, MAX_SEARCH_SPACES);
     const ragResult: Promise<AiRagResult> = searchForReader(env, db, identity, {
       spaceIds,
       query: q,
       hideAgentPages: viewer.hideAgentPages,
     })
-      .then(({ pages }): AiRagResult => ({ answer: "", ragAvailable: true, sources: pages }))
+      .then(async ({ pages }): Promise<AiRagResult> => {
+        const chains = await getWikiAncestry(
+          env,
+          pages.map((page) => page.pageId),
+        );
+        return {
+          answer: "",
+          ragAvailable: true,
+          sources: pages.map((page) => ({
+            ...page,
+            ancestors: parentCrumbs(chains.get(page.pageId)),
+            spaceName: spaceNameOf(page.spaceId),
+          })),
+        };
+      })
       .catch((err): AiRagResult => {
         console.error("search: knowledge search failed", err);
         return { answer: "", sources: [], ragAvailable: false };
@@ -106,6 +145,7 @@ export async function loadWikiSearch(request: Request, env: Env, spaceSlug?: str
 
     return {
       hideAgentPages,
+      scoped,
       q,
       tag,
       mode,
@@ -128,6 +168,7 @@ export async function loadWikiSearch(request: Request, env: Env, spaceSlug?: str
         summaryJa: schema.pages.summaryJa,
         summaryEn: schema.pages.summaryEn,
         updatedAt: schema.pages.updatedAt,
+        spaceId: schema.pages.spaceId,
       })
       .from(schema.pages)
       .innerJoin(schema.pageTags, eq(schema.pageTags.pageId, schema.pages.id))
@@ -144,12 +185,19 @@ export async function loadWikiSearch(request: Request, env: Env, spaceSlug?: str
       tagsByPage.set(pt.pageId, arr);
     }
 
-    const urls = await getWikiPageUrls(
-      env,
-      pages.map((p) => p.id),
-    );
+    const [urls, chains] = await Promise.all([
+      getWikiPageUrls(
+        env,
+        pages.map((p) => p.id),
+      ),
+      getWikiAncestry(
+        env,
+        pages.map((p) => p.id),
+      ),
+    ]);
     return {
       hideAgentPages,
+      scoped,
       q,
       tag,
       mode,
@@ -158,6 +206,8 @@ export async function loadWikiSearch(request: Request, env: Env, spaceSlug?: str
         ...p,
         tags: tagsByPage.get(p.id) ?? [],
         wikiPath: urls.get(p.id) ?? "",
+        ancestors: parentCrumbs(chains.get(p.id)),
+        spaceName: spaceNameOf(p.spaceId),
       })),
       ragResult: null,
     };
@@ -165,11 +215,12 @@ export async function loadWikiSearch(request: Request, env: Env, spaceSlug?: str
 
   // Case B: no query at all
   if (!q && !tag)
-    return { hideAgentPages, q: "", tag: "", mode, allTags, results: [], ragResult: null };
+    return { hideAgentPages, scoped, q: "", tag: "", mode, allTags, results: [], ragResult: null };
 
   // Case B/C: text query (with or without tag)
   const sanitized = sanitizeFtsQuery(q);
-  if (!sanitized) return { hideAgentPages, q, tag, mode, allTags, results: [], ragResult: null };
+  if (!sanitized)
+    return { hideAgentPages, scoped, q, tag, mode, allTags, results: [], ragResult: null };
 
   // Filters go into the same query as the match, before the limit: cutting the FTS hits to
   // 50 first let pages in other spaces (or hidden ones) crowd out the reader's own.
@@ -184,6 +235,7 @@ export async function loadWikiSearch(request: Request, env: Env, spaceSlug?: str
     summaryJa: schema.pages.summaryJa,
     summaryEn: schema.pages.summaryEn,
     updatedAt: schema.pages.updatedAt,
+    spaceId: schema.pages.spaceId,
   };
 
   let orderedPages: Array<{
@@ -194,6 +246,7 @@ export async function loadWikiSearch(request: Request, env: Env, spaceSlug?: str
     summaryJa: string;
     summaryEn: string;
     updatedAt: Date;
+    spaceId: string;
   }>;
   if (Array.from(sanitized).length < TRIGRAM_MIN_CHARS) {
     // The FTS table is a trigram index: shorter terms (most Japanese words, 「関西」「会場」)
@@ -240,12 +293,19 @@ export async function loadWikiSearch(request: Request, env: Env, spaceSlug?: str
     tagsByPage.set(pt.pageId, arr);
   }
 
-  const urls = await getWikiPageUrls(
-    env,
-    orderedPages.map((p) => p.id),
-  );
+  const [urls, chains] = await Promise.all([
+    getWikiPageUrls(
+      env,
+      orderedPages.map((p) => p.id),
+    ),
+    getWikiAncestry(
+      env,
+      orderedPages.map((p) => p.id),
+    ),
+  ]);
   return {
     hideAgentPages,
+    scoped,
     q,
     tag,
     mode,
@@ -254,6 +314,8 @@ export async function loadWikiSearch(request: Request, env: Env, spaceSlug?: str
       ...p,
       tags: tagsByPage.get(p.id) ?? [],
       wikiPath: urls.get(p.id) ?? "",
+      ancestors: parentCrumbs(chains.get(p.id)),
+      spaceName: spaceNameOf(p.spaceId),
     })),
     ragResult: null,
   };

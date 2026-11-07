@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { answerReady, startInquiry, sweepOverdue } from "./inquiry";
+import { answerReady, answerReply, describeSpaces, startInquiry, sweepOverdue } from "./inquiry";
 import { memoryPendingStore } from "./pending";
 import { chooseReader } from "./reader";
 import type { Reader, WikiClient } from "./wiki";
@@ -179,5 +179,64 @@ describe("answer delivery", () => {
     expect((await answerReady("job1", { status: "succeeded", result }, lateDeps)).delivered).toBe(
       false,
     );
+  });
+});
+
+describe("answerReply", () => {
+  const row = {
+    delivery,
+    question: "DevFest Kansai 2026 の会場は？",
+    hits: [],
+    spaces: ["gdg-jp", "e2e-eval"],
+    excludedSpaces: [],
+    publicReply: true,
+    platform: "discord" as const,
+    chatUserId: "u1",
+    venue: "discord_guild" as const,
+    readerKind: "principal" as const,
+    createdAt: 1000,
+    jobId: "job1",
+    deadlineAt: 1090,
+    status: "pending" as const,
+  };
+  it("quotes the question and lists only citations the answer does not already link", () => {
+    const reply = answerReply(row, {
+      answer:
+        "会場は IPUT Osaka です。[会場資料](https://wiki.gdgs.jp/s/gdg-jp/wiki/venues/iput-osaka)",
+      citations: [
+        { url: "https://wiki.gdgs.jp/s/gdg-jp/wiki/venues/iput-osaka" },
+        { url: "https://wiki.gdgs.jp/s/gdg-jp/wiki/events/devfest" },
+      ],
+      confidence: "high",
+      unanswered: false,
+    });
+    expect(reply.text.startsWith("> **Q:** DevFest Kansai 2026 の会場は？\n")).toBe(true);
+    expect(reply.text).not.toContain("見つかりませんでした");
+    expect(reply.text).toContain("- <https://wiki.gdgs.jp/s/gdg-jp/wiki/events/devfest>");
+    expect(reply.text).not.toContain("- <https://wiki.gdgs.jp/s/gdg-jp/wiki/venues/iput-osaka>");
+    expect(reply.citations).toHaveLength(2);
+  });
+  it("says a partial answer is partial, and how to widen a public one", () => {
+    const partial = answerReply(row, {
+      answer: "会場は IPUT Osaka。費用は不明。",
+      citations: [{ url: "https://wiki.gdgs.jp/s/gdg-jp/wiki/venues/iput-osaka" }],
+      confidence: "medium",
+      unanswered: true,
+    });
+    expect(partial.text).toContain(
+      "一部は Wiki で見つかりませんでした（検索したスペース: gdg-jp, e2e-eval）",
+    );
+    expect(partial.text).toContain("自分の権限で再回答");
+    const none = answerReply(
+      { ...row, publicReply: false },
+      { answer: "見当たりません。", citations: [], confidence: "low", unanswered: true },
+    );
+    expect(none.text).toContain("\nWiki で見つかりませんでした");
+    expect(none.text).not.toContain("自分の権限で再回答");
+  });
+  it("counts personal spaces instead of listing their opaque slugs", () => {
+    expect(describeSpaces(["gdg-jp", "c-1", "u-e5710c24-a46b"])).toBe("gdg-jp, c-1, ほか 1 件");
+    expect(describeSpaces(["a", "b", "c", "d", "e", "f"])).toBe("a, b, c, d, ほか 2 件");
+    expect(describeSpaces([])).toBe("なし");
   });
 });

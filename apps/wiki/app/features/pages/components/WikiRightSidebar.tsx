@@ -34,6 +34,8 @@ interface WikiRightSidebarProps {
   tocItems: TocItem[];
   author: Author | null;
   editor: Editor | null;
+  /** `agent` pages have no human author or editor: the agent is named instead of "—". */
+  origin?: string;
   updatedAt: Date | string | number | null;
   lang: "ja" | "en";
   pageId: string;
@@ -48,6 +50,7 @@ export default function WikiRightSidebar({
   tocItems,
   author,
   editor,
+  origin,
   updatedAt,
   lang,
   pageId,
@@ -117,6 +120,11 @@ export default function WikiRightSidebar({
         <span aria-hidden="true" className="h-2 w-2 shrink-0 rounded-full bg-primary" />
       )}
       <span className="truncate">{author.name}</span>
+    </span>
+  ) : origin === "agent" ? (
+    <span className="flex min-w-0 items-center gap-2">
+      <Icons name="Sparkles" size={14} className="shrink-0 text-link" aria-hidden="true" />
+      <span className="truncate">{t("wiki.agent_name")}</span>
     </span>
   ) : (
     <span className="text-muted">—</span>
@@ -253,7 +261,7 @@ export default function WikiRightSidebar({
               {t("wiki.last_edited_by")}
             </p>
             <p className="text-xs text-muted">
-              {editor ? `${editor.name}, ` : ""}
+              {editor ? `${editor.name}, ` : origin === "agent" ? `${t("wiki.agent_name")}, ` : ""}
               {timeAgo(new Date(updatedAt as string), t)}
             </p>
           </div>
@@ -269,7 +277,7 @@ export default function WikiRightSidebar({
 
         {/* Sources (URLs, PDFs, and image attachments) */}
         {((sources && sources.length > 0) || (attachments && attachments.length > 0)) && (
-          <div>
+          <div id="page-sources">
             <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-muted">
               {t("wiki.sources")}
             </p>

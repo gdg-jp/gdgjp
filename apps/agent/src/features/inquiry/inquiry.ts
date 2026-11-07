@@ -158,19 +158,46 @@ export async function sweepOverdue(deps: InquiryDeps): Promise<number> {
 }
 
 const MAX_TEXT = 1800;
+const MAX_QUESTION = 200;
+
+/** The question, quoted: Discord shows only "used /ask", not what was asked. */
+function questionLine(question: string): string {
+  const oneLine = question.replace(/\s+/g, " ").trim();
+  const shown = oneLine.length > MAX_QUESTION ? `${oneLine.slice(0, MAX_QUESTION)}…` : oneLine;
+  return `> **Q:** ${shown}`;
+}
+
+/**
+ * Searched spaces, for the "not found" note. Personal spaces are the asker's own and their
+ * slugs are opaque ids, so they are counted rather than listed.
+ */
+export function describeSpaces(spaces: readonly string[]): string {
+  const shared = spaces.filter((space) => !space.startsWith("u-"));
+  const personal = spaces.length - shared.length;
+  const parts = [...shared.slice(0, 4)];
+  const more = shared.length - parts.length + personal;
+  if (more > 0) parts.push(`ほか ${more} 件`);
+  return parts.join(", ") || "なし";
+}
 
 export function answerReply(row: PendingAnswer, result: AnswerResult): Reply {
+  const answer = result.answer.trim().slice(0, MAX_TEXT);
   const citations = [...new Set(result.citations.map((citation) => citation.url))].slice(0, 5);
-  const lines = [result.answer.trim().slice(0, MAX_TEXT)];
+  // Links the answer already carries inline are not repeated in the list.
+  const listed = citations.filter((url) => !answer.includes(url));
+  const lines = [questionLine(row.question), "", answer];
   if (result.unanswered) {
     lines.push(
       "",
-      `見つかりませんでした（検索したスペース: ${row.spaces.join(", ") || "なし"}）。`,
+      `${citations.length > 0 ? "一部は " : ""}Wiki で見つかりませんでした（検索したスペース: ${describeSpaces(row.spaces)}）。`,
     );
+    if (row.publicReply) {
+      lines.push("「自分の権限で再回答」を押すと、あなたが閲覧できるページも含めて探します。");
+    }
   }
-  if (citations.length > 0) lines.push("", ...citations.map((url) => `- <${url}>`));
+  if (listed.length > 0) lines.push("", ...listed.map((url) => `- <${url}>`));
   if (row.excludedSpaces.length > 0)
-    lines.push("", `対象外にしたスペース: ${row.excludedSpaces.join(", ")}`);
+    lines.push("", `対象外にしたスペース: ${describeSpaces(row.excludedSpaces)}`);
   return {
     text: lines.join("\n"),
     citations,
@@ -181,7 +208,11 @@ export function answerReply(row: PendingAnswer, result: AnswerResult): Reply {
 }
 
 export function degradedReply(row: PendingAnswer): Reply {
-  const lines = ["エージェントが応答していないため、検索結果のみを表示します。"];
+  const lines = [
+    questionLine(row.question),
+    "",
+    "エージェントが応答していないため、検索結果のみを表示します。",
+  ];
   if (row.hits.length === 0) lines.push("", "該当するページは見つかりませんでした。");
   for (const hit of row.hits) {
     const snippet = hit.snippet.replace(/\s+/g, " ").trim().slice(0, 160);

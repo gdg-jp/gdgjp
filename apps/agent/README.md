@@ -19,8 +19,10 @@ DISCORD_APPLICATION_ID=… DISCORD_BOT_TOKEN=… pnpm --filter @gdgjp/agent sync
 | `GET /auth/callback` | GDG Accounts OAuth (PKCE) callback for `/login` |
 | `POST /internal/answer-ready` | the wiki's callback when a runner result arrives (`AGENT_SERVICE_TOKEN`) |
 
-Commands: Discord `/ask`, `/login`, `/unlink`, `/setup` (server managers: pick the wiki
-spaces this server searches; the server becomes a viewer of them). Google Chat: mention or
+Commands: Discord `/ask` (`private: true` answers ephemerally with the asker's own
+permissions), `/login`, `/unlink`, `/setup` (server managers: pick the wiki spaces this
+server searches; the server becomes a viewer of them). `discord-commands.json` is the whole
+desired global command set: `sync:discord-commands` replaces whatever Discord has. Google Chat: mention or
 DM the app; `/login`, `/unlink`, `/setup <space-slug>` as message text.
 
 ## Who answers are generated as

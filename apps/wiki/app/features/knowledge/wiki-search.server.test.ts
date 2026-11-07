@@ -13,12 +13,23 @@ vi.mock("~/features/auth/utils.server", () => ({
 vi.mock("~/features/spaces/viewer.server", () => ({
   loadViewerContext: async () => ({
     visibleSpaceIds: ["gdg-jp"],
+    access: new Map([["gdg-jp", "viewer"]]),
     hideAgentPages: state.hideAgentPages,
   }),
 }));
 vi.mock("~/features/pages/wiki-page-path.server", () => ({
   getWikiPageUrls: async (_env: unknown, ids: string[]) =>
     new Map(ids.map((id) => [id, `/s/gdg-jp/wiki/${id}`])),
+  getWikiAncestry: async (_env: unknown, ids: string[]) =>
+    new Map(
+      ids.map((id) => [
+        id,
+        [
+          { id: "root", slug: "root", titleJa: "親", titleEn: "Parent" },
+          { id, slug: id, titleJa: id, titleEn: "" },
+        ],
+      ]),
+    ),
 }));
 
 const { loadWikiSearch } = await import("./wiki-search.server");
@@ -89,5 +100,18 @@ describe("loadWikiSearch keyword mode", () => {
     const hidden = await search("DevFest");
     expect(hidden.titles).toEqual(["DevFest 手順"]);
     expect(hidden.hideAgentPages).toBe(true);
+  });
+
+  it("names each result's parents and, outside a space, its space", async () => {
+    insertPage("p1", "DevFest 関西 会場");
+    const unscoped = await search("会場");
+    expect(unscoped.scoped).toBe(false);
+    expect(unscoped.results[0]?.ancestors).toEqual([{ titleJa: "親", titleEn: "Parent" }]);
+    expect(unscoped.results[0]?.spaceName).toBe("GDG Japan");
+
+    const url = "https://wiki.example/s/gdg-jp/search?q=%E4%BC%9A%E5%A0%B4";
+    const scoped = await loadWikiSearch(new Request(url), {} as Env, "gdg-jp");
+    expect(scoped.scoped).toBe(true);
+    expect(scoped.results[0]?.spaceName).toBe("");
   });
 });

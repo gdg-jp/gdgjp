@@ -154,7 +154,10 @@
     "ask_agent_sent": "依頼しました。反映されたら通知が届きます。",
     "ask_agent_error": "依頼を送れませんでした。",
     "translate_now": "英語版を今すぐ更新",
-    "translate_now_queued": "英訳を依頼しました（数分〜で反映）"
+    "translate_now_queued": "英訳を依頼しました（数分〜で反映）",
+    "agent_name": "エージェント",
+    "source_label": "出典",
+    "breadcrumb": "現在地"
   },
   "archived": {
     "title": "アーカイブ済みページ",
@@ -500,7 +503,8 @@
     "ai_searching": "AIで検索中...",
     "ai_no_results": "AI検索で関連するページが見つかりませんでした。",
     "ai_error": "AI検索でエラーが発生しました。もう一度お試しください。",
-    "ai_unavailable": "AI検索はこの環境では利用できません。"
+    "ai_unavailable": "AI検索はこの環境では利用できません。",
+    "include_agent_pages": "エージェントが作成したページも含めて検索"
   },
   "notifications": {
     "title": "通知",

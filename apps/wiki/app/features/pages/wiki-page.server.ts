@@ -10,12 +10,13 @@ import { redactPageMarkdown } from "~/features/pages/acl-spans.server";
 import { archivePageAndDescendants } from "~/features/pages/archive.server";
 import { canHumanEditPage } from "~/features/pages/origin-lock";
 import { classifyWikiRequestPath, wikiPagePath } from "~/features/pages/wiki-page-path";
-import { getWikiCanonicalSlugPath } from "~/features/pages/wiki-page-path.server";
+import { getWikiAncestry, getWikiCanonicalSlugPath } from "~/features/pages/wiki-page-path.server";
 import { requireSpace } from "~/features/spaces/access.server";
 import { roleAtLeast, spacePath } from "~/features/spaces/shared";
 import { rememberLastSpace } from "~/features/spaces/viewer.server";
 import { getDb } from "~/lib/db.server";
 import { duplicatePage } from "./duplicate.server";
+import { loadInlineSourceRefs } from "./inline-source-refs.server";
 import { movePage } from "./move.server";
 import { handlePageAgentIntent } from "./page-agent-actions.server";
 import { loadPageComments } from "./page-comments.server";
@@ -73,7 +74,9 @@ export async function loadWikiPage({ request, context, params }: LoaderFunctionA
     throw new Response("Not Found", { status: 404 });
   }
 
-  const canonical = await getWikiCanonicalSlugPath(env, page.id);
+  const chain = (await getWikiAncestry(env, [page.id])).get(page.id) ?? [];
+  const canonical =
+    chain.length > 0 ? chain.map((a) => a.slug) : await getWikiCanonicalSlugPath(env, page.id);
   const classification = classifyWikiRequestPath(segments, canonical);
   if (classification === "redirect") {
     const url = new URL(request.url);
@@ -120,7 +123,11 @@ export async function loadWikiPage({ request, context, params }: LoaderFunctionA
           .get()
       : Promise.resolve(undefined),
     db
-      .select({ url: schema.pageSources.url, title: schema.pageSources.title })
+      .select({
+        url: schema.pageSources.url,
+        title: schema.pageSources.title,
+        sourceId: schema.pageSources.sourceId,
+      })
       .from(schema.pageSources)
       .where(eq(schema.pageSources.pageId, page.id))
       .all(),
@@ -161,12 +168,27 @@ export async function loadWikiPage({ request, context, params }: LoaderFunctionA
     );
   }
 
+  // The body carries its sources so inline `(source: id)` citations render as links at once.
+  // Agent pages cite a source id or a source-document id, not always one linked to the page.
   const content = Promise.all([
     redactPageMarkdown(db, canonicalMarkdown(page.contentJa), sessionUser, identity.chapters),
     redactPageMarkdown(db, canonicalMarkdown(page.contentEn), sessionUser, identity.chapters),
-  ]).then(([contentJa, contentEn]) => ({
+    loadInlineSourceRefs(db, page.id, `${page.contentJa}\n${page.contentEn}`),
+  ]).then(([contentJa, contentEn, sourceRefs]) => ({
     contentJa,
     contentEn,
+    sourceRefs,
+  }));
+
+  // Parents (root first) for the breadcrumb above the title.
+  const ancestors = chain.slice(0, -1).map((a) => ({
+    slug: a.slug,
+    titleJa: a.titleJa,
+    titleEn: a.titleEn,
+    path: wikiPagePath(
+      chain.slice(0, chain.indexOf(a) + 1).map((x) => x.slug),
+      space.slug,
+    ),
   }));
 
   const { contentJa: _ja, contentEn: _en, ...pageMetadata } = page;
@@ -176,6 +198,7 @@ export async function loadWikiPage({ request, context, params }: LoaderFunctionA
     space: { id: space.id, slug: space.slug, name: space.name, kind: space.kind },
     spaceRole,
     page: pageMetadata,
+    ancestors,
     content,
     pageMeta,
     lang,

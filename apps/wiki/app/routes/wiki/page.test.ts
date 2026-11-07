@@ -33,6 +33,8 @@ vi.mock("~/features/pages/access.server", () => ({
 
 vi.mock("~/features/pages/wiki-page-path.server", () => ({
   getWikiCanonicalSlugPath: vi.fn(),
+  // No ancestry rows: the loader falls back to getWikiCanonicalSlugPath, which these tests drive.
+  getWikiAncestry: vi.fn(async () => new Map()),
 }));
 
 vi.mock("~/features/pages/archive.server", () => ({

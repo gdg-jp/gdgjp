@@ -64,6 +64,49 @@ export async function getWikiCanonicalSlugPaths(
   return paths;
 }
 
+export type WikiAncestor = { id: string; slug: string; titleJa: string; titleEn: string };
+
+/**
+ * Root→leaf ancestry (titles included) for many pages, for breadcrumbs. The leaf itself is
+ * the last element; callers that want only the parents drop it.
+ */
+export async function getWikiAncestry(
+  env: Env,
+  pageIds: readonly string[],
+): Promise<Map<string, WikiAncestor[]>> {
+  const chains = new Map<string, WikiAncestor[]>();
+  if (pageIds.length === 0) return chains;
+
+  const uniqueIds = [...new Set(pageIds)];
+  for (let i = 0; i < uniqueIds.length; i += BATCH_CHUNK_SIZE) {
+    const chunk = uniqueIds.slice(i, i + BATCH_CHUNK_SIZE);
+    const placeholders = chunk.map(() => "?").join(", ");
+    const result = await env.DB.prepare(
+      `WITH RECURSIVE ancestry(origin_id, id, slug, title_ja, title_en, parent_id, depth) AS (
+         SELECT id AS origin_id, id, slug, title_ja, title_en, parent_id, 0
+         FROM pages WHERE id IN (${placeholders})
+         UNION ALL
+         SELECT ancestry.origin_id, pages.id, pages.slug, pages.title_ja, pages.title_en,
+           pages.parent_id, ancestry.depth + 1
+         FROM pages JOIN ancestry ON pages.id = ancestry.parent_id
+         WHERE ancestry.depth < ?
+       )
+       SELECT origin_id, id, slug, title_ja, title_en, depth FROM ancestry
+       ORDER BY origin_id, depth DESC`,
+    )
+      .bind(...chunk, ANCESTRY_DEPTH_CAP)
+      .all<{ origin_id: string; id: string; slug: string; title_ja: string; title_en: string }>();
+
+    for (const row of result.results) {
+      const ancestor = { id: row.id, slug: row.slug, titleJa: row.title_ja, titleEn: row.title_en };
+      const existing = chains.get(row.origin_id);
+      if (existing) existing.push(ancestor);
+      else chains.set(row.origin_id, [ancestor]);
+    }
+  }
+  return chains;
+}
+
 /**
  * Full browser URLs (`/s/<space>/wiki/<root>/…/<leaf>`) for many pages. Use this for any
  * listing that may contain pages from more than one space.

@@ -154,7 +154,10 @@
     "ask_agent_sent": "Sent. You will be notified when it is applied.",
     "ask_agent_error": "Could not send the request.",
     "translate_now": "Update the English version now",
-    "translate_now_queued": "Translation requested (a few minutes)"
+    "translate_now_queued": "Translation requested (a few minutes)",
+    "agent_name": "Agent",
+    "source_label": "source",
+    "breadcrumb": "You are here"
   },
   "archived": {
     "title": "Archived Pages",
@@ -500,7 +503,8 @@
     "ai_searching": "Searching with AI...",
     "ai_no_results": "AI search found no relevant pages.",
     "ai_error": "AI search encountered an error. Please try again.",
-    "ai_unavailable": "AI search is not available in this environment."
+    "ai_unavailable": "AI search is not available in this environment.",
+    "include_agent_pages": "Include pages written by the agent"
   },
   "notifications": {
     "title": "Notifications",

@@ -1,8 +1,16 @@
 import { Suspense } from "react";
 import { useTranslation } from "react-i18next";
-import { Await, Link, useLoaderData, useNavigate, useNavigation } from "react-router";
+import {
+  Await,
+  Link,
+  useFetcher,
+  useLoaderData,
+  useNavigate,
+  useNavigation,
+  useParams,
+} from "react-router";
 import { ListSkeleton } from "~/components/Skeleton";
-import type { AiRagResult } from "~/features/knowledge/wiki-search.server";
+import type { AiRagResult, Breadcrumb } from "~/features/knowledge/wiki-search.server";
 import TagChip from "~/features/pages/components/TagChip";
 import type { loader } from "../search";
 
@@ -17,6 +25,48 @@ function timeAgo(date: Date, t: (key: string, opts?: Record<string, unknown>) =>
   return t("time.days_ago", { count: days });
 }
 
+/** Where a result lives: its space (outside a space) and its parent pages (root first). */
+function ResultLocation({
+  ancestors,
+  spaceName,
+  isJa,
+}: {
+  ancestors: Breadcrumb[];
+  spaceName: string;
+  isJa: boolean;
+}) {
+  const crumbs = [
+    ...(spaceName ? [spaceName] : []),
+    ...ancestors.map((crumb) =>
+      isJa ? crumb.titleJa || crumb.titleEn : crumb.titleEn || crumb.titleJa,
+    ),
+  ].filter(Boolean);
+  if (crumbs.length === 0) return null;
+  return (
+    <p className="mt-0.5 truncate text-xs text-muted/70" data-testid="search-result-location">
+      {crumbs.join(" › ")}
+    </p>
+  );
+}
+
+/** The empty state's one-click way out when the reader's own setting hid the matches. */
+function IncludeAgentPagesButton() {
+  const { t } = useTranslation();
+  const fetcher = useFetcher();
+  return (
+    <fetcher.Form method="post" action="/api/user/preferences" className="mt-3">
+      <input type="hidden" name="hideAgentPages" value="false" />
+      <button
+        type="submit"
+        disabled={fetcher.state !== "idle"}
+        className="rounded-md border border-border bg-surface px-3 py-1.5 text-sm font-medium text-foreground transition-colors hover:bg-neutral disabled:opacity-60"
+      >
+        {t("search.include_agent_pages")}
+      </button>
+    </fetcher.Form>
+  );
+}
+
 export function SearchView() {
   const { q, tag, mode, allTags, results, ragResult, hideAgentPages } =
     useLoaderData<typeof loader>();
@@ -24,6 +74,9 @@ export function SearchView() {
   const isJa = i18n.language === "ja";
   const navigate = useNavigate();
   const navigation = useNavigation();
+  // `/s/:space/search` stays inside that space when the mode or tag changes.
+  const { space: spaceParam } = useParams();
+  const searchBase = spaceParam ? `/s/${encodeURIComponent(spaceParam)}/search` : "/search";
 
   const isNavigating = navigation.state === "loading";
 
@@ -34,13 +87,17 @@ export function SearchView() {
       : activeTagLabel.labelEn
     : tag;
 
+  function go(params: URLSearchParams) {
+    navigate(`${searchBase}${params.size > 0 ? `?${params}` : ""}`);
+  }
+
   function handleTagSelect(e: React.ChangeEvent<HTMLSelectElement>) {
     const value = e.target.value;
     const params = new URLSearchParams();
     if (q) params.set("q", q);
     if (value) params.set("tag", value);
     if (mode === "ai") params.set("mode", "ai");
-    navigate(`/search${params.size > 0 ? `?${params}` : ""}`);
+    go(params);
   }
 
   function handleModeSwitch(newMode: "keyword" | "ai") {
@@ -48,8 +105,10 @@ export function SearchView() {
     if (q) params.set("q", q);
     if (tag) params.set("tag", tag);
     if (newMode === "ai") params.set("mode", "ai");
-    navigate(`/search${params.size > 0 ? `?${params}` : ""}`);
+    go(params);
   }
+
+  const clearTagHref = q ? `${searchBase}?q=${encodeURIComponent(q)}` : searchBase;
 
   return (
     <div className="max-w-3xl px-4 py-6 md:px-8 md:py-8">
@@ -103,7 +162,7 @@ export function SearchView() {
 
           {tag && (
             <Link
-              to={q ? `/search?q=${encodeURIComponent(q)}` : "/search"}
+              to={clearTagHref}
               className="text-xs text-muted/70 hover:text-muted"
               aria-label={t("search.clear_tag")}
             >
@@ -156,12 +215,15 @@ export function SearchView() {
       ) : isNavigating ? (
         <ListSkeleton rows={5} />
       ) : results.length === 0 ? (
-        <p className="text-sm text-muted">
-          {tag && !q
-            ? t("search.no_results_tag", { tag: activeTagName })
-            : t("search.no_results", { query: q })}
-          {hideAgentPages ? ` ${t("search.agent_pages_hidden")}` : null}
-        </p>
+        <div>
+          <p className="text-sm text-muted">
+            {tag && !q
+              ? t("search.no_results_tag", { tag: activeTagName })
+              : t("search.no_results", { query: q })}
+            {hideAgentPages ? ` ${t("search.agent_pages_hidden")}` : null}
+          </p>
+          {hideAgentPages && <IncludeAgentPagesButton />}
+        </div>
       ) : (
         <>
           <p className="mb-6 text-sm text-muted">
@@ -182,6 +244,11 @@ export function SearchView() {
                     className="block rounded-lg border border-border bg-surface p-4 transition-[border-color,box-shadow] duration-[var(--motion-duration-micro)] ease-[var(--motion-ease-out)] hover:border-border-ring/40 hover:shadow-sm"
                   >
                     <span className="font-medium text-foreground hover:text-link">{title}</span>
+                    <ResultLocation
+                      ancestors={page.ancestors}
+                      spaceName={page.spaceName}
+                      isJa={isJa}
+                    />
 
                     {summary && <p className="mt-1 line-clamp-2 text-sm text-muted">{summary}</p>}
 
@@ -242,10 +309,13 @@ function AiSearchResults({
 
   if (!ragResult.answer && ragResult.sources.length === 0) {
     return (
-      <p className="text-sm text-muted">
-        {t("search.ai_no_results")}
-        {hideAgentPages ? ` ${t("search.agent_pages_hidden")}` : null}
-      </p>
+      <div>
+        <p className="text-sm text-muted">
+          {t("search.ai_no_results")}
+          {hideAgentPages ? ` ${t("search.agent_pages_hidden")}` : null}
+        </p>
+        {hideAgentPages && <IncludeAgentPagesButton />}
+      </div>
     );
   }
 
@@ -284,12 +354,13 @@ function AiSearchResults({
                     className="block rounded-lg border border-border bg-surface p-4 transition-[border-color,box-shadow] duration-[var(--motion-duration-micro)] ease-[var(--motion-ease-out)] hover:border-border-ring/40 hover:shadow-sm"
                   >
                     <span className="font-medium text-foreground hover:text-link">{title}</span>
+                    <ResultLocation
+                      ancestors={source.ancestors}
+                      spaceName={source.spaceName}
+                      isJa={isJa}
+                    />
 
                     {summary && <p className="mt-1 line-clamp-2 text-sm text-muted">{summary}</p>}
-
-                    <div className="mt-2 text-xs text-muted/70">
-                      {Math.round(source.relevanceScore * 100)}% match
-                    </div>
                   </Link>
                 </li>
               );

@@ -1,7 +1,14 @@
-import { Badge } from "@gdgjp/design-system";
+import { Badge, Breadcrumb } from "@gdgjp/design-system";
 import { Suspense, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Await, useFetcher, useLoaderData, useLocation, useRouteLoaderData } from "react-router";
+import {
+  Await,
+  Link,
+  useFetcher,
+  useLoaderData,
+  useLocation,
+  useRouteLoaderData,
+} from "react-router";
 import ConfirmDialog from "~/components/ConfirmDialog";
 import { ArticleSkeleton, ListSkeleton, TocSkeleton } from "~/components/Skeleton";
 import { AskAgentDialog } from "~/features/pages/components/AskAgentDialog";
@@ -14,7 +21,9 @@ import { WikiPageToolbar } from "./WikiPageToolbar";
 
 export function WikiPageView() {
   const {
+    space,
     page,
+    ancestors,
     content,
     pageMeta,
     comments,
@@ -87,6 +96,25 @@ export function WikiPageView() {
             {t("spaces.agent_hidden_banner")}
           </p>
         )}
+        <Breadcrumb aria-label={t("wiki.breadcrumb")} className="mb-3 text-sm text-muted">
+          <li>
+            <Link to={`/s/${encodeURIComponent(space.slug)}`} className="hover:text-foreground">
+              {space.name}
+            </Link>
+          </li>
+          {ancestors.map((ancestor) => (
+            <li key={ancestor.slug}>
+              <Link to={ancestor.path} className="hover:text-foreground">
+                {lang === "en"
+                  ? ancestor.titleEn || ancestor.titleJa
+                  : ancestor.titleJa || ancestor.titleEn}
+              </Link>
+            </li>
+          ))}
+          <li aria-current="page" className="truncate text-foreground">
+            {title}
+          </li>
+        </Breadcrumb>
         <Badge tone={isAgentPage ? "info" : "neutral"} className="mb-2">
           {t(isAgentPage ? "pages.origin_agent" : "pages.origin_human")}
         </Badge>
@@ -121,6 +149,7 @@ export function WikiPageView() {
             <WikiPageBody
               display={display}
               page={page}
+              title={title}
               content={resolvedContent}
               pageMeta={pageMeta}
               lang={lang}

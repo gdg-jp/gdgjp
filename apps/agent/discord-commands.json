@@ -8,6 +8,12 @@
         "description": "Your question for the Wiki assistant",
         "type": 3,
         "required": true
+      },
+      {
+        "name": "private",
+        "description": "Answer only to you, with your own wiki permissions (needs /login)",
+        "type": 5,
+        "required": false
       }
     ]
   },

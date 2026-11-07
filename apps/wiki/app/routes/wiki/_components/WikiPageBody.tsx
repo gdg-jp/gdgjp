@@ -1,5 +1,9 @@
 import { MdPreview } from "md-editor-rt";
-import { displayedMarkdown } from "~/features/pages/page-menu-content";
+import {
+  displayedMarkdown,
+  linkInlineSourceRefs,
+  stripLeadingTitleHeading,
+} from "~/features/pages/page-menu-content";
 import type { PageDisplay } from "~/features/pages/use-page-display";
 import "md-editor-rt/lib/preview.css";
 import { useTheme } from "@gdgjp/design-system";
@@ -18,10 +22,12 @@ import { Icons } from "@gdgjp/design-system";
 type PageSlice = {
   id: string;
   slug: string;
+  origin: string;
   translationStatusJa: string;
   translationStatusEn: string;
   updatedAt: Date | string | number | null;
 };
+type SourceRef = { sourceId: string | null; url: string; title: string };
 
 type Tag = { tagSlug: string; labelJa: string; labelEn: string; color: string };
 type Author = { id: string; name: string; image: string | null };
@@ -41,7 +47,8 @@ export type PageMetaPayload = {
 interface WikiPageBodyProps {
   display: PageDisplay;
   page: PageSlice;
-  content: { contentJa: string; contentEn: string };
+  title: string;
+  content: { contentJa: string; contentEn: string; sourceRefs?: SourceRef[] };
   pageMeta: Promise<PageMetaPayload>;
   lang: "ja" | "en";
   isAdmin: boolean;
@@ -49,6 +56,7 @@ interface WikiPageBodyProps {
 
 export function WikiPageBody({
   page,
+  title,
   content,
   pageMeta,
   lang,
@@ -65,7 +73,12 @@ export function WikiPageBody({
 
   const hasContent = primaryContent && primaryContent.trim().length > 0;
   const hasFallback = !hasContent && fallbackContent && fallbackContent.trim().length > 0;
-  const displayContent = displayedMarkdown(content, lang);
+  // The title is already above the body; inline `(source: id)` citations become links.
+  const displayContent = linkInlineSourceRefs(
+    stripLeadingTitleHeading(displayedMarkdown(content, lang), title),
+    content.sourceRefs ?? [],
+    t("wiki.source_label"),
+  );
 
   const [tocItems, setTocItems] = useState<TocItem[]>(() => parseMdHeadings(displayContent));
   const [mobileContentsOpen, setMobileContentsOpen] = useState(false);
@@ -190,6 +203,7 @@ export function WikiPageBody({
                 tocItems={tocItems}
                 author={null}
                 editor={null}
+                origin={page.origin}
                 updatedAt={page.updatedAt}
                 lang={lang}
                 pageId={page.id}
@@ -204,6 +218,7 @@ export function WikiPageBody({
                 tocItems={tocItems}
                 author={meta?.author ?? null}
                 editor={meta?.editor ?? null}
+                origin={page.origin}
                 updatedAt={page.updatedAt}
                 lang={lang}
                 pageId={page.id}

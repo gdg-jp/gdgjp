@@ -42,13 +42,35 @@ export async function handleDiscordInteraction(
           interaction.data.options?.find((o) => o.name === "question")?.value ?? "",
         ).trim();
         if (!question) return ephemeral("質問を入力してください。");
-        ctx.waitUntil(runAsk(app, interaction, userId, question, false));
-        return json({ type: 5 });
+        // `private: true` answers only to the asker, with their own permissions (needs /login).
+        const privateReply =
+          interaction.data.options?.find((o) => o.name === "private")?.value === true;
+        ctx.waitUntil(runAsk(app, interaction, userId, question, privateReply));
+        return json(privateReply ? { type: 5, data: { flags: EPHEMERAL } } : { type: 5 });
       }
       case "login":
-        return ephemeral(
-          `GDG Accounts と連携するにはこのリンクを開いてください（DM と「自分の権限で再回答」で、あなたの権限で回答します）:\n${await createLinkUrl("discord", userId, app.auth)}`,
-        );
+        return json({
+          type: 4,
+          data: {
+            content:
+              "GDG Accounts と連携すると、DM と「自分の権限で再回答」であなたが閲覧できるページも含めて回答します。",
+            flags: EPHEMERAL,
+            allowed_mentions: { parse: [] },
+            components: [
+              {
+                type: 1,
+                components: [
+                  {
+                    type: 2,
+                    style: 5,
+                    label: "GDG Accounts と連携する",
+                    url: await createLinkUrl("discord", userId, app.auth),
+                  },
+                ],
+              },
+            ],
+          },
+        });
       case "unlink":
         return ephemeral(
           (await unlink("discord", userId, app.auth))
