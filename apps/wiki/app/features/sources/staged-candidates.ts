@@ -14,11 +14,15 @@ export function buildDiscordSourceTitle(
     : `${guildName}#${channelName}`;
 }
 
+/** Candidates one `create-batch` request accepts; the panel sends larger batches in chunks. */
+export const MAX_BATCH_CANDIDATES = 50;
+
 export function parseBatchCandidates(raw: FormDataEntryValue | null): StagedSource[] | null {
   if (typeof raw !== "string") return null;
   try {
     const value: unknown = JSON.parse(raw);
-    if (!Array.isArray(value) || value.length === 0 || value.length > 50) return null;
+    if (!Array.isArray(value) || value.length === 0 || value.length > MAX_BATCH_CANDIDATES)
+      return null;
     const ids = new Set<string>();
     const candidates: StagedSource[] = [];
     for (const item of value) {
@@ -40,6 +44,8 @@ export const SOURCE_MIME_TYPES = [
   "application/vnd.google-apps.presentation",
   "application/vnd.google-apps.spreadsheet",
 ].join(",");
+
+export const DRIVE_FOLDER_MIME_TYPE = "application/vnd.google-apps.folder";
 
 export function sourceUrlFromGoogleDocument(document: GooglePickerDocument): string | null {
   switch (document.mimeType) {

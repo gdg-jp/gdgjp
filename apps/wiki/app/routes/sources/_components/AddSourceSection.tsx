@@ -7,16 +7,11 @@ import {
 
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { loadGooglePicker } from "~/features/google/picker.client";
-import type { GooglePickerConfig } from "~/features/google/picker.client";
 import { ChapterSelect, VisibilitySelect } from "~/features/sources/components/source-selects";
 import { isSourceVisibility, sourceVisibilityNeedsChapter } from "~/features/sources/shared";
-import {
-  SOURCE_MIME_TYPES,
-  sourceUrlFromGoogleDocument,
-} from "~/features/sources/staged-candidates";
 import { DiscordChannelDialog } from "./DiscordChannelDialog";
 import { StagedCandidateList } from "./StagedCandidateList";
+import { useDrivePicker } from "./use-drive-picker";
 import { useSourceStaging } from "./use-source-staging";
 
 /**
@@ -41,14 +36,19 @@ export function AddSourceSection({
     candidateErrors,
     registeredCandidateIds,
     batchFetcher,
+    submitting,
+    submitBatch,
     addCandidates,
     removeCandidate,
     addUrlCandidate,
     updateUrlCandidate,
   } = useSourceStaging(sources);
-  const [pickerLoading, setPickerLoading] = useState(false);
-  const [pickerError, setPickerError] = useState<string | null>(null);
   const [needsDriveConnection, setNeedsDriveConnection] = useState(false);
+  const drivePicker = useDrivePicker({
+    registeredCandidateIds,
+    addCandidates,
+    onNeedsConnection: () => setNeedsDriveConnection(true),
+  });
   const [chatSpaces, setChatSpaces] = useState<
     Array<{ name: string; displayName: string; spaceType: string | null }>
   >([]);
@@ -64,7 +64,6 @@ export function AddSourceSection({
   const [chapter, setChapter] = useState(
     assignableChapters.length === 1 ? assignableChapters[0].id : "",
   );
-  const submitting = batchFetcher.state !== "idle";
   const needsChapter = isSourceVisibility(visibility) && sourceVisibilityNeedsChapter(visibility);
   const urlCandidatesValid = candidates.every(
     (candidate) => REGISTRATIONS[candidate.kind].validate(candidate) === null,
@@ -78,66 +77,6 @@ export function AddSourceSection({
     chatSpacesLoadStarted.current = true;
     void loadChatSpaces();
   }, []);
-
-  async function chooseGoogleDriveSource() {
-    setPickerError(null);
-    setNeedsDriveConnection(false);
-    setPickerLoading(true);
-    try {
-      const response = await fetch("/api/google-documents/picker-token", {
-        credentials: "same-origin",
-      });
-      const config = (await response.json().catch(() => null)) as GooglePickerConfig | null;
-      if (!response.ok || !config || !("accessToken" in config)) {
-        if (response.status === 401) {
-          setNeedsDriveConnection(true);
-          return;
-        }
-        throw new Error("Unable to prepare Google Drive");
-      }
-
-      await loadGooglePicker();
-      const picker = window.google?.picker;
-      if (!picker) throw new Error("Google Picker unavailable");
-      const view = new picker.DocsView(picker.ViewId.DOCS);
-      view.setMimeTypes(SOURCE_MIME_TYPES);
-      view.setSelectFolderEnabled(false);
-      new picker.PickerBuilder()
-        .setDeveloperKey(config.apiKey)
-        .setAppId(config.appId)
-        .setOAuthToken(config.accessToken)
-        .addView(view)
-        .enableFeature(picker.Feature.MULTISELECT_ENABLED)
-        .setCallback((data) => {
-          if (data.action === picker.Action.PICKED) {
-            const selected = (data.docs ?? []).flatMap((document) => {
-              const url = sourceUrlFromGoogleDocument(document);
-              return url
-                ? [
-                    {
-                      id: `drive:${document.id}`,
-                      kind: "google-drive" as const,
-                      title: document.name,
-                      url,
-                    },
-                  ]
-                : [];
-            });
-            if (selected.length === 0) {
-              setPickerError(t("sources.error_unsupported_document"));
-            } else if (addCandidates(selected)) {
-              setPickerError(t("sources.error_duplicate_source"));
-            }
-          }
-          setPickerLoading(false);
-        })
-        .build()
-        .setVisible(true);
-    } catch {
-      setPickerError(t("sources.error_picker"));
-      setPickerLoading(false);
-    }
-  }
 
   async function loadChatSpaces() {
     setChatError(null);
@@ -203,11 +142,14 @@ export function AddSourceSection({
         <div className="flex flex-wrap items-center gap-2">
           <button
             type="button"
-            onClick={chooseGoogleDriveSource}
-            disabled={pickerLoading}
+            onClick={() => {
+              setNeedsDriveConnection(false);
+              void drivePicker.open();
+            }}
+            disabled={drivePicker.loading}
             className="inline-flex shrink-0 items-center justify-center gap-2 rounded-md border border-border px-3 py-2 text-sm font-medium text-muted hover:bg-neutral disabled:opacity-60"
           >
-            {pickerLoading ? (
+            {drivePicker.loading ? (
               <Icons name="LoaderCircle" className="size-4 animate-spin" />
             ) : (
               <Icons name="FileText" className="size-4" />
@@ -279,17 +221,7 @@ export function AddSourceSection({
             <button
               type="button"
               disabled={submitting || !canSubmitImport}
-              onClick={() =>
-                batchFetcher.submit(
-                  {
-                    intent: "create-batch",
-                    visibility,
-                    chapter: needsChapter ? chapter : "",
-                    candidates: JSON.stringify(candidates),
-                  },
-                  { method: "post" },
-                )
-              }
+              onClick={() => submitBatch({ visibility, chapter: needsChapter ? chapter : "" })}
               className="inline-flex shrink-0 items-center justify-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-60 sm:min-w-24"
             >
               {submitting ? <Icons name="LoaderCircle" className="size-4 animate-spin" /> : null}
@@ -333,7 +265,10 @@ export function AddSourceSection({
             </button>
           </div>
         ) : null}
-        {pickerError ? <p className="mt-2 text-sm text-danger">{pickerError}</p> : null}
+        {drivePicker.error ? <p className="mt-2 text-sm text-danger">{drivePicker.error}</p> : null}
+        {drivePicker.notice ? (
+          <p className="mt-2 text-sm text-muted">{drivePicker.notice}</p>
+        ) : null}
         {needsChatReauth ? (
           <div className="mt-3 flex items-center gap-3 rounded-md border border-warning bg-[var(--gdg-warning-surface)] p-3 text-sm text-warning">
             <span>{t("sources.chat_reauth_hint")}</span>
@@ -350,9 +285,7 @@ export function AddSourceSection({
         {discordError && !discordDialogOpen ? (
           <p className="mt-2 text-sm text-danger">{discordError}</p>
         ) : null}
-        {batchFetcher.data?.ok &&
-        "failed" in batchFetcher.data &&
-        batchFetcher.data.failed?.length ? (
+        {!submitting && Object.keys(candidateErrors).length > 0 ? (
           <p className="mt-2 text-sm text-danger">{t("sources.batch_partial_failure")}</p>
         ) : null}
         {batchFetcher.data && !batchFetcher.data.ok ? (

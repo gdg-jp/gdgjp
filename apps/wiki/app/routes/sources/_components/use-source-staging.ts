@@ -1,9 +1,11 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useFetcher, useRevalidator } from "react-router";
 import { REGISTRATIONS, sourceKindSpec } from "~/features/sources/kinds";
-import { titleFromUrl } from "~/features/sources/staged-candidates";
+import { MAX_BATCH_CANDIDATES, titleFromUrl } from "~/features/sources/staged-candidates";
 import type { StagedSource } from "~/features/sources/staged-candidates";
 import type { action } from "../page";
+
+type BatchFields = { visibility: string; chapter: string };
 
 /**
  * Local staging state for the `/sources` add-source panel: candidates picked
@@ -32,16 +34,54 @@ export function useSourceStaging(
     return ids;
   }, [sources, candidates]);
 
+  // A batch larger than one request allows (a picked Drive folder) is sent in chunks: each
+  // response removes what was added, then the next chunk goes out. `queue` holds the rest.
+  const queue = useRef<{ rest: StagedSource[]; fields: BatchFields } | null>(null);
+  const handled = useRef<unknown>(null);
+  const [chunking, setChunking] = useState(false);
+
+  function submitChunk(chunk: StagedSource[], fields: BatchFields) {
+    batchFetcher.submit(
+      { intent: "create-batch", ...fields, candidates: JSON.stringify(chunk) },
+      { method: "post" },
+    );
+  }
+
+  function submitBatch(fields: BatchFields) {
+    if (candidates.length === 0) return;
+    setCandidateErrors({});
+    queue.current = { rest: candidates.slice(MAX_BATCH_CANDIDATES), fields };
+    setChunking(candidates.length > MAX_BATCH_CANDIDATES);
+    submitChunk(candidates.slice(0, MAX_BATCH_CANDIDATES), fields);
+  }
+
+  // biome-ignore lint/correctness/useExhaustiveDependencies: runs once per batch response.
   useEffect(() => {
-    if (!batchFetcher.data?.ok || !("addedIds" in batchFetcher.data) || !batchFetcher.data.failed) {
+    const data = batchFetcher.data;
+    if (!data || handled.current === data) return;
+    handled.current = data;
+    if (!data.ok || !("addedIds" in data) || !data.failed) {
+      queue.current = null;
+      setChunking(false);
       return;
     }
-    const addedIds = new Set(batchFetcher.data.addedIds);
+    const addedIds = new Set(data.addedIds);
+    const failed = data.failed;
     setCandidates((current) => current.filter((candidate) => !addedIds.has(candidate.id)));
-    setCandidateErrors(
-      Object.fromEntries(batchFetcher.data.failed.map((failure) => [failure.id, failure.error])),
-    );
+    setCandidateErrors((current) => ({
+      ...current,
+      ...Object.fromEntries(failed.map((failure) => [failure.id, failure.error])),
+    }));
     if (addedIds.size > 0) revalidator.revalidate();
+    const pending = queue.current;
+    if (pending && pending.rest.length > 0) {
+      const next = pending.rest.slice(0, MAX_BATCH_CANDIDATES);
+      pending.rest = pending.rest.slice(MAX_BATCH_CANDIDATES);
+      submitChunk(next, pending.fields);
+    } else {
+      queue.current = null;
+      setChunking(false);
+    }
   }, [batchFetcher.data, revalidator]);
 
   function addCandidates(next: StagedSource[]): boolean {
@@ -102,6 +142,8 @@ export function useSourceStaging(
     candidateErrors,
     registeredCandidateIds,
     batchFetcher,
+    submitting: chunking || batchFetcher.state !== "idle",
+    submitBatch,
     addCandidates,
     removeCandidate,
     addUrlCandidate,

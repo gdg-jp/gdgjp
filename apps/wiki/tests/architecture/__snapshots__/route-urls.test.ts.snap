@@ -53,6 +53,7 @@ exports[`routes.ts URL surface > exposes a stable set of URLs 1`] = `
   "/api/google-documents/picker-token",
   "/api/google-drive/auth",
   "/api/google-drive/callback",
+  "/api/google-drive/folder-files",
   "/api/images/*",
   "/api/notifications",
   "/api/page-access/:pageId",

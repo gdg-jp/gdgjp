@@ -18,6 +18,7 @@ interface GooglePickerResponse {
 interface GooglePickerDocsView {
   setMimeTypes: (mimeTypes: string) => GooglePickerDocsView;
   setSelectFolderEnabled: (enabled: boolean) => GooglePickerDocsView;
+  setIncludeFolders: (included: boolean) => GooglePickerDocsView;
 }
 
 interface GooglePickerBuilder {
