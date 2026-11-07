@@ -205,7 +205,10 @@ async function whoami(app: App, interaction: Interaction, userId: string): Promi
             await app.wiki
               .spaces({ kind: "principal", type: "discord_guild", id: interaction.guild_id })
               .catch(() => [])
-          ).map((space) => space.slug);
+          )
+            .map((space) => space.slug)
+            // the same rule as /ask: evaluation spaces never answer real questions
+            .filter((slug) => !slug.startsWith("e2e-"));
     lines.push(
       reachable.length > 0
         ? `このサーバの /ask が検索するスペース: ${reachable.join(", ")}（サーバの権限で読めるページのみ。足りなければ「自分の権限で再回答」）`
