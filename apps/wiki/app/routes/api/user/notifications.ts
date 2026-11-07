@@ -21,12 +21,16 @@ export async function loader({ request, context }: LoaderFunctionArgs) {
       createdAt: schema.notifications.createdAt,
     })
     .from(schema.notifications)
-    // Read notifications fall off the list after 30 days; unread ones stay until read.
+    // Read notifications fall off after 30 days, unread ones after 60: a two-month-old
+    // "processing failed" with nothing to open is noise, not a task.
     .where(
       and(
         eq(schema.notifications.userId, user.id),
         or(
-          isNull(schema.notifications.readAt),
+          and(
+            isNull(schema.notifications.readAt),
+            gt(schema.notifications.createdAt, new Date(Date.now() - 60 * 24 * 60 * 60 * 1000)),
+          ),
           gt(schema.notifications.createdAt, new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)),
         ),
       ),
@@ -38,7 +42,13 @@ export async function loader({ request, context }: LoaderFunctionArgs) {
   const countResult = await db
     .select({ count: sql<number>`count(*)` })
     .from(schema.notifications)
-    .where(and(eq(schema.notifications.userId, user.id), isNull(schema.notifications.readAt)))
+    .where(
+      and(
+        eq(schema.notifications.userId, user.id),
+        isNull(schema.notifications.readAt),
+        gt(schema.notifications.createdAt, new Date(Date.now() - 60 * 24 * 60 * 60 * 1000)),
+      ),
+    )
     .get();
 
   return Response.json({

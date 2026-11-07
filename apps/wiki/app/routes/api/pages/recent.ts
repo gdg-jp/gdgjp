@@ -4,7 +4,7 @@ import * as schema from "~/db/schema";
 import { getAccessIdentity, requireUser } from "~/features/auth/utils.server";
 import { agentPagesFilter, pagesInSpaces } from "~/features/pages/page-space.server";
 import { buildVisibilityFilter } from "~/features/pages/visibility.server";
-import { getWikiPageUrls } from "~/features/pages/wiki-page-path.server";
+import { getWikiAncestry, getWikiPageUrls } from "~/features/pages/wiki-page-path.server";
 import { loadViewerContext } from "~/features/spaces/viewer.server";
 import { getDb } from "~/lib/db.server";
 
@@ -55,19 +55,21 @@ export async function loader({ request, context }: LoaderFunctionArgs) {
       .all(),
   ]);
 
-  const urls = await getWikiPageUrls(env, [
-    ...recentUpdated.map((p) => p.id),
-    ...recentViewed.map((p) => p.id),
-  ]);
+  const ids = [...recentUpdated.map((p) => p.id), ...recentViewed.map((p) => p.id)];
+  const [urls, chains] = await Promise.all([getWikiPageUrls(env, ids), getWikiAncestry(env, ids)]);
+  const parents = (id: string) =>
+    (chains.get(id) ?? []).slice(0, -1).map(({ titleJa, titleEn }) => ({ titleJa, titleEn }));
 
   return Response.json({
     recentUpdated: recentUpdated.map((p) => ({
       ...p,
       wikiPath: urls.get(p.id) ?? "",
+      ancestors: parents(p.id),
     })),
     recentViewed: recentViewed.map((p) => ({
       ...p,
       wikiPath: urls.get(p.id) ?? "",
+      ancestors: parents(p.id),
     })),
   });
 }

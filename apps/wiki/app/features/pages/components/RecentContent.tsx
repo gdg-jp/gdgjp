@@ -12,6 +12,7 @@ interface RecentPage {
   wikiPath: string;
   updatedAt?: string | null;
   viewedAt?: string | null;
+  ancestors?: { titleJa: string; titleEn: string }[];
 }
 
 interface RecentData {
@@ -53,6 +54,11 @@ export default function RecentContent({ open, onClose, lang }: RecentContentProp
   function title(page: RecentPage) {
     return lang === "en" ? page.titleEn || page.titleJa : page.titleJa || page.titleEn;
   }
+  function parents(page: RecentPage) {
+    return (page.ancestors ?? [])
+      .map((a) => (lang === "en" ? a.titleEn || a.titleJa : a.titleJa || a.titleEn))
+      .join(" › ");
+  }
 
   return (
     <>
@@ -88,7 +94,14 @@ export default function RecentContent({ open, onClose, lang }: RecentContentProp
                     onClick={onClose}
                     className="flex items-center justify-between gap-2 rounded-lg px-3 py-2 text-sm text-muted hover:bg-background hover:text-link"
                   >
-                    <span className="truncate">{title(page)}</span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate">{title(page)}</span>
+                      {parents(page) && (
+                        <span className="block truncate text-xs text-muted/70">
+                          {parents(page)}
+                        </span>
+                      )}
+                    </span>
                     {page.viewedAt && (
                       <span className="shrink-0 text-xs text-muted">
                         {timeAgo(new Date(page.viewedAt), t)}
@@ -119,7 +132,14 @@ export default function RecentContent({ open, onClose, lang }: RecentContentProp
                     onClick={onClose}
                     className="flex items-center justify-between gap-2 rounded-lg px-3 py-2 text-sm text-muted hover:bg-background hover:text-link"
                   >
-                    <span className="truncate">{title(page)}</span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate">{title(page)}</span>
+                      {parents(page) && (
+                        <span className="block truncate text-xs text-muted/70">
+                          {parents(page)}
+                        </span>
+                      )}
+                    </span>
                     {page.updatedAt && (
                       <span className="shrink-0 text-xs text-muted">
                         {timeAgo(new Date(page.updatedAt), t)}

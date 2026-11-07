@@ -14,6 +14,9 @@ function normalizeDescription(description: string | null | undefined, title: str
   return normalized || `「${title}」— ${SITE_NAME}`;
 }
 
+const MEMBERS_ONLY_DESCRIPTION =
+  "GDG Japan メンバー向けのページです。サインインすると表示できます。";
+
 export function buildPageMeta({
   description,
   imagePath = "/og-image.png",
@@ -26,7 +29,17 @@ export function buildPageMeta({
   const robots = visibility === "public" ? [] : [{ name: "robots", content: "noindex,nofollow" }];
 
   if (visibility !== "public" && visibility !== "unlisted") {
-    return [{ title: documentTitle }, ...robots];
+    // A members-only page unfurls as the site, never as its title: chat previews must not
+    // leak what the page is about, but a bare link with no card reads as broken.
+    return [
+      { title: documentTitle },
+      { property: "og:site_name", content: SITE_NAME },
+      { property: "og:title", content: SITE_NAME },
+      { property: "og:description", content: MEMBERS_ONLY_DESCRIPTION },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
+      ...robots,
+    ];
   }
 
   const pageUrl = new URL(pathname, origin).toString();

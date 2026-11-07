@@ -35,10 +35,14 @@ describe("buildPageMeta", () => {
   it("does not expose page details through OGP for restricted pages", () => {
     const meta = buildPageMeta({ ...baseInput, visibility: "restricted" });
 
-    expect(meta).toEqual([
-      { title: "テストページ — GDG Japan Wiki" },
-      { name: "robots", content: "noindex,nofollow" },
-    ]);
+    // A generic site card only: no page title, description, URL or image in any OGP tag.
+    expect(meta).toContainEqual({ title: "テストページ — GDG Japan Wiki" });
+    expect(meta).toContainEqual({ name: "robots", content: "noindex,nofollow" });
+    expect(meta).toContainEqual({ property: "og:title", content: "GDG Japan Wiki" });
+    const exposed = JSON.stringify(meta.filter((tag) => !("title" in tag)));
+    expect(exposed).not.toContain("テストページ");
+    expect(exposed).not.toContain("og:image");
+    expect(exposed).not.toContain("og:url");
   });
 
   it("normalizes descriptions and supplies a fallback", () => {

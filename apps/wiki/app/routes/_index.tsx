@@ -265,21 +265,23 @@ export default function Index() {
                   {t("home.browse_by_tag")}
                 </Heading>
 
-                {allTags.length === 0 ? (
+                {allTags.every((tag) => tag.pageCount === 0) ? (
                   <p className="text-sm text-muted/70">{t("home.no_tags_yet")}</p>
                 ) : (
                   <div className="flex flex-wrap gap-2">
-                    {allTags.map((tag) => (
-                      <TagChip
-                        key={tag.slug}
-                        tagSlug={tag.slug}
-                        labelJa={tag.labelJa}
-                        labelEn={tag.labelEn}
-                        color={tag.color}
-                        size="md"
-                        pageCount={tag.pageCount}
-                      />
-                    ))}
+                    {allTags
+                      .filter((tag) => tag.pageCount > 0)
+                      .map((tag) => (
+                        <TagChip
+                          key={tag.slug}
+                          tagSlug={tag.slug}
+                          labelJa={tag.labelJa}
+                          labelEn={tag.labelEn}
+                          color={tag.color}
+                          size="md"
+                          pageCount={tag.pageCount}
+                        />
+                      ))}
                   </div>
                 )}
               </section>

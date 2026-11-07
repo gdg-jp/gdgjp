@@ -42,9 +42,9 @@ export function d1PendingStore(db: D1Database): PendingStore {
     async insert(row) {
       await db
         .prepare(
-          "INSERT INTO pending_answers (job_id, payload, status, deadline_at, created_at) VALUES (?, ?, 'pending', ?, ?)",
+          "INSERT INTO pending_answers (job_id, payload, status, deadline_at, created_at) VALUES (?, ?, ?, ?, ?)",
         )
-        .bind(row.jobId, JSON.stringify(row), row.deadlineAt, row.createdAt)
+        .bind(row.jobId, JSON.stringify(row), row.status, row.deadlineAt, row.createdAt)
         .run();
     },
     async get(jobId) {

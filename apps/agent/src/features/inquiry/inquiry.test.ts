@@ -3,6 +3,7 @@ import {
   answerReady,
   answerReply,
   describeSpaces,
+  flattenTables,
   isEnglish,
   nothingReadableReply,
   progressText,
@@ -236,7 +237,7 @@ describe("answerReply", () => {
       unanswered: true,
     });
     expect(partial.text).toContain(
-      "一部は この場所で読めるページには見つかりませんでした（検索したスペース: gdg-jp, e2e-eval）",
+      "一部はこの場所で読めるページには見つかりませんでした（検索したスペース: gdg-jp, e2e-eval）",
     );
     expect(partial.suppressEmbeds).toBe(true);
     expect(partial.text).toContain("自分の権限で再回答");
@@ -321,5 +322,31 @@ describe("answerReply", () => {
     expect(progress).toHaveBeenCalledTimes(1);
     expect(progress.mock.calls[0]?.[1]).toContain("1 ページと 1 件の原資料を読んで回答を作成中");
     expect(progressText("Where?", 2, 0)).toContain("Reading 2 page(s), writing the answer");
+  });
+
+  it("flattens Markdown tables into bullets for Discord", () => {
+    const table =
+      "候補:\n| 候補 | 会場費 | 定員 |\n|---|---:|---|\n| ハートン | 124,410円 | 240 |\n| ブリーゼ | 227,700円 | 250 |\n後";
+    expect(flattenTables(table)).toBe(
+      "候補:\n- ハートン / 会場費: 124,410円 / 定員: 240\n- ブリーゼ / 会場費: 227,700円 / 定員: 250\n後",
+    );
+  });
+  it("leaves e2e-* spaces out of a guild's default scope", async () => {
+    const { wiki, calls } = fakeWiki(1000);
+    wiki.spaces = vi.fn(async () => [
+      { id: "1", slug: "gdg-jp", name: "GDG Japan", kind: "shared", role: "viewer" },
+      { id: "2", slug: "e2e-eval", name: "E2E", kind: "shared", role: "viewer" },
+    ]);
+    await startInquiry(
+      { ...input({ kind: "anonymous" }), spaces: [] },
+      {
+        wiki,
+        pending: memoryPendingStore(),
+        deliver: vi.fn(),
+        schedule: vi.fn(),
+        now: () => 1000,
+      },
+    );
+    expect(calls.find((c) => c.op === "search")?.args).toEqual(["gdg-jp"]);
   });
 });

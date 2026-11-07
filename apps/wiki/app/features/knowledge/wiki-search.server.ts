@@ -268,7 +268,8 @@ export async function loadWikiSearch(request: Request, env: Env, spaceSlug?: str
   const orderedPages = rows.map(({ contentJa, contentEn, ...page }) => ({
     ...page,
     // The place the first term appears, so the card shows why it matched.
-    matchSnippet: matchSnippet([page.summaryJa, page.summaryEn, contentJa, contentEn], terms),
+    // From the body only: the summary is already on the card.
+    matchSnippet: matchSnippet([contentJa, contentEn], terms),
   }));
 
   const pageTags = await fetchTagsForPages(orderedPages.map((p) => p.id));

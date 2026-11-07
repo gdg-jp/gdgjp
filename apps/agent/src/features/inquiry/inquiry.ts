@@ -57,7 +57,8 @@ export type InquiryInput = {
  */
 export async function startInquiry(input: InquiryInput, deps: InquiryDeps): Promise<PendingAnswer> {
   const now = (deps.now ?? nowSeconds)();
-  const search = await deps.wiki.search(input.reader, input.question, input.spaces);
+  const scope = await searchScope(input, deps);
+  const search = await deps.wiki.search(input.reader, input.question, scope);
   const wanted = uniquePages(search.pages).slice(0, MAX_BUNDLE_PAGES);
   const pages = (
     await Promise.all(wanted.map((hit) => deps.wiki.page(input.reader, hit.space, hit.slug)))
@@ -156,6 +157,18 @@ export function progressText(question: string, pageCount: number, rawCount: numb
 /** Questions without any Japanese script get English notes around the answer. */
 export function isEnglish(question: string): boolean {
   return !/[\u3040-\u30ff\u3400-\u9fff]/.test(question);
+}
+
+/**
+ * Spaces to search. Chosen spaces (/setup) win; otherwise everything the reader reaches,
+ * minus the `e2e-*` evaluation spaces — public test pages must not answer real questions.
+ */
+async function searchScope(input: InquiryInput, deps: InquiryDeps): Promise<string[]> {
+  if (input.spaces.length > 0) return input.spaces;
+  const reachable = await deps.wiki.spaces(input.reader).catch(() => []);
+  const real = reachable.map((space) => space.slug).filter((slug) => !slug.startsWith("e2e-"));
+  // Nothing but test spaces: let the wiki decide (keeps the eval harness working).
+  return real.length === reachable.length ? [] : real;
 }
 
 function uniquePages<T extends { space: string; slug: string }>(pages: readonly T[]): T[] {
@@ -292,8 +305,39 @@ export function nothingReadableReply(row: PendingAnswer): Reply {
   };
 }
 
+/** Discord renders no tables: each row becomes a bullet of "cell / cell / …". */
+export function flattenTables(text: string): string {
+  const lines = text.split("\n");
+  const out: string[] = [];
+  let header: string[] | null = null;
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (!/^\|.*\|$/.test(trimmed)) {
+      header = null;
+      out.push(line);
+      continue;
+    }
+    const cells = trimmed
+      .slice(1, -1)
+      .split("|")
+      .map((cell) => cell.trim());
+    if (cells.every((cell) => /^:?-{2,}:?$/.test(cell))) continue;
+    if (header === null) {
+      header = cells;
+      continue;
+    }
+    out.push(
+      `- ${cells
+        .map((cell, i) => (header?.[i] && i > 0 ? `${header[i]}: ${cell}` : cell))
+        .filter(Boolean)
+        .join(" / ")}`,
+    );
+  }
+  return out.join("\n");
+}
+
 export function answerReply(row: PendingAnswer, result: AnswerResult): Reply {
-  const answer = result.answer.trim().slice(0, MAX_TEXT);
+  const answer = flattenTables(result.answer.trim()).slice(0, MAX_TEXT);
   const citations = [...new Set(result.citations.map((citation) => citation.url))].slice(0, 5);
   // Links the answer already carries inline are not repeated in the list.
   const listed = citations.filter((url) => !answer.includes(url));
@@ -307,8 +351,8 @@ export function answerReply(row: PendingAnswer, result: AnswerResult): Reply {
     lines.push(
       "",
       en
-        ? `${partial ? "Part of this is " : "This is "}not in the pages readable here (searched: ${spaces}).`
-        : `${partial ? "一部は " : ""}この場所で読めるページには見つかりませんでした（検索したスペース: ${spaces}）。`,
+        ? `${partial ? "Part of this is " : "This is "}not in the pages ${row.readerKind === "user" ? "you can read" : "readable here"} (searched: ${spaces}).`
+        : `${partial ? "一部は" : ""}${row.readerKind === "user" ? "あなたが読めるページ" : "この場所で読めるページ"}には見つかりませんでした（検索したスペース: ${spaces}）。`,
     );
     const hidden = hiddenPagesLine(row, en);
     if (hidden) lines.push(hidden);
