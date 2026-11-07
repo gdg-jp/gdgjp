@@ -236,8 +236,9 @@ describe("answerReply", () => {
       unanswered: true,
     });
     expect(partial.text).toContain(
-      "一部は Wiki で見つかりませんでした（検索したスペース: gdg-jp, e2e-eval）",
+      "一部は この場所で読めるページには見つかりませんでした（検索したスペース: gdg-jp, e2e-eval）",
     );
+    expect(partial.suppressEmbeds).toBe(true);
     expect(partial.text).toContain("自分の権限で再回答");
     const hidden = answerReply(
       { ...row, excludedPages: 2 },
@@ -250,15 +251,18 @@ describe("answerReply", () => {
       { ...row, publicReply: false },
       { answer: "見当たりません。", citations: [], confidence: "low", unanswered: true },
     );
-    expect(none.text).toContain("\nWiki で見つかりませんでした");
+    expect(none.text).toContain("\nこの場所で読めるページには見つかりませんでした");
     expect(none.text).not.toContain("自分の権限で再回答");
   });
   it("counts personal spaces instead of listing their opaque slugs", () => {
     expect(describeSpaces(["gdg-jp", "c-1", "u-e5710c24-a46b"])).toBe("gdg-jp, c-1, ほか 1 件");
     expect(describeSpaces(["gdg-jp", "e2e-eval"], new Set(["e2e-eval"]))).toBe(
-      "gdg-jp（この権限で読めるページなし）, e2e-eval",
+      "e2e-eval, この権限で読めるページのないスペース 1 件",
     );
-    expect(describeSpaces(["gdg-jp"], new Set(), true)).toBe("gdg-jp (nothing readable here)");
+    expect(describeSpaces(["gdg-jp"], new Set(), true)).toBe("1 space(s), nothing readable here");
+    expect(describeSpaces(["gdg-jp", "e2e-eval"], new Set())).toBe(
+      "2 スペース、この権限で読めるページなし",
+    );
     expect(describeSpaces(["a", "b", "c", "d", "e", "f"])).toBe("a, b, c, d, ほか 2 件");
     expect(describeSpaces([])).toBe("なし");
   });
@@ -269,7 +273,9 @@ describe("answerReply", () => {
       { ...row, question: "What was the budget?" },
       { answer: "Unknown.", citations: [], confidence: "low", unanswered: true },
     );
-    expect(reply.text).toContain("This is not in the wiki (searched: gdg-jp, e2e-eval).");
+    expect(reply.text).toContain(
+      "This is not in the pages readable here (searched: gdg-jp, e2e-eval).",
+    );
     expect(reply.text).toContain('Press "Answer with my permissions"');
     expect(reply.english).toBe(true);
   });

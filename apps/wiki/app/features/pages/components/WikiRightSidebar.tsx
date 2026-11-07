@@ -5,6 +5,7 @@ import { useEffect, useId, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useFetcher } from "react-router";
 import { timeAgo } from "~/lib/time";
+import { jumpToHeading } from "./toc-jump";
 
 import { Icons } from "@gdgjp/design-system";
 const listboxRole = "listbox";
@@ -144,6 +145,7 @@ export default function WikiRightSidebar({
                 <li key={item.id} style={{ paddingLeft: item.level === 3 ? "0.75rem" : undefined }}>
                   <a
                     href={`#${item.id}`}
+                    onClick={(event) => jumpToHeading(event, item.id)}
                     className={[
                       "block truncate text-sm transition-colors",
                       activeId === item.id

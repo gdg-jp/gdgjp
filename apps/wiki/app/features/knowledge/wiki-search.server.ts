@@ -1,4 +1,4 @@
-import { type SQL, and, desc, eq, inArray, sql } from "drizzle-orm";
+import { type SQL, type SQLWrapper, and, desc, eq, inArray, sql } from "drizzle-orm";
 import * as schema from "~/db/schema";
 import { getAccessIdentity } from "~/features/auth/utils.server";
 import { MAX_SEARCH_SPACES } from "~/features/knowledge/search.server";
@@ -13,6 +13,7 @@ import {
 import { listAccessibleSpaces, requireSpace } from "~/features/spaces/access.server";
 import { loadViewerContext } from "~/features/spaces/viewer.server";
 import { getDb } from "~/lib/db.server";
+import { matchSnippet } from "./keyword-snippet";
 
 /** "AI" search mode result: AI Search page hits (no generated answer; the Worker calls no LLM). */
 export type AiRagResult = {
@@ -49,9 +50,6 @@ async function spaceNamesById(db: ReturnType<typeof getDb>, viewer: { access: Sp
 type SpaceAccessLike = Parameters<typeof listAccessibleSpaces>[1];
 
 const SEARCH_LIMIT = 50;
-/** `pages_fts_trigram` uses the trigram tokenizer: a term shorter than this never matches. */
-const TRIGRAM_MIN_CHARS = 3;
-
 function escapeLike(value: string): string {
   return value.replace(/[\\%_]/g, (c) => `\\${c}`);
 }
@@ -208,6 +206,7 @@ export async function loadWikiSearch(request: Request, env: Env, spaceSlug?: str
         wikiPath: urls.get(p.id) ?? "",
         ancestors: parentCrumbs(chains.get(p.id)),
         spaceName: spaceNameOf(p.spaceId),
+        matchSnippet: "",
       })),
       ragResult: null,
     };
@@ -217,10 +216,26 @@ export async function loadWikiSearch(request: Request, env: Env, spaceSlug?: str
   if (!q && !tag)
     return { hideAgentPages, scoped, q: "", tag: "", mode, allTags, results: [], ragResult: null };
 
-  // Case B/C: text query (with or without tag)
+  // Case B/C: text query (with or without tag). Every word must match somewhere in the
+  // page ("DevFest Kansai 2026 会場費" is four terms, not one phrase).
   const sanitized = sanitizeFtsQuery(q);
-  if (!sanitized)
+  const terms = sanitized.split(/\s+/).filter(Boolean);
+  if (!sanitized || terms.length === 0)
     return { hideAgentPages, scoped, q, tag, mode, allTags, results: [], ragResult: null };
+  const termPatterns = terms.map((term) => `%${escapeLike(term)}%`);
+  const allTermsIn = (column: SQLWrapper) =>
+    sql.join(
+      termPatterns.map((p) => sql`${column} LIKE ${p} ESCAPE '\\'`),
+      sql` AND `,
+    );
+  const anyFieldHasAllTerms = sql`(
+    (${allTermsIn(schema.pages.titleJa)}) OR (${allTermsIn(schema.pages.titleEn)})
+    OR (${allTermsIn(schema.pages.summaryJa)}) OR (${allTermsIn(schema.pages.summaryEn)})
+    OR (${allTermsIn(schema.pages.contentJa)}) OR (${allTermsIn(schema.pages.contentEn)}))`;
+  const titleHasAllTerms = sql`CASE WHEN (${allTermsIn(schema.pages.titleJa)})
+    OR (${allTermsIn(schema.pages.titleEn)}) THEN 0 ELSE 1 END`;
+  const summaryHasAllTerms = sql`CASE WHEN (${allTermsIn(schema.pages.summaryJa)})
+    OR (${allTermsIn(schema.pages.summaryEn)}) THEN 0 ELSE 1 END`;
 
   // Filters go into the same query as the match, before the limit: cutting the FTS hits to
   // 50 first let pages in other spaces (or hidden ones) crowd out the reader's own.
@@ -236,89 +251,25 @@ export async function loadWikiSearch(request: Request, env: Env, spaceSlug?: str
     summaryEn: schema.pages.summaryEn,
     updatedAt: schema.pages.updatedAt,
     spaceId: schema.pages.spaceId,
+    contentJa: schema.pages.contentJa,
+    contentEn: schema.pages.contentEn,
   };
 
-  let orderedPages: Array<{
-    id: string;
-    slug: string;
-    titleJa: string;
-    titleEn: string;
-    summaryJa: string;
-    summaryEn: string;
-    updatedAt: Date;
-    spaceId: string;
-  }>;
-  if (Array.from(sanitized).length < TRIGRAM_MIN_CHARS) {
-    // The FTS table is a trigram index: shorter terms (most Japanese words, 「関西」「会場」)
-    // can never match it, so search titles and summaries directly.
-    const pattern = `%${escapeLike(sanitized)}%`;
-    orderedPages = await db
-      .select(columns)
-      .from(schema.pages)
-      .where(
-        and(
-          sql`(${schema.pages.titleJa} LIKE ${pattern} ESCAPE '\\'
-            OR ${schema.pages.titleEn} LIKE ${pattern} ESCAPE '\\'
-            OR ${schema.pages.summaryJa} LIKE ${pattern} ESCAPE '\\'
-            OR ${schema.pages.summaryEn} LIKE ${pattern} ESCAPE '\\')`,
-          eq(schema.pages.status, "published"),
-          visFilter,
-          tagFilter,
-        ),
-      )
-      // A page named after the term outranks one that only mentions it.
-      .orderBy(
-        sql`CASE WHEN ${schema.pages.titleJa} LIKE ${pattern} ESCAPE '\\'
-          OR ${schema.pages.titleEn} LIKE ${pattern} ESCAPE '\\' THEN 0 ELSE 1 END`,
-        desc(schema.pages.updatedAt),
-      )
-      .limit(SEARCH_LIMIT)
-      .all();
-  } else {
-    const ftsQuery = `"${sanitized}"`;
-    const pages = await db
-      .select({ ...columns, rank: sql<number>`fts.rank` })
-      .from(schema.pages)
-      .innerJoin(
-        sql`(SELECT page_id, rank FROM pages_fts_trigram WHERE pages_fts_trigram MATCH ${ftsQuery}) AS fts`,
-        sql`fts.page_id = ${schema.pages.id}`,
-      )
-      .where(and(eq(schema.pages.status, "published"), visFilter, tagFilter))
-      .orderBy(
-        sql`CASE WHEN ${schema.pages.titleJa} LIKE ${`%${escapeLike(sanitized)}%`} ESCAPE '\\'
-          OR ${schema.pages.titleEn} LIKE ${`%${escapeLike(sanitized)}%`} ESCAPE '\\' THEN 0 ELSE 1 END`,
-        sql`fts.rank`,
-      )
-      .limit(SEARCH_LIMIT)
-      .all();
-    orderedPages = pages.map(({ rank: _rank, ...page }) => page);
-  }
-  // The trigram index covers titles, summaries and tags only. Pages that mention the term
-  // in their body (either language) follow, so "what was that room called" searches land.
-  if (orderedPages.length < SEARCH_LIMIT) {
-    const pattern = `%${escapeLike(sanitized)}%`;
-    const seen = new Set(orderedPages.map((p) => p.id));
-    const bodyMatches = await db
-      .select(columns)
-      .from(schema.pages)
-      .where(
-        and(
-          sql`(${schema.pages.contentJa} LIKE ${pattern} ESCAPE '\\'
-            OR ${schema.pages.contentEn} LIKE ${pattern} ESCAPE '\\')`,
-          eq(schema.pages.status, "published"),
-          visFilter,
-          tagFilter,
-        ),
-      )
-      .orderBy(desc(schema.pages.updatedAt))
-      .limit(SEARCH_LIMIT)
-      .all();
-    for (const page of bodyMatches) {
-      if (seen.has(page.id) || orderedPages.length >= SEARCH_LIMIT) continue;
-      seen.add(page.id);
-      orderedPages.push(page);
-    }
-  }
+  // Title matches first, then summary matches, then pages that only mention the terms in
+  // their body; newest first within a tier. (The trigram FTS index never covered bodies and
+  // cannot express "all words anywhere", so plain LIKE does the work over the reader's pages.)
+  const rows = await db
+    .select(columns)
+    .from(schema.pages)
+    .where(and(anyFieldHasAllTerms, eq(schema.pages.status, "published"), visFilter, tagFilter))
+    .orderBy(titleHasAllTerms, summaryHasAllTerms, desc(schema.pages.updatedAt))
+    .limit(SEARCH_LIMIT)
+    .all();
+  const orderedPages = rows.map(({ contentJa, contentEn, ...page }) => ({
+    ...page,
+    // The place the first term appears, so the card shows why it matched.
+    matchSnippet: matchSnippet([page.summaryJa, page.summaryEn, contentJa, contentEn], terms),
+  }));
 
   const pageTags = await fetchTagsForPages(orderedPages.map((p) => p.id));
   const tagsByPage = new Map<string, PageTag[]>();

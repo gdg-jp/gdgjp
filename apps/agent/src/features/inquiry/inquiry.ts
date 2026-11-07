@@ -23,6 +23,8 @@ export type Reply = {
   jobId: string;
   /** Buttons follow the question's language. */
   english?: boolean;
+  /** Discord: hide link previews (a miss should not unfurl an unrelated page). */
+  suppressEmbeds?: boolean;
 };
 
 export type InquiryDeps = {
@@ -119,6 +121,11 @@ export async function startInquiry(input: InquiryInput, deps: InquiryDeps): Prom
     await deps.deliver(input.delivery, degradedReply(row));
     return row;
   }
+  if (deps.progress) {
+    await deps
+      .progress(input.delivery, progressText(input.question, pages.length, search.raw.length))
+      .catch(() => undefined);
+  }
   const bundle = buildBundle({ question: input.question, search, pages, indexes });
   const job = await deps.wiki.enqueueAnswer(input.reader, {
     question: input.question,
@@ -133,11 +140,6 @@ export async function startInquiry(input: InquiryInput, deps: InquiryDeps): Prom
   };
   await deps.pending.insert(row);
   await deps.schedule();
-  if (deps.progress) {
-    await deps
-      .progress(input.delivery, progressText(input.question, pages.length, search.raw.length))
-      .catch(() => undefined);
-  }
   return row;
 }
 
@@ -219,13 +221,23 @@ export function describeSpaces(
 ): string {
   const shared = spaces.filter((space) => !space.startsWith("u-"));
   const personal = spaces.length - shared.length;
-  const mark = (space: string) =>
-    readable.has(space)
-      ? space
-      : `${space}${en ? " (nothing readable here)" : "（この権限で読めるページなし）"}`;
-  const parts = shared.slice(0, 4).map(mark);
-  const more = shared.length - parts.length + personal;
+  const listed = shared.filter((space) => readable.has(space));
+  const unreadable = shared.length - listed.length;
+  if (listed.length === 0 && unreadable > 0) {
+    const total = unreadable + personal;
+    return en
+      ? `${total} space(s), nothing readable here`
+      : `${total} スペース、この権限で読めるページなし`;
+  }
+  const parts = listed.slice(0, 4);
+  const more = listed.length - parts.length + personal;
   if (more > 0) parts.push(en ? `and ${more} more` : `ほか ${more} 件`);
+  if (unreadable > 0)
+    parts.push(
+      en
+        ? `${unreadable} space(s) with nothing readable here`
+        : `この権限で読めるページのないスペース ${unreadable} 件`,
+    );
   return parts.join(", ") || (en ? "none" : "なし");
 }
 
@@ -289,11 +301,14 @@ export function answerReply(row: PendingAnswer, result: AnswerResult): Reply {
   const lines = [questionLine(row.question), "", answer];
   if (result.unanswered) {
     const spaces = describeSpaces(row.spaces, readableSpaces(row), en);
+    // "Partly" only when the runner stood behind some of it; a low-confidence miss that still
+    // cites a nearby page is a miss.
+    const partial = citations.length > 0 && result.confidence !== "low";
     lines.push(
       "",
       en
-        ? `${citations.length > 0 ? "Part of this is " : "This is "}not in the wiki (searched: ${spaces}).`
-        : `${citations.length > 0 ? "一部は " : ""}Wiki で見つかりませんでした（検索したスペース: ${spaces}）。`,
+        ? `${partial ? "Part of this is " : "This is "}not in the pages readable here (searched: ${spaces}).`
+        : `${partial ? "一部は " : ""}この場所で読めるページには見つかりませんでした（検索したスペース: ${spaces}）。`,
     );
     const hidden = hiddenPagesLine(row, en);
     if (hidden) lines.push(hidden);
@@ -314,6 +329,8 @@ export function answerReply(row: PendingAnswer, result: AnswerResult): Reply {
     publicReply: row.publicReply,
     jobId: row.jobId,
     english: en,
+    // A miss cites at best a nearby page: no half-screen link preview for it.
+    suppressEmbeds: result.unanswered,
   };
 }
 

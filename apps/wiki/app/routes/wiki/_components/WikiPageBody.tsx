@@ -132,7 +132,7 @@ export function WikiPageBody({
             ref={mobileContentsTriggerRef}
             type="button"
             onClick={openMobileContents}
-            className="mb-4 flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-sm text-muted md:hidden"
+            className="sticky top-[3.75rem] z-10 mb-4 flex items-center gap-1.5 rounded-md border border-border bg-surface px-3 py-1.5 text-sm text-muted shadow-sm md:hidden"
           >
             <Icons name="List" size={14} />
             {t("wiki.contents")}

@@ -74,7 +74,7 @@
     "share_back": "戻る",
     "share_add_more": "ユーザーまたはChapterを追加",
     "share_loading_candidates": "候補を読み込んでいます…",
-    "share_no_candidates": "一致するユーザーまたはChapterはありません。",
+    "share_no_candidates": "一致するユーザーまたはチャプターはありません。GDG Accounts にサインインしたことのある人だけ候補に出ます。見つからないときはリンクをコピーして送ってください。",
     "share_chapter": "Chapter",
     "share_remove_subject": "{{name}} を削除",
     "share_error_generic": "共有設定を更新できませんでした。",
@@ -501,12 +501,13 @@
     "mode_keyword": "キーワード",
     "mode_ai": "AI検索",
     "ai_answer": "AIの回答",
-    "ai_sources": "ソース",
     "ai_searching": "AIで検索中...",
     "ai_no_results": "AI検索で関連するページが見つかりませんでした。",
     "ai_error": "AI検索でエラーが発生しました。もう一度お試しください。",
     "ai_unavailable": "AI検索はこの環境では利用できません。",
-    "include_agent_pages": "エージェントが作成したページも含めて検索"
+    "include_agent_pages": "エージェントが作成したページも含めて検索",
+    "try_ai": "AI 検索で探す",
+    "related_pages": "関連ページ（{{count}} 件）"
   },
   "notifications": {
     "title": "通知",

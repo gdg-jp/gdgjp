@@ -74,7 +74,7 @@
     "share_back": "Back",
     "share_add_more": "Add people or Chapters",
     "share_loading_candidates": "Loading suggestions…",
-    "share_no_candidates": "No matching people or Chapters.",
+    "share_no_candidates": "No matching user or chapter. Only people who have signed in to GDG Accounts appear here; otherwise copy the link and send it.",
     "share_chapter": "Chapter",
     "share_remove_subject": "Remove {{name}}",
     "share_error_generic": "Could not update sharing settings.",
@@ -501,12 +501,13 @@
     "mode_keyword": "Keyword",
     "mode_ai": "AI Search",
     "ai_answer": "AI Answer",
-    "ai_sources": "Sources",
     "ai_searching": "Searching with AI...",
     "ai_no_results": "AI search found no relevant pages.",
     "ai_error": "AI search encountered an error. Please try again.",
     "ai_unavailable": "AI search is not available in this environment.",
-    "include_agent_pages": "Include pages written by the agent"
+    "include_agent_pages": "Include pages written by the agent",
+    "try_ai": "Try AI search",
+    "related_pages": "Related pages ({{count}})"
   },
   "notifications": {
     "title": "Notifications",

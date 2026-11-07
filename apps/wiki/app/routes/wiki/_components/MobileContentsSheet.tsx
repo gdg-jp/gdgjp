@@ -2,6 +2,7 @@ import { useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import TagChip from "~/features/pages/components/TagChip";
 import type { TocItem } from "~/features/pages/components/WikiRightSidebar";
+import { jumpToHeading } from "~/features/pages/components/toc-jump";
 import { timeAgo } from "~/lib/time";
 
 import { Icons } from "@gdgjp/design-system";
@@ -95,7 +96,10 @@ export function MobileContentsSheet({
                     >
                       <a
                         href={`#${item.id}`}
-                        onClick={onClose}
+                        onClick={(event) => {
+                          jumpToHeading(event, item.id);
+                          onClose();
+                        }}
                         className="block truncate py-1 text-sm text-muted hover:text-foreground"
                       >
                         {item.text}

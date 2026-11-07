@@ -222,6 +222,15 @@ export function SearchView() {
               : t("search.no_results", { query: q })}
             {hideAgentPages ? ` ${t("search.agent_pages_hidden")}` : null}
           </p>
+          {q && (
+            <button
+              type="button"
+              onClick={() => handleModeSwitch("ai")}
+              className="mt-3 rounded-md border border-border bg-surface px-3 py-1.5 text-sm font-medium text-link transition-colors hover:bg-neutral"
+            >
+              {t("search.try_ai")}
+            </button>
+          )}
           {hideAgentPages && <IncludeAgentPagesButton />}
         </div>
       ) : (
@@ -251,6 +260,14 @@ export function SearchView() {
                     />
 
                     {summary && <p className="mt-1 line-clamp-2 text-sm text-muted">{summary}</p>}
+                    {page.matchSnippet && !(summary ?? "").includes(page.matchSnippet) && (
+                      <p
+                        className="mt-1 line-clamp-2 text-xs text-muted/80"
+                        data-testid="search-snippet"
+                      >
+                        {page.matchSnippet}
+                      </p>
+                    )}
 
                     <div className="mt-2 flex flex-wrap items-center gap-2">
                       {page.tags.map((pageTag) => (
@@ -337,7 +354,9 @@ function AiSearchResults({
       {/* Source pages */}
       {ragResult.sources.length > 0 && (
         <div>
-          <h2 className="mb-3 text-sm font-medium text-muted">{t("search.ai_sources")}</h2>
+          <h2 className="mb-3 text-sm font-medium text-muted">
+            {t("search.related_pages", { count: ragResult.sources.length })}
+          </h2>
           <ul className="flex flex-col gap-3">
             {ragResult.sources.map((source) => {
               const title = isJa

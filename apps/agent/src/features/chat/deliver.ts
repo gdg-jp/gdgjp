@@ -3,6 +3,8 @@ import type { Delivery } from "../inquiry/pending";
 import { chatAccessToken } from "./gchat-auth";
 
 const DISCORD_API = "https://discord.com/api/v10";
+/** Message flag: no link previews. */
+const SUPPRESS_EMBEDS = 1 << 2;
 
 export function discordComponents(reply: Reply) {
   const buttons: Array<Record<string, unknown>> = [
@@ -35,6 +37,7 @@ export async function deliverDiscord(
         content: reply.text.slice(0, 2000),
         components: discordComponents(reply),
         allowed_mentions: { parse: [] },
+        ...(reply.suppressEmbeds ? { flags: SUPPRESS_EMBEDS } : {}),
       }),
     },
   );

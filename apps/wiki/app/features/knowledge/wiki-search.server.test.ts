@@ -141,4 +141,19 @@ describe("loadWikiSearch keyword mode", () => {
     expect((await search("控室")).titles).toEqual(["当日の流れ", "スタッフ体制"]);
     expect((await search("北館 4F 控室")).titles).toEqual(["スタッフ体制"]);
   });
+
+  it("requires every word of a multi-word query, anywhere in the page, and shows where it matched", async () => {
+    fixture.sqlite.exec(`
+      INSERT INTO pages (id, space_id, title_ja, title_en, slug, content_ja, content_en,
+        summary_ja, summary_en, status, visibility, origin, author_id, last_edited_by,
+        created_at, updated_at)
+      VALUES ('ops', 'gdg-jp', '会場・当日運営', '', 'ops', '## 予算\n\nDevFest Kansai 2026 の会場費は20万円。', '', '', '',
+        'published', 'public', 'human', 'admin', 'admin', 0, 300),
+      ('other', 'gdg-jp', 'DevFest Tokyo 2026', '', 'other', '会場費は未定', '', '', '',
+        'published', 'public', 'human', 'admin', 'admin', 0, 200);
+    `);
+    const result = await search("DevFest Kansai 会場費");
+    expect(result.titles).toEqual(["会場・当日運営"]);
+    expect(result.results[0]?.matchSnippet).toContain("DevFest Kansai 2026 の会場費は20万円");
+  });
 });
