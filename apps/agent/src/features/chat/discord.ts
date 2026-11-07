@@ -22,6 +22,13 @@ type Interaction = {
     values?: string[];
     options?: Array<{ name: string; value: unknown }>;
   };
+  /** The message a button was pressed on (component interactions). */
+  message?: {
+    components?: Array<{
+      type: number;
+      components?: Array<Record<string, unknown> & { custom_id?: string }>;
+    }>;
+  };
 };
 
 const json = (body: unknown) => Response.json(body);
@@ -79,8 +86,13 @@ export async function handleDiscordInteraction(
         );
       case "setup":
         return setup(app, interaction, userId);
+      case "whoami":
+        return whoami(app, interaction, userId);
       default:
-        return ephemeral("Unknown command.");
+        // Commands the old bot registered on some servers still reach us.
+        return ephemeral(
+          "このコマンドは使えなくなりました。/ask（質問）、/login（GDG Accounts 連携）、/unlink、/setup（サーバ管理者）、/whoami を使ってください。",
+        );
     }
   }
   if (interaction.type === 3) {
@@ -88,7 +100,17 @@ export async function handleDiscordInteraction(
     const [kind, a, b] = id.split(":");
     if (kind === "fb" && b) {
       ctx.waitUntil(sendFeedbackScore(app.env, b, a === "up" ? 1 : 0, "discord"));
-      return ephemeral("フィードバックありがとうございます。");
+      // Update the answer in place: the pressed reaction stays visible and cannot be sent twice.
+      const components = (interaction.message?.components ?? []).map((row) => ({
+        ...row,
+        components: (row.components ?? []).map((component) => {
+          const id = String(component.custom_id ?? "");
+          if (!id.startsWith("fb:")) return component;
+          const pressed = id === interaction.data?.custom_id;
+          return { ...component, disabled: true, style: pressed ? 3 : 2 };
+        }),
+      }));
+      return json({ type: 7, data: { components } });
     }
     if (kind === "ra" && a) {
       const row = await app.pending.get(a);
@@ -163,6 +185,36 @@ async function runAsk(
       })
       .catch(() => undefined);
   }
+}
+
+/** What this user and this place can reach: link status and the spaces /ask searches here. */
+async function whoami(app: App, interaction: Interaction, userId: string): Promise<Response> {
+  const linked = await getLinkedToken("discord", userId, app.auth);
+  const lines = [
+    linked.status === "ok"
+      ? "GDG Accounts: 連携済み（DM と「自分の権限で再回答」はあなたの権限で回答します）"
+      : "GDG Accounts: 未連携（/login で連携できます）",
+  ];
+  if (interaction.guild_id) {
+    // Chosen with /setup, else every space whose members include this server.
+    const chosen = await app.guildSpaces(interaction.guild_id);
+    const reachable =
+      chosen.length > 0
+        ? chosen
+        : (
+            await app.wiki
+              .spaces({ kind: "principal", type: "discord_guild", id: interaction.guild_id })
+              .catch(() => [])
+          ).map((space) => space.slug);
+    lines.push(
+      reachable.length > 0
+        ? `このサーバの /ask が検索するスペース: ${reachable.join(", ")}（サーバの権限で読めるページのみ。足りなければ「自分の権限で再回答」）`
+        : "このサーバから読めるスペースはまだありません（管理者が /setup で選べます）。",
+    );
+  } else {
+    lines.push("DM では、あなたが閲覧できるすべてのスペースを検索します。");
+  }
+  return ephemeral(lines.join("\n"));
 }
 
 async function setup(app: App, interaction: Interaction, userId: string): Promise<Response> {

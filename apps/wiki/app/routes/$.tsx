@@ -15,9 +15,16 @@ export function loader({ request, params }: LoaderFunctionArgs) {
   // Legacy flat `/<slug>` URLs move under the default space. A path that already names a
   // space, an API or a resource is a real 404: re-rooting it only produced
   // `/s/gdg-jp/wiki/s/gdg-jp/…`, which nobody can read.
+  const url = new URL(request.url);
+  // `/s/<space>/settings|recent|starred|archived` are natural guesses for screens that live
+  // elsewhere: send them there instead of a 404.
+  if (segments[0] === "s" && segments.length === 3) {
+    const [, space, screen] = segments;
+    if (screen === "settings") throw redirect(`/spaces/${encodeURIComponent(space)}/settings`, 301);
+    if (["recent", "starred", "archived"].includes(screen)) throw redirect(`/${screen}`, 301);
+  }
   const legacy = segments.length > 0 && !["s", "api", "assets", "og"].includes(segments[0]);
   if (legacy) {
-    const url = new URL(request.url);
     throw redirect(wikiPagePath(segments) + url.search, 301);
   }
 

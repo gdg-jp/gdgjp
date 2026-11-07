@@ -132,6 +132,7 @@ export default [
     route("/s/:space/wiki/:slug/edit", "routes/wiki/edit.tsx"),
     route("/s/:space/wiki/:slug/history", "routes/wiki/history.tsx"),
     route("/recent", "routes/wiki/recent.tsx"),
+    route("/starred", "routes/wiki/starred.tsx"),
     route("/archived", "routes/wiki/archived.tsx"),
     route("/settings", "routes/settings.tsx"),
     route("/tasks/new", "routes/tasks/new.tsx"),

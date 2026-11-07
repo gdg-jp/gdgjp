@@ -156,6 +156,17 @@
   margin-left: 0;
 }
 
+/* Wide tables scroll inside the body instead of stretching the whole page on phones. */
+.md-editor .md-editor-preview table {
+  display: block;
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+.md-editor .md-editor-preview table th {
+  white-space: nowrap;
+}
+
 .md-editor-preview table th,
 .md-editor-preview table td {
   border: 1px solid var(--gdg-border);

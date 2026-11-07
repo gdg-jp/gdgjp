@@ -5,6 +5,7 @@ import { useTheme } from "@gdgjp/design-system";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link, useBlocker, useFetcher } from "react-router";
+import ConfirmDialog from "~/components/ConfirmDialog";
 import PresenceAvatars from "~/features/editor/components/PresenceAvatars";
 import type { CollabUser } from "~/features/editor/use-collab-editor";
 import { useCollabEditor } from "~/features/editor/use-collab-editor";
@@ -140,8 +141,27 @@ export default function PageEditor({ page, currentUser }: PageEditorProps) {
     return () => clearInterval(id);
   }, [submitAutosave]);
 
-  // Navigation guard when dirty
-  useBlocker(() => isDirty && fetcher.state === "idle");
+  // Navigation guard when dirty: the dialog below offers "save and go back" (edits are already
+  // shared live through the collab document; saving records a version) or staying.
+  const blocker = useBlocker(() => isDirty && fetcher.state === "idle");
+  const leaveAfterSaveRef = useRef(false);
+  useEffect(() => {
+    if (!leaveAfterSaveRef.current || fetcher.state !== "idle") return;
+    leaveAfterSaveRef.current = false;
+    if (fetcher.data?.ok && blocker.state === "blocked") blocker.proceed();
+  }, [fetcher.state, fetcher.data, blocker]);
+  const saveAndLeave = useCallback(() => {
+    const snapshot = { titleJa, titleEn, contentJa, contentEn };
+    pendingSaveRef.current = snapshot;
+    const fd = new FormData();
+    fd.set("intent", "save");
+    fd.set("titleJa", titleJa);
+    fd.set("titleEn", titleEn);
+    fd.set("contentJa", contentJa);
+    fd.set("contentEn", contentEn);
+    leaveAfterSaveRef.current = true;
+    fetcher.submit(fd, { method: "post" });
+  }, [titleJa, titleEn, contentJa, contentEn, fetcher]);
 
   // Image upload callback for the markdown editor
   const handleUploadImg = useCallback(
@@ -244,12 +264,20 @@ export default function PageEditor({ page, currentUser }: PageEditorProps) {
             </span>
           </span>
 
-          {/* Autosave status */}
-          {statusText && (
+          {/* Save status: unsaved changes win over the last autosave time */}
+          {(isDirty || statusText) && (
             <span
-              className={`hidden shrink-0 text-xs sm:inline ${fetcher.data && !fetcher.data.ok ? "text-danger" : "text-muted"}`}
+              className={`hidden shrink-0 text-xs sm:inline ${
+                fetcher.data && !fetcher.data.ok
+                  ? "text-danger"
+                  : isDirty && fetcher.state === "idle"
+                    ? "text-warning"
+                    : "text-muted"
+              }`}
             >
-              {statusText}
+              {isDirty && fetcher.state === "idle" && !(fetcher.data && !fetcher.data.ok)
+                ? t("editor.unsaved")
+                : statusText}
             </span>
           )}
 
@@ -275,7 +303,11 @@ export default function PageEditor({ page, currentUser }: PageEditorProps) {
             type="submit"
             name="intent"
             value="save"
-            className="shrink-0 rounded-lg border border-border px-3 py-1.5 text-sm font-medium text-muted hover:bg-background focus:outline-none focus:ring-2 focus:ring-ring"
+            className={`shrink-0 rounded-lg px-3 py-1.5 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-ring ${
+              isDirty
+                ? "bg-primary text-primary-foreground hover:bg-primary/90"
+                : "border border-border text-muted hover:bg-background"
+            }`}
           >
             {t("editor.save")}
           </button>
@@ -307,6 +339,15 @@ export default function PageEditor({ page, currentUser }: PageEditorProps) {
           style={{ height: "100%" }}
         />
       </div>
+      <ConfirmDialog
+        open={blocker.state === "blocked"}
+        title={t("editor.leave_title")}
+        message={t("editor.leave_message")}
+        confirmLabel={t("editor.leave_save")}
+        cancelLabel={t("editor.leave_stay")}
+        onConfirm={saveAndLeave}
+        onCancel={() => blocker.state === "blocked" && blocker.reset()}
+      />
     </fetcher.Form>
   );
 }

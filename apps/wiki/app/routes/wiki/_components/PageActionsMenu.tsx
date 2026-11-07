@@ -125,7 +125,12 @@ export function PageActionsMenu({
             <Icons name="ArrowRight" />
             {t("wiki.menu.move")}
           </DropdownMenuItem>
-          <DropdownMenuItem disabled={!canManage || busy} onSelect={onArchive}>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem
+            disabled={!canManage || busy}
+            onSelect={onArchive}
+            className="text-danger focus:text-danger"
+          >
             <Icons name="Trash2" />
             {t("wiki.menu.trash")}
           </DropdownMenuItem>

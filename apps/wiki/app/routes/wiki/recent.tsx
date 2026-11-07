@@ -8,7 +8,7 @@ import * as schema from "~/db/schema";
 import { getAccessIdentity, requireUser } from "~/features/auth/utils.server";
 import { agentPagesFilter, pagesInSpaces } from "~/features/pages/page-space.server";
 import { buildVisibilityFilter } from "~/features/pages/visibility.server";
-import { getWikiPageUrls } from "~/features/pages/wiki-page-path.server";
+import { getWikiAncestry, getWikiPageUrls } from "~/features/pages/wiki-page-path.server";
 import { loadViewerContext } from "~/features/spaces/viewer.server";
 import { getDb } from "~/lib/db.server";
 import { timeAgo } from "~/lib/time";
@@ -104,17 +104,25 @@ export async function loader({ request, context }: LoaderFunctionArgs) {
       tagsByPage.set(pt.pageId, arr);
     }
 
-    const urls = await getWikiPageUrls(env, allIds);
+    const [urls, chains] = await Promise.all([
+      getWikiPageUrls(env, allIds),
+      getWikiAncestry(env, allIds),
+    ]);
+    // Parents (root first) so same-named pages under different events stay apart.
+    const parents = (id: string) =>
+      (chains.get(id) ?? []).slice(0, -1).map(({ titleJa, titleEn }) => ({ titleJa, titleEn }));
     return {
       recentUpdated: recentUpdated.map((p) => ({
         ...p,
         tags: tagsByPage.get(p.id) ?? [],
         wikiPath: urls.get(p.id) ?? "",
+        ancestors: parents(p.id),
       })),
       recentViewed: recentViewed.map((p) => ({
         ...p,
         tags: tagsByPage.get(p.id) ?? [],
         wikiPath: urls.get(p.id) ?? "",
+        ancestors: parents(p.id),
       })),
     };
   });
@@ -135,6 +143,7 @@ type PageCard = {
   summaryEn: string;
   wikiPath: string;
   tags: { tagSlug: string; labelJa: string; labelEn: string; color: string }[];
+  ancestors: { titleJa: string; titleEn: string }[];
   timeLabel: string | null;
 };
 
@@ -158,6 +167,13 @@ function PageGrid({ pages, emptyKey }: { pages: PageCard[]; emptyKey: string }) 
             <h3 className="line-clamp-2 font-medium text-foreground">
               {isJa ? page.titleJa || page.titleEn : page.titleEn || page.titleJa}
             </h3>
+            {page.ancestors.length > 0 && (
+              <p className="-mt-1 truncate text-xs text-muted/70">
+                {page.ancestors
+                  .map((a) => (isJa ? a.titleJa || a.titleEn : a.titleEn || a.titleJa))
+                  .join(" › ")}
+              </p>
+            )}
 
             {(page.summaryEn || page.summaryJa) && (
               <p className="line-clamp-2 text-sm text-muted">

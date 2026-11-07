@@ -468,7 +468,7 @@
     },
     "discord": {
       "title": "Discord",
-      "description": "Discord アカウントを連携して、チャプターサーバーから /wiki-ingest を使えるようにします。",
+      "description": "Discord アカウントを連携して、通知の受け取りや Discord からの /ask に使います。",
       "idLabel": "Discord ユーザーID",
       "idHint": "Discord の開発者モードを有効化 → ユーザー名を右クリック → ユーザーIDをコピー"
     },
@@ -669,7 +669,14 @@
     "autosave_failed": "自動保存に失敗しました",
     "title_ja": "タイトル（日本語）",
     "title_en": "タイトル（英語）",
-    "save": "保存"
+    "save": "保存",
+    "connected": "共同編集に接続中",
+    "disconnected": "共同編集から切断されました（再接続中）",
+    "unsaved": "未保存の変更",
+    "leave_title": "変更を保存して戻りますか？",
+    "leave_message": "編集内容は共同編集として共有済みです。保存すると今の内容が編集履歴に 1 版として残ります。",
+    "leave_save": "保存して戻る",
+    "leave_stay": "編集を続ける"
   },
   "privacy": {
     "title": "プライバシーポリシー",
@@ -799,5 +806,8 @@
   "pages": {
     "origin_agent": "エージェントが作成",
     "origin_human": "人間が作成"
+  },
+  "starred": {
+    "empty": "スターを付けたページはまだありません。"
   }
 }

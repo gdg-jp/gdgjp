@@ -195,7 +195,10 @@ describe("answerReply", () => {
   const row = {
     delivery,
     question: "DevFest Kansai 2026 の会場は？",
-    hits: [],
+    hits: [
+      { title: "会場", url: "https://wiki.gdgs.jp/s/gdg-jp/wiki/venues/iput-osaka", snippet: "" },
+      { title: "Venue", url: "https://wiki.gdgs.jp/s/e2e-eval/wiki/venue", snippet: "" },
+    ],
     spaces: ["gdg-jp", "e2e-eval"],
     excludedSpaces: [],
     publicReply: true,
@@ -245,6 +248,10 @@ describe("answerReply", () => {
   });
   it("counts personal spaces instead of listing their opaque slugs", () => {
     expect(describeSpaces(["gdg-jp", "c-1", "u-e5710c24-a46b"])).toBe("gdg-jp, c-1, ほか 1 件");
+    expect(describeSpaces(["gdg-jp", "e2e-eval"], new Set(["e2e-eval"]))).toBe(
+      "gdg-jp（この権限で読めるページなし）, e2e-eval",
+    );
+    expect(describeSpaces(["gdg-jp"], new Set(), true)).toBe("gdg-jp (nothing readable here)");
     expect(describeSpaces(["a", "b", "c", "d", "e", "f"])).toBe("a, b, c, d, ほか 2 件");
     expect(describeSpaces([])).toBe("なし");
   });
@@ -267,15 +274,17 @@ describe("answerReply", () => {
       raw: [],
     }));
     const deliver = vi.fn();
+    const pending = memoryPendingStore();
     const result = await startInquiry(input({ kind: "anonymous" }), {
       wiki,
-      pending: memoryPendingStore(),
+      pending,
       deliver,
       schedule: vi.fn(),
       now: () => 1000,
     });
     expect(wiki.enqueueAnswer).not.toHaveBeenCalled();
     expect(result.status).toBe("answered");
+    expect((await pending.get(result.jobId))?.question).toBe("会場はどこ？");
     expect(deliver.mock.calls[0]?.[1].text).toContain(
       "この場所の権限で読めるページが見つかりませんでした",
     );

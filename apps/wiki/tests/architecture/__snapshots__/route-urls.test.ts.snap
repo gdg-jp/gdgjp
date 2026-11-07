@@ -108,6 +108,7 @@ exports[`routes.ts URL surface > exposes a stable set of URLs 1`] = `
   "/spaces",
   "/spaces/:space/review",
   "/spaces/:space/settings",
+  "/starred",
   "/tasks/:slug",
   "/tasks/:slug/history",
   "/tasks/:slug/settings",

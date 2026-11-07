@@ -468,7 +468,7 @@
     },
     "discord": {
       "title": "Discord",
-      "description": "Link your Discord account to use /wiki-ingest from your chapter server.",
+      "description": "Link your Discord account for notifications and for /ask from Discord.",
       "idLabel": "Discord User ID",
       "idHint": "Enable Developer Mode in Discord → right-click your username → Copy User ID"
     },
@@ -669,7 +669,14 @@
     "autosave_failed": "Auto-save failed",
     "title_ja": "Title (Japanese)",
     "title_en": "Title (English)",
-    "save": "Save"
+    "save": "Save",
+    "connected": "Connected to live editing",
+    "disconnected": "Disconnected from live editing (reconnecting)",
+    "unsaved": "Unsaved changes",
+    "leave_title": "Save and go back?",
+    "leave_message": "Your edits are already shared with co-editors. Saving records the current text as one version in the history.",
+    "leave_save": "Save and go back",
+    "leave_stay": "Keep editing"
   },
   "privacy": {
     "title": "Privacy Policy",
@@ -799,5 +806,8 @@
   "pages": {
     "origin_agent": "Written by the agent",
     "origin_human": "Written by a person"
+  },
+  "starred": {
+    "empty": "You have not starred any pages yet."
   }
 }

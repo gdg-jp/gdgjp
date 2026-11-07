@@ -99,6 +99,8 @@ export async function startInquiry(input: InquiryInput, deps: InquiryDeps): Prom
       deadlineAt: now,
       status: "answered",
     };
+    // Remembered so "自分の権限で再回答" can find the question (the sweep ignores answered rows).
+    await deps.pending.insert(row);
     await deps.deliver(input.delivery, nothingReadableReply(row));
     return row;
   }
@@ -204,15 +206,34 @@ function questionLine(question: string): string {
 
 /**
  * Searched spaces, for the "not found" note. Personal spaces are the asker's own and their
- * slugs are opaque ids, so they are counted rather than listed.
+ * slugs are opaque ids, so they are counted rather than listed. A space that yielded no
+ * readable page is marked: as the venue it may simply be out of reach.
  */
-export function describeSpaces(spaces: readonly string[]): string {
+export function describeSpaces(
+  spaces: readonly string[],
+  readable: ReadonlySet<string> = new Set(spaces),
+  en = false,
+): string {
   const shared = spaces.filter((space) => !space.startsWith("u-"));
   const personal = spaces.length - shared.length;
-  const parts = [...shared.slice(0, 4)];
+  const mark = (space: string) =>
+    readable.has(space)
+      ? space
+      : `${space}${en ? " (nothing readable here)" : "（この権限で読めるページなし）"}`;
+  const parts = shared.slice(0, 4).map(mark);
   const more = shared.length - parts.length + personal;
-  if (more > 0) parts.push(`ほか ${more} 件`);
-  return parts.join(", ") || "なし";
+  if (more > 0) parts.push(en ? `and ${more} more` : `ほか ${more} 件`);
+  return parts.join(", ") || (en ? "none" : "なし");
+}
+
+/** Spaces that contributed at least one readable hit. */
+function readableSpaces(row: PendingAnswer): Set<string> {
+  const found = new Set<string>();
+  for (const hit of row.hits) {
+    const match = /\/s\/([^/]+)\//.exec(hit.url);
+    if (match) found.add(decodeURIComponent(match[1]));
+  }
+  return found;
 }
 
 const REANSWER_HINT_JA =
@@ -222,7 +243,7 @@ const REANSWER_HINT_EN = 'Press "自分の権限で再回答" to search again wi
 /** No page or excerpt is readable as this reader: say so at once, without the runner. */
 export function nothingReadableReply(row: PendingAnswer): Reply {
   const en = isEnglish(row.question);
-  const spaces = describeSpaces(row.spaces);
+  const spaces = describeSpaces(row.spaces, new Set(), en);
   const lines = [
     questionLine(row.question),
     "",
@@ -250,7 +271,7 @@ export function answerReply(row: PendingAnswer, result: AnswerResult): Reply {
   const en = isEnglish(row.question);
   const lines = [questionLine(row.question), "", answer];
   if (result.unanswered) {
-    const spaces = describeSpaces(row.spaces);
+    const spaces = describeSpaces(row.spaces, readableSpaces(row), en);
     lines.push(
       "",
       en
