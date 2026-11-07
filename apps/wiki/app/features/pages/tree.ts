@@ -58,7 +58,33 @@ export function buildTree(rows: FlatRow[]): PageNode[] {
       roots.push(node);
     }
   }
+  orderSiblings(roots, true);
   return roots;
+}
+
+const DATED_SLUG = /^(\d{4}-\d{2}-\d{2})-/;
+
+/**
+ * Reading order for the sidebar: at the root, pages with children (the namespaces) come
+ * before single pages; wherever two or more siblings carry a date-prefixed slug (events),
+ * those are newest first, ahead of undated siblings. Everything else keeps its sort order.
+ */
+export function orderSiblings(nodes: PageNode[], root = false): void {
+  const dated = nodes.filter((node) => DATED_SLUG.test(node.slug));
+  if (dated.length >= 2) {
+    const undated = nodes.filter((node) => !DATED_SLUG.test(node.slug));
+    dated.sort((a, b) => {
+      const ad = DATED_SLUG.exec(a.slug)?.[1] ?? "";
+      const bd = DATED_SLUG.exec(b.slug)?.[1] ?? "";
+      return bd.localeCompare(ad);
+    });
+    nodes.splice(0, nodes.length, ...dated, ...undated);
+  } else if (root) {
+    const branches = nodes.filter((node) => node.children.length > 0);
+    const leaves = nodes.filter((node) => node.children.length === 0);
+    nodes.splice(0, nodes.length, ...branches, ...leaves);
+  }
+  for (const node of nodes) orderSiblings(node.children);
 }
 
 /**

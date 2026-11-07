@@ -84,4 +84,25 @@ describe("buildSlugPathById", () => {
   it("returns an empty map for an empty tree", () => {
     expect(buildSlugPathById([])).toEqual(new Map());
   });
+
+  it("puts namespaces before loose root pages and sorts dated siblings newest first", () => {
+    const row = (id: string, slug: string, parentId: string | null, sortOrder: number) => ({
+      id,
+      slug,
+      titleJa: id,
+      titleEn: "",
+      parentId,
+      pageType: null,
+      sortOrder,
+    });
+    const tree = buildTree([
+      row("loose", "loose", null, 0),
+      row("events", "events", null, 1),
+      row("old", "2025-07-27-io-osaka", "events", 0),
+      row("intro", "intro", "events", 1),
+      row("new", "2026-10-18-devfest", "events", 2),
+    ]);
+    expect(tree.map((n) => n.id)).toEqual(["events", "loose"]);
+    expect(tree[0]?.children.map((n) => n.id)).toEqual(["new", "old", "intro"]);
+  });
 });

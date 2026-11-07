@@ -57,8 +57,15 @@ export async function loader({ request, context }: LoaderFunctionArgs) {
     ).map((row) => row.chapterId),
   );
   const names = organized.length > 0 ? await chapterNames(env) : new Map<string, string>();
+  // A claim set can list the same chapter twice (two roles); one option per chapter.
+  const seenChapters = new Set<string>();
   const chapterCandidates = organized
     .filter((chapter) => !existingChapterSpaces.has(chapter.chapterId))
+    .filter((chapter) => {
+      if (seenChapters.has(chapter.chapterId)) return false;
+      seenChapters.add(chapter.chapterId);
+      return true;
+    })
     .map((chapter) => ({
       chapterId: chapter.chapterId,
       name: names.get(chapter.chapterId) ?? chapter.chapterSlug,

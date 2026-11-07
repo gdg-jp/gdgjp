@@ -1,5 +1,5 @@
 import { Card, EmptyState, Heading, PageHeader, Text } from "@gdgjp/design-system";
-import { and, desc, eq, isNull } from "drizzle-orm";
+import { and, desc, eq, gt, isNull } from "drizzle-orm";
 import { Suspense } from "react";
 import { useTranslation } from "react-i18next";
 import { Await, Link, useLoaderData } from "react-router";
@@ -131,7 +131,13 @@ export async function loader({ request, context, params }: LoaderFunctionArgs) {
       .innerJoin(schema.user, eq(schema.pageComments.authorId, schema.user.id))
       .innerJoin(schema.pages, eq(schema.pageComments.pageId, schema.pages.id))
       .where(
-        and(isNull(schema.pageComments.deletedAt), eq(schema.pages.status, "published"), visFilter),
+        and(
+          isNull(schema.pageComments.deletedAt),
+          eq(schema.pages.status, "published"),
+          // "Recent" means this month: a three-month-old comment is not activity.
+          gt(schema.pageComments.createdAt, new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)),
+          visFilter,
+        ),
       )
       .orderBy(desc(schema.pageComments.createdAt))
       .limit(6)
@@ -259,32 +265,34 @@ export default function Index() {
         >
           {({ recentPages, allTags, recentComments }) => (
             <>
-              {/* Section 2: Browse by Tag */}
-              <section className="mb-10">
-                <Heading level={2} className="mb-4">
-                  {t("home.browse_by_tag")}
-                </Heading>
+              {/* Section 2: Browse by Tag — only once a tag has pages behind it */}
+              {allTags.some((tag) => tag.pageCount > 0) && (
+                <section className="mb-10">
+                  <Heading level={2} className="mb-4">
+                    {t("home.browse_by_tag")}
+                  </Heading>
 
-                {allTags.every((tag) => tag.pageCount === 0) ? (
-                  <p className="text-sm text-muted/70">{t("home.no_tags_yet")}</p>
-                ) : (
-                  <div className="flex flex-wrap gap-2">
-                    {allTags
-                      .filter((tag) => tag.pageCount > 0)
-                      .map((tag) => (
-                        <TagChip
-                          key={tag.slug}
-                          tagSlug={tag.slug}
-                          labelJa={tag.labelJa}
-                          labelEn={tag.labelEn}
-                          color={tag.color}
-                          size="md"
-                          pageCount={tag.pageCount}
-                        />
-                      ))}
-                  </div>
-                )}
-              </section>
+                  {allTags.every((tag) => tag.pageCount === 0) ? (
+                    <p className="text-sm text-muted/70">{t("home.no_tags_yet")}</p>
+                  ) : (
+                    <div className="flex flex-wrap gap-2">
+                      {allTags
+                        .filter((tag) => tag.pageCount > 0)
+                        .map((tag) => (
+                          <TagChip
+                            key={tag.slug}
+                            tagSlug={tag.slug}
+                            labelJa={tag.labelJa}
+                            labelEn={tag.labelEn}
+                            color={tag.color}
+                            size="md"
+                            pageCount={tag.pageCount}
+                          />
+                        ))}
+                    </div>
+                  )}
+                </section>
+              )}
 
               {/* Section 3: Discover what's happening */}
               <section>
