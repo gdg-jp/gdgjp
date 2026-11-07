@@ -84,6 +84,7 @@ export async function startInquiry(input: InquiryInput, deps: InquiryDeps): Prom
     hits,
     spaces: search.spaces,
     excludedSpaces,
+    excludedPages: search.excludedPages ?? 0,
     publicReply: input.publicReply,
     platform: input.platform,
     chatUserId: input.chatUserId,
@@ -228,6 +229,15 @@ export function describeSpaces(
   return parts.join(", ") || (en ? "none" : "なし");
 }
 
+/** "N matching pages are hidden here": the strongest reason to press re-answer. */
+function hiddenPagesLine(row: PendingAnswer, en: boolean): string | null {
+  const n = row.excludedPages ?? 0;
+  if (n === 0) return null;
+  return en
+    ? `${n} of the pages the search matched are not readable here.`
+    : `検索でヒットしたページのうち ${n} 件は、この場所の権限では読めません。`;
+}
+
 /** Spaces that contributed at least one readable hit. */
 function readableSpaces(row: PendingAnswer): Set<string> {
   const found = new Set<string>();
@@ -255,6 +265,8 @@ export function nothingReadableReply(row: PendingAnswer): Reply {
       ? `No wiki page is readable here for this question (searched: ${spaces}).`
       : `この場所の権限で読めるページが見つかりませんでした（検索したスペース: ${spaces}）。`,
   ];
+  const hidden = hiddenPagesLine(row, en);
+  if (hidden) lines.push(hidden);
   if (row.publicReply) lines.push(en ? REANSWER_HINT_EN : REANSWER_HINT_JA);
   else if (row.readerKind !== "user")
     lines.push(en ? "Link your account with /login first." : "先に /login で連携してください。");
@@ -283,6 +295,8 @@ export function answerReply(row: PendingAnswer, result: AnswerResult): Reply {
         ? `${citations.length > 0 ? "Part of this is " : "This is "}not in the wiki (searched: ${spaces}).`
         : `${citations.length > 0 ? "一部は " : ""}Wiki で見つかりませんでした（検索したスペース: ${spaces}）。`,
     );
+    const hidden = hiddenPagesLine(row, en);
+    if (hidden) lines.push(hidden);
     if (row.publicReply) lines.push(en ? REANSWER_HINT_EN : REANSWER_HINT_JA);
   }
   if (listed.length > 0) lines.push("", ...listed.map((url) => `- <${url}>`));

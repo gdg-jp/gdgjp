@@ -15,6 +15,8 @@ export type PendingAnswer = {
   hits: DegradedHit[];
   spaces: string[];
   excludedSpaces: string[];
+  /** Matching pages hidden from this reader by the wiki's ACL. */
+  excludedPages?: number;
   /** Public replies offer "answer with my permissions". */
   publicReply: boolean;
   platform: "discord" | "google-chat";

@@ -28,6 +28,8 @@ export type SearchResult = {
   truncatedSpaces: boolean;
   pages: SearchPage[];
   raw: SearchRaw[];
+  /** Matching pages this reader may not see (the wiki counts them, never names them). */
+  excludedPages?: number;
 };
 export type PageRead = { space: string; slug: string; title: string; url: string; content: string };
 export type SpaceSummary = { id: string; slug: string; name: string; kind: string; role: string };

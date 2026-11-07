@@ -108,7 +108,8 @@ export async function loader({ request, context }: LoaderFunctionArgs) {
         type: "email" as const,
         key: normalizeEmail(candidate.email),
         label: candidate.name,
-        secondary: candidate.email,
+        // The picker shows who, not their address: a few letters are enough to tell twins apart.
+        secondary: maskEmail(candidate.email),
         subjectType: "email" as const,
         subjectKey: normalizeEmail(candidate.email),
         subjectLabel: candidate.name,
@@ -120,4 +121,12 @@ export async function loader({ request, context }: LoaderFunctionArgs) {
   ].slice(0, 20);
 
   return Response.json({ candidates });
+}
+
+/** `harineko@gmail.com` → `ha***@gmail.com`. */
+export function maskEmail(email: string): string {
+  const at = email.indexOf("@");
+  if (at <= 0) return "***";
+  const local = email.slice(0, at);
+  return `${local.slice(0, Math.min(2, local.length))}***${email.slice(at)}`;
 }

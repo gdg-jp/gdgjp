@@ -59,7 +59,7 @@ export async function searchForReader(
     hideAgentPages?: boolean;
     rewrite?: boolean;
   },
-): Promise<{ pages: PageResult[]; raw: RawResult[] }> {
+): Promise<{ pages: PageResult[]; raw: RawResult[]; excludedPages: number }> {
   const chapters = reader.claimsAvailable ? reader.chapters : [];
   const maxResults = input.maxResults ?? 10;
   const hits = await searchSpaces(env, {
@@ -71,11 +71,11 @@ export async function searchForReader(
     maxResults: Math.min(maxResults * 2, 50),
     rewrite: input.rewrite,
   });
-  const [pages, raw] = await Promise.all([
+  const [{ pages, excludedPages }, raw] = await Promise.all([
     resolvePageHits(env, db, reader, hits, input.hideAgentPages ?? false),
     resolveRawHits(db, reader, hits),
   ]);
-  return { pages: pages.slice(0, maxResults), raw: raw.slice(0, maxResults) };
+  return { pages: pages.slice(0, maxResults), raw: raw.slice(0, maxResults), excludedPages };
 }
 
 async function resolvePageHits(
@@ -84,10 +84,12 @@ async function resolvePageHits(
   reader: Reader,
   hits: readonly KnowledgeHit[],
   hideAgentPages: boolean,
-): Promise<PageResult[]> {
+): Promise<{ pages: PageResult[]; excludedPages: number }> {
   const pageHits = hits.filter((hit) => hit.pageId);
   const ids = [...new Set(pageHits.map((hit) => hit.pageId as string))];
-  if (ids.length === 0) return [];
+  if (ids.length === 0) return { pages: [], excludedPages: 0 };
+  // Published pages the index matched but this reader may not see: counted, never named.
+  const excluded = new Set<string>();
   const rows = await db.select().from(schema.pages).where(inArray(schema.pages.id, ids)).all();
   const byId = new Map(rows.map((row) => [row.id, row]));
   const urls = await getWikiPageUrls(env, ids);
@@ -109,7 +111,10 @@ async function resolvePageHits(
       reader.user as never,
       reader.claimsAvailable ? reader.chapters : [],
     );
-    if (!permissions.canView) continue;
+    if (!permissions.canView) {
+      excluded.add(page.id);
+      continue;
+    }
     const wikiPath = urls.get(page.id) ?? "";
     results.set(page.id, {
       pageId: page.id,
@@ -126,7 +131,10 @@ async function resolvePageHits(
       matchedChunks: [{ text: hit.text, sectionHeading: null }],
     });
   }
-  return [...results.values()].sort((a, b) => b.relevanceScore - a.relevanceScore);
+  return {
+    pages: [...results.values()].sort((a, b) => b.relevanceScore - a.relevanceScore),
+    excludedPages: excluded.size,
+  };
 }
 
 async function resolveRawHits(db: Db, reader: Reader, hits: readonly KnowledgeHit[]) {

@@ -239,6 +239,13 @@ describe("answerReply", () => {
       "一部は Wiki で見つかりませんでした（検索したスペース: gdg-jp, e2e-eval）",
     );
     expect(partial.text).toContain("自分の権限で再回答");
+    const hidden = answerReply(
+      { ...row, excludedPages: 2 },
+      { answer: "見当たりません。", citations: [], confidence: "low", unanswered: true },
+    );
+    expect(hidden.text).toContain(
+      "検索でヒットしたページのうち 2 件は、この場所の権限では読めません。",
+    );
     const none = answerReply(
       { ...row, publicReply: false },
       { answer: "見当たりません。", citations: [], confidence: "low", unanswered: true },

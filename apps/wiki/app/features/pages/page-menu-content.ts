@@ -88,6 +88,30 @@ function splitHref(href: string): [string, string] {
   return index === -1 ? [href, ""] : [href.slice(0, index), href.slice(index)];
 }
 
+/**
+ * The body "copy page contents" puts on the clipboard (the menu adds the `# title` line):
+ * the reader's Markdown with a repeated title heading dropped, runner-relative links made
+ * absolute and inline source ids turned into links, so it pastes cleanly into a doc or chat.
+ */
+export function copyableMarkdown(input: {
+  content: { contentJa: string; contentEn: string; sourceRefs?: SourceRef[] };
+  lang: "ja" | "en";
+  title: string;
+  spaceSlug: string;
+  origin: string;
+  sourceLabel: string;
+}): string {
+  const body = linkInlineSourceRefs(
+    stripLeadingTitleHeading(displayedMarkdown(input.content, input.lang), input.title),
+    input.content.sourceRefs ?? [],
+    input.sourceLabel,
+  );
+  return resolveWikiRelativeLinks(body, input.spaceSlug).replace(
+    /\]\(\/s\//g,
+    `](${input.origin}/s/`,
+  );
+}
+
 /** Preserve source Markdown, including code examples, while remapping local URLs. */
 export function rewriteCopiedLinks(markdown: string, links: Map<string, string>, origin: string) {
   const paths = new Map(

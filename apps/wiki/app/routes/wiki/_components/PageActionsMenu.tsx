@@ -4,8 +4,9 @@ import { Suspense, useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { Await, useFetcher, useLocation } from "react-router";
-import { displayedMarkdown } from "~/features/pages/page-menu-content";
+import { copyableMarkdown } from "~/features/pages/page-menu-content";
 import type { PageDisplay } from "~/features/pages/use-page-display";
+import { useCurrentSpace } from "~/features/spaces/components/current-space";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -35,7 +36,11 @@ export function PageActionsMenu({
   pageId: string;
   title: string;
   lang: "ja" | "en";
-  content: Promise<{ contentJa: string; contentEn: string }>;
+  content: Promise<{
+    contentJa: string;
+    contentEn: string;
+    sourceRefs?: { sourceId: string | null; url: string; title: string }[];
+  }>;
   canManage: boolean;
   onArchive: () => void;
   display: PageDisplay;
@@ -44,6 +49,7 @@ export function PageActionsMenu({
 }) {
   const { t } = useTranslation("common");
   const location = useLocation();
+  const { slug: spaceSlug } = useCurrentSpace();
   const mutation = useFetcher<{ error?: string }>();
   const targets = useFetcher<Targets>();
   const [moveOpen, setMoveOpen] = useState(false);
@@ -104,7 +110,18 @@ export function PageActionsMenu({
           </DropdownMenuItem>
           <Suspense fallback={copyItem()}>
             <Await resolve={content} errorElement={copyItem()}>
-              {(resolved) => copyItem(displayedMarkdown(resolved, lang))}
+              {(resolved) =>
+                copyItem(
+                  copyableMarkdown({
+                    content: resolved,
+                    lang,
+                    title,
+                    spaceSlug,
+                    origin: typeof window === "undefined" ? "" : window.location.origin,
+                    sourceLabel: t("wiki.source_label"),
+                  }),
+                )
+              }
             </Await>
           </Suspense>
           <DropdownMenuItem

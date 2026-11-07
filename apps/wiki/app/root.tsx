@@ -152,6 +152,8 @@ export function ErrorBoundary() {
 
   return (
     <main id="gdg-main" className="flex min-h-screen items-center justify-center px-4">
+      {/* Error screens have no route meta: name the tab here. */}
+      <title>{`${is404 ? t("error.404_title") : t("error.500_title")} — GDG Japan Wiki`}</title>
       <Stack align="center" className="max-w-md text-center">
         <Icons name={iconName} className="w-16 h-16 text-link" strokeWidth={1.5} />
         <div className="space-y-2">

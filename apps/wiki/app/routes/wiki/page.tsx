@@ -17,7 +17,7 @@ export const meta: MetaFunction<typeof loader> = ({ data, location, matches }) =
     data.page.summaryEn;
 
   return buildPageMeta({
-    title,
+    title: data.space.slug === "gdg-jp" ? title : `${title} — ${data.space.name}`,
     description,
     imagePath: `/og/s/${encodeURIComponent(data.space.slug)}/wiki/${encodeURIComponent(data.page.slug)}?lang=${isEnglish ? "en" : "ja"}&v=${new Date(data.page.updatedAt).getTime()}`,
     visibility: data.page.visibility,

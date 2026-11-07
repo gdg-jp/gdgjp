@@ -3,11 +3,14 @@ import { useTranslation } from "react-i18next";
 import {
   Link,
   type LoaderFunctionArgs,
+  type MetaFunction,
   isRouteErrorResponse,
   redirect,
   useRouteError,
 } from "react-router";
 import { wikiPagePath } from "~/features/pages/wiki-page-path";
+
+export const meta: MetaFunction = () => [{ title: "ページが見つかりません — GDG Japan Wiki" }];
 
 export function loader({ request, params }: LoaderFunctionArgs) {
   const segments = (params["*"] ?? "").split("/").filter(Boolean);
@@ -22,6 +25,10 @@ export function loader({ request, params }: LoaderFunctionArgs) {
     const [, space, screen] = segments;
     if (screen === "settings") throw redirect(`/spaces/${encodeURIComponent(space)}/settings`, 301);
     if (["recent", "starred", "archived"].includes(screen)) throw redirect(`/${screen}`, 301);
+  }
+  // `/s/<space>/admin/…`: the admin screens are global.
+  if (segments[0] === "s" && segments[2] === "admin") {
+    throw redirect(`/${segments.slice(2).join("/")}${url.search}`, 301);
   }
   const legacy = segments.length > 0 && !["s", "api", "assets", "og"].includes(segments[0]);
   if (legacy) {

@@ -72,11 +72,13 @@ export default function Sidebar({
           <nav aria-label={t("nav.navigation")} className="px-2 pb-1 pt-3">
             <SidebarMenu>
               <NavItem
-                to="/"
+                to={spacePath(currentSpace.slug)}
                 icon={<Icons name="Home" size={16} />}
                 label={t("nav.home")}
                 isCollapsed={isCollapsed}
-                isActive={location.pathname === "/"}
+                isActive={
+                  location.pathname === "/" || location.pathname === spacePath(currentSpace.slug)
+                }
               />
               {isAuthenticated &&
                 (onRecentClick ? (

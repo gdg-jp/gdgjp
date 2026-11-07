@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  copyableMarkdown,
   displayedMarkdown,
   linkInlineSourceRefs,
   resolveWikiRelativeLinks,
@@ -75,6 +76,23 @@ describe("page menu content", () => {
         "`[code](../x)`",
         "```\n[fence](../y)\n```",
       ].join("\n"),
+    );
+  });
+  it("copies one title, absolute links and linked sources", () => {
+    const out = copyableMarkdown({
+      content: {
+        contentJa: "# IPUT Osaka\n\n[運営](../../events/x/ops) 決定（source: abc123def）",
+        contentEn: "",
+        sourceRefs: [{ sourceId: "abc123def", url: "https://docs.example/d", title: "Minutes" }],
+      },
+      lang: "ja",
+      title: "IPUT Osaka",
+      spaceSlug: "gdg-jp",
+      origin: "https://wiki.gdgs.jp",
+      sourceLabel: "出典",
+    });
+    expect(out).toBe(
+      '[運営](https://wiki.gdgs.jp/s/gdg-jp/wiki/events/x/ops) 決定[出典](https://docs.example/d "Minutes")',
     );
   });
 });

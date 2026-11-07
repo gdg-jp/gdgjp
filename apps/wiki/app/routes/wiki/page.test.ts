@@ -201,10 +201,38 @@ describe("wiki.$ loader path handling", () => {
     expect(result.page.slug).toBe("about");
   });
 
-  it("returns the same opaque 404 for unauthorized callers regardless of path correctness", async () => {
+  it("sends signed-out callers to sign in, regardless of path correctness, without resolving the path", async () => {
     vi.mocked(getWikiCanonicalSlugPath).mockClear();
     vi.mocked(getAccessIdentity).mockResolvedValue(
       identity({ user: null, claimsAvailable: true }) as never,
+    );
+    vi.mocked(getDb).mockReturnValue(fluentDb({ ...publishedPage, visibility: "restricted" }));
+    vi.mocked(getEffectivePagePermissions).mockResolvedValue({
+      canView: false,
+      canEdit: false,
+      canComment: false,
+      canManageSharing: false,
+    } as never);
+
+    for (const splat of ["parent/child", "wrong/child", "child"]) {
+      try {
+        await runLoader(`/wiki/${splat}`, splat);
+        expect.unreachable("expected a sign-in redirect");
+      } catch (response) {
+        expect(response).toBeInstanceOf(Response);
+        expect((response as Response).status).toBe(302);
+        expect((response as Response).headers.get("location")).toBe(
+          `/signin?return_to=${encodeURIComponent(`/wiki/${splat}`)}`,
+        );
+      }
+    }
+    expect(getWikiCanonicalSlugPath).not.toHaveBeenCalled();
+  });
+
+  it("returns the same opaque 404 to signed-in callers without access, regardless of path correctness", async () => {
+    vi.mocked(getWikiCanonicalSlugPath).mockClear();
+    vi.mocked(getAccessIdentity).mockResolvedValue(
+      identity({ user: { id: "member", isAdmin: false }, claimsAvailable: true }) as never,
     );
     vi.mocked(getDb).mockReturnValue(fluentDb({ ...publishedPage, visibility: "restricted" }));
     vi.mocked(getEffectivePagePermissions).mockResolvedValue({
@@ -226,10 +254,10 @@ describe("wiki.$ loader path handling", () => {
     expect(getWikiCanonicalSlugPath).not.toHaveBeenCalled();
   });
 
-  it("returns 503 for restricted pages when claims are unavailable", async () => {
+  it("returns 503 for restricted pages when a signed-in reader's claims are unavailable", async () => {
     vi.mocked(getWikiCanonicalSlugPath).mockClear();
     vi.mocked(getAccessIdentity).mockResolvedValueOnce(
-      identity({ user: null, claimsAvailable: false }) as never,
+      identity({ user: { id: "member", isAdmin: false }, claimsAvailable: false }) as never,
     );
     vi.mocked(getDb).mockReturnValue(fluentDb({ ...publishedPage, visibility: "restricted" }));
     vi.mocked(getEffectivePagePermissions).mockResolvedValueOnce({

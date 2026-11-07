@@ -293,6 +293,32 @@ export async function loadWikiSearch(request: Request, env: Env, spaceSlug?: str
       .all();
     orderedPages = pages.map(({ rank: _rank, ...page }) => page);
   }
+  // The trigram index covers titles, summaries and tags only. Pages that mention the term
+  // in their body (either language) follow, so "what was that room called" searches land.
+  if (orderedPages.length < SEARCH_LIMIT) {
+    const pattern = `%${escapeLike(sanitized)}%`;
+    const seen = new Set(orderedPages.map((p) => p.id));
+    const bodyMatches = await db
+      .select(columns)
+      .from(schema.pages)
+      .where(
+        and(
+          sql`(${schema.pages.contentJa} LIKE ${pattern} ESCAPE '\\'
+            OR ${schema.pages.contentEn} LIKE ${pattern} ESCAPE '\\')`,
+          eq(schema.pages.status, "published"),
+          visFilter,
+          tagFilter,
+        ),
+      )
+      .orderBy(desc(schema.pages.updatedAt))
+      .limit(SEARCH_LIMIT)
+      .all();
+    for (const page of bodyMatches) {
+      if (seen.has(page.id) || orderedPages.length >= SEARCH_LIMIT) continue;
+      seen.add(page.id);
+      orderedPages.push(page);
+    }
+  }
 
   const pageTags = await fetchTagsForPages(orderedPages.map((p) => p.id));
   const tagsByPage = new Map<string, PageTag[]>();

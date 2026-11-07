@@ -68,6 +68,12 @@ export async function loadWikiPage({ request, context, params }: LoaderFunctionA
 
   const permissions = await getEffectivePagePermissions(db, page, sessionUser, identity.chapters);
   if (!permissions.canView) {
+    // A shared link opened while signed out: offer sign-in and come back here, instead of a
+    // 404 that reads as "this page was deleted".
+    if (!sessionUser) {
+      const here = new URL(request.url);
+      throw redirect(`/signin?return_to=${encodeURIComponent(here.pathname + here.search)}`);
+    }
     if (!identity.claimsAvailable && page.visibility === "restricted") {
       throw new Response("Access service temporarily unavailable", { status: 503 });
     }

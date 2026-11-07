@@ -127,4 +127,18 @@ describe("loadWikiSearch keyword mode", () => {
     `);
     expect((await search("予算")).titles).toEqual(["予算", "会場・当日運営"]);
   });
+
+  it("falls back to body text, after title and summary matches", async () => {
+    fixture.sqlite.exec(`
+      INSERT INTO pages (id, space_id, title_ja, title_en, slug, content_ja, content_en,
+        summary_ja, summary_en, status, visibility, origin, author_id, last_edited_by,
+        created_at, updated_at)
+      VALUES ('body', 'gdg-jp', 'スタッフ体制', '', 'body', 'スタッフ集合は 7:45 に北館 4F 控室', '', '', '',
+        'published', 'public', 'human', 'admin', 'admin', 0, 300),
+      ('summary', 'gdg-jp', '当日の流れ', '', 'summary', '', '', '控室は 4F', '',
+        'published', 'public', 'human', 'admin', 'admin', 0, 100);
+    `);
+    expect((await search("控室")).titles).toEqual(["当日の流れ", "スタッフ体制"]);
+    expect((await search("北館 4F 控室")).titles).toEqual(["スタッフ体制"]);
+  });
 });

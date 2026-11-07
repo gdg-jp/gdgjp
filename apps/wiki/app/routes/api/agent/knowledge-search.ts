@@ -48,7 +48,7 @@ export async function loader({ request, context }: LoaderFunctionArgs) {
   const limit = Math.min(Number(url.searchParams.get("limit") ?? "10") || 10, 25);
 
   try {
-    const { pages, raw } = await searchForReader(env, db, reader, {
+    const { pages, raw, excludedPages } = await searchForReader(env, db, reader, {
       spaceIds: spaces.slice(0, MAX_SEARCH_SPACES).map((space) => space.id),
       query,
       layers,
@@ -60,6 +60,9 @@ export async function loader({ request, context }: LoaderFunctionArgs) {
       query,
       spaces: spaces.slice(0, MAX_SEARCH_SPACES).map((space) => space.slug),
       truncatedSpaces: spaces.length > MAX_SEARCH_SPACES,
+      // Matches this reader may not see (ACL): a count only, so the reply can say to try
+      // again with the asker's own permissions.
+      excludedPages,
       pages: pages.map((page) => ({
         space: spaceSlug.get(page.spaceId),
         slug: page.slug,

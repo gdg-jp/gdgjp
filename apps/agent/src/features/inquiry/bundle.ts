@@ -51,7 +51,9 @@ const INSTRUCTIONS = `Answer \`question.md\` from this bundle (and the wiki MCP 
 - Read \`index/\` first, then \`hits/\`. \`raw/\` are short excerpts: use them to confirm, cite pages first.
 - Use page URLs exactly as given; never guess pages that are not in the bundle or tool results.
 - Do not retry a page that returned not found.
-- Never state something without a citation. If the answer is not here, set "unanswered": true.
+- Never state something without a citation. If the answer is not here, set "unanswered": true
+  and say "the pages readable here do not cover …" — never that the wiki has no such information:
+  the bundle holds only what this reader may see, and other pages may exist.
 - Answer in the language of the question. Keep it under 1500 characters.
 - Output JSON only: {"answer": string, "citations": [{"url": string, "quote": string}],
   "confidence": "high" | "medium" | "low", "unanswered": boolean}.
