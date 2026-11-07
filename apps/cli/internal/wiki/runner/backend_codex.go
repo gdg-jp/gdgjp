@@ -32,6 +32,20 @@ func (b *CodexBackend) Answer(ctx context.Context, dir, prompt, schemaPath, outP
 	return runAgent(ctx, dir, timeout, "codex", b.AnswerArgs(dir, prompt, schemaPath, outPath, mcp)...)
 }
 
+// AnswerWithImages is Answer with images attached to the prompt (`--image`). The prompt goes
+// after `--` because `--image` takes several values.
+func (b *CodexBackend) AnswerWithImages(ctx context.Context, dir, prompt, schemaPath, outPath string, images []string, timeout time.Duration) (string, error) {
+	return runAgent(ctx, dir, timeout, "codex", b.ImageAnswerArgs(dir, prompt, schemaPath, outPath, images)...)
+}
+
+func (b *CodexBackend) ImageAnswerArgs(dir, prompt, schemaPath, outPath string, images []string) []string {
+	args := b.AnswerArgs(dir, prompt, schemaPath, outPath, nil)
+	if len(images) == 0 {
+		return args
+	}
+	return append(args[:len(args)-1], "--image", strings.Join(images, ","), "--", prompt)
+}
+
 func (b *CodexBackend) AnswerArgs(dir, prompt, schemaPath, outPath string, mcp *MCPConfig) []string {
 	args := []string{"exec", "--sandbox", "read-only", "--skip-git-repo-check", "--ephemeral", "--ignore-user-config", "--color", "never", "-C", dir,
 		"--output-schema", schemaPath, "-o", outPath}

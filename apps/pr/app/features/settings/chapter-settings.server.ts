@@ -41,3 +41,50 @@ export async function maskedDiscordWebhook(env: Env, chapterId: number): Promise
   const url = await discordWebhookFor(env, chapterId);
   return url ? maskWebhook(url) : null;
 }
+
+export type AssistantMode = "auto" | "suggest";
+export type AssistantSettings = { mode: AssistantMode; morningDigest: boolean };
+
+/** Defaults (no row yet): the assistant queues plans and drafts itself, and sends the digest. */
+export async function assistantSettings(
+  db: D1Database,
+  chapterId: number,
+): Promise<AssistantSettings> {
+  const row = await db
+    .prepare("SELECT assistant_mode, morning_digest FROM chapter_settings WHERE chapter_id = ?")
+    .bind(chapterId)
+    .first<{ assistant_mode: string; morning_digest: number }>();
+  return {
+    mode: row?.assistant_mode === "suggest" ? "suggest" : "auto",
+    morningDigest: row ? row.morning_digest === 1 : true,
+  };
+}
+
+export async function saveAssistantSettings(
+  db: D1Database,
+  chapterId: number,
+  settings: AssistantSettings,
+  userId: string,
+): Promise<void> {
+  await db
+    .prepare(
+      `INSERT INTO chapter_settings (chapter_id, assistant_mode, morning_digest, updated_by) VALUES (?, ?, ?, ?)
+       ON CONFLICT (chapter_id) DO UPDATE SET assistant_mode = excluded.assistant_mode,
+         morning_digest = excluded.morning_digest, updated_by = excluded.updated_by, updated_at = unixepoch()`,
+    )
+    .bind(chapterId, settings.mode, settings.morningDigest ? 1 : 0, userId)
+    .run();
+}
+
+/** Chapters whose 09:00 digest is on (no row means on), among the given ones. */
+export async function digestChapters(db: D1Database, chapterIds: number[]): Promise<number[]> {
+  if (!chapterIds.length) return [];
+  const { results } = await db
+    .prepare(
+      `SELECT chapter_id FROM chapter_settings WHERE morning_digest = 0 AND chapter_id IN (${chapterIds.map(() => "?").join(",")})`,
+    )
+    .bind(...chapterIds)
+    .all<{ chapter_id: number }>();
+  const off = new Set(results.map((r) => r.chapter_id));
+  return chapterIds.filter((id) => !off.has(id));
+}

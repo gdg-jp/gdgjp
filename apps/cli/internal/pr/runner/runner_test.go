@@ -155,3 +155,53 @@ func TestParseOutputRejectsNonObjects(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+// imageBackend also attaches images (as codex does).
+type imageBackend struct {
+	fakeBackend
+	gotImages []string
+	imageSize int
+}
+
+func (b *imageBackend) AnswerWithImages(ctx context.Context, dir, prompt, schemaPath, outPath string, images []string, timeout time.Duration) (string, error) {
+	b.gotImages = images
+	if len(images) > 0 {
+		if info, err := os.Stat(images[0]); err == nil {
+			b.imageSize = int(info.Size())
+		}
+	}
+	return b.Answer(ctx, dir, prompt, schemaPath, outPath, nil, timeout)
+}
+
+func TestRunnerWritesImagesAndAttachesThem(t *testing.T) {
+	bundle := Bundle{
+		Files: map[string]string{
+			"JOB.md": "# job",
+			"skills/pr-assist/references/output.schema.json": `{"type":"object"}`,
+		},
+		// "PNG!" in base64
+		BinaryFiles: map[string]string{"sources/1/src-1-1.png": "UE5HIQ=="},
+		Images:      []string{"sources/1/src-1-1.png", "missing.png"},
+		Prompt:      "read", Skill: "pr-assist", Kind: "assist", TimeoutSeconds: 30,
+	}
+	srv, got := server(t, bundle)
+	backend := &imageBackend{fakeBackend: fakeBackend{output: `{"reply":"読みました"}`}}
+	cfg := Config{BaseURL: srv.URL, Token: token, Workdir: t.TempDir(), Host: "test", Once: true, YomiyasuDir: filepath.Join(t.TempDir(), "none")}
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	if err := NewWithBackend(cfg, backend, nil).Run(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if got.Status != "succeeded" {
+		t.Fatalf("status = %q (%s)", got.Status, got.Error)
+	}
+	if len(backend.gotImages) != 1 || !strings.HasSuffix(backend.gotImages[0], "sources/1/src-1-1.png") || backend.imageSize != 4 {
+		t.Fatalf("images = %v (size %d)", backend.gotImages, backend.imageSize)
+	}
+}
+
+func TestWriteBinaryRefusesPathsOutsideTheJobDirectory(t *testing.T) {
+	if err := WriteBinary(t.TempDir(), map[string]string{"../x.png": "UE5HIQ=="}); err == nil {
+		t.Fatal("escaped")
+	}
+}

@@ -1,5 +1,6 @@
 import { readFileSync } from "node:fs";
 import { type APIRequestContext, type Page, expect, test } from "@playwright/test";
+import { createCampaign } from "./helpers";
 
 // connpass (Stage 04) against e2e/mock-services/connpass.ts.
 const skills = new URL("../../../skills/", import.meta.url);
@@ -53,10 +54,7 @@ function jstLocal(minutes: number) {
 
 async function setUp(page: Page, slug: string) {
   await page.goto("/dev/login?as=lead&chapter=1:gdg-kwansai:organizer&return_to=/");
-  await page.getByRole("button", { name: "キャンペーンを作成" }).first().click();
-  await page.getByLabel("イベント名").fill(`E2E ${slug}`);
-  await page.getByRole("textbox", { name: "URL", exact: true }).fill(slug);
-  await page.getByRole("button", { name: "作成", exact: true }).click();
+  await createCampaign(page, slug);
   await page.getByLabel("JSON で読み込む").fill(brief);
   await page.getByRole("button", { name: "JSON を読み込む" }).click();
   await expect(page.getByText("版 1 を保存しました")).toBeVisible();

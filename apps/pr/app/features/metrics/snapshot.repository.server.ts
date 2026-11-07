@@ -95,3 +95,18 @@ export async function listSnapshots(
     payload: JSON.parse(r.payload),
   }));
 }
+
+/** The newest snapshot of a source, or null. */
+export async function latestSnapshot(
+  db: D1Database,
+  campaignId: number,
+  source: Source,
+): Promise<{ capturedAt: number; payload: Record<string, unknown> } | null> {
+  const row = await db
+    .prepare(
+      "SELECT captured_at, payload FROM metric_snapshots WHERE campaign_id = ? AND source = ? ORDER BY captured_at DESC, id DESC LIMIT 1",
+    )
+    .bind(campaignId, source)
+    .first<{ captured_at: number; payload: string }>();
+  return row ? { capturedAt: row.captured_at, payload: JSON.parse(row.payload) } : null;
+}

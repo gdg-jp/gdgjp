@@ -25,6 +25,8 @@ describe("reminder text", () => {
       "delegated",
       "discordPost",
       "linkBroken",
+      "approvalDue",
+      "digest",
     ])
       expect(constants.reminders.templates).toHaveProperty(name);
   });

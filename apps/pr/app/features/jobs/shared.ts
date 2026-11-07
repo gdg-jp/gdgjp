@@ -8,6 +8,7 @@ export const JOB_TYPES = [
   "review",
   "retro",
   "fix",
+  "assist",
 ] as const;
 export type JobType = (typeof JOB_TYPES)[number];
 export type JobStatus = "queued" | "leased" | "succeeded" | "failed" | "needs_review" | "expired";
@@ -15,6 +16,8 @@ export type JobStatus = "queued" | "leased" | "succeeded" | "failed" | "needs_re
 /** Higher runs first. Fixes jump the queue so a draft is not left half-done. */
 export const JOB_PRIORITY: Record<JobType, number> = {
   review: 10,
+  // A person is waiting in the thread.
+  assist: 9,
   fix: 8,
   copy: 5,
   post: 5,
@@ -36,6 +39,7 @@ export const JOB_TIMEOUT_SECONDS: Record<JobType, number> = {
   review: 300,
   retro: 1200,
   fix: 480,
+  assist: 600,
 };
 
 export const LEASE_SECONDS = 20 * 60;
@@ -64,7 +68,8 @@ export type JobPayload =
       instructions?: string;
     }
   | { type: "fix"; target: FixTarget; kind: string; failures: { ruleId: string; detail: string }[] }
-  | { type: Exclude<JobType, "plan" | "copy" | "post" | "fix">; [key: string]: unknown };
+  | { type: "assist"; upTo: number; briefErrors?: string[] }
+  | { type: Exclude<JobType, "plan" | "copy" | "post" | "fix" | "assist">; [key: string]: unknown };
 
 export type Job = {
   id: string;

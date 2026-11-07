@@ -1,4 +1,5 @@
 import { enqueueWeeklyAnalyses } from "~/features/analyze/analyze.server";
+import { flagDeadlines, morningDigest, queueDueDrafts } from "~/features/assistant/cron.server";
 import { sendDueMails } from "~/features/connpass/mail.server";
 import { pollConnpassJobs } from "~/features/connpass/poll.server";
 import { pollScheduledPosts } from "~/features/dispatch/poll.server";
@@ -22,6 +23,9 @@ export async function runCron(env: Env, cron: string): Promise<Record<string, un
           connpass: () => pollConnpassJobs(env),
           links: () => checkLinkHealth(env),
           metrics: () => collectMetrics(env),
+          drafts: () => queueDueDrafts(env),
+          deadlines: () => flagDeadlines(env),
+          digest: () => morningDigest(env),
         }
       : cron === WEEKLY_CRON
         ? { analyze: () => enqueueWeeklyAnalyses(env) }

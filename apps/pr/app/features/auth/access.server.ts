@@ -6,6 +6,7 @@ import {
   type UserChapters,
   fetchChaptersForUser,
 } from "~/features/auth/chapter.server";
+import { pickChapter } from "~/features/auth/current-chapter";
 
 export function buildSignInRedirect(request: Request): Response {
   const url = new URL(request.url);
@@ -13,7 +14,10 @@ export function buildSignInRedirect(request: Request): Response {
   return redirect(`/signin?return_to=${encodeURIComponent(target)}`);
 }
 
-/** Any signed-in page: require a session + at least one chapter membership. */
+/**
+ * Any signed-in page: require a session + at least one chapter membership. `chapter` is the one
+ * picked in the sidebar (cookie), falling back to the first membership.
+ */
 export async function requireUserWithChapter(
   env: Env,
   request: Request,
@@ -35,7 +39,8 @@ export async function requireUserWithChapter(
     throw err;
   }
   if (!resolved.primary) throw redirect("/no-chapter");
-  return { user, chapter: resolved.primary, chapters: resolved.all };
+  const chapter = pickChapter(request.headers.get("Cookie"), resolved.all) ?? resolved.primary;
+  return { user, chapter, chapters: resolved.all };
 }
 
 export async function getOptionalUser(env: Env, request: Request): Promise<AuthUser | null> {

@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { type APIRequestContext, type Page, expect, test } from "@playwright/test";
 import { CAPTURE_URL } from "./capture-server";
+import { createCampaign } from "./helpers";
 
 // Delivery (Stage 03) against e2e/mock-services (sns / tinyurl) and the capture server (Discord).
 const skills = new URL("../../../skills/", import.meta.url);
@@ -56,17 +57,14 @@ test("an approved X post is scheduled once per account, each by its own chapter,
 
   // Host chapter: webhook, campaign, brief, co-host.
   await signIn(page, "lead", "1:gdg-kwansai:organizer");
-  await page.goto("/settings/chapter");
-  await page.getByLabel("Discord の webhook URL").fill(`${CAPTURE_URL}/hook/${hook}`);
-  await page.getByRole("button", { name: "保存", exact: true }).click();
+  await page.goto("/settings");
+  await page.getByLabel("webhook URL").fill(`${CAPTURE_URL}/hook/${hook}`);
+  await page.getByRole("button", { name: "webhook を保存" }).click();
   await expect(page.getByText("現在: 127.0.0.1")).toBeVisible();
   await expect(page.getByText(hook)).toHaveCount(0);
 
   await page.goto("/");
-  await page.getByRole("button", { name: "キャンペーンを作成" }).first().click();
-  await page.getByLabel("イベント名").fill(`E2E ${slug}`);
-  await page.getByRole("textbox", { name: "URL", exact: true }).fill(slug);
-  await page.getByRole("button", { name: "作成", exact: true }).click();
+  await createCampaign(page, slug);
   await page.getByLabel("JSON で読み込む").fill(brief);
   await page.getByRole("button", { name: "JSON を読み込む" }).click();
   await expect(page.getByText("版 1 を保存しました")).toBeVisible();

@@ -1,4 +1,5 @@
 import { Badge, Button, Checkbox, Icons } from "@gdgjp/design-system";
+import { Link } from "react-router";
 import { jstTime } from "../calendar";
 import type { ScheduleItem } from "../item";
 import { KIND_LABELS, STATUS_LABELS } from "../kinds";
@@ -23,6 +24,7 @@ export function ItemRow({
   people,
   onEdit,
   selectForm,
+  draftHref,
 }: {
   item: ScheduleItem;
   derived?: boolean;
@@ -31,6 +33,8 @@ export function ItemRow({
   onEdit: (item: ScheduleItem) => void;
   /** When set, a checkbox submits this item's id with that form (draftable posts only). */
   selectForm?: string;
+  /** The item's draft, when it has one. */
+  draftHref?: string;
 }) {
   const blocked = pending.length > 0;
   return (
@@ -80,6 +84,14 @@ export function ItemRow({
           </div>
         ) : null}
       </div>
+      {draftHref ? (
+        <Button asChild size="sm" variant="outline">
+          <Link to={draftHref}>
+            <Icons name="FileText" size={14} aria-hidden="true" />
+            下書き
+          </Link>
+        </Button>
+      ) : null}
       <Button size="sm" variant="ghost" onClick={() => onEdit(item)}>
         <Icons name="Pencil" size={14} aria-hidden="true" />
         編集

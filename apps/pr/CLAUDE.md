@@ -16,6 +16,15 @@ approval, delivery through sns / tinyurl / connpass, images, metrics and a learn
 - **Contacts' source of truth is the Wiki** page `WIKI_OUTREACH_TITLE`, read AS the signed-in user
   through the `WIKI` binding (`/api/agent/search`, `/api/agent/cat` only). pr never writes the Wiki.
 
+## Screens
+
+The sidebar's chapter (top left, a cookie) scopes every list. 通知 (`/`) gathers what waits on
+people across that chapter's events; イベント (`/events`) adds an event by name only. An event's
+home (`/c/:slug`) is a thread with the assistant: people paste event pages, shared Google files
+and images, the `assist` job rewrites the brief and offers buttons, and the assistant posts on its
+own when plans and drafts are ready or approvals are late. The domain pages (brief, plan, drafts,
+assets, …) are under the event's 詳細 menu.
+
 ## Runner
 
 `gdg pr runner` (apps/cli/internal/pr/runner) on the OCI VM leases `agent_jobs` through

@@ -1,4 +1,5 @@
 import { analyzeFiles } from "~/features/analyze/analyze.server";
+import { assistBundle } from "~/features/assistant/bundle.server";
 import type { Brief } from "~/features/briefs/brief";
 import { briefVersion, latestBrief } from "~/features/briefs/brief.repository.server";
 import type { Campaign } from "~/features/campaigns/campaign";
@@ -42,6 +43,8 @@ export function skillFor(job: Job): { skill: string; kind: string } {
       return payload.kind === "connpass_mail"
         ? { skill: "pr-connpass-mail", kind: "connpass_mail" }
         : { skill: "pr-connpass-page", kind: "connpass_page" };
+    case "assist":
+      return { skill: "pr-assist", kind: "assist" };
     case "fix":
       return {
         skill: SKILL_FOR_KIND[payload.kind ?? ""] ?? "pr-playbook",
@@ -57,6 +60,9 @@ const json = (value: unknown) => `${JSON.stringify(value, null, 2)}\n`;
 
 export type Bundle = {
   files: Record<string, string>;
+  /** Base64 files (images) the runner writes beside `files`; `images` are attached to the prompt. */
+  binaryFiles?: Record<string, string>;
+  images?: string[];
   prompt: string;
   skill: string;
   kind: string;
@@ -79,6 +85,31 @@ export async function buildBundle(
   files[`skills/${skill}/references/output.schema.json`] = json(schema);
   if (exampleOutputs[skill])
     files[`skills/${skill}/references/example-output.json`] = exampleOutputs[skill] as string;
+  if (job.type === "assist") {
+    if (!env) throw new Error("assist bundles need the Worker env");
+    const task: string[] = [];
+    const extra = await assistBundle(env, job, campaign, files, task);
+    files["JOB.md"] = [
+      `# ジョブ ${job.id}（assist）`,
+      "",
+      `キャンペーン: ${campaign.name}`,
+      "",
+      ...task,
+      "",
+      "## 進め方",
+      `- skills/${skill}/SKILL.md の手順に従う。ファイルは書けない。`,
+      "- 最後のメッセージは出力スキーマに合う JSON だけ。",
+      "",
+    ].join("\n");
+    return {
+      files,
+      ...extra,
+      prompt: `You are the event assistant (${skill} Skill) for GDG Japan. Read JOB.md, then skills/${skill}/SKILL.md, look at every image listed there, and do what they say. Reply with the JSON object only.`,
+      skill,
+      kind,
+      timeoutSeconds: JOB_TIMEOUT_SECONDS.assist,
+    };
+  }
   const scope = scopeForKind(kind);
   files["skills/pr-playbook/rules.json"] = json({
     rules: playbook.rules.filter((r) => r.scope.includes(scope)),

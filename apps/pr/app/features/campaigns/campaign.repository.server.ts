@@ -368,3 +368,12 @@ export async function setTinyurlCampaign(db: D1Database, id: number, tinyurlId: 
     .bind(tinyurlId, id)
     .run();
 }
+
+/** Slugs already taken among `base` and `base-<n>`. */
+export async function takenSlugs(db: D1Database, base: string): Promise<Set<string>> {
+  const { results } = await db
+    .prepare("SELECT slug FROM campaigns WHERE slug = ? OR substr(slug, 1, ?) = ?")
+    .bind(base, base.length + 1, `${base}-`)
+    .all<{ slug: string }>();
+  return new Set(results.map((r) => r.slug));
+}

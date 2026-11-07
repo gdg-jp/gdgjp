@@ -4,6 +4,7 @@ import {
   validateSchema,
 } from "@skills/pr-playbook/scripts/checks/index.mjs";
 import { importReport } from "~/features/analyze/analyze.server";
+import { importAssist } from "~/features/assistant/import.server";
 import type { Brief } from "~/features/briefs/brief";
 import { briefVersion, latestBrief } from "~/features/briefs/brief.repository.server";
 import type { DraftKind } from "~/features/drafts/draft-kinds";
@@ -109,6 +110,11 @@ export async function importResult(
           })));
     const saved = await saveVersion(db, job, draftId, "copy", output, brief, yomiyasu);
     return { status: "succeeded", summary: { draftIds: [draftId], mustFails: saved.mustFails } };
+  }
+
+  if (job.type === "assist") {
+    if (!env) return { status: "failed", summary: {}, error: "assist import needs the Worker env" };
+    return importAssist(env, job, output as Parameters<typeof importAssist>[2]);
   }
 
   if (job.type === "retro") {

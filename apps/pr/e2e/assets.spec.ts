@@ -1,5 +1,6 @@
 import { readFileSync } from "node:fs";
 import { type APIRequestContext, expect, test } from "@playwright/test";
+import { createCampaign } from "./helpers";
 
 // Images and live posts (Stage 06): rendered by the local Playwright server (e2e/render-server.ts),
 // published through e2e/mock-services/img.ts, handed to connpass.
@@ -44,10 +45,7 @@ test("a connpass thumbnail is rendered, checked, approved, published and sent to
   test.setTimeout(90_000);
   const slug = `e2e-img-${Date.now()}`;
   await page.goto("/dev/login?as=lead&chapter=1:gdg-kwansai:organizer&return_to=/");
-  await page.getByRole("button", { name: "キャンペーンを作成" }).first().click();
-  await page.getByLabel("イベント名").fill(`E2E ${slug}`);
-  await page.getByRole("textbox", { name: "URL", exact: true }).fill(slug);
-  await page.getByRole("button", { name: "作成", exact: true }).click();
+  await createCampaign(page, slug);
   await page.getByLabel("JSON で読み込む").fill(brief);
   await page.getByRole("button", { name: "JSON を読み込む" }).click();
   await expect(page.getByText("版 1 を保存しました")).toBeVisible();
@@ -98,10 +96,7 @@ test("live posts are generated from the timetable, in time order, with cards", a
   test.setTimeout(120_000);
   const slug = `e2e-live-${Date.now()}`;
   await page.goto("/dev/login?as=lead&chapter=1:gdg-kwansai:organizer&return_to=/");
-  await page.getByRole("button", { name: "キャンペーンを作成" }).first().click();
-  await page.getByLabel("イベント名").fill(`E2E ${slug}`);
-  await page.getByRole("textbox", { name: "URL", exact: true }).fill(slug);
-  await page.getByRole("button", { name: "作成", exact: true }).click();
+  await createCampaign(page, slug);
   await page.getByLabel("JSON で読み込む").fill(brief);
   await page.getByRole("button", { name: "JSON を読み込む" }).click();
   await expect(page.getByText("版 1 を保存しました")).toBeVisible();

@@ -2,6 +2,7 @@ import { cpSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { type APIRequestContext, expect, test } from "@playwright/test";
+import { createCampaign } from "./helpers";
 
 // The learning loop (Stage 08): edits recorded mechanically, the retro's proposals decided by a
 // person, exported, and written back with feedback.mjs.
@@ -54,10 +55,7 @@ test("edits feed the retro; accepted proposals are exported and written back", a
   test.setTimeout(90_000);
   const slug = `e2e-retro-${Date.now()}`;
   await page.goto("/dev/login?as=lead&chapter=1:gdg-kwansai:organizer&return_to=/");
-  await page.getByRole("button", { name: "キャンペーンを作成" }).first().click();
-  await page.getByLabel("イベント名").fill(`E2E ${slug}`);
-  await page.getByRole("textbox", { name: "URL", exact: true }).fill(slug);
-  await page.getByRole("button", { name: "作成", exact: true }).click();
+  await createCampaign(page, slug);
   await page.getByLabel("JSON で読み込む").fill(brief);
   await page.getByRole("button", { name: "JSON を読み込む" }).click();
   await expect(page.getByText("版 1 を保存しました")).toBeVisible();
@@ -66,7 +64,7 @@ test("edits feed the retro; accepted proposals are exported and written back", a
   await page.goto(`/c/${slug}/plan`);
   await page.getByRole("button", { name: "コピーを作る" }).click();
   await expect(page.getByText("コピーのジョブを積みました")).toBeVisible();
-  await runJob(request, "copy", copyOutput, `E2E ${slug}`);
+  await runJob(request, "copy", copyOutput, slug);
   await page.goto(`/c/${slug}/drafts`);
   await page.getByRole("link", { name: "タイトルとメインコピー" }).click();
   const edited = structuredClone(copyOutput);
@@ -82,7 +80,7 @@ test("edits feed the retro; accepted proposals are exported and written back", a
     .fill("Keep: Instagram 広告\nProblem: 当日実況を 1 人で回した\nTry: 前日に全件予約");
   await page.getByRole("button", { name: "振り返る" }).click();
   await expect(page.getByText("振り返りのジョブを積みました")).toBeVisible();
-  const files = await runJob(request, "retro", retroOutput, `E2E ${slug}`);
+  const files = await runJob(request, "retro", retroOutput, slug);
   const edits = JSON.parse(files["EDITS.json"] ?? "{}");
   expect(edits.groups.some((g: { key: string }) => g.key === "copy /candidates/*/mainCopy")).toBe(
     true,

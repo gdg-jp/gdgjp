@@ -14,6 +14,7 @@ import { useEffect, useState } from "react";
 import { Form } from "react-router";
 import { latestBrief } from "~/features/briefs/brief.repository.server";
 import { requireCampaignAccess } from "~/features/campaigns/access.server";
+import { listDrafts } from "~/features/drafts/draft.repository.server";
 import { EnqueueError, enqueueDrafts } from "~/features/jobs/enqueue.server";
 import { createListingDrafts } from "~/features/listings/listing.server";
 import { constants, channelLabel } from "~/features/playbook/playbook";
@@ -41,9 +42,10 @@ export function meta() {
 export async function loader({ request, context, params }: Route.LoaderArgs) {
   const env = context.cloudflare.env;
   const access = await requireCampaignAccess(env, request, params.slug);
-  const [items, stored] = await Promise.all([
+  const [items, stored, drafts] = await Promise.all([
     listItems(env.DB, access.campaign.id),
     latestBrief(env.DB, access.campaign.id),
+    listDrafts(env.DB, access.campaign.id),
   ]);
   const brief = stored?.brief ?? null;
   const status = new Map(items.map((i) => [i.id, i.status]));
@@ -69,6 +71,12 @@ export async function loader({ request, context, params }: Route.LoaderArgs) {
     eventDate: campaign.eventAt ? jstDate(campaign.eventAt) : null,
     items,
     pending,
+    // Each item's draft, so the schedule doubles as the timeline of drafts.
+    draftOf: Object.fromEntries(
+      drafts
+        .filter((d) => d.scheduleItemId !== null && d.status !== "superseded")
+        .map((d) => [d.scheduleItemId, d.id]),
+    ) as Record<number, number>,
     members: access.members.map((m) => ({ value: m.userId, label: m.name })),
     sessions: (brief?.sessions ?? []).map((s) => ({ value: s.id, label: s.title })),
     speakers: (brief?.speakers ?? []).map((s) => ({ value: s.id, label: s.name })),
@@ -165,6 +173,7 @@ export default function Calendar({ loaderData, actionData }: Route.ComponentProp
     campaign,
     items,
     pending,
+    draftOf,
     members,
     sessions,
     speakers,
@@ -252,6 +261,11 @@ export default function Calendar({ loaderData, actionData }: Route.ComponentProp
                               pending={pending[row.item.id] ?? []}
                               people={people}
                               onEdit={openFor}
+                              draftHref={
+                                draftOf[row.item.id]
+                                  ? `/c/${campaign.slug}/drafts/${draftOf[row.item.id]}`
+                                  : undefined
+                              }
                               selectForm={
                                 DRAFTABLE_KINDS.includes(row.item.kind) ? "draft-form" : undefined
                               }

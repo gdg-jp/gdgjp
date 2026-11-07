@@ -1,5 +1,6 @@
 import { readFileSync } from "node:fs";
 import { type Page, expect, test } from "@playwright/test";
+import { createCampaign } from "./helpers";
 
 const brief = readFileSync(
   new URL("../../../skills/pr-playbook/examples/briefs/devfest-kansai-2026.json", import.meta.url),
@@ -8,16 +9,7 @@ const brief = readFileSync(
 
 async function signIn(page: Page, as: string, chapter: string) {
   await page.goto(`/dev/login?as=${as}&chapter=${chapter}&return_to=/`);
-  await expect(page.getByRole("heading", { name: "キャンペーン", level: 1 })).toBeVisible();
-}
-
-async function createCampaign(page: Page, slug: string) {
-  await page.getByRole("button", { name: "キャンペーンを作成" }).first().click();
-  await page.getByLabel("イベント名").fill(`E2E ${slug}`);
-  await page.getByRole("textbox", { name: "URL", exact: true }).fill(slug);
-  await page.getByLabel("開催日時").fill("2026-10-18T10:30");
-  await page.getByRole("button", { name: "作成", exact: true }).click();
-  await expect(page).toHaveURL(new RegExp(`/c/${slug}/brief$`));
+  await expect(page.getByRole("heading", { name: "通知", level: 1 })).toBeVisible();
 }
 
 test("a lead creates a campaign, loads a brief, and schedules a post with derived reminders", async ({
@@ -36,7 +28,7 @@ test("a lead creates a campaign, loads a brief, and schedules a post with derive
   await page.getByRole("button", { name: "保存", exact: true }).click();
   await expect(page.getByText("版 2 を保存しました")).toBeVisible();
 
-  await page.getByRole("link", { name: "スケジュール" }).click();
+  await page.getByRole("link", { name: "予定表" }).click();
   await page.getByRole("button", { name: "アイテムを追加" }).click();
   await page.getByLabel("日時").fill("2026-10-07T18:00");
   await page.getByLabel("タイトル").fill("セッション紹介");
@@ -70,7 +62,8 @@ test("co-host chapters see the campaign but cannot edit the brief; others get 40
   await expect(page.getByText("gdgoc-osaka（ID 2）")).toBeVisible();
 
   await signIn(page, "cohost", "2:gdgoc-osaka:organizer");
-  await expect(page.getByRole("link", { name: `E2E ${slug}` })).toBeVisible();
+  await page.goto("/events");
+  await expect(page.getByRole("link", { name: slug })).toBeVisible();
   await page.goto(`/c/${slug}/brief`);
   await expect(page.getByText("閲覧のみ")).toBeVisible();
 

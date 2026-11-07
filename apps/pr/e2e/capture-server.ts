@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { type Server, createServer } from "node:http";
 
 /**
@@ -29,6 +30,21 @@ export function startCaptureServer(): Promise<Server> {
     }
     if (url.pathname === "/messages") {
       res.writeHead(200, { "content-type": "application/json" }).end(JSON.stringify(messages));
+      return;
+    }
+    // A public event page whose timetable is only in an image (what the assistant reads).
+    if (url.pathname === "/event") {
+      res
+        .writeHead(200, { "content-type": "text/html; charset=utf-8" })
+        .end(
+          `<html><head><title>E2E Meetup</title></head><body><h1>E2E Meetup</h1><p>2026/12/12 13:00〜 大阪</p><p>連絡先 staff@example.com</p><img src="/event/timetable.png" width="640"></body></html>`,
+        );
+      return;
+    }
+    if (url.pathname === "/event/timetable.png") {
+      res
+        .writeHead(200, { "content-type": "image/png" })
+        .end(readFileSync(new URL("../fixtures/sources/timetable.png", import.meta.url)));
       return;
     }
     if (url.pathname.startsWith("/dead")) {

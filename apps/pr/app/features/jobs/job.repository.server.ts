@@ -246,3 +246,22 @@ export async function openJobs(db: D1Database, campaignId: number, type: JobType
     .all<JobRow>();
   return results.map(toJob);
 }
+
+/**
+ * A new message in the thread: widen a still-queued assist job to include it, or report that
+ * none is queued (a leased one is already reading an older thread, so a new job is needed).
+ */
+export async function widenQueuedAssist(
+  db: D1Database,
+  campaignId: number,
+  upTo: number,
+): Promise<boolean> {
+  const row = await db
+    .prepare(
+      `UPDATE agent_jobs SET payload = json_set(payload, '$.upTo', ?)
+       WHERE campaign_id = ? AND type = 'assist' AND status = 'queued' RETURNING id`,
+    )
+    .bind(upTo, campaignId)
+    .first<{ id: string }>();
+  return !!row;
+}

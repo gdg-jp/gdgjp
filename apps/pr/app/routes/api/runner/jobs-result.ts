@@ -1,3 +1,4 @@
+import { announceJob } from "~/features/assistant/events.server";
 import { importResult, releaseFailedFix } from "~/features/jobs/complete.server";
 import { finishJob, getJob } from "~/features/jobs/job.repository.server";
 import { readJson, requireRunner, runnerHost } from "~/features/jobs/runner-auth.server";
@@ -31,6 +32,7 @@ export async function action({ request, context, params }: Route.ActionArgs) {
     error: outcome.error ?? null,
   });
   if (outcome.status === "failed") await releaseFailedFix(env.DB, job);
+  if (ok) await announceJob(env, job, outcome).catch((error) => console.error("[announce]", error));
   return ok
     ? Response.json({ ok: true, ...outcome })
     : Response.json({ error: "lease_lost" }, { status: 409 });

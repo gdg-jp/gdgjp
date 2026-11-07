@@ -3,6 +3,7 @@ package runner
 import (
 	"bytes"
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -19,7 +20,11 @@ import (
 // Bundle is what the pr Worker prepared for one job: the Skill, the parts of the Playbook it
 // reads, the brief and the task, as files; plus the prompt and the output schema's path.
 type Bundle struct {
-	Files          map[string]string `json:"files"`
+	Files map[string]string `json:"files"`
+	// BinaryFiles are base64 (images the assistant reads); Images are the ones attached to the
+	// prompt, as paths under the job directory.
+	BinaryFiles    map[string]string `json:"binaryFiles,omitempty"`
+	Images         []string          `json:"images,omitempty"`
 	Prompt         string            `json:"prompt"`
 	Skill          string            `json:"skill"`
 	Kind           string            `json:"kind"`
@@ -51,6 +56,9 @@ func (r *Runner) handle(ctx context.Context, job *wikirunner.Job) wikirunner.Res
 	if err := WriteBundle(dir, bundle.Files); err != nil {
 		return failed(err, false)
 	}
+	if err := WriteBinary(dir, bundle.BinaryFiles); err != nil {
+		return failed(err, false)
+	}
 	schema, ok := bundle.Files["skills/"+bundle.Skill+"/references/output.schema.json"]
 	if !ok {
 		return failed(fmt.Errorf("bundle has no output schema for %s", bundle.Skill), false)
@@ -68,8 +76,20 @@ func (r *Runner) handle(ctx context.Context, job *wikirunner.Job) wikirunner.Res
 	if timeout <= 0 {
 		timeout = 10 * time.Minute
 	}
-	if output, err := structured.Answer(ctx, dir, bundle.Prompt, schemaPath, outPath, nil, timeout); err != nil {
-		return failed(fmt.Errorf("%w\n%s", err, output), false)
+	var log string
+	if images, ok := r.backend.(imageAnswerer); ok && len(bundle.Images) > 0 {
+		paths := make([]string, 0, len(bundle.Images))
+		for _, image := range bundle.Images {
+			if _, isFile := bundle.BinaryFiles[image]; isFile {
+				paths = append(paths, filepath.Join(dir, filepath.Clean(image)))
+			}
+		}
+		log, err = images.AnswerWithImages(ctx, dir, bundle.Prompt, schemaPath, outPath, paths, timeout)
+	} else {
+		log, err = structured.Answer(ctx, dir, bundle.Prompt, schemaPath, outPath, nil, timeout)
+	}
+	if err != nil {
+		return failed(fmt.Errorf("%w\n%s", err, log), false)
 	}
 	raw, err := os.ReadFile(outPath)
 	if err != nil {
@@ -83,6 +103,33 @@ func (r *Runner) handle(ctx context.Context, job *wikirunner.Job) wikirunner.Res
 		Status: "succeeded",
 		Result: JobOutput{Output: output, Checks: Checks{Yomiyasu: Yomiyasu(ctx, r.cfg, output, []byte(bundle.Files["BRIEF.json"]))}},
 	}
+}
+
+// imageAnswerer is a backend that can attach images to the prompt (codex).
+type imageAnswerer interface {
+	AnswerWithImages(ctx context.Context, dir, prompt, schemaPath, outPath string, images []string, timeout time.Duration) (string, error)
+}
+
+// WriteBinary writes base64 files under dir (after WriteBundle), refusing paths that escape it.
+func WriteBinary(dir string, files map[string]string) error {
+	for name, encoded := range files {
+		clean := filepath.Clean(name)
+		if filepath.IsAbs(clean) || clean == ".." || strings.HasPrefix(clean, "../") {
+			return fmt.Errorf("bundle path %q escapes the job directory", name)
+		}
+		data, err := base64.StdEncoding.DecodeString(encoded)
+		if err != nil {
+			return fmt.Errorf("decode %s: %w", name, err)
+		}
+		path := filepath.Join(dir, clean)
+		if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+			return err
+		}
+		if err := os.WriteFile(path, data, 0o600); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // parseOutput accepts the agent's final message with or without a ```json fence.
@@ -131,7 +178,7 @@ func (r *Runner) fetchBundle(ctx context.Context, jobID string) (*Bundle, error)
 		return nil, err
 	}
 	defer res.Body.Close()
-	body, _ := io.ReadAll(io.LimitReader(res.Body, 8<<20))
+	body, _ := io.ReadAll(io.LimitReader(res.Body, 64<<20))
 	if res.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("bundle %d: %s", res.StatusCode, bytes.TrimSpace(body))
 	}

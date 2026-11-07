@@ -2,7 +2,9 @@
 
 | Responsibility | Code |
 | --- | --- |
-| RP session, chapter claims, sign-in redirects | `app/features/auth/` (copied from roulette) |
+| RP session, chapter claims, sign-in redirects, the sidebar's chapter (cookie) | `app/features/auth/` (copied from roulette); `current-chapter.ts` picks the chapter every list uses |
+| The assistant (秘書): one thread per campaign, sources it reads (pages, shared Google files, images; collected by the Worker, read by the runner), `assist` jobs (`pr-assist`), buttons it offers and presses, messages it posts on its own (job results, deadlines), hourly drafts a week ahead, the 09:00 digest | `app/features/assistant/` — `fetch-source.server.ts` only collects (never interprets), `actions.ts` keeps only buttons the Worker can run |
+| Notifications: what waits on people across the chapter's campaigns, proposals, today, running jobs | `app/features/notifications/` — `notice.ts` is pure (urgency, grouping, collapsing) |
 | Campaigns, host / co-host chapters, members and roles, permissions | `app/features/campaigns/` — `access.server.ts` is the only gate |
 | Brief model (mirrors `skills/pr-playbook/references/brief.schema.json`), editor form, versions | `app/features/briefs/` — `parseBrief` validates with the Playbook schema itself |
 | Schedule items, kinds, derived reminders, blocked-by conditions, calendar grouping | `app/features/schedule/` — `derive.ts` implements REMIND-STAFF-BEFORE-POST / SPEAKER-REQUEST-BEFORE-POST |
@@ -28,7 +30,7 @@
 | Weekly analysis (`analyze` job, `pr-analyze`): report draft, proposals applied by a person | `app/features/analyze/` |
 | Learning loop: human edits recorded per JSON leaf (`draft_edits`), the `retro` job (`pr-retro`), Playbook proposals decided by organizers and exported for `skills/pr-playbook/scripts/feedback.mjs` | `app/features/learning/`, `app/routes/playbook/` |
 | Domain-free widgets | `app/components/RowTable.tsx` |
-| Shells | `app/layouts/AppLayout.tsx`, `CampaignLayout.tsx` (campaign tabs) |
+| Shells | `app/routes/shell.tsx` (pathless layout: user and chapters for the sidebar), `app/layouts/AppLayout.tsx` (sidebar: chapter switcher, 通知 / イベント / 告知先 / 設定), `CampaignLayout.tsx` (秘書 / 予定表 / 数値 + 詳細 menu) |
 | Screens + loaders / actions | `app/routes/<domain>/` — URLs in `app/routes.ts` |
 | Worker entry | `workers/app.ts` |
 | Schema | `migrations/` (`schema.sql` is generated) |
@@ -61,3 +63,10 @@
   back by `feedback.mjs` (rules with an existing check and constants only, refused on a stale
   `baseRevision` or personal data); the retro's Wiki update is shown for a person to paste.
 - Times are epoch seconds in D1 and JST in every form (`schedule/calendar.ts`).
+- The assistant never acts outside: its buttons are run_plan, adopt_plan, draft_items, move_item,
+  open_page and revert_brief. In chapters set to `auto` (the default) it presses run_plan and
+  draft_items itself; everything that leaves pr still needs a person's approval.
+- Sources are read by the Worker (HTML text, connpass without its participant lists, Docs as
+  HTML export, Slides as text, Sheets as CSV, Drive images) with emails and phone numbers masked,
+  and stored in R2 `IMAGES` under `assist/<campaign>/`. Images go to the runner as binary files
+  attached to the Codex prompt (`--image`).
