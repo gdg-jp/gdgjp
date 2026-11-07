@@ -28,7 +28,7 @@ custom_domain = true
 [[d1_databases]]
 binding = "DB"
 database_name = "gdgjp-pr-db"
-database_id = "00000000-0000-0000-0000-000000000000"
+database_id = "92c63616-c4d3-42b5-82e7-f760d6ea1ca5"
 migrations_dir = "./migrations"
 
 # Worker-to-Worker OIDC (discovery, token, UserInfo) stays on Cloudflare's
