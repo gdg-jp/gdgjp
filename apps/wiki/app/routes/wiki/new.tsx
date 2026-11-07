@@ -9,6 +9,7 @@ import { Form, Link, redirect, useParams } from "react-router";
 import type { ActionFunctionArgs, MetaFunction } from "react-router";
 import * as schema from "~/db/schema";
 import { requireUser } from "~/features/auth/utils.server";
+import { mdEditorLanguage, registerMdEditorJa } from "~/features/editor/md-editor-ja";
 import { pageInSpace } from "~/features/pages/page-space.server";
 import { generateSlug } from "~/features/pages/slug";
 import { wikiPagePath } from "~/features/pages/wiki-page-path";
@@ -16,6 +17,8 @@ import { requireSpace } from "~/features/spaces/access.server";
 import { applySpacePageDefaults } from "~/features/spaces/page-defaults.server";
 import { spacePath } from "~/features/spaces/shared";
 import { getDb } from "~/lib/db.server";
+
+registerMdEditorJa();
 
 // ---------------------------------------------------------------------------
 // Meta
@@ -85,6 +88,7 @@ export async function action({ request, context, params }: ActionFunctionArgs) {
 
 export default function NewPage() {
   const { t } = useTranslation();
+  const editorLanguage = mdEditorLanguage(useTranslation().i18n.language);
   const params = useParams();
   const homePath = spacePath(params.space ?? "gdg-jp");
   const { resolvedTheme } = useTheme();
@@ -176,7 +180,7 @@ export default function NewPage() {
         <MdEditor
           modelValue={contentJa}
           onChange={setContentJa}
-          language="en-US"
+          language={editorLanguage}
           theme={theme}
           style={{ height: "100%" }}
         />
@@ -185,7 +189,7 @@ export default function NewPage() {
         <MdEditor
           modelValue={contentEn}
           onChange={setContentEn}
-          language="en-US"
+          language={editorLanguage}
           theme={theme}
           style={{ height: "100%" }}
         />

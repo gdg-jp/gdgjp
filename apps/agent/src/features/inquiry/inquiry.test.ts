@@ -263,7 +263,8 @@ describe("answerReply", () => {
       { answer: "Unknown.", citations: [], confidence: "low", unanswered: true },
     );
     expect(reply.text).toContain("This is not in the wiki (searched: gdg-jp, e2e-eval).");
-    expect(reply.text).toContain("自分の権限で再回答");
+    expect(reply.text).toContain('Press "Answer with my permissions"');
+    expect(reply.english).toBe(true);
   });
   it("replies at once, without the runner, when nothing is readable as this reader", async () => {
     const { wiki } = fakeWiki(1000);

@@ -1,4 +1,4 @@
-import type { Reply } from "../inquiry/inquiry";
+import { REANSWER_LABEL_EN, REANSWER_LABEL_JA, type Reply } from "../inquiry/inquiry";
 import type { Delivery } from "../inquiry/pending";
 import { chatAccessToken } from "./gchat-auth";
 
@@ -13,7 +13,7 @@ export function discordComponents(reply: Reply) {
     buttons.push({
       type: 2,
       style: 1,
-      label: "自分の権限で再回答",
+      label: reply.english ? REANSWER_LABEL_EN : REANSWER_LABEL_JA,
       custom_id: `ra:${reply.jobId}`,
     });
   }

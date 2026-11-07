@@ -21,6 +21,8 @@ export type Reply = {
   degraded: boolean;
   publicReply: boolean;
   jobId: string;
+  /** Buttons follow the question's language. */
+  english?: boolean;
 };
 
 export type InquiryDeps = {
@@ -238,7 +240,9 @@ function readableSpaces(row: PendingAnswer): Set<string> {
 
 const REANSWER_HINT_JA =
   "「自分の権限で再回答」を押すと、あなたが閲覧できるページも含めて探します。";
-const REANSWER_HINT_EN = 'Press "自分の権限で再回答" to search again with the pages you can read.';
+export const REANSWER_LABEL_JA = "自分の権限で再回答";
+export const REANSWER_LABEL_EN = "Answer with my permissions";
+const REANSWER_HINT_EN = `Press "${REANSWER_LABEL_EN}" to search again with the pages you can read.`;
 
 /** No page or excerpt is readable as this reader: say so at once, without the runner. */
 export function nothingReadableReply(row: PendingAnswer): Reply {
@@ -260,6 +264,7 @@ export function nothingReadableReply(row: PendingAnswer): Reply {
     degraded: false,
     publicReply: row.publicReply,
     jobId: row.jobId,
+    english: en,
   };
 }
 
@@ -294,6 +299,7 @@ export function answerReply(row: PendingAnswer, result: AnswerResult): Reply {
     degraded: false,
     publicReply: row.publicReply,
     jobId: row.jobId,
+    english: en,
   };
 }
 

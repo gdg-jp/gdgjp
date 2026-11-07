@@ -7,9 +7,12 @@ import { useTranslation } from "react-i18next";
 import { Link, useBlocker, useFetcher } from "react-router";
 import ConfirmDialog from "~/components/ConfirmDialog";
 import PresenceAvatars from "~/features/editor/components/PresenceAvatars";
+import { mdEditorLanguage, registerMdEditorJa } from "~/features/editor/md-editor-ja";
 import type { CollabUser } from "~/features/editor/use-collab-editor";
 import { useCollabEditor } from "~/features/editor/use-collab-editor";
 import { useCurrentSpace } from "~/features/spaces/components/current-space";
+
+registerMdEditorJa();
 
 // ---------------------------------------------------------------------------
 // Types
@@ -57,6 +60,7 @@ function formatRelativeTime(
 
 export default function PageEditor({ page, currentUser }: PageEditorProps) {
   const { t } = useTranslation();
+  const editorLanguage = mdEditorLanguage(useTranslation().i18n.language);
   const { slug: spaceSlug } = useCurrentSpace();
   const fetcher = useFetcher<{ ok: boolean; savedAt: string }>();
   const { resolvedTheme } = useTheme();
@@ -322,7 +326,7 @@ export default function PageEditor({ page, currentUser }: PageEditorProps) {
           editorId="editor-ja"
           modelValue={contentJa}
           onChange={setContentJa}
-          language="en-US"
+          language={editorLanguage}
           theme={theme}
           onUploadImg={handleUploadImg}
           style={{ height: "100%" }}
@@ -333,7 +337,7 @@ export default function PageEditor({ page, currentUser }: PageEditorProps) {
           editorId="editor-en"
           modelValue={contentEn}
           onChange={setContentEn}
-          language="en-US"
+          language={editorLanguage}
           theme={theme}
           onUploadImg={handleUploadImg}
           style={{ height: "100%" }}
