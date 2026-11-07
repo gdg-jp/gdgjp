@@ -19,7 +19,7 @@ import (
 )
 
 // JobTypes this runner serves, highest priority first (the server orders by priority anyway).
-var JobTypes = []string{"fix", "post", "copy", "page", "asset", "plan", "analyze", "retro"}
+var JobTypes = []string{"assist", "fix", "post", "copy", "page", "asset", "plan", "analyze", "retro"}
 
 // Config comes from /etc/gdg/pr-runner.env (systemd EnvironmentFile).
 type Config struct {

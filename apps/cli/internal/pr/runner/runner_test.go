@@ -205,3 +205,12 @@ func TestWriteBinaryRefusesPathsOutsideTheJobDirectory(t *testing.T) {
 		t.Fatal("escaped")
 	}
 }
+
+func TestRunnerServesTheAssistant(t *testing.T) {
+	for _, jobType := range JobTypes {
+		if jobType == "assist" {
+			return
+		}
+	}
+	t.Fatalf("JobTypes %v leave assist jobs queued", JobTypes)
+}
