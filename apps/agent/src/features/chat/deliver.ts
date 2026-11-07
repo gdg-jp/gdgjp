@@ -41,6 +41,23 @@ export async function deliverDiscord(
   if (!response.ok) throw new Error(`discord_deliver_failed:${response.status}`);
 }
 
+/** Edit the deferred response with a progress line; the answer replaces it later. */
+export async function progressDiscord(
+  delivery: Extract<Delivery, { platform: "discord" }>,
+  text: string,
+  fetchImpl: typeof fetch = fetch,
+): Promise<void> {
+  const response = await fetchImpl(
+    `${DISCORD_API}/webhooks/${delivery.applicationId}/${delivery.interactionToken}/messages/@original`,
+    {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ content: text.slice(0, 2000), allowed_mentions: { parse: [] } }),
+    },
+  );
+  if (!response.ok) throw new Error(`discord_progress_failed:${response.status}`);
+}
+
 export function chatCard(reply: Reply) {
   if (reply.degraded) return undefined;
   const button = (text: string, fn: string, value: string) => ({

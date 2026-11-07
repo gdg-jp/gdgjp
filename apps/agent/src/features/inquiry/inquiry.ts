@@ -27,6 +27,8 @@ export type InquiryDeps = {
   wiki: WikiClient;
   pending: PendingStore;
   deliver(delivery: Delivery, reply: Reply): Promise<void>;
+  /** Optional: replace the "thinking" placeholder with what is happening (Discord only). */
+  progress?(delivery: Delivery, text: string): Promise<void>;
   /** Make sure the pending sweep alarm is armed. */
   schedule(): Promise<void>;
   now?: () => number;
@@ -88,6 +90,19 @@ export async function startInquiry(input: InquiryInput, deps: InquiryDeps): Prom
     createdAt: now,
   };
 
+  // Nothing readable as this reader: answering would only restate that, 60 s later. A public
+  // asker gets the "answer with my permissions" button at once instead.
+  if (pages.length === 0 && search.raw.length === 0) {
+    const row: PendingAnswer = {
+      ...base,
+      jobId: `empty-${crypto.randomUUID()}`,
+      deadlineAt: now,
+      status: "answered",
+    };
+    await deps.deliver(input.delivery, nothingReadableReply(row));
+    return row;
+  }
+
   const lastSeen = await deps.wiki.runnerLastSeen().catch(() => null);
   if (lastSeen === null || now - lastSeen > RUNNER_STALE_SECONDS) {
     const row: PendingAnswer = {
@@ -113,7 +128,27 @@ export async function startInquiry(input: InquiryInput, deps: InquiryDeps): Prom
   };
   await deps.pending.insert(row);
   await deps.schedule();
+  if (deps.progress) {
+    await deps
+      .progress(input.delivery, progressText(input.question, pages.length, search.raw.length))
+      .catch(() => undefined);
+  }
   return row;
+}
+
+/** What the asker sees while the runner works, instead of a bare "thinking…". */
+export function progressText(question: string, pageCount: number, rawCount: number): string {
+  const en = isEnglish(question);
+  const found = en
+    ? `Reading ${pageCount} page(s)${rawCount > 0 ? ` and ${rawCount} source excerpt(s)` : ""}`
+    : `${pageCount} ページ${rawCount > 0 ? `と ${rawCount} 件の原資料` : ""}を読んで`;
+  const wait = en ? "writing the answer (about a minute)…" : "回答を作成中（1 分ほど）…";
+  return `${questionLine(question)}\n\n⏳ ${found}${en ? ", " : ""}${wait}`;
+}
+
+/** Questions without any Japanese script get English notes around the answer. */
+export function isEnglish(question: string): boolean {
+  return !/[\u3040-\u30ff\u3400-\u9fff]/.test(question);
 }
 
 function uniquePages<T extends { space: string; slug: string }>(pages: readonly T[]): T[] {
@@ -180,24 +215,58 @@ export function describeSpaces(spaces: readonly string[]): string {
   return parts.join(", ") || "なし";
 }
 
+const REANSWER_HINT_JA =
+  "「自分の権限で再回答」を押すと、あなたが閲覧できるページも含めて探します。";
+const REANSWER_HINT_EN = 'Press "自分の権限で再回答" to search again with the pages you can read.';
+
+/** No page or excerpt is readable as this reader: say so at once, without the runner. */
+export function nothingReadableReply(row: PendingAnswer): Reply {
+  const en = isEnglish(row.question);
+  const spaces = describeSpaces(row.spaces);
+  const lines = [
+    questionLine(row.question),
+    "",
+    en
+      ? `No wiki page is readable here for this question (searched: ${spaces}).`
+      : `この場所の権限で読めるページが見つかりませんでした（検索したスペース: ${spaces}）。`,
+  ];
+  if (row.publicReply) lines.push(en ? REANSWER_HINT_EN : REANSWER_HINT_JA);
+  else if (row.readerKind !== "user")
+    lines.push(en ? "Link your account with /login first." : "先に /login で連携してください。");
+  return {
+    text: lines.join("\n"),
+    citations: [],
+    degraded: false,
+    publicReply: row.publicReply,
+    jobId: row.jobId,
+  };
+}
+
 export function answerReply(row: PendingAnswer, result: AnswerResult): Reply {
   const answer = result.answer.trim().slice(0, MAX_TEXT);
   const citations = [...new Set(result.citations.map((citation) => citation.url))].slice(0, 5);
   // Links the answer already carries inline are not repeated in the list.
   const listed = citations.filter((url) => !answer.includes(url));
+  const en = isEnglish(row.question);
   const lines = [questionLine(row.question), "", answer];
   if (result.unanswered) {
+    const spaces = describeSpaces(row.spaces);
     lines.push(
       "",
-      `${citations.length > 0 ? "一部は " : ""}Wiki で見つかりませんでした（検索したスペース: ${describeSpaces(row.spaces)}）。`,
+      en
+        ? `${citations.length > 0 ? "Part of this is " : "This is "}not in the wiki (searched: ${spaces}).`
+        : `${citations.length > 0 ? "一部は " : ""}Wiki で見つかりませんでした（検索したスペース: ${spaces}）。`,
     );
-    if (row.publicReply) {
-      lines.push("「自分の権限で再回答」を押すと、あなたが閲覧できるページも含めて探します。");
-    }
+    if (row.publicReply) lines.push(en ? REANSWER_HINT_EN : REANSWER_HINT_JA);
   }
   if (listed.length > 0) lines.push("", ...listed.map((url) => `- <${url}>`));
   if (row.excludedSpaces.length > 0)
-    lines.push("", `対象外にしたスペース: ${describeSpaces(row.excludedSpaces)}`);
+    lines.push(
+      "",
+      en
+        ? `Spaces left out: ${describeSpaces(row.excludedSpaces)}`
+        : `対象外にしたスペース: ${describeSpaces(row.excludedSpaces)}`,
+    );
   return {
     text: lines.join("\n"),
     citations,

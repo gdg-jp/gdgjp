@@ -82,9 +82,27 @@
 }
 
 /* ── GitHub-style markdown preview (light) ── */
+/* The reader sits on the page background: no white slab around the body. (Two-class
+   selectors outrank md-editor-rt's own rules, which load after this file.) */
+.md-editor.md-editor-previewOnly {
+  --md-bk-color: transparent;
+}
+
 .md-editor-preview {
   --md-theme-link-color: var(--gdg-primary);
   --md-theme-link-hover-color: var(--gdg-primary-hover);
+}
+
+/* Wrap at word boundaries; only an unbreakable token (URL, file name) may split. */
+.md-editor .md-editor-preview,
+.md-editor .md-editor-preview h1,
+.md-editor .md-editor-preview h2,
+.md-editor .md-editor-preview h3,
+.md-editor .md-editor-preview h4,
+.md-editor .md-editor-preview h5,
+.md-editor .md-editor-preview h6 {
+  word-break: normal;
+  overflow-wrap: anywhere;
 }
 
 .md-editor-preview h1,

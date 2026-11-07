@@ -1,5 +1,5 @@
 import { useTranslation } from "react-i18next";
-import { Link } from "react-router";
+import { Link, useParams } from "react-router";
 
 interface TagChipProps {
   tagSlug: string;
@@ -27,7 +27,10 @@ export default function TagChip({
 }: TagChipProps) {
   const { i18n } = useTranslation();
   const label = i18n.language === "ja" ? labelJa : labelEn;
-  const to = `/search?tag=${tagSlug}${q ? `&q=${encodeURIComponent(q)}` : ""}`;
+  // Inside `/s/:space/…` the tag search stays in that space.
+  const { space } = useParams();
+  const base = space ? `/s/${encodeURIComponent(space)}/search` : "/search";
+  const to = `${base}?tag=${tagSlug}${q ? `&q=${encodeURIComponent(q)}` : ""}`;
   const padding = size === "md" ? "px-2.5 py-1" : "px-2 py-0.5";
 
   return (

@@ -43,7 +43,9 @@ export default function RecentContent({ open, onClose, lang }: RecentContentProp
   }, [open, loadRecent]);
 
   const data = cachedRecent;
-  const isFirstLoad = fetcher.state === "loading" && !data;
+  // Until the first load lands there is nothing to say yet: an empty list would read as
+  // "no pages" while the request is still in flight.
+  const isFirstLoad = !data;
 
   const viewed = data?.recentViewed ?? [];
   const updated = data?.recentUpdated ?? [];

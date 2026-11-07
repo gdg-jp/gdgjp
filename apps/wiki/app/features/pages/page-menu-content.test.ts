@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   displayedMarkdown,
   linkInlineSourceRefs,
+  resolveWikiRelativeLinks,
   rewriteCopiedLinks,
   stripLeadingTitleHeading,
 } from "./page-menu-content";
@@ -55,5 +56,25 @@ describe("page menu content", () => {
       "x [出典](#page-sources)",
     );
     expect(linkInlineSourceRefs("(source: a)", refs, "出典")).toBe("(source: a)");
+  });
+  it("re-roots runner-relative links under the space's wiki root", () => {
+    const input = [
+      "[DevFest](../../events/2026-10-18-devfest-kansai)",
+      "[person](../../../people/people-i-m/itakosu.md#bio)",
+      "[sibling](iput-osaka)",
+      "[abs](/s/gdg-jp/wiki/log) [ext](https://x.test/../a) [anchor](#top) [mail](mailto:a@b.c)",
+      "`[code](../x)`",
+      "```\n[fence](../y)\n```",
+    ].join("\n");
+    expect(resolveWikiRelativeLinks(input, "gdg-jp")).toBe(
+      [
+        "[DevFest](/s/gdg-jp/wiki/events/2026-10-18-devfest-kansai)",
+        "[person](/s/gdg-jp/wiki/people/people-i-m/itakosu#bio)",
+        "[sibling](/s/gdg-jp/wiki/iput-osaka)",
+        "[abs](/s/gdg-jp/wiki/log) [ext](https://x.test/../a) [anchor](#top) [mail](mailto:a@b.c)",
+        "`[code](../x)`",
+        "```\n[fence](../y)\n```",
+      ].join("\n"),
+    );
   });
 });

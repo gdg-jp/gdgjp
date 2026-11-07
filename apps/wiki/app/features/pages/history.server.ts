@@ -66,6 +66,7 @@ export async function loadPageHistory(
       authorId: schema.pages.authorId,
       contentJa: schema.pages.contentJa,
       contentEn: schema.pages.contentEn,
+      origin: schema.pages.origin,
     })
     .from(schema.pages)
     .where(pageInSpace(space.id, slug ?? ""))
@@ -174,6 +175,7 @@ export async function loadPageHistory(
       slug: page.slug,
       titleJa: page.titleJa,
       titleEn: page.titleEn,
+      origin: page.origin,
       wikiPath,
     },
     lang,

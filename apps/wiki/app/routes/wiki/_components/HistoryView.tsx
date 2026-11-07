@@ -142,7 +142,8 @@ function HistoryContent({
                       {lang === "en" ? v.titleEn || v.titleJa : v.titleJa || v.titleEn}
                     </div>
                     <div className="mt-0.5 text-xs text-muted/70">
-                      {v.editorName ?? v.editedBy.slice(0, 8)}
+                      {v.editorName ??
+                        (page.origin === "agent" ? t("wiki.agent_name") : v.editedBy.slice(0, 8))}
                       {" · "}
                       {timeStr}
                     </div>
@@ -278,7 +279,9 @@ function HistoryContent({
         ) : (
           <div className="flex flex-col items-center justify-center py-20 text-muted/70">
             <Icons name="History" size={32} className="mb-3 opacity-30" />
-            <p className="text-sm">{t("wiki.history_empty")}</p>
+            <p className="text-sm">
+              {versions.length === 0 ? t("wiki.history_empty") : t("wiki.history_select_hint")}
+            </p>
           </div>
         )}
       </div>

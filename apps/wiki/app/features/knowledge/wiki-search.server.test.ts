@@ -114,4 +114,17 @@ describe("loadWikiSearch keyword mode", () => {
     expect(scoped.scoped).toBe(true);
     expect(scoped.results[0]?.spaceName).toBe("");
   });
+
+  it("ranks pages whose title carries the term above pages that only mention it", async () => {
+    fixture.sqlite.exec(`
+      INSERT INTO pages (id, space_id, title_ja, title_en, slug, content_ja, content_en,
+        summary_ja, summary_en, status, visibility, origin, author_id, last_edited_by,
+        created_at, updated_at)
+      VALUES ('newer', 'gdg-jp', '会場・当日運営', '', 'newer', '', '', '予算は10万円', '',
+        'published', 'public', 'human', 'admin', 'admin', 0, 200),
+      ('older', 'gdg-jp', '予算', '', 'older', '', '', '', '',
+        'published', 'public', 'human', 'admin', 'admin', 0, 100);
+    `);
+    expect((await search("予算")).titles).toEqual(["予算", "会場・当日運営"]);
+  });
 });

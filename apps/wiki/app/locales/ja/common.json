@@ -157,7 +157,8 @@
     "translate_now_queued": "英訳を依頼しました（数分〜で反映）",
     "agent_name": "エージェント",
     "source_label": "出典",
-    "breadcrumb": "現在地"
+    "breadcrumb": "現在地",
+    "history_select_hint": "左の一覧から版を選ぶと内容を表示します。"
   },
   "archived": {
     "title": "アーカイブ済みページ",
@@ -174,15 +175,16 @@
   "home": {
     "browse_by_tag": "タグで探す",
     "no_tags_yet": "タグはまだありません。",
-    "cta_heading": "AIで新しいページを作成する",
-    "cta_subheading": "メモやGoogleドキュメントのリンク、PDFを貼るだけ。GeminiがバイリンガルのWikiページを数秒で下書きします。",
-    "cta_button": "AIで作成する",
+    "cta_heading": "エージェントがページを書きます",
+    "cta_subheading": "Google ドキュメントや Discord、URL をソースとして登録すると、次の統合（最大 1 時間後）でエージェントがバイリンガルの Wiki ページに書き起こします。自分で書くページは「新規ページ」から。",
+    "cta_button": "ソースを登録",
     "activity_heading": "最近の動き",
     "activity_pages_heading": "最近のページ",
     "activity_comments_heading": "最近のコメント",
     "activity_commented_on": "がコメントしました：",
     "no_activity_pages": "最近のページ活動はありません。",
-    "no_activity_comments": "最近のコメントはありません。"
+    "no_activity_comments": "最近のコメントはありません。",
+    "cta_new_page": "新規ページ"
   },
   "public_pages": {
     "title": "公開ページ",

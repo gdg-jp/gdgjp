@@ -157,7 +157,8 @@
     "translate_now_queued": "Translation requested (a few minutes)",
     "agent_name": "Agent",
     "source_label": "source",
-    "breadcrumb": "You are here"
+    "breadcrumb": "You are here",
+    "history_select_hint": "Pick a version on the left to see it."
   },
   "archived": {
     "title": "Archived Pages",
@@ -174,15 +175,16 @@
   "home": {
     "browse_by_tag": "Browse by Tag",
     "no_tags_yet": "No tags yet.",
-    "cta_heading": "Create a new page with AI",
-    "cta_subheading": "Paste notes, a Google Doc link, or a PDF — Gemini will draft a bilingual wiki page in seconds.",
-    "cta_button": "Create with AI",
+    "cta_heading": "The agent writes the pages",
+    "cta_subheading": "Register a Google Doc, a Discord channel or a URL as a source and the agent turns it into bilingual wiki pages at the next integration (within an hour). Write your own with \"New page\".",
+    "cta_button": "Add a source",
     "activity_heading": "Discover what's happening",
     "activity_pages_heading": "Recent pages",
     "activity_comments_heading": "Recent comments",
     "activity_commented_on": "commented on",
     "no_activity_pages": "No recent page activity.",
-    "no_activity_comments": "No recent comments."
+    "no_activity_comments": "No recent comments.",
+    "cta_new_page": "New page"
   },
   "public_pages": {
     "title": "Public pages",

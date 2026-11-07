@@ -266,7 +266,12 @@ export async function loadWikiSearch(request: Request, env: Env, spaceSlug?: str
           tagFilter,
         ),
       )
-      .orderBy(desc(schema.pages.updatedAt))
+      // A page named after the term outranks one that only mentions it.
+      .orderBy(
+        sql`CASE WHEN ${schema.pages.titleJa} LIKE ${pattern} ESCAPE '\\'
+          OR ${schema.pages.titleEn} LIKE ${pattern} ESCAPE '\\' THEN 0 ELSE 1 END`,
+        desc(schema.pages.updatedAt),
+      )
       .limit(SEARCH_LIMIT)
       .all();
   } else {
@@ -279,7 +284,11 @@ export async function loadWikiSearch(request: Request, env: Env, spaceSlug?: str
         sql`fts.page_id = ${schema.pages.id}`,
       )
       .where(and(eq(schema.pages.status, "published"), visFilter, tagFilter))
-      .orderBy(sql`fts.rank`)
+      .orderBy(
+        sql`CASE WHEN ${schema.pages.titleJa} LIKE ${`%${escapeLike(sanitized)}%`} ESCAPE '\\'
+          OR ${schema.pages.titleEn} LIKE ${`%${escapeLike(sanitized)}%`} ESCAPE '\\' THEN 0 ELSE 1 END`,
+        sql`fts.rank`,
+      )
       .limit(SEARCH_LIMIT)
       .all();
     orderedPages = pages.map(({ rank: _rank, ...page }) => page);

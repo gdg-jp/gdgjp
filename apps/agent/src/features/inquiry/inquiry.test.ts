@@ -1,5 +1,14 @@
 import { describe, expect, it, vi } from "vitest";
-import { answerReady, answerReply, describeSpaces, startInquiry, sweepOverdue } from "./inquiry";
+import {
+  answerReady,
+  answerReply,
+  describeSpaces,
+  isEnglish,
+  nothingReadableReply,
+  progressText,
+  startInquiry,
+  sweepOverdue,
+} from "./inquiry";
 import { memoryPendingStore } from "./pending";
 import { chooseReader } from "./reader";
 import type { Reader, WikiClient } from "./wiki";
@@ -238,5 +247,56 @@ describe("answerReply", () => {
     expect(describeSpaces(["gdg-jp", "c-1", "u-e5710c24-a46b"])).toBe("gdg-jp, c-1, ほか 1 件");
     expect(describeSpaces(["a", "b", "c", "d", "e", "f"])).toBe("a, b, c, d, ほか 2 件");
     expect(describeSpaces([])).toBe("なし");
+  });
+  it("answers English questions with English notes", () => {
+    expect(isEnglish("What was the budget?")).toBe(true);
+    expect(isEnglish("予算は？")).toBe(false);
+    const reply = answerReply(
+      { ...row, question: "What was the budget?" },
+      { answer: "Unknown.", citations: [], confidence: "low", unanswered: true },
+    );
+    expect(reply.text).toContain("This is not in the wiki (searched: gdg-jp, e2e-eval).");
+    expect(reply.text).toContain("自分の権限で再回答");
+  });
+  it("replies at once, without the runner, when nothing is readable as this reader", async () => {
+    const { wiki } = fakeWiki(1000);
+    wiki.search = vi.fn(async () => ({
+      spaces: ["tokyo"],
+      truncatedSpaces: false,
+      pages: [],
+      raw: [],
+    }));
+    const deliver = vi.fn();
+    const result = await startInquiry(input({ kind: "anonymous" }), {
+      wiki,
+      pending: memoryPendingStore(),
+      deliver,
+      schedule: vi.fn(),
+      now: () => 1000,
+    });
+    expect(wiki.enqueueAnswer).not.toHaveBeenCalled();
+    expect(result.status).toBe("answered");
+    expect(deliver.mock.calls[0]?.[1].text).toContain(
+      "この場所の権限で読めるページが見つかりませんでした",
+    );
+    expect(deliver.mock.calls[0]?.[1].text).toContain("自分の権限で再回答");
+    expect(
+      nothingReadableReply({ ...row, publicReply: false, readerKind: "anonymous" }).text,
+    ).toContain("/login");
+  });
+  it("reports progress once the job is queued", async () => {
+    const { wiki } = fakeWiki(1000);
+    const progress = vi.fn(async (_delivery: unknown, _text: string) => undefined);
+    await startInquiry(input({ kind: "anonymous" }), {
+      wiki,
+      pending: memoryPendingStore(),
+      deliver: vi.fn(),
+      progress,
+      schedule: vi.fn(),
+      now: () => 1000,
+    });
+    expect(progress).toHaveBeenCalledTimes(1);
+    expect(progress.mock.calls[0]?.[1]).toContain("1 ページと 1 件の原資料を読んで回答を作成中");
+    expect(progressText("Where?", 2, 0)).toContain("Reading 2 page(s), writing the answer");
   });
 });

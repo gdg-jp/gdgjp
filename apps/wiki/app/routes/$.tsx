@@ -12,7 +12,11 @@ import { wikiPagePath } from "~/features/pages/wiki-page-path";
 export function loader({ request, params }: LoaderFunctionArgs) {
   const segments = (params["*"] ?? "").split("/").filter(Boolean);
 
-  if (segments.length > 0) {
+  // Legacy flat `/<slug>` URLs move under the default space. A path that already names a
+  // space, an API or a resource is a real 404: re-rooting it only produced
+  // `/s/gdg-jp/wiki/s/gdg-jp/…`, which nobody can read.
+  const legacy = segments.length > 0 && !["s", "api", "assets", "og"].includes(segments[0]);
+  if (legacy) {
     const url = new URL(request.url);
     throw redirect(wikiPagePath(segments) + url.search, 301);
   }

@@ -2,9 +2,11 @@ import { MdPreview } from "md-editor-rt";
 import {
   displayedMarkdown,
   linkInlineSourceRefs,
+  resolveWikiRelativeLinks,
   stripLeadingTitleHeading,
 } from "~/features/pages/page-menu-content";
 import type { PageDisplay } from "~/features/pages/use-page-display";
+import { useCurrentSpace } from "~/features/spaces/components/current-space";
 import "md-editor-rt/lib/preview.css";
 import { useTheme } from "@gdgjp/design-system";
 import { Suspense, useCallback, useRef, useState } from "react";
@@ -74,10 +76,14 @@ export function WikiPageBody({
   const hasContent = primaryContent && primaryContent.trim().length > 0;
   const hasFallback = !hasContent && fallbackContent && fallbackContent.trim().length > 0;
   // The title is already above the body; inline `(source: id)` citations become links.
-  const displayContent = linkInlineSourceRefs(
-    stripLeadingTitleHeading(displayedMarkdown(content, lang), title),
-    content.sourceRefs ?? [],
-    t("wiki.source_label"),
+  const { slug: spaceSlug } = useCurrentSpace();
+  const displayContent = resolveWikiRelativeLinks(
+    linkInlineSourceRefs(
+      stripLeadingTitleHeading(displayedMarkdown(content, lang), title),
+      content.sourceRefs ?? [],
+      t("wiki.source_label"),
+    ),
+    spaceSlug,
   );
 
   const [tocItems, setTocItems] = useState<TocItem[]>(() => parseMdHeadings(displayContent));

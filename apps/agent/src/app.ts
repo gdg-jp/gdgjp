@@ -1,7 +1,7 @@
 import type { Env } from "./env";
 import type { AuthDeps } from "./features/auth/accounts";
 import { d1LinkStore } from "./features/auth/links";
-import { deliverChat, deliverDiscord } from "./features/chat/deliver";
+import { deliverChat, deliverDiscord, progressDiscord } from "./features/chat/deliver";
 import type { InquiryDeps, Reply } from "./features/inquiry/inquiry";
 import { type Delivery, type PendingStore, d1PendingStore } from "./features/inquiry/pending";
 import { type WikiClient, wikiClient } from "./features/inquiry/wiki";
@@ -39,6 +39,9 @@ export function createApp(env: Env): App {
       wiki,
       pending,
       deliver,
+      progress: async (delivery, text) => {
+        if (delivery.platform === "discord") await progressDiscord(delivery, text);
+      },
       schedule: async () => {
         await env.PENDING.get(env.PENDING.idFromName("sweep")).fetch("https://pending/arm", {
           method: "POST",

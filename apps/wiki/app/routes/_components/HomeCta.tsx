@@ -1,9 +1,13 @@
 import { Button, Card, Heading, Icons, Stack, Text } from "@gdgjp/design-system";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router";
+import { useCurrentSpace } from "~/features/spaces/components/current-space";
+import { spacePath } from "~/features/spaces/shared";
 
+/** How pages come to be in v2: sources in, agent-written pages out; humans write directly too. */
 export function HomeCta() {
   const { t } = useTranslation("common");
+  const { slug } = useCurrentSpace();
 
   return (
     <section className="mb-10">
@@ -18,12 +22,20 @@ export function HomeCta() {
               {t("home.cta_subheading")}
             </Text>
           </Stack>
-          <Button asChild className="shrink-0">
-            <Link to="/ingest">
-              <Icons name="Sparkles" size={16} aria-hidden="true" />
-              {t("home.cta_button")}
-            </Link>
-          </Button>
+          <div className="flex shrink-0 flex-wrap gap-2">
+            <Button asChild>
+              <Link to={spacePath(slug, "sources")}>
+                <Icons name="FileText" size={16} aria-hidden="true" />
+                {t("home.cta_button")}
+              </Link>
+            </Button>
+            <Button asChild variant="secondary">
+              <Link to={spacePath(slug, "wiki/new")}>
+                <Icons name="Plus" size={16} aria-hidden="true" />
+                {t("home.cta_new_page")}
+              </Link>
+            </Button>
+          </div>
         </div>
       </Card>
     </section>

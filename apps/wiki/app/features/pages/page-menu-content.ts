@@ -43,6 +43,51 @@ export function linkInlineSourceRefs(
   );
 }
 
+/**
+ * Agent-written pages link to other pages with runner-relative paths (`../../events/x`,
+ * sometimes one `../` too many). The browser cannot resolve those against `/s/<space>/wiki/…`,
+ * so every relative link is re-rooted: the segments after the `../` run are a path from the
+ * wiki root. Absolute URLs, anchors, mailto and `/…` links are left alone.
+ */
+export function resolveWikiRelativeLinks(markdown: string, spaceSlug: string): string {
+  const prefix = `/s/${encodeURIComponent(spaceSlug)}/wiki/`;
+  const rewrite = (href: string): string => {
+    if (/^(?:[a-z][a-z0-9+.-]*:|\/|#|<)/i.test(href)) return href;
+    const [pathPart, rest = ""] = splitHref(href);
+    const segments = pathPart
+      .split("/")
+      .filter((segment) => segment !== "" && segment !== "." && segment !== "..");
+    if (segments.length === 0) return href;
+    const last = segments[segments.length - 1];
+    segments[segments.length - 1] = last.replace(/\.md$/i, "");
+    return `${prefix}${segments.join("/")}${rest}`;
+  };
+  return marked
+    .lexer(markdown)
+    .map((token) =>
+      token.type === "code"
+        ? token.raw
+        : token.raw
+            .split(/(`+[^`]*`+)/g)
+            .map((part) =>
+              part.startsWith("`")
+                ? part
+                : part.replace(
+                    /(\]\()([^)\s]+)((?:\s+"[^"]*")?\))/g,
+                    (_m, open: string, href: string, close: string) =>
+                      `${open}${rewrite(href)}${close}`,
+                  ),
+            )
+            .join(""),
+    )
+    .join("");
+}
+
+function splitHref(href: string): [string, string] {
+  const index = href.search(/[?#]/);
+  return index === -1 ? [href, ""] : [href.slice(0, index), href.slice(index)];
+}
+
 /** Preserve source Markdown, including code examples, while remapping local URLs. */
 export function rewriteCopiedLinks(markdown: string, links: Map<string, string>, origin: string) {
   const paths = new Map(
