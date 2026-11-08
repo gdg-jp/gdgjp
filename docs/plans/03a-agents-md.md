@@ -171,8 +171,11 @@ When uncertain, do not write it. Referring to `raw/` preserves it.
 
 ## Confidentiality and Span ACLs
 
-Each source in `JOB.md` carries a `visibility` line. Every statement you take from a source whose
-visibility is anything other than `member` must be wrapped in an ACL span with that source's id:
+Each source in `JOB.md` carries a `visibility` line. Every statement you take from a source must be
+wrapped in an ACL span with that source's id, whatever its visibility (`member` included): a space's
+pages are also read by people outside GDG (guests, linked Discord servers). The one exception: on a
+page whose `visibility` is `member` or `organizer`, statements from `member` sources may stay
+unwrapped.
 
 ```markdown
 Visible sentence.

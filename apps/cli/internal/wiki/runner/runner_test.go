@@ -81,13 +81,24 @@ func TestJobMDCarriesVisibilityAndRequests(t *testing.T) {
 		map[string]string{"d": "raw/discord/channels/1/2026-11.md"},
 		[]Request{{PageSlug: "venue", Text: "会場を更新\n2行目", RequestedByName: "Bob"}},
 	)
-	for _, want := range []string{"- visibility: organizer", "`src1`", "raw/discord/channels/1/2026-11.md", "heading by heading", "## Requests", "> 2行目", "`venue` — Bob"} {
+	for _, want := range []string{"- visibility: organizer", "`src1`", "raw/discord/channels/1/2026-11.md", "heading by heading", "## Requests", "> 2行目", "`venue` — Bob", "`member` sources included"} {
 		if !strings.Contains(md, want) {
 			t.Fatalf("JOB.md missing %q:\n%s", want, md)
 		}
 	}
 	if strings.Contains(md, "Other") {
 		t.Fatalf("JOB.md lists a source with no documents in this batch:\n%s", md)
+	}
+}
+
+// The wiki requires a span for a `member` source on a restricted page (its readers may be
+// outside GDG). Telling the agent "narrower than member" left c-2's job in needs_review.
+func TestPromptsAskForSpansOnMemberSources(t *testing.T) {
+	for _, name := range []string{"synthesize", "acl-fix"} {
+		text := prompt(name)
+		if !strings.Contains(text, "`member` included") || strings.Contains(text, "narrower than `member`") {
+			t.Fatalf("%s prompt does not ask for spans on member sources:\n%s", name, text)
+		}
 	}
 }
 

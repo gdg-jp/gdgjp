@@ -7,8 +7,12 @@ Read `AGENTS.md` (the integration rules) and `JOB.md` (this job), then update `p
   agreements, on topic pages.
 - When sources disagree, keep both claims in an "未確認" (unconfirmed) block.
 - Never put personal contact details (phone, address, private email) in a page.
-- Anything taken from a source whose visibility is narrower than `member` must be wrapped in
-  `<acl src="<source id>">…</acl>`, using the id from `JOB.md` exactly.
+- Wrap everything taken from a source in `<acl src="<source id>">…</acl>`, using the id from
+  `JOB.md` exactly, whatever the source's visibility (`member` included): a space's pages are
+  also read by people outside GDG (guests, linked Discord servers), and the wiki hides each
+  span from readers who cannot see its source. The one exception: on a page whose
+  `visibility` is `member` or `organizer`, statements from `member` sources may stay
+  unwrapped. Where `AGENTS.md` says only narrower sources need spans, this rule wins.
 - Do not edit pages whose front matter says `origin: human`. Write the change you would make
   to the `log` page instead.
 - If `JOB.md` has `## Requests`, apply each one to its page. For each request, record the

@@ -167,7 +167,7 @@ func renderJobMD(space Space, sources []Source, documents []Document, paths map[
 		used[doc.SourceID] = true
 	}
 	if len(documents) > 0 {
-		b.WriteString("## Sources\n\nWrap anything taken from a source narrower than `member` in `<acl src=\"<id>\">…</acl>`.\n\n")
+		b.WriteString("## Sources\n\nWrap anything taken from a source in `<acl src=\"<id>\">…</acl>`, `member` sources included (only a page with visibility `member` / `organizer` may carry `member` sources unwrapped).\n\n")
 		for _, source := range sources {
 			if !used[source.ID] {
 				continue
