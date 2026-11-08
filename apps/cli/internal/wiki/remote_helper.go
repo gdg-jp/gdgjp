@@ -304,11 +304,23 @@ func (h *RemoteHelper) push(ctx context.Context, spec pushSpec) error {
 	// submitted in one server transaction. A Git push is one logical update;
 	// splitting it into page-sized requests allows an earlier page to remain
 	// committed when a later request fails.
+	// IDs derive from the pushed commit and the space, never the ref name: `git push origin
+	// HEAD:main` (the runner) passes "HEAD", which gave every space's new `log` page the same
+	// ID, and the second space to create one was refused with page_not_in_space.
+	commitID, err := h.gitOutput(ctx, "rev-parse", "--verify", spec.src+"^{commit}")
+	if err != nil {
+		return err
+	}
+	commitID = strings.TrimSpace(commitID)
+	space := ""
+	if h.Client != nil {
+		space = h.Client.Space
+	}
 	for key, entry := range pending {
 		if !strings.HasPrefix(key, "new:") {
 			continue
 		}
-		id := newPageID(spec.src, entry.Rel)
+		id := newPageID(space, commitID, entry.Rel)
 		entry.fm.ID = id
 		delete(pending, key)
 		delete(local, key)
@@ -391,8 +403,8 @@ func (h *RemoteHelper) push(ctx context.Context, spec pushSpec) error {
 	return err
 }
 
-func newPageID(commit, rel string) string {
-	digest := sha256.Sum256([]byte("gdg-wiki-page-v1\x00" + commit + "\x00" + filepath.ToSlash(rel)))
+func newPageID(space, commit, rel string) string {
+	digest := sha256.Sum256([]byte("gdg-wiki-page-v2\x00" + space + "\x00" + commit + "\x00" + filepath.ToSlash(rel)))
 	return hex.EncodeToString(digest[:16])
 }
 

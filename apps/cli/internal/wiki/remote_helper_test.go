@@ -237,7 +237,9 @@ func TestRemoteHelperPushBatchesChangedPagesAndNewHierarchy(t *testing.T) {
 
 	var request SyncRequest
 	syncCalls := 0
-	helper.Stdin = strings.NewReader("push " + tip + ":refs/heads/main\n\n")
+	// Pushed by ref name, as the runner does (`git push origin HEAD:main`): new page IDs must
+	// come from the commit, or every space's new `log` page would get the same ID.
+	helper.Stdin = strings.NewReader("push HEAD:refs/heads/main\n\n")
 	helper.Stdout = new(bytes.Buffer)
 	helper.Sync = func(_ context.Context, _ string, value SyncRequest) (SyncResult, error) {
 		syncCalls++
@@ -262,8 +264,14 @@ func TestRemoteHelperPushBatchesChangedPagesAndNewHierarchy(t *testing.T) {
 	if child.ID == "" || child.ParentID == nil || *child.ParentID != parentID {
 		t.Fatalf("new child identity = %#v", child)
 	}
-	if parentID != newPageID(tip, "guides") || child.ID != newPageID(tip, filepath.Join("guides", "child")) {
+	if parentID != newPageID("", tip, "guides") || child.ID != newPageID("", tip, filepath.Join("guides", "child")) {
 		t.Fatalf("new page IDs are not stable for commit %s", tip)
+	}
+}
+
+func TestNewPageIDDiffersBySpace(t *testing.T) {
+	if newPageID("c-1", "abc", "log") == newPageID("c-2", "abc", "log") {
+		t.Fatal("two spaces got the same ID for a new page")
 	}
 }
 
