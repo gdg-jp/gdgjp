@@ -5,6 +5,7 @@ import { stepAssets } from "./steps/assets";
 import { stepContent } from "./steps/content";
 import { stepEnumerate } from "./steps/enumerate";
 import { completeDriveImport, stepFinalizing } from "./steps/finalize";
+import { stepListing } from "./steps/listing";
 import { stepMetadata } from "./steps/metadata";
 import { stepRewrite } from "./steps/rewrite";
 
@@ -21,6 +22,7 @@ export {
 
 export const DRIVE_PHASES = [
   "metadata",
+  "listing",
   "enumerate",
   "content",
   "assets",
@@ -37,6 +39,7 @@ export const driveImportDriver: ImportKindDriver<DriveImportPhase> = {
   authorizationErrorMessage: GOOGLE_DRIVE_REAUTH_MESSAGE,
   async step(phase: DriveImportPhase, ctx: SourceImportTickContext, current: CurrentSourceImport) {
     if (phase === "metadata") return stepMetadata(ctx, current);
+    if (phase === "listing") return stepListing(ctx, current);
     if (phase === "enumerate") return stepEnumerate(ctx, current);
     if (phase === "content") return stepContent(ctx, current);
     if (phase === "assets") return stepAssets(ctx, current);

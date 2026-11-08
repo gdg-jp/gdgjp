@@ -1,4 +1,3 @@
-import { DatabaseSync } from "node:sqlite";
 import { eq } from "drizzle-orm";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import * as schema from "../../../../../app/db/schema";
@@ -6,7 +5,7 @@ import { saveChatSenderName } from "../../chat-sender-registry";
 import { GOOGLE_CHAT_REAUTH_MESSAGE } from "../../google-chat";
 import { sha256Hex } from "../../persist";
 import { createSourcesTestDb } from "../../test-db";
-import { ensureSourceImportDoSchema } from "../do-store";
+import { memorySql } from "../test-do-sql";
 
 const { db, sqlite, setAfterExecute } = createSourcesTestDb();
 const start = vi.fn();
@@ -40,69 +39,6 @@ import { advanceSourceImportTick } from "../tick";
 import { CHAT_PAGE_SIZE, SENDERS_FLUSH_BATCH_SIZE } from "./phases";
 
 const SOURCE_ID = "chat-source-1";
-
-function memorySql(seed?: (database: DatabaseSync) => void): SqlStorage {
-  const sqliteDb = new DatabaseSync(":memory:");
-  const api = {
-    exec<T extends Record<string, SqlStorageValue>>(query: string, ...binds: unknown[]) {
-      const trimmed = query.trim().toUpperCase();
-      if (
-        trimmed.startsWith("SELECT") ||
-        trimmed.startsWith("WITH") ||
-        trimmed.startsWith("PRAGMA")
-      ) {
-        const rows = sqliteDb.prepare(query).all(...(binds as never[])) as T[];
-        return {
-          toArray: () => rows,
-          one: () => {
-            if (rows.length !== 1) throw new Error(`Expected 1 row, got ${rows.length}`);
-            return rows[0] as T;
-          },
-          raw: () => rows.map((row) => Object.values(row)),
-          columnNames: rows[0] ? Object.keys(rows[0]) : [],
-          rowsWritten: 0,
-          rowsRead: rows.length,
-          [Symbol.iterator]: function* () {
-            yield* rows;
-          },
-        };
-      }
-      // Multi-statement schema bootstrap from ensureSourceImportDoSchema.
-      if (query.includes("CREATE TABLE")) {
-        sqliteDb.exec(query);
-        return {
-          toArray: () => [] as T[],
-          one: () => {
-            throw new Error("no rows");
-          },
-          raw: () => [],
-          columnNames: [],
-          rowsWritten: 0,
-          rowsRead: 0,
-          [Symbol.iterator]: function* () {},
-        };
-      }
-      const result = sqliteDb.prepare(query).run(...(binds as never[]));
-      return {
-        toArray: () => [] as T[],
-        one: () => {
-          throw new Error("no rows");
-        },
-        raw: () => [],
-        columnNames: [],
-        rowsWritten: result.changes,
-        rowsRead: 0,
-        [Symbol.iterator]: function* () {},
-      };
-    },
-    get databaseSize() {
-      return 0;
-    },
-  };
-  ensureSourceImportDoSchema(api as unknown as SqlStorage);
-  seed?.(sqliteDb);
-  return api as unknown as SqlStorage;
-}
 
 async function source() {
   const row = await db.select().from(schema.sources).where(eq(schema.sources.id, SOURCE_ID)).get();

@@ -2,6 +2,7 @@ export type SourceKind =
   | "google-doc"
   | "google-sheet"
   | "google-slides"
+  | "google-drive-folder"
   | "google-chat-space"
   | "discord-channel"
   | "discord-guild"

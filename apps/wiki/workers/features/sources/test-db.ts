@@ -135,6 +135,12 @@ export function createSourcesTestDb() {
   sqlite.exec(
     readFileSync(new URL("../../../migrations/0063_sources_v2.sql", import.meta.url), "utf8"),
   );
+  sqlite.exec(
+    readFileSync(
+      new URL("../../../migrations/0069_drive_folder_source_kind.sql", import.meta.url),
+      "utf8",
+    ),
+  );
 
   const execute = async (
     sql: string,

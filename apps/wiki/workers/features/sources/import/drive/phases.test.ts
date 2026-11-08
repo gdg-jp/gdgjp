@@ -51,6 +51,7 @@ describe("spreadsheetUnitDescriptors", () => {
 it("keeps every Drive phase reachable in order", () => {
   expect(DRIVE_PHASES).toEqual([
     "metadata",
+    "listing",
     "enumerate",
     "content",
     "assets",

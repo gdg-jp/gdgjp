@@ -627,60 +627,6 @@ CREATE TRIGGER page_access_sync_revision_update AFTER UPDATE ON page_access
 BEGIN UPDATE pages SET sync_revision = sync_revision + 1 WHERE id = NEW.page_id; END;
 CREATE TRIGGER page_access_sync_revision_delete AFTER DELETE ON page_access
 BEGIN UPDATE pages SET sync_revision = sync_revision + 1 WHERE id = OLD.page_id; END;
-CREATE TABLE IF NOT EXISTS "sources" (
-  "id"                 TEXT NOT NULL PRIMARY KEY,
-  "kind"               TEXT NOT NULL
-                       CHECK ("kind" IN (
-                         'google-doc',
-                         'google-sheet',
-                         'google-slides',
-                         'google-chat-space',
-                         'discord-channel',
-                         'discord-guild',
-                         'website',
-                         'upload',
-                         'text',
-                         'conversation'
-                       )),
-  "external_id"        TEXT,
-  "url"                TEXT NOT NULL,
-  "title"              TEXT NOT NULL,
-  "chapter_id"         TEXT,
-  "added_by"           TEXT NOT NULL REFERENCES "user"("id"),
-  "status"             TEXT NOT NULL DEFAULT 'pending'
-                       CHECK ("status" IN ('pending', 'fetching', 'ready', 'error', 'archived')),
-  "refresh_policy"     TEXT NOT NULL DEFAULT 'manual'
-                       CHECK ("refresh_policy" IN ('manual', 'hourly', 'daily', 'weekly')),
-  "last_fetched_at"    INTEGER,
-  "error_message"      TEXT,
-  "created_at"         INTEGER NOT NULL DEFAULT (unixepoch()),
-  "updated_at"         INTEGER NOT NULL DEFAULT (unixepoch()),
-  "fetch_attempt_id"   TEXT,
-  "visibility"         TEXT NOT NULL DEFAULT 'member'
-                       CHECK ("visibility" IN (
-                         'private',
-                         'member',
-                         'organizer',
-                         'chapter-member',
-                         'chapter-organizer'
-                       )),
-  "space_id"           TEXT NOT NULL DEFAULT 'gdg-jp',
-  -- Kind-specific JSON settings (discord-guild: channel selection rules).
-  "config"             TEXT,
-  -- When the runner last folded this source's documents into pages (Stage 04).
-  "last_integrated_at" INTEGER,
-  CHECK (
-    ("visibility" IN ('chapter-member', 'chapter-organizer')) = ("chapter_id" IS NOT NULL)
-  )
-);
-CREATE INDEX "idx_sources_status" ON "sources" ("status");
-CREATE INDEX "idx_sources_chapter_id" ON "sources" ("chapter_id");
-CREATE INDEX "idx_sources_added_by" ON "sources" ("added_by");
-CREATE INDEX "idx_sources_refresh_policy" ON "sources" ("refresh_policy", "status");
-CREATE INDEX "idx_sources_visibility" ON "sources" ("visibility", "chapter_id");
-CREATE INDEX "idx_sources_space" ON "sources" ("space_id", "status");
-CREATE UNIQUE INDEX "idx_sources_owner_kind_external_id"
-  ON "sources" ("space_id", "added_by", "kind", "external_id") WHERE "external_id" IS NOT NULL;
 CREATE TABLE IF NOT EXISTS "source_import_runs" (
   "id" TEXT NOT NULL PRIMARY KEY,
   "source_id" TEXT NOT NULL UNIQUE REFERENCES "sources"("id") ON DELETE CASCADE,
@@ -696,12 +642,6 @@ CREATE TABLE IF NOT EXISTS "source_import_runs" (
   "created_at" INTEGER NOT NULL DEFAULT (unixepoch()),
   "updated_at" INTEGER NOT NULL DEFAULT (unixepoch())
 );
-CREATE TRIGGER page_sources_sync_revision_insert AFTER INSERT ON page_sources
-BEGIN UPDATE pages SET sync_revision = sync_revision + 1 WHERE id = NEW.page_id; END;
-CREATE TRIGGER page_sources_sync_revision_update AFTER UPDATE ON page_sources
-BEGIN UPDATE pages SET sync_revision = sync_revision + 1 WHERE id = NEW.page_id; END;
-CREATE TRIGGER page_sources_sync_revision_delete AFTER DELETE ON page_sources
-BEGIN UPDATE pages SET sync_revision = sync_revision + 1 WHERE id = OLD.page_id; END;
 CREATE TABLE IF NOT EXISTS "agent_jobs" (
   "id"          TEXT NOT NULL PRIMARY KEY,
   "type"        TEXT NOT NULL CHECK ("type" IN ('synthesize', 'answer', 'consolidate', 'translate')),
@@ -773,3 +713,64 @@ CREATE TABLE IF NOT EXISTS "freshness_samples" (
   "sampled_at" INTEGER NOT NULL DEFAULT (unixepoch())
 );
 CREATE INDEX "idx_freshness_samples_kind_time" ON "freshness_samples" ("kind", "sampled_at");
+CREATE TABLE IF NOT EXISTS "sources" (
+  "id"                 TEXT NOT NULL PRIMARY KEY,
+  "kind"               TEXT NOT NULL
+                       CHECK ("kind" IN (
+                         'google-doc',
+                         'google-sheet',
+                         'google-slides',
+                         'google-drive-folder',
+                         'google-chat-space',
+                         'discord-channel',
+                         'discord-guild',
+                         'website',
+                         'upload',
+                         'text',
+                         'conversation'
+                       )),
+  "external_id"        TEXT,
+  "url"                TEXT NOT NULL,
+  "title"              TEXT NOT NULL,
+  "chapter_id"         TEXT,
+  "added_by"           TEXT NOT NULL REFERENCES "user"("id"),
+  "status"             TEXT NOT NULL DEFAULT 'pending'
+                       CHECK ("status" IN ('pending', 'fetching', 'ready', 'error', 'archived')),
+  "refresh_policy"     TEXT NOT NULL DEFAULT 'manual'
+                       CHECK ("refresh_policy" IN ('manual', 'hourly', 'daily', 'weekly')),
+  "last_fetched_at"    INTEGER,
+  "error_message"      TEXT,
+  "created_at"         INTEGER NOT NULL DEFAULT (unixepoch()),
+  "updated_at"         INTEGER NOT NULL DEFAULT (unixepoch()),
+  "fetch_attempt_id"   TEXT,
+  "visibility"         TEXT NOT NULL DEFAULT 'member'
+                       CHECK ("visibility" IN (
+                         'private',
+                         'member',
+                         'organizer',
+                         'chapter-member',
+                         'chapter-organizer'
+                       )),
+  "space_id"           TEXT NOT NULL DEFAULT 'gdg-jp',
+  -- Kind-specific JSON settings (discord-guild: channel selection rules).
+  "config"             TEXT,
+  -- When the runner last folded this source's documents into pages (Stage 04).
+  "last_integrated_at" INTEGER,
+  CHECK (
+    ("visibility" IN ('chapter-member', 'chapter-organizer')) = ("chapter_id" IS NOT NULL)
+  )
+);
+CREATE INDEX "idx_sources_status" ON "sources" ("status");
+CREATE INDEX "idx_sources_chapter_id" ON "sources" ("chapter_id");
+CREATE INDEX "idx_sources_added_by" ON "sources" ("added_by");
+CREATE INDEX "idx_sources_refresh_policy" ON "sources" ("refresh_policy", "status");
+CREATE INDEX "idx_sources_visibility" ON "sources" ("visibility", "chapter_id");
+CREATE INDEX "idx_sources_space" ON "sources" ("space_id", "status");
+CREATE UNIQUE INDEX "idx_sources_owner_kind_external_id"
+  ON "sources" ("space_id", "added_by", "kind", "external_id") WHERE "external_id" IS NOT NULL;
+CREATE TRIGGER page_sources_sync_revision_insert AFTER INSERT ON page_sources
+BEGIN UPDATE pages SET sync_revision = sync_revision + 1 WHERE id = NEW.page_id; END;
+CREATE TRIGGER page_sources_sync_revision_update AFTER UPDATE ON page_sources
+BEGIN UPDATE pages SET sync_revision = sync_revision + 1 WHERE id = NEW.page_id; END;
+CREATE TRIGGER page_sources_sync_revision_delete AFTER DELETE ON page_sources
+BEGIN UPDATE pages SET sync_revision = sync_revision + 1 WHERE id = OLD.page_id; END;

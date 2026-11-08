@@ -3,7 +3,6 @@
 Google integrations: Drive, Docs, Forms, Chat, Picker, plus the Docs-import feature in `documents/`.
 
 - `drive.server.ts` / `drive-token.server.ts` / `drive-utils.ts` — Drive REST + OAuth token rows + kind detection.
-- `drive-folder.server.ts` — recursive folder listing (Docs / Sheets / Slides under a picked folder) for the add-source panel (`/api/google-drive/folder-files`).
 - `docs-markdown.server.ts` — Google Docs JSON → Markdown.
 - `forms.server.ts` / `forms-utils.ts` / `survey-stats.server.ts` — Forms fetch + survey aggregation.
 - `chat.server.ts` — Google Chat spaces/messages.

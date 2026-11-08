@@ -8,6 +8,14 @@ import { InvalidPdfExportError } from "./pdf";
 export const DOC_MIME = "application/vnd.google-apps.document";
 export const SHEET_MIME = "application/vnd.google-apps.spreadsheet";
 export const SLIDES_MIME = "application/vnd.google-apps.presentation";
+export const FOLDER_MIME = "application/vnd.google-apps.folder";
+export const SHORTCUT_MIME = "application/vnd.google-apps.shortcut";
+/** File MIME types a Drive source imports (a folder source imports these beneath it). */
+export const IMPORTABLE_FILE_MIMES: ReadonlySet<string> = new Set([
+  DOC_MIME,
+  SHEET_MIME,
+  SLIDES_MIME,
+]);
 export const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
 /** Unofficial per-gid sheet PDF exports are rate-limited; retry before giving up. */
 export const MAX_SHEET_PDF_ATTEMPTS = 5;
@@ -26,7 +34,26 @@ export interface DriveUnit {
   body_r2_key: string | null;
   status: string;
   sort_index: number;
+  /** The Drive file this unit comes from; null = the source's own file (runs before folders). */
+  file_id: string | null;
 }
+
+/** One Drive file a run imports: the source's own file, or one file under a folder source. */
+export interface DriveFile {
+  [key: string]: SqlStorageValue;
+  id: number;
+  file_id: string;
+  mime_type: string;
+  title: string;
+  /** "" for a single-file source; `<sub-folders>/<file>/` under a folder source. */
+  path_prefix: string;
+  json_key: string | null;
+  enumerate_index: number;
+  status: string;
+}
+
+/** Units of one file sort together, in Drive listing order (file row id). */
+export const FILE_SORT_STRIDE = 1_000_000;
 
 export interface DriveImage {
   [key: string]: SqlStorageValue;
@@ -57,6 +84,11 @@ export function fileId(current: CurrentSourceImport): string {
   return current.source.externalId || extractFileId(current.source.url);
 }
 
+/** The Drive file a unit's content is fetched from. */
+export function unitFileId(unit: DriveUnit, current: CurrentSourceImport): string {
+  return unit.file_id || fileId(current);
+}
+
 export function driveMetadataUrl(id: string): string {
   return driveFilesUrl(id, { fields: "name,mimeType" });
 }
@@ -65,20 +97,22 @@ export function expectedKind(mimeType: string): string {
   if (mimeType === DOC_MIME) return "google-doc";
   if (mimeType === SHEET_MIME) return "google-sheet";
   if (mimeType === SLIDES_MIME) return "google-slides";
+  if (mimeType === FOLDER_MIME) return "google-drive-folder";
   throw new Error(`Unsupported Google Drive MIME type: ${mimeType}`);
 }
 
 export function insertUnit(
   sql: SqlStorage,
-  unit: Omit<DriveUnit, "id" | "body_r2_key" | "status"> & {
+  unit: Omit<DriveUnit, "id" | "body_r2_key" | "status" | "file_id"> & {
     bodyR2Key?: string | null;
     status?: string;
+    fileId?: string | null;
   },
 ): number {
   sql.exec(
     `INSERT OR IGNORE INTO drive_units
-      (unit_kind, path, title, gid, media_type, body_r2_key, status, sort_index)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      (unit_kind, path, title, gid, media_type, body_r2_key, status, sort_index, file_id)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     unit.unit_kind,
     unit.path,
     unit.title,
@@ -87,6 +121,7 @@ export function insertUnit(
     unit.bodyR2Key ?? null,
     unit.status ?? "pending",
     unit.sort_index,
+    unit.fileId ?? null,
   );
   const row = sql
     .exec<{ id: number }>("SELECT id FROM drive_units WHERE sort_index = ?", unit.sort_index)

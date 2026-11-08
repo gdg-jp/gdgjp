@@ -9,12 +9,12 @@ import {
   type ContentPdfResult,
   type DriveUnit,
   MAX_SHEET_PDF_ATTEMPTS,
-  fileId,
   isSkippablePdfExport,
   pendingUnits,
   requireToken,
   sheetPdfRetryDelayMs,
   stageBody,
+  unitFileId,
 } from "../drive-import-shared";
 import { PdfExportHttpError, fetchValidatedPdf, spreadsheetSheetPdfUrl } from "../pdf";
 import { sheetRange, sheetValuesToMarkdown } from "../sheets";
@@ -22,8 +22,18 @@ import { sheetRange, sheetValuesToMarkdown } from "../sheets";
 async function contentSheetMarkdown(ctx: SourceImportTickContext, current: CurrentSourceImport) {
   const capacity = Math.min(10, Math.max(0, ctx.budget.remaining() - 1));
   if (capacity === 0) return false;
-  const units = pendingUnits(ctx.sql, "sheet-md", capacity);
-  if (!units.length) return true;
+  // One values:batchGet reads one spreadsheet, so a batch is the next file's pending sheets.
+  const first = pendingUnits(ctx.sql, "sheet-md", 1)[0];
+  if (!first) return true;
+  const units = ctx.sql
+    .exec<DriveUnit>(
+      `SELECT * FROM drive_units WHERE status = 'pending' AND unit_kind = 'sheet-md'
+         AND file_id IS ? ORDER BY sort_index LIMIT ?`,
+      first.file_id,
+      capacity,
+    )
+    .toArray();
+  const spreadsheetId = unitFileId(first, current);
   const params = new URLSearchParams({
     majorDimension: "ROWS",
     valueRenderOption: "FORMATTED_VALUE",
@@ -31,7 +41,7 @@ async function contentSheetMarkdown(ctx: SourceImportTickContext, current: Curre
   for (const unit of units) params.append("ranges", sheetRange(unit.title));
   ctx.budget.spend(1);
   const response = await fetch(
-    `https://sheets.googleapis.com/v4/spreadsheets/${encodeURIComponent(fileId(current))}/values:batchGet?${params}`,
+    `https://sheets.googleapis.com/v4/spreadsheets/${encodeURIComponent(spreadsheetId)}/values:batchGet?${params}`,
     { headers: { Authorization: `Bearer ${requireToken(ctx)}` } },
   );
   if (!response.ok) {
@@ -73,8 +83,8 @@ async function contentPdf(
 ): Promise<ContentPdfResult> {
   const url =
     unit.unit_kind === "sheet-pdf"
-      ? spreadsheetSheetPdfUrl(fileId(current), unit.gid || "0")
-      : `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(fileId(current))}/export?mimeType=application%2Fpdf`;
+      ? spreadsheetSheetPdfUrl(unitFileId(unit, current), unit.gid || "0")
+      : `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(unitFileId(unit, current))}/export?mimeType=application%2Fpdf`;
   ctx.budget.spend(1);
   try {
     const body = await fetchValidatedPdf(url, requireToken(ctx));
@@ -123,7 +133,7 @@ async function contentSlidesMarkdown(
 ): Promise<void> {
   ctx.budget.spend(1);
   const response = await fetch(
-    `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(fileId(current))}/export?mimeType=text%2Fplain`,
+    `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(unitFileId(unit, current))}/export?mimeType=text%2Fplain`,
     { headers: { Authorization: `Bearer ${requireToken(ctx)}` } },
   );
   if (!response.ok) {

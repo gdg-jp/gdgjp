@@ -48,9 +48,10 @@ export async function stepFinalizing(ctx: SourceImportTickContext, current: Curr
     metaSet(ctx.sql, "drive_finalize_index", String(index));
   }
   // The tick engine calls complete immediately after the last phase. Reserve its
-  // reconciliation + final D1 mutations instead of crossing the soft limit.
+  // reconciliation + final D1 mutations + one batched staging delete instead of crossing
+  // the soft limit.
   return {
-    phaseComplete: index >= units.length && ctx.budget.canSpend(ARCHIVE_MISSING_SUBREQUESTS + 2),
+    phaseComplete: index >= units.length && ctx.budget.canSpend(ARCHIVE_MISSING_SUBREQUESTS + 3),
   };
 }
 
@@ -105,15 +106,22 @@ export async function completeDriveImport(
     )
     .toArray()
     .map((row) => row.body_r2_key);
+  for (const row of ctx.sql
+    .exec<{ json_key: string }>("SELECT json_key FROM drive_files WHERE json_key IS NOT NULL")
+    .toArray()) {
+    stagedKeys.push(row.json_key);
+  }
+  // Runs started before drive_files staged the document JSON under this meta key.
   const sourceJsonKey = metaGet(ctx.sql, "drive_source_json_key");
   if (sourceJsonKey) stagedKeys.push(sourceJsonKey);
-  for (const key of new Set(stagedKeys)) {
-    if (!ctx.budget.canSpend(1)) break;
+  // One R2 delete call takes up to 1,000 keys; a folder source can stage hundreds per run.
+  const keys = [...new Set(stagedKeys)];
+  for (let i = 0; i < keys.length && ctx.budget.canSpend(1); i += 1000) {
     ctx.budget.spend(1);
     try {
-      await ctx.env.BUCKET.delete(key);
+      await ctx.env.BUCKET.delete(keys.slice(i, i + 1000));
     } catch (error) {
-      console.warn("[sources] unable to delete Drive import staging object", key, error);
+      console.warn("[sources] unable to delete Drive import staging objects", error);
       break;
     }
   }

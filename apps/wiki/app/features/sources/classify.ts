@@ -1,4 +1,9 @@
-import { getGoogleDriveDocumentKind, isGoogleDriveUrl } from "~/features/google/drive-utils";
+import {
+  getGoogleDriveDocumentKind,
+  googleDriveFolderIdFromUrl,
+  googleDriveFolderUrl,
+  isGoogleDriveUrl,
+} from "~/features/google/drive-utils";
 import { isGoogleFormUrl } from "~/features/google/forms-utils";
 import type { SourceKind } from "~/features/sources/shared";
 
@@ -53,6 +58,17 @@ export function classifySourceUrl(raw: string, title?: unknown): ClassifiedSourc
 
   if (isGoogleFormUrl(href)) {
     return { ok: false, error: "unsupported_url" };
+  }
+
+  const folderId = googleDriveFolderIdFromUrl(href);
+  if (folderId) {
+    return {
+      ok: true,
+      kind: "google-drive-folder",
+      url: googleDriveFolderUrl(folderId),
+      externalId: folderId,
+      ...(typeof title === "string" && title.trim() ? { title: title.trim() } : {}),
+    };
   }
 
   if (isGoogleDriveUrl(href)) {

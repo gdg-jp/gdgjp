@@ -20,7 +20,6 @@ export default [
   route("/api/google-drive/auth", "routes/api/google/drive-auth.ts"),
   route("/api/google-drive/callback", "routes/api/google/drive-callback.ts"),
   route("/api/google-chat/spaces", "routes/api/google/chat-spaces.ts"),
-  route("/api/google-drive/folder-files", "routes/api/google/drive-folder-files.ts"),
   route("/api/discord/auth", "routes/api/discord/auth.ts"),
   route("/api/discord/callback", "routes/api/discord/callback.ts"),
   route("/api/discord/guilds", "routes/api/discord/guilds.ts"),

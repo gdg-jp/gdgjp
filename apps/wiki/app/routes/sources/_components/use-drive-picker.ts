@@ -10,8 +10,6 @@ import {
   sourceUrlFromGoogleDocument,
 } from "~/features/sources/staged-candidates";
 
-type FolderListing = { files: GooglePickerDocument[]; truncated: boolean };
-
 function toCandidate(document: GooglePickerDocument): StagedSource | null {
   const url = sourceUrlFromGoogleDocument(document);
   if (!url) return null;
@@ -23,87 +21,33 @@ function toCandidate(document: GooglePickerDocument): StagedSource | null {
   };
 }
 
-async function listFolderFiles(folderIds: string[]): Promise<FolderListing | "not_connected"> {
-  const params = new URLSearchParams(folderIds.map((id) => ["folderId", id]));
-  const response = await fetch(`/api/google-drive/folder-files?${params}`, {
-    credentials: "same-origin",
-  });
-  if (response.status === 401) return "not_connected";
-  const body = (await response.json().catch(() => null)) as FolderListing | null;
-  if (!response.ok || !body || !Array.isArray(body.files)) {
-    throw new Error("folder_list_failed");
-  }
-  return body;
-}
-
 /**
- * The add-source panel's Google Drive button: opens the Picker (files and folders), expands
- * picked folders into every Docs / Sheets / Slides file beneath them, and stages the result.
- * Files already registered in the space are skipped; a folder only reports them when nothing
- * new was left to add.
+ * The add-source panel's Google Drive button: opens the Picker and stages each picked Docs /
+ * Sheets / Slides file — or folder, which becomes one source holding every such file beneath
+ * it under the folder's own paths — as a candidate.
  */
 export function useDrivePicker({
-  registeredCandidateIds,
   addCandidates,
   onNeedsConnection,
 }: {
-  registeredCandidateIds: ReadonlySet<string>;
   addCandidates: (next: StagedSource[]) => boolean;
   onNeedsConnection: () => void;
 }) {
   const { t } = useTranslation();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [notice, setNotice] = useState<string | null>(null);
 
-  async function stagePicked(documents: GooglePickerDocument[]) {
-    const folderIds = documents
-      .filter((document) => document.mimeType === DRIVE_FOLDER_MIME_TYPE)
-      .map((document) => document.id);
-    const picked = documents.filter((document) => document.mimeType !== DRIVE_FOLDER_MIME_TYPE);
-    let truncated = false;
-    if (folderIds.length > 0) {
-      const listing = await listFolderFiles(folderIds);
-      if (listing === "not_connected") {
-        onNeedsConnection();
-        return;
-      }
-      picked.push(...listing.files);
-      truncated = listing.truncated;
-    }
-
-    const candidates = picked.flatMap((document) => toCandidate(document) ?? []);
+  function stagePicked(documents: GooglePickerDocument[]) {
+    const candidates = documents.flatMap((document) => toCandidate(document) ?? []);
     if (candidates.length === 0) {
-      setError(
-        t(
-          folderIds.length > 0
-            ? "sources.error_empty_folder"
-            : "sources.error_unsupported_document",
-        ),
-      );
-      return;
-    }
-    const fresh = candidates.filter((candidate) => !registeredCandidateIds.has(candidate.id));
-    if (fresh.length === 0) {
+      setError(t("sources.error_unsupported_document"));
+    } else if (addCandidates(candidates)) {
       setError(t("sources.error_duplicate_source"));
-      return;
     }
-    addCandidates(fresh);
-    const skipped = candidates.length - fresh.length;
-    const notes = [
-      folderIds.length > 0 ? t("sources.folder_staged", { count: fresh.length }) : null,
-      skipped > 0 && folderIds.length > 0
-        ? t("sources.folder_skipped_registered", { count: skipped })
-        : null,
-      truncated ? t("sources.folder_truncated") : null,
-    ].filter(Boolean);
-    if (skipped > 0 && folderIds.length === 0) setError(t("sources.error_duplicate_source"));
-    setNotice(notes.length > 0 ? notes.join(" ") : null);
   }
 
   async function open() {
     setError(null);
-    setNotice(null);
     setLoading(true);
     try {
       const response = await fetch("/api/google-documents/picker-token", {
@@ -133,15 +77,8 @@ export function useDrivePicker({
         .addView(view)
         .enableFeature(picker.Feature.MULTISELECT_ENABLED)
         .setCallback((data) => {
-          if (data.action === picker.Action.PICKED) {
-            // Expanding folders is a round trip; keep the button busy until it is staged.
-            setLoading(true);
-            stagePicked(data.docs ?? [])
-              .catch(() => setError(t("sources.error_folder_list")))
-              .finally(() => setLoading(false));
-          } else {
-            setLoading(false);
-          }
+          if (data.action === picker.Action.PICKED) stagePicked(data.docs ?? []);
+          setLoading(false);
         })
         .build()
         .setVisible(true);
@@ -151,5 +88,5 @@ export function useDrivePicker({
     }
   }
 
-  return { open, loading, error, notice };
+  return { open, loading, error };
 }

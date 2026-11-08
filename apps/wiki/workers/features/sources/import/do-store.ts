@@ -62,7 +62,26 @@ export function ensureSourceImportDoSchema(sql: SqlStorage): void {
       media_type TEXT NOT NULL,
       body_r2_key TEXT,
       status TEXT NOT NULL DEFAULT 'pending',
-      sort_index INTEGER NOT NULL
+      sort_index INTEGER NOT NULL,
+      file_id TEXT
+    );
+    -- Drive files a run imports: the source's own file, or every file under a folder source.
+    CREATE TABLE IF NOT EXISTS drive_files (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      file_id TEXT NOT NULL UNIQUE,
+      mime_type TEXT NOT NULL,
+      title TEXT NOT NULL,
+      path_prefix TEXT NOT NULL UNIQUE,
+      json_key TEXT,
+      enumerate_index INTEGER NOT NULL DEFAULT 0,
+      status TEXT NOT NULL DEFAULT 'pending'
+    );
+    -- Folder-source listing queue (breadth-first); path is relative to the source folder.
+    CREATE TABLE IF NOT EXISTS drive_folders (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      folder_id TEXT NOT NULL UNIQUE,
+      path TEXT NOT NULL UNIQUE,
+      status TEXT NOT NULL DEFAULT 'pending'
     );
     CREATE TABLE IF NOT EXISTS drive_images (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -88,4 +107,9 @@ export function ensureSourceImportDoSchema(sql: SqlStorage): void {
       value TEXT NOT NULL
     );
   `);
+  // A run started before drive_units.file_id existed keeps its table across a deploy.
+  const driveUnitColumns = sql.exec<{ name: string }>("PRAGMA table_info(drive_units)").toArray();
+  if (!driveUnitColumns.some((column) => column.name === "file_id")) {
+    sql.exec("ALTER TABLE drive_units ADD COLUMN file_id TEXT");
+  }
 }

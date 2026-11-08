@@ -45,7 +45,6 @@ export function AddSourceSection({
   } = useSourceStaging(sources);
   const [needsDriveConnection, setNeedsDriveConnection] = useState(false);
   const drivePicker = useDrivePicker({
-    registeredCandidateIds,
     addCandidates,
     onNeedsConnection: () => setNeedsDriveConnection(true),
   });
@@ -266,9 +265,6 @@ export function AddSourceSection({
           </div>
         ) : null}
         {drivePicker.error ? <p className="mt-2 text-sm text-danger">{drivePicker.error}</p> : null}
-        {drivePicker.notice ? (
-          <p className="mt-2 text-sm text-muted">{drivePicker.notice}</p>
-        ) : null}
         {needsChatReauth ? (
           <div className="mt-3 flex items-center gap-3 rounded-md border border-warning bg-[var(--gdg-warning-surface)] p-3 text-sm text-warning">
             <span>{t("sources.chat_reauth_hint")}</span>

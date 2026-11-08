@@ -1,3 +1,4 @@
+import { googleDriveFolderUrl } from "~/features/google/drive-utils";
 import type { GooglePickerDocument } from "~/features/google/picker.client";
 import { type StagedSource, registrationSpec } from "./kinds";
 
@@ -55,6 +56,8 @@ export function sourceUrlFromGoogleDocument(document: GooglePickerDocument): str
       return `https://docs.google.com/presentation/d/${document.id}/edit`;
     case "application/vnd.google-apps.spreadsheet":
       return `https://docs.google.com/spreadsheets/d/${document.id}/edit`;
+    case DRIVE_FOLDER_MIME_TYPE:
+      return googleDriveFolderUrl(document.id);
     default:
       return null;
   }

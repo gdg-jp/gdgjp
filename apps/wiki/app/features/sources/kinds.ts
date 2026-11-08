@@ -54,7 +54,11 @@ function hostnameOr(url: string): string {
   }
 }
 
-function driveKind(kind: SourceKind, labelKey: string): SourceKindSpec {
+function driveKind(
+  kind: SourceKind,
+  labelKey: string,
+  fallbackTitle: (externalId: string) => string = (id) => `Google Doc ${id}`,
+): SourceKindSpec {
   return {
     kind,
     driver: "google-drive",
@@ -62,7 +66,7 @@ function driveKind(kind: SourceKind, labelKey: string): SourceKindSpec {
     refreshPolicies: SCHEDULED,
     defaultRefreshPolicy: "manual",
     candidateId: (externalId) => `drive:${externalId}`,
-    provisionalTitle: (c) => c.title ?? `Google Doc ${c.externalId}`,
+    provisionalTitle: (c) => c.title ?? fallbackTitle(c.externalId ?? ""),
     labelKey,
   };
 }
@@ -84,6 +88,13 @@ export const SOURCE_KINDS: Record<SourceKind, SourceKindSpec> = {
   "google-doc": driveKind("google-doc", "sources.kind.google-doc"),
   "google-sheet": driveKind("google-sheet", "sources.kind.google-sheet"),
   "google-slides": driveKind("google-slides", "sources.kind.google-slides"),
+  // One source for a whole folder: every Docs / Sheets / Slides file beneath it, sub-folders
+  // included, imported under the folder's own paths (`<sub>/<file>/<unit>`).
+  "google-drive-folder": driveKind(
+    "google-drive-folder",
+    "sources.kind.google-drive-folder",
+    (id) => `Google Drive folder ${id}`,
+  ),
   "google-chat-space": {
     kind: "google-chat-space",
     driver: "google-chat-space",
