@@ -181,20 +181,46 @@ async function stepChannels(ctx: DiscordImportTickContext, current: Current): Pr
     };
 
     let step = (metaGet(ctx.sql, "guild_channel_step") ?? "listing") as ChannelStep;
+    let unreadable = false;
     while (true) {
-      const outcome =
-        step === "listing"
-          ? await stepListing(channelCtx, channelCurrent)
-          : step === "attachments"
-            ? await stepAttachments(channelCtx, channelCurrent)
-            : step === "grouping"
-              ? await stepGrouping(channelCtx, channelCurrent)
-              : await stepFinalizing(channelCtx, channelCurrent);
+      let outcome: StepOutcome;
+      try {
+        outcome =
+          step === "listing"
+            ? await stepListing(channelCtx, channelCurrent)
+            : step === "attachments"
+              ? await stepAttachments(channelCtx, channelCurrent)
+              : step === "grouping"
+                ? await stepGrouping(channelCtx, channelCurrent)
+                : await stepFinalizing(channelCtx, channelCurrent);
+      } catch (error) {
+        // A whole-server source lists every text channel, including private ones the bot
+        // was never given. One such channel must not fail the server: skip it, keep its
+        // earlier documents, and import the rest.
+        if (step === "listing" && (error as Error).message === DISCORD_BOT_ACCESS_MESSAGE) {
+          unreadable = true;
+          break;
+        }
+        throw error;
+      }
       if (!outcome.phaseComplete) return outcome;
       const next = CHANNEL_STEPS[CHANNEL_STEPS.indexOf(step) + 1];
       if (!next) break;
       step = next;
       metaSet(ctx.sql, "guild_channel_step", step);
+    }
+
+    if (unreadable) {
+      await deleteRunTempObjects(channelCtx, current.source.id);
+      index += 1;
+      metaSet(ctx.sql, "guild_channel_index", String(index));
+      log("guild_channel_skipped", {
+        sourceId: current.source.id,
+        channelId: channel.channel_id,
+        name: channel.name,
+        reason: "bot_cannot_read",
+      });
+      continue;
     }
 
     // Channel done: remember its documents, drop its temporary R2 objects, move on.
