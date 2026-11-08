@@ -3,7 +3,7 @@ import { withUniqueNames } from "../../google-doc";
 import { googleDocsPathSegment } from "../../google-docs-workspace";
 import { MARKDOWN_MEDIA_TYPE, PDF_MEDIA_TYPE } from "../../media-type";
 import type { CurrentSourceImport, SourceImportTickContext } from "../run";
-import { InvalidPdfExportError } from "./pdf";
+import { InvalidPdfExportError, PdfTooLargeError } from "./pdf";
 
 export const DOC_MIME = "application/vnd.google-apps.document";
 export const SHEET_MIME = "application/vnd.google-apps.spreadsheet";
@@ -226,5 +226,8 @@ export function isSkippablePdfExport(
   unitKind: DriveUnitKind,
   error: unknown,
 ): error is InvalidPdfExportError {
+  // Too large to keep as a PDF: skip just that PDF (the Markdown of the same file still lands).
+  // Any other semantic failure is skipped only for the unofficial per-sheet export.
+  if (error instanceof PdfTooLargeError) return unitKind === "sheet-pdf" || unitKind === "file-pdf";
   return unitKind === "sheet-pdf" && error instanceof InvalidPdfExportError;
 }

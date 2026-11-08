@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   InvalidPdfExportError,
   PdfExportHttpError,
+  PdfTooLargeError,
   parseRetryAfterMs,
   spreadsheetSheetPdfUrl,
   validatedPdfBody,
@@ -10,6 +11,18 @@ import {
 const encoder = new TextEncoder();
 
 describe("validatedPdfBody", () => {
+  it("reports Drive's export size cap as too large, not as a failed request", async () => {
+    const body = JSON.stringify({
+      error: { code: 403, errors: [{ reason: "exportSizeLimitExceeded" }] },
+    });
+    await expect(validatedPdfBody(new Response(body, { status: 403 }))).rejects.toBeInstanceOf(
+      PdfTooLargeError,
+    );
+    await expect(
+      validatedPdfBody(new Response('{"error":{"code":403}}', { status: 403 })),
+    ).rejects.toBeInstanceOf(PdfExportHttpError);
+  });
+
   it("accepts a PDF response", async () => {
     const body = await validatedPdfBody(
       new Response(encoder.encode("%PDF-1.7\n"), {

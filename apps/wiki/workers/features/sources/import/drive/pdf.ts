@@ -7,6 +7,17 @@ export class InvalidPdfExportError extends Error {
   }
 }
 
+/**
+ * The file is too large to keep as a PDF: Google refuses the export (`exportSizeLimitExceeded`,
+ * Drive's export cap) or the body exceeds MAX_PDF_BYTES. The text of the file is still imported.
+ */
+export class PdfTooLargeError extends InvalidPdfExportError {
+  constructor(message: string) {
+    super(message);
+    this.name = "PdfTooLargeError";
+  }
+}
+
 export class PdfExportHttpError extends Error {
   readonly status: number;
   readonly retryAfterMs: number | null;
@@ -28,10 +39,16 @@ export function parseRetryAfterMs(header: string | null): number | null {
   return Math.max(0, asDate - Date.now());
 }
 
-function responseStatusError(response: Response, body: string): PdfExportHttpError {
+function responseStatusError(
+  response: Response,
+  body: string,
+): PdfExportHttpError | PdfTooLargeError {
   const redirectedToLogin = response.url.includes("accounts.google.com");
   const suffix = body.trim().slice(0, 500);
   const message = `Google Drive PDF export failed (${response.status})${redirectedToLogin ? ": redirected to Google sign-in" : suffix ? `: ${suffix}` : ""}`;
+  if (response.status === 403 && body.includes("exportSizeLimitExceeded")) {
+    return new PdfTooLargeError(message);
+  }
   return new PdfExportHttpError(
     response.status,
     message,
@@ -52,10 +69,10 @@ export async function validatedPdfBody(
   }
   const declaredLength = Number(response.headers.get("content-length"));
   if (Number.isFinite(declaredLength) && declaredLength > maxBytes) {
-    throw new InvalidPdfExportError(`PDF exceeds ${maxBytes} bytes`);
+    throw new PdfTooLargeError(`PDF exceeds ${maxBytes} bytes`);
   }
   const body = new Uint8Array(await response.arrayBuffer());
-  if (body.byteLength > maxBytes) throw new InvalidPdfExportError(`PDF exceeds ${maxBytes} bytes`);
+  if (body.byteLength > maxBytes) throw new PdfTooLargeError(`PDF exceeds ${maxBytes} bytes`);
   if (
     body.byteLength < 5 ||
     body[0] !== 0x25 ||

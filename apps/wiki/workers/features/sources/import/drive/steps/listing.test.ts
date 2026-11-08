@@ -39,7 +39,11 @@ function docJson(text: string) {
 }
 
 /** A fake Google API: folder id → children, plus the per-file endpoints the steps call. */
-function stubGoogle(folders: Record<string, Item[]>, metadata: { name: string; mimeType: string }) {
+function stubGoogle(
+  folders: Record<string, Item[]>,
+  metadata: { name: string; mimeType: string },
+  tooLargeToExport: ReadonlySet<string> = new Set(),
+) {
   return vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
     const url = new URL(String(input));
     const path = url.pathname;
@@ -49,6 +53,13 @@ function stubGoogle(folders: Record<string, Item[]>, metadata: { name: string; m
       return Response.json({ files: folders[parent] ?? [] });
     }
     if (url.hostname === "www.googleapis.com" && path.endsWith("/export")) {
+      const pdf = url.searchParams.get("mimeType") === "application/pdf";
+      if (pdf && tooLargeToExport.has(path.split("/")[4] ?? "")) {
+        return Response.json(
+          { error: { code: 403, errors: [{ reason: "exportSizeLimitExceeded" }] } },
+          { status: 403 },
+        );
+      }
       if (url.searchParams.get("mimeType") === "application/pdf") {
         return new Response(PDF, { headers: { "content-type": "application/pdf" } });
       }
@@ -233,6 +244,24 @@ describe("Google Drive folder source", () => {
       { path: "Deck/index.md", status: "archived" },
       { path: "Deck/index.pdf", status: "archived" },
     ]);
+  });
+
+  it("skips a deck too large to export instead of failing the folder", async () => {
+    insertSource(
+      "folder",
+      "google-drive-folder",
+      "root",
+      "https://drive.google.com/drive/folders/root",
+    );
+    stubGoogle(tree, { name: "Root", mimeType: FOLDER }, new Set(["deck-1"]));
+
+    await runImport("folder", fakeBucket());
+
+    expect(sqlite.prepare("SELECT status FROM sources").get()).toEqual({ status: "ready" });
+    const paths = documents("folder").map((doc) => doc.path);
+    expect(paths).not.toContain("Deck/index.pdf");
+    expect(paths).toContain("Deck/index.md");
+    expect(paths).toContain("Minutes/index.md");
   });
 
   it("still imports a single Doc source at the source root", async () => {

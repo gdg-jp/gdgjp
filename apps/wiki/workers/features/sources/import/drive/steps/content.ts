@@ -57,7 +57,7 @@ async function contentSheetMarkdown(ctx: SourceImportTickContext, current: Curre
   return pendingUnits(ctx.sql, "sheet-md", 1).length === 0;
 }
 
-function skipSheetPdf(
+function skipUnit(
   ctx: SourceImportTickContext,
   current: CurrentSourceImport,
   unit: DriveUnit,
@@ -68,7 +68,8 @@ function skipSheetPdf(
     JSON.stringify({
       component: "sources",
       integration: "google-drive",
-      event: "pdf_export_skipped",
+      event: "export_skipped",
+      unitKind: unit.unit_kind,
       sourceId: current.source.id,
       path: unit.path,
       error: error.message,
@@ -92,7 +93,7 @@ async function contentPdf(
     return {};
   } catch (error) {
     if (isSkippablePdfExport(unit.unit_kind, error)) {
-      skipSheetPdf(ctx, current, unit, error);
+      skipUnit(ctx, current, unit, error);
       return {};
     }
     if (
@@ -104,7 +105,7 @@ async function contentPdf(
       const attempt = metaNumber(ctx.sql, attemptKey) + 1;
       metaSet(ctx.sql, attemptKey, String(attempt));
       if (attempt >= MAX_SHEET_PDF_ATTEMPTS) {
-        skipSheetPdf(ctx, current, unit, error);
+        skipUnit(ctx, current, unit, error);
         return {};
       }
       const deferredMs = sheetPdfRetryDelayMs(attempt, error.retryAfterMs);
@@ -137,9 +138,14 @@ async function contentSlidesMarkdown(
     { headers: { Authorization: `Bearer ${requireToken(ctx)}` } },
   );
   if (!response.ok) {
-    throw new Error(
-      `Google Drive text export failed (${response.status}): ${await response.text()}`,
-    );
+    const body = await response.text();
+    const error = new Error(`Google Drive text export failed (${response.status}): ${body}`);
+    // A deck whose text is over Drive's export cap is skipped, not fatal to the whole source.
+    if (response.status === 403 && body.includes("exportSizeLimitExceeded")) {
+      skipUnit(ctx, current, unit, error);
+      return;
+    }
+    throw error;
   }
   await stageBody(ctx, current, unit, markdownBody(await response.text()));
 }
