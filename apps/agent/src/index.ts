@@ -2,6 +2,7 @@ import { createApp } from "./app";
 import type { Env } from "./env";
 import { callbackPage, completeLink, getLinkedToken } from "./features/auth/accounts";
 import { handleDiscordInteraction } from "./features/chat/discord";
+import { type GatewayMessage, handleDiscordMessage } from "./features/chat/discord-message";
 import { handleChatEvent } from "./features/chat/gchat";
 import { fileAnswer } from "./features/filing/filing";
 import { type AnswerResult, answerReady } from "./features/inquiry/inquiry";
@@ -32,6 +33,8 @@ export default {
     }
     if (request.method === "POST" && url.pathname === "/api/chat")
       return webhook(request, env, ctx);
+    if (request.method === "POST" && url.pathname === "/internal/discord-message")
+      return discordMessageRoute(request, env, ctx);
     if (request.method === "POST" && url.pathname === "/internal/answer-ready")
       return answerReadyRoute(request, env);
     return new Response("Not Found", { status: 404 });
@@ -57,6 +60,35 @@ async function webhook(request: Request, env: Env, ctx: ExecutionContext): Promi
   return verified.platform === "discord"
     ? handleDiscordInteraction(app, body, ctx)
     : handleChatEvent(app, body, ctx);
+}
+
+/**
+ * Called by `gdg agent discord-gateway` on the OCI VM for @mentions and DMs. The shared token
+ * is checked before the body is read; the listener retries nothing, so a dropped message is
+ * simply unanswered.
+ */
+async function discordMessageRoute(
+  request: Request,
+  env: Env,
+  ctx: ExecutionContext,
+): Promise<Response> {
+  const auth = request.headers.get("authorization") ?? "";
+  if (!env.GATEWAY_TOKEN || !timingSafeEqual(auth, `Bearer ${env.GATEWAY_TOKEN}`)) {
+    return new Response("Unauthorized", { status: 401 });
+  }
+  const message = (await request.json().catch(() => null)) as GatewayMessage | null;
+  if (!message?.id || !message.channel_id)
+    return Response.json({ error: "invalid_request" }, { status: 400 });
+  // A resumed Gateway session can replay an event; answer each message once.
+  if (!(await kvReplayStore(env.KV).claim(`gateway:${message.id}`, 24 * 60 * 60)))
+    return new Response(null, { status: 204 });
+  const app = createApp(env);
+  ctx.waitUntil(
+    handleDiscordMessage(app, message, env.DISCORD_BOT_TOKEN).catch((error) =>
+      console.error("agent: mention failed", error),
+    ),
+  );
+  return new Response(null, { status: 202 });
 }
 
 /** Called by the wiki (service binding) when the runner posts an `answer` result. */

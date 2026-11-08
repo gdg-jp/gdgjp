@@ -54,6 +54,38 @@ write_files:
 
       [Install]
       WantedBy=multi-user.target
+  # Keeps the GDG Agent bot online and forwards @mentions / DMs (gdg agent discord-gateway).
+  - path: /etc/gdg/discord-gateway.env
+    permissions: "0640"
+    content: |
+      # The bot token of "GDG Agent" (the same value as the agent Worker's DISCORD_BOT_TOKEN).
+      DISCORD_BOT_TOKEN=
+      # Same value as `wrangler secret put GATEWAY_TOKEN` on the agent Worker.
+      GATEWAY_TOKEN=
+      AGENT_URL=https://agent.gdgs.jp
+  - path: /etc/systemd/system/gdg-discord-gateway.service
+    permissions: "0644"
+    content: |
+      [Unit]
+      Description=GDG Agent Discord Gateway (gdg agent discord-gateway)
+      After=network-online.target
+      Wants=network-online.target
+
+      [Service]
+      User=runner
+      Group=runner
+      EnvironmentFile=/etc/gdg/discord-gateway.env
+      ExecStart=/usr/local/bin/gdg agent discord-gateway
+      Restart=always
+      # A wrong token exits at once; do not burn the daily Identify limit (1000) retrying it.
+      RestartSec=30
+      NoNewPrivileges=true
+      ProtectSystem=strict
+      ProtectHome=true
+      PrivateTmp=true
+
+      [Install]
+      WantedBy=multi-user.target
   # Ubuntu 24.04 restricts unprivileged user namespaces; Codex's sandbox (bubblewrap) needs them.
   - path: /etc/apparmor.d/bwrap
     permissions: "0644"
@@ -95,6 +127,7 @@ runcmd:
   - install -d -o runner -g runner -m 0700 /var/lib/gdg-runner
   - chown root:runner /etc/gdg/pr-runner.env
   - install -d -o runner -g runner -m 0700 /var/lib/gdg-pr-runner
+  - chown root:runner /etc/gdg/discord-gateway.env
   # yomiyasu (Japanese proofreading) for the pr runner's checks.
   - sudo -u runner -H git clone --depth 1 https://github.com/nanaism/yomiyasu /home/runner/.cache/yomiyasu
   - sudo -u runner -H mkdir -p /home/runner/.agents/skills

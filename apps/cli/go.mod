@@ -3,6 +3,7 @@ module github.com/gdg-jp/gdgjp/cli
 go 1.23
 
 require (
+	github.com/coder/websocket v1.8.12
 	github.com/oapi-codegen/oapi-codegen/v2 v2.5.1
 	github.com/oapi-codegen/runtime v1.1.2
 	github.com/spf13/cobra v1.9.1

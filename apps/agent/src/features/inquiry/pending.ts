@@ -1,8 +1,13 @@
 import { nowSeconds } from "../../lib";
 
-/** Where the reply goes: edit the deferred Discord response, or post into a Chat thread. */
+/**
+ * Where the reply goes: edit the deferred Discord response, edit the bot's placeholder reply to
+ * an @mention (messages arrive from the Gateway listener on the OCI VM), or post into a Chat
+ * thread.
+ */
 export type Delivery =
   | { platform: "discord"; applicationId: string; interactionToken: string; ephemeral: boolean }
+  | { platform: "discord-message"; channelId: string; messageId: string }
   | { platform: "google-chat"; space: string; thread: string | null };
 
 export type DegradedHit = { title: string; url: string; snippet: string };

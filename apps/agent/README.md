@@ -17,11 +17,15 @@ DISCORD_APPLICATION_ID=… DISCORD_BOT_TOKEN=… pnpm --filter @gdgjp/agent sync
 |---|---|
 | `POST /api/chat` | Discord Interactions endpoint and Google Chat HTTP endpoint (verified first) |
 | `GET /auth/callback` | GDG Accounts OAuth (PKCE) callback for `/login` |
+| `POST /internal/discord-message` | @mentions and DMs forwarded by `gdg agent discord-gateway` on the OCI VM (`GATEWAY_TOKEN`) |
 | `POST /internal/answer-ready` | the wiki's callback when a runner result arrives (`AGENT_SERVICE_TOKEN`) |
 
 Commands: Discord `/ask` (`private: true` answers ephemerally with the asker's own
 permissions), `/login`, `/unlink`, `/setup` (server managers: pick the wiki spaces this
-server searches; the server becomes a viewer of them). `discord-commands.json` is the whole
+server searches; the server becomes a viewer of them). Mentioning the bot (or a DM) asks
+like a public `/ask`: the reply starts as a "調べています" placeholder that is edited in place.
+The bot's online status and those messages need the Gateway listener on the OCI VM
+(`infra/oci-runner/README.md`). `discord-commands.json` is the whole
 desired global command set: `sync:discord-commands` replaces whatever Discord has. Google Chat: mention or
 DM the app; `/login`, `/unlink`, `/setup <space-slug>` as message text.
 

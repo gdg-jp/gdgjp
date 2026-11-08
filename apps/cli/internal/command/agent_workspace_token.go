@@ -30,7 +30,7 @@ func newAgentCommandWithService(service workspaceTokenService) *cobra.Command {
 		Use:   "agent",
 		Short: "Privileged operations for the gdgagent-svc identity",
 	}
-	agent.AddCommand(newWorkspaceTokenCommand(service))
+	agent.AddCommand(newWorkspaceTokenCommand(service), newDiscordGatewayCommand())
 	return agent
 }
 

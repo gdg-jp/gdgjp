@@ -9,6 +9,7 @@ Worker never calls an LLM. Design: `docs/plans/knowledge-platform-v2/04-runner-a
 |---|---|
 | `cloud-init.yaml` | packages, user `runner`, `/etc/gdg/runner.env` template, systemd unit, pinned Codex |
 | `systemd/gdg-runner.service` | the unit (same content as in cloud-init) |
+| `systemd/gdg-discord-gateway.service` | keeps the GDG Agent bot online; forwards @mentions and DMs |
 | `scripts/install-gdg.sh` | install `gdg` from a release or a local build, plus the `git-remote-gdg-wiki` link |
 | `scripts/smoke.sh` | verify Codex login, API reachability and the service without leasing a job |
 
@@ -108,3 +109,23 @@ Design: `docs/plans/pr/03-runner-and-drafts.md`.
 Both runners share one Codex login, so the pr runner has a single slot. `/admin/runner` on
 pr.gdgs.jp shows its heartbeat and queue.
 
+
+## Discord Gateway (GDG Agent online status and @mentions)
+
+`gdg agent discord-gateway` (unit `gdg-discord-gateway`) holds the bot's Discord Gateway
+connection. Without it the bot shows as offline and only slash commands work, because
+gdgjp-agent answers Interactions over HTTP and a Worker cannot hold the WebSocket. The listener
+identifies with an online status, forwards a person's @mention of the bot or DM to
+`https://agent.gdgs.jp/internal/discord-message`, and does nothing else: the Worker answers,
+as the guild's principal in a channel. It asks only for GUILD_MESSAGES and DIRECT_MESSAGES;
+Discord fills message content for mentions and DMs without the privileged Message Content
+intent.
+
+1. `/etc/gdg/discord-gateway.env` (mode 0640 root:runner): `DISCORD_BOT_TOKEN=` (the
+   agent Worker's value) and `GATEWAY_TOKEN=` (32+ random characters), and the same
+   `GATEWAY_TOKEN` on the Worker: `pnpm --filter @gdgjp/agent exec wrangler secret put GATEWAY_TOKEN`.
+2. `sudo systemctl enable --now gdg-discord-gateway`, then
+   `journalctl -u gdg-discord-gateway -f` shows `gateway: ready as GDG Agent …`.
+
+When the bot token is reset in the Developer Portal, update it here as well as on the agent and
+wiki Workers; a wrong token exits with `4004` and systemd retries every 30 seconds.

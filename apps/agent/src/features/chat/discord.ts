@@ -1,6 +1,7 @@
 import type { App } from "../../app";
 import { createLinkUrl, getLinkedToken, unlink } from "../auth/accounts";
 import { startInquiry } from "../inquiry/inquiry";
+import type { Delivery } from "../inquiry/pending";
 import { chooseReader } from "../inquiry/reader";
 import { sendFeedbackScore } from "../telemetry/langfuse";
 
@@ -52,7 +53,15 @@ export async function handleDiscordInteraction(
         // `private: true` answers only to the asker, with their own permissions (needs /login).
         const privateReply =
           interaction.data.options?.find((o) => o.name === "private")?.value === true;
-        ctx.waitUntil(runAsk(app, interaction, userId, question, privateReply));
+        ctx.waitUntil(
+          runAsk(app, {
+            delivery: interactionDelivery(interaction, privateReply),
+            guildId: interaction.guild_id,
+            userId,
+            question,
+            privateReply,
+          }),
+        );
         return json(privateReply ? { type: 5, data: { flags: EPHEMERAL } } : { type: 5 });
       }
       case "login":
@@ -115,7 +124,15 @@ export async function handleDiscordInteraction(
     if (kind === "ra" && a) {
       const row = await app.pending.get(a);
       if (!row) return ephemeral("元の質問が見つかりませんでした。");
-      ctx.waitUntil(runAsk(app, interaction, userId, row.question, true));
+      ctx.waitUntil(
+        runAsk(app, {
+          delivery: interactionDelivery(interaction, true),
+          guildId: interaction.guild_id,
+          userId,
+          question: row.question,
+          privateReply: true,
+        }),
+      );
       return json({ type: 5, data: { flags: EPHEMERAL } });
     }
     if (kind === "setup" && a) return completeSetup(app, interaction, userId, a);
@@ -123,22 +140,31 @@ export async function handleDiscordInteraction(
   return ephemeral("Unsupported interaction.");
 }
 
-async function runAsk(
-  app: App,
-  interaction: Interaction,
-  userId: string,
-  question: string,
-  privateReply: boolean,
-): Promise<void> {
-  const delivery = {
-    platform: "discord" as const,
+function interactionDelivery(interaction: Interaction, privateReply: boolean): Delivery {
+  return {
+    platform: "discord",
     applicationId: interaction.application_id,
     interactionToken: interaction.token,
     ephemeral: privateReply,
   };
+}
+
+export type DiscordAsk = {
+  /** The deferred interaction response, or the bot's placeholder reply to an @mention. */
+  delivery: Delivery;
+  /** Absent in DMs. */
+  guildId?: string;
+  userId: string;
+  question: string;
+  privateReply: boolean;
+};
+
+/** /ask, the "answer with my permissions" button and @mentions all answer through here. */
+export async function runAsk(app: App, ask: DiscordAsk): Promise<void> {
+  const { delivery, userId, question, privateReply } = ask;
   try {
-    const venue = interaction.guild_id
-      ? ({ kind: "discord_guild", guildId: interaction.guild_id } as const)
+    const venue = ask.guildId
+      ? ({ kind: "discord_guild", guildId: ask.guildId } as const)
       : ({ kind: "discord_dm" } as const);
     const needsUser = privateReply || venue.kind === "discord_dm";
     const linked = needsUser

@@ -5,6 +5,8 @@ TOKEN_ENCRYPTION_KEYS=
 # Shared with the wiki Worker (same name there). 32+ random characters.
 AGENT_SERVICE_TOKEN=
 DISCORD_BOT_TOKEN=
+# Shared with gdg agent discord-gateway on the OCI VM (forwards @mentions and DMs).
+GATEWAY_TOKEN=
 GOOGLE_CHAT_AUDIENCE=
 # Service account JSON used to post answers with the Chat API.
 GOOGLE_CHAT_CREDENTIALS=

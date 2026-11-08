@@ -1,7 +1,13 @@
 import type { Env } from "./env";
 import type { AuthDeps } from "./features/auth/accounts";
 import { d1LinkStore } from "./features/auth/links";
-import { deliverChat, deliverDiscord, progressDiscord } from "./features/chat/deliver";
+import {
+  deliverChat,
+  deliverDiscord,
+  discordMessageBody,
+  editDiscordMessage,
+  progressDiscord,
+} from "./features/chat/deliver";
 import type { InquiryDeps, Reply } from "./features/inquiry/inquiry";
 import { type Delivery, type PendingStore, d1PendingStore } from "./features/inquiry/pending";
 import { type WikiClient, wikiClient } from "./features/inquiry/wiki";
@@ -24,7 +30,9 @@ export function createApp(env: Env): App {
   const deliver = (delivery: Delivery, reply: Reply) =>
     delivery.platform === "discord"
       ? deliverDiscord(delivery, reply)
-      : deliverChat(delivery, reply, env.GOOGLE_CHAT_CREDENTIALS);
+      : delivery.platform === "discord-message"
+        ? editDiscordMessage(delivery, discordMessageBody(reply), env.DISCORD_BOT_TOKEN)
+        : deliverChat(delivery, reply, env.GOOGLE_CHAT_CREDENTIALS);
   const slugs = async (sql: string, key: string) =>
     (await env.DB.prepare(sql).bind(key).all<{ space_slug: string }>()).results.map(
       (row) => row.space_slug,
@@ -41,6 +49,12 @@ export function createApp(env: Env): App {
       deliver,
       progress: async (delivery, text) => {
         if (delivery.platform === "discord") await progressDiscord(delivery, text);
+        if (delivery.platform === "discord-message")
+          await editDiscordMessage(
+            delivery,
+            { content: text.slice(0, 2000) },
+            env.DISCORD_BOT_TOKEN,
+          );
       },
       schedule: async () => {
         await env.PENDING.get(env.PENDING.idFromName("sweep")).fetch("https://pending/arm", {

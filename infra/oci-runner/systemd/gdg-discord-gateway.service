@@ -1,0 +1,20 @@
+[Unit]
+Description=GDG Agent Discord Gateway (gdg agent discord-gateway)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=runner
+Group=runner
+EnvironmentFile=/etc/gdg/discord-gateway.env
+ExecStart=/usr/local/bin/gdg agent discord-gateway
+Restart=always
+# A wrong token exits at once; do not burn the daily Identify limit (1000) retrying it.
+RestartSec=30
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

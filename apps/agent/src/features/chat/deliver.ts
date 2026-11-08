@@ -61,6 +61,53 @@ export async function progressDiscord(
   if (!response.ok) throw new Error(`discord_progress_failed:${response.status}`);
 }
 
+/** Edit the bot's own placeholder reply to an @mention (bot token, no interaction token). */
+export async function editDiscordMessage(
+  delivery: Extract<Delivery, { platform: "discord-message" }>,
+  body: Record<string, unknown>,
+  botToken: string,
+  fetchImpl: typeof fetch = fetch,
+): Promise<void> {
+  const response = await fetchImpl(
+    `${DISCORD_API}/channels/${delivery.channelId}/messages/${delivery.messageId}`,
+    {
+      method: "PATCH",
+      headers: { authorization: `Bot ${botToken}`, "content-type": "application/json" },
+      body: JSON.stringify({ allowed_mentions: { parse: [] }, ...body }),
+    },
+  );
+  if (!response.ok) throw new Error(`discord_message_edit_failed:${response.status}`);
+}
+
+export function discordMessageBody(reply: Reply): Record<string, unknown> {
+  return {
+    content: reply.text.slice(0, 2000),
+    components: discordComponents(reply),
+    ...(reply.suppressEmbeds ? { flags: SUPPRESS_EMBEDS } : {}),
+  };
+}
+
+/** Reply to a message in its channel; returns the new message's id. */
+export async function replyDiscordMessage(
+  channelId: string,
+  messageId: string,
+  content: string,
+  botToken: string,
+  fetchImpl: typeof fetch = fetch,
+): Promise<string> {
+  const response = await fetchImpl(`${DISCORD_API}/channels/${channelId}/messages`, {
+    method: "POST",
+    headers: { authorization: `Bot ${botToken}`, "content-type": "application/json" },
+    body: JSON.stringify({
+      content: content.slice(0, 2000),
+      message_reference: { message_id: messageId, fail_if_not_exists: false },
+      allowed_mentions: { parse: [], replied_user: true },
+    }),
+  });
+  if (!response.ok) throw new Error(`discord_reply_failed:${response.status}`);
+  return ((await response.json()) as { id: string }).id;
+}
+
 export function chatCard(reply: Reply) {
   if (reply.degraded) return undefined;
   const button = (text: string, fn: string, value: string) => ({
