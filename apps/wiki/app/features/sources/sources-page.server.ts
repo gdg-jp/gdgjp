@@ -2,7 +2,7 @@ import { and, desc, eq, inArray, ne, sql } from "drizzle-orm";
 import * as schema from "~/db/schema";
 import type { AccessIdentity, AuthUser } from "~/features/auth/utils.server";
 import { requireUser } from "~/features/auth/utils.server";
-import { enqueueSynthesize } from "~/features/jobs/enqueue.server";
+import { integrateNow } from "~/features/jobs/enqueue.server";
 import { REGISTRATIONS } from "~/features/sources/kinds";
 import {
   canAccessSource,
@@ -276,8 +276,8 @@ export async function handleSourcesAction(
   }
 
   if (intent === "integrate-now") {
-    // "Integrate now": lift the hourly wait for this space's synthesize job.
-    await enqueueSynthesize(getDb(env), { spaceId: space.id, manual: true });
+    // "Integrate now": lift the hourly wait, with every document not integrated yet.
+    await integrateNow(getDb(env), space.id);
     return { ok: true as const };
   }
 

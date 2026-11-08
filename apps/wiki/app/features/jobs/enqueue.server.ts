@@ -160,24 +160,7 @@ export async function enqueueSynthesizeForSource(
  * one, so a dropped hook never leaves material unintegrated.
  */
 export async function enqueuePendingSynthesis(db: Db): Promise<number> {
-  const rows = await db
-    .select({
-      spaceId: schema.sources.spaceId,
-      sourceId: schema.sourceDocuments.sourceId,
-      documentId: schema.sourceDocuments.id,
-    })
-    .from(schema.sourceDocuments)
-    .innerJoin(schema.sources, eq(schema.sources.id, schema.sourceDocuments.sourceId))
-    .where(and(ne(schema.sources.status, "archived"), pendingDocumentsCondition()))
-    .limit(5000)
-    .all();
-  const bySpace = new Map<string, { sourceIds: Set<string>; documentIds: string[] }>();
-  for (const row of rows) {
-    const entry = bySpace.get(row.spaceId) ?? { sourceIds: new Set(), documentIds: [] };
-    entry.sourceIds.add(row.sourceId);
-    entry.documentIds.push(row.documentId);
-    bySpace.set(row.spaceId, entry);
-  }
+  const bySpace = await pendingDocumentsBySpace(db);
   let enqueued = 0;
   for (const [spaceId, entry] of bySpace) {
     const active = await db
@@ -200,6 +183,54 @@ export async function enqueuePendingSynthesis(db: Db): Promise<number> {
     enqueued += 1;
   }
   return enqueued;
+}
+
+/** Unintegrated documents of non-archived sources, grouped by space (one space, if given). */
+async function pendingDocumentsBySpace(
+  db: Db,
+  spaceId?: string,
+): Promise<Map<string, { sourceIds: Set<string>; documentIds: string[] }>> {
+  const rows = await db
+    .select({
+      spaceId: schema.sources.spaceId,
+      sourceId: schema.sourceDocuments.sourceId,
+      documentId: schema.sourceDocuments.id,
+    })
+    .from(schema.sourceDocuments)
+    .innerJoin(schema.sources, eq(schema.sources.id, schema.sourceDocuments.sourceId))
+    .where(
+      and(
+        ne(schema.sources.status, "archived"),
+        pendingDocumentsCondition(),
+        spaceId ? eq(schema.sources.spaceId, spaceId) : undefined,
+      ),
+    )
+    .limit(5000)
+    .all();
+  const bySpace = new Map<string, { sourceIds: Set<string>; documentIds: string[] }>();
+  for (const row of rows) {
+    const entry = bySpace.get(row.spaceId) ?? { sourceIds: new Set(), documentIds: [] };
+    entry.sourceIds.add(row.sourceId);
+    entry.documentIds.push(row.documentId);
+    bySpace.set(row.spaceId, entry);
+  }
+  return bySpace;
+}
+
+/**
+ * "Integrate now": queue (or raise) the space's synthesize job with every document not
+ * integrated yet. Without them the job would run on an empty list and "succeed" at once —
+ * which also restarted the hourly wait — after a failed or needs_review run.
+ */
+export async function integrateNow(db: Db, spaceId: string, now?: Date) {
+  const pending = (await pendingDocumentsBySpace(db, spaceId)).get(spaceId);
+  return enqueueSynthesize(db, {
+    spaceId,
+    sourceIds: pending ? [...pending.sourceIds] : [],
+    documentIds: pending?.documentIds ?? [],
+    manual: true,
+    now,
+  });
 }
 
 /** Nightly: one consolidate job per space that has agent pages (none if one is queued). */

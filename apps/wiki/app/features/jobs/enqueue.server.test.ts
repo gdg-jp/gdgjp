@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { createSpacesTestDb } from "~/features/spaces/test-db";
-import { enqueuePendingSynthesis, enqueueSynthesize } from "./enqueue.server";
+import { enqueuePendingSynthesis, enqueueSynthesize, integrateNow } from "./enqueue.server";
 
 function jobs(sqlite: ReturnType<typeof createSpacesTestDb>["sqlite"]) {
   return sqlite
@@ -80,5 +80,26 @@ describe("enqueuePendingSynthesis", () => {
     const [job] = jobs(sqlite);
     expect(JSON.parse(job?.payload ?? "{}").documentIds).toEqual(["d1"]);
     expect(await enqueuePendingSynthesis(db)).toBe(0);
+  });
+});
+
+describe("integrateNow", () => {
+  it("queues the space's unintegrated documents, not an empty job", async () => {
+    // c-2: after a needs_review run, "今すぐ統合" queued an empty payload that "succeeded"
+    // in 12 s without integrating anything.
+    const { db, sqlite } = createSpacesTestDb();
+    sqlite.exec(`
+      INSERT INTO sources (id, kind, url, title, added_by, status, visibility)
+        VALUES ('s1', 'website', 'https://a.example', 'A', 'alice', 'ready', 'member');
+      INSERT INTO source_documents (id, source_id, path, title, r2_key, content_hash, captured_at, integrated_hash)
+        VALUES ('d1', 's1', 'a.md', 'A', 'k1', 'h1', 0, NULL),
+               ('d2', 's1', 'b.md', 'B', 'k2', 'h2', 0, 'h2');
+    `);
+    await integrateNow(db, "gdg-jp");
+    const [job] = jobs(sqlite);
+    expect(JSON.parse(job?.payload ?? "{}")).toMatchObject({
+      sourceIds: ["s1"],
+      documentIds: ["d1"],
+    });
   });
 });
