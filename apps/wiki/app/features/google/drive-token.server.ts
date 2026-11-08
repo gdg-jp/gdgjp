@@ -5,6 +5,13 @@ import { refreshAccessToken } from "~/features/google/drive.server";
 
 type Db = ReturnType<typeof drizzle>;
 
+/**
+ * Refresh this long before the stored expiry. A token handed out seconds before it expires is
+ * dead halfway through the caller's work — a source import tick makes many Google calls with
+ * the one token it resolved at the start.
+ */
+export const TOKEN_REFRESH_MARGIN_MS = 5 * 60_000;
+
 export interface GoogleDriveTokenRow {
   accessToken: string;
   grantedScopes: string | null;
@@ -29,7 +36,7 @@ export async function getGoogleDriveTokenRow(
     .get();
   if (!token) throw new Error("Google Drive is not connected");
 
-  if (token.expiresAt >= new Date() || !token.refreshToken) {
+  if (token.expiresAt.getTime() - TOKEN_REFRESH_MARGIN_MS > Date.now() || !token.refreshToken) {
     return { accessToken: token.accessToken, grantedScopes: token.grantedScopes ?? null };
   }
 

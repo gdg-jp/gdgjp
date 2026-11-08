@@ -27,6 +27,14 @@ describe("isRetryableFetchError", () => {
     ).toBe(false);
   });
 
+  it("retries an expired access token, which the next attempt refreshes", () => {
+    expect(
+      isRetryableFetchError(
+        new Error("Google Docs document retrieval failed (401): UNAUTHENTICATED"),
+      ),
+    ).toBe(true);
+  });
+
   it("retries throttling and server-side failures", () => {
     expect(isRetryableFetchError(new Error("Google Docs retrieval failed (429): slow down"))).toBe(
       true,

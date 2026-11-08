@@ -33,7 +33,9 @@ export function isRetryableFetchError(error: unknown): boolean {
 
   const status = Number(/\((\d{3})\)/.exec(message)?.[1]);
   if (!Number.isNaN(status)) {
-    if (status === 408 || status === 429) return true;
+    // 401: the access token expired mid-run; the next attempt resolves a refreshed one. A revoked
+    // grant keeps failing and still ends the run after MAX_CONSECUTIVE_FAILURES.
+    if (status === 401 || status === 408 || status === 429) return true;
     return status < 400 || status >= 500;
   }
 
