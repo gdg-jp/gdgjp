@@ -31,6 +31,18 @@ describe("selectGuildChannels", () => {
     expect(selectGuildChannels(channels, config).map((c) => c.id)).toEqual(["9000000000000101"]);
   });
 
+  it("takes every text channel of the server, minus exclusions, for a whole-server config", () => {
+    const config = JSON.stringify({
+      all: true,
+      include: { categories: [], channels: [] },
+      exclude: { channels: ["9000000000000102"] },
+    });
+    expect(selectGuildChannels(channels, config).map((c) => c.id)).toEqual([
+      "9000000000000200",
+      "9000000000000101",
+    ]);
+  });
+
   it("selects nothing for a missing or invalid config", () => {
     expect(selectGuildChannels(channels, null)).toEqual([]);
     expect(selectGuildChannels(channels, "{}")).toEqual([]);

@@ -19,6 +19,10 @@ import {
 
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
+import {
+  discordGuildSelectionConfig,
+  hasDiscordGuildSelection,
+} from "~/features/sources/discord-guild-selection";
 import { SOURCE_KINDS } from "~/features/sources/kinds";
 import type { StagedSource } from "~/features/sources/staged-candidates";
 import { DiscordChannelChecklist } from "./DiscordChannelChecklist";
@@ -26,10 +30,10 @@ import { DiscordChannelChecklist } from "./DiscordChannelChecklist";
 import { Icons } from "@gdgjp/design-system";
 
 /**
- * Discord server picker: stages ONE `discord-guild` source per server with the chosen
- * categories / channels (one visibility per server — register the server again for a
- * category that needs a narrower visibility). `error` is owned by the parent so a
- * duplicate-source message survives the dialog closing.
+ * Discord server picker: stages ONE `discord-guild` source per server — the whole server by
+ * default, or the chosen categories / channels (one visibility per server — register the
+ * server again for a category that needs a narrower visibility). `error` is owned by the
+ * parent so a duplicate-source message survives the dialog closing.
  */
 export function DiscordChannelDialog({
   open,
@@ -79,6 +83,7 @@ export function DiscordChannelDialog({
   );
   const [selectedCategoryIds, setSelectedCategoryIds] = useState<Set<string>>(() => new Set());
   const [autoDiscover, setAutoDiscover] = useState(true);
+  const [wholeServer, setWholeServer] = useState(true);
   const [discordBotInviteUrl, setDiscordBotInviteUrl] = useState<string | null>(null);
   const [discordInviteUrl, setDiscordInviteUrl] = useState<string | null>(null);
 
@@ -88,6 +93,7 @@ export function DiscordChannelDialog({
     setDiscordChannelGroups([]);
     setSelectedDiscordChannelIds(new Set());
     setSelectedCategoryIds(new Set());
+    setWholeServer(true);
     setDiscordInviteUrl(null);
     void loadDiscordGuilds();
   }, [open]);
@@ -217,33 +223,25 @@ export function DiscordChannelDialog({
     ? registeredCandidateIds.has(guildCandidateId)
     : false;
 
+  const selection = {
+    wholeServer,
+    autoDiscover,
+    categoryIds: selectedCategoryIds,
+    channelIds: selectedDiscordChannelIds,
+    groups: discordChannelGroups,
+  };
+  // The channel list loading is what proves the bot is in the server.
+  const canStage =
+    !guildAlreadyRegistered &&
+    discordChannelGroups.length > 0 &&
+    !discordChannelsLoading &&
+    hasDiscordGuildSelection(selection);
+
   function stageSelectedDiscordGuild() {
-    if (!selectedDiscordGuildId || !guildCandidateId) return;
-    if (selectedDiscordChannelIds.size === 0 && selectedCategoryIds.size === 0) return;
+    if (!selectedDiscordGuildId || !guildCandidateId || !canStage) return;
     const guildName =
       discordGuilds.find((guild) => guild.id === selectedDiscordGuildId)?.name ?? "";
-    const channelsInSelectedCategories = new Set(
-      discordChannelGroups
-        .filter((group) => group.categoryId && selectedCategoryIds.has(group.categoryId))
-        .flatMap((group) => group.channels.map((channel) => channel.id)),
-    );
-    // With auto-discover, a category stands for its channels now and later; without it,
-    // the selection is exactly the checked channels.
-    const config = {
-      include: {
-        categories: autoDiscover ? [...selectedCategoryIds] : [],
-        channels: [...selectedDiscordChannelIds].filter(
-          (id) => !autoDiscover || !channelsInSelectedCategories.has(id),
-        ),
-      },
-      // Unchecked channels inside a selected category are explicit exclusions.
-      exclude: {
-        channels: autoDiscover
-          ? [...channelsInSelectedCategories].filter((id) => !selectedDiscordChannelIds.has(id))
-          : [],
-      },
-      autoDiscover,
-    };
+    const config = discordGuildSelectionConfig(selection);
     const staged: StagedSource[] = [
       {
         id: guildCandidateId,
@@ -347,6 +345,11 @@ export function DiscordChannelDialog({
                 </div>
               ) : null}
               {!discordChannelsLoading && discordChannelGroups.length > 0 ? (
+                <FormField label={t("sources.discord_whole_server")}>
+                  <Switch checked={wholeServer} onCheckedChange={setWholeServer} />
+                </FormField>
+              ) : null}
+              {!discordChannelsLoading && discordChannelGroups.length > 0 && !wholeServer ? (
                 <div>
                   <p className="mb-2 text-sm font-medium text-muted">
                     {t("sources.discord_channel_label")}
@@ -364,9 +367,11 @@ export function DiscordChannelDialog({
               ) : null}
               {!discordChannelsLoading && discordChannelGroups.length > 0 ? (
                 <div className="space-y-2">
-                  <FormField label={t("sources.discord_auto_discover")}>
-                    <Switch checked={autoDiscover} onCheckedChange={setAutoDiscover} />
-                  </FormField>
+                  {wholeServer ? null : (
+                    <FormField label={t("sources.discord_auto_discover")}>
+                      <Switch checked={autoDiscover} onCheckedChange={setAutoDiscover} />
+                    </FormField>
+                  )}
                   <p className="text-xs text-muted">{t("sources.discord_one_visibility_hint")}</p>
                   {guildAlreadyRegistered ? (
                     <p className="text-xs text-danger">{t("sources.error_duplicate_source")}</p>
@@ -381,14 +386,7 @@ export function DiscordChannelDialog({
           <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
             {t("cancel")}
           </Button>
-          <Button
-            type="button"
-            disabled={
-              guildAlreadyRegistered ||
-              (selectedDiscordChannelIds.size === 0 && selectedCategoryIds.size === 0)
-            }
-            onClick={stageSelectedDiscordGuild}
-          >
+          <Button type="button" disabled={!canStage} onClick={stageSelectedDiscordGuild}>
             {t("sources.stage_discord_server")}
           </Button>
         </Inline>

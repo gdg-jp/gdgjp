@@ -156,6 +156,8 @@ export function discordGuildSourceUrl(guildId: string): string {
 
 /** Which channels of a Discord server a `discord-guild` source imports. */
 export type DiscordGuildConfig = {
+  /** The whole server: every text channel, including ones created later (minus `exclude`). */
+  all: boolean;
   include: { categories: string[]; channels: string[] };
   exclude: { channels: string[] };
   /** Pick up channels created later under the included categories. */
@@ -180,11 +182,13 @@ export function parseDiscordGuildConfig(value: unknown): DiscordGuildConfig | nu
   const channels = snowflakeList(include.channels ?? []);
   const excluded = snowflakeList(exclude.channels ?? []);
   if (!categories || !channels || !excluded) return null;
-  if (categories.length === 0 && channels.length === 0) return null;
+  const all = config.all === true;
+  if (!all && categories.length === 0 && channels.length === 0) return null;
   return {
+    all,
     include: { categories, channels },
     exclude: { channels: excluded },
-    autoDiscover: config.autoDiscover === true,
+    autoDiscover: all || config.autoDiscover === true,
   };
 }
 

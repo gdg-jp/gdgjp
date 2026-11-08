@@ -83,7 +83,7 @@ export function selectGuildChannels(
     .filter((channel) => DISCORD_IMPORTABLE_CHANNEL_TYPES.has(channel.type))
     .filter((channel) => {
       if (exclude.has(channel.id)) return false;
-      if (include.has(channel.id)) return true;
+      if (config.all || include.has(channel.id)) return true;
       return config.autoDiscover && !!channel.parent_id && categories.has(channel.parent_id);
     })
     .sort((a, b) => (a.position ?? 0) - (b.position ?? 0) || a.id.localeCompare(b.id))
