@@ -5,6 +5,7 @@ import {
 } from "../../../../../app/features/discord/api.server";
 import { DISCORD_BOT_ACCESS_MESSAGE } from "../../../../../app/features/discord/oauth.server";
 import { weekBoundsRfc3339, weekPathFromCreateTime } from "../../google-chat";
+import { resolveOpenDocument } from "../open-document";
 import { metaGet, metaSet } from "../run";
 import {
   type Current,
@@ -22,7 +23,7 @@ export async function stepListing(
   current: Current,
 ): Promise<StepOutcome> {
   if (metaGet(ctx.sql, "listing_complete") === "1") {
-    if (current.run.sinceCursor && !(await regenerateTouchedWeeks(ctx, current))) {
+    if (current.run.sinceCursor && !(await regenerateOpenDocument(ctx, current))) {
       return { phaseComplete: false };
     }
     return { phaseComplete: true };
@@ -83,15 +84,12 @@ export async function stepListing(
       messages.length,
     );
 
-    for (const message of messages) {
-      if (incremental) {
-        const weekPath = weekPathFromCreateTime(message.timestamp);
-        if (weekPath) {
-          ctx.sql.exec("INSERT OR IGNORE INTO touched_weeks (week_path) VALUES (?)", weekPath);
-        }
-      } else {
-        indexMessage(ctx.sql, message);
-      }
+    // An incremental run only learns here whether anything is new; the open document is
+    // then re-fetched whole (regenerateOpenDocument), new messages included.
+    if (incremental) {
+      if (messages.length > 0) metaSet(ctx.sql, "has_new_messages", "1");
+    } else {
+      for (const message of messages) indexMessage(ctx.sql, message);
     }
 
     metaSet(ctx.sql, "pages_fetched", String(pageIndex + 1));
@@ -115,78 +113,68 @@ export async function stepListing(
   }
 
   if (metaGet(ctx.sql, "listing_complete") !== "1") return { phaseComplete: false };
-  if (current.run.sinceCursor && !(await regenerateTouchedWeeks(ctx, current))) {
+  if (current.run.sinceCursor && !(await regenerateOpenDocument(ctx, current))) {
     return { phaseComplete: false };
   }
   return { phaseComplete: true };
 }
 
-/** Re-fetch every delta-touched week so merge persists a complete weekly document. */
-async function regenerateTouchedWeeks(
+/** Week of a Discord snowflake (its creation time). */
+function weekOfSnowflake(id: string): string | null {
+  try {
+    const unixMs = Number((BigInt(id) >> 22n) + 1420070400000n);
+    return weekPathFromCreateTime(new Date(unixMs).toISOString());
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * When the delta had new messages, index every message from the open document's first
+ * week onward, so grouping packs the open document (and any that follow it) whole.
+ */
+async function regenerateOpenDocument(
   ctx: DiscordImportTickContext,
   current: Current,
 ): Promise<boolean> {
-  if (metaGet(ctx.sql, "weeks_regenerated") === "1") return true;
-  const weeks = ctx.sql
-    .exec<{ week_path: string }>("SELECT week_path FROM touched_weeks ORDER BY week_path")
-    .toArray();
-  let index = Number(metaGet(ctx.sql, "weeks_regenerate_index") ?? "0");
+  if (metaGet(ctx.sql, "open_regenerated") === "1") return true;
+  if (metaGet(ctx.sql, "has_new_messages") !== "1") {
+    metaSet(ctx.sql, "open_regenerated", "1");
+    return true;
+  }
+  const openWeek = await resolveOpenDocument(ctx, current, {
+    pathPrefix: ctx.channelDocument?.pathPrefix ?? "",
+    fallbackWeek: weekOfSnowflake(current.run.sinceCursor ?? ""),
+  });
+  if (!openWeek) return false;
+  const bounds = weekBoundsRfc3339(openWeek);
+  if (!bounds) throw new Error(`Invalid Discord document week: ${openWeek}`);
   const botToken = requireBotToken(ctx);
   const channelId = channelIdOf(current.source);
 
-  while (index < weeks.length) {
-    const weekPath = weeks[index]?.week_path;
-    if (!weekPath) break;
-    const startedKey = `week_regenerate_started:${weekPath}`;
-    const afterKey = `week_regenerate_after:${weekPath}`;
-    if (metaGet(ctx.sql, startedKey) !== "1") {
-      ctx.sql.exec(
-        `DELETE FROM attachments WHERE message_name IN (
-           SELECT thread_name FROM week_messages WHERE week_path = ?
-         )`,
-        weekPath,
-      );
-      ctx.sql.exec("DELETE FROM week_messages WHERE week_path = ?", weekPath);
-      metaSet(ctx.sql, startedKey, "1");
-    }
+  while (true) {
     if (!ctx.budget.canSpend(1)) return false;
-
-    const bounds = weekBoundsRfc3339(weekPath);
-    if (!bounds) throw new Error(`Invalid Discord week path: ${weekPath}`);
-    const after = metaGet(ctx.sql, afterKey) ?? snowflakeFromUnixMs(Date.parse(bounds.start) - 1);
-    const before = snowflakeFromUnixMs(Date.parse(bounds.end));
-
+    const after =
+      metaGet(ctx.sql, "open_regenerate_after") ??
+      snowflakeFromUnixMs(Date.parse(bounds.start) - 1);
     ctx.budget.spend(1);
     let messages: DiscordMessage[];
     try {
       messages = await listChannelMessages(botToken, channelId, {
         limit: DISCORD_PAGE_SIZE,
         after,
-        before,
       });
     } catch (error) {
       const code = (error as Error & { code?: string }).code;
       if (code === "bot_missing") throw new Error(DISCORD_BOT_ACCESS_MESSAGE);
       throw error;
     }
-
-    for (const message of messages) {
-      const messageWeek = weekPathFromCreateTime(message.timestamp);
-      if (messageWeek !== weekPath) continue;
-      indexMessage(ctx.sql, message);
-    }
-
-    if (messages.length >= DISCORD_PAGE_SIZE) {
-      const newest = messages[messages.length - 1];
-      if (newest) {
-        metaSet(ctx.sql, afterKey, newest.id);
-        continue;
-      }
-    }
-    ctx.sql.exec("DELETE FROM meta WHERE key IN (?, ?)", startedKey, afterKey);
-    index += 1;
-    metaSet(ctx.sql, "weeks_regenerate_index", String(index));
+    for (const message of messages) indexMessage(ctx.sql, message);
+    // Discord returns ascending when using `after`. Advance with the newest id.
+    const newest = messages[messages.length - 1];
+    if (messages.length < DISCORD_PAGE_SIZE || !newest) break;
+    metaSet(ctx.sql, "open_regenerate_after", newest.id);
   }
-  metaSet(ctx.sql, "weeks_regenerated", "1");
+  metaSet(ctx.sql, "open_regenerated", "1");
   return true;
 }

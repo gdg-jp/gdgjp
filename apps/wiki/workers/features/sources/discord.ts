@@ -4,13 +4,14 @@
 
 import type { DiscordAttachment, DiscordMessage } from "../../../app/features/discord/api.server";
 import { authorDisplayName } from "../../../app/features/discord/api.server";
+import { periodTitle } from "./chat-periods";
 import { formatChatTimestamp, weekPathFromCreateTime } from "./google-chat";
 
 export interface NormalizedDiscordWeek {
   path: string;
   title: string;
   markdown: string;
-  /** Latest message snowflake in this week (for incremental `after` cursor). */
+  /** Latest message snowflake in this document (for incremental `after` cursor). */
   cursor: string | null;
   urls: string[];
   attachments: Array<{
@@ -52,12 +53,6 @@ export function discordAttachmentObjectId(attachment: DiscordAttachment): string
   return attachment.id || attachment.filename;
 }
 
-function weekTitle(weekPath: string): string {
-  const start = new Date(`${weekPath}T00:00:00Z`);
-  start.setUTCDate(start.getUTCDate() + 6);
-  return `${weekPath} – ${start.toISOString().slice(0, 10)}`;
-}
-
 function compareSnowflake(a: string, b: string): number {
   try {
     const left = BigInt(a);
@@ -75,17 +70,20 @@ function maxSnowflake(current: string | null, next: string): string {
 }
 
 /**
- * Turn Discord channel messages into weekly Markdown documents.
+ * Turn Discord channel messages into weekly Markdown documents, or with `singleDocument`
+ * into one document spanning their weeks (see `chat-periods.ts`).
  * Pure: no network. Messages may arrive in any order.
  */
 export function normalizeDiscordMessages(
   messages: readonly DiscordMessage[],
-  options?: { timeZone?: string },
+  options?: { timeZone?: string; singleDocument?: boolean },
 ): NormalizedDiscordWeek[] {
   const timeZone = options?.timeZone ?? "Asia/Tokyo";
-  const byWeek = new Map<
+  const byDocument = new Map<
     string,
     {
+      firstWeek: string;
+      lastWeek: string;
       messages: DiscordMessage[];
       cursor: string | null;
       urls: Set<string>;
@@ -103,11 +101,21 @@ export function normalizeDiscordMessages(
     if (!message.timestamp) continue;
     const weekPath = weekPathFromCreateTime(message.timestamp, timeZone);
     if (!weekPath) continue;
-    let bucket = byWeek.get(weekPath);
+    const key = options?.singleDocument ? "" : weekPath;
+    let bucket = byDocument.get(key);
     if (!bucket) {
-      bucket = { messages: [], cursor: null, urls: new Set(), attachments: [] };
-      byWeek.set(weekPath, bucket);
+      bucket = {
+        firstWeek: weekPath,
+        lastWeek: weekPath,
+        messages: [],
+        cursor: null,
+        urls: new Set(),
+        attachments: [],
+      };
+      byDocument.set(key, bucket);
     }
+    // Messages are sorted by time, so the last one seen is in the latest week.
+    bucket.lastWeek = weekPath;
     bucket.messages.push(message);
     bucket.cursor = maxSnowflake(bucket.cursor, message.id);
     for (const url of extractUrlsFromDiscordMessage(message)) bucket.urls.add(url);
@@ -124,8 +132,10 @@ export function normalizeDiscordMessages(
   }
 
   const weeks: NormalizedDiscordWeek[] = [];
-  for (const [weekPath, bucket] of [...byWeek.entries()].sort(([a], [b]) => a.localeCompare(b))) {
-    const lines: string[] = [`# ${weekTitle(weekPath)}`, ""];
+  const buckets = [...byDocument.values()].sort((a, b) => a.firstWeek.localeCompare(b.firstWeek));
+  for (const bucket of buckets) {
+    const title = periodTitle(bucket.firstWeek, bucket.lastWeek);
+    const lines: string[] = [`# ${title}`, ""];
     for (const message of bucket.messages) {
       const stamp = formatChatTimestamp(message.timestamp, timeZone);
       const name = authorDisplayName(message.author);
@@ -145,8 +155,8 @@ export function normalizeDiscordMessages(
       lines.push("");
     }
     weeks.push({
-      path: weekPath,
-      title: weekTitle(weekPath),
+      path: bucket.firstWeek,
+      title,
       markdown: `${lines.join("\n").trimEnd()}\n`,
       cursor: bucket.cursor,
       urls: [...bucket.urls],

@@ -41,18 +41,14 @@ function ensureGuildTables(sql: SqlStorage): void {
       category_name TEXT
     );
     CREATE TABLE IF NOT EXISTS guild_paths (path TEXT PRIMARY KEY);
+    -- Open documents an incremental channel run rebuilt (see import/open-document.ts).
+    CREATE TABLE IF NOT EXISTS guild_replaced (path TEXT PRIMARY KEY);
   `);
 }
 
 /** Per-channel scratch state the channel steps keep in the shared DO tables. */
 function resetChannelState(sql: SqlStorage): void {
-  for (const table of [
-    "pages",
-    "week_messages",
-    "attachments",
-    "week_documents",
-    "touched_weeks",
-  ]) {
+  for (const table of ["pages", "week_messages", "attachments", "week_documents"]) {
     sql.exec(`DELETE FROM ${table}`);
   }
   sql.exec(
@@ -113,6 +109,7 @@ async function stepDiscover(ctx: DiscordImportTickContext, current: Current): Pr
   const selected = selectGuildChannels(channels, current.source.config);
   ctx.sql.exec("DELETE FROM guild_channels");
   ctx.sql.exec("DELETE FROM guild_paths");
+  ctx.sql.exec("DELETE FROM guild_replaced");
   selected.forEach((channel, idx) => {
     ctx.sql.exec(
       "INSERT INTO guild_channels (idx, channel_id, name, category_name) VALUES (?, ?, ?, ?)",
@@ -209,6 +206,10 @@ async function stepChannels(ctx: DiscordImportTickContext, current: Current): Pr
         pathForMediaType(`${prefix}${row.week_path}`, MARKDOWN_MEDIA_TYPE),
       );
     }
+    const replaced = metaGet(ctx.sql, "open_path");
+    if (replaced) {
+      ctx.sql.exec("INSERT OR IGNORE INTO guild_replaced (path) VALUES (?)", replaced);
+    }
     await deleteRunTempObjects(channelCtx, current.source.id);
     index += 1;
     metaSet(ctx.sql, "guild_channel_index", String(index));
@@ -233,8 +234,9 @@ async function completeGuildImport(ctx: DiscordImportTickContext, current: Curre
     .toArray()
     .map((row) => row.path);
 
-  // Keep older weeks of channels that are still selected; documents of channels that
-  // were deselected (or deleted from the server) are archived.
+  // Keep older documents of channels that are still selected, except an open document a
+  // channel run rebuilt (it is in `written` again when a document still starts there);
+  // documents of channels that were deselected (or deleted from the server) are archived.
   ctx.budget.spend(1);
   const existing = await current.db
     .select({ path: schema.sourceDocuments.path })
@@ -246,8 +248,15 @@ async function completeGuildImport(ctx: DiscordImportTickContext, current: Curre
       ),
     )
     .all();
+  const replaced = new Set(
+    ctx.sql
+      .exec<{ path: string }>("SELECT path FROM guild_replaced")
+      .toArray()
+      .map((row) => row.path),
+  );
   const retained = new Set(written);
   for (const row of existing) {
+    if (replaced.has(row.path)) continue;
     if (selectedPrefixes.some((prefix) => row.path.startsWith(prefix))) retained.add(row.path);
   }
 

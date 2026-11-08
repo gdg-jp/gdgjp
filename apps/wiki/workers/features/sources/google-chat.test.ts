@@ -89,6 +89,25 @@ describe("normalizeChatMessages", () => {
     `);
   });
 
+  it("renders one document spanning its weeks with singleDocument", () => {
+    const lateReply: ChatMessage = {
+      ...FIXTURE_REPLY,
+      name: "spaces/AAA/messages/4",
+      createTime: "2026-07-28T01:00:00Z",
+    };
+    const documents = normalizeChatMessages([...FIXTURE_MESSAGES, lateReply], {
+      singleDocument: true,
+    });
+
+    expect(documents).toHaveLength(1);
+    expect(documents[0]?.path).toBe("2026-07-13");
+    expect(documents[0]?.title).toBe("2026-07-13 – 2026-08-02");
+    // A thread answered in a later week stays one section, without a parent quote.
+    expect(documents[0]?.markdown.match(/^## /gm)).toHaveLength(2);
+    expect(documents[0]?.markdown).not.toContain(THREAD_PARENT_UNAVAILABLE);
+    expect(documents[0]?.cursor).toBe("2026-08-01T01:00:00Z");
+  });
+
   it("does not add a parent quote when the parent is in the same week", () => {
     const week = normalizeChatMessages(FIXTURE_MESSAGES, {
       resolveSenderName: resolveFixtureSender,

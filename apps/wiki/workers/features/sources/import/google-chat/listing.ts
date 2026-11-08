@@ -4,6 +4,7 @@ import {
   weekBoundsRfc3339,
   weekPathFromCreateTime,
 } from "../../google-chat";
+import { resolveOpenDocument } from "../open-document";
 import { metaGet, metaSet } from "../run";
 import {
   CHAT_PAGE_SIZE,
@@ -108,82 +109,77 @@ export async function stepIndexing(
     const object = await ctx.env.BUCKET.get(page.r2_key);
     if (!object) throw new Error(`Missing Chat import page object: ${page.r2_key}`);
     const body = (await object.json()) as { messages?: ChatMessage[] };
-    for (const [messageIndex, message] of (body.messages ?? []).entries()) {
-      if (current.run.sinceCursor) {
-        if (!message.createTime) continue;
-        const weekPath = weekPathFromCreateTime(message.createTime);
-        if (weekPath) {
-          ctx.sql.exec("INSERT OR IGNORE INTO touched_weeks (week_path) VALUES (?)", weekPath);
-        }
-      } else {
+    // An incremental run only learns here whether anything is new; the open document is
+    // then re-fetched whole (regenerateOpenDocument), new messages included.
+    if (current.run.sinceCursor) {
+      if ((body.messages ?? []).length > 0) metaSet(ctx.sql, "has_new_messages", "1");
+    } else {
+      for (const [messageIndex, message] of (body.messages ?? []).entries()) {
         indexMessage(ctx.sql, message, `unnamed-${page.page_index}-${messageIndex}`);
       }
     }
     pageCursor += 1;
     metaSet(ctx.sql, "indexing_page", String(pageCursor));
   }
-  if (current.run.sinceCursor && !(await regenerateTouchedWeeks(ctx, current))) {
+  if (current.run.sinceCursor && !(await regenerateOpenDocument(ctx, current))) {
     return { phaseComplete: false };
   }
   return { phaseComplete: true };
 }
 
-/** Re-fetch and index every delta-touched week before sender/attachment processing. */
-async function regenerateTouchedWeeks(
+/**
+ * When the delta had new messages, index every message from the open document's first
+ * week onward (before sender and attachment processing), so grouping packs the open
+ * document (and any that follow it) whole.
+ */
+async function regenerateOpenDocument(
   ctx: ChatImportTickContext,
   current: Current,
 ): Promise<boolean> {
-  if (metaGet(ctx.sql, "weeks_regenerated") === "1") return true;
-  const weeks = ctx.sql
-    .exec<{ week_path: string }>("SELECT week_path FROM touched_weeks ORDER BY week_path")
-    .toArray();
-  let index = Number(metaGet(ctx.sql, "weeks_regenerate_index") ?? "0");
-  while (index < weeks.length) {
-    const weekPath = weeks[index]?.week_path;
-    if (!weekPath) break;
-    const startedKey = `week_regenerate_started:${weekPath}`;
-    const tokenKey = `week_regenerate_token:${weekPath}`;
-    const pageKey = `week_regenerate_page:${weekPath}`;
-    if (metaGet(ctx.sql, startedKey) !== "1") {
-      ctx.sql.exec("DELETE FROM week_messages WHERE week_path = ?", weekPath);
-      metaSet(ctx.sql, startedKey, "1");
-    }
+  if (metaGet(ctx.sql, "open_regenerated") === "1") return true;
+  if (metaGet(ctx.sql, "has_new_messages") !== "1") {
+    metaSet(ctx.sql, "open_regenerated", "1");
+    return true;
+  }
+  const openWeek = await resolveOpenDocument(ctx, current, {
+    pathPrefix: "",
+    fallbackWeek: weekPathFromCreateTime(current.run.sinceCursor ?? ""),
+  });
+  if (!openWeek) return false;
+  const bounds = weekBoundsRfc3339(openWeek);
+  if (!bounds) throw new Error(`Invalid Chat document week: ${openWeek}`);
+  const spaceName = spaceNameOf(current.source);
+
+  while (true) {
     if (!ctx.budget.canSpend(1)) return false;
-    const bounds = weekBoundsRfc3339(weekPath);
-    if (!bounds) throw new Error(`Invalid Chat week path: ${weekPath}`);
     const params = new URLSearchParams({
       pageSize: String(CHAT_PAGE_SIZE),
-      filter: `createTime >= \"${bounds.start}\" AND createTime < \"${bounds.end}\"`,
+      filter: `createTime >= "${bounds.start}"`,
     });
-    const pageToken = metaGet(ctx.sql, tokenKey);
+    const pageToken = metaGet(ctx.sql, "open_regenerate_token");
     if (pageToken) params.set("pageToken", pageToken);
     ctx.budget.spend(1);
     const response = await fetchWithTimeout(
-      `https://chat.googleapis.com/v1/${spaceNameOf(current.source)}/messages?${params}`,
+      `https://chat.googleapis.com/v1/${spaceName}/messages?${params}`,
       { headers: { Authorization: `Bearer ${requireAccessToken(ctx)}` } },
     );
     if (!response.ok) {
       await logGoogleChatMessagesListError(response, {
-        spaceName: spaceNameOf(current.source),
+        spaceName,
         filter: params.get("filter"),
         hasPageToken: Boolean(pageToken),
       });
-      throw new Error(`Google Chat weekly messages.list failed (${response.status})`);
+      throw new Error(`Google Chat messages.list failed (${response.status})`);
     }
     const page = (await response.json()) as { messages?: ChatMessage[]; nextPageToken?: string };
-    const pageIndex = Number(metaGet(ctx.sql, pageKey) ?? "0");
+    const pageIndex = Number(metaGet(ctx.sql, "open_regenerate_page") ?? "0");
     for (const [messageIndex, message] of (page.messages ?? []).entries()) {
-      indexMessage(ctx.sql, message, `week-${index}-${pageIndex}-${messageIndex}`, weekPath);
+      indexMessage(ctx.sql, message, `open-${pageIndex}-${messageIndex}`);
     }
-    if (page.nextPageToken) {
-      metaSet(ctx.sql, tokenKey, page.nextPageToken);
-      metaSet(ctx.sql, pageKey, String(pageIndex + 1));
-      continue;
-    }
-    ctx.sql.exec("DELETE FROM meta WHERE key IN (?, ?, ?)", startedKey, tokenKey, pageKey);
-    index += 1;
-    metaSet(ctx.sql, "weeks_regenerate_index", String(index));
+    if (!page.nextPageToken) break;
+    metaSet(ctx.sql, "open_regenerate_token", page.nextPageToken);
+    metaSet(ctx.sql, "open_regenerate_page", String(pageIndex + 1));
   }
-  metaSet(ctx.sql, "weeks_regenerated", "1");
+  metaSet(ctx.sql, "open_regenerated", "1");
   return true;
 }

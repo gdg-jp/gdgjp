@@ -49,15 +49,10 @@ export function requireAccessToken(ctx: ChatImportTickContext): string {
   return ctx.accessToken;
 }
 
-export function indexMessage(
-  sql: SqlStorage,
-  message: ChatMessage,
-  fallbackName: string,
-  expectedWeek?: string,
-): void {
+export function indexMessage(sql: SqlStorage, message: ChatMessage, fallbackName: string): void {
   if (!message.createTime) return;
   const weekPath = weekPathFromCreateTime(message.createTime);
-  if (!weekPath || (expectedWeek && weekPath !== expectedWeek)) return;
+  if (!weekPath) return;
   const messageName = message.name || fallbackName;
   const threadName = message.thread?.name || messageName;
   sql.exec(

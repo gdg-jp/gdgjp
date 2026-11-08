@@ -1,3 +1,5 @@
+import { periodTitle } from "./chat-periods";
+
 export interface ChatMessageAttachment {
   name?: string;
   contentName?: string;
@@ -43,13 +45,15 @@ export interface NormalizeChatOptions {
   threadParents?: ReadonlyMap<string, string>;
   /** Time zone for Monday-date paths and timestamps. Defaults to Asia/Tokyo. */
   timeZone?: string;
+  /** One document spanning every message's week instead of one per week (`chat-periods.ts`). */
+  singleDocument?: boolean;
 }
 
 export interface NormalizedWeek {
   path: string;
   title: string;
   markdown: string;
-  /** createTime of the latest message in this week (RFC-3339). */
+  /** createTime of the latest message in this document (RFC-3339). */
   cursor: string | null;
   urls: string[];
   attachments: Array<{
@@ -208,12 +212,6 @@ function threadHeading(text: string | undefined): string {
   return line.length > 60 ? `${line.slice(0, 57)}...` : line;
 }
 
-function weekTitle(weekPath: string): string {
-  const start = new Date(`${weekPath}T00:00:00Z`);
-  start.setUTCDate(start.getUTCDate() + 6);
-  return `${weekPath} – ${start.toISOString().slice(0, 10)}`;
-}
-
 export function threadParentText(message: ChatMessage): string | undefined {
   const text = message.text ?? message.argumentText ?? "";
   return text.trim() ? text : undefined;
@@ -230,7 +228,8 @@ export function attachmentObjectId(attachment: ChatMessageAttachment, index: num
 }
 
 /**
- * Turn a Chat messages.list payload into weekly, thread-grouped Markdown documents.
+ * Turn a Chat messages.list payload into weekly (or, with `singleDocument`, one),
+ * thread-grouped Markdown documents.
  * Pure: no network. Caller supplies sender resolution when names are prefetched.
  */
 export function normalizeChatMessages(
@@ -261,6 +260,8 @@ export function normalizeChatMessages(
   const weeks = new Map<
     string,
     {
+      firstWeek: string;
+      lastWeek: string;
       cursor: string | null;
       urls: Set<string>;
       attachments: NormalizedWeek["attachments"];
@@ -274,11 +275,20 @@ export function normalizeChatMessages(
     const path = weekPathFromCreateTime(message.createTime, timeZone);
     if (!path) continue;
 
-    let bucket = weeks.get(path);
+    const key = options.singleDocument ? "" : path;
+    let bucket = weeks.get(key);
     if (!bucket) {
-      bucket = { cursor: null, urls: new Set(), attachments: [], threads: new Map() };
-      weeks.set(path, bucket);
+      bucket = {
+        firstWeek: path,
+        lastWeek: path,
+        cursor: null,
+        urls: new Set(),
+        attachments: [],
+        threads: new Map(),
+      };
+      weeks.set(key, bucket);
     }
+    bucket.lastWeek = path; // sorted by time: the last message seen is in the latest week
 
     const threadKey = message.thread?.name || message.name || `message-${messageIndex}`;
     const thread = bucket.threads.get(threadKey) ?? [];
@@ -298,11 +308,11 @@ export function normalizeChatMessages(
     }
   }
 
-  return [...weeks.entries()]
-    .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
-    .map(([path, bucket]) => ({
-      path,
-      title: weekTitle(path),
+  return [...weeks.values()]
+    .sort((a, b) => (a.firstWeek < b.firstWeek ? -1 : a.firstWeek > b.firstWeek ? 1 : 0))
+    .map((bucket) => ({
+      path: bucket.firstWeek,
+      title: periodTitle(bucket.firstWeek, bucket.lastWeek),
       markdown: `${[...bucket.threads.entries()]
         .sort(([, left], [, right]) => {
           const leftTime = left[0]?.createTime ?? "";

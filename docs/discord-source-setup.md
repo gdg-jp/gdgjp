@@ -48,7 +48,7 @@ See `wiki/.dev.vars.example`.
 2. Confirm `GET /api/discord/guilds` returns the user’s servers with
    `botInstalled` flags.
 3. Invite the bot to a test guild if needed, then open channels and register one.
-4. Confirm `sources.status` becomes `ready` and weekly Markdown documents appear.
+4. Confirm `sources.status` becomes `ready` and Markdown documents appear (consecutive weeks share one document up to about 500 lines; a busier week is a document of its own).
 
 If Message Content Intent is off or the bot lacks channel permissions, the
 import run ends in `error` with a re-invite / Intent message — it must not

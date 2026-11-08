@@ -38,6 +38,7 @@ export function ensureSourceImportDoSchema(sql: SqlStorage): void {
     CREATE TABLE IF NOT EXISTS reply_threads (
       thread_name TEXT PRIMARY KEY
     );
+    -- Discord / Chat documents: week_path is a document's first week (chat-periods.ts).
     CREATE TABLE IF NOT EXISTS week_documents (
       week_path TEXT PRIMARY KEY,
       r2_key TEXT NOT NULL,
@@ -49,9 +50,6 @@ export function ensureSourceImportDoSchema(sql: SqlStorage): void {
       thread_name TEXT NOT NULL,
       create_time TEXT NOT NULL,
       message_json TEXT NOT NULL
-    );
-    CREATE TABLE IF NOT EXISTS touched_weeks (
-      week_path TEXT PRIMARY KEY
     );
     CREATE TABLE IF NOT EXISTS drive_units (
       id INTEGER PRIMARY KEY AUTOINCREMENT,

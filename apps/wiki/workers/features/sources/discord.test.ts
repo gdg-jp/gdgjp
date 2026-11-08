@@ -37,6 +37,25 @@ describe("normalizeDiscordMessages", () => {
     expect(weeks[1]?.cursor).toBe("2");
   });
 
+  it("renders one document spanning its weeks with singleDocument", () => {
+    const documents = normalizeDiscordMessages(
+      [
+        message({ id: "2", timestamp: "2026-08-25T03:00:00.000Z", content: "Last week" }),
+        message({ id: "1", timestamp: "2026-08-03T03:00:00.000Z", content: "First week" }),
+      ],
+      { singleDocument: true },
+    );
+
+    expect(documents).toHaveLength(1);
+    expect(documents[0]?.path).toBe("2026-08-03");
+    expect(documents[0]?.title).toBe("2026-08-03 – 2026-08-30");
+    expect(documents[0]?.markdown.startsWith("# 2026-08-03 – 2026-08-30\n")).toBe(true);
+    expect(documents[0]?.markdown.indexOf("First week")).toBeLessThan(
+      documents[0]?.markdown.indexOf("Last week") ?? -1,
+    );
+    expect(documents[0]?.cursor).toBe("2");
+  });
+
   it("emits attachment placeholders and skips empty bodies", () => {
     const weeks = normalizeDiscordMessages([
       message({

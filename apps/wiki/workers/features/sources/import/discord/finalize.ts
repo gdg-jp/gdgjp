@@ -2,6 +2,7 @@ import { and, eq, ne } from "drizzle-orm";
 import * as schema from "../../../../../app/db/schema";
 import type { DiscordMessage } from "../../../../../app/features/discord/api.server";
 import type { ResolvedSourceAsset } from "../../assets";
+import { markdownLineCount, packNextDocument } from "../../chat-periods";
 import { mergeDocumentUrls, normalizeDiscordMessages, warnDiscord } from "../../discord";
 import { MARKDOWN_MEDIA_TYPE, markdownBody, pathForMediaType } from "../../media-type";
 import { persistSourceDocument } from "../../persist";
@@ -15,22 +16,17 @@ import {
 } from "../run";
 import { type Current, type DiscordImportTickContext, type StepOutcome, log } from "./shared";
 
+/** Pack the indexed weeks into documents (`chat-periods.ts`), one R2 object each. */
 export async function stepGrouping(
   ctx: DiscordImportTickContext,
   current: Current,
 ): Promise<StepOutcome> {
   const weekPaths = ctx.sql
     .exec<{ week_path: string }>("SELECT DISTINCT week_path FROM week_messages ORDER BY week_path")
-    .toArray();
-  let sortIndex = Number(metaGet(ctx.sql, "weeks_flush_index") ?? "0");
-  while (sortIndex < weekPaths.length) {
-    if (!ctx.budget.canSpend(1)) {
-      metaSet(ctx.sql, "weeks_flush_index", String(sortIndex));
-      return { phaseComplete: false };
-    }
-    const weekPath = weekPaths[sortIndex]?.week_path;
-    if (!weekPath) break;
-    const messages = ctx.sql
+    .toArray()
+    .map((row) => row.week_path);
+  const load = (weekPath: string) =>
+    ctx.sql
       .exec<{ message_json: string }>(
         `SELECT message_json FROM week_messages
          WHERE week_path = ? ORDER BY create_time, id`,
@@ -38,20 +34,32 @@ export async function stepGrouping(
       )
       .toArray()
       .map((row) => JSON.parse(row.message_json) as DiscordMessage);
-    const r2Key = `raw/${current.source.id}/discord-runs/${ctx.runId}/weeks/${weekPath}.json`;
+  const measure = (messages: DiscordMessage[]) =>
+    markdownLineCount(
+      normalizeDiscordMessages(messages, { singleDocument: true })[0]?.markdown ?? "",
+    );
+
+  let next = Number(metaGet(ctx.sql, "weeks_flush_index") ?? "0");
+  while (next < weekPaths.length) {
+    if (!ctx.budget.canSpend(1)) return { phaseComplete: false };
+    const firstWeek = weekPaths[next];
+    if (!firstWeek) break;
+    const { messages, end } = packNextDocument(weekPaths, next, load, measure);
+    const r2Key = `raw/${current.source.id}/discord-runs/${ctx.runId}/documents/${firstWeek}.json`;
     ctx.budget.spend(1);
     await ctx.env.BUCKET.put(r2Key, JSON.stringify({ messages }), {
       httpMetadata: { contentType: "application/json" },
     });
+    // week_documents.week_path is the document's first week (its path).
     ctx.sql.exec(
       `INSERT INTO week_documents (week_path, r2_key, sort_index) VALUES (?, ?, ?)
        ON CONFLICT(week_path) DO UPDATE SET r2_key = excluded.r2_key, sort_index = excluded.sort_index`,
-      weekPath,
+      firstWeek,
       r2Key,
-      sortIndex,
+      next,
     );
-    sortIndex += 1;
-    metaSet(ctx.sql, "weeks_flush_index", String(sortIndex));
+    next = end;
+    metaSet(ctx.sql, "weeks_flush_index", String(next));
   }
   return { phaseComplete: true };
 }
@@ -99,7 +107,7 @@ export async function stepFinalizing(
     const object = await ctx.env.BUCKET.get(week.r2_key);
     if (!object) throw new Error(`Missing Discord import week object: ${week.r2_key}`);
     const body = (await object.json()) as { messages?: DiscordMessage[] };
-    const [normalized] = normalizeDiscordMessages(body.messages ?? []);
+    const [normalized] = normalizeDiscordMessages(body.messages ?? [], { singleDocument: true });
     if (!normalized) {
       weeksDone += 1;
       metaSet(ctx.sql, "weeks_done", String(weeksDone));
@@ -173,7 +181,14 @@ export async function completeImport(
         ),
       )
       .all();
-    retainedPaths = [...new Set([...existing.map((row) => row.path), ...weeks])];
+    // The open document was rebuilt from its first week; drop it if no document starts there now.
+    const replaced = metaGet(ctx.sql, "open_path");
+    retainedPaths = [
+      ...new Set([
+        ...existing.map((row) => row.path).filter((path) => path !== replaced),
+        ...weeks,
+      ]),
+    ];
   }
 
   ctx.budget.spend(ARCHIVE_MISSING_SUBREQUESTS);

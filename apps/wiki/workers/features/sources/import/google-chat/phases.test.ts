@@ -364,12 +364,12 @@ describe("advanceSourceImportTick with the Chat driver", () => {
     expect(names).toEqual(["unnamed-0-0", "unnamed-0-1"]);
   });
 
-  it("indexes the complete regenerated week before sender and attachment phases", async () => {
+  it("indexes the whole open document before sender and attachment phases", async () => {
     sqlite
       .prepare(
         `INSERT INTO source_documents
           (id, source_id, path, title, r2_key, content_hash, captured_at, cursor)
-         VALUES ('existing', ?, '2026-W27.md', 'Week', 'raw/week', 'hash', unixepoch(), ?)`,
+         VALUES ('existing', ?, '2026-06-22.md', 'Weeks', 'raw/week', 'hash', unixepoch(), ?)`,
       )
       .run(SOURCE_ID, "2026-07-03T00:00:00Z");
     await startSourceImport(
@@ -393,9 +393,11 @@ describe("advanceSourceImportTick with the Chat driver", () => {
       sender: { name: "users/old", type: "HUMAN" as const },
       attachment: [{ driveDataRef: { driveFileId: "old-file" }, contentName: "old.pdf" }],
     };
-    vi.spyOn(globalThis, "fetch").mockResolvedValue(
-      new Response(JSON.stringify({ messages: [oldMessage, delta.messages[0]] })),
-    );
+    const fetchSpy = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValue(
+        new Response(JSON.stringify({ messages: [oldMessage, delta.messages[0]] })),
+      );
 
     const result = await advanceSourceImportTick({
       env: {
@@ -404,11 +406,17 @@ describe("advanceSourceImportTick with the Chat driver", () => {
         },
       } as unknown as Env,
       sql,
-      budget: new SubrequestBudget(6),
+      budget: new SubrequestBudget(7),
       runId: run.id,
     });
 
     expect(result.phase).toBe("senders");
+    // Re-fetched from the open document's first week (Monday 2026-06-22, JST).
+    const url = new URL(String(fetchSpy.mock.calls[0]?.[0]));
+    expect(url.searchParams.get("filter")).toBe('createTime >= "2026-06-21T15:00:00Z"');
+    expect(
+      sql.exec<{ value: string }>("SELECT value FROM meta WHERE key = 'open_path'").one(),
+    ).toEqual({ value: "2026-06-22.md" });
     expect(
       sql.exec<{ resource_name: string }>("SELECT resource_name FROM senders").toArray(),
     ).toEqual([{ resource_name: "users/old" }]);
