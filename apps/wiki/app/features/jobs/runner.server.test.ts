@@ -29,6 +29,56 @@ describe("leaseNextJob", () => {
     expect(second).toBeNull();
   });
 
+  it("does not let an expired lease block its space until the hourly cron", async () => {
+    const { db, sqlite } = createSpacesTestDb();
+    insertJob(sqlite, {
+      id: "dead",
+      type: "synthesize",
+      status: "leased",
+      lease_until: 1,
+      attempts: 1,
+      run_after: 0,
+    });
+    const leased = await leaseNextJob(db, { types: ["synthesize"], host: "a" });
+    expect(leased?.id).toBe("dead");
+    expect(leased?.attempts).toBe(2);
+    // Still one clone job per space.
+    insertJob(sqlite, { id: "next", type: "synthesize", run_after: 0 });
+    expect(await leaseNextJob(db, { types: ["synthesize"], host: "b" })).toBeNull();
+  });
+
+  it("merges an expired job into the space's queued one instead of violating the index", async () => {
+    // c-2: a runner restart left its synthesize leased while new Discord documents queued a
+    // second one. Requeueing the first broke idx_agent_jobs_one_queued_per_space.
+    const { db, sqlite } = createSpacesTestDb();
+    insertJob(sqlite, {
+      id: "dead",
+      type: "synthesize",
+      status: "leased",
+      lease_until: 1,
+      attempts: 1,
+      run_after: 0,
+      payload: JSON.stringify({ sourceIds: ["drive"], documentIds: ["d1", "d2"] }),
+    });
+    insertJob(sqlite, {
+      id: "next",
+      type: "synthesize",
+      run_after: 0,
+      payload: JSON.stringify({ sourceIds: ["discord"], documentIds: ["d3"] }),
+    });
+    const leased = await leaseNextJob(db, { types: ["synthesize"], host: "a" });
+    expect(leased?.id).toBe("next");
+    expect(JSON.parse(leased?.payload ?? "{}")).toEqual({
+      sourceIds: ["discord", "drive"],
+      documentIds: ["d3", "d1", "d2"],
+      requests: [],
+    });
+    expect(sqlite.prepare("SELECT status, error FROM agent_jobs WHERE id = 'dead'").get()).toEqual({
+      status: "failed",
+      error: "merged into queued job next",
+    });
+  });
+
   it("respects run_after and priority", async () => {
     const { db, sqlite } = createSpacesTestDb();
     const future = Math.floor(Date.now() / 1000) + 3600;
@@ -116,6 +166,46 @@ describe("completeJob", () => {
 });
 
 describe("completeJob retry and review", () => {
+  it("merges a retryable failure into a newer queued job of the same space", async () => {
+    const { db, sqlite } = createSpacesTestDb();
+    insertJob(sqlite, {
+      id: "r",
+      type: "synthesize",
+      status: "leased",
+      lease_owner: "vm",
+      payload: JSON.stringify({ sourceIds: ["s1"], documentIds: ["d1"] }),
+    });
+    insertJob(sqlite, {
+      id: "q",
+      type: "synthesize",
+      payload: '{"sourceIds":[],"documentIds":[]}',
+    });
+    const result = await completeJob({} as Env, db, {
+      jobId: "r",
+      host: "vm",
+      status: "failed",
+      retry: true,
+      error: "verify-acl: boom",
+    });
+    expect(result.ok).toBe(true);
+    expect(
+      sqlite.prepare("SELECT id, status, error, payload FROM agent_jobs ORDER BY id").all(),
+    ).toEqual([
+      {
+        id: "q",
+        status: "queued",
+        error: null,
+        payload: '{"sourceIds":["s1"],"documentIds":["d1"],"requests":[]}',
+      },
+      {
+        id: "r",
+        status: "failed",
+        error: "merged into queued job q: verify-acl: boom",
+        payload: '{"sourceIds":["s1"],"documentIds":["d1"]}',
+      },
+    ]);
+  });
+
   it("requeues a retryable failure until attempts run out", async () => {
     const { db, sqlite } = createSpacesTestDb();
     insertJob(sqlite, { id: "r", type: "synthesize", status: "leased", lease_owner: "vm" });

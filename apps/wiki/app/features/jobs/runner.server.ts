@@ -27,6 +27,10 @@ export async function leaseNextJob(
   input: { types: readonly AgentJobType[]; host: string; now?: Date },
 ): Promise<Job | null> {
   if (input.types.length === 0) return null;
+  // A runner that died mid-job (restart, crash) stops extending its lease. Return such jobs
+  // now rather than at the hourly cron: until then the leased row blocks every clone job of
+  // its space. Same attempt accounting as the cron.
+  await requeueExpiredJobs(db, input.now);
   const now = Math.floor((input.now ?? new Date()).getTime() / 1000);
   const types = sql.join(
     input.types.map((type) => sql`${type}`),
@@ -116,16 +120,7 @@ export async function completeJob(
   if (!job || job.status !== "leased" || job.leaseOwner !== input.host) return { ok: false };
   const now = new Date();
   if (input.status === "failed" && input.retry && job.attempts + 1 < MAX_ATTEMPTS) {
-    await db
-      .update(schema.agentJobs)
-      .set({
-        status: "queued",
-        attempts: job.attempts + 1,
-        leaseUntil: null,
-        leaseOwner: null,
-        error: input.error?.slice(0, 4000) ?? null,
-      })
-      .where(eq(schema.agentJobs.id, job.id));
+    await returnToQueue(db, job, job.attempts + 1, input.error?.slice(0, 4000) ?? null, now);
     return { ok: true };
   }
   if (input.status === "needs_review" && input.reviewFlag) {
@@ -215,8 +210,8 @@ async function notifyRequesters(
 }
 
 /**
- * Hourly: expired leases go back to the queue (3 attempts, then failed); answers past their
- * deadline expire (the asker already got the degraded reply).
+ * Hourly, and before every lease: expired leases go back to the queue (3 attempts, then
+ * failed); answers past their deadline expire (the asker already got the degraded reply).
  */
 export async function requeueExpiredJobs(db: Db, now = new Date()): Promise<number> {
   const nowSec = Math.floor(now.getTime() / 1000);
@@ -225,29 +220,92 @@ export async function requeueExpiredJobs(db: Db, now = new Date()): Promise<numb
      WHERE type = 'answer' AND status IN ('queued', 'leased') AND deadline_at IS NOT NULL
        AND deadline_at < ${nowSec}`);
   const expired = await db
-    .select({ id: schema.agentJobs.id, attempts: schema.agentJobs.attempts })
+    .select()
     .from(schema.agentJobs)
     .where(and(eq(schema.agentJobs.status, "leased"), lt(schema.agentJobs.leaseUntil, now)))
     .all();
   for (const job of expired) {
     const attempts = job.attempts + 1;
-    await db
-      .update(schema.agentJobs)
-      .set(
-        attempts >= MAX_ATTEMPTS
-          ? {
-              status: "failed",
-              attempts,
-              leaseUntil: null,
-              leaseOwner: null,
-              finishedAt: now,
-              error: "lease expired",
-            }
-          : { status: "queued", attempts, leaseUntil: null, leaseOwner: null },
-      )
-      .where(and(eq(schema.agentJobs.id, job.id), eq(schema.agentJobs.status, "leased")));
+    if (attempts >= MAX_ATTEMPTS) {
+      await db
+        .update(schema.agentJobs)
+        .set({
+          status: "failed",
+          attempts,
+          leaseUntil: null,
+          leaseOwner: null,
+          finishedAt: now,
+          error: "lease expired",
+        })
+        .where(and(eq(schema.agentJobs.id, job.id), eq(schema.agentJobs.status, "leased")));
+    } else {
+      await returnToQueue(db, job, attempts, job.error, now);
+    }
   }
   return expired.length;
+}
+
+/**
+ * Put a leased job back in the queue. A space has at most one queued synthesize /
+ * consolidate (`idx_agent_jobs_one_queued_per_space`), and new documents keep arriving
+ * while a job runs, so the queue may already hold a newer one: then this job's payload
+ * merges into it and this job ends as failed ("merged into …"). A plain UPDATE would
+ * violate the index, fail every time, and leave the row leased, blocking the space.
+ */
+async function returnToQueue(
+  db: Db,
+  job: Job,
+  attempts: number,
+  error: string | null,
+  now: Date,
+): Promise<void> {
+  const stillLeased = and(eq(schema.agentJobs.id, job.id), eq(schema.agentJobs.status, "leased"));
+  const waiting = CLONE_JOBS.includes(job.type as AgentJobType)
+    ? await db
+        .select()
+        .from(schema.agentJobs)
+        .where(
+          and(
+            eq(schema.agentJobs.spaceId, job.spaceId),
+            eq(schema.agentJobs.type, job.type),
+            eq(schema.agentJobs.status, "queued"),
+          ),
+        )
+        .get()
+    : undefined;
+  if (!waiting) {
+    await db
+      .update(schema.agentJobs)
+      .set({ status: "queued", attempts, leaseUntil: null, leaseOwner: null, error })
+      .where(stillLeased);
+    return;
+  }
+  const mine = parsePayload(job);
+  const theirs = parsePayload(waiting);
+  const merged: SynthesizePayload = {
+    sourceIds: [...new Set([...(theirs.sourceIds ?? []), ...(mine.sourceIds ?? [])])],
+    documentIds: [...new Set([...(theirs.documentIds ?? []), ...(mine.documentIds ?? [])])],
+    requests: [...(mine.requests ?? []), ...(theirs.requests ?? [])],
+  };
+  await db
+    .update(schema.agentJobs)
+    .set({
+      payload: JSON.stringify(merged),
+      priority: Math.max(waiting.priority, job.priority),
+      runAfter: waiting.runAfter < job.runAfter ? waiting.runAfter : job.runAfter,
+    })
+    .where(and(eq(schema.agentJobs.id, waiting.id), eq(schema.agentJobs.status, "queued")));
+  await db
+    .update(schema.agentJobs)
+    .set({
+      status: "failed",
+      attempts,
+      leaseUntil: null,
+      leaseOwner: null,
+      finishedAt: now,
+      error: `merged into queued job ${waiting.id}${error ? `: ${error}` : ""}`.slice(0, 4000),
+    })
+    .where(stillLeased);
 }
 
 export async function recordRunnerHeartbeat(
