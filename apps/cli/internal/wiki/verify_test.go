@@ -58,3 +58,39 @@ func TestVerifyACLRequiresAReadSet(t *testing.T) {
 		t.Fatalf("a nil read set must be an error, got %v", err)
 	}
 }
+
+// A synthesize job that adds events/x/program/examples (all new) failed verify-acl with
+// "new parent has not been created", although the push itself creates the whole tree.
+func TestBuildValidateACLPagesAcceptsNewPagesUnderNewParents(t *testing.T) {
+	root := t.TempDir()
+	write := func(rel, slug, parent string) {
+		dir := filepath.Join(root, "pages", filepath.FromSlash(rel))
+		if err := os.MkdirAll(dir, 0o755); err != nil {
+			t.Fatal(err)
+		}
+		fm := "---\ngdg_wiki: 1\nslug: " + slug + "\nlanguage: ja\ntitle: " + slug +
+			"\ntranslation_status: human\nvisibility: restricted\ngeneral_role: viewer\n"
+		if parent != "" {
+			fm += "parent_slug: " + parent + "\n"
+		}
+		if err := os.WriteFile(filepath.Join(dir, "page.md"), []byte(fm+"---\nbody\n"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	write("events", "events", "")
+	write("events/program", "program", "events")
+	write("events/program/examples", "examples", "program")
+
+	pages, err := BuildValidateACLPages(root, []string{"events", "events/program", "events/program/examples"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(pages) != 3 {
+		t.Fatalf("pages = %d, want 3", len(pages))
+	}
+	for _, page := range pages {
+		if page.ID != nil {
+			t.Fatalf("new page %s was sent with ID %q", page.Slug, *page.ID)
+		}
+	}
+}

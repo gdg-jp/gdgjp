@@ -192,12 +192,23 @@ func BuildValidateACLPages(root string, changedRels []string) ([]ValidateACLPage
 	for _, rel := range changedRels {
 		want[filepath.ToSlash(rel)] = struct{}{}
 	}
+	// A push creates new parent/child trees in one transaction (the remote helper allocates
+	// the IDs first), so a new page under a new parent is valid here too. PageFromLocal only
+	// resolves parents by key, so give new pages placeholder keys; each page keeps its own
+	// front matter, so a new page is still sent without an ID.
+	parents := make(map[string]LocalPage, len(all))
+	for key, local := range all {
+		if strings.HasPrefix(key, "new:") {
+			key = "pending:" + filepath.ToSlash(local.Rel)
+		}
+		parents[key] = local
+	}
 	pages := make([]ValidateACLPage, 0, len(want))
 	for _, local := range all {
 		if _, ok := want[filepath.ToSlash(local.Rel)]; !ok {
 			continue
 		}
-		page, err := PageFromLocal(local, all)
+		page, err := PageFromLocal(local, parents)
 		if err != nil {
 			return nil, err
 		}
