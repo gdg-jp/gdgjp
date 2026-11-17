@@ -16,6 +16,31 @@ Biome. Its core web apps are React Router v7 SSR applications deployed to Cloudf
 persistent state on Cloudflare D1; the repository also includes a public website, a Vercel gateway,
 a Chrome extension, an OIDC client demo, and shared libraries.
 
+## GDG Japan MCP
+
+`https://mcp.gdgs.jp/mcp` is a remote MCP server (Streamable HTTP) that lets AI clients use GDG Japan
+services as you, with nothing to install. Add it to your client:
+
+```sh
+# Claude Code (then run /mcp and choose gdg-japan to sign in)
+claude mcp add --transport http gdg-japan https://mcp.gdgs.jp/mcp
+
+# Codex CLI
+codex mcp add gdg-japan --url https://mcp.gdgs.jp/mcp
+codex mcp login gdg-japan
+```
+
+- Claude (claude.ai / Claude Desktop): Settings → Connectors → Add custom connector, URL
+  `https://mcp.gdgs.jp/mcp`.
+- Cursor (`~/.cursor/mcp.json`): `{ "mcpServers": { "gdg-japan": { "url": "https://mcp.gdgs.jp/mcp" } } }`
+- VS Code (`.vscode/mcp.json`): `{ "servers": { "gdg-japan": { "type": "http", "url": "https://mcp.gdgs.jp/mcp" } } }`
+
+The first connection opens a browser: approve the client on the GDG Japan MCP consent page, then sign
+in with GDG Japan Accounts. `wiki:read` (search and read the wiki, its workspace, raw sources and
+AGENTS.md) is always granted; untick `wiki:write` (register sources, file answer notes, edit
+AGENTS.md as an admin) to connect read-only. Tools only reach what your account can see. When your
+Accounts sign-in ends, the client asks you to connect again. Details: `apps/mcp/README.md`.
+
 ## Local CI
 
 `pnpm ci:staged` (also `pnpm ci:full --changed`) selects checks from staged paths and executes them
