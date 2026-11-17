@@ -15,17 +15,17 @@ const CI_WORKSPACES = [
   { directory: "apps/wiki", workspace: "@gdgjp/wiki", build: true, e2e: true },
   { directory: "apps/img", workspace: "@gdgjp/img", build: true, e2e: true },
   { directory: "apps/scheduler", workspace: "@gdgjp/scheduler", build: true, e2e: true },
-  { directory: "apps/sns", workspace: "@gdgjp/sns", build: true, e2e: false },
-  { directory: "apps/connpass", workspace: "@gdgjp/connpass", build: true, e2e: false },
+  { directory: "apps/sns", workspace: "@gdgjp/sns", build: true, e2e: true },
+  { directory: "apps/connpass", workspace: "@gdgjp/connpass", build: true, e2e: true },
   { directory: "apps/pay", workspace: "@gdgjp/pay", build: true, e2e: true },
-  { directory: "apps/ost", workspace: "@gdgjp/ost", build: true, e2e: false },
+  { directory: "apps/ost", workspace: "@gdgjp/ost", build: true, e2e: true },
   { directory: "apps/roster", workspace: "@gdgjp/roster", build: true, e2e: true },
   { directory: "apps/mc", workspace: "@gdgjp/mc", build: true, e2e: true },
-  { directory: "apps/screen", workspace: "@gdgjp/screen", build: true, e2e: false },
+  { directory: "apps/screen", workspace: "@gdgjp/screen", build: true, e2e: true },
   { directory: "apps/deck", workspace: "@gdgjp/deck", build: true, e2e: true },
   { directory: "apps/roulette", workspace: "@gdgjp/roulette", build: true, e2e: true },
   { directory: "apps/pr", workspace: "@gdgjp/pr", build: true, e2e: true },
-  { directory: "apps/website", workspace: "@gdgjp/website", build: true, e2e: false },
+  { directory: "apps/website", workspace: "@gdgjp/website", build: true, e2e: true },
   {
     directory: "apps/live-checkin",
     workspace: "@gdgjp/live-checkin",
@@ -172,6 +172,16 @@ const GLOBAL_INPUTS = new Set([
 
 const BIOME_FILE_PATTERN = /\.(?:[cm]?[jt]sx?|jsonc?|css|graphql|ya?ml)$/;
 const OPENAPI_DIRECTORIES = new Set(["accounts", "img", "tinyurl", "wiki", "connpass", "sns"]);
+const E2E_HARNESS_INPUTS = new Set([
+  "scripts/run-e2e-dev.mjs",
+  "scripts/run-isolated-e2e.mjs",
+  "scripts/verification/workspace-snapshot.mjs",
+  "scripts/verification/serve-vite.mjs",
+]);
+
+export function isE2EHarnessInput(file) {
+  return E2E_HARNESS_INPUTS.has(file);
+}
 
 function unique(values) {
   return [...new Set(values)];
@@ -282,7 +292,7 @@ export function classifyChanges(files, { forceAll = false } = {}) {
   return {
     ci: ciTargets.map(({ workspace }) => workspace),
     build: ciTargets.filter(({ build }) => build).map(({ workspace }) => workspace),
-    e2e: (normalizedFiles.includes("scripts/run-e2e-dev.mjs") ? CI_WORKSPACES : ciTargets)
+    e2e: (normalizedFiles.some(isE2EHarnessInput) ? CI_WORKSPACES : ciTargets)
       .filter(({ e2e }) => e2e)
       .map(({ directory }) => workspaceName(directory)),
     deploy: deployTargets,
@@ -295,11 +305,13 @@ export function classifyChanges(files, { forceAll = false } = {}) {
         file === "scripts/check-design-harness.mjs" ||
         file === "scripts/pstack.mjs" ||
         file === "scripts/check-docs.mjs" ||
+        file === "scripts/check-workspace-boundaries.mjs" ||
         file === "scripts/check-code-comments.mjs" ||
         file === "scripts/code-comment-exceptions.json" ||
         file === "scripts/run-ci.mjs" ||
         file === "scripts/run-go-ci.mjs" ||
-        file === "scripts/run-e2e-dev.mjs" ||
+        isE2EHarnessInput(file) ||
+        file === "apps/wiki/tests/e2e/setup.ts" ||
         /^apps\/pr\/(?:e2e\/(?:run\.mjs|global-setup\.ts|fonts\.ts)|(?:vite|playwright)\.config\.ts|package\.json)$/.test(
           file,
         ) ||

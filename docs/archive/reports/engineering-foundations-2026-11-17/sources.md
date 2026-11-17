@@ -1,5 +1,11 @@
 # Source correspondence
 
+Implementation proceeds in committed phases with mandatory E2E. The ownership and
+isolated-verification phase has passed all 17 configured suites without retries,
+with 179 passed and one explicitly skipped real-SFU case. See
+[validation](validation.md) for evidence and failed earlier attempts. The remaining
+concepts below retain their actual implementation status until their phases run.
+
 Reviewed on November 17, 2026 through Orca Browser. The video review used the English
 automatic transcript and chapters, not a complete audiovisual review. X search was
 `from:poteto comments`; long posts identified below were expanded. No claim is made
@@ -12,11 +18,11 @@ The source is [All Code Is Slop (Except Mine)](https://www.youtube.com/watch?v=O
 | Passage | Idea | Repository response | Remaining work |
 | --- | --- | --- | --- |
 | 1:03 to 2:03 | Increase throughput while preserving quality through investment in the environment | Engineering changes prioritize reliable checks before more automation | Whole-repository quality is not established by this change |
-| 2:03 to 3:22 | Prioritize architecture, types, and deterministic checks; use prose for judgment | Reuse actual verifiers and remove duplicate CI task lists | Application-specific API/type improvements remain open |
-| 3:27 to 4:51 | Agents copy workarounds and established patterns | Remove obsolete discovery links; change simplicity guidance to root-cause repair | Application-wide workaround inventory and cleanup remain open |
+| 2:03 to 3:22 | Prioritize architecture, types, and deterministic checks; use prose for judgment | Reuse actual verifiers, remove duplicate CI task lists, and enforce workspace import ownership | Application-specific API/type review remains open |
+| 3:27 to 4:51 | Agents copy workarounds and established patterns | Remove obsolete discovery links; change simplicity guidance; migrate Wiki OAuth callers and delete its forwarding API | Other application workarounds remain unaudited |
 | 5:00 to 6:07 | Restrict APIs that require nuance; product code used replacement framework APIs instead of useEffect | Evaluate the API boundary rather than adding a blanket React ban | No replacement lifecycle API or effect audit implemented |
-| 6:10 to 6:49 | Make runtime ownership obvious in directories and enforce dependency direction | Retain existing architecture conventions and tests | No repository-wide dependency analyzer added; existing suites need coverage review |
-| 6:56 to 9:35 | Comments can justify hacks; eliminate causes and replace prose with enforceable checks | Default no-new-comments policy and lexical gate with reviewed exceptions | Existing application comments still require semantic audit; lexical rejection alone does not repair their causes |
+| 6:10 to 6:49 | Make runtime ownership obvious in directories and enforce dependency direction | Add a first-party workspace import analyzer alongside existing architecture tests | Feature layering and client/server coverage still need per-application review; computed imports are outside the new gate |
+| 6:56 to 9:35 | Comments can justify hacks; eliminate causes and replace prose with enforceable checks | Default no-new-comments gate; remove Wiki's comment-justified OAuth compatibility layer and guard export ownership | Semantic audit covered this OAuth layer; other legacy comments remain unaudited |
 | 9:40 to 10:45 | Review runtime evidence; provide user-facing feature maps and reusable verification CLIs | Retain Wiki maps and isolated server helper; document their limits | Wiki editing/search/admin and other apps need mapped, executed journeys |
 | 10:50 to 11:25 | Use TLA+ models or Lean proofs for costly state/algorithm bugs | Preserve the existing independent bounded ACL check and mutation proof | No new TLA+ or Lean model; bounded ACL enumeration is not an unbounded proof |
 | 11:35 to 11:44 | UI property-based testing can find interaction bugs; Bombadil is one example | Record as a distinct open evaluation | No property-based UI driver or invariant suite implemented |
@@ -29,7 +35,7 @@ The source is [All Code Is Slop (Except Mine)](https://www.youtube.com/watch?v=O
 | Source | Reviewed content | Repository response |
 | --- | --- | --- |
 | [October 29](https://x.com/poteto/status/2115644484226777581) | Comments were banned because agents justify hacks with them | Default comment policy adopted with necessary exceptions |
-| [October 16](https://x.com/poteto/status/2110758788525621282) | Expanded post recommends auditing comments and replacing them with stronger types, APIs, and lint | Gate rejects new comments; semantic repair of old application comments remains open |
+| [October 16](https://x.com/poteto/status/2110758788525621282) | Expanded post recommends auditing comments and replacing them with stronger types, APIs, and lint | Gate rejects new comments; the first semantic repair removes Wiki OAuth forwarding and checks actual export ownership. Other legacy comments remain open |
 | [October 14 clarification](https://x.com/poteto/status/2110229505864552902) | Keep comments that explain real browser quirks | External constraints remain eligible for reviewed exceptions |
 | [October 17](https://x.com/poteto/status/2111133080526495985) | Expanded post orders improvements, checks, prose, and human review; recommends studying prior corrections and prototyping questions | Preserve this order; source/code comparison performed. Historical transcripts, Slack, and review-feedback mining were not performed |
 | [November 15](https://x.com/poteto/status/2121646643124809848) | Expanded post warns that minimal patches spread as copied patterns | Root-cause guidance updated in both mode and leaf skill |

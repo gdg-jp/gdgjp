@@ -10,6 +10,8 @@ export default defineConfig({
   server: { port: 5178, strictPort: true },
   plugins: [
     cloudflareDevProxy({
+      environment: process.env.CLOUDFLARE_ENV,
+      configPath: process.env.CLOUDFLARE_VITE_WRANGLER_CONFIG_PATH,
       getLoadContext: ({ context }) =>
         new CloudflareContext({ env: context.cloudflare.env as Env, ctx: context.cloudflare.ctx }),
     }),

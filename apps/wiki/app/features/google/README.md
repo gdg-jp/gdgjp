@@ -2,7 +2,9 @@
 
 Google integrations: Drive, Docs, Forms, Chat, Picker, plus the Docs-import feature in `documents/`.
 
-- `drive.server.ts` / `drive-token.server.ts` / `drive-utils.ts` — Drive REST + OAuth token rows + kind detection.
+- `drive.server.ts` / `drive-utils.ts` — Drive REST, document reads, and kind detection.
+- `drive-oauth.server.ts` — OAuth scopes, consent URLs, and token exchange/refresh.
+- `drive-token.server.ts` — Stored-token lifecycle using the OAuth module directly.
 - `docs-markdown.server.ts` — Google Docs JSON → Markdown.
 - `forms.server.ts` / `forms-utils.ts` / `survey-stats.server.ts` — Forms fetch + survey aggregation.
 - `chat.server.ts` — Google Chat spaces/messages.

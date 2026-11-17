@@ -152,14 +152,17 @@ function writeStorageStates(storageDirectory: string, secret: string, issuer: st
 
 function runWrangler(args: string[], cwd: string, phase: string): string {
   try {
-    return execFileSync("pnpm", ["exec", "wrangler", ...args], {
-      cwd,
-      encoding: "utf8",
-      stdio: ["ignore", "pipe", "ignore"],
-    });
-  } catch {
+    return (
+      execFileSync("pnpm", ["exec", "wrangler", ...args], {
+        cwd,
+        encoding: "utf8",
+        stdio: ["ignore", args.includes("--json") ? "pipe" : "inherit", "inherit"],
+      }) ?? ""
+    );
+  } catch (error: unknown) {
     const printableArgs = args.filter((argument) => !argument.includes("SESSION_SECRET"));
-    fail(phase, `command failed: pnpm exec wrangler ${printableArgs.join(" ")}`);
+    const reason = error instanceof Error ? error.message : String(error);
+    fail(phase, `command failed: pnpm exec wrangler ${printableArgs.join(" ")}\n${reason}`);
   }
 }
 

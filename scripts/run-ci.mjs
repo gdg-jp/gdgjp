@@ -12,14 +12,20 @@ import {
 import { availableParallelism, machine, release, tmpdir } from "node:os";
 import { basename, delimiter, dirname, isAbsolute, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { classifyChanges } from "../.github/scripts/changed-workspaces.mjs";
+import { classifyChanges, isE2EHarnessInput } from "../.github/scripts/changed-workspaces.mjs";
 import { isCommentSource } from "./check-code-comments.mjs";
 import { isDesignSourceFile } from "./check-design-harness.mjs";
-import { playwrightMetrics, playwrightReport, turboMetrics } from "./ci-metrics.mjs";
+import {
+  isolatedE2EMetrics,
+  playwrightMetrics,
+  playwrightReport,
+  turboMetrics,
+} from "./ci-metrics.mjs";
 
 const quickSteps = [
   ["docs", "node scripts/check-docs.mjs"],
   ["code-comments", "node scripts/check-code-comments.mjs"],
+  ["workspace-boundaries", "node scripts/check-workspace-boundaries.mjs"],
   ["typecheck:node-scripts", "pnpm typecheck:node-scripts"],
   ["pstack", "node scripts/pstack.mjs doctor"],
   [
@@ -51,23 +57,11 @@ const fullSteps = [
   // overlap the browser suites that serve that directory.
   ["design-harness:scenarios", "node scripts/check-design-harness.mjs scenarios"],
   // Keep the shared-Accounts chain moving whenever its server is free.
-  ...[
-    "accounts",
-    "scheduler",
-    "tinyurl",
-    "img",
-    "wiki",
-    "roster",
-    "design-system",
-    "pay",
-    "ost",
-    "mc",
-    "connpass",
-  ].map((app) => [
+  ...classifyChanges([], { forceAll: true }).e2e.map((app) => [
     `e2e:@gdgjp/${app}`,
     app === "design-system"
       ? "pnpm --filter @gdgjp/design-system exec playwright test --workers=2 --reporter=dot,json"
-      : `pnpm --filter @gdgjp/${app} test:e2e --reporter=dot,json`,
+      : `node scripts/run-isolated-e2e.mjs --workspace @gdgjp/${app} -- --reporter=dot,json`,
   ]),
 ];
 
@@ -95,27 +89,24 @@ const nodeScriptInputPattern =
 const UI_DIRECTORY = "packages/design-system";
 const nodeConfigurationFilePattern =
   /(?:^|\/)(?:package\.json|tsconfig(?:\.[^/]+)?\.json|vite\.config\.[cm]?[jt]s|wrangler\.(?:toml|jsonc?)|react-router\.config\.[cm]?[jt]s)$/;
-const workspaces = new Map([
-  ["apps/accounts", "@gdgjp/accounts"],
-  ["apps/accounts-oidc-client-demo", "@gdgjp/accounts-oidc-client-demo"],
-  ["apps/agent", "@gdgjp/agent"],
-  ["packages/gdg-lib", "@gdgjp/gdg-lib"],
-  ["packages/design-system", "@gdgjp/design-system"],
-  ["apps/go-extension", "@gdgjp/go-extension"],
-  ["apps/img", "@gdgjp/img"],
-  ["apps/mc", "@gdgjp/mc"],
-  ["apps/ost", "@gdgjp/ost"],
-  ["apps/pay", "@gdgjp/pay"],
-  ["apps/pr", "@gdgjp/pr"],
-  ["apps/roster", "@gdgjp/roster"],
-  ["apps/scheduler", "@gdgjp/scheduler"],
-  ["apps/sns", "@gdgjp/sns"],
-  ["apps/tinyurl", "@gdgjp/tinyurl"],
-  ["apps/tinyurl-gateway", "@gdgjp/tinyurl-gateway"],
-  ["apps/website", "@gdgjp/website"],
-  ["apps/wiki", "@gdgjp/wiki"],
-  ["apps/connpass", "@gdgjp/connpass"],
-]);
+const repositoryRoot = fileURLToPath(new URL("../", import.meta.url));
+const workspaces = new Map(
+  ["apps", "packages"].flatMap((group) => {
+    const directory = join(repositoryRoot, group);
+    if (!existsSync(directory)) return [];
+    return readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
+      const manifest = join(directory, entry.name, "package.json");
+      if (
+        !entry.isDirectory() ||
+        !existsSync(manifest) ||
+        `${group}/${entry.name}` === "apps/learn"
+      )
+        return [];
+      const { name } = JSON.parse(readFileSync(manifest, "utf8"));
+      return [[`${group}/${entry.name}`, name]];
+    });
+  }),
+);
 
 const uiAppDirectories = new Set(
   existsSync("apps")
@@ -306,6 +297,15 @@ export function changedSteps(mode, files) {
   if (mode === "full") buildWorkspaces.delete("@gdgjp/design-system");
   const steps = [];
   if (
+    files.some((file) =>
+      /^(?:(?:apps|packages)\/|tsconfig[^/]*\.json$|pnpm-workspace\.yaml$|package\.json$|scripts\/check-workspace-boundaries\.mjs$|\.github\/scripts\/check-workspace-boundaries\.test\.mjs$)/.test(
+        file,
+      ),
+    )
+  ) {
+    steps.push(["workspace-boundaries", "node scripts/check-workspace-boundaries.mjs"]);
+  }
+  if (
     files.some((file) => file.startsWith("docs/")) ||
     files.includes("scripts/check-docs.mjs") ||
     files.includes("scripts/docs-moves.json") ||
@@ -445,7 +445,15 @@ export function changedSteps(mode, files) {
       scriptTests.push(".github/scripts/design-harness.test.mjs");
     }
   }
-  if (relevantFiles.includes("scripts/run-e2e-dev.mjs")) {
+  if (relevantFiles.includes("scripts/verification/workspace-snapshot.mjs")) {
+    if (!scriptTests.includes(".github/scripts/run-isolated-e2e.test.mjs")) {
+      scriptTests.push(".github/scripts/run-isolated-e2e.test.mjs");
+    }
+  }
+  if (relevantFiles.includes("apps/wiki/tests/e2e/setup.ts")) {
+    scriptTests.push(".github/scripts/wiki-e2e-setup.test.mjs");
+  }
+  if (relevantFiles.some(isE2EHarnessInput)) {
     if (!scriptTests.includes(".github/scripts/e2e-ports.test.mjs")) {
       scriptTests.push(".github/scripts/e2e-ports.test.mjs");
     }
@@ -520,9 +528,9 @@ export function changedSteps(mode, files) {
       ]);
     }
     const e2eWorkspaces = new Map();
-    if (relevantFiles.includes("scripts/run-e2e-dev.mjs")) {
+    if (relevantFiles.some(isE2EHarnessInput)) {
       for (const [directory, workspace] of workspaces) {
-        if (existsSync(`${directory}/playwright.config.ts`) && directory !== UI_DIRECTORY) {
+        if (existsSync(`${directory}/playwright.config.ts`)) {
           e2eWorkspaces.set(workspace, null);
         }
       }
@@ -550,15 +558,13 @@ export function changedSteps(mode, files) {
       e2eWorkspaces.set(workspace, null);
     }
     for (const [workspace, e2eFiles] of e2eWorkspaces) {
-      if (workspace === "@gdgjp/design-system") continue;
+      if (workspace === "@gdgjp/design-system" && !relevantFiles.some(isE2EHarnessInput)) continue;
       const directory = [...workspaces].find(([, name]) => name === workspace)?.[0];
       // A frontend edit does not create a browser suite. Only schedule apps
       // with a configured runner, rather than collecting their unit tests.
       if (!directory || !existsSync(`${directory}/playwright.config.ts`)) continue;
       const e2eArguments = e2eFiles ? ` ${e2eFiles.map(shellQuote).join(" ")}` : "";
-      const command = ["@gdgjp/wiki", "@gdgjp/pr"].includes(workspace)
-        ? `pnpm --filter ${workspace} test:e2e --reporter=dot,json${e2eArguments}`
-        : `pnpm --filter ${workspace} exec playwright test --reporter=dot,json${e2eArguments}`;
+      const command = `node scripts/run-isolated-e2e.mjs --workspace ${workspace} -- --reporter=dot,json${e2eArguments}`;
       steps.push([
         `e2e:${workspace}`,
         command,
@@ -603,7 +609,7 @@ export async function runConcurrentSteps(steps, options = {}, concurrency = 4) {
   let failed = false;
   // These suites all own the same Accounts server, vars file and database.
   const resource = ([name]) =>
-    /^e2e:@gdgjp\/(?:accounts|tinyurl|img|scheduler)$/.test(name) ? "accounts" : name;
+    /^e2e:@gdgjp\/(?:accounts|tinyurl|img|scheduler|sns)$/.test(name) ? "accounts" : name;
   // The UI graph rewrites dist/. Consumers must not read it during that build.
   const resources = (step) =>
     step[0] === "e2e:ui"
@@ -699,7 +705,11 @@ export function runStep(
       };
       try {
         metric.turboRuns = turboMetrics(Buffer.concat(output).toString());
-        if (name.startsWith("e2e")) {
+        const isolated = isolatedE2EMetrics(Buffer.concat(output).toString(), startedAtUnixMs);
+        if (isolated) {
+          metric.isolatedE2E = isolated;
+          metric.playwright = isolated.playwright;
+        } else if (name.startsWith("e2e")) {
           const directories =
             name === "e2e"
               ? [...workspaces.keys()]

@@ -1,4 +1,4 @@
-import { GOOGLE_DRIVE_REAUTH_MESSAGE } from "../../../../../app/features/google/drive.server";
+import { GOOGLE_DRIVE_REAUTH_MESSAGE } from "../../../../../app/features/google/drive-oauth.server";
 import type { CurrentSourceImport, SourceImportTickContext } from "../run";
 import type { ImportKindDriver } from "../tick";
 import { stepAssets } from "./steps/assets";

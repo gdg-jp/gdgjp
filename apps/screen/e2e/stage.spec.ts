@@ -267,6 +267,15 @@ test("a stage takes a custom id that is also its invite link", async ({ browser 
   await op.keyboard.press("Escape");
 
   await op.goto(`/stages/${id}`);
+  await op.route("**/api/stages*", async (route) => {
+    if (new URLSearchParams(route.request().postData() ?? "").get("intent") !== "delete") {
+      await route.continue();
+      return;
+    }
+    const response = await route.fetch({ maxRedirects: 0 });
+    await expect(op.getByText("このステージは削除されました")).toBeVisible();
+    await route.fulfill({ response });
+  });
   await op.getByRole("button", { name: "メニュー" }).click();
   await op.getByRole("menuitem", { name: "削除" }).click();
   await op.getByRole("button", { name: "削除" }).click();

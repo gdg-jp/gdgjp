@@ -25,6 +25,9 @@ are separate Git submodules; make changes in the owning repository.
 - `pnpm lint`, `pnpm lint:fix`, and `pnpm format` run Biome.
 - `pnpm test` runs repository script tests and workspace Vitest tests.
 - `pnpm test:e2e` runs workspace Playwright suites serially.
+  It snapshots current source, creates test-only credentials and fresh persistence,
+  and retains reports under `local_data/pstack/e2e/`. Use
+  `pnpm test:e2e --workspace @gdgjp/wiki` for an isolated workspace run.
 - Prefer `pnpm ci:quick` (Biome + Vitest) and `pnpm ci:full` (also Playwright) for development.
   Use package filters for focused work or diagnosing CI failures.
 - Run the narrowest relevant check while editing, then `pnpm lint`, `pnpm typecheck`, and

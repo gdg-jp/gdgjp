@@ -57,6 +57,33 @@ See [the verification reference](../../engineering/verification.md) for commands
 
 ## Delivery sequence and acceptance
 
+The user requires E2E validation and a commit at the end of each implementation
+phase. Continue on `main` in these verifiable units:
+
+1. Finish workspace ownership and OAuth cleanup. Isolate the complete E2E run
+   from development state, replace phantom E2E commands with real journeys, run
+   every configured suite, and commit the passing result.
+2. Remove demonstrated lifecycle workarounds. Simplify the Wiki comment editor,
+   repair sharing-effect ownership, enforce application import boundaries, and
+   run focused behavior tests and Wiki E2E before committing.
+3. Verify runner state transitions against real SQL. Cover lease ownership,
+   expiry, retry bounds, stale completion, and payload conservation with an
+   independent bounded oracle and deliberate mutations. Include a statechart
+   and run related E2E before committing.
+4. Expand runtime feature maps for Accounts and Wiki, execute them through Orca,
+   and add seeded UI action sequences with observable invariants. Preserve
+   action/result evidence and cleanup proof, run E2E, and commit.
+5. Encode lessons from actual repository corrections, add release/revert and
+   browser-timing reports, connect the verifiers to CI, and run final full E2E.
+   Commit the final source correspondence with exact coverage and limitations.
+
+Completion means each reviewed concept has a concrete repository mechanism and
+executed evidence, or a source-grounded decision about an example that does not
+apply. It does not mean every feature of every application has been proven.
+Production observations remain distinct from local fixtures and synthetic timings.
+
+The original acceptance criteria remain the basis for those phases:
+
 1. Repair automatic check selection and skill discovery documentation. Acceptance
    requires executable regressions for selected tasks, nonzero failure propagation,
    a passing installation doctor, and an ACL mutation proof that catches all mutants.
@@ -74,7 +101,19 @@ See [the verification reference](../../engineering/verification.md) for commands
 5. Expand automation only after those checks reject deliberate defects and run in
    the actual delivery path. Measure skipped checks separately from successful ones.
 
-This change completes the foundation work in step 1. It does not claim that every
-application has been refactored or that all product journeys are verified. Steps
-2 through 5 remain open. Do not discard existing regression suites or working
-application boundaries to reproduce a different team's tools.
+Step 1 is committed in `04fb9938`. The next implementation unit adds a
+[workspace import check](../../engineering/workspace-boundaries.md) to preserve the
+existing separation between applications and shared packages. Negative fixtures
+exercise prohibited imports rather than relying on a clean baseline alone.
+
+The first semantic comment cleanup removes Wiki's Google OAuth compatibility
+exports. Six production callers now import the existing OAuth owner directly.
+The Drive file API no longer reexports its twelve OAuth types and values. A
+TypeScript symbol-origin test rejects reintroducing those exports through named,
+star, or imported aliases. The file/document and OAuth implementations are unchanged.
+
+These units advance step 2; they do not complete its application-by-application
+review. Wiki's comment editor initialization API and sharing effects remain
+separate cleanup candidates requiring browser verification. Steps 3 through 5
+remain open. Do not discard existing regression suites or working application
+boundaries to reproduce a different team's tools.

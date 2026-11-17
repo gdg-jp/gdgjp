@@ -32,16 +32,24 @@ const ports = {
 };
 
 test("shared E2E runner changes select browser checks and their regression test", () => {
-  const steps = changedSteps("full", ["scripts/run-e2e-dev.mjs"]);
-  for (const app of Object.keys(ports)) {
-    assert.equal(steps.find(([name]) => name === `e2e:@gdgjp/${app}`)[2].CI, "true");
+  for (const file of [
+    "scripts/run-e2e-dev.mjs",
+    "scripts/run-isolated-e2e.mjs",
+    "scripts/verification/workspace-snapshot.mjs",
+    "scripts/verification/serve-vite.mjs",
+  ]) {
+    const steps = changedSteps("full", [file]);
+    for (const app of Object.keys(ports)) {
+      assert.equal(steps.find(([name]) => name === `e2e:@gdgjp/${app}`)[2].CI, "true");
+    }
+    assert.match(steps.find(([name]) => name === "test:scripts")[1], /e2e-ports\.test\.mjs/);
+    const hosted = classifyChanges([file]);
+    assert.ok(hosted.e2e.includes("accounts"));
+    assert.ok(hosted.e2e.includes("tinyurl"));
+    assert.equal(hosted.scriptTests, true);
+    assert.deepEqual(hosted.deploy, []);
+    assert.deepEqual(hosted.e2e, classifyChanges([], { forceAll: true }).e2e);
   }
-  assert.match(steps.find(([name]) => name === "test:scripts")[1], /e2e-ports\.test\.mjs/);
-  const hosted = classifyChanges(["scripts/run-e2e-dev.mjs"]);
-  assert.ok(hosted.e2e.includes("accounts"));
-  assert.ok(hosted.e2e.includes("tinyurl"));
-  assert.equal(hosted.scriptTests, true);
-  assert.deepEqual(hosted.deploy, []);
 });
 
 test("E2E readiness, browser origins and server commands agree in CI and local runs", () => {
@@ -105,7 +113,10 @@ test("CI server keeps dev vars intact and restores E2E vars on success and failu
       name: "gdgjp-tinyurl",
       main: "index.js",
       assets: { directory: "../client" },
-      services: [{ binding: "ACCOUNTS", service: "gdgjp-accounts" }],
+      services: [{ binding: "ACCOUNTS", service: "gdgjp-accounts", remote: true }],
+      ai: { binding: "AI" },
+      browser: { binding: "BROWSER" },
+      ai_search_namespaces: [{ binding: "KNOWLEDGE", namespace: "production" }],
     }),
   );
   writeFileSync(
@@ -141,6 +152,7 @@ process.exit(Number(process.env.FIXTURE_EXIT));
           PATH: `${cwd}${delimiter}${process.env.PATH}`,
           CLOUDFLARE_ENV: "",
           WIKI_E2E_ISSUER: "http://localhost:6173",
+          WIKI_E2E_PERSIST_TO: join(cwd, "wiki-only-state"),
           FIXTURE_EXIT: String(exitCode),
           GDG_E2E_BUILT: built ? ["unrelated", basename(cwd)].join(",") : "unrelated",
         },
@@ -150,10 +162,18 @@ process.exit(Number(process.env.FIXTURE_EXIT));
       if (built) {
         assert.deepEqual(observed.args.slice(0, 3), ["exec", "wrangler", "dev"]);
         assert.ok(observed.args.includes("--local"));
+        assert.equal(
+          observed.args[observed.args.indexOf("--persist-to") + 1],
+          join(cwd, ".wrangler/state"),
+        );
         assert.equal(observed.preview.config.name, "gdgjp-tinyurl-e2e");
         assert.equal(observed.preview.config.main, join(cwd, "build/server/index.js"));
         assert.equal(observed.preview.config.assets.directory, join(cwd, "build/client"));
         assert.equal(observed.preview.config.services[0].service, "gdgjp-accounts-e2e");
+        assert.equal(observed.preview.config.services[0].remote, false);
+        assert.equal(observed.preview.config.ai, undefined);
+        assert.equal(observed.preview.config.browser, undefined);
+        assert.deepEqual(observed.preview.config.ai_search_namespaces, []);
         assert.equal(observed.preview.vars, observed.vars);
         assert.equal(
           existsSync(dirname(observed.args[observed.args.indexOf("--config") + 1])),

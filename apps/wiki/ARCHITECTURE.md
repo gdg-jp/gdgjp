@@ -161,6 +161,7 @@ app/routes/
 | `app/routes/api/agent/architecture.test.ts` | エージェント読み取り API が Vectorize / embedding を使わない |
 | `workers/app.scheduled.test.ts` | `scheduled` の 2 cron 分岐が移動後の feature モジュールへ届く（cron は本番のみ実行） |
 | `tests/architecture/test-colocation.test.ts` | ユニットテストが被験ソースの隣に `<subject>.test.ts` で置かれている |
+| `tests/architecture/google-oauth-ownership.test.ts` | Drive ファイル API が OAuth モジュールの型・値を再公開しない。TypeScript の export symbol から実際の所有元を検査する |
 | `tests/architecture/file-size.test.ts` | 非テストソースは 1 ファイル 400 行以下。例外は縮小専用 allowlist（現在 2 本）で凍結 |
 | `tests/architecture/layering.test.ts` | Stage 05 の配置ルール: `app/lib/` の中身固定 / `app/components/` はシェルのみ / `app/features/` は routes を import しない / app 層は worker の persistence・orchestration 内部へ届かない |
 | `tests/architecture/route-urls.test.ts` | `app/routes.ts` が公開する URL 全集合（スナップショット固定） |

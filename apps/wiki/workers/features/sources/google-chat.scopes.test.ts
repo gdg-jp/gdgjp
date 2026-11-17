@@ -12,8 +12,8 @@ vi.mock("../../../app/features/google/drive-token.server", () => ({
   getGoogleDriveTokenRow: (...args: unknown[]) => getTokenRow(...args),
 }));
 vi.mock("../../../app/lib/db.server", () => ({ getDb: () => db }));
-vi.mock("../../../app/features/google/drive.server", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("../../../app/features/google/drive.server")>()),
+vi.mock("../../../app/features/google/drive-oauth.server", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../../../app/features/google/drive-oauth.server")>()),
   REQUIRED_GOOGLE_CHAT_SCOPES: ["https://www.googleapis.com/auth/chat.messages.readonly"],
   hasRequiredGoogleChatScopes: (scopes: string | null) =>
     Boolean(scopes?.includes("chat.messages.readonly")),

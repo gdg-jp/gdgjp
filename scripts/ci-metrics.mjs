@@ -2,6 +2,24 @@ import { readFileSync } from "node:fs";
 
 export const playwrightReport = ".turbo/ci-playwright.json";
 
+export function isolatedE2EMetrics(output, startedAtUnixMs) {
+  const path = [...output.matchAll(/^isolated-e2e-result=(.+)$/gm)].at(-1)?.[1].trim();
+  if (!path) return undefined;
+  const result = JSON.parse(readFileSync(path, "utf8"));
+  const reports = result.reports.map(({ workspace, directory }) => ({
+    workspace,
+    report: playwrightMetrics(directory, startedAtUnixMs),
+  }));
+  return {
+    resultPath: path,
+    status: result.status,
+    selected: result.selected,
+    scratchCleaned: result.scratchCleaned,
+    playwright: reports.flatMap(({ report }) => (report ? [report] : [])),
+    missingReports: reports.filter(({ report }) => !report).map(({ workspace }) => workspace),
+  };
+}
+
 export function turboMetrics(output) {
   // Only read summaries named by this process, not other CI runs in the checkout.
   const paths = [...new Set(output.match(/\.turbo\/runs\/[\w-]+\.json/g) ?? [])];

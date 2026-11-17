@@ -1,4 +1,4 @@
-import { REQUIRED_GOOGLE_CHAT_SCOPES } from "../../../../../app/features/google/drive.server";
+import { REQUIRED_GOOGLE_CHAT_SCOPES } from "../../../../../app/features/google/drive-oauth.server";
 import { GOOGLE_CHAT_REAUTH_MESSAGE } from "../../google-chat";
 import type { ImportKindDriver } from "../tick";
 import { stepAttachments } from "./attachments";

@@ -17,8 +17,10 @@ vi.mock("../../../../../app/features/google/drive-token.server", () => ({
     grantedScopes: "google-chat",
   }),
 }));
-vi.mock("../../../../../app/features/google/drive.server", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("../../../../../app/features/google/drive.server")>()),
+vi.mock("../../../../../app/features/google/drive-oauth.server", async (importOriginal) => ({
+  ...(await importOriginal<
+    typeof import("../../../../../app/features/google/drive-oauth.server")
+  >()),
   GOOGLE_DRIVE_REAUTH_MESSAGE: "Reconnect Google Drive",
   hasRequiredGoogleChatScopes: () => true,
   REQUIRED_GOOGLE_CHAT_SCOPES: ["google-chat"],

@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-vi.mock("~/features/google/drive.server", () => ({
+vi.mock("~/features/google/drive-oauth.server", () => ({
   refreshAccessToken: vi.fn(async () => ({
     accessToken: "fresh",
     expiresAt: new Date(Date.now() + 3600_000),
@@ -8,7 +8,7 @@ vi.mock("~/features/google/drive.server", () => ({
   })),
 }));
 
-import { refreshAccessToken } from "~/features/google/drive.server";
+import { refreshAccessToken } from "~/features/google/drive-oauth.server";
 import { TOKEN_REFRESH_MARGIN_MS, getGoogleDriveTokenRow } from "./drive-token.server";
 
 /** Just enough of Drizzle's select / update chains for one token row. */

@@ -75,3 +75,70 @@ unexecuted for this working tree.
 
 Read-only review found no remaining defect in the checker, CI integration, or source
 correspondence. It used the parent model family; no cross-vendor review is claimed.
+
+## Application ownership follow-up
+
+The implementation continues from commit `04fb9938`. The user's existing two
+`plan-creator` deletions remain outside this unit. The canonical status table is
+[sources.md](sources.md).
+
+| Check | Observed result | Evidence |
+| --- | --- | --- |
+| Workspace boundary CLI | VERIFIED, 2,381 files and 9,090 literal import edges; zero violations | `/tmp/gdgjp-poteto-boundary-scan.log`; `scripts/check-workspace-boundaries.mjs` |
+| Boundary and delivery selection tests | VERIFIED, 58 passed, zero skipped, including 13 checker cases | `/tmp/gdgjp-poteto-boundary-tests.log`; `.github/scripts/check-workspace-boundaries.test.mjs` |
+| Wiki OAuth scoped behavior and ownership tests | VERIFIED, seven suites and 53 tests passed from the repository root | `/tmp/gdgjp-poteto-oauth-root-tests.log` |
+| OAuth export ownership rejection | VERIFIED, original twelve forwards failed; named-alias, star, and import-then-export mutations failed | `/tmp/gdgjp-oauth-ownership-baseline.log`; `/tmp/gdgjp-oauth-ownership-mutations.log`; `apps/wiki/tests/architecture/google-oauth-ownership.test.ts` |
+| `pnpm lint` | VERIFIED, Biome, comments, documentation, and workspace boundary checks passed | `/tmp/gdgjp-poteto-adoption-lint.log` |
+| `pnpm typecheck --concurrency=1` | VERIFIED, 26 successful tasks, 24 cached; Node-script check ran | `/tmp/gdgjp-poteto-adoption-typecheck.log` |
+| `pnpm run test --concurrency=2` | VERIFIED, 126 script tests with zero skipped; 25 successful tasks, eight cached | `/tmp/gdgjp-poteto-adoption-test.log` |
+
+An independent agent reproduced a Node package-import alias bypass in the new
+checker. Preserving its leading `#` and adding a NodeNext fixture fixed it. New
+policy selection also exposed CI tests that assumed an absolute step index. Those
+assertions now identify the named steps and retain the build-before-browser check.
+The reviewer repeated the checker and CI tests after correction and reported no
+remaining blocking finding. It used the inherited Codex model, not another vendor.
+
+The semantic comment change removes two narration headers and the compatibility
+API they described. It does not audit all existing comments. The OAuth and Drive
+implementations are unchanged. Live Google OAuth, browser journeys, E2E suites,
+and hosted CI were not run for this import-ownership unit. Computed imports and
+`import.meta.glob` remain outside the new boundary checker. Broader application
+layering and the remaining runtime work stay open in the correspondence table.
+
+## Mandatory E2E phase
+
+The user subsequently required E2E for every phase and a commit per phase. A new
+runner tests current working source inside a disposable snapshot. It supplies
+dummy credentials, relinks workspace dependencies, uses a private Worker registry,
+and retains reports after cleanup. New SNS and Website journeys replace their
+previously empty E2E commands. CI now selects all 17 configured suites.
+
+Fresh-state runs exposed and repaired verification defects hidden by development
+state: dependency filesystem access, a Wiki persistence override leaking into
+other apps, excessive buffered migration output, SNS service configuration, and
+unstable dev-server execution for additional built-preview applications. Earlier
+failed runs remain under `local_data/pstack/e2e/`; they are not counted as passes.
+
+Screen's deletion also exposed an application race. The Durable Object's deletion
+event unmounted the component that owned its fetcher before that fetcher's
+redirect completed. The redirecting mutation now uses Router-owned submission.
+The browser regression deliberately holds the HTTP response until the deletion
+event has removed that component, then requires navigation to the stage list.
+Its design-source check passed.
+
+`pnpm test:e2e -- --retries=0` completed all 17 suites with **179 passed, zero
+failed, zero flaky, and one skipped**. The skipped case requires real Realtime SFU
+credentials; local fixture success does not establish that integration. This run
+is `local_data/pstack/e2e/2026-11-17T14-57-33-817Z-545d7fec/result.json`.
+It records exit code zero and successful scratch cleanup. No browser results were
+reused from cache. The log is `/tmp/gdgjp-poteto-phase1-e2e-accepted.log`.
+
+The preview configuration removes remote AI, AI Search, Browser Rendering, and
+Vectorize bindings, and forces local service resolution. These external features
+are outside the fixture's coverage. The configuration regression rejects their
+accidental retention. Local authoring must not upload fixture content to production.
+
+Independent review used the inherited Codex model. A different vendor and the
+optional `cursor-team-kit` deslop command were unavailable; local formatting,
+comment checks, source review, and executable regressions were used.

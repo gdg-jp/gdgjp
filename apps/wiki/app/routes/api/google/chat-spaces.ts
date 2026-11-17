@@ -1,8 +1,8 @@
 import type { LoaderFunctionArgs } from "react-router";
 import { requireUser } from "~/features/auth/utils.server";
 import { listGoogleChatSpaces } from "~/features/google/chat.server";
+import { hasRequiredGoogleChatScopes } from "~/features/google/drive-oauth.server";
 import { getGoogleDriveTokenRow } from "~/features/google/drive-token.server";
-import { hasRequiredGoogleChatScopes } from "~/features/google/drive.server";
 import { getDb } from "~/lib/db.server";
 
 /**

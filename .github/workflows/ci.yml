@@ -63,6 +63,8 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - name: Check documentation layout and links
         run: node scripts/check-docs.mjs
+      - name: Check workspace import boundaries
+        run: node scripts/check-workspace-boundaries.mjs
       - name: Reject new code comments
         env:
           BASE_SHA: ${{ needs.changes.outputs.base }}
@@ -401,6 +403,8 @@ jobs:
           IMG_CLIENT_SECRET=ci-idp-client-secret
           SCHEDULER_CLIENT_ID=scheduler
           SCHEDULER_CLIENT_SECRET=ci-idp-client-secret
+          SNS_CLIENT_ID=sns
+          SNS_CLIENT_SECRET=ci-idp-client-secret
           WIKI_CLIENT_ID=wiki
           WIKI_CLIENT_SECRET=ci-idp-client-secret
           ROSTER_CLIENT_ID=roster
@@ -409,6 +413,7 @@ jobs:
           TINYURL_REDIRECT_URLS=http://localhost:6174/api/auth/callback/gdgjp
           IMG_REDIRECT_URLS=http://localhost:6175/api/auth/callback/gdgjp
           SCHEDULER_REDIRECT_URLS=http://localhost:6176/api/auth/callback/gdgjp
+          SNS_REDIRECT_URLS=http://localhost:6178/api/auth/callback/gdgjp
           WIKI_REDIRECT_URLS=http://localhost:6177/api/auth/callback/gdgjp
           ROSTER_REDIRECT_URLS=http://localhost:6186/api/auth/callback/gdgjp
           EOF
@@ -448,6 +453,16 @@ jobs:
           ACCOUNTS_URL=http://localhost:6173
           IDP_URL=http://localhost:6173
           IDP_CLIENT_ID=roster
+          ENVIRONMENT=development
+          EOF
+
+          cat > apps/sns/.dev.vars <<EOF
+          RP_SESSION_SECRET=ci-rp-session-secret
+          IDP_CLIENT_SECRET=ci-idp-client-secret
+          APP_URL=http://localhost:6178
+          ACCOUNTS_URL=http://localhost:6173
+          IDP_URL=http://localhost:6173
+          IDP_CLIENT_ID=sns
           ENVIRONMENT=development
           EOF
 

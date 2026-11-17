@@ -5,7 +5,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
-import { playwrightMetrics } from "../../scripts/ci-metrics.mjs";
+import { isolatedE2EMetrics, playwrightMetrics } from "../../scripts/ci-metrics.mjs";
 import { runConcurrentSteps, runStep } from "../../scripts/run-ci.mjs";
 
 const runner = fileURLToPath(new URL("../../scripts/run-ci.mjs", import.meta.url));
@@ -15,6 +15,49 @@ for (const name of execFileSync("git", ["rev-parse", "--local-env-vars"], { enco
   .split("\n")) {
   delete fixtureEnv[name];
 }
+
+test("isolated E2E metrics read the current run's retained reports and expose missing proof", (t) => {
+  const root = mkdtempSync(join(tmpdir(), "gdg-isolated-e2e-metrics-"));
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  const directory = join(root, "apps/wiki");
+  mkdirSync(join(directory, ".turbo"), { recursive: true });
+  writeFileSync(
+    join(directory, ".turbo/ci-playwright.json"),
+    JSON.stringify({
+      stats: {
+        startTime: new Date(2000).toISOString(),
+        duration: 50,
+        expected: 3,
+        unexpected: 0,
+        skipped: 1,
+        flaky: 0,
+      },
+      suites: [],
+    }),
+  );
+  const resultPath = join(root, "result.json");
+  writeFileSync(
+    resultPath,
+    JSON.stringify({
+      status: "VERIFIED",
+      selected: ["@gdgjp/wiki", "@gdgjp/accounts"],
+      scratchCleaned: true,
+      reports: [
+        { workspace: "apps/wiki", directory },
+        { workspace: "apps/accounts", directory: join(root, "apps/accounts") },
+      ],
+    }),
+  );
+  const metrics = isolatedE2EMetrics(`unrelated output\nisolated-e2e-result=${resultPath}\n`, 1000);
+  assert.equal(metrics.scratchCleaned, true);
+  assert.deepEqual(metrics.playwright[0].counts, { passed: 3, failed: 0, skipped: 1, flaky: 0 });
+  assert.deepEqual(metrics.missingReports, ["apps/accounts"]);
+  assert.equal(isolatedE2EMetrics("no result marker", 1000), undefined);
+  assert.deepEqual(isolatedE2EMetrics(`isolated-e2e-result=${resultPath}`, 3000).missingReports, [
+    "apps/wiki",
+    "apps/accounts",
+  ]);
+});
 
 test("Playwright metrics distinguish first-test delay, attempts, cached results and stale files", () => {
   const cwd = mkdtempSync(join(tmpdir(), "gdg-playwright-metrics-"));
@@ -110,7 +153,7 @@ const [directory, name] = process.argv.slice(2);
 if (process.env.MINIFLARE_REGISTRY_PATH !== process.env.WRANGLER_REGISTRY_PATH) process.exit(3);
 const mark = (name) => directory + "/" + name;
 if (name === "fail") process.exit(7);
-if (name === "accounts" || name === "tinyurl") mkdirSync(mark("lock"));
+if (name === "accounts" || name === "tinyurl" || name === "sns") mkdirSync(mark("lock"));
 writeFileSync(mark(name + "-start"), "");
 writeFileSync(mark(name + "-registry"), process.env.MINIFLARE_REGISTRY_PATH);
 if (name === "accounts" || name === "wiki") {
@@ -129,7 +172,7 @@ if (name === "active") {
   }
 }
 await setTimeout(50);
-if (name === "accounts" || name === "tinyurl") rmSync(mark("lock"), { recursive: true });
+if (name === "accounts" || name === "tinyurl" || name === "sns") rmSync(mark("lock"), { recursive: true });
 writeFileSync(mark(name + "-done"), "");
 `,
   );
@@ -139,10 +182,15 @@ writeFileSync(mark(name + "-done"), "");
       .map((arg) => `'${arg.replaceAll("'", "'\\''")}'`)
       .join(" "),
   ];
-  const passed = await runConcurrentSteps([step("accounts"), step("tinyurl"), step("wiki")]);
+  const passed = await runConcurrentSteps([
+    step("accounts"),
+    step("tinyurl"),
+    step("sns"),
+    step("wiki"),
+  ]);
   assert.deepEqual(
     passed.map((metric) => metric.exitCode),
-    [0, 0, 0],
+    [0, 0, 0, 0],
   );
   const registries = ["accounts", "tinyurl", "wiki"].map((name) =>
     readFileSync(join(cwd, `${name}-registry`), "utf8"),

@@ -1,7 +1,7 @@
 import { eq } from "drizzle-orm";
 import type { drizzle } from "drizzle-orm/d1";
 import * as schema from "~/db/schema";
-import { refreshAccessToken } from "~/features/google/drive.server";
+import { refreshAccessToken } from "~/features/google/drive-oauth.server";
 
 type Db = ReturnType<typeof drizzle>;
 

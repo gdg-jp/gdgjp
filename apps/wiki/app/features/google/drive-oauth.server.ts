@@ -1,8 +1,3 @@
-/**
- * Google Drive / Chat OAuth: scopes, the consent URL, and code/refresh token
- * exchange. Drive file export and the Docs document reader live in
- * `drive.server.ts`.
- */
 import { fetchWithTimeout } from "./drive-fetch.server";
 
 export interface DriveToken {

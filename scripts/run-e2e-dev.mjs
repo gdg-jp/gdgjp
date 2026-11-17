@@ -42,17 +42,27 @@ try {
       "$1gdgjp-accounts-e2e$2",
     ),
   );
+  let command = "pnpm";
   let args = ["dev", "--port", String(port), "--strictPort"];
+  if (process.env.GDG_E2E_DEPENDENCIES) {
+    command = process.execPath;
+    args = [resolvePath("../../scripts/verification/serve-vite.mjs"), String(port)];
+  }
   if (process.env.GDG_E2E_BUILT?.split(",").includes(basename(process.cwd()))) {
+    command = "pnpm";
     const buildDirectory = resolvePath("build/server");
     const config = JSON.parse(readFileSync(join(buildDirectory, "wrangler.json"), "utf8"));
     config.name += "-e2e";
     config.main = resolvePath(buildDirectory, config.main);
     config.assets.directory = resolvePath(buildDirectory, config.assets.directory);
-    config.services = config.services.map((binding) => ({
+    config.services = (config.services ?? []).map((binding) => ({
       ...binding,
+      remote: false,
       service: binding.service === "gdgjp-accounts" ? "gdgjp-accounts-e2e" : binding.service,
     }));
+    for (const binding of ["ai", "browser"]) delete config[binding];
+    for (const bindings of ["ai_search", "ai_search_namespaces", "vectorize"])
+      config[bindings] = [];
     mkdirSync(".wrangler", { recursive: true });
     previewDirectory = mkdtempSync(resolvePath(".wrangler/ci-preview-"));
     const previewConfig = join(previewDirectory, "wrangler.json");
@@ -71,11 +81,15 @@ try {
       "--inspector-port",
       "0",
       "--persist-to",
-      resolvePath(process.env.WIKI_E2E_PERSIST_TO ?? ".wrangler/state"),
+      resolvePath(
+        basename(process.cwd()) === "wiki"
+          ? (process.env.WIKI_E2E_PERSIST_TO ?? ".wrangler/state")
+          : ".wrangler/state",
+      ),
     ];
   }
   process.exitCode = await new Promise((resolve, reject) => {
-    const child = spawn("pnpm", args, {
+    const child = spawn(command, args, {
       env: {
         ...process.env,
         // The preview config already has E2E names. Do not suffix them twice.

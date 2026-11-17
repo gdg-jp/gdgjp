@@ -3,7 +3,7 @@ import { redirect } from "react-router";
 import type { LoaderFunctionArgs } from "react-router";
 import * as schema from "~/db/schema";
 import { requireUser } from "~/features/auth/utils.server";
-import { exchangeCodeForToken } from "~/features/google/drive.server";
+import { exchangeCodeForToken } from "~/features/google/drive-oauth.server";
 
 export async function loader({ request, context }: LoaderFunctionArgs) {
   const { env } = context.cloudflare;

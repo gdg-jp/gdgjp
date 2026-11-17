@@ -10,7 +10,8 @@ the repository's required validation commands remain in [AGENTS.md](../../AGENTS
 | Skill installation | `node scripts/pstack.mjs doctor` | Manifest skill headers, discovery links, references, model configuration structure | Does not run models or validate prompt decisions |
 | Repository scripts | `node --test .github/scripts/*.test.mjs` | Script behavior and workflow contracts | Some CLI tests require a built Go binary |
 | Types | `pnpm typecheck` | Node script and workspace type contracts | Does not establish runtime behavior |
-| Static conventions | `pnpm lint` | Biome and new-comment checks | Does not establish architecture or product correctness |
+| Static conventions | `pnpm lint` | Biome, comment policy, documentation links, and workspace boundaries | Does not establish product correctness |
+| Workspace boundaries | `pnpm check:boundaries` | Rejects literal imports across application ownership and bypasses of declared public workspace exports | See [scope and limits](workspace-boundaries.md); application feature layering still needs its own tests |
 | New code comments | `pnpm check:comments` | Rejects new or edited first-party JS/TS/Go comments without exact reviewed exceptions | Existing comments and other languages still need semantic review; see [the policy](comments.md) |
 | Unit and architecture tests | `pnpm test` | Repository scripts and workspace test assertions | Coverage depends on each suite's assertions |
 | Browser regressions | `pnpm test:e2e` | Existing automated browser journeys | Does not establish external service or production behavior |
@@ -20,6 +21,24 @@ The local CI entry points are `pnpm ci:quick`, `pnpm ci:full`, and
 `pnpm ci:staged`. The staged command selects work from the index but runs against
 the working tree. It is not evidence of an isolated staged snapshot.
 Hosted workflow selection lives in `.github/scripts/changed-workspaces.mjs`.
+
+`pnpm test:e2e` copies the current working source into a disposable workspace,
+relinks shared packages inside it, supplies deterministic test credentials, and
+creates a private Worker registry. It excludes developer secrets, persistence,
+builds, caches, and authentication storage state. Relevant staged application
+checks use the same runner. The source tree's database is not the test fixture.
+The snapshot record includes file hashes and submodule revisions.
+
+Use `pnpm test:e2e --workspace @gdgjp/wiki -- tests/e2e/access-control.spec.ts`
+to select one suite and forward Playwright arguments. The runner keeps JSON proof
+even when another reporter is requested. Missing browser proof is a failure.
+The final `isolated-e2e-result` line identifies retained evidence, per-suite
+passed/failed/skipped/flaky counts, and whether scratch cleanup completed.
+
+Dev-server journeys use the same Vite API as React Router's command. Their
+filesystem access includes the snapshot and its installed dependency store.
+Application code and local persistence remain inside the snapshot. Built-preview
+journeys use freshly built artifacts from that snapshot instead.
 
 The ACL verifier returns 2 for a stale source record even if the bounded properties
 pass. Review the policy, oracle, and bounds before updating its hashes. A stale

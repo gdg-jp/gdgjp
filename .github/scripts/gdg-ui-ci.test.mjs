@@ -25,7 +25,10 @@ test("PR E2E preparation and source edits use the isolated package runner", () =
     "apps/pr/app/lib/crypto.server.ts",
   ]) {
     const step = changedSteps("full", [path]).find(([name]) => name === "e2e:@gdgjp/pr");
-    assert.equal(step?.[1], "pnpm --filter @gdgjp/pr test:e2e --reporter=dot,json");
+    assert.equal(
+      step?.[1],
+      "node scripts/run-isolated-e2e.mjs --workspace @gdgjp/pr -- --reporter=dot,json",
+    );
     if (!path.includes("/app/")) {
       assert.equal(classifyChanges([path]).scriptTests, true);
       assert.match(
@@ -47,6 +50,41 @@ test("documentation edits run their checker locally and in hosted CI", () => {
     stepByName(job, "Check documentation layout and links").run,
     "node scripts/check-docs.mjs",
   );
+});
+
+test("workspace boundaries run for source and resolution changes in every delivery path", () => {
+  for (const mode of ["quick", "full"]) {
+    assert.ok(completeSteps(mode).some(([name]) => name === "workspace-boundaries"));
+    for (const file of [
+      "apps/wiki/app/root.tsx",
+      "apps/wiki/tsconfig.json",
+      "packages/gdg-lib/package.json",
+      "packages/design-system",
+      "tsconfig.base.json",
+      "pnpm-workspace.yaml",
+      "package.json",
+      "scripts/check-workspace-boundaries.mjs",
+      ".github/scripts/check-workspace-boundaries.test.mjs",
+    ]) {
+      const step = changedSteps(mode, [file]).find(([name]) => name === "workspace-boundaries");
+      assert.equal(step?.[1], "node scripts/check-workspace-boundaries.mjs", file);
+    }
+  }
+  assert.equal(classifyChanges(["scripts/check-workspace-boundaries.mjs"]).scriptTests, true);
+  assert.match(
+    changedSteps("quick", ["scripts/check-workspace-boundaries.mjs"]).find(
+      ([name]) => name === "test:scripts",
+    )?.[1] ?? "",
+    /check-workspace-boundaries\.test\.mjs/,
+  );
+  const job = readWorkflow("ci.yml").jobs["code-comments"];
+  assert.equal(job.if, undefined);
+  assert.equal(
+    stepByName(job, "Check workspace import boundaries").run,
+    "node scripts/check-workspace-boundaries.mjs",
+  );
+  const manifest = JSON.parse(readFileSync(new URL("../../package.json", import.meta.url), "utf8"));
+  assert.match(manifest.scripts.lint, /node scripts\/check-workspace-boundaries\.mjs/);
 });
 
 test("comment policy runs for first-party changes locally and for every hosted change", () => {
@@ -108,9 +146,12 @@ test("UI unit-test-only changes keep typechecking and related tests without unre
   const steps = changedSteps("full", ["packages/design-system/src/index.test.tsx"]);
   assert.deepEqual(
     steps.map(([name]) => name),
-    ["lint:ui", "typecheck", "test:ui"],
+    ["workspace-boundaries", "lint:ui", "typecheck", "test:ui"],
   );
-  assert.match(steps[2][1], /vitest related --run --reporter=minimal 'src\/index.test.tsx'/);
+  assert.match(
+    steps.find(([name]) => name === "test:ui")[1],
+    /vitest related --run --reporter=minimal 'src\/index.test.tsx'/,
+  );
   for (const extra of [
     "packages/design-system/src/index.ts",
     "packages/design-system/src/styles/tokens.css",
@@ -165,8 +206,8 @@ test("unit-test-only changes keep typecheck and related tests without production
 });
 
 test("frontend edits without a configured browser suite retain other checks", () => {
-  for (const app of ["sns", "website"]) {
-    const steps = changedSteps("full", [`apps/${app}/app/root.tsx`]);
+  for (const app of ["agent", "mcp"]) {
+    const steps = changedSteps("full", [`apps/${app}/src/index.ts`]);
     assert.ok(steps.some(([name]) => name === "typecheck+build"));
     assert.ok(steps.some(([name]) => name.startsWith("test:")));
     assert.ok(steps.some(([name]) => name.includes("build")));
@@ -229,7 +270,7 @@ test("staged UI E2E uses isolated runs, while stateful application E2E stays unc
     );
     assert.equal(
       step[1],
-      `pnpm --filter @gdgjp/${workspace} exec playwright test --reporter=dot,json`,
+      `node scripts/run-isolated-e2e.mjs --workspace @gdgjp/${workspace} -- --reporter=dot,json`,
     );
   }
 });
@@ -245,7 +286,10 @@ test("Wiki E2E specs and setup changes select the Wiki suite", () => {
     /access-control\.spec\.ts/,
   );
   assert.equal(setupSteps.filter(([name]) => name === "e2e:@gdgjp/wiki").length, 1);
-  assert.match(setupSteps.find(([name]) => name === "e2e:@gdgjp/wiki")[1], /@gdgjp\/wiki test:e2e/);
+  assert.match(
+    setupSteps.find(([name]) => name === "e2e:@gdgjp/wiki")[1],
+    /run-isolated-e2e\.mjs --workspace @gdgjp\/wiki --/,
+  );
   assert.doesNotMatch(setupSteps.find(([name]) => name === "e2e:@gdgjp/wiki")[1], /access-control/);
   assert.equal(appSteps.filter(([name]) => name === "e2e:@gdgjp/wiki").length, 1);
   assert.equal(appSteps.find(([name]) => name === "e2e:@gdgjp/wiki")[2].GDG_E2E_BUILT, "wiki");
@@ -260,7 +304,10 @@ test("Wiki E2E specs and setup changes select the Wiki suite", () => {
 test("full CI schedules the Wiki E2E target once", () => {
   const steps = completeSteps("full");
   assert.equal(steps.filter(([name]) => name === "e2e:@gdgjp/wiki").length, 1);
-  assert.equal(steps.filter(([name]) => name.startsWith("e2e")).length, 11);
+  assert.equal(
+    steps.filter(([name]) => name.startsWith("e2e")).length,
+    classifyChanges([], { forceAll: true }).e2e.length,
+  );
   assert.ok(steps.find(([name]) => name === "typecheck+build")[2].PATH);
   assert.ok(steps.find(([name]) => name === "test")[2].PATH);
   for (const app of ["wiki", "accounts", "scheduler", "tinyurl", "img", "pay"]) {
@@ -428,14 +475,17 @@ test("UI gitlink updates run local library checks", () => {
   const steps = changedSteps("full", ["packages/design-system"]);
   assert.deepEqual(
     steps.map(([name]) => name),
-    ["design-harness:scenarios", "e2e:ui"],
+    ["workspace-boundaries", "design-harness:scenarios", "e2e:ui"],
   );
+  const scenarios = steps.find(([name]) => name === "design-harness:scenarios");
+  const browser = steps.find(([name]) => name === "e2e:ui");
   assert.match(
-    steps[0][1],
+    scenarios[1],
     /turbo test:consumer .*&& node scripts\/check-design-harness\.mjs scenarios$/,
   );
-  assert.equal(steps[0][2].CI, "true");
-  assert.match(steps[1][1], /turbo typecheck test test:e2e:browser/);
+  assert.equal(scenarios[2].CI, "true");
+  assert.match(browser[1], /turbo typecheck test test:e2e:browser/);
+  assert.ok(steps.indexOf(scenarios) < steps.indexOf(browser));
   const { tasks } = JSON.parse(readFileSync(new URL("../../turbo.json", import.meta.url), "utf8"));
   assert.deepEqual(tasks["@gdgjp/design-system#test:e2e:browser"].dependsOn, [
     "typecheck",

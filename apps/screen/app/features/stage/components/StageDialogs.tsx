@@ -22,7 +22,7 @@ import {
   toast,
 } from "@gdgjp/design-system";
 import { type ReactNode, useEffect, useState } from "react";
-import { Form, useFetcher } from "react-router";
+import { Form, useFetcher, useSubmit } from "react-router";
 import { Help } from "~/components/Help";
 import {
   Brush,
@@ -315,7 +315,7 @@ export function StageMenu({ stage, onReset }: { stage: StageAccess; onReset?: ()
   const [obs, setObs] = useState(false);
   const [rename, setRename] = useState(false);
   const [confirm, setConfirm] = useState<"delete" | "reset" | null>(null);
-  const fetcher = useFetcher();
+  const submit = useSubmit();
   return (
     <>
       <DropdownMenu>
@@ -372,7 +372,7 @@ export function StageMenu({ stage, onReset }: { stage: StageAccess; onReset?: ()
                 setConfirm(null);
                 if (which === "reset") onReset?.();
                 else
-                  fetcher.submit(
+                  submit(
                     { intent: "delete", stageId: stage.id },
                     { method: "post", action: "/api/stages" },
                   );

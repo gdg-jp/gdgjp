@@ -1,24 +1,4 @@
-/**
- * Google Drive file export (PDF / text), the Docs document reader, and Drive
- * file-metadata helpers. OAuth (scopes, consent URL, token exchange) lives in
- * `drive-oauth.server.ts` and is re-exported here for back-compat.
- */
 import { fetchWithTimeout } from "./drive-fetch.server";
-
-export type { DriveToken } from "./drive-oauth.server";
-export {
-  GOOGLE_DRIVE_READONLY_SCOPE,
-  GOOGLE_DRIVE_FILE_SCOPE,
-  GOOGLE_CHAT_SPACES_SCOPE,
-  GOOGLE_CHAT_MESSAGES_SCOPE,
-  GOOGLE_OAUTH_SCOPES,
-  REQUIRED_GOOGLE_CHAT_SCOPES,
-  GOOGLE_DRIVE_REAUTH_MESSAGE,
-  hasRequiredGoogleChatScopes,
-  getGoogleDriveAuthUrl,
-  exchangeCodeForToken,
-  refreshAccessToken,
-} from "./drive-oauth.server";
 
 const EXPORT_TIMEOUT_MS = 30_000;
 const DOCUMENTS_TIMEOUT_MS = 30_000;

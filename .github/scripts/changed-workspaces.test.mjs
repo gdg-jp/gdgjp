@@ -1,7 +1,27 @@
 import assert from "node:assert/strict";
+import { existsSync, readFileSync, readdirSync } from "node:fs";
 import test from "node:test";
 
 import { classifyChanges } from "./changed-workspaces.mjs";
+
+test("every first-party configured browser suite is selected for complete CI", () => {
+  const expected = [];
+  for (const group of ["apps", "packages"]) {
+    const directory = new URL(`../../${group}/`, import.meta.url);
+    for (const entry of readdirSync(directory, { withFileTypes: true })) {
+      if (!entry.isDirectory() || `${group}/${entry.name}` === "apps/learn") continue;
+      const workspace = new URL(`${entry.name}/`, directory);
+      if (!existsSync(new URL("playwright.config.ts", workspace))) continue;
+      const manifest = JSON.parse(readFileSync(new URL("package.json", workspace), "utf8"));
+      assert.ok(manifest.scripts["test:e2e"], manifest.name);
+      expected.push(entry.name);
+      assert.ok(
+        classifyChanges([`${group}/${entry.name}/playwright.config.ts`]).e2e.includes(entry.name),
+      );
+    }
+  }
+  assert.deepEqual(classifyChanges([], { forceAll: true }).e2e.sort(), expected.sort());
+});
 
 test("selects only the directly changed application", () => {
   const result = classifyChanges(["apps/scheduler/migrations/0001_example.sql"]);
@@ -175,6 +195,7 @@ test("GDG UI changes validate and deploy its consumers", () => {
     "pay",
     "roster",
     "mc",
+    "screen",
     "deck",
     "roulette",
     "pr",
