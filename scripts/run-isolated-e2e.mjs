@@ -69,7 +69,7 @@ export async function assertPortsAvailable(portNumbers) {
   }
 }
 
-function fixtureVariables(snapshot) {
+export function fixtureVariables(snapshot) {
   const secret = "ci-idp-client-secret";
   const accounts = {
     BETTER_AUTH_SECRET: "ci-better-auth-secret-for-e2e-tests",
@@ -121,6 +121,33 @@ function fixtureVariables(snapshot) {
       { mode: 0o600 },
     );
   }
+}
+
+export function verificationEnvironment({ source, root }) {
+  const registry = join(root, ".e2e-registry");
+  mkdirSync(registry);
+  const configuredNode =
+    process.env.GDG_CI_NODE ??
+    spawnSync("git", ["config", "--local", "--get", "gdgjp.ciNode"], {
+      cwd: source,
+      encoding: "utf8",
+    }).stdout?.trim();
+  if (configuredNode && !existsSync(configuredNode))
+    throw new Error(`Configured Node runtime is missing: ${configuredNode}`);
+  return {
+    PATH: configuredNode ? `${dirname(configuredNode)}:${process.env.PATH}` : process.env.PATH,
+    HOME: process.env.HOME,
+    TMPDIR: process.env.TMPDIR,
+    CI: "true",
+    WRANGLER_SEND_METRICS: "false",
+    MINIFLARE_REGISTRY_PATH: registry,
+    WRANGLER_REGISTRY_PATH: registry,
+    GDG_E2E_DEPENDENCIES: join(source, "node_modules"),
+    WIKI_E2E_SESSION_SECRET: "ci-wiki-e2e-session-secret",
+    WIKI_E2E_ISSUER: "http://localhost:6173",
+    PR_REAL_SERVICES: "",
+    PLAYWRIGHT_JSON_OUTPUT_NAME: ".turbo/ci-playwright.json",
+  };
 }
 
 export async function runIsolatedE2E({ source, workspace, playwrightArgs = [] }) {
@@ -196,30 +223,7 @@ export async function runIsolatedE2E({ source, workspace, playwrightArgs = [] })
         selected.flatMap(({ manifest }) => ports[manifest.name.split("/").at(-1)] ?? []),
       );
       fixtureVariables(snapshot);
-      const registry = join(snapshot.root, ".e2e-registry");
-      mkdirSync(registry);
-      const configuredNode =
-        process.env.GDG_CI_NODE ??
-        spawnSync("git", ["config", "--local", "--get", "gdgjp.ciNode"], {
-          cwd: source,
-          encoding: "utf8",
-        }).stdout?.trim();
-      if (configuredNode && !existsSync(configuredNode))
-        throw new Error(`Configured Node runtime is missing: ${configuredNode}`);
-      const environment = {
-        PATH: configuredNode ? `${dirname(configuredNode)}:${process.env.PATH}` : process.env.PATH,
-        HOME: process.env.HOME,
-        TMPDIR: process.env.TMPDIR,
-        CI: "true",
-        WRANGLER_SEND_METRICS: "false",
-        MINIFLARE_REGISTRY_PATH: registry,
-        WRANGLER_REGISTRY_PATH: registry,
-        GDG_E2E_DEPENDENCIES: join(source, "node_modules"),
-        WIKI_E2E_SESSION_SECRET: "ci-wiki-e2e-session-secret",
-        WIKI_E2E_ISSUER: "http://localhost:6173",
-        PR_REAL_SERVICES: "",
-        PLAYWRIGHT_JSON_OUTPUT_NAME: ".turbo/ci-playwright.json",
-      };
+      const environment = verificationEnvironment({ source, root: snapshot.root });
       writeFileSync(
         join(evidence, "run.json"),
         JSON.stringify(

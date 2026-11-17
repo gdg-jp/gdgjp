@@ -113,6 +113,8 @@ test("CI server keeps dev vars intact and restores E2E vars on success and failu
       name: "gdgjp-tinyurl",
       main: "index.js",
       assets: { directory: "../client" },
+      routes: [{ pattern: "wiki.gdgs.jp/*", zone_name: "gdgs.jp" }],
+      route: "wiki.gdgs.jp/*",
       services: [{ binding: "ACCOUNTS", service: "gdgjp-accounts", remote: true }],
       ai: { binding: "AI" },
       browser: { binding: "BROWSER" },
@@ -169,6 +171,8 @@ process.exit(Number(process.env.FIXTURE_EXIT));
         assert.equal(observed.preview.config.name, "gdgjp-tinyurl-e2e");
         assert.equal(observed.preview.config.main, join(cwd, "build/server/index.js"));
         assert.equal(observed.preview.config.assets.directory, join(cwd, "build/client"));
+        assert.equal(observed.preview.config.routes, undefined);
+        assert.equal(observed.preview.config.route, undefined);
         assert.equal(observed.preview.config.services[0].service, "gdgjp-accounts-e2e");
         assert.equal(observed.preview.config.services[0].remote, false);
         assert.equal(observed.preview.config.ai, undefined);

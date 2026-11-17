@@ -23,22 +23,17 @@ async function makePage(
 }
 
 async function openShareDialog(page: Page) {
+  const more = page.getByRole("button", { name: /more actions/i });
+  await expect(more).toBeEnabled({ timeout: 10_000 });
   let button = page.getByRole("button", { name: /share/i }).first();
-  if (!(await button.isVisible().catch(() => false))) {
-    const more = page.getByRole("button", { name: /more actions/i });
+  if (!(await button.isVisible())) {
     await expect(more).toBeVisible({ timeout: 10_000 });
-    await expect(more).toBeEnabled({ timeout: 10_000 });
     await more.click();
     button = page.getByRole("menuitem", { name: "Share", exact: true });
   }
   await expect(button).toBeVisible({ timeout: 10_000 });
   const dialog = page.getByRole("dialog");
-  const deadline = Date.now() + 15_000;
-  while (Date.now() < deadline) {
-    await button.click({ force: true });
-    if (await dialog.isVisible().catch(() => false)) return button;
-    await page.waitForTimeout(100);
-  }
+  await button.click();
   await expect(dialog).toBeVisible();
   return button;
 }

@@ -62,6 +62,7 @@
     "unslop",
     "verify-acl-boundaries",
     "verify-job-lifecycle",
+    "verify-platform",
     "verify-wiki",
     "why"
   ]

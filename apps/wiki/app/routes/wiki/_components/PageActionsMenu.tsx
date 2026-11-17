@@ -45,7 +45,7 @@ export function PageActionsMenu({
   onArchive: () => void;
   display: PageDisplay;
   onDisplayChange: (value: PageDisplay) => void;
-  mobileActions: ReactNode;
+  mobileActions: (afterMenuClose: (action: () => void) => void) => ReactNode;
 }) {
   const { t } = useTranslation("common");
   const location = useLocation();
@@ -58,6 +58,7 @@ export function PageActionsMenu({
   const [hydrated, setHydrated] = useState(false);
   useEffect(() => setHydrated(true), []);
   const triggerRef = useRef<HTMLButtonElement>(null);
+  const pendingDialogAction = useRef<(() => void) | null>(null);
   const busy = mutation.state !== "idle";
   const actionError = mutation.data?.error;
 
@@ -68,6 +69,9 @@ export function PageActionsMenu({
     } catch {
       setMessage(t("wiki.menu.copy_failed"));
     }
+  }
+  function afterMenuClose(action: () => void) {
+    pendingDialogAction.current = action;
   }
   function move(parentId: string) {
     mutation.submit({ intent: "movePage", parentId, lang }, { method: "post" });
@@ -100,6 +104,14 @@ export function PageActionsMenu({
         </DropdownMenuTrigger>
         <DropdownMenuContent
           align="end"
+          onCloseAutoFocus={(event) => {
+            const action = pendingDialogAction.current;
+            pendingDialogAction.current = null;
+            if (!action) return;
+            event.preventDefault();
+            triggerRef.current?.focus();
+            action();
+          }}
           className="w-72 max-w-[calc(100vw-2rem)] border border-border bg-surface p-1.5 text-foreground"
         >
           <DropdownMenuItem
@@ -133,11 +145,13 @@ export function PageActionsMenu({
           </DropdownMenuItem>
           <DropdownMenuItem
             disabled={!canManage || busy}
-            onSelect={() => {
-              setQuery("");
-              setMoveOpen(true);
-              targets.load(`/api/pages/move-targets?pageId=${encodeURIComponent(pageId)}`);
-            }}
+            onSelect={() =>
+              afterMenuClose(() => {
+                setQuery("");
+                setMoveOpen(true);
+                targets.load(`/api/pages/move-targets?pageId=${encodeURIComponent(pageId)}`);
+              })
+            }
           >
             <Icons name="ArrowRight" />
             {t("wiki.menu.move")}
@@ -145,7 +159,7 @@ export function PageActionsMenu({
           <DropdownMenuSeparator />
           <DropdownMenuItem
             disabled={!canManage || busy}
-            onSelect={onArchive}
+            onSelect={() => afterMenuClose(onArchive)}
             className="text-danger focus:text-danger"
           >
             <Icons name="Trash2" />
@@ -168,7 +182,7 @@ export function PageActionsMenu({
           </DropdownMenuPrimitiveSwitch>
           <div className="block md:hidden">
             <DropdownMenuSeparator />
-            {mobileActions}
+            {mobileActions(afterMenuClose)}
           </div>
         </DropdownMenuContent>
       </DropdownMenu>

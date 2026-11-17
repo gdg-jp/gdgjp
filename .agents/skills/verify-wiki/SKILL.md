@@ -71,4 +71,8 @@ A hard operating-system kill can prevent cleanup. `run.json` records the exact s
 
 ## Maintenance
 
-Use `/maintain-verification-skill` when the routes or controls change. This initial map covers reading controls and permissions. It does not cover deployed Cloudflare, Google sign-in, editor authoring, ingestion, search, external sync, or administrator workflows.
+Use `/maintain-verification-skill` when the routes or controls change. This map
+covers reading controls and permissions. Use
+[verify-platform](../verify-platform/SKILL.md) for the local Accounts OIDC, Wiki
+authoring, keyword search, and administrator journeys. Neither map covers deployed
+Cloudflare, actual Google authentication, ingestion, or external sync.

@@ -60,7 +60,7 @@ try {
       remote: false,
       service: binding.service === "gdgjp-accounts" ? "gdgjp-accounts-e2e" : binding.service,
     }));
-    for (const binding of ["ai", "browser"]) delete config[binding];
+    for (const key of ["ai", "browser", "routes", "route"]) delete config[key];
     for (const bindings of ["ai_search", "ai_search_namespaces", "vectorize"])
       config[bindings] = [];
     mkdirSync(".wrangler", { recursive: true });

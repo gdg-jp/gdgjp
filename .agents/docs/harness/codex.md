@@ -42,8 +42,10 @@ pretend that the native tool supports another provider.
 Run `node scripts/pstack.mjs list` for the complete pstack and project-verification
 catalog. Run `node scripts/pstack.mjs doctor` before diagnosing an installation.
 
-Use `verify-wiki` for the existing local browser journeys and
-`verify-acl-boundaries` for bounded exhaustive authorization checks. Use
+Use `verify-platform` for local Accounts OIDC and Wiki authoring, search, and
+authorization journeys. Use `verify-wiki` for the smaller reading fixture,
+`verify-acl-boundaries` for bounded exhaustive authorization checks, and
+`verify-job-lifecycle` for runner SQL, generation fencing, and mutation checks. Use
 `maintain-verification-skill` and `maintain-formal-verification-skill` when their
 coverage has drifted.
 

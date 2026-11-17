@@ -1,0 +1,199 @@
+{
+  "schemaVersion": 1,
+  "scope": "Local Accounts and selected Wiki Orca journeys",
+  "sourceBaseCommit": "224bce80",
+  "runEvidence": "local_data/pstack/platform/2026-11-17T15-56-43-720Z-8987be34/journeys.json",
+  "journeys": [
+    {
+      "id": "accounts-signin",
+      "map": "features/accounts.md",
+      "entryPoint": "http://localhost:6173/",
+      "identity": "anonymous",
+      "expected": "Sign-in controls and local issuer metadata match the running stack.",
+      "status": "VERIFIED",
+      "observedAt": "2026-11-17T15:49:18.982655+00:00",
+      "evidence": [
+        "local_data/pstack/platform/2026-11-17T15-40-37-884Z-c8490de6/root-journeys.json"
+      ],
+      "result": "Accounts redirects to Sign in; Google continuation control visible; local discovery issuer and authorization endpoint match.",
+      "sourceSnapshot": "local_data/pstack/platform/2026-11-17T15-40-37-884Z-c8490de6/run.json"
+    },
+    {
+      "id": "accounts-continuation",
+      "map": "features/accounts.md",
+      "entryPoint": "Wiki new-page Sign in link",
+      "identity": "anonymous",
+      "expected": "Wiki authorization parameters and signed sign-in continuation remain intact.",
+      "status": "VERIFIED",
+      "observedAt": "2026-11-17T15:49:18.982888+00:00",
+      "evidence": [
+        "local_data/pstack/platform/2026-11-17T15-40-37-884Z-c8490de6/root-journeys.json"
+      ],
+      "result": "Real Wiki sign-in preserves client wiki, callback, code response, S256 PKCE, state and signed unexpired continuation.",
+      "sourceSnapshot": "local_data/pstack/platform/2026-11-17T15-40-37-884Z-c8490de6/run.json"
+    },
+    {
+      "id": "accounts-oidc",
+      "map": "features/accounts.md",
+      "entryPoint": "http://localhost:6177/signin?return_to=%2Fs%2Fgdg-jp%2Fwiki%2Fnew",
+      "identity": "accounts: platform-oidc-user",
+      "expected": "Accounts session alone completes real local OIDC and creates a Wiki session.",
+      "status": "VERIFIED",
+      "observedAt": "2026-11-17T15:59:03.460950+00:00",
+      "evidence": [
+        "local_data/pstack/platform/2026-11-17T15-56-43-720Z-8987be34/journeys.json"
+      ],
+      "result": "Accounts fixture alone completed real authorize/callback/token exchange; RP identity Platform OIDC Admin persisted after reload.",
+      "sourceSnapshot": "local_data/pstack/platform/2026-11-17T15-56-43-720Z-8987be34/run.json"
+    },
+    {
+      "id": "accounts-signout",
+      "map": "features/accounts.md",
+      "entryPoint": "http://localhost:6173/auth/signout",
+      "identity": "accounts: platform-oidc-user",
+      "expected": "Accounts session ends, Wiki user is null, and authenticated settings require sign-in.",
+      "status": "VERIFIED",
+      "observedAt": "2026-11-17T15:59:03.460950+00:00",
+      "evidence": [
+        "local_data/pstack/platform/2026-11-17T15-56-43-720Z-8987be34/journeys.json"
+      ],
+      "result": "Accounts session/user null after signout, Wiki settings starts Accounts signin, and actual Wiki user API returns null without clearing cookies.",
+      "sourceSnapshot": "local_data/pstack/platform/2026-11-17T15-56-43-720Z-8987be34/run.json"
+    },
+    {
+      "id": "wiki-authoring",
+      "map": "features/authoring.md",
+      "entryPoint": "http://localhost:6177/s/gdg-jp/wiki/new",
+      "identity": "author: e2e-author-user-id",
+      "expected": "Created and edited title/body remain after reload.",
+      "status": "VERIFIED",
+      "observedAt": "2026-11-17T15:49:18.982892+00:00",
+      "evidence": [
+        "local_data/pstack/platform/2026-11-17T15-40-37-884Z-c8490de6/root-journeys.json"
+      ],
+      "result": "Actual create POST202 and edit POST200; original and changed title/body persist through reload and page navigation.",
+      "sourceSnapshot": "local_data/pstack/platform/2026-11-17T15-40-37-884Z-c8490de6/run.json"
+    },
+    {
+      "id": "wiki-comment",
+      "map": "features/authoring.md",
+      "entryPoint": "created Wiki page",
+      "identity": "author: e2e-author-user-id",
+      "expected": "A real comment POST succeeds, resets its editor, and persists after reload.",
+      "status": "VERIFIED",
+      "observedAt": "2026-11-17T15:49:18.982896+00:00",
+      "evidence": [
+        "local_data/pstack/platform/2026-11-17T15-40-37-884Z-c8490de6/root-journeys.json"
+      ],
+      "result": "Actual comment POST200, empty editor after success, visible persisted comment after reload.",
+      "sourceSnapshot": "local_data/pstack/platform/2026-11-17T15-40-37-884Z-c8490de6/run.json"
+    },
+    {
+      "id": "wiki-search",
+      "map": "features/search.md",
+      "entryPoint": "http://localhost:6177/s/gdg-jp/search",
+      "identity": "author and member",
+      "expected": "Keyword results contain an accessible page and omit it for a denied member.",
+      "status": "VERIFIED",
+      "observedAt": "2026-11-17T15:49:18.982898+00:00",
+      "evidence": [
+        "local_data/pstack/platform/2026-11-17T15-40-37-884Z-c8490de6/root-journeys.json"
+      ],
+      "result": "Keyword author result contains created page; member has no result and actual page GET404.",
+      "sourceSnapshot": "local_data/pstack/platform/2026-11-17T15-40-37-884Z-c8490de6/run.json"
+    },
+    {
+      "id": "wiki-runner-admin",
+      "map": "features/administration.md",
+      "entryPoint": "http://localhost:6177/admin/runner",
+      "identity": "admin and member",
+      "expected": "Admin sees runner status and member gets real HTTP 403.",
+      "status": "VERIFIED",
+      "observedAt": "2026-11-17T15:47:02.841415+00:00",
+      "evidence": [
+        "local_data/pstack/platform/2026-11-17T15-40-37-884Z-c8490de6/admin-viewer-journeys.json"
+      ],
+      "result": "Admin sees empty runner status. Member receives403 in browser and authenticated HTTP.",
+      "sourceSnapshot": "local_data/pstack/platform/2026-11-17T15-40-37-884Z-c8490de6/run.json"
+    },
+    {
+      "id": "wiki-space-settings",
+      "map": "features/administration.md",
+      "entryPoint": "http://localhost:6177/spaces/gdg-jp/settings",
+      "identity": "admin and member",
+      "expected": "Admin persists and restores a space name while member receives HTTP 403.",
+      "status": "VERIFIED",
+      "observedAt": "2026-11-17T15:47:02.841415+00:00",
+      "evidence": [
+        "local_data/pstack/platform/2026-11-17T15-40-37-884Z-c8490de6/admin-viewer-journeys.json"
+      ],
+      "result": "Actual UI save persisted after reload. Original GDG Japan name restored through UI. Member receives403.",
+      "sourceSnapshot": "local_data/pstack/platform/2026-11-17T15-40-37-884Z-c8490de6/run.json"
+    },
+    {
+      "id": "wiki-viewer",
+      "map": "../verify-wiki/features/viewer.md",
+      "entryPoint": "http://localhost:6177/wiki/e2e-test-page",
+      "identity": "member: e2e-member-user-id",
+      "expected": "Viewer controls remain read-only and duplicate/move requests return 403.",
+      "status": "VERIFIED",
+      "observedAt": "2026-11-17T15:47:02.841415+00:00",
+      "evidence": [
+        "local_data/pstack/platform/2026-11-17T15-40-37-884Z-c8490de6/admin-viewer-journeys.json"
+      ],
+      "result": "Duplicate, move and trash are disabled. Personal text setting works. Actual duplicate and move requests return403; ACL remains viewer.",
+      "sourceSnapshot": "local_data/pstack/platform/2026-11-17T15-40-37-884Z-c8490de6/run.json"
+    },
+    {
+      "id": "wiki-redaction",
+      "map": "../verify-wiki/features/redaction.md",
+      "entryPoint": "isolated redaction page with ?lang=en",
+      "identity": "author without organizer access",
+      "expected": "Rendered and copied Markdown omit organizer-only content under language fallback.",
+      "status": "VERIFIED",
+      "observedAt": "2026-11-17T15:51:52.106717+00:00",
+      "evidence": [
+        "local_data/pstack/platform/2026-11-17T15-40-37-884Z-c8490de6/reading-journeys.json"
+      ],
+      "result": "English fallback renders public marker and hides organizer marker. Native clipboard after actual copy excludes private marker and ACL tags.",
+      "sourceSnapshot": "local_data/pstack/platform/2026-11-17T15-40-37-884Z-c8490de6/run.json"
+    },
+    {
+      "id": "wiki-sharing",
+      "map": "../verify-wiki/features/sharing.md",
+      "entryPoint": "http://localhost:6177/wiki/e2e-test-page",
+      "identity": "author: e2e-author-user-id",
+      "expected": "Share overview, copy link, Escape, and focus restoration work.",
+      "status": "VERIFIED",
+      "observedAt": "2026-11-17T16:23:56.053269+00:00",
+      "evidence": [
+        "local_data/pstack/platform/2026-11-17T15-40-37-884Z-c8490de6/reading-journeys.json",
+        "local_data/pstack/platform/2026-11-17T16-21-25-123Z-63c577d0/mobile-journey.json"
+      ],
+      "result": "Sharing shows correct title and access, copies exact link, closes with Escape, and restores Share focus. Mobile follow-up after the modal fix opens sharing after menu teardown, then one Escape restores the accessible page and More actions focus.",
+      "sourceSnapshot": "local_data/pstack/platform/2026-11-17T16-21-25-123Z-63c577d0/run.json"
+    },
+    {
+      "id": "wiki-display",
+      "map": "../verify-wiki/features/page-menu.md",
+      "entryPoint": "http://localhost:6177/wiki/e2e-test-page",
+      "identity": "author: e2e-author-user-id",
+      "expected": "Small text and full width persist for the selected page without affecting another page.",
+      "status": "VERIFIED",
+      "observedAt": "2026-11-17T15:51:52.106717+00:00",
+      "evidence": [
+        "local_data/pstack/platform/2026-11-17T15-40-37-884Z-c8490de6/reading-journeys.json"
+      ],
+      "result": "Small text is14px; full width changes768 to976. Both persist on reload and remain unset for a second page.",
+      "sourceSnapshot": "local_data/pstack/platform/2026-11-17T15-40-37-884Z-c8490de6/run.json"
+    }
+  ],
+  "exclusions": [
+    "Real Google authentication",
+    "Deployed Cloudflare services and production role assignments",
+    "External notifications and sync",
+    "Knowledge ingestion and AI search",
+    "Production RUM",
+    "Every Wiki route, mutation, locale, and viewport"
+  ]
+}

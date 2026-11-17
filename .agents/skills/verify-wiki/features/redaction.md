@@ -18,4 +18,4 @@ Capture the menu action, resulting clipboard content, and screenshot. The existi
 
 ## Gotchas
 
-Clipboard permission can be refused by the browser. Report that part as unverified rather than substituting a direct content fetch for the user action. This journey covers one ACL block and one language fallback; it is not exhaustive parser verification.
+Clipboard permission can be refused by the browser. On macOS, read the native clipboard with `pbpaste` immediately after the actual copy action and compare the unique fixture marker. Record that method and ensure no concurrent journey writes the clipboard. If neither read works, report that part as unverified. A direct content fetch does not prove copying. This journey covers one ACL block and one language fallback; it is not exhaustive parser verification.

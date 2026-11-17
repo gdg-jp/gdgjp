@@ -124,5 +124,10 @@ Phase 2 is committed in `443846d8`. Phase 3 adds write-time lease generation
 checks, atomic payload conservation, real Worker HTTP E2E, and a repeatable bounded
 SQL verifier with ten mutation checks and a statechart.
 
-Steps 4 and 5 remain open. Keep existing regression suites and working
+Phase 3 is committed in `224bce80`. Phase 4 adds thirteen executed Orca journeys
+and seeded desktop/mobile interaction invariants. The platform fixture registers
+actual local OAuth clients. Preview configuration excludes production routes,
+which otherwise rewrite local callback hosts.
+
+Step 5 remains open. Keep existing regression suites and working
 application boundaries when adapting another team's examples.

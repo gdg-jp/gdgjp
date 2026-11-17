@@ -96,7 +96,6 @@ function MobileStarButton({
   );
 }
 
-/** Mini-header for `/wiki/*` — JA/EN toggle + edit/history/star/share/archive. */
 export function WikiPageToolbar({
   page,
   lang,
@@ -119,7 +118,6 @@ export function WikiPageToolbar({
   jaUrl: string;
   enUrl: string;
   canEdit: boolean;
-  /** Agent pages: shown instead of Edit (people ask the agent to change them). */
   onAskAgent?: () => void;
   isAuthenticated: boolean;
   canArchive: boolean;
@@ -170,7 +168,6 @@ export function WikiPageToolbar({
           );
         })}
       </div>
-      {/* Desktop action buttons (md+) */}
       <div className="ml-auto hidden items-center gap-1 md:flex">
         {canEdit && (
           <Link to={wikiPageActionPath(page.slug, "edit", spaceSlug)} className={btnBase}>
@@ -214,7 +211,7 @@ export function WikiPageToolbar({
         onArchive={onArchive}
         display={display}
         onDisplayChange={onDisplayChange}
-        mobileActions={
+        mobileActions={(afterMenuClose) => (
           <>
             {canEdit && (
               <DropdownMenuItem asChild>
@@ -225,7 +222,7 @@ export function WikiPageToolbar({
               </DropdownMenuItem>
             )}
             {onAskAgent && (
-              <DropdownMenuItem onSelect={onAskAgent}>
+              <DropdownMenuItem onSelect={() => afterMenuClose(onAskAgent)}>
                 <Icons name="Sparkles" size={14} />
                 {t("wiki.ask_agent")}
               </DropdownMenuItem>
@@ -248,14 +245,14 @@ export function WikiPageToolbar({
                     )}
                   </Await>
                 </Suspense>
-                <DropdownMenuItem onSelect={onShare}>
+                <DropdownMenuItem onSelect={() => afterMenuClose(onShare)}>
                   <Icons name="Share2" size={14} />
                   {t("wiki.share")}
                 </DropdownMenuItem>
               </>
             )}
           </>
-        }
+        )}
       />
     </div>
   );

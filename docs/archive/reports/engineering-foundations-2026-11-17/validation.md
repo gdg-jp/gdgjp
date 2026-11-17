@@ -209,3 +209,61 @@ Heartbeat and result requests now require `attempts`. Deploy the updated Wiki
 server and both CLI runners together. No deployment or schema migration occurred.
 External notifications, deployed D1, arbitrary sequence lengths, and every job
 side effect remain outside this bounded result.
+
+## Phase 4 runtime maps and UI properties
+
+Phase 3 is committed in `224bce80`. The new platform skill maps thirteen selected
+Accounts and Wiki journeys. Each has executed Orca evidence with fixture identity,
+action, observation, and exact source snapshot. The aggregate record is
+`local_data/pstack/platform/2026-11-17T15-56-43-720Z-8987be34/journeys.json`.
+Eleven journeys ran in the preceding `15-40-37-884Z-c8490de6` snapshot. Local OIDC
+and sign-out ran after the preview correction in the `15-56-43` snapshot.
+This is not a claim that all thirteen ran against one identical source snapshot.
+
+The flows include actual local Accounts authorization and token exchange, Wiki
+authoring and persisted edits, comments and editor reset, keyword search with a
+denied reader, admin and space boundaries, viewer restrictions, redacted copying,
+sharing, and page-local display persistence. Actual Google authentication and
+production role assignments remain excluded. Clipboard reads through the browser
+were unavailable; immediate native macOS clipboard reads verified unique copied
+markers and links after the real Orca actions. No content-fetch substitute was used.
+
+The first helper omitted local client registration. Registration was added to
+readiness, but OIDC still failed. Probes then identified the preview defect. Retained production `routes` rewrote
+the callback request host to `http://wiki.gdgs.jp`, despite local `APP_URL`. The
+provider rejected that non-loopback HTTP redirect. Direct HTTP and service-binding
+probes disproved the proposed credential-method and serialization explanations.
+The isolated preview now removes production route fields. Its new regression
+fails the old runner. No shared authentication API was changed on speculation.
+
+The seeded UI suite runs two seeds at desktop and mobile widths. Twelve actions
+per case check page identity, page-local display persistence, sharing-data
+isolation, and unchanged server authorization. Its first full run executed all
+17 suites with 187 passing cases, two failing mobile properties, and one external
+SFU skip. The failed prefix was author A toggle followed by author B sharing.
+An extra-Escape theory failed and was removed. The menu was already closed and
+inert but retained modal presence while its dialog opened.
+
+Dialog-opening actions now wait for the menu's actual close/autofocus lifecycle.
+Share, Ask Agent, Move, and Archive use the same handoff. The original property
+assertions remain. An old forced-click loop in the existing access-control driver
+then exposed its own race against menu teardown. It now waits for actual hydration,
+clicks once, and waits for the result. No timeout was increased or invariant removed.
+
+Wiki E2E passed **29 cases with zero failures, skips, flaky results, or retries**
+in `local_data/pstack/e2e/2026-11-17T16-19-19-924Z-85f8859a/result.json`. This includes
+all four generated cases and the existing move/archive and permission journeys.
+The final mobile handoff also passed through Orca in
+`local_data/pstack/platform/2026-11-17T16-21-25-123Z-63c577d0/mobile-journey.json`.
+After one Escape, dialog and menu counts were zero, the page was accessible,
+body pointer events were unlocked, and focus returned to More actions. The mobile
+screenshot was inspected. All owned browser profiles and scratch workspaces were
+removed. Failed earlier results remain retained.
+
+Lint, type checks, workspace tests, the pstack doctor, and both changed TSX design
+checks passed. Independent modal review inspected installed Radix behavior and
+passed two focused files with twelve tests. One earlier script run had a native
+subprocess end without an exit code. Its focused rerun and subsequent whole-script
+runs passed. No check was disabled. Logs are `/tmp/gdgjp-poteto-phase4-*`.
+The phase commit's hook runs all selected suites again; its full-run metrics and
+final acceptance are recorded in the following delivery audit.

@@ -15,6 +15,7 @@ the repository's required validation commands remain in [AGENTS.md](../../AGENTS
 | New code comments | `pnpm check:comments` | Rejects new or edited first-party JS/TS/Go comments without exact reviewed exceptions | Existing comments and other languages still need semantic review; see [the policy](comments.md) |
 | Unit and architecture tests | `pnpm test` | Repository scripts and workspace test assertions | Coverage depends on each suite's assertions |
 | Browser regressions | `pnpm test:e2e` | Existing automated browser journeys | Does not establish external service or production behavior |
+| Seeded UI sequences | Wiki `tests/e2e/ui-properties.spec.ts`, through the isolated E2E runner | Two seeds and two viewports execute page switches, sharing, display persistence, and authorization invariants | Forty-eight generated actions are a bounded regression sample, not all interactions |
 | ACL bounded verification | `node .agents/skills/verify-acl-boundaries/scripts/verify.mjs --mutation-proof` | Independent audience properties over the enumerated inputs, with six deliberate production-expression mutations rejected | Not an unbounded formal proof or HTTP authorization audit |
 | Runner lifecycle verification | `node .agents/skills/verify-job-lifecycle/scripts/verify.mjs --mutation-proof` | Real SQL against an independent bounded state machine, targeted races, Go wire tests, and ten deliberate production mutations | Assumes D1's transaction contract; does not prove arbitrary sequences or deployed behavior |
 
@@ -65,8 +66,10 @@ determine which checks run.
 
 ## Agent-driven runtime journeys
 
-Use [Verify Wiki](../../.agents/skills/verify-wiki/SKILL.md) to prepare an isolated
-built instance. Drive it with Orca Browser. The helper's doctor and readiness probe
+Use [Verify Accounts and Wiki](../../.agents/skills/verify-platform/SKILL.md) for
+local OIDC, authoring, search, administration, and the existing reading journeys.
+Use [Verify Wiki](../../.agents/skills/verify-wiki/SKILL.md) for its smaller reading
+fixture. Drive either instance with Orca Browser. The helper's doctor and readiness probe
 are prerequisites, not evidence that the following journeys passed.
 
 | Existing journey | Recipe |
@@ -80,9 +83,17 @@ These recipes exist; their presence does not mean they ran in a particular chang
 Report the fixture identity, user action, expected and observed result, and evidence
 path for each executed journey. Do not include authentication cookies in evidence.
 
-Wiki editor authoring, search, ingestion, external sync, and administrator workflows
-are outside this map. Other applications' Playwright suites do not imply an Orca
-feature map exists for them. The agents-local testing skill covers its specialized
+The platform [feature map](../../.agents/skills/verify-platform/features/README.md)
+also names Accounts sign-in, continuation, local OIDC, sign-out, Wiki authoring,
+comments, keyword search, runner administration, and space settings. Its
+[coverage record](../../.agents/skills/verify-platform/coverage.json) gives the
+executed source snapshot and evidence for each journey. Authentication uses a real
+local Accounts database session, not a Google login. The public new-page form does
+not itself require authentication; publishing and user settings do.
+
+Ingestion, external sync, AI search, and actual Google authentication remain outside
+these maps. Other applications' Playwright suites do not imply an Orca feature map
+exists for them. The agents-local testing skill covers its specialized
 VM and authorization environment; it is not a general product browser check.
 
 ## Evidence and completion
