@@ -1,0 +1,34 @@
+# gdgjp-mcp — GDG Japan MCP server (mcp.gdgs.jp).
+# The Worker is the OAuth authorization server for MCP clients (Client ID Metadata Documents +
+# Dynamic Client Registration, @cloudflare/workers-oauth-provider) and signs people in through
+# GDG Japan Accounts as the trusted client `mcp`. Tools call the wiki as the signed-in person.
+# No AI binding and no LLM keys.
+name = "gdgjp-mcp"
+main = "src/index.ts"
+compatibility_date = "2026-07-25"
+# global_fetch_strictly_public: required for CIMD (the server fetches client-supplied URLs).
+compatibility_flags = ["nodejs_compat", "global_fetch_strictly_public"]
+workers_dev = false
+routes = [{ pattern = "mcp.gdgs.jp", custom_domain = true }]
+
+[vars]
+APP_URL = "https://mcp.gdgs.jp"
+ACCOUNTS_URL = "https://accounts.gdgs.jp"
+WIKI_URL = "https://wiki.gdgs.jp"
+IDP_CLIENT_ID = "mcp"
+
+# Grants, tokens, registered clients and consent transactions (workers-oauth-provider).
+[[kv_namespaces]]
+binding = "OAUTH_KV"
+id = "8e88ff4ebeaf457ca091b6c14ff44c9a"
+
+[[services]]
+binding = "WIKI"
+service = "gdgjp-wiki"
+
+[triggers]
+# Hourly sweep of expired grants and tokens left in OAUTH_KV.
+crons = ["17 * * * *"]
+
+[observability]
+enabled = true

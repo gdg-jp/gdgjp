@@ -40,6 +40,7 @@ const CI_WORKSPACES = [
     e2e: false,
   },
   { directory: "apps/agent", workspace: "@gdgjp/agent", build: true, e2e: false },
+  { directory: "apps/mcp", workspace: "@gdgjp/mcp", build: true, e2e: false },
   { directory: "apps/go-extension", workspace: "@gdgjp/go-extension", build: true, e2e: false },
 ];
 
@@ -138,6 +139,7 @@ const DEPLOY_TARGETS = [
     migrate: false,
   },
   { app: "agent", workspace: "@gdgjp/agent", provider: "cloudflare", migrate: true },
+  { app: "mcp", workspace: "@gdgjp/mcp", provider: "cloudflare", migrate: false },
 ];
 
 const GDG_LIB_DEPENDENTS = new Set([

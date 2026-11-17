@@ -36,6 +36,9 @@ ROULETTE_CLIENT_ID = "roulette"
 ROULETTE_REDIRECT_URLS = "https://roulette.gdgs.jp/api/auth/callback/gdgjp"
 PR_CLIENT_ID = "pr"
 PR_REDIRECT_URLS = "https://pr.gdgs.jp/api/auth/callback/gdgjp"
+# GDG Japan MCP (mcp.gdgs.jp) signs MCP clients' users in through this trusted client.
+MCP_CLIENT_ID = "mcp"
+MCP_REDIRECT_URLS = "https://mcp.gdgs.jp/callback"
 # gdg-cli userId of the pre-registered gdgagent-svc service account — the only
 # caller allowed to hit api/agents/google-workspace-token. Not sensitive (an
 # opaque user id, not a credential), but set only after that account exists

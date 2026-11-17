@@ -301,6 +301,9 @@ jobs:
           - name: Typecheck agent
             if: contains(fromJSON(needs.changes.outputs.ci), '@gdgjp/agent')
             run: pnpm --filter @gdgjp/agent typecheck
+          - name: Typecheck mcp
+            if: contains(fromJSON(needs.changes.outputs.ci), '@gdgjp/mcp')
+            run: pnpm --filter @gdgjp/mcp typecheck
           - name: Typecheck go extension
             if: contains(fromJSON(needs.changes.outputs.ci), '@gdgjp/go-extension')
             run: pnpm --filter @gdgjp/go-extension typecheck
@@ -385,6 +388,9 @@ jobs:
           - name: Test agent
             if: contains(fromJSON(needs.changes.outputs.ci), '@gdgjp/agent')
             run: pnpm --filter @gdgjp/agent test
+          - name: Test mcp
+            if: contains(fromJSON(needs.changes.outputs.ci), '@gdgjp/mcp')
+            run: pnpm --filter @gdgjp/mcp test
           - name: Test go extension
             if: contains(fromJSON(needs.changes.outputs.ci), '@gdgjp/go-extension')
             run: pnpm --filter @gdgjp/go-extension test
@@ -470,6 +476,9 @@ jobs:
           - name: Build agent
             if: contains(fromJSON(needs.changes.outputs.build), '@gdgjp/agent')
             run: pnpm --filter @gdgjp/agent build
+          - name: Build mcp
+            if: contains(fromJSON(needs.changes.outputs.build), '@gdgjp/mcp')
+            run: pnpm --filter @gdgjp/mcp build
           - name: Build go extension
             if: contains(fromJSON(needs.changes.outputs.build), '@gdgjp/go-extension')
             run: |

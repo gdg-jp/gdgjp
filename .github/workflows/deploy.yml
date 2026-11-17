@@ -261,3 +261,6 @@ jobs:
               pnpm --filter @gdgjp/agent migrate:remote
           #     DISCORD_APPLICATION_ID: ${{ secrets.DISCORD_APPLICATION_ID }}
           #     DISCORD_BOT_TOKEN: ${{ secrets.DISCORD_BOT_TOKEN }}
+          - name: Deploy mcp
+            if: contains(fromJSON(needs.changes.outputs.deploy-apps), 'mcp')
+            run: pnpm --filter @gdgjp/mcp run deploy

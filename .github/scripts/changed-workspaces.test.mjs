@@ -73,9 +73,9 @@ test("propagates gdg-lib changes to every dependent application", () => {
 test("fans common configuration changes out to every target", () => {
   const result = classifyChanges(["pnpm-lock.yaml"]);
 
-  assert.equal(result.ci.length, 22);
-  assert.equal(result.build.length, 21);
-  assert.equal(result.deploy.length, 19);
+  assert.equal(result.ci.length, 23);
+  assert.equal(result.build.length, 22);
+  assert.equal(result.deploy.length, 20);
   assert.equal(result.openapi, true);
 });
 
@@ -84,12 +84,12 @@ test("treats workflow and detector changes as global for their consumers", () =>
   const deploy = classifyChanges([".github/workflows/deploy.yml"]);
   const detector = classifyChanges([".github/scripts/changed-workspaces.mjs"]);
 
-  assert.equal(ci.ci.length, 22);
+  assert.equal(ci.ci.length, 23);
   assert.equal(ci.deploy.length, 0);
   assert.equal(deploy.ci.length, 0);
-  assert.equal(deploy.deploy.length, 19);
-  assert.equal(detector.ci.length, 22);
-  assert.equal(detector.deploy.length, 19);
+  assert.equal(deploy.deploy.length, 20);
+  assert.equal(detector.ci.length, 23);
+  assert.equal(detector.deploy.length, 20);
 });
 
 test("ignores unrelated documentation changes", () => {
@@ -127,8 +127,8 @@ test("manual execution selects every CI and deploy target", () => {
   const result = classifyChanges([], { forceAll: true });
 
   assert.equal(result.full, true);
-  assert.equal(result.ci.length, 22);
-  assert.equal(result.deploy.length, 19);
+  assert.equal(result.ci.length, 23);
+  assert.equal(result.deploy.length, 20);
   assert.equal(result.lint, true);
   assert.equal(result.cli, true);
 });

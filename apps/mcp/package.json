@@ -1,0 +1,24 @@
+{
+  "name": "@gdgjp/mcp",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsc --noEmit",
+    "dev": "wrangler dev --port 5192 --local-upstream localhost:5192",
+    "deploy": "wrangler deploy",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@cloudflare/workers-oauth-provider": "1.2.4",
+    "@modelcontextprotocol/server": "2.4.0",
+    "agents": "0.33.0",
+    "zod": "^4.3.6"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20250726.0",
+    "typescript": "^5.7.2",
+    "vitest": "^4.1.10",
+    "wrangler": "~4.113.0"
+  }
+}

@@ -42,6 +42,28 @@ describe("collectSpecs agents client", () => {
   });
 });
 
+describe("collectSpecs mcp client", () => {
+  it("seeds the MCP server as a confidential PKCE client with the chapters scope", () => {
+    const specs = collectSpecs({
+      ...agentsEnv({ AGENTS_CLIENT_SECRET: "" }),
+      MCP_CLIENT_ID: "mcp",
+      MCP_CLIENT_SECRET: "mcp-secret",
+      MCP_REDIRECT_URLS: "https://mcp.gdgs.jp/callback",
+    } as unknown as Env);
+    expect(specs).toEqual([
+      {
+        clientId: "mcp",
+        clientSecret: "mcp-secret",
+        clientName: "GDG Japan MCP",
+        redirectUris: ["https://mcp.gdgs.jp/callback"],
+        requirePKCE: true,
+        public: false,
+        scopes: ["openid", "email", "profile", "offline_access", CHAPTERS_SCOPE],
+      },
+    ]);
+  });
+});
+
 describe("seedClients agents client", () => {
   it("persists the confidential PKCE policy and required scopes", async () => {
     let preparedSql = "";
@@ -84,6 +106,12 @@ describe("seedClients agents client", () => {
 describe("trustedOAuthClientIds", () => {
   it("includes agents among the consent-skip trusted clients", () => {
     expect(trustedOAuthClientIds(agentsEnv())).toContain("agents");
+  });
+
+  it("includes mcp among the consent-skip trusted clients", () => {
+    expect(
+      trustedOAuthClientIds({ ...agentsEnv(), MCP_CLIENT_ID: "mcp" } as unknown as Env),
+    ).toContain("mcp");
   });
 
   it("includes pay among the consent-skip trusted clients", () => {

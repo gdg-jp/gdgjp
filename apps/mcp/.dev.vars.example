@@ -1,0 +1,8 @@
+# Secrets for gdgjp-mcp (wrangler secret put <NAME> in production).
+# The `mcp` client secret seeded into GDG Japan Accounts (MCP_CLIENT_SECRET there).
+IDP_CLIENT_SECRET=
+
+# Local development: run accounts (:5173) and wiki (:5177) too.
+APP_URL=http://localhost:5192
+ACCOUNTS_URL=http://localhost:5173
+WIKI_URL=http://localhost:5177

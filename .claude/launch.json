@@ -58,6 +58,12 @@
       "runtimeExecutable": "pnpm",
       "runtimeArgs": ["--filter", "@gdgjp/pr", "dev"],
       "port": 5191
+    },
+    {
+      "name": "mcp-dev",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["--filter", "@gdgjp/mcp", "dev"],
+      "port": 5192
     }
   ]
 }

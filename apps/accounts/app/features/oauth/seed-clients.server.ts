@@ -101,6 +101,7 @@ export function collectSpecs(env: Env): ClientSpec[] {
       env.ROULETTE_REDIRECT_URLS,
     ],
     ["GDG Japan PR", env.PR_CLIENT_ID, env.PR_CLIENT_SECRET, env.PR_REDIRECT_URLS],
+    ["GDG Japan MCP", env.MCP_CLIENT_ID, env.MCP_CLIENT_SECRET, env.MCP_REDIRECT_URLS],
   ] as const;
   return apps.flatMap(([clientName, clientId, clientSecret, redirectUrls]) =>
     clientId && clientSecret

@@ -55,5 +55,8 @@ ROULETTE_REDIRECT_URLS=http://localhost:5190/api/auth/callback/gdgjp
 PR_CLIENT_SECRET=""
 PR_CLIENT_ID=pr
 PR_REDIRECT_URLS=http://localhost:5191/api/auth/callback/gdgjp
+MCP_CLIENT_SECRET=""
+MCP_CLIENT_ID=mcp
+MCP_REDIRECT_URLS=http://localhost:5192/callback
 
 RESEND_API_KEY=""
