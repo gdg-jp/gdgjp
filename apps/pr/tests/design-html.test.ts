@@ -1,9 +1,10 @@
+// Covers the Playbook's design-html.mjs (gdg-jp/skills submodule), which render.server.ts bundles;
+// its subject is outside app/, so it lives here rather than beside a module.
+import { describe, expect, it } from "vitest";
 import {
   buildDesignHtml,
   sanitizeDesignHtml,
-} from "@skills/pr-playbook/scripts/render/design-html.mjs";
-import { describe, expect, it } from "vitest";
-import { pickReferences } from "~/features/design/reference.repository.server";
+} from "../../../skills/pr-playbook/scripts/render/design-html.mjs";
 
 const render = { thumbnailScale: 0.25, minFontPxAtThumbnail: 9, minContrast: 4.5 };
 
@@ -41,39 +42,5 @@ describe("design HTML", () => {
     expect(html).toContain('"width":1600');
     expect(problems.join(" ")).toMatch(/canvas/);
     expect(problems.join(" ")).toMatch(/ロゴ/);
-  });
-});
-
-describe("pickReferences", () => {
-  const ref = (id: string, kind: string, madeOn: string) => ({
-    id,
-    chapterId: 1,
-    kind: kind as "thumbnail",
-    event: "",
-    madeOn,
-    note: "",
-    contentType: "image/jpeg",
-    bytes: 1,
-    r2Key: id,
-    createdBy: "u",
-    createdAt: 0,
-  });
-  const all = [
-    ref("t-old", "thumbnail", "2026-07-01"),
-    ref("t-new", "thumbnail", "2026-10-01"),
-    ref("s-new", "session", "2026-10-01"),
-    ref("s-old", "session", "2026-08-01"),
-    ref("a", "ad", "2026-10-01"),
-  ];
-  it("prefers the matching kind, newest first, then the face", () => {
-    expect(pickReferences(all, "session", 3).map((r) => r.id)).toEqual(["s-new", "s-old", "t-new"]);
-  });
-  it("for the kit shows the faces first and one of each other kind", () => {
-    expect(pickReferences(all, "kit", 4).map((r) => r.id)).toEqual([
-      "t-new",
-      "t-old",
-      "s-new",
-      "a",
-    ]);
   });
 });
