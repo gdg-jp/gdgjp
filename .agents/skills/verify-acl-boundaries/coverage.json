@@ -1,0 +1,16 @@
+{
+  "syncedCommit": "d4f18a5694052c01b69d0a9267698e97ce2d145f",
+  "sources": {
+    "packages/gdg-lib/src/acl/core.ts": "45db56cdcfe982e2dafbb715accb682dbead1d391804a86d101e5627346a5c2f",
+    "packages/gdg-lib/src/acl/types.ts": "0bfa3a37867f643efc8aaf85a66293d9dc98963bda4d67fd5b00c16f75b59472"
+  },
+  "functions": [
+    "canClassesAccessSourceInChannel",
+    "canClassesSeePageInChannel",
+    "canClassesAccessSource",
+    "canClassesSeePage",
+    "audienceKeyContains",
+    "pageAudienceIncludesChannel",
+    "sourceAudienceKey"
+  ]
+}

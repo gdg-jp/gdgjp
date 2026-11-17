@@ -1,0 +1,16 @@
+{
+  "recordedOn": "2026-11-17",
+  "scope": "Setup-time evidence, not live capability detection for future sessions.",
+  "models": [
+    "claude-opus-5-5-high-fast",
+    "claude-opus-5-5-medium-fast",
+    "claude-fable-5-2-medium",
+    "gpt-6.1-sol",
+    "gpt-6-astra",
+    "gpt-6.1-terra",
+    "gpt-6-sol",
+    "gpt-6-luna"
+  ],
+  "claudeEvidence": "User confirmed the configured Claude slugs. External CLI review ran model claude-opus-5-5 via opus alias; fast mode and Fable execution were not tested.",
+  "gptEvidence": "Identifiers listed in the setup session native subagent tool schema; no provider entitlement claim for Cursor or Claude Code."
+}

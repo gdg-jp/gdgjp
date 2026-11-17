@@ -1,0 +1,1 @@
+../../.agents/agents/poteto-agent.md

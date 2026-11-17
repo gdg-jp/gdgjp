@@ -1,0 +1,18 @@
+---
+description: pstack per-role model choices (overrides skill defaults)
+alwaysApply: true
+---
+# pstack model configuration. One line per role. Delete a line to fall back to the skill default.
+# `inherit-parent` or `auto` as a value: the role runs on the parent chat model (omit Task `model` and spawn `generalPurpose`). Alias entries in a panel list still count toward its fan-out.
+# defaults: 3
+# budget: medium (high)
+# gpt-6-astra uses a separate reasoning_effort parameter: medium in every panel below.
+feature, refactoring: claude-opus-5-5-high-fast
+bug-fix: claude-opus-5-5-high-fast
+perf-issue: claude-opus-5-5-high-fast
+hillclimb: claude-opus-5-5-high-fast
+judgment and prose: claude-opus-5-5-high-fast
+arena runners: claude-fable-5-2-medium, claude-opus-5-5-medium-fast, gpt-6-astra
+arena cross-judge pool: claude-opus-5-5-medium-fast, gpt-6-astra
+swarm workers: claude-opus-5-5-medium-fast
+interrogate reviewers: claude-fable-5-2-medium, claude-opus-5-5-medium-fast, gpt-6-astra
