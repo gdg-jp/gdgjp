@@ -1,0 +1,90 @@
+{
+  "version": 1,
+  "test": "apps/wiki/app/features/jobs/runner.server.verification.test.ts",
+  "bounds": {
+    "singleJobSequences": 648,
+    "singleJobTransitions": 1944,
+    "cloneSequences": 27,
+    "sequenceDepth": 3,
+    "leaseHosts": 2,
+    "initialAttempts": [0, 1, 2],
+    "cloneSpaces": 2,
+    "cloneHosts": 3,
+    "cloneTypes": 2,
+    "cloneRequests": 81,
+    "concurrentProducers": 3,
+    "documentUnion": 650
+  },
+  "mutations": [
+    {
+      "name": "lease-generation",
+      "file": "apps/wiki/app/features/jobs/lease.server.ts",
+      "before": "eq(schema.agentJobs.attempts, attempts),",
+      "after": "sql`1 = 1`,",
+      "testNamePattern": "rejects stale succeeded after re-lease to vm"
+    },
+    {
+      "name": "lease-owner",
+      "file": "apps/wiki/app/features/jobs/lease.server.ts",
+      "before": "sql`${schema.agentJobs.leaseOwner} IS ${host}`,",
+      "after": "sql`1 = 1`,",
+      "testNamePattern": "rejects a different host"
+    },
+    {
+      "name": "completion-cas",
+      "file": "apps/wiki/app/features/jobs/runner.server.ts",
+      "before": ".where(leaseCondition(input))",
+      "after": ".where(eq(schema.agentJobs.id, job.id))",
+      "testNamePattern": "rejects stale succeeded after re-lease to other-vm"
+    },
+    {
+      "name": "renewed-retry",
+      "file": "apps/wiki/app/features/jobs/lease.server.ts",
+      "before": "expiredBefore ? lt(schema.agentJobs.leaseUntil, expiredBefore) : undefined,",
+      "after": "undefined,",
+      "testNamePattern": "does not reclaim a renewed lease at attempt 0"
+    },
+    {
+      "name": "renewed-terminal",
+      "file": "apps/wiki/app/features/jobs/runner.server.ts",
+      "before": "lt(schema.agentJobs.leaseUntil, now),",
+      "after": "undefined,",
+      "testNamePattern": "does not reclaim a renewed lease at attempt 2"
+    },
+    {
+      "name": "payload-conservation",
+      "file": "apps/wiki/app/features/jobs/synthesize-payload.server.ts",
+      "before": "SELECT value FROM json_each(${array(existing, field)})\n      UNION ALL",
+      "after": "SELECT value FROM json_each(${array(existing, field)}) WHERE 0\n      UNION ALL",
+      "testNamePattern": "conserves every acknowledged"
+    },
+    {
+      "name": "recovery-atomicity",
+      "file": "apps/wiki/app/features/jobs/lease.server.ts",
+      "before": "await db.batch([",
+      "after": "await Promise.all([",
+      "testNamePattern": "keeps recovery payload transfer atomic"
+    },
+    {
+      "name": "retry-bound",
+      "file": "apps/wiki/app/features/jobs/runner.server.ts",
+      "before": "job.attempts + 1 < MAX_ATTEMPTS",
+      "after": "job.attempts + 1 <= MAX_ATTEMPTS",
+      "testNamePattern": "648 bounded lifecycle sequences"
+    },
+    {
+      "name": "clone-exclusivity",
+      "file": "apps/wiki/app/features/jobs/runner.server.ts",
+      "before": "             AND NOT (j.type IN (${clone}) AND EXISTS (\n               SELECT 1 FROM agent_jobs o\n                WHERE o.space_id = j.space_id AND o.status = 'leased' AND o.type IN (${clone})))",
+      "after": "",
+      "testNamePattern": "checks clone exclusivity"
+    },
+    {
+      "name": "terminal-lease",
+      "file": "apps/wiki/app/features/jobs/lease.server.ts",
+      "before": "eq(schema.agentJobs.status, \"leased\"),",
+      "after": "sql`1 = 1`,",
+      "testNamePattern": "648 bounded lifecycle sequences"
+    }
+  ]
+}

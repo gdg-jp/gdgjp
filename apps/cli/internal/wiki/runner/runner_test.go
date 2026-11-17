@@ -196,7 +196,7 @@ func TestCompleteMapsConflictToLeaseLost(t *testing.T) {
 	}))
 	defer server.Close()
 	api := &API{BaseURL: server.URL, Token: "t", Host: "vm"}
-	if err := api.Complete(context.Background(), "j", Result{Status: "succeeded"}); !errors.Is(err, ErrLeaseLost) {
+	if err := api.Complete(context.Background(), "j", 0, Result{Status: "succeeded"}); !errors.Is(err, ErrLeaseLost) {
 		t.Fatalf("Complete err = %v", err)
 	}
 }

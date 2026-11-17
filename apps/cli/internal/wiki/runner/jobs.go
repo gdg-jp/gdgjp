@@ -187,13 +187,17 @@ func leaseErr(err error) error {
 	return err
 }
 
-func (a *API) ExtendLease(ctx context.Context, jobID string) error {
-	_, err := a.do(ctx, http.MethodPost, "/api/runner/jobs/"+url.PathEscape(jobID)+"/heartbeat", map[string]any{}, nil)
+func (a *API) ExtendLease(ctx context.Context, jobID string, attempts int) error {
+	_, err := a.do(ctx, http.MethodPost, "/api/runner/jobs/"+url.PathEscape(jobID)+"/heartbeat", map[string]int{"attempts": attempts}, nil)
 	return leaseErr(err)
 }
 
-func (a *API) Complete(ctx context.Context, jobID string, result Result) error {
-	_, err := a.do(ctx, http.MethodPost, "/api/runner/jobs/"+url.PathEscape(jobID)+"/result", result, nil)
+func (a *API) Complete(ctx context.Context, jobID string, attempts int, result Result) error {
+	body := struct {
+		Result
+		Attempts int `json:"attempts"`
+	}{Result: result, Attempts: attempts}
+	_, err := a.do(ctx, http.MethodPost, "/api/runner/jobs/"+url.PathEscape(jobID)+"/result", body, nil)
 	return leaseErr(err)
 }
 

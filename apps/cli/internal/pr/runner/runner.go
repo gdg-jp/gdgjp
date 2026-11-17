@@ -175,7 +175,7 @@ func (r *Runner) process(ctx context.Context, job *wikirunner.Job) {
 			case <-jobCtx.Done():
 				return
 			case <-ticker.C:
-				if err := r.api.ExtendLease(jobCtx, job.ID); errors.Is(err, wikirunner.ErrLeaseLost) {
+				if err := r.api.ExtendLease(jobCtx, job.ID, job.Attempts); errors.Is(err, wikirunner.ErrLeaseLost) {
 					r.log.Printf("job %s: lease lost, abandoning", job.ID)
 					cancel()
 					return
@@ -189,7 +189,7 @@ func (r *Runner) process(ctx context.Context, job *wikirunner.Job) {
 	if jobCtx.Err() != nil && ctx.Err() == nil {
 		return // lease lost: the server requeues it
 	}
-	if err := r.api.Complete(ctx, job.ID, result); err != nil {
+	if err := r.api.Complete(ctx, job.ID, job.Attempts, result); err != nil {
 		r.log.Printf("job %s: report failed: %v", job.ID, err)
 		return
 	}

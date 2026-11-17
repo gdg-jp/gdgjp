@@ -7,7 +7,9 @@ import { wikiPagePath } from "~/features/pages/wiki-page-path";
 import { ensureOpenReviewFlag } from "~/features/spaces/review.server";
 import type { getDb } from "~/lib/db.server";
 import { finishAnswer, notifyAgent } from "./answer.server";
-import type { AgentJobStatus, AgentJobType, SynthesizePayload } from "./shared";
+import { type JobLease, leaseCondition, returnToQueue } from "./lease.server";
+import type { JobResult } from "./runner-input.server";
+import type { AgentJobType, SynthesizePayload } from "./shared";
 
 type Db = ReturnType<typeof getDb>;
 type Job = typeof schema.agentJobs.$inferSelect;
@@ -66,33 +68,13 @@ export async function leaseNextJob(
   return leased ?? null;
 }
 
-export async function extendJobLease(db: Db, jobId: string, host: string): Promise<boolean> {
+export async function extendJobLease(db: Db, lease: JobLease): Promise<boolean> {
   const result = await db
     .update(schema.agentJobs)
     .set({ leaseUntil: new Date(Date.now() + LEASE_SECONDS * 1000) })
-    .where(
-      and(
-        eq(schema.agentJobs.id, jobId),
-        eq(schema.agentJobs.status, "leased"),
-        eq(schema.agentJobs.leaseOwner, host),
-      ),
-    );
+    .where(leaseCondition(lease));
   return (result.meta?.changes ?? 0) > 0;
 }
-
-export type JobResult = {
-  status: Extract<AgentJobStatus, "succeeded" | "failed" | "needs_review">;
-  result?: unknown;
-  error?: string;
-  /** synthesize: documents whose content the run integrated (default: the payload's). */
-  integratedDocumentIds?: string[];
-  /** synthesize: per request (by index in payload.requests) whether it was applied. */
-  requestOutcomes?: Array<{ index: number; applied: boolean; note?: string }>;
-  /** failed: put the job back in the queue (a lost push race) unless attempts run out. */
-  retry?: boolean;
-  /** needs_review: open a review flag on the job (e.g. `acl-untagged` with the findings). */
-  reviewFlag?: { kind: "acl-untagged"; payload?: unknown };
-};
 
 function parsePayload(job: Job): SynthesizePayload {
   try {
@@ -110,19 +92,38 @@ function parsePayload(job: Job): SynthesizePayload {
 export async function completeJob(
   env: Env,
   db: Db,
-  input: { jobId: string; host: string } & JobResult,
+  input: JobLease & JobResult,
 ): Promise<{ ok: boolean }> {
   const job = await db
     .select()
     .from(schema.agentJobs)
     .where(eq(schema.agentJobs.id, input.jobId))
     .get();
-  if (!job || job.status !== "leased" || job.leaseOwner !== input.host) return { ok: false };
+  if (
+    !job ||
+    job.status !== "leased" ||
+    job.leaseOwner !== input.host ||
+    job.attempts !== input.attempts
+  )
+    return { ok: false };
   const now = new Date();
   if (input.status === "failed" && input.retry && job.attempts + 1 < MAX_ATTEMPTS) {
-    await returnToQueue(db, job, job.attempts + 1, input.error?.slice(0, 4000) ?? null, now);
-    return { ok: true };
+    return {
+      ok: await returnToQueue(db, job, job.attempts + 1, input.error?.slice(0, 4000) ?? null, now),
+    };
   }
+  const accepted = await db
+    .update(schema.agentJobs)
+    .set({
+      status: input.status,
+      result: input.result === undefined ? null : JSON.stringify(input.result),
+      error: input.error?.slice(0, 4000) ?? null,
+      finishedAt: now,
+      leaseUntil: null,
+    })
+    .where(leaseCondition(input))
+    .returning({ id: schema.agentJobs.id });
+  if (accepted.length === 0) return { ok: false };
   if (input.status === "needs_review" && input.reviewFlag) {
     await ensureOpenReviewFlag(db, {
       spaceId: job.spaceId,
@@ -132,16 +133,6 @@ export async function completeJob(
       payload: input.reviewFlag.payload,
     });
   }
-  await db
-    .update(schema.agentJobs)
-    .set({
-      status: input.status,
-      result: input.result === undefined ? null : JSON.stringify(input.result),
-      error: input.error?.slice(0, 4000) ?? null,
-      finishedAt: now,
-      leaseUntil: null,
-    })
-    .where(eq(schema.agentJobs.id, job.id));
 
   if (job.type === "answer") {
     await finishAnswer(env, db, job.id);
@@ -224,10 +215,11 @@ export async function requeueExpiredJobs(db: Db, now = new Date()): Promise<numb
     .from(schema.agentJobs)
     .where(and(eq(schema.agentJobs.status, "leased"), lt(schema.agentJobs.leaseUntil, now)))
     .all();
+  let recovered = 0;
   for (const job of expired) {
     const attempts = job.attempts + 1;
     if (attempts >= MAX_ATTEMPTS) {
-      await db
+      const updated = await db
         .update(schema.agentJobs)
         .set({
           status: "failed",
@@ -237,75 +229,19 @@ export async function requeueExpiredJobs(db: Db, now = new Date()): Promise<numb
           finishedAt: now,
           error: "lease expired",
         })
-        .where(and(eq(schema.agentJobs.id, job.id), eq(schema.agentJobs.status, "leased")));
-    } else {
-      await returnToQueue(db, job, attempts, job.error, now);
-    }
-  }
-  return expired.length;
-}
-
-/**
- * Put a leased job back in the queue. A space has at most one queued synthesize /
- * consolidate (`idx_agent_jobs_one_queued_per_space`), and new documents keep arriving
- * while a job runs, so the queue may already hold a newer one: then this job's payload
- * merges into it and this job ends as failed ("merged into …"). A plain UPDATE would
- * violate the index, fail every time, and leave the row leased, blocking the space.
- */
-async function returnToQueue(
-  db: Db,
-  job: Job,
-  attempts: number,
-  error: string | null,
-  now: Date,
-): Promise<void> {
-  const stillLeased = and(eq(schema.agentJobs.id, job.id), eq(schema.agentJobs.status, "leased"));
-  const waiting = CLONE_JOBS.includes(job.type as AgentJobType)
-    ? await db
-        .select()
-        .from(schema.agentJobs)
         .where(
           and(
-            eq(schema.agentJobs.spaceId, job.spaceId),
-            eq(schema.agentJobs.type, job.type),
-            eq(schema.agentJobs.status, "queued"),
+            leaseCondition({ jobId: job.id, host: job.leaseOwner, attempts: job.attempts }),
+            lt(schema.agentJobs.leaseUntil, now),
           ),
         )
-        .get()
-    : undefined;
-  if (!waiting) {
-    await db
-      .update(schema.agentJobs)
-      .set({ status: "queued", attempts, leaseUntil: null, leaseOwner: null, error })
-      .where(stillLeased);
-    return;
+        .returning({ id: schema.agentJobs.id });
+      recovered += updated.length;
+    } else {
+      recovered += Number(await returnToQueue(db, job, attempts, job.error, now, now));
+    }
   }
-  const mine = parsePayload(job);
-  const theirs = parsePayload(waiting);
-  const merged: SynthesizePayload = {
-    sourceIds: [...new Set([...(theirs.sourceIds ?? []), ...(mine.sourceIds ?? [])])],
-    documentIds: [...new Set([...(theirs.documentIds ?? []), ...(mine.documentIds ?? [])])],
-    requests: [...(mine.requests ?? []), ...(theirs.requests ?? [])],
-  };
-  await db
-    .update(schema.agentJobs)
-    .set({
-      payload: JSON.stringify(merged),
-      priority: Math.max(waiting.priority, job.priority),
-      runAfter: waiting.runAfter < job.runAfter ? waiting.runAfter : job.runAfter,
-    })
-    .where(and(eq(schema.agentJobs.id, waiting.id), eq(schema.agentJobs.status, "queued")));
-  await db
-    .update(schema.agentJobs)
-    .set({
-      status: "failed",
-      attempts,
-      leaseUntil: null,
-      leaseOwner: null,
-      finishedAt: now,
-      error: `merged into queued job ${waiting.id}${error ? `: ${error}` : ""}`.slice(0, 4000),
-    })
-    .where(stillLeased);
+  return recovered;
 }
 
 export async function recordRunnerHeartbeat(

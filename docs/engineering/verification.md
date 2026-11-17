@@ -16,6 +16,7 @@ the repository's required validation commands remain in [AGENTS.md](../../AGENTS
 | Unit and architecture tests | `pnpm test` | Repository scripts and workspace test assertions | Coverage depends on each suite's assertions |
 | Browser regressions | `pnpm test:e2e` | Existing automated browser journeys | Does not establish external service or production behavior |
 | ACL bounded verification | `node .agents/skills/verify-acl-boundaries/scripts/verify.mjs --mutation-proof` | Independent audience properties over the enumerated inputs, with six deliberate production-expression mutations rejected | Not an unbounded formal proof or HTTP authorization audit |
+| Runner lifecycle verification | `node .agents/skills/verify-job-lifecycle/scripts/verify.mjs --mutation-proof` | Real SQL against an independent bounded state machine, targeted races, Go wire tests, and ten deliberate production mutations | Assumes D1's transaction contract; does not prove arbitrary sequences or deployed behavior |
 
 The local CI entry points are `pnpm ci:quick`, `pnpm ci:full`, and
 `pnpm ci:staged`. The staged command selects work from the index but runs against
@@ -43,6 +44,18 @@ journeys use freshly built artifacts from that snapshot instead.
 The ACL verifier returns 2 for a stale source record even if the bounded properties
 pass. Review the policy, oracle, and bounds before updating its hashes. A stale
 record must not be hidden by a CI flag that allows source drift.
+
+The runner verifier also rejects stale source hashes with exit 2. It uses a
+disposable snapshot for deliberate mutations. See its
+[properties and statechart](../../.agents/skills/verify-job-lifecycle/references/properties.md)
+for finite bounds, adversarial interleavings, and exclusions. The Wiki HTTP E2E
+also leases an expired job through the actual Worker and checks old, current,
+missing, and duplicate callback generations against persisted state.
+
+Runner heartbeat and result requests now require the job's captured `attempts`
+generation. Missing generations return 400; stale generations return 409. Roll out
+the Wiki server and updated Wiki/PR CLI runners together. This change has no schema
+migration. Local verification does not mean that a coordinated deployment occurred.
 
 The hosted **Engineering checks** job runs Node script types, the installation
 doctor, and the ACL mutation proof for engineering inputs and ACL changes. Local

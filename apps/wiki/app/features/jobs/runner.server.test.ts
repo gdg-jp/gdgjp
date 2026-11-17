@@ -146,10 +146,20 @@ describe("completeJob", () => {
       }),
     });
     expect(
-      await completeJob({} as Env, db, { jobId: "j", host: "other", status: "succeeded" }),
+      await completeJob({} as Env, db, {
+        jobId: "j",
+        host: "other",
+        attempts: 0,
+        status: "succeeded",
+      }),
     ).toEqual({ ok: false });
     expect(
-      await completeJob({} as Env, db, { jobId: "j", host: "vm", status: "succeeded" }),
+      await completeJob({} as Env, db, {
+        jobId: "j",
+        host: "vm",
+        attempts: 0,
+        status: "succeeded",
+      }),
     ).toEqual({ ok: true });
     expect(sqlite.prepare("SELECT integrated_hash FROM source_documents").get()).toEqual({
       integrated_hash: "h1",
@@ -183,6 +193,7 @@ describe("completeJob retry and review", () => {
     const result = await completeJob({} as Env, db, {
       jobId: "r",
       host: "vm",
+      attempts: 0,
       status: "failed",
       retry: true,
       error: "verify-acl: boom",
@@ -217,8 +228,20 @@ describe("completeJob retry and review", () => {
       attempts: 2,
       space_id: "gdg-jp",
     });
-    await completeJob({} as Env, db, { jobId: "r", host: "vm", status: "failed", retry: true });
-    await completeJob({} as Env, db, { jobId: "x", host: "vm", status: "failed", retry: true });
+    await completeJob({} as Env, db, {
+      jobId: "r",
+      host: "vm",
+      attempts: 0,
+      status: "failed",
+      retry: true,
+    });
+    await completeJob({} as Env, db, {
+      jobId: "x",
+      host: "vm",
+      attempts: 2,
+      status: "failed",
+      retry: true,
+    });
     expect(sqlite.prepare("SELECT id, status, attempts FROM agent_jobs ORDER BY id").all()).toEqual(
       [
         { id: "r", status: "queued", attempts: 1 },
@@ -233,6 +256,7 @@ describe("completeJob retry and review", () => {
     await completeJob({} as Env, db, {
       jobId: "n",
       host: "vm",
+      attempts: 0,
       status: "needs_review",
       reviewFlag: { kind: "acl-untagged", payload: { findings: [{ slug: "a" }] } },
     });

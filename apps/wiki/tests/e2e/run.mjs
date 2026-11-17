@@ -13,12 +13,15 @@ const environment = {
   WIKI_E2E_ISSUER:
     process.env.WIKI_E2E_ISSUER ?? `http://localhost:${process.env.CI ? 6173 : 5173}`,
   WIKI_E2E_PERSIST_TO: process.env.WIKI_E2E_PERSIST_TO ?? ".wrangler/e2e-state",
+  WIKI_E2E_RUNNER_TOKEN:
+    process.env.WIKI_E2E_RUNNER_TOKEN ?? "wiki-e2e-runner-token-for-local-tests-0123456789",
 };
 
 writeFileSync(
   devVarsPath,
   [
     `RP_SESSION_SECRET=${environment.WIKI_E2E_SESSION_SECRET}`,
+    `RUNNER_TOKEN=${environment.WIKI_E2E_RUNNER_TOKEN}`,
     "IDP_CLIENT_SECRET=wiki-e2e-idp-client-secret",
     `APP_URL=http://localhost:${process.env.CI ? 6177 : 5177}`,
     `ACCOUNTS_URL=http://localhost:${process.env.CI ? 6173 : 5173}`,

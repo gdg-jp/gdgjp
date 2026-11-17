@@ -7,23 +7,9 @@ import {
   type SynthesizePayload,
   type SynthesizeRequest,
 } from "./shared";
+import { mergeSynthesizePayload } from "./synthesize-payload.server";
 
 type Db = ReturnType<typeof getDb>;
-
-function parsePayload(raw: string): SynthesizePayload {
-  try {
-    const value = JSON.parse(raw) as Partial<SynthesizePayload>;
-    return {
-      sourceIds: Array.isArray(value.sourceIds) ? value.sourceIds : [],
-      documentIds: Array.isArray(value.documentIds) ? value.documentIds : [],
-      requests: Array.isArray(value.requests) ? value.requests : [],
-    };
-  } catch {
-    return { sourceIds: [], documentIds: [], requests: [] };
-  }
-}
-
-const union = (a: readonly string[], b: readonly string[]) => [...new Set([...a, ...b])];
 
 /**
  * Queue (or merge into) the space's synthesize job.
@@ -71,7 +57,7 @@ export async function enqueueSynthesize(
     requests: [...(input.requests ?? [])],
   };
   const id = crypto.randomUUID();
-  const inserted = await db
+  const queued = await db
     .insert(schema.agentJobs)
     .values({
       id,
@@ -82,40 +68,18 @@ export async function enqueueSynthesize(
       payload: JSON.stringify(payload),
       runAfter,
     })
-    .onConflictDoNothing()
+    .onConflictDoUpdate({
+      target: [schema.agentJobs.spaceId, schema.agentJobs.type],
+      targetWhere: sql`status = 'queued' AND type IN ('synthesize', 'consolidate')`,
+      set: {
+        payload: mergeSynthesizePayload(sql`${schema.agentJobs.payload}`, sql`excluded.payload`),
+        ...(input.manual ? { priority: JOB_PRIORITY.manual, runAfter: now } : {}),
+      },
+    })
     .returning({ id: schema.agentJobs.id })
     .get();
-  if (inserted) return { jobId: inserted.id, merged: false };
-
-  const queued = await db
-    .select()
-    .from(schema.agentJobs)
-    .where(
-      and(
-        eq(schema.agentJobs.spaceId, input.spaceId),
-        eq(schema.agentJobs.type, "synthesize"),
-        eq(schema.agentJobs.status, "queued"),
-      ),
-    )
-    .get();
-  if (!queued) {
-    // The queued job was leased between the insert and this read; try once more.
-    return enqueueSynthesize(db, { ...input, now });
-  }
-  const merged = parsePayload(queued.payload);
-  const next: SynthesizePayload = {
-    sourceIds: union(merged.sourceIds, payload.sourceIds),
-    documentIds: union(merged.documentIds, payload.documentIds),
-    requests: [...(merged.requests ?? []), ...(payload.requests ?? [])],
-  };
-  await db
-    .update(schema.agentJobs)
-    .set({
-      payload: JSON.stringify(next),
-      ...(input.manual ? { priority: JOB_PRIORITY.manual, runAfter: now } : {}),
-    })
-    .where(and(eq(schema.agentJobs.id, queued.id), eq(schema.agentJobs.status, "queued")));
-  return { jobId: queued.id, merged: true };
+  if (!queued) throw new Error("Synthesize upsert returned no job");
+  return { jobId: queued.id, merged: queued.id !== id };
 }
 
 /** Documents of a source the runner has not integrated yet (new or changed content). */

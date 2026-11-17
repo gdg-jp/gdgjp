@@ -61,6 +61,7 @@
     "typescript-best-practices",
     "unslop",
     "verify-acl-boundaries",
+    "verify-job-lifecycle",
     "verify-wiki",
     "why"
   ]

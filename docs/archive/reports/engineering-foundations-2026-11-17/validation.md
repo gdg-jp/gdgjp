@@ -172,3 +172,40 @@ workspace tests had 24 of 25 cached tasks. Independent lifecycle review separate
 ran four Vitest files and 31 tests. Logs are `/tmp/gdgjp-poteto-phase2-*` and
 `/tmp/gdgjp-phase2-independent-review.log`. External Google and deployed Workers
 were not tested. This direct-import gate does not prove transitive browser safety.
+
+## Phase 3 job lifecycle
+
+Phase 2 is committed in `443846d8`. Actual SQL experiments identified stale
+completion after reassignment, recovery after renewal, concurrent enqueue loss,
+and same-host generation confusion. Completion and recovery now compare ownership
+at the write. Payload transfer and source retirement share one transaction.
+Atomic enqueue merges the database's current payload. Both Go runners send the
+attempt captured for each job. HTTP boundaries validate it before business logic.
+
+`node .agents/skills/verify-job-lifecycle/scripts/verify.mjs --mutation-proof`
+passed on integrated main source. Its retained result is
+`local_data/pstack/job-lifecycle/2026-11-17T15-31-26.460Z-70968f6b/result.json`.
+Six Vitest files passed 41 tests both before and after mutations. Go passed 26 tests
+in two runner packages with `-race -count=1`. All ten production mutations failed
+their target assertions. Source remained unchanged and scratch cleanup succeeded.
+The independent oracle checked 648 three-command sequences, 1,944 transitions,
+and 27 clone request sequences. Additional tests exercise targeted write races,
+three concurrent producers, and a 650-document union. These are finite bounds.
+The SQLite proxy assumes D1's documented atomic ordered batch contract.
+
+The verifier's own five regressions passed, including an actual changed-source
+checkout returning exit 2 before execution. Independent review confirmed the
+mutation acceptance gate and source coverage, and separately reran those tests.
+The statechart and exclusions live in the verifier's properties reference.
+
+Wiki E2E passed **25 tests with zero failures, skips, flaky results, or retries**
+in `local_data/pstack/e2e/2026-11-17T15-30-31-951Z-0b200b59/result.json`. The new
+HTTP case verifies authentication, generation 0 to 1 recovery, missing and stale
+callbacks, current heartbeat and result, duplicate rejection, and actual stored
+state. `pnpm lint`, `pnpm typecheck --concurrency=1`, and
+`pnpm run test --concurrency=2` passed. Logs are `/tmp/gdgjp-poteto-phase3-*`.
+
+Heartbeat and result requests now require `attempts`. Deploy the updated Wiki
+server and both CLI runners together. No deployment or schema migration occurred.
+External notifications, deployed D1, arbitrary sequence lengths, and every job
+side effect remain outside this bounded result.

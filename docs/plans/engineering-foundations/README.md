@@ -120,5 +120,9 @@ feature-to-route dependencies and runtime UI imports of server implementations.
 Explicit type-only contracts remain allowed. Direct imports were audited across
 the current applications; this is not a transitive bundle or whole-API audit.
 
-Steps 3 through 5 remain open. Keep existing regression suites and working
+Phase 2 is committed in `443846d8`. Phase 3 adds write-time lease generation
+checks, atomic payload conservation, real Worker HTTP E2E, and a repeatable bounded
+SQL verifier with ten mutation checks and a statechart.
+
+Steps 4 and 5 remain open. Keep existing regression suites and working
 application boundaries when adapting another team's examples.

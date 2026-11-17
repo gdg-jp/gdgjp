@@ -1,0 +1,3 @@
+interface:
+  display_name: "Verify Job Lifecycle"
+  short_description: "Check runner leases and payload conservation"

@@ -1,18 +1,19 @@
 import type { ActionFunctionArgs } from "react-router";
-import { readJson, requireRunner, runnerHost } from "~/features/jobs/runner-routes.server";
-import { type JobResult, completeJob } from "~/features/jobs/runner.server";
+import { jobResultSchema } from "~/features/jobs/runner-input.server";
+import { requireRunner, runnerHost } from "~/features/jobs/runner-routes.server";
+import { completeJob } from "~/features/jobs/runner.server";
 import { getDb } from "~/lib/db.server";
 
 /** POST /api/runner/jobs/:id/result — finish a leased job. */
 export async function action({ request, context, params }: ActionFunctionArgs) {
   const { env } = context.cloudflare;
   requireRunner(request, env);
-  const body = await readJson<JobResult>(request);
-  if (!body || !["succeeded", "failed", "needs_review"].includes(body.status)) {
+  const body = jobResultSchema.safeParse(await request.json().catch(() => null));
+  if (!body.success) {
     return Response.json({ error: "invalid_result" }, { status: 400 });
   }
   const result = await completeJob(env, getDb(env), {
-    ...body,
+    ...body.data,
     jobId: params.id ?? "",
     host: runnerHost(request),
   });

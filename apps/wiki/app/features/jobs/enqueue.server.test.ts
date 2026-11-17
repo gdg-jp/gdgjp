@@ -15,6 +15,27 @@ function jobs(sqlite: ReturnType<typeof createSpacesTestDb>["sqlite"]) {
 }
 
 describe("enqueueSynthesize", () => {
+  it("merges hundreds of document IDs without expanding D1's bound-parameter count", async () => {
+    const { db, sqlite } = createSpacesTestDb();
+    try {
+      const first = await enqueueSynthesize(db, {
+        spaceId: "gdg-jp",
+        documentIds: Array.from({ length: 400 }, (_, index) => `document-${index}`),
+      });
+      const second = await enqueueSynthesize(db, {
+        spaceId: "gdg-jp",
+        documentIds: Array.from({ length: 400 }, (_, index) => `document-${index + 250}`),
+      });
+      expect(second).toEqual({ jobId: first.jobId, merged: true });
+      const row = sqlite.prepare("SELECT payload FROM agent_jobs WHERE id=?").get(first.jobId);
+      if (typeof row?.payload !== "string") throw new Error("Queued job payload missing");
+      expect(JSON.parse(row.payload).documentIds).toEqual(
+        Array.from({ length: 650 }, (_, index) => `document-${index}`),
+      );
+    } finally {
+      sqlite.close();
+    }
+  });
   it("merges new work into the space's single queued job", async () => {
     const { db, sqlite } = createSpacesTestDb();
     const first = await enqueueSynthesize(db, {
