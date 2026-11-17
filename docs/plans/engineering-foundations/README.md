@@ -101,7 +101,8 @@ The original acceptance criteria remain the basis for those phases:
 5. Expand automation only after those checks reject deliberate defects and run in
    the actual delivery path. Measure skipped checks separately from successful ones.
 
-Step 1 is committed in `04fb9938`. The next implementation unit adds a
+The initial foundation is committed in `04fb9938`. Mandatory delivery phase 1 is
+committed in `0e128570`, including all 17 isolated E2E suites. The
 [workspace import check](../../engineering/workspace-boundaries.md) to preserve the
 existing separation between applications and shared packages. Negative fixtures
 exercise prohibited imports rather than relying on a clean baseline alone.
@@ -112,8 +113,12 @@ The Drive file API no longer reexports its twelve OAuth types and values. A
 TypeScript symbol-origin test rejects reintroducing those exports through named,
 star, or imported aliases. The file/document and OAuth implementations are unchanged.
 
-These units advance step 2; they do not complete its application-by-application
-review. Wiki's comment editor initialization API and sharing effects remain
-separate cleanup candidates requiring browser verification. Steps 3 through 5
-remain open. Do not discard existing regression suites or working application
-boundaries to reproduce a different team's tools.
+Phase 2 removes the comment editor's unused initialization and read-only APIs.
+Sharing state belongs to one page, aborts obsolete reads, and snapshots child
+counts for the post-close synchronization prompt. The import checker now rejects
+feature-to-route dependencies and runtime UI imports of server implementations.
+Explicit type-only contracts remain allowed. Direct imports were audited across
+the current applications; this is not a transitive bundle or whole-API audit.
+
+Steps 3 through 5 remain open. Keep existing regression suites and working
+application boundaries when adapting another team's examples.

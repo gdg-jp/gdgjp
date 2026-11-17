@@ -11,9 +11,9 @@ import type {
   ShareDialogProps,
   ShareSubject,
 } from "./types";
+import { useDescendantSync } from "./use-descendant-sync";
 import { useHeightTransition } from "./use-height-transition";
 
-/** All state, effects and handlers for `ShareDialog`. JSX lives in `index.tsx`. */
 export function useShareDialog({
   open,
   onClose,
@@ -25,26 +25,20 @@ export function useShareDialog({
   const { t } = useTranslation("common");
   const accessFetcher = useFetcher<AccessData>();
   const candidatesFetcher = useFetcher<CandidateData>();
+  const { load: loadAccess, reset: resetAccess } = accessFetcher;
+  const { load: loadCandidates, reset: resetCandidates } = candidatesFetcher;
   const mutationFetcher = useFetcher<{
     ok?: boolean;
     error?: string;
     warning?: string;
     notificationFailures?: number;
   }>();
-  const descendantFetcher = useFetcher<{
-    ok?: boolean;
-    error?: string;
-    updatedCount?: number;
-    unsyncedSkippedCount?: number;
-    permissionSkippedCount?: number;
-    permissionSkipped?: Array<{ id: string; title: string }>;
-  }>();
+  const { promptDescendantSync, resetDescendantPrompt, ...descendants } = useDescendantSync(pageId);
   const inputRef = useRef<HTMLInputElement>(null);
   const searchAreaRef = useRef<HTMLDivElement>(null);
   const restoreFocusRef = useRef<HTMLElement | null>(null);
   const processedMutation = useRef<unknown>(undefined);
   const listboxId = useId();
-
   const [screen, setScreen] = useState<"overview" | "grant">("overview");
   const [query, setQuery] = useState("");
   const [isListOpen, setIsListOpen] = useState(false);
@@ -59,12 +53,7 @@ export function useShareDialog({
   const [localAccess, setLocalAccess] = useState<GeneralAccess>(currentVisibility as GeneralAccess);
   const [localGeneralRole, setLocalGeneralRole] = useState<PageRole>("viewer");
   const [hasSuccessfulPermissionChange, setHasSuccessfulPermissionChange] = useState(false);
-  const [showDescendantDialog, setShowDescendantDialog] = useState(false);
-  const [includeUnsyncedDescendants, setIncludeUnsyncedDescendants] = useState(false);
-  const [descendantRequestActive, setDescendantRequestActive] = useState(false);
-  const [descendantRequestCompleted, setDescendantRequestCompleted] = useState(false);
   const searchInputHeight = useHeightTransition();
-
   const responseCanManage =
     accessFetcher.data?.canManageSharing ?? accessFetcher.data?.permissions?.canManageSharing;
   const canManage = responseCanManage ?? canManageAccess;
@@ -106,40 +95,43 @@ export function useShareDialog({
 
   const isMutating = mutationFetcher.state !== "idle";
   const isLoading = accessFetcher.state !== "idle" && !accessFetcher.data;
-
-  // biome-ignore lint/correctness/useExhaustiveDependencies: fetcher functions are stable
   useEffect(() => {
     if (!open) return;
     setScreen("overview");
     setQuery("");
+    setIsListOpen(false);
     setSelected([]);
     setError(null);
     setWarning(null);
     setHasSuccessfulPermissionChange(false);
-    setShowDescendantDialog(false);
-    setIncludeUnsyncedDescendants(false);
-    setLocalAccess(currentVisibility as GeneralAccess);
-    accessFetcher.load(`/api/page-access/${pageId}`);
-  }, [open, pageId]);
-
+    resetDescendantPrompt();
+    loadAccess(`/api/page-access/${pageId}`);
+    return () => {
+      resetAccess();
+      resetCandidates();
+    };
+  }, [open, pageId, loadAccess, resetAccess, resetCandidates, resetDescendantPrompt]);
   useEffect(() => {
-    if (!accessFetcher.data) return;
+    if (!open || !accessFetcher.data) return;
     setLocalAccess(
       accessFetcher.data.generalAccess ?? accessFetcher.data.visibility ?? "restricted",
     );
     setLocalGeneralRole(accessFetcher.data.generalRole ?? "viewer");
-  }, [accessFetcher.data]);
+  }, [accessFetcher.data, open]);
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: fetcher functions are stable
   useEffect(() => {
+    resetCandidates();
     if (!open || !isListOpen) return;
     const timer = window.setTimeout(() => {
-      candidatesFetcher.load(
+      loadCandidates(
         `/api/share-candidates?pageId=${encodeURIComponent(pageId)}&q=${encodeURIComponent(query)}`,
       );
     }, 160);
-    return () => window.clearTimeout(timer);
-  }, [open, isListOpen, query]);
+    return () => {
+      window.clearTimeout(timer);
+      resetCandidates();
+    };
+  }, [open, isListOpen, query, pageId, loadCandidates, resetCandidates]);
 
   useEffect(() => {
     if (!open || !isListOpen) return;
@@ -156,10 +148,11 @@ export function useShareDialog({
     setActiveIndex((index) => Math.min(Math.max(index, 0), Math.max(candidateRows.length - 1, 0)));
   }, [candidateRows.length]);
 
-  // Refresh authoritative state only once a mutation completes. Local selection is retained for
-  // role/access edits and reset only after a successful batch grant.
-  // biome-ignore lint/correctness/useExhaustiveDependencies: fetcher functions are stable
   useEffect(() => {
+    if (!open) {
+      processedMutation.current = mutationFetcher.data;
+      return;
+    }
     if (mutationFetcher.state !== "idle" || !mutationFetcher.data) return;
     if (processedMutation.current === mutationFetcher.data) return;
     processedMutation.current = mutationFetcher.data;
@@ -175,32 +168,19 @@ export function useShareDialog({
           ? t("wiki.share_notification_warning")
           : null),
     );
-    accessFetcher.load(`/api/page-access/${pageId}`);
+    loadAccess(`/api/page-access/${pageId}`);
     if (screen === "grant") {
       setSelected([]);
       setQuery("");
       setMessage("");
       setScreen("overview");
     }
-  }, [mutationFetcher.state, mutationFetcher.data, pageId, screen, t]);
-
-  useEffect(() => {
-    if (!descendantRequestActive || descendantFetcher.state !== "idle" || !descendantFetcher.data)
-      return;
-    setDescendantRequestActive(false);
-    setDescendantRequestCompleted(true);
-  }, [descendantFetcher.data, descendantFetcher.state, descendantRequestActive]);
+  }, [mutationFetcher.state, mutationFetcher.data, pageId, screen, t, open, loadAccess]);
 
   function close() {
     if (isMutating) return;
-    const shouldPrompt =
-      hasSuccessfulPermissionChange && (accessFetcher.data?.descendantCount ?? 0) > 0;
+    if (hasSuccessfulPermissionChange) promptDescendantSync(accessFetcher.data);
     onClose();
-    if (shouldPrompt) {
-      setDescendantRequestCompleted(false);
-      setIncludeUnsyncedDescendants(false);
-      setShowDescendantDialog(true);
-    }
   }
 
   function chooseCandidate(subject: ShareSubject) {
@@ -275,22 +255,6 @@ export function useShareDialog({
     submitMutation({ intent: "syncWithParent" });
   }
 
-  function syncDescendants() {
-    setDescendantRequestCompleted(false);
-    setDescendantRequestActive(true);
-    descendantFetcher.submit(
-      JSON.stringify({
-        intent: "syncDescendants",
-        includeUnsynced: includeUnsyncedDescendants,
-      }),
-      {
-        method: "post",
-        action: `/api/page-access/${pageId}`,
-        encType: "application/json",
-      },
-    );
-  }
-
   async function copyLink() {
     try {
       await copyText(window.location.href);
@@ -325,18 +289,11 @@ export function useShareDialog({
     : null;
   const activeOptionId =
     isListOpen && candidateRows[activeIndex] ? `${listboxId}-${activeIndex}` : undefined;
-  const descendantCount = accessFetcher.data?.descendantCount ?? 0;
-  const syncedDescendantCount = accessFetcher.data?.syncedDescendantCount ?? 0;
-  const hasUnsyncedDescendants = descendantCount > syncedDescendantCount;
-  const canSyncDescendants = includeUnsyncedDescendants
-    ? descendantCount > 0
-    : syncedDescendantCount > 0;
-
   return {
     t,
     accessFetcher,
     candidatesFetcher,
-    descendantFetcher,
+    ...descendants,
     inputRef,
     searchAreaRef,
     restoreFocusRef,
@@ -361,11 +318,6 @@ export function useShareDialog({
     warning,
     localAccess,
     localGeneralRole,
-    showDescendantDialog,
-    setShowDescendantDialog,
-    includeUnsyncedDescendants,
-    setIncludeUnsyncedDescendants,
-    descendantRequestCompleted,
     searchInputHeight,
     canManage,
     accessList,
@@ -379,16 +331,11 @@ export function useShareDialog({
     changeAccess,
     setGeneralAccess,
     syncWithParent,
-    syncDescendants,
     copyLink,
     handleInputKeyDown,
     handleEscapeKeyDown,
     ownerSubject,
     activeOptionId,
-    descendantCount,
-    syncedDescendantCount,
-    hasUnsyncedDescendants,
-    canSyncDescendants,
   };
 }
 

@@ -142,3 +142,33 @@ accidental retention. Local authoring must not upload fixture content to product
 Independent review used the inherited Codex model. A different vendor and the
 optional `cursor-team-kit` deslop command were unavailable; local formatting,
 comment checks, source review, and executable regressions were used.
+
+## Phase 2 lifecycle and application boundaries
+
+Phase 1 is committed in `0e128570`. Phase 2 deletes unused comment-editor
+initialization and read-only props and their effects. Sharing is keyed by page,
+aborts obsolete access/candidate loads, and preserves a close-time descendant
+snapshot. Independent review found and repaired the reset-induced child-sync
+regression before acceptance. The import gate now enforces feature-to-route and
+runtime UI-to-server direction. Its 19 tests include prohibited imports, generated
+route types, aliases, symlinks, mixed imports, and allowed type-only contracts.
+The current application audit found no imports requiring a compatibility exemption.
+
+The first actual Wiki E2E run passed 20 and failed four new specs. Their intercepts
+missed Router's `.data` requests. The next run passed 23 and failed one new fixture
+without required timestamps. These failures remain recorded in the preceding
+`15-21-37` and `15-25-51` run directories. Tests now delay real responses without
+forging Router's encoding. No timeout increase or assertion removal was used.
+
+The accepted run `local_data/pstack/e2e/2026-11-17T15-27-12-218Z-ffe3c3d6/result.json`
+has **24 passed, zero failed, zero skipped, and zero flaky**, without retries.
+Scratch cleanup succeeded. Five new journeys cover formatted comment submission,
+candidate-response cancellation, page-switch access isolation, post-close child
+synchronization with persisted ACLs, and late mutation isolation.
+
+`pnpm lint`, `pnpm typecheck --concurrency=1`, and
+`pnpm run test --concurrency=2` passed. Type checks had 25 of 26 cached tasks;
+workspace tests had 24 of 25 cached tasks. Independent lifecycle review separately
+ran four Vitest files and 31 tests. Logs are `/tmp/gdgjp-poteto-phase2-*` and
+`/tmp/gdgjp-phase2-independent-review.log`. External Google and deployed Workers
+were not tested. This direct-import gate does not prove transitive browser safety.

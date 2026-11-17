@@ -8,13 +8,12 @@ import { SearchCombobox } from "./SearchCombobox";
 import type { ShareDialogProps } from "./types";
 import { useShareDialog } from "./use-share-dialog";
 
-/**
- * Page sharing dialog. State/effects/handlers live in `use-share-dialog.ts`;
- * screens are `SearchCombobox` + `OverviewScreen` / `GrantScreen`; the
- * post-close descendant-propagation prompt is `DescendantSyncDialog`.
- */
 import { Icons } from "@gdgjp/design-system";
 export default function ShareDialog(props: ShareDialogProps) {
+  return <PageShareDialog key={props.pageId} {...props} />;
+}
+
+function PageShareDialog(props: ShareDialogProps) {
   const { open, pageTitle } = props;
   const c = useShareDialog(props);
   const {

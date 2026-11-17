@@ -1,4 +1,3 @@
-import { generateJSON } from "@tiptap/core";
 import Image from "@tiptap/extension-image";
 import Link from "@tiptap/extension-link";
 import { Table } from "@tiptap/extension-table";
@@ -7,13 +6,7 @@ import TableHeader from "@tiptap/extension-table-header";
 import TableRow from "@tiptap/extension-table-row";
 import { EditorContent, useEditor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
-import DOMPurify from "dompurify";
-import { marked } from "marked";
-import { useEffect } from "react";
-
-// ---------------------------------------------------------------------------
-// Extensions used across editor + JSON generation
-// ---------------------------------------------------------------------------
+import type { ReactNode } from "react";
 
 const extensions = [
   StarterKit,
@@ -25,131 +18,79 @@ const extensions = [
   TableHeader,
 ];
 
-// ---------------------------------------------------------------------------
-// Props
-// ---------------------------------------------------------------------------
+const headingLevels: Array<1 | 2 | 3> = [1, 2, 3];
 
 interface TipTapEditorProps {
-  initialMarkdown?: string;
-  initialJson?: string;
   onChange: (json: string) => void;
-  readOnly?: boolean;
 }
 
-// ---------------------------------------------------------------------------
-// Component
-// ---------------------------------------------------------------------------
-
-export default function TipTapEditor({
-  initialMarkdown = "",
-  initialJson,
-  onChange,
-  readOnly = false,
-}: TipTapEditorProps) {
+export default function TipTapEditor({ onChange }: TipTapEditorProps) {
   const editor = useEditor({
     extensions,
-    editable: !readOnly,
     immediatelyRender: false,
     onUpdate: ({ editor: e }) => {
       onChange(JSON.stringify(e.getJSON()));
     },
   });
 
-  // Load from TipTap JSON directly when initialJson is provided.
-  useEffect(() => {
-    if (!editor || !initialJson) return;
-    try {
-      editor.commands.setContent(JSON.parse(initialJson), { emitUpdate: false });
-    } catch {
-      /* ignore malformed JSON */
-    }
-  }, [editor, initialJson]);
-
-  // Convert markdown → TipTap JSON on mount / when initialMarkdown changes.
-  // emitUpdate: false prevents setContent from triggering the onUpdate/onChange handler.
-  // Only runs when initialJson is not provided.
-  useEffect(() => {
-    if (!editor || initialJson) return;
-    void Promise.resolve(marked.parse(initialMarkdown)).then((html) => {
-      try {
-        const clean = DOMPurify.sanitize(html);
-        const json = generateJSON(clean, extensions);
-        editor.commands.setContent(json);
-      } catch {
-        editor.commands.setContent(initialMarkdown);
-      }
-    });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [editor, initialMarkdown, initialJson]);
-
   return (
-    <div
-      className={`rounded-lg border border-border bg-surface ${readOnly ? "" : "focus-within:ring-2 focus-within:ring-border-ring"}`}
-    >
-      {!readOnly && (
-        <div className="flex flex-wrap gap-1 border-b border-border px-2 py-1">
+    <div className="rounded-lg border border-border bg-surface focus-within:ring-2 focus-within:ring-border-ring">
+      <div className="flex flex-wrap gap-1 border-b border-border px-2 py-1">
+        <ToolbarButton
+          onClick={() => editor?.chain().focus().toggleBold().run()}
+          active={editor?.isActive("bold")}
+          title="Bold"
+        >
+          <strong>B</strong>
+        </ToolbarButton>
+        <ToolbarButton
+          onClick={() => editor?.chain().focus().toggleItalic().run()}
+          active={editor?.isActive("italic")}
+          title="Italic"
+        >
+          <em>I</em>
+        </ToolbarButton>
+        <ToolbarButton
+          onClick={() => editor?.chain().focus().toggleCode().run()}
+          active={editor?.isActive("code")}
+          title="Code"
+        >
+          <code>{"<>"}</code>
+        </ToolbarButton>
+        <span className="mx-1 text-muted/70">|</span>
+        {headingLevels.map((level) => (
           <ToolbarButton
-            onClick={() => editor?.chain().focus().toggleBold().run()}
-            active={editor?.isActive("bold")}
-            title="Bold"
+            key={level}
+            onClick={() => editor?.chain().focus().toggleHeading({ level }).run()}
+            active={editor?.isActive("heading", { level })}
+            title={`Heading ${level}`}
           >
-            <strong>B</strong>
+            H{level}
           </ToolbarButton>
-          <ToolbarButton
-            onClick={() => editor?.chain().focus().toggleItalic().run()}
-            active={editor?.isActive("italic")}
-            title="Italic"
-          >
-            <em>I</em>
-          </ToolbarButton>
-          <ToolbarButton
-            onClick={() => editor?.chain().focus().toggleCode().run()}
-            active={editor?.isActive("code")}
-            title="Code"
-          >
-            <code>{"<>"}</code>
-          </ToolbarButton>
-          <span className="mx-1 text-muted/70">|</span>
-          {[1, 2, 3].map((level) => (
-            <ToolbarButton
-              key={level}
-              onClick={() =>
-                editor
-                  ?.chain()
-                  .focus()
-                  .toggleHeading({ level: level as 1 | 2 | 3 })
-                  .run()
-              }
-              active={editor?.isActive("heading", { level })}
-              title={`Heading ${level}`}
-            >
-              H{level}
-            </ToolbarButton>
-          ))}
-          <span className="mx-1 text-muted/70">|</span>
-          <ToolbarButton
-            onClick={() => editor?.chain().focus().toggleBulletList().run()}
-            active={editor?.isActive("bulletList")}
-            title="Bullet List"
-          >
-            •
-          </ToolbarButton>
-          <ToolbarButton
-            onClick={() => editor?.chain().focus().toggleOrderedList().run()}
-            active={editor?.isActive("orderedList")}
-            title="Ordered List"
-          >
-            1.
-          </ToolbarButton>
-          <ToolbarButton
-            onClick={() => editor?.chain().focus().toggleCodeBlock().run()}
-            active={editor?.isActive("codeBlock")}
-            title="Code Block"
-          >
-            {"```"}
-          </ToolbarButton>
-        </div>
-      )}
+        ))}
+        <span className="mx-1 text-muted/70">|</span>
+        <ToolbarButton
+          onClick={() => editor?.chain().focus().toggleBulletList().run()}
+          active={editor?.isActive("bulletList")}
+          title="Bullet List"
+        >
+          •
+        </ToolbarButton>
+        <ToolbarButton
+          onClick={() => editor?.chain().focus().toggleOrderedList().run()}
+          active={editor?.isActive("orderedList")}
+          title="Ordered List"
+        >
+          1.
+        </ToolbarButton>
+        <ToolbarButton
+          onClick={() => editor?.chain().focus().toggleCodeBlock().run()}
+          active={editor?.isActive("codeBlock")}
+          title="Code Block"
+        >
+          {"```"}
+        </ToolbarButton>
+      </div>
       <EditorContent
         editor={editor}
         className="prose prose-sm max-w-none px-4 py-3 focus:outline-none [&_.ProseMirror]:min-h-32 [&_.ProseMirror]:outline-none"
@@ -157,10 +98,6 @@ export default function TipTapEditor({
     </div>
   );
 }
-
-// ---------------------------------------------------------------------------
-// Toolbar button
-// ---------------------------------------------------------------------------
 
 function ToolbarButton({
   onClick,
@@ -171,7 +108,7 @@ function ToolbarButton({
   onClick: () => void;
   active?: boolean;
   title: string;
-  children: React.ReactNode;
+  children: ReactNode;
 }) {
   return (
     <button

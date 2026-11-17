@@ -100,8 +100,28 @@ function importEdges(file) {
   const edges = [];
   function visit(node) {
     let literal;
-    if (ts.isImportDeclaration(node) || ts.isExportDeclaration(node)) {
+    let typeOnly = false;
+    if (ts.isImportDeclaration(node)) {
       literal = node.moduleSpecifier;
+      const clause = node.importClause;
+      const named = clause?.namedBindings;
+      typeOnly = Boolean(
+        clause?.isTypeOnly ||
+          (!clause?.name &&
+            named &&
+            ts.isNamedImports(named) &&
+            named.elements.length > 0 &&
+            named.elements.every((element) => element.isTypeOnly)),
+      );
+    } else if (ts.isExportDeclaration(node)) {
+      literal = node.moduleSpecifier;
+      typeOnly = Boolean(
+        node.isTypeOnly ||
+          (node.exportClause &&
+            ts.isNamedExports(node.exportClause) &&
+            node.exportClause.elements.length > 0 &&
+            node.exportClause.elements.every((element) => element.isTypeOnly)),
+      );
     } else if (
       ts.isCallExpression(node) &&
       (node.expression.kind === ts.SyntaxKind.ImportKeyword ||
@@ -110,22 +130,57 @@ function importEdges(file) {
       literal = node.arguments[0];
     } else if (ts.isImportTypeNode(node) && ts.isLiteralTypeNode(node.argument)) {
       literal = node.argument.literal;
+      typeOnly = true;
     } else if (
       ts.isImportEqualsDeclaration(node) &&
       ts.isExternalModuleReference(node.moduleReference)
     ) {
       literal = node.moduleReference.expression;
+      typeOnly = node.isTypeOnly;
     }
     if (literal && ts.isStringLiteralLike(literal)) {
       edges.push({
         specifier: literal.text,
         line: source.getLineAndCharacterOfPosition(literal.getStart(source)).line + 1,
+        typeOnly,
       });
     }
     ts.forEachChild(node, visit);
   }
   visit(source);
   return edges;
+}
+
+function applicationBoundaryError(workspace, file, targets, typeOnly) {
+  const source = relative(workspace.directory, file).split(sep).join("/");
+  if (
+    workspace.group !== "apps" ||
+    !source.startsWith("app/") ||
+    /\.(?:test|spec)\.[cm]?[jt]sx?$/.test(source) ||
+    /(?:^|\/)(?:__tests__|tests|e2e)\//.test(source)
+  )
+    return undefined;
+  const feature = source.startsWith("app/features/");
+  const client =
+    source.startsWith("app/components/") ||
+    source.startsWith("app/layouts/") ||
+    /^app\/features\/.+\/components\//.test(source) ||
+    /\.client\.[cm]?[jt]sx?$/.test(source);
+  for (const target of targets.filter((path) => inside(workspace.directory, path))) {
+    const path = relative(workspace.directory, target).split(sep).join("/");
+    const routePath = path.replace(/^\.react-router\/types\//, "");
+    if (
+      feature &&
+      (routePath === "app/routes" ||
+        routePath.startsWith("app/routes/") ||
+        /^app\/routes\.[cm]?[jt]sx?$/.test(routePath) ||
+        path.includes("/+types/"))
+    )
+      return "features cannot depend on route implementations or generated route types; move shared contracts into the owning feature";
+    if (client && !typeOnly && /\.server(?:\.d)?(?:\.[cm]?[jt]sx?)?$/.test(path))
+      return "runtime UI cannot import server implementations; load data in a route and pass it to the component, or use an explicit type-only contract";
+  }
+  return undefined;
 }
 
 function patternMatch(pattern, value) {
@@ -231,7 +286,7 @@ export function checkWorkspaceBoundaries(directory) {
     }
     for (const file of sources(workspace.directory, excluded)) {
       result.files += 1;
-      for (const { specifier, line } of importEdges(file)) {
+      for (const { specifier, line, typeOnly } of importEdges(file)) {
         result.imports += 1;
         const label = `${relative(root, file)}:${line}: ${JSON.stringify(specifier)}`;
         const clean = specifier.startsWith("#")
@@ -242,6 +297,11 @@ export function checkWorkspaceBoundaries(directory) {
             ? [resolve(dirname(file), clean)]
             : aliases(clean, options, workspace.directory);
         if (!candidates.length && options.baseUrl) candidates.push(resolve(options.baseUrl, clean));
+        const applicationError = applicationBoundaryError(workspace, file, candidates, typeOnly);
+        if (applicationError) {
+          result.errors.push(`${label}: ${applicationError}`);
+          continue;
+        }
         const foreign = candidates.map(owner).find((target) => target && target !== workspace);
         if (foreign) {
           result.errors.push(
@@ -279,8 +339,14 @@ export function checkWorkspaceBoundaries(directory) {
         }
         const resolved = ts.resolveModuleName(clean, file, options, ts.sys, cache).resolvedModule
           ?.resolvedFileName;
-        const destination =
-          resolved && owner(existsSync(resolved) ? realpathSync(resolved) : resolved);
+        const resolvedPath = resolved && (existsSync(resolved) ? realpathSync(resolved) : resolved);
+        const resolvedApplicationError =
+          resolvedPath && applicationBoundaryError(workspace, file, [resolvedPath], typeOnly);
+        if (resolvedApplicationError) {
+          result.errors.push(`${label}: ${resolvedApplicationError}`);
+          continue;
+        }
+        const destination = resolvedPath && owner(resolvedPath);
         if (destination && destination !== workspace) {
           result.errors.push(
             `${label}: resolves into ${relative(root, destination.directory)} outside a declared public package import`,
