@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import { test } from "node:test";
 import { parse as parseYaml } from "yaml";
 import { changedSteps, completeSteps } from "../../scripts/run-ci.mjs";
+import { classifyChanges } from "./changed-workspaces.mjs";
 
 function readWorkflow(name) {
   return parseYaml(readFileSync(new URL(`../workflows/${name}`, import.meta.url), "utf8"));
@@ -15,6 +16,58 @@ function allSteps(job) {
 function stepByName(job, name) {
   return job.steps.find((step) => step.name === name);
 }
+
+test("PR E2E preparation and source edits use the isolated package runner", () => {
+  for (const path of [
+    "apps/pr/e2e/run.mjs",
+    "apps/pr/e2e/fonts.ts",
+    "apps/pr/e2e/global-setup.ts",
+    "apps/pr/app/lib/crypto.server.ts",
+  ]) {
+    const step = changedSteps("full", [path]).find(([name]) => name === "e2e:@gdgjp/pr");
+    assert.equal(step?.[1], "pnpm --filter @gdgjp/pr test:e2e --reporter=dot,json");
+    if (!path.includes("/app/")) {
+      assert.equal(classifyChanges([path]).scriptTests, true);
+      assert.match(
+        changedSteps("full", [path]).find(([name]) => name === "test:scripts")?.[1] ?? "",
+        /pr-e2e-isolation\.test\.mjs/,
+      );
+    }
+  }
+});
+
+test("documentation edits run their checker locally and in hosted CI", () => {
+  for (const mode of ["quick", "full"]) {
+    assert.ok(completeSteps(mode).some(([name]) => name === "docs"));
+    assert.ok(changedSteps(mode, ["docs/README.md"]).some(([name]) => name === "docs"));
+  }
+  const job = readWorkflow("ci.yml").jobs["code-comments"];
+  assert.equal(job.if, undefined);
+  assert.equal(
+    stepByName(job, "Check documentation layout and links").run,
+    "node scripts/check-docs.mjs",
+  );
+});
+
+test("comment policy runs for first-party changes locally and for every hosted change", () => {
+  for (const path of ["apps/wiki/app/root.tsx", "apps/cli/cmd/gdg/main.go"]) {
+    assert.ok(
+      changedSteps("quick", [path]).some(
+        ([name, command]) => name === "code-comments" && command.endsWith(" --staged"),
+      ),
+    );
+  }
+  for (const mode of ["quick", "full"]) {
+    assert.ok(completeSteps(mode).some(([name]) => name === "code-comments"));
+  }
+  const job = readWorkflow("ci.yml").jobs["code-comments"];
+  assert.equal(job.if, undefined);
+  assert.equal(job.steps[0].with["fetch-depth"], 0);
+  const check = stepByName(job, "Reject new code comments");
+  assert.equal(check.env.BASE_SHA, "${{ needs.changes.outputs.base }}");
+  assert.equal(check.env.HEAD_SHA, "${{ needs.changes.outputs.head }}");
+  assert.equal(check.run, 'node scripts/check-code-comments.mjs --diff "$BASE_SHA" "$HEAD_SHA"');
+});
 
 test("CSS-only UI changes trigger build, behavior tests and visual checks", () => {
   const steps = changedSteps("full", ["packages/design-system/src/styles/tokens.css"]);
@@ -299,24 +352,12 @@ test("hosted CI builds UI before every clean consumer job", () => {
       continue;
     }
     const consumerIndex = flattened.findIndex(
-      (step) =>
-        step.name !== "Build shared UI dependency" &&
-        String(step.run ?? "").includes("@gdgjp/design-system") &&
-        (String(step.run).includes("typecheck") ||
-          String(step.run).includes("test") ||
-          String(step.run).includes("build")),
+      (step) => step.run === `node .github/scripts/run-affected.mjs ${jobName}`,
     );
-    assert.ok(consumerIndex > -1, `${jobName} must have a UI consumer`);
-    assert.ok(
-      flattened.findIndex((step) => step.name === "Build shared UI dependency") < consumerIndex,
-      `${jobName} UI build must precede its consumer`,
-    );
+    assert.ok(consumerIndex > sharedBuildIndex, `${jobName} runs after the UI dependency build`);
   }
-  const buildParallel = workflow.jobs.build.steps.find((step) =>
-    Array.isArray(step.parallel),
-  ).parallel;
   assert.equal(
-    buildParallel.find((step) => step.name === "Build GDG UI").run,
+    stepByName(workflow.jobs.build, "Build GDG UI consumer").run,
     "pnpm --filter @gdgjp/design-system test:consumer",
   );
 });

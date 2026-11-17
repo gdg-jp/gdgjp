@@ -4,7 +4,7 @@
 実装手順は [index.md](index.md) と `01`〜`09` のステージファイルにある。
 ここにあるのは **なぜそうしたか、何を却下したか** である。
 
-リポジトリの ADR 規約は `docs/agents-local-mvp/adr.md` が「既存の ADR 規約が無いためこの 1 ファイルに
+リポジトリの ADR 規約は `docs/plans/agents-local-mvp/adr.md` が「既存の ADR 規約が無いためこの 1 ファイルに
 連番で記録する」として立てたものに倣う。**決定を消さずに、新しい ADR で supersede すること。**
 番号は `roster/` の中で閉じている（`agents-local-mvp` の連番とは独立）。
 
@@ -143,7 +143,7 @@ PRD の想定は `app/lib/solver/` にソルバーを置く `scheduler/` 流の�
 
 しかし `wiki/` は同じ道を辿った結果、`app/routes/` 130 ファイル・`app/lib/` 98 ファイル、
 400 行超のファイル 27 本、feature の置き場が 4 系統に分裂した状態になり、
-`docs/wiki-refactoring/` の**全 6 ステージ**を費やして feature-first に再編している。
+`docs/plans/wiki-refactoring/` の**全 6 ステージ**を費やして feature-first に再編している。
 その再編で最終的に採用された配置ルールと、それを強制する `tests/architecture/` の 9 本が
 既に存在する。
 

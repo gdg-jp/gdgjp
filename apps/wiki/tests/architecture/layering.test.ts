@@ -3,12 +3,6 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
-/**
- * Makes the Stage 05 placement rules executable. Each assertion carries a
- * one-line reason: a prohibition nobody remembers the point of gets routed
- * around the first time it is inconvenient.
- * See `docs/wiki-refactoring/index.md` §2 and `workers/features/ingestion/README.md`.
- */
 const WIKI_ROOT = fileURLToPath(new URL("../../", import.meta.url));
 
 const isTestFile = (name: string): boolean => /\.test\.tsx?$/.test(name);

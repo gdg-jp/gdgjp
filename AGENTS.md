@@ -9,6 +9,8 @@
   their shared conventions. Local `CLAUDE.md` links to `AGENTS.md` where both use the same rules.
 - Use [the application map](docs/applications.md) to find an application's purpose and services;
   read its `ARCHITECTURE.md` before changing module ownership or dependencies.
+- Use [the verification reference](docs/engineering/verification.md) to distinguish
+  automated checks, runtime journeys, and their coverage gaps.
 - Before using a pstack skill, read [.agents/docs/pstack.md](.agents/docs/pstack.md) and
   the harness guide it names. Skills live in `.agents/skills/`.
 
@@ -28,9 +30,10 @@ are separate Git submodules; make changes in the owning repository.
 - Run the narrowest relevant check while editing, then `pnpm lint`, `pnpm typecheck`, and
   `pnpm test`. Run `pnpm test:e2e` for user-facing changes. Report any checks not run.
 
-Use Orca Browser for browser verification. Read the `orca-cli` skill and its version-matched
-browser reference before driving a tab. Existing Playwright specs may supply journeys and
-assertions; project verification skills must drive the browser through Orca.
+Automated browser regression suites use `pnpm test:e2e` locally and in CI.
+For agent-driven runtime verification, use Orca Browser. Read the `orca-cli` skill and its
+version-matched browser reference before driving a tab. Existing Playwright specs may supply
+journeys and assertions; project verification skills must drive the browser through Orca.
 Keep test servers and data isolated from development state.
 
 ## Style, security, and review
@@ -38,6 +41,11 @@ Keep test servers and data isolated from development state.
 Use TypeScript and ESM. Biome enforces 2-space indentation, double quotes, semicolons,
 trailing commas, and a 100-character line width. Use `import type` / `export type` for
 type-only symbols (`verbatimModuleSyntax` and `isolatedModules` are enabled).
+
+Do not add code comments by default. Express constraints in types, APIs, module boundaries,
+or executable checks. Preserve necessary legal notices, public API contracts, and explanations
+of externally imposed behavior. See [the comment policy](docs/engineering/comments.md) for
+reviewed exceptions and the automatic check.
 
 Do not commit `.dev.vars*`, secrets, generated Worker types, build output, Playwright reports,
 or local Wrangler state. Do not hand-edit generated Worker types or `schema.sql` dumps;

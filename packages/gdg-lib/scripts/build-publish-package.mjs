@@ -1,10 +1,4 @@
 #!/usr/bin/env node
-// Compiles the narrow ACL evaluator surface (src/acl/**) to dist/ and writes a
-// self-contained dist/package.json so `npm publish` (run from inside dist/) never
-// sees the workspace-only fields (private, devDependencies, react/radix peer deps,
-// the src/-pointing exports map) that the rest of gdg-lib's package.json carries
-// for pnpm workspace consumers. Publishing this narrow surface, not the whole
-// package, is deliberate: see docs/agents-local-refactoring/13-xangi-packaging.md.
 import { execFileSync } from "node:child_process";
 import { mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";

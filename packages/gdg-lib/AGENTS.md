@@ -23,7 +23,7 @@ importing `@gdgjp/gdg-lib/acl/agent` as workspace TS source, unaffected by this 
 It exists solely so `packages/gdg-lib/dist/` can be `npm publish`-ed to GitHub Packages as
 **`@gdg-jp/gdg-lib`** (a different, org-scoped name — GitHub Packages requires the scope to
 match the owning org) for `xangi`, an external repo that cannot resolve a `file:../gdgjp/gdg-lib`
-sibling checkout. See `docs/agents-local-refactoring/13-xangi-packaging.md` and ADR-031.
+sibling checkout. See `docs/plans/agents-local-refactoring/13-xangi-packaging.md` and ADR-031.
 
 Do not widen what `build` compiles or what its generated `dist/package.json` exports — it is
 deliberately narrower than this package's real `exports` map (`./acl/agent` only,

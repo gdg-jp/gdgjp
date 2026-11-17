@@ -41,7 +41,7 @@ overview §4 が正本で、ここでは繰り返さない。
 ### 読むべきもの
 
 - `CLAUDE.md`（リポジトリ根）— ワークスペースの規約、`cf-typegen`、`migrate:local`
-- `docs/software-architecture.md` — feature-first の配置規約
+- `docs/references/architecture.md` — feature-first の配置規約
 - `apps/roulette/` 一式 — **雛形。** `vite.config.ts`、`wrangler.toml`、`react-router.config.ts`、`app/features/auth/*`、
   `app/routes.ts`、`workers/app.ts`、`migrations/0001_init.sql`、`e2e/global-setup.ts`、`playwright.config.ts`、`vitest.config.ts`
 - `apps/roulette/ARCHITECTURE.md` と `README.md` — コードマップと README の粒度の手本

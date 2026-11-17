@@ -4,7 +4,7 @@
 このファイルは「コードがどこにあるか」だけを扱う。散文は置かない。表と箇条書きだけ。
 
 - このマップは**ファイルを移動したら同じ変更内で更新する契約**。更新しないマップは即座に嘘になる。
-- 全体計画とステージ分割は `docs/wiki-refactoring/index.md`。
+- 全体計画とステージ分割は `docs/plans/wiki-refactoring/index.md`。
 - Stage 06 完了（最終）。`app/lib/` は横断プリミティブ 8 本のみ、ドメインコードは `app/features/<domain>/` に
   集約済み、非テストソースは 1 ファイル 400 行以下（`file-size.test.ts` の縮小専用 allowlist で例外 2 本を固定）。
   大きかったファイルは同一ディレクトリ内の焦点モジュール（`<domain>/<name>.server.ts` の分割、`components/<Name>/`
@@ -97,7 +97,7 @@ app/routes/
 
 ## 配置ルール
 
-（`docs/wiki-refactoring/index.md` §2 の転記。ステージ 02〜06 が実現する目標状態。）
+（`docs/plans/wiki-refactoring/index.md` §2 の転記。ステージ 02〜06 が実現する目標状態。）
 
 1. **ドメインを持つコードは `app/features/<domain>/` に置く。** サーバ・クライアント・UI・テストを
    同居させる。UI は `app/features/<domain>/components/`。

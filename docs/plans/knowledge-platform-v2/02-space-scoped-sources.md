@@ -26,8 +26,8 @@ Stage 03 の AI Search は R2 の prefix（`spaces/<id>/**`）でインスタン
 - `apps/wiki/workers/features/sources/import/discord/*.ts` — 現行 Discord ドライバの 4 フェーズ
 - `apps/wiki/workers/features/sources/import/do-store.ts` — DO ローカル SQLite のカーソル保存
 - `apps/wiki/app/features/discord/README.md`、`app/routes/api/discord/guild-channels.ts` — 既にカテゴリ別にチャンネルを列挙している
-- `docs/plans/01-sources-raw-layer.md` — raw レイヤの当初設計と既知の divergence
-- `docs/plans/09-source-visibility-acl.md` §1 — `visibility` と `chapter_id` の対応（`audience` キーの元）
+- `docs/plans/knowledge-platform-v1/01-sources-raw-layer.md` — raw レイヤの当初設計と既知の divergence
+- `docs/plans/knowledge-platform-v1/09-source-visibility-acl.md` §1 — `visibility` と `chapter_id` の対応（`audience` キーの元）
 
 ### 再利用する既存実装（書き直さない）
 

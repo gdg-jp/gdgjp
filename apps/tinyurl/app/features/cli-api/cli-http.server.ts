@@ -1,6 +1,6 @@
 /**
  * Shared HTTP boundary for `/api/cli/v1/*` routes (see
- * `docs/cli-support-url-img-sns/index.md`'s "HTTP boundary" convention):
+ * `docs/plans/cli-support-url-img-sns/index.md`'s "HTTP boundary" convention):
  * JSON endpoints require `application/json`, reject malformed/oversized
  * bodies with the shared `{ error }` envelope, return `405` for unsupported
  * methods, and use `Cache-Control: no-store` on every authenticated

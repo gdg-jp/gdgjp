@@ -3,26 +3,6 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
-/**
- * Every unit test under `app/`, `workers/`, and `shared/` must sit next to the
- * source file it exercises, named `<subject>.test.ts(x)` — or
- * `<subject>.<aspect>.test.ts(x)` (dot-separated) when one subject needs several
- * angles. The subject is a sibling source file whose basename equals the test
- * prefix or is a dot-bounded prefix of it. Hyphen-joined variants and tests
- * named after a longer sibling (`foo.test.ts` next to `foo.server.ts`) do NOT
- * count — the required name there is `foo.server.test.ts`.
- *
- * Excluded:
- *  - `tests/**` — migration / architecture / golden / e2e suites are not the
- *    subject-colocation kind and live under their own trees.
- *  - names ending in `architecture.test.ts` — source-tree scanners that stay put
- *    on purpose (see `docs/wiki-refactoring/02-tests-colocation.md` §2). Matched
- *    by suffix, so `api.agent.architecture.test.ts` is covered too.
- *
- * `ALLOWLIST` holds pre-existing cross-cutting tests whose subject is a whole
- * subsystem, not a single sibling file. Shrink-only: split the subsystem or move
- * the test, never extend this list.
- */
 const WIKI_ROOT = fileURLToPath(new URL("../../", import.meta.url));
 const ROOTS = ["app", "workers"];
 

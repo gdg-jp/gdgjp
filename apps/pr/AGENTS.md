@@ -89,6 +89,10 @@ pnpm --filter @gdgjp/pr test:e2e     # needs the skills submodule (brief fixture
 `.dev.vars` from `.dev.vars.example`. Dev-login sessions have no access token, so the Wiki import
 needs a real sign-in through a local accounts server.
 
+`test:e2e` creates fresh temporary D1/R2 state and a private service registry, uses local
+service mocks on port 6191, and removes only its own state on exit. Use the package command
+so setup, fonts, and the Worker share that state. Do not point E2E at a running dev server.
+
 ## Code map
 
 See `ARCHITECTURE.md`.

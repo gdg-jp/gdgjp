@@ -1,6 +1,14 @@
 #!/usr/bin/env node
 import { spawnSync } from "node:child_process";
-import { existsSync, lstatSync, mkdirSync, readFileSync, realpathSync, symlinkSync } from "node:fs";
+import {
+  existsSync,
+  lstatSync,
+  mkdirSync,
+  readFileSync,
+  readdirSync,
+  realpathSync,
+  symlinkSync,
+} from "node:fs";
 import { dirname, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { parse } from "yaml";
@@ -69,6 +77,15 @@ export function checkInstallation(base) {
     const expected = resolve(dirname(path), target);
     if (!existsSync(path) || realpathSync(path) !== realpathSync(expected)) {
       errors.push(`${name}: missing or points to a different source`);
+    }
+  }
+  for (const harness of [".codex", ".claude", ".cursor"]) {
+    const directory = resolve(base, harness, "skills");
+    if (!existsSync(directory)) continue;
+    for (const entry of readdirSync(directory, { withFileTypes: true })) {
+      if (entry.isSymbolicLink() && !existsSync(resolve(directory, entry.name))) {
+        errors.push(`${harness}/skills/${entry.name}: dangling discovery link`);
+      }
     }
   }
   for (const name of manifest.skills) {

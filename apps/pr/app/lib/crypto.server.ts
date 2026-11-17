@@ -1,5 +1,3 @@
-// AES-GCM for secrets stored in D1 (Discord webhook URLs). Copied from apps/sns on purpose:
-// two similar files are not a reason to share code (docs/software-architecture.md).
 function toBase64(bytes: Uint8Array): string {
   let value = "";
   for (const byte of bytes) value += String.fromCharCode(byte);

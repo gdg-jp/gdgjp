@@ -17,7 +17,7 @@ import type { RouteRequestArgs } from "~/lib/route-args";
  * an allowlist of one caller, not "any signed-in user can mint tokens for
  * anyone". The target userId is caller-supplied because the caller here is a
  * trusted privileged service (Phase 3's xangi authz-server), not a
- * sandboxed slot — see docs/agents-local-gws/01-accounts-workspace-link.md.
+ * sandboxed slot — see docs/plans/agents-local-gws/01-accounts-workspace-link.md.
  */
 export async function vendWorkspaceToken({ request, context }: RouteRequestArgs) {
   if (request.method !== "POST") return new Response("Method Not Allowed", { status: 405 });

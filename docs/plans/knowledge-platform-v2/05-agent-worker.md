@@ -33,7 +33,7 @@ v2 は「**渡す前に質問者の権限で黒塗りする**」。runner に渡
 - `apps/agents/features/webhooks/verify.ts` — Discord Ed25519 / Google Chat JWT 検証。移植対象
 - `apps/agents/features/filing/*` — 回答の wiki 書き戻し。移植対象
 - `apps/agents/features/wiki/tools.ts` — v1 のツール説明文（index を先に読む、パスは結果から verbatim、404 で再試行しない）。**runner の `answer` プロンプト方針として引き継ぐ**
-- `docs/agents-setup.md`、`docs/agents-observability.md` — Langfuse 規約（ID のマスキング、score の付け方）
+- `docs/archive/guides/agents-vercel-setup.md`、`docs/guides/agents-observability.md` — Langfuse 規約（ID のマスキング、score の付け方）
 - `docs/plans/knowledge-platform-v2/04-runner-and-synthesis.md` §2〜3 — ジョブ API と runner のスロット
 - `packages/gdg-lib/` — relying-party auth と signed-cookie ヘルパ
 

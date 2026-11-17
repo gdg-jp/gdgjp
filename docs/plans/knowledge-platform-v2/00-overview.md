@@ -1,7 +1,7 @@
 # ナレッジ基盤 v2 — 全体方針（wiki / agents / agents-index / agent-host の作り直し）
 
 **Status:** 提案 / 未着手（2026-11-06 起草、同日改訂: 黒塗り ACL 維持・LLM を OCI 上のエージェントで実行。同日 §8 の 5 項目を決定し各ステージに反映）
-**Related:** `docs/plans/00-llm-wiki-overview.md`（v1 の全体方針。本書はこれを置き換える）
+**Related:** `docs/plans/knowledge-platform-v1/00-llm-wiki-overview.md`（v1 の全体方針。本書はこれを置き換える）
 
 ## 0. 結論
 

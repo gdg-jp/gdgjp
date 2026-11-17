@@ -21,8 +21,8 @@ Stage 01〜06 で v2 の経路が揃っても、v1 の経路（agents-index、ag
 ### 読むべきもの
 
 - `apps/wiki/ARCHITECTURE.md` の「規約を強制しているテスト」表 — 撤去で消える規約テストと書き換える規約テストの一覧
-- `docs/plans/10-page-acl-spans.md` §0「権限の代数」 — **残すものの正確な範囲**
-- `docs/plans/11-ingest-acl-hooks.md` — 消すもの（hooks、トレース、`ingest`）と残すもの（`validate-acl`、`verify-acl`）の境界
+- `docs/plans/knowledge-platform-v1/10-page-acl-spans.md` §0「権限の代数」 — **残すものの正確な範囲**
+- `docs/plans/knowledge-platform-v1/11-ingest-acl-hooks.md` — 消すもの（hooks、トレース、`ingest`）と残すもの（`validate-acl`、`verify-acl`）の境界
 - `apps/agent-host/README.md`、`ENVIRONMENT.md` — 本番ホストに何があるか（停止手順の材料）
 - `apps/cli/internal/command/wiki.go` — `gdg wiki` サブコマンドの一覧（残すもの / 消すもの）
 
@@ -61,7 +61,7 @@ Stage 01〜06 で v2 の経路が揃っても、v1 の経路（agents-index、ag
 - `apps/agents-index/`、`apps/agent-host/` をディレクトリごと削除（`apps/agents/` と `deploy.yml` の Vercel ジョブは Stage 05 で削除済み）。`pnpm-workspace.yaml` の `apps/agent-host/*` と除外設定、`.github/workflows/agent-host-{workspace,release}.yml`、`scripts/install-gdg-agent-host.sh` を削除。
 - `apps/cli/`: `internal/agenthost/` と `agent-host` サブコマンド、`internal/wiki/hooks/` + `hooks.go` + `hooks_*_test.go`、`trace.go`、`acl_gate_test.go`、`raw.go` の `BuildIngestQueue` / `IngestPrompt` / `PendingIngestDocuments`、`wiki ingest` サブコマンドを削除。`clone` / `raw pull` / `push`（remote helper）/ `verify-acl` / `runner` / `mcp` / `judge` は残す。`verify-acl` のトレース読み取り分岐（`.gdgwiki/ingest-trace.json`）を削除し、`--read-sources` のみにする。
 - `xangi` サブモジュール（`apps/xangi`）を削除。
-- 直下 `CLAUDE.md` の該当段落を更新（`apps/agent/`、`infra/oci-runner/` を追記、削除したアプリの段落を消す）。`docs/plans/00-llm-wiki-overview.md` の冒頭に「v2 に置き換えられた。ACL スパン（Stage 09〜10）は継続」の注記。`docs/plans/11-ingest-acl-hooks.md` の冒頭に「hooks は撤去、`validate-acl` / `verify-acl` は runner が使用」の注記。
+- 直下 `CLAUDE.md` の該当段落を更新（`apps/agent/`、`infra/oci-runner/` を追記、削除したアプリの段落を消す）。`docs/plans/knowledge-platform-v1/00-llm-wiki-overview.md` の冒頭に「v2 に置き換えられた。ACL スパン（Stage 09〜10）は継続」の注記。`docs/plans/knowledge-platform-v1/11-ingest-acl-hooks.md` の冒頭に「hooks は撤去、`validate-acl` / `verify-acl` は runner が使用」の注記。
 
 ### 制約
 
@@ -93,7 +93,7 @@ Stage 01〜06 で v2 の経路が揃っても、v1 の経路（agents-index、ag
 
 ### リポジトリ直下
 
-- `pnpm-workspace.yaml`、`CLAUDE.md`、`.gitmodules`、`docs/plans/00-llm-wiki-overview.md`、`docs/plans/11-ingest-acl-hooks.md`（注記）
+- `pnpm-workspace.yaml`、`CLAUDE.md`、`.gitmodules`、`docs/plans/knowledge-platform-v1/00-llm-wiki-overview.md`、`docs/plans/knowledge-platform-v1/11-ingest-acl-hooks.md`（注記）
 
 ## Verification — 完了条件と検証
 

@@ -197,7 +197,7 @@ CREATE TABLE dispatch_log (
 ```
 
 secret `SETTINGS_ENCRYPTION_KEY`（sns の `crypto.server.ts` をコピーして使う。gdg-lib には上げない。理由: 2 アプリの類似コードは
-共有の根拠にならない — `docs/software-architecture.md`）。
+共有の根拠にならない — `docs/references/architecture.md`）。
 
 `/c/:slug/settings` に追加: 配信先アカウント（`campaign_accounts`。X は主催・共催それぞれの `SNS.listXAccounts({ chapterId })` から選ぶ。
 IG はハンドルだけ）、`auto_staff_reminders`、Discord webhook（チャプター設定として `/settings/chapter` に分け、URL は保存後マスク表示。

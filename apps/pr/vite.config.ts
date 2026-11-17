@@ -1,4 +1,5 @@
 import { execFileSync } from "node:child_process";
+import { isAbsolute } from "node:path";
 import { fileURLToPath } from "node:url";
 import { cloudflare } from "@cloudflare/vite-plugin";
 import { reactRouter } from "@react-router/dev/vite";
@@ -6,6 +7,18 @@ import tailwindcss from "@tailwindcss/vite";
 import { defineConfig } from "vite";
 
 const repoRoot = fileURLToPath(new URL("../..", import.meta.url));
+
+function e2ePersistence(command: string) {
+  const path = process.env.PR_E2E_PERSIST_TO;
+  if (path) {
+    if (!isAbsolute(path)) throw new Error("PR_E2E_PERSIST_TO must be an absolute path");
+    return { path };
+  }
+  if (command === "serve" && process.env.CI) {
+    throw new Error("Run PR E2E through pnpm test:e2e to isolate persistence");
+  }
+  return undefined;
+}
 
 /**
  * The Playbook is bundled from the gdg-jp/skills submodule. A build without it would ship
@@ -43,6 +56,7 @@ export default defineConfig(({ command }) => ({
   server: { port: 5191, strictPort: true, fs: { allow: [repoRoot] } },
   plugins: [
     cloudflare({
+      persistState: e2ePersistence(command),
       configPath: process.env.CLOUDFLARE_VITE_WRANGLER_CONFIG_PATH,
       viteEnvironment: { name: "ssr" },
       remoteBindings: false,

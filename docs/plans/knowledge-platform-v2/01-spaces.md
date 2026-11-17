@@ -24,8 +24,8 @@ Discord bot が「このサーバで参照してよい範囲」を選べない�
 
 - `apps/wiki/CLAUDE.md`、`apps/wiki/ARCHITECTURE.md`（配置ルール、400 行上限、規約テスト一覧）
 - `apps/wiki/app/features/pages/README.md`、`apps/wiki/app/features/sources/README.md`
-- `docs/plans/09-source-visibility-acl.md` §1〜3 — 現行ソース ACL の仕様と 12-step 移行の手本
-- `docs/plans/10-page-acl-spans.md` §0「権限の代数」 — 内側 ACL の不変条件。**弱めない**
+- `docs/plans/knowledge-platform-v1/09-source-visibility-acl.md` §1〜3 — 現行ソース ACL の仕様と 12-step 移行の手本
+- `docs/plans/knowledge-platform-v1/10-page-acl-spans.md` §0「権限の代数」 — 内側 ACL の不変条件。**弱めない**
 - `docs/plans/knowledge-platform-v2/00-overview.md` §3-1
 
 ### 再利用する既存実装（書き直さない）

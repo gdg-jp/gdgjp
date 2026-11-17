@@ -6,7 +6,7 @@ unless explicitly prefixed with `apps/` or `packages/`.
 
 ## Architecture
 
-Follow `../docs/software-architecture.md` (relative to this file). Application code is
+Follow `../docs/references/architecture.md` (relative to this file). Application code is
 feature-first: domain logic, data access, widgets, and tests belong in
 `app/features/<domain>/`; `app/lib/` contains domain-independent primitives.
 Use `app/components/` for domain-free components, `app/features/<domain>/components/`

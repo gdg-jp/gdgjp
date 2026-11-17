@@ -12,11 +12,20 @@ import {
 import { availableParallelism, machine, release, tmpdir } from "node:os";
 import { basename, delimiter, dirname, isAbsolute, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { classifyChanges } from "../.github/scripts/changed-workspaces.mjs";
+import { isCommentSource } from "./check-code-comments.mjs";
 import { isDesignSourceFile } from "./check-design-harness.mjs";
 import { playwrightMetrics, playwrightReport, turboMetrics } from "./ci-metrics.mjs";
 
 const quickSteps = [
+  ["docs", "node scripts/check-docs.mjs"],
+  ["code-comments", "node scripts/check-code-comments.mjs"],
   ["typecheck:node-scripts", "pnpm typecheck:node-scripts"],
+  ["pstack", "node scripts/pstack.mjs doctor"],
+  [
+    "acl-boundaries",
+    "node .agents/skills/verify-acl-boundaries/scripts/verify.mjs --mutation-proof",
+  ],
   ["lint", "pnpm exec biome check . --reporter=github"],
   ["ui-conventions", "node scripts/check-ui-conventions.mjs"],
   ["typecheck+build", "pnpm exec turbo typecheck build --concurrency=6 --output-logs=errors-only"],
@@ -264,8 +273,6 @@ function workspaceFiles(files, predicate) {
 }
 
 export function changedSteps(mode, files) {
-  // Agent configuration is intentionally versioned but is not application code.
-  // Exclude it from the changed-file CI path used by the pre-commit hook.
   const relevantFiles = files.filter((file) => !preCommitExcludedPathPattern.test(file));
   const nodeFiles = relevantFiles.filter(isNodeFile);
   const uiFiles = nodeFiles.filter(
@@ -298,6 +305,27 @@ export function changedSteps(mode, files) {
   // and browser tests wait for the library consumer and Storybook artifacts.
   if (mode === "full") buildWorkspaces.delete("@gdgjp/design-system");
   const steps = [];
+  if (
+    files.some((file) => file.startsWith("docs/")) ||
+    files.includes("scripts/check-docs.mjs") ||
+    files.includes("scripts/docs-moves.json") ||
+    files.includes("scripts/reorganize-docs.mjs")
+  ) {
+    steps.push(["docs", "node scripts/check-docs.mjs"]);
+  }
+  if (files.some(isCommentSource) || files.includes("scripts/code-comment-exceptions.json")) {
+    steps.push(["code-comments", "node scripts/check-code-comments.mjs --staged"]);
+  }
+  if (classifyChanges(files).engineering) {
+    steps.push(
+      ["pstack", "node scripts/pstack.mjs doctor", nodeEnvironment()],
+      [
+        "acl-boundaries",
+        "node .agents/skills/verify-acl-boundaries/scripts/verify.mjs --mutation-proof",
+        nodeEnvironment(),
+      ],
+    );
+  }
 
   if (checksNodeScripts) {
     steps.push(["typecheck:node-scripts", "pnpm typecheck:node-scripts", runtime]);
@@ -377,9 +405,25 @@ export function changedSteps(mode, files) {
     ]);
   }
 
-  const scriptTests = relevantFiles.filter((file) =>
-    /^\.github\/scripts\/.*\.test\.mjs$/.test(file),
-  );
+  const scriptTests = [
+    ...new Set(
+      relevantFiles
+        .filter((file) => /^(?:\.github\/scripts|scripts)\/[^/]+\.mjs$/.test(file))
+        .map((file) => file.replace(/^scripts\//, ".github/scripts/"))
+        .map((file) => (file.endsWith(".test.mjs") ? file : file.replace(/\.mjs$/, ".test.mjs")))
+        .filter((file) => existsSync(file)),
+    ),
+  ];
+  if (
+    relevantFiles.some((file) =>
+      /^apps\/pr\/(?:e2e\/(?:run\.mjs|global-setup\.ts|fonts\.ts)|(?:vite|playwright)\.config\.ts|package\.json)$/.test(
+        file,
+      ),
+    ) &&
+    !scriptTests.includes(".github/scripts/pr-e2e-isolation.test.mjs")
+  ) {
+    scriptTests.push(".github/scripts/pr-e2e-isolation.test.mjs");
+  }
   if (
     relevantFiles.some((file) =>
       /^(?:scripts\/(?:run-ci|run-go-ci|run-pre-commit-ci|ci-metrics)\.mjs|turbo\.json|package\.json)$/.test(
@@ -391,6 +435,7 @@ export function changedSteps(mode, files) {
       ".github/scripts/gdg-ui-ci.test.mjs",
       ".github/scripts/ci-metrics.test.mjs",
       ".github/scripts/staged-ui.test.mjs",
+      ".github/scripts/changed-workspaces.test.mjs",
     ]) {
       if (!scriptTests.includes(file)) scriptTests.push(file);
     }
@@ -499,6 +544,7 @@ export function changedSteps(mode, files) {
         nodeConfigurationFilePattern.test(file) ||
         /\/playwright\.config\.[cm]?[jt]s$/.test(file) ||
         /^apps\/wiki\/tests\/e2e\/(?:global-setup|setup|run|fixtures|seed)\./.test(file) ||
+        /^apps\/pr\/e2e\/(?:global-setup|fonts|run)\./.test(file) ||
         file.startsWith("apps/pay/e2e/"),
     )) {
       e2eWorkspaces.set(workspace, null);
@@ -510,10 +556,9 @@ export function changedSteps(mode, files) {
       // with a configured runner, rather than collecting their unit tests.
       if (!directory || !existsSync(`${directory}/playwright.config.ts`)) continue;
       const e2eArguments = e2eFiles ? ` ${e2eFiles.map(shellQuote).join(" ")}` : "";
-      const command =
-        workspace === "@gdgjp/wiki"
-          ? `pnpm --filter ${workspace} test:e2e --reporter=dot,json${e2eArguments}`
-          : `pnpm --filter ${workspace} exec playwright test --reporter=dot,json${e2eArguments}`;
+      const command = ["@gdgjp/wiki", "@gdgjp/pr"].includes(workspace)
+        ? `pnpm --filter ${workspace} test:e2e --reporter=dot,json${e2eArguments}`
+        : `pnpm --filter ${workspace} exec playwright test --reporter=dot,json${e2eArguments}`;
       steps.push([
         `e2e:${workspace}`,
         command,

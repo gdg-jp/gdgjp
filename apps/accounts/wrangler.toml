@@ -42,7 +42,7 @@ MCP_REDIRECT_URLS = "https://mcp.gdgs.jp/callback"
 # gdg-cli userId of the pre-registered gdgagent-svc service account — the only
 # caller allowed to hit api/agents/google-workspace-token. Not sensitive (an
 # opaque user id, not a credential), but set only after that account exists
-# (docs/agents-local-gws/01-accounts-workspace-link.md).
+# (docs/plans/agents-local-gws/01-accounts-workspace-link.md).
 AGENTS_SERVICE_ACCOUNT_USER_ID = "FgyuX0YnIzQ6R2PvJfg26GKvoii0f1ea"
 
 [assets]

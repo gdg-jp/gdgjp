@@ -30,8 +30,8 @@ v1 の agent-host が持っていた uid 分離・Cursor hooks・AppArmor・署�
 
 - `apps/cli/internal/command/wiki.go` — `gdg wiki` サブコマンド（`clone` / `raw pull` / `ingest` / `verify-acl`）の現行実装
 - `apps/cli/internal/wiki/{client,remote_helper,verify,local,state}.go` — Sync クライアント、`gdg-wiki` git remote helper、`verify-acl` の実体
-- `docs/plans/03-local-ingest-toolchain.md`、`03a-agents-md.md` — clone / remote helper / sync の全体像と v1 の `AGENTS.md`（統合方針。**プロンプトの土台**）
-- `docs/plans/11-ingest-acl-hooks.md` §1 — `validate-acl` の仕様（ページ単位 + 実行単位の検査）。runner はこれを `readSourceIds = ジョブの sourceIds` で呼ぶ
+- `docs/plans/knowledge-platform-v1/03-local-ingest-toolchain.md`、`03a-agents-md.md` — clone / remote helper / sync の全体像と v1 の `AGENTS.md`（統合方針。**プロンプトの土台**）
+- `docs/plans/knowledge-platform-v1/11-ingest-acl-hooks.md` §1 — `validate-acl` の仕様（ページ単位 + 実行単位の検査）。runner はこれを `readSourceIds = ジョブの sourceIds` で呼ぶ
 - `apps/agent-host/workspace/AGENTS.md` の「Knowledge routing」表 — 何をどこに書くかの運用知識
 - `apps/wiki/app/features/pages/README.md` — `origin: human | agent` の意味
 

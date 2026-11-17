@@ -1,0 +1,17 @@
+# CLI parity for tinyurl / img / sns — todos
+
+- [x] [00 — overview](index.md) (reference only, not delegated)
+- [x] [01 — shared bearer identity and strict CLI identity](01-shared-bearer-identity.md)
+- [x] [02 — Shared Go CLI client helpers](02-cli-shared-client-helpers.md)
+- [x] [03 — img CLI API and image feature boundary](03-img-bearer-api.md)
+- [x] [04 — img Go CLI client](04-img-cli-client.md)
+- [x] [05 — tinyurl core service-layer refactor](05-tinyurl-core-refactor.md)
+- [x] [06 — tinyurl links/tags/folders CLI API](06-tinyurl-links-bearer-api.md)
+- [x] [07 — tinyurl domains CLI API](07-tinyurl-domains-bearer-api.md)
+- [x] [08 — tinyurl campaigns CLI API and feature boundary](08-tinyurl-campaigns-bearer-api.md)
+- [x] [09 — tinyurl Go CLI client](09-tinyurl-cli-client.md)
+- [x] [10 — sns posts/media service-layer extraction](10-sns-posts-media-service.md)
+- [x] [11 — sns contributors/X-account service-layer extraction](11-sns-contributors-x-service.md)
+- [x] [12 — sns CLI API (posts/media/X accounts/contributors)](12-sns-bearer-api.md)
+- [x] [13 — sns X-publish CLI API](13-sns-x-publish.md)
+- [ ] [14 — sns Go CLI client](14-sns-cli-client.md)

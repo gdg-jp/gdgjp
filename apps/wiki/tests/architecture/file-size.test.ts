@@ -3,18 +3,6 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
-/**
- * Non-test source under `app/`, `workers/`, and `shared/` stays at or below
- * MAX_LINES. An agent that only needs a 40-line loader should not have to read a
- * 1,000-line file to find it. See `docs/wiki-refactoring/06-file-splits.md` for
- * the split principles ("separate things that are read for different reasons").
- *
- * `ALLOWLIST` freezes the two files Stage 06 deliberately did not split, at their
- * current size. It is **shrink-only**: a file may leave the list once it is at or
- * below MAX_LINES, but nothing new is added — an added entry is just "could not
- * split it" with extra steps. If a listed file grows past its frozen count the
- * test fails, so the exception cannot become a licence to keep bloating.
- */
 const WIKI_ROOT = fileURLToPath(new URL("../../", import.meta.url));
 const ROOTS = ["app", "workers"];
 const MAX_LINES = 400;
@@ -64,7 +52,7 @@ describe("file size", () => {
     }
     expect(
       offenders,
-      `Split each file so no unit exceeds ${MAX_LINES} lines — see docs/wiki-refactoring/06-file-splits.md.`,
+      `Split each file so no unit exceeds ${MAX_LINES} lines — see docs/plans/wiki-refactoring/06-file-splits.md.`,
     ).toEqual([]);
   });
 

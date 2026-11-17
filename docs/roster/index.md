@@ -1,7 +1,7 @@
 # roster.gdgs.jp — スタッフシフト表生成アプリ 全体計画
 
 新規ワークスペース `roster/` (`@gdgjp/roster`) を作る計画セット。**人間向けの地図**であり、
-`plan-creator` の見出し契約の対象外（`docs/cli-support-url-img-sns/index.md` と同じ扱い）。
+`plan-creator` の見出し契約の対象外（`docs/plans/cli-support-url-img-sns/index.md` と同じ扱い）。
 
 **各ステージに着手する前に、必ずこのファイルを最初に読むこと。** ステージファイルはここに書かれた
 定数・ドメインモデル・ソルバー仕様を前提にしており、重複記述はしていない。

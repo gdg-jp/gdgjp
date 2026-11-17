@@ -1,16 +1,6 @@
 import { randomToken, sha256Base64Url } from "~/lib/crypto.server";
 import { CURRENT_ENCRYPTION_KEY_VERSION, encryptRefreshToken } from "./encryption.server";
 
-// Additive Google Workspace OAuth linking: incremental-consent state/PKCE,
-// encrypted refresh-token storage, and the Google token endpoints the
-// oauth.google-workspace.* routes and api.agents.google-workspace-token.ts
-// route call into. See docs/agents-local-gws/01-accounts-workspace-link.md.
-//
-// This is deliberately independent of auth.server.ts / Better Auth: it talks
-// to Google's OAuth endpoints directly (incremental authorization on the same
-// GCP client) rather than going through signInSocial, and stores its own
-// state/connection rows rather than touching Better Auth's `account` table.
-
 export const GOOGLE_WORKSPACE_SCOPES = ["https://www.googleapis.com/auth/drive.readonly"];
 export const WORKSPACE_STATE_TTL_SECONDS = 600;
 export const TOKEN_VEND_RATE_LIMIT_WINDOW_SECONDS = 60;

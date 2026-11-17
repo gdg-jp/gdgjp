@@ -30,7 +30,7 @@ AI Search はローカルで動かない。**着手前に Cloudflare ダッシ�
 - Cloudflare docs: `ai-search/usage/workers-binding`、`ai-search/how-to/multitenancy`、`ai-search/configuration/indexing/path-filtering`、`ai-search/configuration/metadata`、`ai-search/configuration/retrieval-configuration`（filters）、`ai-search/platform/limits-pricing`
 - `apps/wiki/app/features/ai-search/README.md` — 置き換え対象
 - `apps/wiki/app/features/pages/acl-spans.server.ts` 冒頭の規約と `buildAclSpanPolicy` / `redactPageMarkdown` — スパンの判定器。ミラーの分離もこれを使う
-- `docs/plans/10-page-acl-spans.md` §0「権限の代数」
+- `docs/plans/knowledge-platform-v1/10-page-acl-spans.md` §0「権限の代数」
 - `apps/wiki/tests/architecture/search-source-exclusions.test.ts` — 「生ソースは検索に入れない」規約。**v2 では方針が変わる**（§2）
 
 ### 再利用する既存実装（書き直さない）

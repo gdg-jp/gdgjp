@@ -198,6 +198,7 @@ function allResults() {
     scriptTests: true,
     cli: true,
     designSource: true,
+    engineering: true,
     full: true,
   };
 }
@@ -212,6 +213,7 @@ export function classifyChanges(files, { forceAll = false } = {}) {
     (file) =>
       GLOBAL_INPUTS.has(file) ||
       file === ".github/workflows/ci.yml" ||
+      file === ".github/scripts/run-affected.mjs" ||
       file.startsWith(".github/scripts/changed-workspaces."),
   );
   const deployGlobal = normalizedFiles.some(
@@ -291,9 +293,16 @@ export function classifyChanges(files, { forceAll = false } = {}) {
         /^\.github\/scripts\/.*\.mjs$/.test(file) ||
         file === "scripts/check-ui-conventions.mjs" ||
         file === "scripts/check-design-harness.mjs" ||
+        file === "scripts/pstack.mjs" ||
+        file === "scripts/check-docs.mjs" ||
+        file === "scripts/check-code-comments.mjs" ||
+        file === "scripts/code-comment-exceptions.json" ||
         file === "scripts/run-ci.mjs" ||
         file === "scripts/run-go-ci.mjs" ||
         file === "scripts/run-e2e-dev.mjs" ||
+        /^apps\/pr\/(?:e2e\/(?:run\.mjs|global-setup\.ts|fonts\.ts)|(?:vite|playwright)\.config\.ts|package\.json)$/.test(
+          file,
+        ) ||
         file === "apps/wiki/tests/architecture/ui-conventions-baseline.json" ||
         file === ".github/scripts/shell-allowlist.txt" ||
         file.endsWith(".sh"),
@@ -307,6 +316,13 @@ export function classifyChanges(files, { forceAll = false } = {}) {
           file === "scripts/run-go-ci.mjs",
       ),
     designSource: normalizedFiles.some((file) => isDesignSourceFile(file)),
+    engineering:
+      ciGlobal ||
+      normalizedFiles.some((file) =>
+        /^(?:\.agents\/|\.claude\/|\.codex\/|\.cursor\/|scripts\/pstack\.mjs$|packages\/gdg-lib\/src\/acl\/|tsconfig\.node-scripts\.json$)/.test(
+          file,
+        ),
+      ),
     full: false,
   };
 }
@@ -351,6 +367,7 @@ function changedFiles(base, head) {
 
 function workflowOutputs(result, base, head) {
   return {
+    engineering: String(result.engineering),
     ci: JSON.stringify(result.ci),
     build: JSON.stringify(result.build),
     e2e: JSON.stringify(result.e2e),

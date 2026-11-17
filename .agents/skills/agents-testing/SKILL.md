@@ -39,7 +39,7 @@ sudo -u gdgagent-svc xangi harness invoke \
   --roles role-organizer --message "Read a chapter page using wiki sources." --json
 ```
 
-Check `error` before `denialReason`. Successful runs include `classes`, `channelAudience`, `slot`, `runId`, and `result`. Use `docs/agents-local-testing/iam-e2e-runbook.md` for full criteria.
+Check `error` before `denialReason`. Successful runs include `classes`, `channelAudience`, `slot`, `runId`, and `result`. Use `docs/plans/agents-local-testing/iam-e2e-runbook.md` for full criteria.
 
 Verify these cases:
 

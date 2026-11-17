@@ -60,6 +60,39 @@ test("doctor rejects duplicate roles and models absent from the availability rec
   }
 });
 
+for (const harness of [".codex", ".claude", ".cursor"]) {
+  test(`doctor rejects dangling skill discovery links in ${harness}`, () => {
+    const root = installation();
+    try {
+      const directory = join(root, harness, "skills");
+      mkdirSync(directory, { recursive: true });
+      symlinkSync("missing-skill", join(directory, "obsolete"));
+      assert(
+        checkInstallation(root).errors.some((error) =>
+          error.includes(`${harness}/skills/obsolete: dangling discovery link`),
+        ),
+      );
+    } finally {
+      rmSync(root, { recursive: true });
+    }
+  });
+}
+
+test("doctor allows project skills outside the manifest and a missing optional Codex directory", () => {
+  const root = installation();
+  try {
+    assert.deepEqual(checkInstallation(root).errors, []);
+    for (const harness of [".codex", ".claude", ".cursor"]) {
+      const directory = join(root, harness, "skills");
+      mkdirSync(directory, { recursive: true });
+      symlinkSync(join(root, ".agents/skills/example"), join(directory, `${harness}-project`));
+    }
+    assert.deepEqual(checkInstallation(root).errors, []);
+  } finally {
+    rmSync(root, { recursive: true });
+  }
+});
+
 test("setup restores a missing link and can run twice", () => {
   const root = mkdtempSync(join(tmpdir(), "pstack-links-"));
   try {

@@ -126,10 +126,6 @@ type WorkspaceTokenResult struct {
 	ExpiresIn   int
 }
 
-// VendWorkspaceToken calls the privileged token-vending endpoint added in
-// docs/agents-local-gws/01-accounts-workspace-link.md. It is not part of the
-// generated OpenAPI client: that endpoint is a narrowly-gated internal API for
-// the gdgagent-svc identity, not a public OIDC client-management operation.
 // accessToken must be gdgagent-svc's own gdg login access token; userID is the
 // target GDG account's sub whose stored Workspace refresh token gets exchanged.
 func (c *AccountsClient) VendWorkspaceToken(

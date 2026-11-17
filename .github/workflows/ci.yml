@@ -17,6 +17,7 @@ jobs:
     name: Detect changes
     runs-on: ubuntu-latest
     outputs:
+      engineering: ${{ steps.changes.outputs.engineering }}
       ci: ${{ steps.changes.outputs.ci }}
       build: ${{ steps.changes.outputs.build }}
       e2e: ${{ steps.changes.outputs.e2e }}
@@ -40,6 +41,56 @@ jobs:
           BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
         run: node .github/scripts/changed-workspaces.mjs --base "$BASE_SHA" --head "$HEAD_SHA"
+
+  code-comments:
+    name: Repository policy
+    needs: changes
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          submodules: false
+      - name: Initialize shared UI submodule
+        run: git submodule update --init packages/design-system
+      - name: Initialize Playbook submodule
+        run: git submodule update --init skills
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Check documentation layout and links
+        run: node scripts/check-docs.mjs
+      - name: Reject new code comments
+        env:
+          BASE_SHA: ${{ needs.changes.outputs.base }}
+          HEAD_SHA: ${{ needs.changes.outputs.head }}
+        run: node scripts/check-code-comments.mjs --diff "$BASE_SHA" "$HEAD_SHA"
+
+  engineering:
+    name: Engineering checks
+    needs: changes
+    if: needs.changes.outputs.engineering == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: false
+      - name: Initialize shared UI submodule
+        run: git submodule update --init packages/design-system
+      - name: Initialize Playbook submodule
+        run: git submodule update --init skills
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm typecheck:node-scripts
+      - run: node scripts/pstack.mjs doctor
+      - run: node .agents/skills/verify-acl-boundaries/scripts/verify.mjs --mutation-proof
 
   lint:
     name: Lint (Biome)
@@ -238,76 +289,13 @@ jobs:
       # package that their package.json exports point at before Vite resolves it.
       - name: Build shared UI dependency
         run: pnpm --filter @gdgjp/design-system build
-      - parallel:
-          - name: Typecheck GDG UI
-            if: contains(fromJSON(needs.changes.outputs.ci), '@gdgjp/design-system')
-            run: pnpm --filter @gdgjp/design-system typecheck
-          - name: Typecheck accounts
-            if: contains(fromJSON(needs.changes.outputs.ci), '@gdgjp/accounts')
-            run: |
-              cp apps/accounts/.dev.vars.example apps/accounts/.dev.vars
-              pnpm --filter @gdgjp/accounts typecheck
-          - name: Typecheck tinyurl
-            if: contains(fromJSON(needs.changes.outputs.ci), '@gdgjp/tinyurl')
-            run: pnpm --filter @gdgjp/tinyurl typecheck
-          - name: Typecheck wiki
-            if: contains(fromJSON(needs.changes.outputs.ci), '@gdgjp/wiki')
-            run: pnpm --filter @gdgjp/wiki typecheck
-          - name: Typecheck img
-            if: contains(fromJSON(needs.changes.outputs.ci), '@gdgjp/img')
-            run: pnpm --filter @gdgjp/img typecheck
-          - name: Typecheck scheduler
-            if: contains(fromJSON(needs.changes.outputs.ci), '@gdgjp/scheduler')
-            run: pnpm --filter @gdgjp/scheduler typecheck
-          - name: Typecheck SNS
-            if: contains(fromJSON(needs.changes.outputs.ci), '@gdgjp/sns')
-            run: pnpm --filter @gdgjp/sns typecheck
-          - name: Typecheck pay
-            if: contains(fromJSON(needs.changes.outputs.ci), '@gdgjp/pay')
-            run: pnpm --filter @gdgjp/pay typecheck
-          - name: Typecheck ost
-            if: contains(fromJSON(needs.changes.outputs.ci), '@gdgjp/ost')
-            run: pnpm --filter @gdgjp/ost typecheck
-          - name: Typecheck roster
-            if: contains(fromJSON(needs.changes.outputs.ci), '@gdgjp/roster')
-            run: pnpm --filter @gdgjp/roster typecheck
-          - name: Typecheck mc
-            if: contains(fromJSON(needs.changes.outputs.ci), '@gdgjp/mc')
-            run: pnpm --filter @gdgjp/mc typecheck
-          - name: Typecheck screen
-            if: contains(fromJSON(needs.changes.outputs.ci), '@gdgjp/screen')
-            run: pnpm --filter @gdgjp/screen typecheck
-          - name: Typecheck deck
-            if: contains(fromJSON(needs.changes.outputs.ci), '@gdgjp/deck')
-            run: pnpm --filter @gdgjp/deck typecheck
-          - name: Typecheck roulette
-            if: contains(fromJSON(needs.changes.outputs.ci), '@gdgjp/roulette')
-            run: pnpm --filter @gdgjp/roulette typecheck
-          - name: Typecheck pr
-            if: contains(fromJSON(needs.changes.outputs.ci), '@gdgjp/pr')
-            run: pnpm --filter @gdgjp/pr typecheck
-          - name: Typecheck website
-            if: contains(fromJSON(needs.changes.outputs.ci), '@gdgjp/website')
-            run: pnpm --filter @gdgjp/website typecheck
-          - name: Typecheck live-checkin
-            if: contains(fromJSON(needs.changes.outputs.ci), '@gdgjp/live-checkin')
-            run: pnpm --filter @gdgjp/live-checkin typecheck
-          - name: Typecheck gdg-lib
-            if: contains(fromJSON(needs.changes.outputs.ci), '@gdgjp/gdg-lib')
-            run: pnpm --filter @gdgjp/gdg-lib typecheck
-          - name: Typecheck tinyurl gateway
-            if: contains(fromJSON(needs.changes.outputs.ci), '@gdgjp/tinyurl-gateway')
-            run: pnpm --filter @gdgjp/tinyurl-gateway typecheck
-          - name: Typecheck agent
-            if: contains(fromJSON(needs.changes.outputs.ci), '@gdgjp/agent')
-            run: pnpm --filter @gdgjp/agent typecheck
-          - name: Typecheck mcp
-            if: contains(fromJSON(needs.changes.outputs.ci), '@gdgjp/mcp')
-            run: pnpm --filter @gdgjp/mcp typecheck
-          - name: Typecheck go extension
-            if: contains(fromJSON(needs.changes.outputs.ci), '@gdgjp/go-extension')
-            run: pnpm --filter @gdgjp/go-extension typecheck
-
+      - name: Create accounts typecheck vars
+        if: contains(fromJSON(needs.changes.outputs.ci), '@gdgjp/accounts')
+        run: cp apps/accounts/.dev.vars.example apps/accounts/.dev.vars
+      - name: Run affected typecheck
+        env:
+          WORKSPACES: ${{ needs.changes.outputs.ci }}
+        run: node .github/scripts/run-affected.mjs typecheck
   test:
     name: Unit tests
     needs: changes
@@ -330,71 +318,10 @@ jobs:
       # Vitest also resolves the package's generated export entrypoints.
       - name: Build shared UI dependency
         run: pnpm --filter @gdgjp/design-system build
-      - parallel:
-          - name: Test accounts
-            if: contains(fromJSON(needs.changes.outputs.ci), '@gdgjp/accounts')
-            run: pnpm --filter @gdgjp/accounts test
-          - name: Test tinyurl
-            if: contains(fromJSON(needs.changes.outputs.ci), '@gdgjp/tinyurl')
-            run: pnpm --filter @gdgjp/tinyurl test
-          - name: Test wiki
-            if: contains(fromJSON(needs.changes.outputs.ci), '@gdgjp/wiki')
-            run: pnpm --filter @gdgjp/wiki test
-          - name: Test img
-            if: contains(fromJSON(needs.changes.outputs.ci), '@gdgjp/img')
-            run: pnpm --filter @gdgjp/img test
-          - name: Test scheduler
-            if: contains(fromJSON(needs.changes.outputs.ci), '@gdgjp/scheduler')
-            run: pnpm --filter @gdgjp/scheduler test
-          - name: Test SNS
-            if: contains(fromJSON(needs.changes.outputs.ci), '@gdgjp/sns')
-            run: pnpm --filter @gdgjp/sns test
-          - name: Test pay
-            if: contains(fromJSON(needs.changes.outputs.ci), '@gdgjp/pay')
-            run: pnpm --filter @gdgjp/pay test
-          - name: Test ost
-            if: contains(fromJSON(needs.changes.outputs.ci), '@gdgjp/ost')
-            run: pnpm --filter @gdgjp/ost test
-          - name: Test roster
-            if: contains(fromJSON(needs.changes.outputs.ci), '@gdgjp/roster')
-            run: pnpm --filter @gdgjp/roster test
-          - name: Test mc
-            if: contains(fromJSON(needs.changes.outputs.ci), '@gdgjp/mc')
-            run: pnpm --filter @gdgjp/mc test
-          - name: Test screen
-            if: contains(fromJSON(needs.changes.outputs.ci), '@gdgjp/screen')
-            run: pnpm --filter @gdgjp/screen test
-          - name: Test deck
-            if: contains(fromJSON(needs.changes.outputs.ci), '@gdgjp/deck')
-            run: pnpm --filter @gdgjp/deck test
-          - name: Test roulette
-            if: contains(fromJSON(needs.changes.outputs.ci), '@gdgjp/roulette')
-            run: pnpm --filter @gdgjp/roulette test
-          - name: Test pr
-            if: contains(fromJSON(needs.changes.outputs.ci), '@gdgjp/pr')
-            run: pnpm --filter @gdgjp/pr test
-          - name: Test website
-            if: contains(fromJSON(needs.changes.outputs.ci), '@gdgjp/website')
-            run: pnpm --filter @gdgjp/website test
-          - name: Test GDG UI
-            if: contains(fromJSON(needs.changes.outputs.ci), '@gdgjp/design-system')
-            run: pnpm --filter @gdgjp/design-system test
-          - name: Test gdg-lib
-            if: contains(fromJSON(needs.changes.outputs.ci), '@gdgjp/gdg-lib')
-            run: pnpm --filter @gdgjp/gdg-lib test
-          - name: Test tinyurl gateway
-            if: contains(fromJSON(needs.changes.outputs.ci), '@gdgjp/tinyurl-gateway')
-            run: pnpm --filter @gdgjp/tinyurl-gateway test
-          - name: Test agent
-            if: contains(fromJSON(needs.changes.outputs.ci), '@gdgjp/agent')
-            run: pnpm --filter @gdgjp/agent test
-          - name: Test mcp
-            if: contains(fromJSON(needs.changes.outputs.ci), '@gdgjp/mcp')
-            run: pnpm --filter @gdgjp/mcp test
-          - name: Test go extension
-            if: contains(fromJSON(needs.changes.outputs.ci), '@gdgjp/go-extension')
-            run: pnpm --filter @gdgjp/go-extension test
-
+      - name: Run affected test
+        env:
+          WORKSPACES: ${{ needs.changes.outputs.ci }}
+        run: node .github/scripts/run-affected.mjs test
   build:
     name: Build
     needs: changes
@@ -414,76 +341,18 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      # Each parallel app build has its own clean filesystem, so it cannot use
-      # the UI build produced by the separate "Build GDG UI" entry below.
       - name: Build shared UI dependency
         run: pnpm --filter @gdgjp/design-system build
-      - parallel:
-          - name: Build GDG UI
-            if: contains(fromJSON(needs.changes.outputs.build), '@gdgjp/design-system')
-            run: pnpm --filter @gdgjp/design-system test:consumer
-          - name: Build accounts
-            if: contains(fromJSON(needs.changes.outputs.build), '@gdgjp/accounts')
-            run: pnpm --filter @gdgjp/accounts build
-          - name: Build tinyurl
-            if: contains(fromJSON(needs.changes.outputs.build), '@gdgjp/tinyurl')
-            run: pnpm --filter @gdgjp/tinyurl build
-          - name: Build wiki
-            if: contains(fromJSON(needs.changes.outputs.build), '@gdgjp/wiki')
-            run: pnpm --filter @gdgjp/wiki build
-          - name: Build img
-            if: contains(fromJSON(needs.changes.outputs.build), '@gdgjp/img')
-            run: pnpm --filter @gdgjp/img build
-          - name: Build scheduler
-            if: contains(fromJSON(needs.changes.outputs.build), '@gdgjp/scheduler')
-            run: pnpm --filter @gdgjp/scheduler build
-          - name: Build SNS
-            if: contains(fromJSON(needs.changes.outputs.build), '@gdgjp/sns')
-            run: pnpm --filter @gdgjp/sns build
-          - name: Build pay
-            if: contains(fromJSON(needs.changes.outputs.build), '@gdgjp/pay')
-            run: pnpm --filter @gdgjp/pay build
-          - name: Build ost
-            if: contains(fromJSON(needs.changes.outputs.build), '@gdgjp/ost')
-            run: pnpm --filter @gdgjp/ost build
-          - name: Build roster
-            if: contains(fromJSON(needs.changes.outputs.build), '@gdgjp/roster')
-            run: pnpm --filter @gdgjp/roster build
-          - name: Build mc
-            if: contains(fromJSON(needs.changes.outputs.build), '@gdgjp/mc')
-            run: pnpm --filter @gdgjp/mc build
-          - name: Build screen
-            if: contains(fromJSON(needs.changes.outputs.build), '@gdgjp/screen')
-            run: pnpm --filter @gdgjp/screen build
-          - name: Build deck
-            if: contains(fromJSON(needs.changes.outputs.build), '@gdgjp/deck')
-            run: pnpm --filter @gdgjp/deck build
-          - name: Build roulette
-            if: contains(fromJSON(needs.changes.outputs.build), '@gdgjp/roulette')
-            run: pnpm --filter @gdgjp/roulette build
-          - name: Build pr
-            if: contains(fromJSON(needs.changes.outputs.build), '@gdgjp/pr')
-            run: pnpm --filter @gdgjp/pr build
-          - name: Build website
-            if: contains(fromJSON(needs.changes.outputs.build), '@gdgjp/website')
-            run: pnpm --filter @gdgjp/website build
-          - name: Build live-checkin
-            if: contains(fromJSON(needs.changes.outputs.build), '@gdgjp/live-checkin')
-            run: pnpm --filter @gdgjp/live-checkin build
-          - name: Build tinyurl gateway
-            if: contains(fromJSON(needs.changes.outputs.build), '@gdgjp/tinyurl-gateway')
-            run: pnpm --filter @gdgjp/tinyurl-gateway build
-          - name: Build agent
-            if: contains(fromJSON(needs.changes.outputs.build), '@gdgjp/agent')
-            run: pnpm --filter @gdgjp/agent build
-          - name: Build mcp
-            if: contains(fromJSON(needs.changes.outputs.build), '@gdgjp/mcp')
-            run: pnpm --filter @gdgjp/mcp build
-          - name: Build go extension
-            if: contains(fromJSON(needs.changes.outputs.build), '@gdgjp/go-extension')
-            run: |
-              pnpm --filter @gdgjp/go-extension build
-              unzip -t apps/go-extension/dist/gdg-japan-go-links.zip
+      - name: Run affected build
+        env:
+          WORKSPACES: ${{ needs.changes.outputs.build }}
+        run: node .github/scripts/run-affected.mjs build
+      - name: Build GDG UI consumer
+        if: contains(fromJSON(needs.changes.outputs.build), '@gdgjp/design-system')
+        run: pnpm --filter @gdgjp/design-system test:consumer
+      - name: Validate go extension package
+        if: contains(fromJSON(needs.changes.outputs.build), '@gdgjp/go-extension')
+        run: unzip -t apps/go-extension/dist/gdg-japan-go-links.zip
       - name: Upload go extension package
         if: contains(fromJSON(needs.changes.outputs.build), '@gdgjp/go-extension')
         uses: actions/upload-artifact@v4

@@ -18,7 +18,7 @@ v2 では `00-overview.md` §6 の 7 指標を継続的に測り、変更をこ�
 ### 読むべきもの
 
 - `.claude/skills/evaluate-rag/`、`write-judge-prompt/`、`validate-evaluator/`、`error-analysis/` — リポジトリにある評価手法の skill。手順はこれに従う
-- `docs/agents-observability.md` — Langfuse の trace / score 規約
+- `docs/guides/agents-observability.md` — Langfuse の trace / score 規約
 - `.claude/skills/langfuse/` — Langfuse CLI で trace と score を取り出す方法
 - `docs/plans/knowledge-platform-v2/05-agent-worker.md` §3 — `answer` ジョブの入出力
 

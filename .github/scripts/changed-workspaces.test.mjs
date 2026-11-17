@@ -224,3 +224,50 @@ test("gates the CLI Go job on cli/ changes", () => {
   assert.equal(classifyChanges(["docs/operations.md"]).cli, false);
   assert.equal(classifyChanges(["pnpm-lock.yaml"]).cli, true);
 });
+
+test("engineering inputs run real installation and ACL checks in hosted and staged CI", async () => {
+  const { changedSteps } = await import("../../scripts/run-ci.mjs");
+  for (const file of [
+    ".agents/skills/poteto-mode/SKILL.md",
+    ".agents/skills/verify-acl-boundaries/scripts/verify.mjs",
+    ".agents/skills/verify-acl-boundaries/coverage.json",
+    "scripts/pstack.mjs",
+    "packages/gdg-lib/src/acl/core.ts",
+    "tsconfig.node-scripts.json",
+  ]) {
+    assert.equal(classifyChanges([file]).engineering, true, file);
+    const steps = changedSteps("full", [file]);
+    assert.ok(
+      steps.some(([, command]) => command === "node scripts/pstack.mjs doctor"),
+      file,
+    );
+    assert.ok(
+      steps.some(([, command]) =>
+        command.endsWith("verify-acl-boundaries/scripts/verify.mjs --mutation-proof"),
+      ),
+      file,
+    );
+  }
+  assert.equal(classifyChanges(["docs/operations.md"]).engineering, false);
+});
+
+test("affected executor and detector edits run their staged behavioral tests", async () => {
+  const { changedSteps } = await import("../../scripts/run-ci.mjs");
+  for (const name of ["run-affected", "changed-workspaces"]) {
+    const steps = changedSteps("full", [`.github/scripts/${name}.mjs`]);
+    const command = steps.find(([step]) => step === "test:scripts")?.[1];
+    assert.ok(command?.includes(`.github/scripts/${name}.test.mjs`), name);
+  }
+});
+
+test("CI runner and pstack edits select their own regression coverage", async () => {
+  const { changedSteps } = await import("../../scripts/run-ci.mjs");
+  for (const [file, expected] of [
+    ["scripts/run-ci.mjs", ".github/scripts/changed-workspaces.test.mjs"],
+    ["scripts/pstack.mjs", ".github/scripts/pstack.test.mjs"],
+  ]) {
+    assert.equal(classifyChanges([file]).scriptTests, true, file);
+    const command = changedSteps("full", [file]).find(([step]) => step === "test:scripts")?.[1];
+    assert.ok(command?.includes(expected), file);
+  }
+});

@@ -1,0 +1,25 @@
+{
+  "exceptions": [
+    {
+      "path": "apps/accounts/app/features/google-workspace/token-vending.server.ts",
+      "sha256": "7e532524932e7d1f1df3aac1e3c1b4d5f6928376e11845078d94791f29a0997a",
+      "category": "public-api",
+      "reason": "Retains the externally observable HTTP authorization and response contract; only the supporting document path changed in this migration.",
+      "evidence": "apps/accounts/app/routes/api.agents.google-workspace-token.test.ts"
+    },
+    {
+      "path": "apps/sns/app/features/cli-api/http.server.ts",
+      "sha256": "dda48ca11eb211cc865e5142b75b55d05a48445fd1c1ca95382066d6ce75be6f",
+      "category": "public-api",
+      "reason": "Retains the externally observable HTTP authorization and response contract; only the supporting document path changed in this migration.",
+      "evidence": "apps/sns/app/features/cli-api/http.server.test.ts"
+    },
+    {
+      "path": "apps/tinyurl/app/features/cli-api/cli-http.server.ts",
+      "sha256": "adfd0670a3beb1808a61d676bbc84db70b07567863f66fedf0349803176d22da",
+      "category": "public-api",
+      "reason": "Retains the externally observable HTTP authorization and response contract; only the supporting document path changed in this migration.",
+      "evidence": "apps/tinyurl/app/features/cli-api/cli-http.server.test.ts"
+    }
+  ]
+}

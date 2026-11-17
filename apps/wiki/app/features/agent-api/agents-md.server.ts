@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import { asc, eq } from "drizzle-orm";
 import * as schema from "~/db/schema";
 import type { getDb } from "~/lib/db.server";
-import draft from "../../../../../docs/plans/03a-agents-md.md?raw";
+import draft from "../../../../../docs/plans/knowledge-platform-v1/03a-agents-md.md?raw";
 
 export type AgentInstructions = {
   content: string;

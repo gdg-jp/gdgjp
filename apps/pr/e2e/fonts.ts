@@ -14,7 +14,7 @@ const FONTS = [
   ["GoogleSansCode.ttf", "ofl/googlesanscode/GoogleSansCode%5Bwght%5D.ttf"],
 ] as const;
 
-export async function seedLocalFonts(cwd: string): Promise<void> {
+export async function seedLocalFonts(cwd: string, persistence: string): Promise<void> {
   const cache = join(cwd, "node_modules", ".cache", "gdg-fonts");
   mkdirSync(cache, { recursive: true });
   for (const [file, path] of FONTS) {
@@ -43,6 +43,8 @@ export async function seedLocalFonts(cwd: string): Promise<void> {
         "--content-type",
         "font/ttf",
         "--local",
+        "--persist-to",
+        persistence,
       ],
       { stdio: "ignore", cwd },
     );
