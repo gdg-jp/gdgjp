@@ -155,11 +155,14 @@ function runWrangler(args: string[], cwd: string, phase: string): string {
     return execFileSync("pnpm", ["exec", "wrangler", ...args], {
       cwd,
       encoding: "utf8",
-      stdio: ["ignore", "pipe", "ignore"],
+      stdio: ["ignore", "pipe", "pipe"],
     });
-  } catch {
+  } catch (error) {
     const printableArgs = args.filter((argument) => !argument.includes("SESSION_SECRET"));
-    fail(phase, `command failed: pnpm exec wrangler ${printableArgs.join(" ")}`);
+    // The session secret only ever reaches the cookies, never wrangler, so its output is safe to show.
+    const { stdout = "", stderr = "" } = error as { stdout?: string; stderr?: string };
+    const output = `${stdout}\n${stderr}`.trim().split("\n").slice(-40).join("\n");
+    fail(phase, `command failed: pnpm exec wrangler ${printableArgs.join(" ")}\n${output}`);
   }
 }
 
