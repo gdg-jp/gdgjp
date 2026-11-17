@@ -22,6 +22,9 @@ import {
   turboMetrics,
 } from "./ci-metrics.mjs";
 
+const jobLifecycleCheck =
+  "node --test .agents/skills/verify-job-lifecycle/scripts/verify.test.mjs && node .agents/skills/verify-job-lifecycle/scripts/verify.mjs";
+
 const quickSteps = [
   ["docs", "node scripts/check-docs.mjs"],
   ["code-comments", "node scripts/check-code-comments.mjs"],
@@ -32,6 +35,7 @@ const quickSteps = [
     "acl-boundaries",
     "node .agents/skills/verify-acl-boundaries/scripts/verify.mjs --mutation-proof",
   ],
+  ["job-lifecycle", jobLifecycleCheck],
   ["lint", "pnpm exec biome check . --reporter=github"],
   ["ui-conventions", "node scripts/check-ui-conventions.mjs"],
   ["typecheck+build", "pnpm exec turbo typecheck build --concurrency=6 --output-logs=errors-only"],
@@ -44,10 +48,12 @@ const quickSteps = [
 ];
 
 const goSteps = quickSteps.filter(([name]) => name === "go");
-const builtE2EApps = ["accounts", "tinyurl", "img", "scheduler", "wiki", "roster", "ost", "mc"];
 
 const fullSteps = [
-  ...quickSteps,
+  ...quickSteps.map(([name, command]) => [
+    name,
+    name === "job-lifecycle" ? `${command} --mutation-proof` : command,
+  ]),
   [
     // Shared builds and semantic checks already passed in typecheck+build.
     "prepare:e2e:ui",
@@ -73,9 +79,7 @@ export function completeSteps(mode) {
       command,
       name === "prepare:e2e:ui" || name === "design-harness:scenarios"
         ? { ...runtime, CI: "true" }
-        : name.startsWith("e2e:")
-          ? { ...runtime, GDG_E2E_BUILT: builtE2EApps.join(",") }
-          : runtime,
+        : runtime,
     ],
   );
 }
@@ -327,6 +331,14 @@ export function changedSteps(mode, files) {
     );
   }
 
+  if (classifyChanges(files).jobLifecycle) {
+    steps.push([
+      "job-lifecycle",
+      `${jobLifecycleCheck}${mode === "full" ? " --mutation-proof" : ""}`,
+      nodeEnvironment(),
+    ]);
+  }
+
   if (checksNodeScripts) {
     steps.push(["typecheck:node-scripts", "pnpm typecheck:node-scripts", runtime]);
   }
@@ -571,9 +583,6 @@ export function changedSteps(mode, files) {
         {
           ...runtime,
           CI: "true",
-          GDG_E2E_BUILT: builtE2EApps
-            .filter((app) => buildWorkspaces.has(`@gdgjp/${app}`))
-            .join(","),
         },
       ]);
     }
@@ -714,7 +723,7 @@ export function runStep(
             name === "e2e"
               ? [...workspaces.keys()]
               : [
-                  name === "e2e:ui"
+                  name === "e2e:ui" || name === "e2e:@gdgjp/design-system"
                     ? UI_DIRECTORY
                     : `apps/${name.replace(/^e2e:(?:@gdgjp\/)?/, "")}`,
                 ];
@@ -747,6 +756,35 @@ export function runStep(
     });
     console.log(`ci:start ${name}`);
   });
+}
+
+export function recordEngineeringObservations(metrics, { cwd = process.cwd() } = {}) {
+  const history = spawnSync("git", ["rev-parse", "--verify", "HEAD"], { cwd, stdio: "ignore" });
+  if (history.status !== 0) return { status: "unavailable", reason: "No committed Git history" };
+  const directory = join(
+    cwd,
+    "local_data/pstack/engineering-health",
+    `${metrics.startedAtUnixMs}-${process.pid}`,
+  );
+  const inputs = join(directory, "inputs");
+  mkdirSync(inputs, { recursive: true });
+  writeFileSync(join(inputs, "ci-run.json"), `${JSON.stringify(metrics, null, 2)}\n`);
+  const path = join(directory, "report.json");
+  const result = spawnSync(
+    process.execPath,
+    [
+      fileURLToPath(new URL("./engineering-health.mjs", import.meta.url)),
+      "--since",
+      new Date(metrics.startedAtUnixMs - 30 * 86_400_000).toISOString(),
+      "--ci-metrics-dir",
+      inputs,
+      "--output",
+      path,
+    ],
+    { cwd, encoding: "utf8" },
+  );
+  if (result.status !== 0) throw new Error(result.stderr || "Engineering observations failed");
+  return { path, status: JSON.parse(readFileSync(path, "utf8")).status };
 }
 
 export async function run(args = process.argv.slice(2)) {
@@ -838,36 +876,38 @@ export async function run(args = process.argv.slice(2)) {
     }
     const durationMs = performance.now() - startedAt;
     mkdirSync(dirname(metricsPath), { recursive: true });
-    writeFileSync(
-      metricsPath,
-      `${JSON.stringify(
-        {
-          schemaVersion: 1,
-          mode,
-          changedOnly,
-          files,
-          cache: noCache ? "disabled" : "default",
-          startedAtUnixMs,
-          durationMs,
-          exitCode: process.exitCode ?? 0,
-          error,
-          runtime: {
-            node: process.version,
-            arch: process.arch,
-            machine: machine(),
-            platform: process.platform,
-            cpus: availableParallelism(),
-          },
-          steps: metrics,
-          skippedSteps: steps
-            .filter(([name]) => !metrics.some((metric) => metric.name === name))
-            .map(([name]) => name),
-          turboRuns: metrics.flatMap((metric) => metric.turboRuns ?? []),
-        },
-        null,
-        2,
-      )}\n`,
-    );
+    const report = {
+      schemaVersion: 1,
+      mode,
+      changedOnly,
+      files,
+      cache: noCache ? "disabled" : "default",
+      startedAtUnixMs,
+      durationMs,
+      exitCode: process.exitCode ?? 0,
+      error,
+      runtime: {
+        node: process.version,
+        arch: process.arch,
+        machine: machine(),
+        platform: process.platform,
+        cpus: availableParallelism(),
+      },
+      steps: metrics,
+      skippedSteps: steps
+        .filter(([name]) => !metrics.some((metric) => metric.name === name))
+        .map(([name]) => name),
+      turboRuns: metrics.flatMap((metric) => metric.turboRuns ?? []),
+    };
+    try {
+      report.engineeringHealth = recordEngineeringObservations(report);
+    } catch (cause) {
+      process.exitCode = 1;
+      report.exitCode = 1;
+      report.engineeringHealth = { status: "error", error: cause.message };
+      console.error(`ci:fail engineering-health ${cause.message}`);
+    }
+    writeFileSync(metricsPath, `${JSON.stringify(report, null, 2)}\n`);
     console.log(`ci:total duration=${formatDuration(durationMs)} metrics=${metricsPath}`);
   }
 }

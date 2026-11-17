@@ -183,6 +183,39 @@ export function isE2EHarnessInput(file) {
   return E2E_HARNESS_INPUTS.has(file);
 }
 
+const JOB_LIFECYCLE_PREFIXES = [
+  ".agents/skills/verify-job-lifecycle/",
+  "apps/wiki/app/features/jobs/",
+  "apps/wiki/app/db/schema/",
+  "apps/wiki/app/routes/api/runner/",
+  "apps/wiki/tests/fixtures/",
+  "apps/wiki/migrations/",
+  "apps/cli/internal/wiki/runner/",
+  "apps/cli/internal/pr/runner/",
+];
+const JOB_LIFECYCLE_FILES = new Set([
+  "apps/wiki/app/features/spaces/test-db.ts",
+  "apps/wiki/app/features/agent-api/runner-identity.server.ts",
+  "apps/wiki/schema.sql",
+  "apps/wiki/package.json",
+  "apps/wiki/vitest.config.ts",
+  "apps/wiki/tsconfig.json",
+  "apps/cli/go.mod",
+  "apps/cli/go.sum",
+  "scripts/verification/workspace-snapshot.mjs",
+  "pnpm-lock.yaml",
+  "pnpm-workspace.yaml",
+  "package.json",
+  "tsconfig.base.json",
+]);
+
+export function isJobLifecycleInput(file) {
+  return (
+    JOB_LIFECYCLE_FILES.has(file) ||
+    JOB_LIFECYCLE_PREFIXES.some((prefix) => file.startsWith(prefix))
+  );
+}
+
 function unique(values) {
   return [...new Set(values)];
 }
@@ -209,6 +242,7 @@ function allResults() {
     cli: true,
     designSource: true,
     engineering: true,
+    jobLifecycle: true,
     full: true,
   };
 }
@@ -308,6 +342,7 @@ export function classifyChanges(files, { forceAll = false } = {}) {
         file === "scripts/check-workspace-boundaries.mjs" ||
         file === "scripts/check-code-comments.mjs" ||
         file === "scripts/code-comment-exceptions.json" ||
+        file === "scripts/engineering-health.mjs" ||
         file === "scripts/run-ci.mjs" ||
         file === "scripts/run-go-ci.mjs" ||
         isE2EHarnessInput(file) ||
@@ -328,6 +363,7 @@ export function classifyChanges(files, { forceAll = false } = {}) {
           file === "scripts/run-go-ci.mjs",
       ),
     designSource: normalizedFiles.some((file) => isDesignSourceFile(file)),
+    jobLifecycle: ciGlobal || normalizedFiles.some(isJobLifecycleInput),
     engineering:
       ciGlobal ||
       normalizedFiles.some((file) =>
@@ -380,6 +416,7 @@ function changedFiles(base, head) {
 function workflowOutputs(result, base, head) {
   return {
     engineering: String(result.engineering),
+    "job-lifecycle": String(result.jobLifecycle),
     ci: JSON.stringify(result.ci),
     build: JSON.stringify(result.build),
     e2e: JSON.stringify(result.e2e),

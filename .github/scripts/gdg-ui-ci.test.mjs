@@ -1,5 +1,8 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { spawnSync } from "node:child_process";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { delimiter, join } from "node:path";
 import { test } from "node:test";
 import { parse as parseYaml } from "yaml";
 import { changedSteps, completeSteps } from "../../scripts/run-ci.mjs";
@@ -255,6 +258,124 @@ test("the selected runtime covers applications", () => {
   );
 });
 
+function collectDeploymentFixture(t, pages, apiExit = 0) {
+  const directory = mkdtempSync(join(tmpdir(), "gdgjp-deploy-observations-"));
+  t.after(() => rmSync(directory, { recursive: true, force: true }));
+  const bin = join(directory, "bin");
+  mkdirSync(bin);
+  const argumentsPath = join(directory, "gh-args.json");
+  writeFileSync(
+    join(bin, "date"),
+    `#!${process.execPath}\nprocess.stdout.write("2026-11-17T00:00:00Z\\n");\n`,
+    { mode: 0o700 },
+  );
+  writeFileSync(
+    join(bin, "gh"),
+    `#!${process.execPath}
+import { writeFileSync } from "node:fs";
+writeFileSync(process.env.FIXTURE_GH_ARGS, JSON.stringify(process.argv.slice(2)));
+process.stdout.write(process.env.FIXTURE_DEPLOY_PAGES);
+process.exit(Number(process.env.FIXTURE_GH_EXIT));
+`,
+    { mode: 0o700 },
+  );
+  const script = stepByName(
+    readWorkflow("ci.yml").jobs.observations,
+    "Collect deployment attempts",
+  ).run;
+  const run = spawnSync("bash", ["-e", "-o", "pipefail", "-c", script], {
+    cwd: directory,
+    encoding: "utf8",
+    env: {
+      ...process.env,
+      PATH: `${bin}${delimiter}${process.env.PATH}`,
+      GITHUB_REPOSITORY: "fixture/repository",
+      FIXTURE_GH_ARGS: argumentsPath,
+      FIXTURE_GH_EXIT: String(apiExit),
+      FIXTURE_DEPLOY_PAGES: JSON.stringify(pages),
+    },
+  });
+  return {
+    run,
+    args: JSON.parse(readFileSync(argumentsPath, "utf8")),
+    directory,
+    bin,
+    output: join(directory, "local_data/pstack/engineering-health"),
+  };
+}
+
+function recordDeploymentFixture(fixture) {
+  mkdirSync(join(fixture.directory, "scripts"));
+  writeFileSync(
+    join(fixture.directory, "scripts/engineering-health.mjs"),
+    'import { writeFileSync } from "node:fs"; writeFileSync("health-arguments.json", JSON.stringify(process.argv.slice(2)));',
+  );
+  const run = spawnSync(
+    "bash",
+    [
+      "-e",
+      "-o",
+      "pipefail",
+      "-c",
+      stepByName(readWorkflow("ci.yml").jobs.observations, "Record engineering observations").run,
+    ],
+    {
+      cwd: fixture.directory,
+      encoding: "utf8",
+      env: { ...process.env, PATH: `${fixture.bin}${delimiter}${process.env.PATH}` },
+    },
+  );
+  assert.equal(run.status, 0, run.stderr);
+  return JSON.parse(readFileSync(join(fixture.directory, "health-arguments.json"), "utf8"));
+}
+
+test("hosted deployment collection preserves complete and incomplete pagination", (t) => {
+  for (const [pages, complete] of [
+    [
+      [
+        { total_count: 2, workflow_runs: [{ id: 1 }] },
+        { total_count: 2, workflow_runs: [{ id: 2 }] },
+      ],
+      true,
+    ],
+    [[{ total_count: 3, workflow_runs: [{ id: 1 }, { id: 2 }] }], false],
+    [[{ total_count: 2, workflow_runs: [{ id: 1 }, { id: 1 }] }], false],
+    [
+      [
+        { total_count: 2, workflow_runs: [{ id: 1 }] },
+        { total_count: 3, workflow_runs: [{ id: 2 }] },
+      ],
+      false,
+    ],
+    [[{ total_count: 0, workflow_runs: [] }], true],
+  ]) {
+    const fixture = collectDeploymentFixture(t, pages);
+    assert.equal(fixture.run.status, 0, fixture.run.stderr);
+    assert.deepEqual(fixture.args.slice(0, 3), ["api", "--paginate", "--slurp"]);
+    assert.match(
+      fixture.args[3],
+      /^repos\/fixture\/repository\/actions\/workflows\/deploy\.yml\/runs\?created=>=.+&per_page=100$/,
+    );
+    const result = JSON.parse(readFileSync(join(fixture.output, "deploy-runs.json"), "utf8"));
+    assert.equal(result.complete, complete);
+    assert.equal(result.workflow_runs.length, pages.flatMap((page) => page.workflow_runs).length);
+    assert.equal(result.source, "github-api:fixture/repository/actions/workflows/deploy.yml/runs");
+    assert.ok(Number.isFinite(Date.parse(result.collectedAt)));
+    assert.ok(recordDeploymentFixture(fixture).includes("--deploy-runs"));
+  }
+});
+
+test("failed hosted deployment collection records unavailable data without an empty success export", (t) => {
+  const fixture = collectDeploymentFixture(t, [], 1);
+  assert.equal(fixture.run.status, 1, fixture.run.stderr);
+  assert.equal(existsSync(join(fixture.output, "deploy-runs.json")), false);
+  assert.deepEqual(
+    JSON.parse(readFileSync(join(fixture.output, "deploy-collection.json"), "utf8")),
+    { status: "unavailable", reason: "GitHub deployment history collection failed" },
+  );
+  assert.equal(recordDeploymentFixture(fixture).includes("--deploy-runs"), false);
+});
+
 test("staged UI E2E uses isolated runs, while stateful application E2E stays uncached", () => {
   const ui = changedSteps("full", ["packages/design-system"]).find(([name]) => name === "e2e:ui");
   assert.equal(ui[2].CI, "true");
@@ -292,8 +413,8 @@ test("Wiki E2E specs and setup changes select the Wiki suite", () => {
   );
   assert.doesNotMatch(setupSteps.find(([name]) => name === "e2e:@gdgjp/wiki")[1], /access-control/);
   assert.equal(appSteps.filter(([name]) => name === "e2e:@gdgjp/wiki").length, 1);
-  assert.equal(appSteps.find(([name]) => name === "e2e:@gdgjp/wiki")[2].GDG_E2E_BUILT, "wiki");
-  assert.equal(specSteps.find(([name]) => name === "e2e:@gdgjp/wiki")[2].GDG_E2E_BUILT, "");
+  assert.equal(appSteps.find(([name]) => name === "e2e:@gdgjp/wiki")[2].GDG_E2E_BUILT, undefined);
+  assert.equal(specSteps.find(([name]) => name === "e2e:@gdgjp/wiki")[2].GDG_E2E_BUILT, undefined);
   assert.ok(
     changedSteps("full", ["apps/wiki/react-router.config.ts"]).some(
       ([name]) => name === "e2e:@gdgjp/wiki",
@@ -311,10 +432,7 @@ test("full CI schedules the Wiki E2E target once", () => {
   assert.ok(steps.find(([name]) => name === "typecheck+build")[2].PATH);
   assert.ok(steps.find(([name]) => name === "test")[2].PATH);
   for (const app of ["wiki", "accounts", "scheduler", "tinyurl", "img", "pay"]) {
-    assert.equal(
-      steps.find(([name]) => name === `e2e:@gdgjp/${app}`)[2].GDG_E2E_BUILT,
-      "accounts,tinyurl,img,scheduler,wiki,roster,ost,mc",
-    );
+    assert.equal(steps.find(([name]) => name === `e2e:@gdgjp/${app}`)[2].GDG_E2E_BUILT, undefined);
   }
   const names = steps.map(([name]) => name);
   assert.ok(names.indexOf("typecheck+build") < names.indexOf("prepare:e2e:ui"));
@@ -332,7 +450,7 @@ test("Worker build configuration edits select their own E2E using freshly built 
       const browsers = steps.filter(([name]) => name.startsWith("e2e:"));
       assert.equal(browsers.length, 1);
       assert.equal(browsers[0][0], `e2e:@gdgjp/${app}`);
-      assert.equal(browsers[0][2].GDG_E2E_BUILT, app);
+      assert.equal(browsers[0][2].GDG_E2E_BUILT, undefined);
     }
   }
 });
@@ -379,7 +497,7 @@ test("changed CI does not unconditionally typecheck unrelated Node scripts", () 
 
 test("hosted CI builds UI before every clean consumer job", () => {
   const workflow = readWorkflow("ci.yml");
-  for (const jobName of ["typecheck", "test", "build", "e2e"]) {
+  for (const jobName of ["typecheck", "test", "build"]) {
     const job = workflow.jobs[jobName];
     const sharedBuildIndex = job.steps.findIndex(
       (step) =>
@@ -409,43 +527,107 @@ test("hosted CI builds UI before every clean consumer job", () => {
   );
 });
 
-test("Wiki E2E setup is isolated from Accounts and uploads only the report", () => {
-  const workflow = readWorkflow("ci.yml");
-  const job = workflow.jobs.e2e;
-  assert.equal(stepByName(job, "Create Wiki E2E vars").if, "matrix.app == 'wiki'");
-  assert.equal(stepByName(job, "Prepare Wiki E2E state").if, "matrix.app == 'wiki'");
+test("hosted E2E delegates fixtures, builds and report retention to the isolated runner", () => {
+  const job = readWorkflow("ci.yml").jobs.e2e;
   assert.equal(
-    stepByName(job, "Migrate Accounts local database").if,
-    "matrix.app != 'design-system' && matrix.app != 'wiki'",
+    stepByName(job, "Run E2E testing").run,
+    "pnpm test:e2e --workspace @gdgjp/${{ matrix.app }}",
   );
-  assert.match(
-    stepByName(job, "Create accounts dev vars").run,
-    /GOOGLE_CLIENT_ID=ci-google-client-id\nGOOGLE_CLIENT_SECRET=ci-google-client-secret/,
-  );
-  assert.equal(stepByName(job, "Migrate tinyurl local database").if, "matrix.app == 'tinyurl'");
-  assert.equal(
-    job.steps.findIndex((step) => step.name === "Migrate tinyurl local database") <
-      job.steps.findIndex((step) => step.name === "Run E2E testing"),
-    true,
-  );
-  const wikiVars = stepByName(job, "Create Wiki E2E vars").run;
-  assert.match(wikiVars, /WIKI_E2E_SESSION_SECRET=ci-wiki-e2e-session-secret/);
-  assert.match(wikiVars, /WIKI_E2E_ISSUER=http:\/\/localhost:6173/);
-  assert.match(wikiVars, /WIKI_E2E_PERSIST_TO=\.wrangler\/e2e-state/);
-  assert.match(wikiVars, /APP_URL=http:\/\/localhost:6177/);
-  assert.doesNotMatch(wikiVars, /CLOUDFLARE_API_TOKEN|accounts\.gdgs\.jp/);
-  assert.equal(
-    job.steps.findIndex((step) => step.name === "Create Wiki E2E vars") <
-      job.steps.findIndex((step) => step.name === "Prepare Wiki E2E state"),
-    true,
-  );
-  assert.equal(
-    job.steps.findIndex((step) => step.name === "Prepare Wiki E2E state") <
-      job.steps.findIndex((step) => step.name === "Run E2E testing"),
-    true,
-  );
+  assert.equal(job.strategy["fail-fast"], false);
   assert.equal(stepByName(job, "Upload Playwright report").if, "always()");
-  assert.doesNotMatch(JSON.stringify(job), /continue-on-error/);
+  assert.equal(stepByName(job, "Upload Playwright report").with.path, "local_data/pstack/e2e/");
+  assert.doesNotMatch(
+    JSON.stringify(job),
+    /continue-on-error|\.dev\.vars|migrate:local|e2e:prepare/,
+  );
+  assert.equal(stepByName(job, "Build shared UI dependency"), undefined);
+});
+
+test("job lifecycle verification is selected across local and hosted delivery", () => {
+  const inputs = [
+    "apps/wiki/app/features/jobs/lease.server.ts",
+    "apps/wiki/app/routes/api/runner/jobs-result.ts",
+    "apps/wiki/app/db/schema/jobs.ts",
+    "apps/wiki/app/features/spaces/test-db.ts",
+    "apps/wiki/app/features/agent-api/runner-identity.server.ts",
+    "apps/wiki/migrations/0074_jobs.sql",
+    "apps/cli/internal/wiki/runner/jobs.go",
+    "apps/cli/internal/pr/runner/runner.go",
+    ".agents/skills/verify-job-lifecycle/coverage.json",
+    "scripts/verification/workspace-snapshot.mjs",
+    "pnpm-lock.yaml",
+  ];
+  for (const mode of ["quick", "full"]) {
+    for (const path of inputs) {
+      const selected = changedSteps(mode, [path]);
+      const verifier = selected.find(([name]) => name === "job-lifecycle");
+      assert.match(verifier?.[1] ?? "", /verify-job-lifecycle\/scripts\/verify\.mjs/);
+      assert.match(
+        verifier?.[1] ?? "",
+        /node --test .*verify-job-lifecycle\/scripts\/verify\.test\.mjs/,
+      );
+      assert.equal(classifyChanges([path]).jobLifecycle, true, path);
+      assert.equal(verifier[1].endsWith(" --mutation-proof"), mode === "full");
+    }
+    assert.ok(completeSteps(mode).some(([name]) => name === "job-lifecycle"));
+  }
+  const coverage = JSON.parse(
+    readFileSync(
+      new URL("../../.agents/skills/verify-job-lifecycle/coverage.json", import.meta.url),
+      "utf8",
+    ),
+  );
+  for (const source of coverage.sources) {
+    assert.equal(classifyChanges([source.path]).jobLifecycle, true, source.path);
+  }
+  assert.equal(
+    classifyChanges(["apps/wiki/app/features/comments/comments.server.ts"]).jobLifecycle,
+    false,
+  );
+  assert.ok(!changedSteps("full", ["docs/README.md"]).some(([name]) => name === "job-lifecycle"));
+  const workflow = readWorkflow("ci.yml");
+  assert.equal(
+    workflow.jobs.changes.outputs["job-lifecycle"],
+    "${{ steps.changes.outputs.job-lifecycle }}",
+  );
+  const job = workflow.jobs["job-lifecycle"];
+  assert.equal(job.if, "needs.changes.outputs.job-lifecycle == 'true'");
+  assert.ok(job.steps.some((step) => step.uses === "actions/setup-go@v5"));
+  assert.ok(
+    job.steps.some(
+      (step) =>
+        step.run?.includes(
+          "node --test .agents/skills/verify-job-lifecycle/scripts/verify.test.mjs",
+        ) &&
+        step.run.includes(
+          "node .agents/skills/verify-job-lifecycle/scripts/verify.mjs --mutation-proof",
+        ),
+    ),
+  );
+});
+
+test("hosted engineering observations run after failures and preserve missing-source status", () => {
+  const workflow = readWorkflow("ci.yml");
+  const job = workflow.jobs.observations;
+  assert.equal(job.if, "always()");
+  const expected = Object.keys(workflow.jobs)
+    .filter((name) => name !== "observations")
+    .sort();
+  assert.deepEqual([...job.needs].sort(), expected);
+  assert.equal(job.steps[0].with["fetch-depth"], 0);
+  assert.deepEqual(job.permissions, { contents: "read", actions: "read" });
+  assert.equal(stepByName(job, "Collect deployment attempts").env.GH_TOKEN, "${{ github.token }}");
+  assert.equal(stepByName(job, "Record engineering observations").if, "always()");
+  assert.match(
+    stepByName(job, "Record engineering observations").run,
+    /node scripts\/engineering-health\.mjs --since/,
+  );
+  assert.doesNotMatch(JSON.stringify(job), /continue-on-error|production-rum|synthetic-navigation/);
+  assert.equal(stepByName(job, "Upload engineering observations").if, "always()");
+  assert.equal(
+    stepByName(job, "Upload engineering observations").with.path,
+    "local_data/pstack/engineering-health/",
+  );
 });
 
 test("deploy builds shared UI before its parallel application builds", () => {

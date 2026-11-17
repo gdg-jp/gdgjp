@@ -34,7 +34,7 @@ See [the comment policy](../../engineering/comments.md). The useEffect restricti
 example; this repository has not supplied replacement APIs that justify that ban.
 
 [The source correspondence](../../archive/reports/engineering-foundations-2026-11-17/sources.md) distinguishes reviewed ideas, implemented
-changes, and missing work. It is not an exhaustive audit of every @poteto post.
+changes, and coverage limits. It is not an exhaustive audit of every @poteto post.
 
 ## Confirmed gaps and changes
 
@@ -58,7 +58,8 @@ See [the verification reference](../../engineering/verification.md) for commands
 ## Delivery sequence and acceptance
 
 The user requires E2E validation and a commit at the end of each implementation
-phase. Continue on `main` in these verifiable units:
+phase. The five units below were implemented on `main` and accepted with the
+[recorded checks](../../archive/reports/engineering-foundations-2026-11-17/validation.md):
 
 1. Finish workspace ownership and OAuth cleanup. Isolate the complete E2E run
    from development state, replace phantom E2E commands with real journeys, run
@@ -103,7 +104,7 @@ The original acceptance criteria remain the basis for those phases:
 
 The initial foundation is committed in `04fb9938`. Mandatory delivery phase 1 is
 committed in `0e128570`, including all 17 isolated E2E suites. The
-[workspace import check](../../engineering/workspace-boundaries.md) to preserve the
+[workspace import check](../../engineering/workspace-boundaries.md) preserves the
 existing separation between applications and shared packages. Negative fixtures
 exercise prohibited imports rather than relying on a clean baseline alone.
 
@@ -129,5 +130,12 @@ and seeded desktop/mobile interaction invariants. The platform fixture registers
 actual local OAuth clients. Preview configuration excludes production routes,
 which otherwise rewrite local callback hosts.
 
-Step 5 remains open. Keep existing regression suites and working
+Phase 4 is committed in `192a491c`. Phase 5 connects the runner verifier and its
+own negative regressions to CI, removes hosted fixture duplication, mines selected
+actual corrections, and reports delivery and synthetic browser observations.
+The final full CI passed all 17 browser suites: 189 passed, zero failed or flaky,
+and one explicit real-SFU skip, with no retries. Production RUM remains unavailable
+and is reported as such.
+
+Keep existing regression suites and working
 application boundaries when adapting another team's examples.

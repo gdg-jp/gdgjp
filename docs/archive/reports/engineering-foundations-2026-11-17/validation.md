@@ -267,3 +267,81 @@ subprocess end without an exit code. Its focused rerun and subsequent whole-scri
 runs passed. No check was disabled. Logs are `/tmp/gdgjp-poteto-phase4-*`.
 The phase commit's hook runs all selected suites again; its full-run metrics and
 final acceptance are recorded in the following delivery audit.
+
+
+## Phase 4 commit acceptance
+
+Commit `192a491c` completed its actual commit hook with exit zero in 247.8 seconds.
+The record is `.turbo/ci-metrics/1794932721729-70433.json`. All 17 configured
+browser suites executed: **189 passed, zero failed or flaky, one skipped**.
+Every recorded test attempt had retry zero. The sole skip needs real Screen SFU
+credentials; it is not a passing test. All isolated application snapshots reported
+successful cleanup. The separate Design System suite also supplied its current
+browser report.
+
+## Phase 5 delivery wiring and observations
+
+The final phase connects the runner verifier's own five negative CLI tests and
+its real-code mutations to local and hosted CI. Quick CI runs its normal checks;
+full and hosted CI also require all ten mutants to be rejected. Hosted E2E uses
+the same snapshot runner as local E2E and uploads retained snapshot reports.
+Duplicated fixture credentials, migrations, and build setup were removed.
+
+Selected actual Git corrections are traced in [corrections](corrections.md).
+The reusable observation command reads reachable Git history, actual deployment
+workflow attempts, local CI records, and completed synthetic document-navigation
+timings. It preserves failures, incomplete runs, skipped checks, stale inputs,
+and unavailable production RUM. The report's availability status is separate
+from application outcomes and deployment approval.
+
+Independent review found that the deployment parser could override an explicit
+`complete: false` when counts matched. A new negative test failed the old parser;
+the corrected parser preserves the explicit flag and rejects a nonboolean flag.
+All eleven health tests passed. The hosted collector's extracted shell was tested
+with complete, short, duplicate, changing-total, empty, and failed API responses.
+A deliberate completeness defect was rejected. These are offline workflow tests,
+not an executed GitHub Actions run.
+
+The read-only GitHub API returned three deployment workflow attempts for the
+seven-day window starting `2026-11-10T15:28:08.842240Z`: all three succeeded,
+with three returned out of three available. This is not a count of application
+releases. Six completed Orca document-navigation samples were retained separately
+from production RUM. Small local samples establish neither a speedup nor production
+performance. The combined report is retained at
+`local_data/pstack/engineering-observations/final.json`; production RUM remains
+unavailable and the report therefore remains `NOT VERIFIED` for source coverage.
+
+The first final full CI exited zero in 270.6 seconds, but inspection found its
+Design System report missing from the aggregate. That suite had actually passed
+68 cases; the named suite looked under `apps/design-system` instead of
+`packages/design-system`. The new process-level regression failed against that
+runner. The fix uses the package directory and preserves the original report.
+The incomplete aggregate remains in `.turbo/ci-metrics/1794933143115-3320.json`;
+it is not the accepted final aggregate.
+
+
+The accepted final `pnpm ci:full` exited zero in **243.4 seconds**. Its record is
+`.turbo/ci-metrics/1794933739065-45237.json`. All 17 browser suites supplied current,
+uncached reports: **189 passed, zero failed or flaky, one real-SFU skip**, with
+retry zero for every recorded attempt. All isolated application snapshots reported
+successful cleanup. The generated observation report independently records 17
+browser reports, zero missing reports, and the same counts.
+
+That execution also passed documentation, comment and workspace boundaries,
+Node script type checks, the installation doctor, ACL mutation verification,
+runner CLI regressions and ten mutation checks, Biome, UI conventions,
+workspace types/builds/tests, all script tests, Go checks, and design scenarios.
+The runner proof retained in the same execution checks real SQLite transitions,
+41 baseline and post-mutation tests, and 26 Go runner tests; its finite bounds
+and deployed-D1 exclusions remain those described in phase 3.
+Separate `pnpm lint`, `pnpm check:docs`, and the pstack doctor passed after the
+final reporting correction. The named-report regression suite passed all ten tests.
+
+All five requested delivery units now have implementation and local acceptance.
+The source correspondence states the scope of every reviewed concept. This does
+not claim exhaustive review of the author's posts or all application features.
+No push, hosted Actions run, deployment, or production mutation was performed.
+The Wiki/CLI protocol change still requires coordinated deployment. Actual Google
+login, real external SFU, production integrations, and production RUM remain outside
+these results. Earlier failed executions remain evidence rather than being erased
+or counted as successful runs.

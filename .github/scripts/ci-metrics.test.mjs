@@ -6,7 +6,11 @@ import { join } from "node:path";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
 import { isolatedE2EMetrics, playwrightMetrics } from "../../scripts/ci-metrics.mjs";
-import { runConcurrentSteps, runStep } from "../../scripts/run-ci.mjs";
+import {
+  recordEngineeringObservations,
+  runConcurrentSteps,
+  runStep,
+} from "../../scripts/run-ci.mjs";
 
 const runner = fileURLToPath(new URL("../../scripts/run-ci.mjs", import.meta.url));
 const fixtureEnv = { ...process.env };
@@ -126,6 +130,36 @@ test("step metrics record elapsed time and failure exit codes", async () => {
     assert.ok(metric.startedAtUnixMs <= Date.now());
     assert.equal(metric.signal, null);
   }
+});
+
+test("named design-system E2E retains its browser report outside apps", (t) => {
+  const cwd = mkdtempSync(join(tmpdir(), "gdg-ci-ui-report-"));
+  t.after(() => rmSync(cwd, { recursive: true, force: true }));
+  writeFileSync(
+    join(cwd, "browser.mjs"),
+    `import { mkdirSync, writeFileSync } from "node:fs";
+mkdirSync("packages/design-system/.turbo", { recursive: true });
+writeFileSync("packages/design-system/.turbo/ci-playwright.json", JSON.stringify({
+  stats: { startTime: new Date().toISOString(), duration: 50, expected: 68,
+    unexpected: 0, skipped: 0, flaky: 0 }, suites: []
+}));`,
+  );
+  const output = execFileSync(
+    process.execPath,
+    [
+      "--input-type=module",
+      "-e",
+      `import { runStep } from ${JSON.stringify(runner)};
+const metric = await runStep(["e2e:@gdgjp/design-system", ${JSON.stringify(`'${process.execPath}' browser.mjs`)}]);
+console.log("fixture-metric=" + JSON.stringify(metric));`,
+    ],
+    { cwd, env: fixtureEnv, encoding: "utf8" },
+  );
+  const metric = JSON.parse(output.match(/^fixture-metric=(.+)$/m)[1]);
+  assert.equal(metric.exitCode, 0);
+  assert.equal(metric.playwright.length, 1);
+  assert.equal(metric.playwright[0].directory, "packages/design-system");
+  assert.equal(metric.playwright[0].counts.passed, 68);
 });
 
 test("task summaries preserve task arguments with and without caching", async () => {
@@ -300,6 +334,7 @@ test("an empty index writes a machine-readable zero-step report", () => {
     assert.deepEqual(report.steps, []);
     assert.deepEqual(report.skippedSteps, []);
     assert.deepEqual(report.turboRuns, []);
+    assert.equal(report.engineeringHealth.status, "unavailable");
   } finally {
     rmSync(cwd, { recursive: true, force: true });
   }
@@ -309,6 +344,20 @@ test("runtime configuration failures still write a failed report", () => {
   const cwd = mkdtempSync(join(tmpdir(), "gdg-ci-planning-"));
   try {
     execFileSync("git", ["init", "--quiet"], { cwd, env: fixtureEnv });
+    execFileSync(
+      "git",
+      [
+        "-c",
+        "user.name=CI fixture",
+        "-c",
+        "user.email=ci@example.test",
+        "commit",
+        "--allow-empty",
+        "--message",
+        "fixture",
+      ],
+      { cwd, env: fixtureEnv },
+    );
     mkdirSync(join(cwd, "packages/design-system/src"), { recursive: true });
     writeFileSync(join(cwd, "packages/design-system/src/example.test.ts"), "// fixture\n");
     execFileSync("git", ["add", "packages/design-system/src/example.test.ts"], {
@@ -328,7 +377,52 @@ test("runtime configuration failures still write a failed report", () => {
     const report = JSON.parse(readFileSync(join(cwd, "result.json"), "utf8"));
     assert.equal(report.exitCode, 1);
     assert.match(report.error, /gdgjp.ciNode/);
+    assert.equal(report.engineeringHealth.status, "NOT VERIFIED");
+    const observation = JSON.parse(readFileSync(report.engineeringHealth.path, "utf8"));
+    assert.equal(observation.ciRuns.runs[0].exitCode, 1);
+    assert.equal(observation.productionRum.status, "unavailable");
     assert.deepEqual(report.steps, []);
+  } finally {
+    rmSync(cwd, { recursive: true, force: true });
+  }
+});
+
+test("engineering observations retain a failed run without claiming missing production data", () => {
+  const cwd = mkdtempSync(join(tmpdir(), "gdg-ci-observations-"));
+  try {
+    execFileSync("git", ["init", "--quiet"], { cwd, env: fixtureEnv });
+    execFileSync(
+      "git",
+      [
+        "-c",
+        "user.name=CI fixture",
+        "-c",
+        "user.email=ci@example.test",
+        "commit",
+        "--allow-empty",
+        "--message",
+        "fixture",
+      ],
+      { cwd, env: fixtureEnv },
+    );
+    const metrics = {
+      schemaVersion: 1,
+      startedAtUnixMs: Date.now(),
+      exitCode: 1,
+      steps: [{ name: "test", exitCode: 1, durationMs: 20 }],
+      skippedSteps: ["e2e:@gdgjp/wiki"],
+    };
+    const receipt = recordEngineeringObservations(metrics, { cwd });
+    assert.equal(receipt.status, "NOT VERIFIED");
+    const report = JSON.parse(readFileSync(receipt.path, "utf8"));
+    assert.equal(report.ciRuns.runs[0].exitCode, 1);
+    assert.equal(report.deployRuns.status, "unavailable");
+    assert.equal(report.syntheticNavigation.status, "unavailable");
+    assert.equal(report.productionRum.status, "unavailable");
+    assert.deepEqual(
+      JSON.parse(readFileSync(join(receipt.path, "../inputs/ci-run.json"), "utf8")),
+      metrics,
+    );
   } finally {
     rmSync(cwd, { recursive: true, force: true });
   }

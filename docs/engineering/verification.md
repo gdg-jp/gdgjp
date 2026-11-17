@@ -64,6 +64,17 @@ quick/full checks include the same verifiers; staged selection includes them for
 relevant paths. The actual selectors and runner commands, rather than this table,
 determine which checks run.
 
+The separate runner-lifecycle job runs the verifier's own negative regressions,
+the real-code bounded checks, Go race tests, and the mutation proof. Quick local
+checks omit mutations; full and hosted checks include them. Selection includes
+every source named in the reviewed coverage record. Source drift is a failure.
+
+Hosted E2E delegates to the same isolated runner used locally and uploads its
+retained evidence tree. Fixture variables, migrations, and builds have one owner.
+Local CI records [engineering observations](observations.md) even after failed
+checks. Hosted observations collect Git and actual deployment workflow attempts.
+Missing metrics and production RUM remain explicit gaps.
+
 ## Agent-driven runtime journeys
 
 Use [Verify Accounts and Wiki](../../.agents/skills/verify-platform/SKILL.md) for
