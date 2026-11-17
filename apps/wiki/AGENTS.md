@@ -1,0 +1,118 @@
+# CLAUDE.md — `@gdgjp/wiki`
+
+wiki.gdgs.jp. Repo-wide conventions in `../../CLAUDE.md`.
+
+## Dev
+
+```
+pnpm --filter @gdgjp/wiki dev                  # :5177
+pnpm --filter @gdgjp/wiki test                 # vitest (unit + golden)
+pnpm --filter @gdgjp/wiki test:golden          # golden snapshots only
+pnpm --filter @gdgjp/wiki test:golden:update   # refresh snapshots
+pnpm --filter @gdgjp/wiki test:e2e             # playwright (auto-boots dev :5177)
+pnpm --filter @gdgjp/wiki migrate:local        # also regenerates schema.sql
+```
+
+Re-run `cf-typegen` (or `typecheck`) after `wrangler.toml` binding edits.
+
+## Worker entry — THREE handlers (`workers/app.ts`)
+
+Single `ExportedHandler<Env>` — understand all three before touching:
+
+- `fetch` — short-circuits `/ws/collab/:space/:slug` to `COLLAB_DO`; otherwise → RR.
+- `scheduled` — crons: `0 15 * * *` (task Discord reminders, 00:00 JST), `0 * * * *` (hourly: source refresh enqueue, knowledge index sweep, expired-lease requeue + runner-down alert, `agent_jobs` synthesize sweep), `0 17 * * *` (02:00 JST: nightly `translate` + `consolidate` jobs), `5 0 * * *` (v1 translation, removed in Stage 07).
+- Runner auth: secret `RUNNER_TOKEN` (32+ chars) is accepted only by `/api/runner/*` and the CLI routes in `tests/architecture/runner-identity-routes.test.ts`.
+- `queue` — consumes `TRANSLATION_QUEUE`, Google Docs import jobs, and `SOURCE_FETCH_QUEUE`. Source import continuation for Chat, Drive, Discord, and websites runs in `SOURCE_IMPORT_DO` alarms, not the queue.
+
+`CollabDurableObject` and `SourceImportDurableObject` are re-exported from the same file so wrangler registers them.
+
+## Bindings (env shape)
+
+| Binding | Purpose |
+|---|---|
+| `DB` | D1, primary store. Via Drizzle (`getDb(env)` in `app/lib/db.server.ts`). |
+| `BUCKET` | R2 — page attachments, source raw objects, answer-job bundles. |
+| `AGENT` | Service binding → `gdgjp-agent` (Discord / Chat). `completeJob` calls its `/internal/answer-ready` when an `answer` job ends. Shared secret `AGENT_SERVICE_TOKEN`. |
+| `KNOWLEDGE` | AI Search namespace `gdgjp-knowledge`; one built-in-storage instance per space. `app/features/knowledge/`. |
+| `TRANSLATION_QUEUE` | Translation producer+consumer; `app/lib/queue-processors.server.ts`. |
+| `SOURCE_FETCH_QUEUE` | Source fetch start messages (`source_fetch`). Source import work continues via DO alarms. |
+| `BROWSER` | Browser Rendering, headless Chromium for PDF. |
+| `AI` | Workers AI — v1 translation only (`m2m100`), removed with `TRANSLATION_QUEUE`. |
+| `COLLAB_DO` | `CollabDurableObject`; one instance per page slug (`idFromName(slug)`). |
+| `SOURCE_IMPORT_DO` | `SourceImportDurableObject`; one instance per source (`getByName(sourceId)`). Alarm self-chain drives each driver's resumable phases. |
+| `WikiGenerationAgent` / `GENERATION_WORKFLOW` | v1 generation, removed in Stage 07: inert classes in `workers/decommissioned.ts` keep the bindings (and stored state) until an operator retires them. |
+
+`worker-configuration.d.ts` is generated — don't hand-edit. Access via `context.cloudflare.env`.
+
+## Auth — RP
+
+OAuth **client** of accounts.gdgs.jp. No local password / better-auth (migrations `0021_drop_better_auth.sql`, `0022_simplify_user.sql`). `app/features/auth/auth.server.ts` → `initializeRpAuth`:
+
+- `cookiePrefix: "gdgjp-wiki"` → session cookie `gdgjp-wiki-session`
+- `RP_SESSION_SECRET` + `IDP_CLIENT_ID=wiki` + `IDP_CLIENT_SECRET`
+
+`user` row is an identity link plus a name/image display cache; admin status is not stored locally — authorize with `user.isAdmin` / `getFreshClaims()`, which are live. Wiki-specific fields (UI/content language, Discord ID) live on `user_preferences` so `user` stays uniform across RPs.
+
+## Drizzle (not Kysely)
+
+Wiki is the only app on Drizzle. Schema in `app/db/schema/` (domain modules + `index.ts` re-export; `~/db/schema` resolves to the directory), `drizzle.config.ts` writes to `migrations/`. Migrations are **hand-written SQL** (not generated). `schema.sql` is the generated post-migration dump — edit migrations, not the dump.
+
+## Knowledge integration (v2)
+
+Pages are written by the OCI runner (`gdg wiki runner`, Codex) through `/sync`, from sources
+added per space. The Worker never calls an LLM. The v1 `/ingest` flow (Agents SDK + Gemini)
+was removed in Stage 07; `/ingest` and `/analyze` 301 to `/s/gdg-jp/sources`.
+
+## Realtime collab editor
+
+TipTap on client, Yjs CRDT over WebSocket to `COLLAB_DO`. Client code lives in `app/features/editor/` (`use-collab-editor.ts`, `remote-cursors-extension.ts`, `tiptap-convert.ts`, `components/`). Awareness via `components/PresenceAvatars.tsx` + `remote-cursors-extension.ts`. Page and version storage is canonical Markdown; `tiptap-convert.ts` is only a legacy TipTap JSON → Markdown boundary converter. Golden suite (`tests/golden/tiptap-*.test.tsx`) snapshots conversion and rendering — when editor schema changes, run `test:golden:update` and review diff.
+
+## i18n
+
+UI strings: `app/locales/{ja,en}/*.json` via `remix-i18next` (`i18n.server.ts` / `i18n.ts`). Two independent axes — **UI** language (`/api/set-ui-lang`) and **content** language (`/api/set-content-lang`); both persist on `user_preferences`. Default `ja`.
+
+## E2E setup (no real OAuth)
+
+`tests/e2e/global-setup.ts` bypasses the IdP entirely:
+
+1. Uses the dedicated `.wrangler/e2e-state` persistence path and applies migrations/seed with Wrangler's `--persist-to` option.
+2. Inserts three fixed users (`admin`/`author`/`member`) + a stable test page, verifies the fixture counts, and forges a `gdgjp-wiki-session` cookie signed with `WIKI_E2E_SESSION_SECRET` and `WIKI_E2E_ISSUER`.
+3. Writes storage-state files under `tests/e2e/storage-state/{admin,author,member}.json`.
+
+`tests/e2e/fixtures.ts` exposes `adminPage` / `authorPage` / `memberPage`. When changing cookie format or session-secret env var, both files MUST move together.
+
+## Code map — 「X はどこ？」
+
+Details in `ARCHITECTURE.md`. Scan this table to narrow the location before you grep.
+
+| 探しもの | 場所 |
+|---|---|
+| スペース（外側 ACL・メンバー・レビュー） | `app/features/spaces/`（README あり）, `app/routes/spaces/` |
+| ページ本体 / ACL / 可視性 / ツリー / メタ / アーカイブ | `app/features/pages/`（README あり。UI は `components/`） |
+| ソース取り込み（UI・API 側） | `app/features/sources/`（README あり）, `app/routes/sources/`, `app/routes/api/sources/` |
+| ソース取り込み（Worker 実行・DO alarm・refresh cron） | `workers/features/sources/` |
+| エージェントジョブ（synthesize / consolidate / translate、runner API） | `app/features/jobs/`, `app/routes/api/runner/`, `app/routes/admin/runner.tsx`。runner 本体は `apps/cli/internal/wiki/runner/`、VM 配備は `infra/oci-runner/` |
+| 検索インデックス（AI Search、スペース別） | `app/features/knowledge/`（README あり） |
+| Google 連携（Drive / Docs / Forms / Chat / Picker） | `app/features/google/`（README あり。Docs インポートは `documents/`） |
+| Discord 連携 | `app/features/discord/`（README あり） |
+| 認証（RP / セッション） | `app/features/auth/`（README あり） |
+| 通知（メール / FCM / Discord） | `app/features/notifications/`（README あり） |
+| タスク | `app/features/tasks/`（README あり）, `app/routes/tasks/` |
+| CLI / エージェント読み取り API | サーバは `app/features/agent-api/`（README あり）。ルートは `app/routes/api/{cli,agent}/*` |
+| リアルタイム共同編集 | クライアント `app/features/editor/`（README あり）、DO `workers/collab-durable-object.ts` |
+| DB スキーマ | `app/db/schema/`（ドメイン別モジュール + `index.ts`。割り当て表は `ARCHITECTURE.md`） |
+| 横断プリミティブ | `app/lib/`（8 本のみ: db / utils / time / color-utils / url-extract / queue-processors / chapter-directory / og-image） |
+| テストの置き場 | ユニットは被験対象の隣（`<subject>.test.ts`）。マイグレーションは `tests/migrations/`、アーキ規約は `tests/architecture/`（配置ルール = `layering.test.ts`、400 行上限 = `file-size.test.ts`。一覧は `ARCHITECTURE.md`） |
+
+**読まないファイル**（生成物、grep のノイズ）: `worker-configuration.d.ts`（14,750 行、正本は
+`wrangler.toml` の表）・`schema.sql`（599、正本 `app/db/schema/`）・`openapi/types.generated.ts`
+（1,157、正本 `openapi/openapi.yaml`）。
+
+このマップはファイルを移動したら同じ変更内で更新する契約。全ドメイン分は `ARCHITECTURE.md`。
+
+## App conventions
+
+- `~/*` → `./app/*`.
+- `.server.ts` modules are server-only (enforced by Vite's import boundary) — never import from client code.
+- Cron triggers are listed in `[triggers].crons`; the `scheduled` handler discriminates by cron string (`TASK_REMINDER_CRON` / `SOURCE_REFRESH_CRON`). Adding another → update both together.
+- Queue messages MUST be discriminable by the guards in `queue-processors.server.ts`. Worker drops unrecognized messages via `ack()`.

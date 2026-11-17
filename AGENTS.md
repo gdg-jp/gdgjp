@@ -1,211 +1,57 @@
-# Repository Guidelines
+# Repository guidelines
 
-## Project Structure & Module Organization
+## Where to read next
 
-Applications live in `apps/` and shared libraries in `packages/`. Workspace globs in
-`pnpm-workspace.yaml` includes `apps/*` and `packages/*`:
+- Applications live in `apps/`, shared libraries in `packages/`, automation in `scripts/`,
+  and documentation in `docs/`. `apps/cli/` is Go and is outside the pnpm workspace.
+- Read the ancestor and local `AGENTS.md` files for every directory you change, including
+  when starting from the repository root. `apps/AGENTS.md` and `packages/AGENTS.md` hold
+  their shared conventions. Local `CLAUDE.md` links to `AGENTS.md` where both use the same rules.
+- Use [the application map](docs/applications.md) to find an application's purpose and services;
+  read its `ARCHITECTURE.md` before changing module ownership or dependencies.
+- Before using a pstack skill, read [.agents/docs/pstack.md](.agents/docs/pstack.md) and
+  the harness guide it names. Skills live in `.agents/skills/`.
 
-- `apps/accounts/` is the GDG Accounts OAuth/OIDC identity provider on Cloudflare Workers, backed by
-  D1 and KV.
-- `apps/tinyurl/`, `apps/img/`, `apps/scheduler/`, `apps/sns/`, `apps/connpass/`, `apps/pay/`, and `apps/wiki/` are React Router v7 SSR
-  Cloudflare Workers and relying parties of `apps/accounts/` (connpass is Bearer-API oriented for
-  CLI/agents; `apps/ost/` and `apps/roster/` below are relying parties for their admin surfaces only). They
-  keep routes in
-  `app/routes/`, route registration in `app/routes.ts`, Worker entrypoints in `workers/`, and D1
-  migrations in `migrations/`.
-  `apps/wiki/` additionally uses R2, Queues, Browser Rendering, Workers AI, Vectorize, and a Durable
-  Object; `apps/img/` uses R2 and Cloudflare Images; `apps/sns/` uses D1, R2, scheduled publishing, and X
-  and Google Photos integrations; `apps/connpass/` uses D1, KV, Queues, and Browser Run for connpass.com
-  admin automation; `apps/pay/` uses D1, R2, Gemini receipt extraction, and Google Sheets/Drive sync.
-- `apps/website/` is the public GDG Japan React Router v7 SSR website on Cloudflare Workers. It uses a
-  TinyURL service binding and has no D1 database.
-- `apps/ost/` is the Open Space Technology support app (`ost.gdgs.jp`): per-event topic collection,
-  participant voting, a venue desk-layout editor, projector screens, and auto-assignment of
-  top-voted topics to desks. React Router v7 SSR on Cloudflare Workers. Public participant pages
-  live at `/:slug`; all admin surfaces (dashboard, screens, editor) are `apps/accounts/` relying-party
-  routes gated by GDG chapter membership. D1 (`DB`) holds only auth tables + an `events` registry;
-  each event's live state (topics, votes, merge groups, desks) is one per-slug Durable Object
-  (`OstBoard`, SQLite storage + hibernatable WebSockets, `getByName(slug)`).
-- `apps/roster/` is the staff shift-schedule generator for events (`roster.gdgs.jp`): owners define
-  time slots/tracks/roles/demand, staff self-register through a public link, and an auto-generator
-  drafts a schedule (skill-mix aware) for hand-editing before publishing a read-only shared view.
-  React Router v7 SSR on Cloudflare Workers, scaffolded from `apps/ost/` but feature-first from the
-  start (`app/features/<domain>/`, no `app/lib/` grab-bag) — see `docs/roster/`. D1 (`DB`) holds
-  auth tables; domain tables land starting Stage 02 of that plan. All admin surfaces are
-  `apps/accounts/` relying-party routes gated by GDG chapter membership; staff self-registration and
-  the published shift view are separate public/sign-in-only surfaces.
-- `apps/mc/` is the remote MC audio player (`mc.gdgs.jp`): the operator controller (an
-  `apps/accounts/` relying party gated by chapter membership) sends commands through a
-  per-track `McRoom` Durable Object (one channel per track) to that track's OBS Browser Source
-  player page (`/play?track=<id>&t=<token>`). Clip audio
-  and timestamped transcripts are generated offline into `public/audio/` and `clips.json`
-  (`scripts/build-clips.mjs`); the source `音声/` and `原稿/` folders are never committed.
-  Clips added later from the controller are stored in R2 (`AUDIO`) + D1 (`uploaded_clip`).
-- `apps/screen/` is the remote speaker feed for OBS (`screen.gdgs.jp`): speakers join a stage
-  from a shared invite link (no login) and send camera, mic and screen share through the
-  Cloudflare Realtime SFU; the operator control room (an `apps/accounts/` relying party gated by
-  chapter membership) assigns speakers to output slots, talks back (push-to-talk while ON AIR),
-  and sends cue cards; each slot's camera/screen/mic is a token-gated OBS Browser Source page
-  (`/out/<stage>/<slot>/<kind>?t=<token>`). D1 holds auth tables + the stage registry; live state
-  is one `StageRoom` Durable Object per stage. The SFU app secret is `REALTIME_APP_TOKEN`.
-- `apps/deck/` is the in-house Stream Deck Mobile replacement for OBS (`deck.gdgs.jp`): chapter
-  members edit a deck (pages, folders, keys running OBS actions, multi-actions) in the PC
-  editor and press keys from a phone PWA (an `apps/accounts/` relying party, chapter-gated); an
-  OBS custom browser dock (`/dock/<deck>?t=<token>`, no login) connects to the local
-  obs-websocket v5 and to the deck's `DeckRoom` Durable Object, so phone and PC need no shared
-  LAN. D1 holds auth tables + decks (layout JSON, versioned) + image rows; key images are in R2
-  (`IMAGES`).
-- `apps/roulette/` is the event prize lottery (`roulette.gdgs.jp`): organizers create a project
-  and set up to 15 prizes with a stock each (unlimited = the losing slot) and a draw mode
-  (standard: by what is left, custom: % per prize, or evil: chosen prizes never come out) on
-  `/admin/<slug>` — an `apps/accounts/` relying party gated by chapter membership, which also
-  shows the draw log (CSV download); visitors spin a roulette wheel once per device at the public
-  `/<slug>`, which never shows stock or exclusions. Runs on the Workers Free plan: D1 only (no Durable Objects, KV,
-  Queues or R2); each spin is one atomic D1 batch.
-- `apps/pr/` is the event PR assistant (`pr.gdgs.jp`): one campaign per event (host chapter +
-  co-host chapters), a versioned brief, a schedule of posts, mails, asks and derived reminders,
-  runner-written drafts with review and approval, delivery through `SNS` / `TINYURL` / `CONNPASS`
-  service bindings (`PrService` entrypoints, each approved by the account's own chapter), images
-  from Playbook templates (Browser Rendering, R2 `IMAGES`, img.gdgs.jp via `IMG_UPLOAD`), metrics
-  and ads CSVs, and a learning loop back into the Playbook. An `apps/accounts/` relying party gated
-  by chapter membership; D1 plus a read-only `WIKI` binding for outreach contacts (the Wiki page is
-  their source of truth). It never calls an LLM (the OCI runner, `gdg pr runner`, does). Its rules
-  come from the `skills/pr-playbook` Playbook (gdg-jp/skills submodule), bundled at build time; see
-  `docs/plans/pr/`.
-- `apps/agent/` is the knowledge-platform front door for Discord and Google Chat
-  (`agent.gdgs.jp`, v2 Stage 05): a plain Cloudflare Worker (D1, KV, one `PendingSweeper`
-  Durable Object, `WIKI` service binding) that verifies webhooks, links chat accounts to GDG
-  Accounts, searches and reads the wiki **as the asker or the guild / Chat-space principal**,
-  and queues `answer` jobs for the OCI runner. It never calls an LLM. It replaced the Vercel
-  `apps/agents`.
-- `apps/mcp/` is the GDG Japan MCP server (`mcp.gdgs.jp/mcp`, Streamable HTTP): a plain
-  Cloudflare Worker that is the OAuth authorization server for MCP clients
-  (`@cloudflare/workers-oauth-provider`: CIMD + DCR, consent page, KV `OAUTH_KV`) and signs
-  people in through GDG Accounts as the trusted client `mcp`. Tools call other apps' existing
-  Bearer APIs **as the signed-in person** with that Accounts token (today: the wiki, over the
-  `WIKI` service binding). Scopes `wiki:read` / `wiki:write`. It never calls an LLM.
-- `packages/gdg-lib/` is the source-only shared TypeScript package (`@gdgjp/gdg-lib`) for relying-party
-  auth and signed-cookie helpers. Keep code app-local unless it is genuinely shared here.
-- `packages/design-system/` is the `gdg-jp/design-system` Git submodule and shared React 19 workspace (`@gdgjp/design-system`).
-  Initialize it with `git submodule update --init packages/design-system` before installing dependencies. It is independent of
-  application routing, authentication, and data fetching. Its `DESIGN.md` `## Harness` section is
-  the entrypoint for the design harness: contracts in `design/`, `pnpm --filter @gdgjp/design-system
-  design:*` checks, the `gdg-design` MCP server, and the `design-build` / `design-review` /
-  `design-improve` Skills.
-- `apps/tinyurl-gateway/` is a Vercel Edge gateway for TinyURL custom domains.
-- `apps/go-extension/` is a Manifest V3 Chrome extension.
-- `apps/accounts-oidc-client-demo/` is a standalone Cloudflare Worker demonstrating an OIDC relying
-  party; it does not use D1, KV, or service bindings.
-
-`apps/cli/` contains the Go-based `gdg` CLI and is not a pnpm workspace. `apps/learn/` is a Git submodule. `infra/oci-runner/` deploys the knowledge runner (`gdg wiki runner`) on an OCI VM. Repository automation lives
-in `scripts/`; supporting documentation lives in `docs/`.
-
-Application code is feature-first; consult each application's `ARCHITECTURE.md` and
-`docs/software-architecture.md`. Domain logic, data access, and tests belong in
-`app/features/<domain>/`; `app/lib/` contains domain-independent primitives.
-Frontend code distinguishes domain-independent components (`app/components/`),
-domain-aware widgets (`app/features/<domain>/components/`), and composed screens
-(`app/routes/<domain>/`). Shared composed shells belong in `app/layouts/`.
-Route modules own screen composition and HTTP handlers together; do not add a separate
-page directory or a forwarding module solely to render the screen. Features do not import routes. Preserve
-framework entrypoints and public URLs when moving modules. Existing wiki and roster
-code maps describe their own placement conventions.
-
-Static assets are normally in `public/`. Unit tests live beside the code they cover as
-`*.test.ts` or `*.test.tsx`; Playwright tests live in each app's `e2e/` directory. `schema.sql`
-files are generated from migrations: edit migrations, not the generated dump.
-
-## Build, Test, and Development Commands
+## Commands and validation
 
 Run commands from the repository root unless a single workspace is in scope.
+Initialize `packages/design-system` with `git submodule update --init packages/design-system`
+before installing dependencies. `apps/learn/`, `skills/`, and `packages/design-system/`
+are separate Git submodules; make changes in the owning repository.
 
-- `pnpm dev`, `pnpm build`, `pnpm deploy`, and `pnpm typecheck` run applicable Turborepo tasks.
+- `pnpm dev`, `pnpm build`, `pnpm deploy`, and `pnpm typecheck` run Turborepo tasks.
 - `pnpm lint`, `pnpm lint:fix`, and `pnpm format` run Biome.
 - `pnpm test` runs repository script tests and workspace Vitest tests.
-- `pnpm test:e2e` runs workspace Playwright tests serially.
-- `pnpm ci:quick` runs Biome and Vitest tests.
-- `pnpm ci:full` runs `ci:quick` + workspace Playwright tests serially.
+- `pnpm test:e2e` runs workspace Playwright suites serially.
+- Prefer `pnpm ci:quick` (Biome + Vitest) and `pnpm ci:full` (also Playwright) for development.
+  Use package filters for focused work or diagnosing CI failures.
+- Run the narrowest relevant check while editing, then `pnpm lint`, `pnpm typecheck`, and
+  `pnpm test`. Run `pnpm test:e2e` for user-facing changes. Report any checks not run.
 
-`node scripts/check-design-harness.mjs` runs the design harness: `source` applies its static rules
-to changed app TSX only (existing violations block a file once it is touched), and `scenarios`
-runs `design:check` for every scenario. The pre-commit hook and the CI `Design harness` job run
-both when app TSX or `packages/design-system` changes.
+Use Orca Browser for browser verification. Read the `orca-cli` skill and its version-matched
+browser reference before driving a tab. Existing Playwright specs may supply journeys and
+assertions; project verification skills must drive the browser through Orca.
+Keep test servers and data isolated from development state.
 
-Prefer `ci:quick` and `ci:full` than specific commands during development.
-Use specific commands only when fixing CI errors.
+## Style, security, and review
 
-Use package filters for focused work, for example:
+Use TypeScript and ESM. Biome enforces 2-space indentation, double quotes, semicolons,
+trailing commas, and a 100-character line width. Use `import type` / `export type` for
+type-only symbols (`verbatimModuleSyntax` and `isolatedModules` are enabled).
 
-```sh
-pnpm --filter @gdgjp/scheduler test
-pnpm --filter @gdgjp/wiki test:golden
-pnpm --filter @gdgjp/tinyurl migrate:local
-pnpm --filter @gdgjp/go-extension build
-```
+Do not commit `.dev.vars*`, secrets, generated Worker types, build output, Playwright reports,
+or local Wrangler state. Do not hand-edit generated Worker types or `schema.sql` dumps;
+edit migrations instead. Store Cloudflare secrets with `wrangler secret put` and Vercel
+secrets in the project's environment.
 
-React Router Worker apps provide `cf-typegen`, `migrate:local`, and `migrate:remote` scripts.
-After modifying a `wrangler.toml` binding, run that app's `cf-typegen` or `typecheck` to refresh
-Worker types. The OIDC demo uses `wrangler.jsonc` and has no D1 migrations.
+Use Conventional Commit subjects scoped by package, such as `feat(accounts): add client management`.
+PRs explain the change, link related issues, list validation, and include screenshots for UI changes.
+Call out binding, migration, deployment, and `.dev.vars.example` changes.
 
-## Coding Style & Naming Conventions
+## Maintaining these instructions
 
-Use TypeScript and ESM. Biome enforces 2-space indentation, double quotes, semicolons, trailing
-commas, and a 100-character line width. TypeScript uses `verbatimModuleSyntax` and
-`isolatedModules`; use `import type` and `export type` for type-only symbols.
-
-React Router route files use the framework's dotted naming conventions, such as
-`chapters.$slug.organize.tsx`. In Worker apps, keep Worker integration in `workers/` and access
-bindings through `context.cloudflare`. Do not hand-edit generated Worker configuration types or
-generated schema dumps.
-
-## Testing Guidelines
-
-Run the narrowest relevant test during development, then run `pnpm lint`, `pnpm typecheck`, and
-`pnpm test`. Run `pnpm test:e2e` for user-facing changes. For a single Vitest or Playwright test,
-use the relevant workspace, for example
-`pnpm --filter @gdgjp/accounts exec vitest run path/to/test.ts`.
-
-## Commit & Pull Request Guidelines
-
-Use Conventional Commit-style subjects scoped by package where practical, for example
-`feat(accounts): add client management`. PRs should describe the change, list validation run,
-link related issues, and include screenshots for UI changes. Call out Cloudflare binding,
-migration, deployment, or `.dev.vars.example` changes.
-
-## Security & Configuration Tips
-
-Do not commit `.dev.vars*`, secrets, generated Worker types, build output, Playwright reports, or
-local Wrangler state. Store Cloudflare secrets with `wrangler secret put`; keep Vercel runtime
-secrets in the Vercel project environment.
-
-Relying-party `.dev.vars` files need `RP_SESSION_SECRET` and `IDP_CLIENT_SECRET`. `apps/accounts/`
-also needs its identity-provider and client secrets. When an Accounts OAuth client secret, ID, or
-redirect URI changes, reseed its client data through `/admin/seed-clients` before testing the
-integration.
-
-## pstack Model Configuration
-
-Before using a pstack skill, read `.codex/pstack-models.md` for this repository's
-role-to-model choices and reasoning budget. This takes precedence over pstack's
-user-global model configuration and skill defaults. Claude Code loads the same
-configuration from `.claude/rules/pstack-models.md`; both files link to
-`.agents/pstack/models.mdc`, which is the single source of truth.
-Cursor reads it through `.cursor/rules/pstack-models.mdc`.
-
-Model identifiers are harness-specific. Use a configured model only when the current
-harness supports it, and pass reasoning effort separately when required. Do not pass
-Cursor Claude slugs to Codex's native subagent tool. If a configured model is unavailable,
-report the limitation and follow the invoked skill's supported fallback; do not claim
-that the configured model ran. Preserve vendor diversity when a skill requires it.
-
-Read `.agents/docs/harness/codex.md` in Codex or
-`.agents/docs/harness/claude-code.md` in Claude Code once per pstack session.
-The local `setup-pstack` target is `.agents/pstack/models.mdc`; do not write a
-user-global configuration unless explicitly requested. Skills live in `.agents/skills/`.
-Run `node scripts/pstack.mjs doctor` to check the installation, and
-`node scripts/pstack.mjs setup` to restore missing discovery links.
-
-Use Orca Browser for browser verification. Load the `orca-cli` skill and its
-version-matched browser reference before driving a tab. Existing Playwright specs
-may supply journeys and assertions, but project verification skills must drive the
-browser through Orca. Keep test servers and data isolated from development state.
+Keep this file limited to repository-wide rules and pointers. Put app-specific constraints
+in that app's `AGENTS.md`, structural explanations in `ARCHITECTURE.md`, and reference material
+in `docs/`. Keep pstack workflow details under `.agents/docs/`. Update the owning source
+instead of copying rules into multiple harness-specific files. When adding local instructions,
+link `CLAUDE.md` to `AGENTS.md` if both harnesses should read the same content.
