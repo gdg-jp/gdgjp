@@ -1,0 +1,44 @@
+name = "gdgjp-meet"
+main = "./workers/app.ts"
+compatibility_date = "2026-07-28"
+compatibility_flags = ["nodejs_compat"]
+
+[alias]
+"virtual:react-router/server-build" = "./build/server/index.js"
+
+[vars]
+ENVIRONMENT = "production"
+APP_URL = "https://meet.gdgs.jp"
+ACCOUNTS_URL = "https://accounts.gdgs.jp"
+IDP_URL = "https://accounts.gdgs.jp"
+IDP_CLIENT_ID = "meet"
+
+[assets]
+binding = "ASSETS"
+directory = "./build/client"
+
+[[routes]]
+pattern = "meet.gdgs.jp"
+custom_domain = true
+
+# Relying-party auth tables (user, oidc_session); domain tables land in Stage 03+.
+[[d1_databases]]
+binding = "DB"
+database_name = "gdgjp-meet-db"
+database_id = "00000000-0000-0000-0000-000000000000" # デプロイ前に wrangler d1 create gdgjp-meet-db の値へ置き換える
+migrations_dir = "./migrations"
+
+# Worker-to-Worker OIDC (discovery, token, UserInfo) stays on Cloudflare's
+# internal network instead of looping through public HTTPS.
+[[services]]
+binding = "ACCOUNTS"
+service = "gdgjp-accounts"
+
+[observability]
+enabled = true
+
+[observability.logs]
+enabled = true
+head_sampling_rate = 1
+persist = true
+invocation_logs = true

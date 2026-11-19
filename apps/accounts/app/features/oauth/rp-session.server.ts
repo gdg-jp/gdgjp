@@ -92,6 +92,7 @@ export function firstPartyRpClientIds(env: Env): string[] {
     env.DECK_CLIENT_ID,
     env.ROULETTE_CLIENT_ID,
     env.PR_CLIENT_ID,
+    env.MEET_CLIENT_ID,
   ].filter(Boolean);
 }
 

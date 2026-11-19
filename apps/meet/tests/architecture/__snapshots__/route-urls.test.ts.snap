@@ -1,0 +1,12 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`public URLs > are exactly these (later stages add theirs here on purpose) 1`] = `
+[
+  "/",
+  "/api/auth/*",
+  "/auth/signout",
+  "/dev/login",
+  "/no-chapter",
+  "/signin",
+]
+`;
