@@ -153,6 +153,9 @@ describe("buildGoogleAuthorizeUrl", () => {
     expect(url.searchParams.get("redirect_uri")).toBe(googleRedirectUri(env));
     expect(url.searchParams.get("response_type")).toBe("code");
     expect(url.searchParams.get("scope")).toBe(GOOGLE_OAUTH_SCOPES.join(" "));
+    expect(GOOGLE_REQUIRED_SCOPES).toContain(
+      "https://www.googleapis.com/auth/meetings.space.settings",
+    );
     expect(url.searchParams.get("access_type")).toBe("offline");
     expect(url.searchParams.get("prompt")).toBe("consent");
     expect(url.searchParams.get("hd")).toBe("gdgoc.jp");
@@ -327,6 +330,39 @@ describe("completeGoogleOauthCallback", () => {
           email_verified: true,
         }),
         scope: `${partialScopes} openid email`,
+        expires_in: 3600,
+      }),
+    ) as unknown as typeof fetch;
+
+    const result = await completeGoogleOauthCallback(
+      env,
+      "admin-1",
+      { state, code: "code", googleError: null },
+      fetchMock,
+    );
+    expect(result).toEqual({ ok: false, errorCode: "scope_missing" });
+    expect(getConnection()).toBeNull();
+  });
+
+  it("meetings.space.settings のみが欠落している場合も拒否する", async () => {
+    const { db, getConnection } = createFakeDb();
+    const env = createEnv(db);
+    const { state } = await createGoogleOauthState(db, "admin-1");
+
+    const scopesWithoutSettings = GOOGLE_REQUIRED_SCOPES.filter(
+      (s) => s !== "https://www.googleapis.com/auth/meetings.space.settings",
+    ).join(" ");
+    const fetchMock = vi.fn(async () =>
+      Response.json({
+        access_token: "ya29.test",
+        refresh_token: "1//0g-token",
+        id_token: makeFakeIdToken({
+          aud: env.GOOGLE_CLIENT_ID,
+          sub: "12345",
+          email: "community-support@gdgoc.jp",
+          email_verified: true,
+        }),
+        scope: `${scopesWithoutSettings} openid email`,
         expires_in: 3600,
       }),
     ) as unknown as typeof fetch;

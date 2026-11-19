@@ -28,6 +28,9 @@ export type InsertCreatingMeetingInput = {
   endAt: string;
   timeZone: string;
   accessType: MeetingAccessType;
+  autoTranscription: boolean;
+  autoSmartNotes: boolean;
+  autoRecording: boolean;
   createdByUserId: string;
   createdByEmail: string;
   nowIso: string;
@@ -45,8 +48,9 @@ export async function insertCreatingMeeting(
       .prepare(
         `INSERT INTO meetings (
            id, host_chapter_id, title, description, start_at, end_at, time_zone,
-           access_type, status, created_by_user_id, created_by_email, created_at, updated_at
-         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'creating', ?, ?, ?, ?)`,
+           access_type, auto_transcription, auto_smart_notes, auto_recording,
+           status, created_by_user_id, created_by_email, created_at, updated_at
+         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'creating', ?, ?, ?, ?)`,
       )
       .bind(
         input.id,
@@ -57,6 +61,9 @@ export async function insertCreatingMeeting(
         input.endAt,
         input.timeZone,
         input.accessType,
+        input.autoTranscription ? 1 : 0,
+        input.autoSmartNotes ? 1 : 0,
+        input.autoRecording ? 1 : 0,
         input.createdByUserId,
         input.createdByEmail,
         input.nowIso,
@@ -159,7 +166,7 @@ export async function updateMeetingLastError(
     .run();
 }
 
-/** 会議の基本情報（タイトル・説明・日時・タイムゾーン・アクセス種別）を更新する。 */
+/** 会議の基本情報（タイトル・説明・日時・タイムゾーン・アクセス種別・自動記録設定）を更新する。 */
 export async function updateMeetingDetails(
   db: D1Database,
   meetingId: string,
@@ -170,6 +177,9 @@ export async function updateMeetingDetails(
     endAt: string;
     timeZone: string;
     accessType: MeetingAccessType;
+    autoTranscription: boolean;
+    autoSmartNotes: boolean;
+    autoRecording: boolean;
     calendarHtmlLink?: string | null;
     updatedAt: string;
   },
@@ -178,7 +188,8 @@ export async function updateMeetingDetails(
     .prepare(
       `UPDATE meetings
        SET title = ?, description = ?, start_at = ?, end_at = ?, time_zone = ?,
-           access_type = ?, calendar_html_link = COALESCE(?, calendar_html_link), updated_at = ?
+           access_type = ?, auto_transcription = ?, auto_smart_notes = ?, auto_recording = ?,
+           calendar_html_link = COALESCE(?, calendar_html_link), updated_at = ?
        WHERE id = ?`,
     )
     .bind(
@@ -188,6 +199,9 @@ export async function updateMeetingDetails(
       params.endAt,
       params.timeZone,
       params.accessType,
+      params.autoTranscription ? 1 : 0,
+      params.autoSmartNotes ? 1 : 0,
+      params.autoRecording ? 1 : 0,
       params.calendarHtmlLink ?? null,
       params.updatedAt,
       meetingId,

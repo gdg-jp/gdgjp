@@ -33,6 +33,7 @@ import {
   toPublicInviteeList,
 } from "~/features/meetings/access.server";
 import { cancelMeeting } from "~/features/meetings/cancel-meeting.server";
+import { AutoArtifactsSummary } from "~/features/meetings/components/AutoArtifactsSummary";
 import { InviteeListCard } from "~/features/meetings/components/InviteeListCard";
 import { MeetingDetailActions } from "~/features/meetings/components/MeetingDetailActions";
 import {
@@ -87,6 +88,9 @@ export async function loader({ request, params, context }: Route.LoaderArgs) {
       endAt: meeting.endAt,
       timeZone: meeting.timeZone,
       accessType: meeting.accessType,
+      autoTranscription: meeting.autoTranscription,
+      autoSmartNotes: meeting.autoSmartNotes,
+      autoRecording: meeting.autoRecording,
       meetingUri: meeting.meetingUri,
       meetingCode: meeting.meetingCode,
       calendarHtmlLink: meeting.calendarHtmlLink,
@@ -306,6 +310,15 @@ export default function MeetingDetail({ loaderData, actionData }: Route.Componen
                     {accessMeta.description}
                   </Text>
                 )}
+              </dd>
+
+              <dt className="font-semibold text-muted">自動記録設定</dt>
+              <dd className="min-w-0">
+                <AutoArtifactsSummary
+                  autoTranscription={meeting.autoTranscription}
+                  autoSmartNotes={meeting.autoSmartNotes}
+                  autoRecording={meeting.autoRecording}
+                />
               </dd>
 
               {meeting.meetingUri && (

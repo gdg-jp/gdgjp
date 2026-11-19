@@ -28,6 +28,7 @@ import {
   updateMeetingDetails,
   updateMeetingLastError,
 } from "./meetings.repository.server";
+import { buildSpaceConfigPatch } from "./space-config.server";
 
 export { haveInviteSourcesChanged, haveInviteesChanged, previewEditMeetingInvitees };
 
@@ -162,12 +163,13 @@ export async function updateMeeting(
   try {
     const accessToken = await getGoogleAccessToken(env, fetchFn);
 
-    if (parsed.data.accessType !== meeting.accessType) {
+    const spacePatch = buildSpaceConfigPatch(meeting, parsed.data);
+    if (spacePatch) {
       await patchSpace(
         accessToken,
         meeting.spaceName,
-        { accessType: parsed.data.accessType },
-        "config.accessType",
+        spacePatch.config,
+        spacePatch.updateMask,
         fetchFn,
       );
     }
@@ -217,6 +219,9 @@ export async function updateMeeting(
     endAt: parsed.data.endAt,
     timeZone: parsed.data.timeZone,
     accessType: parsed.data.accessType,
+    autoTranscription: parsed.data.autoTranscription,
+    autoSmartNotes: parsed.data.autoSmartNotes,
+    autoRecording: parsed.data.autoRecording,
     calendarHtmlLink: patchedHtmlLink,
     updatedAt,
   });

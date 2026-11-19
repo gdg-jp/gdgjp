@@ -68,6 +68,9 @@ export async function loader({ request, params, context }: Route.LoaderArgs) {
       endTime: endLocal.time,
       timeZone: meeting.timeZone,
       accessType: meeting.accessType,
+      autoTranscription: meeting.autoTranscription,
+      autoSmartNotes: meeting.autoSmartNotes,
+      autoRecording: meeting.autoRecording,
     },
     inviteDefaults,
   };
@@ -180,6 +183,11 @@ export default function EditMeeting({ loaderData, actionData }: Route.ComponentP
           defaultEndTime={meeting.endTime}
           defaultTimeZone={meeting.timeZone}
           defaultAccessType={meeting.accessType}
+          defaultAutoArtifacts={{
+            autoTranscription: meeting.autoTranscription,
+            autoSmartNotes: meeting.autoSmartNotes,
+            autoRecording: meeting.autoRecording,
+          }}
           defaultIncludeHostOrganizers={inviteDefaults.includeHostOrganizers}
           defaultAdditionalChapters={inviteDefaults.additionalChapters}
           defaultCohostEmails={inviteDefaults.cohostEmails}

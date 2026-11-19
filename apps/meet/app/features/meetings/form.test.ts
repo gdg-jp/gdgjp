@@ -60,6 +60,48 @@ describe("parseMeetingEditForm", () => {
     if (result.ok) return;
     expect(result.fieldErrors.hostChapterId).toBeTruthy();
   });
+
+  it("自動記録フラグ（文字起こし・Gemini Notes・録画）を true/on/false/未指定から boolean へ変換する", () => {
+    const base = {
+      title: "タイトル",
+      description: "",
+      date: "2026-12-01",
+      startTime: "19:00",
+      endTime: "20:00",
+      timeZone: "Asia/Tokyo",
+      hostChapterId: "1",
+      includeHostOrganizers: "true",
+      accessType: "RESTRICTED",
+    };
+
+    const checkedResult = parseMeetingCreateForm(
+      buildFormData({
+        ...base,
+        autoTranscription: "true",
+        autoSmartNotes: "on",
+        autoRecording: "false",
+      }),
+      new Set([1]),
+    );
+    expect(checkedResult.ok).toBe(true);
+    if (!checkedResult.ok) return;
+    expect(checkedResult.data.autoTranscription).toBe(true);
+    expect(checkedResult.data.autoSmartNotes).toBe(true);
+    expect(checkedResult.data.autoRecording).toBe(false);
+
+    const omittedResult = parseMeetingEditForm(
+      buildFormData({
+        ...base,
+        autoRecording: "true",
+      }),
+      1,
+    );
+    expect(omittedResult.ok).toBe(true);
+    if (!omittedResult.ok) return;
+    expect(omittedResult.data.autoTranscription).toBe(false);
+    expect(omittedResult.data.autoSmartNotes).toBe(false);
+    expect(omittedResult.data.autoRecording).toBe(true);
+  });
 });
 
 describe("inviteSourcesToFormDefaults", () => {

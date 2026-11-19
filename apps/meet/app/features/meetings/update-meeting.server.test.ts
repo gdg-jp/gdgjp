@@ -18,6 +18,9 @@ const ACTIVE_MEETING: MeetingRecord = {
   endAt: "2026-12-01T11:00:00.000Z",
   timeZone: "Asia/Tokyo",
   accessType: "RESTRICTED",
+  autoTranscription: true,
+  autoSmartNotes: true,
+  autoRecording: false,
   spaceName: "spaces/space-1",
   meetingUri: "https://meet.google.com/abc-defg-hij",
   meetingCode: "abc-defg-hij",
@@ -131,8 +134,20 @@ function createFakeEditDb(connection: GoogleConnectionRow | null) {
       return { success: true, meta: {} };
     }
     if (sql.includes("SET title = ?, description = ?")) {
-      const [title, description, startAt, endAt, timeZone, accessType, htmlLink, updatedAt, id] =
-        args;
+      const [
+        title,
+        description,
+        startAt,
+        endAt,
+        timeZone,
+        accessType,
+        autoTranscription,
+        autoSmartNotes,
+        autoRecording,
+        htmlLink,
+        updatedAt,
+        id,
+      ] = args;
       updatedMeeting = {
         id,
         title,
@@ -141,6 +156,9 @@ function createFakeEditDb(connection: GoogleConnectionRow | null) {
         endAt,
         timeZone,
         accessType,
+        autoTranscription,
+        autoSmartNotes,
+        autoRecording,
         htmlLink,
         updatedAt,
       };
@@ -255,6 +273,9 @@ function buildEditForm(overrides: Record<string, string> = {}): FormData {
     timeZone: "Asia/Tokyo",
     includeHostOrganizers: "true",
     accessType: "RESTRICTED",
+    autoTranscription: "true",
+    autoSmartNotes: "true",
+    autoRecording: "false",
     additionalChapters: "[]",
     cohostEmails: "",
     participantEmails: "guest@example.com",
@@ -457,6 +478,133 @@ describe("updateMeeting", () => {
     expect(result).toMatchObject({ ok: false, status: 409 });
     expect(fetchMock).not.toHaveBeenCalled();
     expect(queueSend).not.toHaveBeenCalled();
+  });
+
+  it("自動記録設定のみ変更時は変更項目の updateMask だけで spaces.patch を呼び、D1 も更新する", async () => {
+    const { env, dbFixture, queueSend } = await createEnvFixture({});
+    const reshareMock = vi.fn().mockResolvedValue(undefined);
+    const calls: Array<{ url: string; method: string; body: unknown }> = [];
+
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      const method = init?.method ?? "GET";
+      if (url === "https://oauth2.googleapis.com/token") {
+        return Response.json({ access_token: "ya29.edit-token", expires_in: 3600 });
+      }
+      calls.push({
+        url,
+        method,
+        body: typeof init?.body === "string" ? JSON.parse(init.body) : undefined,
+      });
+      if (url.startsWith("https://meet.googleapis.com/v2/spaces/space-1") && method === "PATCH") {
+        return Response.json({ name: "spaces/space-1" });
+      }
+      if (url.includes("/calendar/v3/calendars/primary/events/evt-1") && method === "PATCH") {
+        return Response.json({ id: "evt-1" });
+      }
+      throw new Error(`想定外の fetch: ${method} ${url}`);
+    }) as unknown as typeof fetch;
+
+    const result = await updateMeeting(
+      env,
+      ACTOR,
+      ACTIVE_MEETING,
+      EXISTING_SOURCES,
+      EXISTING_INVITEES,
+      buildEditForm({
+        autoTranscription: "false",
+        autoSmartNotes: "true",
+        autoRecording: "true",
+      }),
+      {
+        fetchFn: fetchMock,
+        now: () => new Date("2026-11-19T06:45:00.000Z"),
+        enqueueArtifactReshareFn: reshareMock,
+      },
+    );
+
+    expect(result).toEqual({ ok: true, meetingId: "mtg-1", inviteesChanged: false });
+    expect(queueSend).not.toHaveBeenCalled();
+    expect(reshareMock).not.toHaveBeenCalled();
+    expect(calls[0]).toEqual({
+      url: "https://meet.googleapis.com/v2/spaces/space-1?updateMask=config.artifactConfig.transcriptionConfig.autoTranscriptionGeneration%2Cconfig.artifactConfig.recordingConfig.autoRecordingGeneration",
+      method: "PATCH",
+      body: {
+        config: {
+          artifactConfig: {
+            transcriptionConfig: { autoTranscriptionGeneration: "OFF" },
+            recordingConfig: { autoRecordingGeneration: "ON" },
+          },
+        },
+      },
+    });
+    expect(dbFixture.getUpdatedMeeting()).toMatchObject({
+      autoTranscription: 0,
+      autoSmartNotes: 1,
+      autoRecording: 1,
+    });
+  });
+
+  it("accessType と自動記録設定を同時に変更すると 1 回の spaces.patch にまとめて送信する", async () => {
+    const { env, dbFixture } = await createEnvFixture({});
+    const reshareMock = vi.fn().mockResolvedValue(undefined);
+    const spacePatches: Array<{ url: string; body: unknown }> = [];
+
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      const method = init?.method ?? "GET";
+      if (url === "https://oauth2.googleapis.com/token") {
+        return Response.json({ access_token: "ya29.edit-token", expires_in: 3600 });
+      }
+      if (url.startsWith("https://meet.googleapis.com/v2/spaces/space-1") && method === "PATCH") {
+        spacePatches.push({ url, body: JSON.parse(String(init?.body)) });
+        return Response.json({ name: "spaces/space-1" });
+      }
+      if (url.includes("/calendar/v3/calendars/primary/events/evt-1") && method === "PATCH") {
+        return Response.json({ id: "evt-1" });
+      }
+      throw new Error(`想定外の fetch: ${method} ${url}`);
+    }) as unknown as typeof fetch;
+
+    const result = await updateMeeting(
+      env,
+      ACTOR,
+      ACTIVE_MEETING,
+      EXISTING_SOURCES,
+      EXISTING_INVITEES,
+      buildEditForm({
+        accessType: "OPEN",
+        autoTranscription: "true",
+        autoSmartNotes: "false",
+        autoRecording: "true",
+      }),
+      {
+        fetchFn: fetchMock,
+        now: () => new Date("2026-11-19T06:50:00.000Z"),
+        enqueueArtifactReshareFn: reshareMock,
+      },
+    );
+
+    expect(result).toEqual({ ok: true, meetingId: "mtg-1", inviteesChanged: false });
+    expect(spacePatches).toHaveLength(1);
+    expect(spacePatches[0]).toEqual({
+      url: "https://meet.googleapis.com/v2/spaces/space-1?updateMask=config.accessType%2Cconfig.artifactConfig.smartNotesConfig.autoSmartNotesGeneration%2Cconfig.artifactConfig.recordingConfig.autoRecordingGeneration",
+      body: {
+        config: {
+          accessType: "OPEN",
+          artifactConfig: {
+            smartNotesConfig: { autoSmartNotesGeneration: "OFF" },
+            recordingConfig: { autoRecordingGeneration: "ON" },
+          },
+        },
+      },
+    });
+    expect(dbFixture.getUpdatedMeeting()).toMatchObject({
+      accessType: "OPEN",
+      autoTranscription: 1,
+      autoSmartNotes: 0,
+      autoRecording: 1,
+    });
   });
 });
 

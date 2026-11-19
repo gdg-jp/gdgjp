@@ -3,6 +3,7 @@ import {
   DEFAULT_TIME_ZONE,
   type InviteeRole,
   type MeetingAccessType,
+  type MeetingAutoArtifacts,
   type MeetingInviteSourceRecord,
   isMeetingAccessType,
   isValidTimeZone,
@@ -31,14 +32,15 @@ export type ParsedInviteInputs = {
   sources: InviteSourceInput[];
 };
 
-export type ParsedMeetingCreateForm = ParsedInviteInputs & {
-  title: string;
-  description: string;
-  startAt: string;
-  endAt: string;
-  timeZone: string;
-  accessType: MeetingAccessType;
-};
+export type ParsedMeetingCreateForm = ParsedInviteInputs &
+  MeetingAutoArtifacts & {
+    title: string;
+    description: string;
+    startAt: string;
+    endAt: string;
+    timeZone: string;
+    accessType: MeetingAccessType;
+  };
 
 export type AdditionalChapterRow = {
   chapterId: number;
@@ -100,6 +102,11 @@ function parseAdditionalChapters(raw: string | null): {
   return { rows };
 }
 
+function parseCheckboxFlag(value: FormDataEntryValue | null): boolean {
+  const raw = String(value ?? "").trim();
+  return raw === "true" || raw === "on";
+}
+
 function parseInviteSourcesWithHostChapter(
   formData: FormData,
   hostChapterId: number,
@@ -107,9 +114,7 @@ function parseInviteSourcesWithHostChapter(
 ): { ok: true; data: ParsedInviteInputs } | { ok: false; fieldErrors: CreateMeetingFieldErrors } {
   const fieldErrors: CreateMeetingFieldErrors = { ...initialErrors };
 
-  const includeHostOrganizersRaw = String(formData.get("includeHostOrganizers") ?? "").trim();
-  const includeHostOrganizers =
-    includeHostOrganizersRaw === "true" || includeHostOrganizersRaw === "on";
+  const includeHostOrganizers = parseCheckboxFlag(formData.get("includeHostOrganizers"));
 
   const additionalResult = parseAdditionalChapters(
     formData.get("additionalChapters") === null ? null : String(formData.get("additionalChapters")),
@@ -241,6 +246,10 @@ function parseMeetingCommonFields(
     fieldErrors.accessType = "アクセスの種類を選択してください。";
   }
 
+  const autoTranscription = parseCheckboxFlag(formData.get("autoTranscription"));
+  const autoSmartNotes = parseCheckboxFlag(formData.get("autoSmartNotes"));
+  const autoRecording = parseCheckboxFlag(formData.get("autoRecording"));
+
   if (!inviteResult.ok) {
     Object.assign(fieldErrors, inviteResult.fieldErrors);
   }
@@ -264,6 +273,9 @@ function parseMeetingCommonFields(
       endAt,
       timeZone,
       accessType: accessTypeRaw,
+      autoTranscription,
+      autoSmartNotes,
+      autoRecording,
       hostChapterId: inviteResult.data.hostChapterId,
       sources: inviteResult.data.sources,
     },

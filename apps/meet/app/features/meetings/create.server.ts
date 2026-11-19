@@ -28,6 +28,7 @@ import {
   updateMeetingLastError,
   updateMeetingSpace,
 } from "./meetings.repository.server";
+import { buildMeetArtifactConfig } from "./space-config.server";
 
 export type { CreateMeetingFieldErrors };
 
@@ -171,6 +172,9 @@ export async function createMeeting(
     endAt: parsed.data.endAt,
     timeZone: parsed.data.timeZone,
     accessType: parsed.data.accessType,
+    autoTranscription: parsed.data.autoTranscription,
+    autoSmartNotes: parsed.data.autoSmartNotes,
+    autoRecording: parsed.data.autoRecording,
     createdByUserId: actor.user.id,
     createdByEmail: actor.user.email,
     nowIso: createdAtIso,
@@ -186,7 +190,11 @@ export async function createMeeting(
     const accessToken = await getGoogleAccessToken(env, fetchFn);
     createdSpace = await createSpace(
       accessToken,
-      { accessType: parsed.data.accessType, moderation: "ON" },
+      {
+        accessType: parsed.data.accessType,
+        moderation: "ON",
+        artifactConfig: buildMeetArtifactConfig(parsed.data),
+      },
       fetchFn,
     );
 
