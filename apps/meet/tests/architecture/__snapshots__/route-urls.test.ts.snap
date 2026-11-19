@@ -1,0 +1,19 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`public URLs > are exactly these (later stages add theirs here on purpose) 1`] = `
+[
+  "/",
+  "/admin/google",
+  "/admin/google/callback",
+  "/api/auth/*",
+  "/api/google/events",
+  "/auth/signout",
+  "/dev/login",
+  "/dev/simulate-event",
+  "/meetings/:id",
+  "/meetings/:id/edit",
+  "/meetings/new",
+  "/no-chapter",
+  "/signin",
+]
+`;

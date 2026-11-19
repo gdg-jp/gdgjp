@@ -95,6 +95,7 @@ const workspaces = new Map([
   ["apps/go-extension", "@gdgjp/go-extension"],
   ["apps/img", "@gdgjp/img"],
   ["apps/mc", "@gdgjp/mc"],
+  ["apps/meet", "@gdgjp/meet"],
   ["apps/ost", "@gdgjp/ost"],
   ["apps/pay", "@gdgjp/pay"],
   ["apps/pr", "@gdgjp/pr"],

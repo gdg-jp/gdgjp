@@ -1,0 +1,72 @@
+name = "gdgjp-meet"
+main = "./workers/app.ts"
+compatibility_date = "2026-07-28"
+compatibility_flags = ["nodejs_compat"]
+
+[alias]
+"virtual:react-router/server-build" = "./build/server/index.js"
+
+[vars]
+ENVIRONMENT = "production"
+APP_URL = "https://meet.gdgs.jp"
+ACCOUNTS_URL = "https://accounts.gdgs.jp"
+IDP_URL = "https://accounts.gdgs.jp"
+IDP_CLIENT_ID = "meet"
+# gdgs-meet の Web 型 OAuth クライアント（リダイレクト URI: https://meet.gdgs.jp/admin/google/callback）
+GOOGLE_CLIENT_ID = "828916707531-67pbiah9tl8b71qkj2eb03or3olrufe0.apps.googleusercontent.com"
+GOOGLE_HOST_EMAIL = "community-support@gdgoc.jp"
+GOOGLE_PUBSUB_TOPIC = "projects/gdgs-meet/topics/meet-events"
+PUBSUB_PUSH_AUDIENCE = "https://meet.gdgs.jp/api/google/events"
+# Pub/Sub Push の OIDC トークンを署名するサービスアカウント（gdgs-meet の Push サブスクリプション meet-events-push）
+PUBSUB_PUSH_SERVICE_ACCOUNT = "meet-pubsub-push@gdgs-meet.iam.gserviceaccount.com"
+
+[assets]
+binding = "ASSETS"
+directory = "./build/client"
+
+[[routes]]
+pattern = "meet.gdgs.jp"
+custom_domain = true
+
+# Relying-party auth tables (user, oidc_session); domain tables land in Stage 03+.
+[[d1_databases]]
+binding = "DB"
+database_name = "gdgjp-meet-db"
+database_id = "e2385f4c-29ec-443e-b116-e30619b54592"
+migrations_dir = "./migrations"
+
+# Worker-to-Worker OIDC (discovery, token, UserInfo) stays on Cloudflare's
+# internal network instead of looping through public HTTPS.
+[[services]]
+binding = "ACCOUNTS"
+service = "gdgjp-accounts"
+
+# アクティブなチャプターメンバー一覧を取得する内部 RPC（gdgjp-accounts の MeetDirectoryService）
+[[services]]
+binding = "ACCOUNTS_DIRECTORY"
+service = "gdgjp-accounts"
+entrypoint = "MeetDirectoryService"
+
+# 非同期メンバー同期・生成ファイル処理などのジョブキュー
+[[queues.producers]]
+binding = "MEET_JOBS"
+queue = "gdgjp-meet-jobs"
+
+[[queues.consumers]]
+queue = "gdgjp-meet-jobs"
+max_batch_size = 1
+max_concurrency = 1
+max_retries = 5
+
+# 毎時実行: Workspace Events 購読の維持・取りこぼし補完・未完了生成ファイルの再投入
+[triggers]
+crons = ["7 * * * *"]
+
+[observability]
+enabled = true
+
+[observability.logs]
+enabled = true
+head_sampling_rate = 1
+persist = true
+invocation_logs = true

@@ -237,6 +237,12 @@ jobs:
               pnpm --filter @gdgjp/pr build
               pnpm --filter @gdgjp/pr run deploy
               pnpm --filter @gdgjp/pr migrate:remote
+          - name: Build, deploy, and migrate meet
+            if: contains(fromJSON(needs.changes.outputs.deploy-apps), 'meet')
+            run: |
+              pnpm --filter @gdgjp/meet build
+              pnpm --filter @gdgjp/meet run deploy
+              pnpm --filter @gdgjp/meet migrate:remote
           - name: Build and deploy website
             if: contains(fromJSON(needs.changes.outputs.deploy-apps), 'website')
             run: |

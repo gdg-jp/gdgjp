@@ -58,5 +58,8 @@ PR_REDIRECT_URLS=http://localhost:5191/api/auth/callback/gdgjp
 MCP_CLIENT_SECRET=""
 MCP_CLIENT_ID=mcp
 MCP_REDIRECT_URLS=http://localhost:5192/callback
+MEET_CLIENT_SECRET=""
+MEET_CLIENT_ID=meet
+MEET_REDIRECT_URLS=http://localhost:5193/api/auth/callback/gdgjp
 
 RESEND_API_KEY=""
