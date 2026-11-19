@@ -1,4 +1,5 @@
 import {
+  Avatar,
   Badge,
   Card,
   Heading,
@@ -65,8 +66,13 @@ export function InviteeListCard({ invitees }: InviteeListCardProps) {
               const subLabel = resolveInviteeSubLabel(invitee);
               return (
                 <Item key={`${invitee.role}-${invitee.email}-${index}`} variant="outline">
-                  <ItemMedia>
-                    <Icons name="UserRound" size={18} aria-hidden="true" />
+                  <ItemMedia variant="avatar">
+                    <Avatar
+                      src={invitee.avatarUrl ?? undefined}
+                      alt={primaryLabel}
+                      fallback={<Icons name="UserRound" size={18} aria-hidden="true" />}
+                      className="shadow-none"
+                    />
                   </ItemMedia>
                   <ItemContent>
                     <ItemTitle className="break-all">{primaryLabel}</ItemTitle>

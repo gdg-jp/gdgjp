@@ -24,7 +24,10 @@ import {
   type UserChapter,
   fetchChaptersForUser,
 } from "~/features/auth/chapter.server";
-import { fetchChaptersDirectory } from "~/features/directory/directory.server";
+import {
+  fetchChaptersDirectory,
+  resolveInviteeAvatars,
+} from "~/features/directory/directory.server";
 import { getGoogleConnectionSummary } from "~/features/google/oauth.server";
 import {
   canEditMeeting,
@@ -58,10 +61,11 @@ export async function loader({ request, params, context }: Route.LoaderArgs) {
   }
 
   const { user, meeting, invitees } = await requireMeetingViewAccess(env, request, meetingId);
-  const [directoryChapters, googleConnection, artifacts] = await Promise.all([
+  const [directoryChapters, googleConnection, artifacts, avatarByEmail] = await Promise.all([
     fetchChaptersDirectory(env).catch(() => []),
     getGoogleConnectionSummary(env.DB),
     listArtifactsByMeetingId(env.DB, meetingId),
+    resolveInviteeAvatars(env, user, invitees),
   ]);
   const hostChapterName =
     directoryChapters.find((c) => c.id === meeting.hostChapterId)?.name ??
@@ -95,7 +99,7 @@ export async function loader({ request, params, context }: Route.LoaderArgs) {
       canceledAt: meeting.canceledAt,
       hostChapterName,
     },
-    invitees: toPublicInviteeList(invitees),
+    invitees: toPublicInviteeList(invitees, avatarByEmail),
     artifacts: artifacts.map(toPublicArtifact),
   };
 }

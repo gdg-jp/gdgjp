@@ -1,7 +1,12 @@
 import { DatabaseSync } from "node:sqlite";
 import type { ChapterRole, MeetActor } from "@gdgjp/gdg-lib";
 import { describe, expect, it } from "vitest";
-import { MAX_MEET_DIRECTORY_CHAPTER_IDS, listMeetChapterMembers } from "./meet-directory.server";
+import {
+  MAX_MEET_AVATAR_EMAILS,
+  MAX_MEET_DIRECTORY_CHAPTER_IDS,
+  listMeetChapterMembers,
+  listMeetUserAvatarsByEmails,
+} from "./meet-directory.server";
 
 /**
  * Node 組み込み SQLite（`:memory:`）上に accounts の必要テーブルを用意し、
@@ -15,7 +20,9 @@ function createDb() {
     CREATE TABLE "user" (
       id TEXT PRIMARY KEY,
       name TEXT NOT NULL,
-      email TEXT NOT NULL UNIQUE
+      email TEXT NOT NULL UNIQUE,
+      image TEXT,
+      updated_at INTEGER NOT NULL DEFAULT 0
     );
     CREATE TABLE chapters (
       id INTEGER PRIMARY KEY,
@@ -36,12 +43,19 @@ function createDb() {
       (1, 'gdg-tokyo', 'GDG Tokyo'),
       (2, 'gdg-osaka', 'GDG Osaka');
 
-    INSERT INTO "user" (id, name, email) VALUES
-      ('u-org-b', 'Bob Organizer', 'bob@example.com'),
-      ('u-org-a', 'Alice Organizer', 'alice@example.com'),
-      ('u-mem-c', 'Carol Member', 'carol@example.com'),
-      ('u-pending', 'Dave Pending', 'dave@example.com'),
-      ('u-outsider', 'Eve Outsider', 'eve@example.com');
+    INSERT INTO "user" (id, name, email, image, updated_at) VALUES
+      ('u-org-b', 'Bob Organizer', 'bob@example.com', 'https://lh3.googleusercontent.com/a/bob=s96-c', 100),
+      ('u-org-a', 'Alice Organizer', 'alice@example.com', 'https://lh3.googleusercontent.com/a/alice=s96-c', 200),
+      ('u-mem-c', 'Carol Member', 'carol@example.com', NULL, 150),
+      ('u-pending', 'Dave Pending', 'dave@example.com', 'http://insecure.example.com/dave.png', 100),
+      ('u-outsider', 'Eve Outsider', 'eve@example.com', 'https://lh3.googleusercontent.com/a/eve=s96-c', 100),
+      ('u-gmail', 'Gmail Dotted', 'first.last@gmail.com', 'https://lh3.googleusercontent.com/a/gmail=s96-c', 100),
+      ('u-googlemail', 'Googlemail Dotted', 'g.mail@googlemail.com', 'https://lh3.googleusercontent.com/a/googlemail=s96-c', 100),
+      ('u-custom-dot', 'Custom Dotted', 'first.last@example.com', 'https://lh3.googleusercontent.com/a/custom=s96-c', 100),
+      ('u-bad-js', 'Bad JS', 'badjs@example.com', 'javascript:alert(1)', 100),
+      ('u-bad-data', 'Bad Data', 'baddata@example.com', 'data:image/png;base64,AAAA', 100),
+      ('u-bad-creds', 'Bad Creds', 'badcreds@example.com', 'https://user:pass@example.com/a.png', 100),
+      ('u-blank', 'Blank Image', 'blank@example.com', '   ', 100);
 
     INSERT INTO memberships (user_id, chapter_id, role, status) VALUES
       ('u-org-b', 1, 'organizer', 'active'),
@@ -299,6 +313,210 @@ describe("listMeetChapterMembers", () => {
       listMeetChapterMembers(brokenDb, {
         actor: makeActor("u-org-a"),
         chapterIds: [1],
+      }),
+    ).resolves.toEqual({ ok: false, code: "internal_error" });
+  });
+});
+
+describe("listMeetUserAvatarsByEmails", () => {
+  it("returns HTTPS avatars for valid chapter-member and non-chapter-member callers", async () => {
+    const { db } = createDb();
+
+    const byMember = await listMeetUserAvatarsByEmails(db, {
+      actorUserId: "u-org-a",
+      emails: ["alice@example.com", "bob@example.com", "carol@example.com"],
+    });
+    expect(byMember).toEqual({
+      ok: true,
+      avatars: [
+        {
+          emailNormalized: "alice@example.com",
+          image: "https://lh3.googleusercontent.com/a/alice=s96-c",
+        },
+        {
+          emailNormalized: "bob@example.com",
+          image: "https://lh3.googleusercontent.com/a/bob=s96-c",
+        },
+      ],
+    });
+
+    // 会議詳細画面はチャプター未所属の招待ゲストにも閲覧を許可するため、
+    // memberships を持たない accounts ユーザーでも照会できる。
+    const byNonChapterUser = await listMeetUserAvatarsByEmails(db, {
+      actorUserId: "u-outsider",
+      emails: ["alice@example.com", "eve@example.com"],
+    });
+    expect(byNonChapterUser).toEqual({
+      ok: true,
+      avatars: [
+        {
+          emailNormalized: "alice@example.com",
+          image: "https://lh3.googleusercontent.com/a/alice=s96-c",
+        },
+        {
+          emailNormalized: "eve@example.com",
+          image: "https://lh3.googleusercontent.com/a/eve=s96-c",
+        },
+      ],
+    });
+  });
+
+  it("matches Gmail and Googlemail dot variants while keeping custom-domain dots distinct", async () => {
+    const { db } = createDb();
+
+    const result = await listMeetUserAvatarsByEmails(db, {
+      actorUserId: "u-org-a",
+      emails: [
+        "FirstLast@gmail.com",
+        "gmail@googlemail.com",
+        "firstlast@example.com",
+        "first.last@example.com",
+      ],
+    });
+
+    expect(result).toEqual({
+      ok: true,
+      avatars: [
+        {
+          emailNormalized: "first.last@example.com",
+          image: "https://lh3.googleusercontent.com/a/custom=s96-c",
+        },
+        {
+          emailNormalized: "firstlast@gmail.com",
+          image: "https://lh3.googleusercontent.com/a/gmail=s96-c",
+        },
+        {
+          emailNormalized: "gmail@googlemail.com",
+          image: "https://lh3.googleusercontent.com/a/googlemail=s96-c",
+        },
+      ],
+    });
+  });
+
+  it("filters out NULL, blank, non-HTTPS, and credential-bearing avatar URLs", async () => {
+    const { db } = createDb();
+
+    const result = await listMeetUserAvatarsByEmails(db, {
+      actorUserId: "u-org-a",
+      emails: [
+        "carol@example.com",
+        "dave@example.com",
+        "badjs@example.com",
+        "baddata@example.com",
+        "badcreds@example.com",
+        "blank@example.com",
+        "bob@example.com",
+      ],
+    });
+
+    expect(result).toEqual({
+      ok: true,
+      avatars: [
+        {
+          emailNormalized: "bob@example.com",
+          image: "https://lh3.googleusercontent.com/a/bob=s96-c",
+        },
+      ],
+    });
+  });
+
+  it("rejects missing or unknown actorUserId with forbidden without querying target emails", async () => {
+    const { db, executedSql } = createDb();
+
+    expect(
+      await listMeetUserAvatarsByEmails(db, {
+        actorUserId: "  ",
+        emails: ["alice@example.com"],
+      }),
+    ).toEqual({ ok: false, code: "forbidden" });
+    expect(executedSql).toHaveLength(0);
+
+    expect(
+      await listMeetUserAvatarsByEmails(db, {
+        actorUserId: "u-does-not-exist",
+        emails: ["alice@example.com"],
+      }),
+    ).toEqual({ ok: false, code: "forbidden" });
+    expect(executedSql).toHaveLength(1);
+    expect(executedSql[0]).toContain('SELECT 1 FROM "user" WHERE id = ? LIMIT 1');
+  });
+
+  it("rejects invalid emails inputs and requests exceeding MAX_MEET_AVATAR_EMAILS", async () => {
+    const { db } = createDb();
+
+    expect(
+      await listMeetUserAvatarsByEmails(db, {
+        actorUserId: "u-org-a",
+        emails: "alice@example.com" as unknown as string[],
+      }),
+    ).toEqual({ ok: false, code: "invalid_emails" });
+
+    expect(
+      await listMeetUserAvatarsByEmails(db, {
+        actorUserId: "u-org-a",
+        emails: [123 as unknown as string],
+      }),
+    ).toEqual({ ok: false, code: "invalid_emails" });
+
+    const overLimit = Array.from(
+      { length: MAX_MEET_AVATAR_EMAILS + 1 },
+      (_, idx) => `u${idx}@example.com`,
+    );
+    expect(
+      await listMeetUserAvatarsByEmails(db, {
+        actorUserId: "u-org-a",
+        emails: overLimit,
+      }),
+    ).toEqual({ ok: false, code: "too_many_emails" });
+  });
+
+  it("handles empty emails cleanly and chunks queries of > 100 unique emails into <= 50 variables", async () => {
+    const { db, executedSql } = createDb();
+
+    const emptyRes = await listMeetUserAvatarsByEmails(db, {
+      actorUserId: "u-org-a",
+      emails: ["  ", ""],
+    });
+    expect(emptyRes).toEqual({ ok: true, avatars: [] });
+    expect(executedSql).toHaveLength(1);
+
+    executedSql.length = 0;
+    const bulkEmails = [
+      "alice@example.com",
+      ...Array.from({ length: 119 }, (_, idx) => `bulk-${idx}@example.com`),
+    ];
+    const bulkRes = await listMeetUserAvatarsByEmails(db, {
+      actorUserId: "u-org-a",
+      emails: bulkEmails,
+    });
+    expect(bulkRes).toEqual({
+      ok: true,
+      avatars: [
+        {
+          emailNormalized: "alice@example.com",
+          image: "https://lh3.googleusercontent.com/a/alice=s96-c",
+        },
+      ],
+    });
+    // 1 actor check + 3 chunked SELECTs (50 + 50 + 20)
+    expect(executedSql).toHaveLength(4);
+    for (const sql of executedSql.slice(1)) {
+      const placeholderCount = (sql.match(/\?/g) ?? []).length;
+      expect(placeholderCount).toBeLessThanOrEqual(50);
+    }
+  });
+
+  it("converts unexpected DB exceptions into internal_error instead of throwing", async () => {
+    const brokenDb = {
+      prepare() {
+        throw new Error("D1 connection lost");
+      },
+    } as unknown as D1Database;
+
+    await expect(
+      listMeetUserAvatarsByEmails(brokenDb, {
+        actorUserId: "u-org-a",
+        emails: ["alice@example.com"],
       }),
     ).resolves.toEqual({ ok: false, code: "internal_error" });
   });

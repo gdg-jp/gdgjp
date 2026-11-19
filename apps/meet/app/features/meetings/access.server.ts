@@ -1,5 +1,6 @@
 import type { AuthUser } from "@gdgjp/gdg-lib";
 import { requireUser } from "~/features/auth/access.server";
+import { sanitizeAvatarUrl } from "~/features/directory/directory";
 import { normalizeEmail } from "~/features/google/email";
 import type { MeetingInviteeRecord, MeetingRecord, PublicInvitee } from "./meeting";
 import { getMeetingById, listMeetingInvitees } from "./meetings.repository.server";
@@ -48,9 +49,12 @@ export function canEditMeeting(
 
 /**
  * 招待者一覧をブラウザへ返却する形式へ変換する。
- * 会議の閲覧権限がある全員に対し、チャプター由来を含むすべての招待者の名前とメールアドレスを返す。
+ * 会議の閲覧権限がある全員に対し、チャプター由来を含むすべての招待者の名前・メールアドレス・画像 URL を返す。
  */
-export function toPublicInviteeList(invitees: readonly MeetingInviteeRecord[]): PublicInvitee[] {
+export function toPublicInviteeList(
+  invitees: readonly MeetingInviteeRecord[],
+  avatarByEmail?: ReadonlyMap<string, string>,
+): PublicInvitee[] {
   return invitees.map((invitee) => {
     const isCreator = invitee.sourceKinds.includes("creator");
     const isChapterDerived = invitee.sourceKinds.some(
@@ -63,6 +67,7 @@ export function toPublicInviteeList(invitees: readonly MeetingInviteeRecord[]): 
     return {
       displayName: invitee.displayName,
       email: invitee.email,
+      avatarUrl: sanitizeAvatarUrl(avatarByEmail?.get(invitee.emailNormalized)),
       role: invitee.role,
       isCreator,
       isChapterDerived,

@@ -2,13 +2,17 @@ import { AsyncLocalStorage } from "node:async_hooks";
 import { WorkerEntrypoint } from "cloudflare:workers";
 import type {
   ListChapterMembersInput,
+  ListUserAvatarsByEmailsInput,
   MeetDirectoryService as MeetDirectoryServiceContract,
 } from "@gdgjp/gdg-lib";
 import { createRequestHandler } from "react-router";
 import { warmAuth } from "~/features/auth/auth.server";
 import { seedBetterAuthAsyncLocalStorage } from "~/features/auth/seed-better-auth-als.server";
 import { reconcileSsoCookie } from "~/features/auth/sso-cookie.server";
-import { listMeetChapterMembers } from "~/features/memberships/meet-directory.server";
+import {
+  listMeetChapterMembers,
+  listMeetUserAvatarsByEmails,
+} from "~/features/memberships/meet-directory.server";
 import { seedClients } from "~/features/oauth/seed-clients.server";
 
 // Keep a static node:async_hooks import in the Worker entry so the isolate
@@ -43,6 +47,10 @@ export class MeetDirectoryService
 {
   listChapterMembers(input: ListChapterMembersInput) {
     return listMeetChapterMembers(this.env.DB, input);
+  }
+
+  listUserAvatarsByEmails(input: ListUserAvatarsByEmailsInput) {
+    return listMeetUserAvatarsByEmails(this.env.DB, input);
   }
 }
 
