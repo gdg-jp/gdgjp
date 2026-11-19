@@ -28,8 +28,25 @@ export type ListChapterMembersInput = {
   roles?: ChapterRole[];
 };
 
+export type ListUserAvatarsByEmailsInput = {
+  /** accounts 側のユーザー ID（OIDC `sub`）。 */
+  actorUserId: string;
+  /** 正規化済みまたは生のメールアドレス一覧（最大 200 件）。 */
+  emails: string[];
+};
+
+export type MeetUserAvatar = {
+  /** 正規化済みメールアドレス（gmail.com / googlemail.com のドット除去 + 小文字化）。 */
+  emailNormalized: string;
+  /** Google アカウント由来のプロフィール画像 URL（https:// のみ）。 */
+  image: string;
+};
+
 export interface MeetDirectoryService {
   listChapterMembers(
     input: ListChapterMembersInput,
   ): Promise<MeetRpcResult<{ members: MeetDirectoryMember[] }>>;
+  listUserAvatarsByEmails(
+    input: ListUserAvatarsByEmailsInput,
+  ): Promise<MeetRpcResult<{ avatars: MeetUserAvatar[] }>>;
 }

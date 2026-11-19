@@ -126,6 +126,7 @@ export type MeetingListItem = {
 export type PublicInvitee = {
   displayName: string | null;
   email: string;
+  avatarUrl: string | null;
   role: InviteeRole;
   isCreator: boolean;
   isChapterDerived: boolean;

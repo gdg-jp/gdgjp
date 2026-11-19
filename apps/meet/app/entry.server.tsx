@@ -32,6 +32,8 @@ export default async function handleRequest(
   }
 
   responseHeaders.set("Content-Type", "text/html");
+  // Google プロフィール画像 CDN（lh3.googleusercontent.com）への Referer 送出や外部リンクへの URL 漏洩を防ぐ。
+  responseHeaders.set("Referrer-Policy", "no-referrer");
   return new Response(body, {
     headers: responseHeaders,
     status: statusCode,

@@ -198,6 +198,7 @@ describe("toPublicInviteeList", () => {
       {
         displayName: "Creator User",
         email: "creator@example.com",
+        avatarUrl: null,
         role: "cohost",
         isCreator: true,
         isChapterDerived: true,
@@ -205,6 +206,7 @@ describe("toPublicInviteeList", () => {
       {
         displayName: "Chapter Organizer",
         email: "chapter.org@gmail.com",
+        avatarUrl: null,
         role: "cohost",
         isCreator: false,
         isChapterDerived: true,
@@ -212,6 +214,7 @@ describe("toPublicInviteeList", () => {
       {
         displayName: "Other Chapter Member",
         email: "other.chapter@example.com",
+        avatarUrl: null,
         role: "participant",
         isCreator: false,
         isChapterDerived: true,
@@ -219,10 +222,29 @@ describe("toPublicInviteeList", () => {
       {
         displayName: null,
         email: "guest@example.com",
+        avatarUrl: null,
         role: "participant",
         isCreator: false,
         isChapterDerived: false,
       },
+    ]);
+  });
+
+  it("avatarByEmail に一致した安全な HTTPS 画像 URL のみを設定し、不一致や不正 URL は null にする", () => {
+    const result = toPublicInviteeList(
+      SAMPLE_INVITEES,
+      new Map([
+        ["creator@example.com", "https://lh3.googleusercontent.com/a/creator=s96-c"],
+        ["chapterorg@gmail.com", "javascript:alert(1)"],
+        ["otherchapter@example.com", "http://example.com/insecure.png"],
+      ]),
+    );
+
+    expect(result.map((item) => item.avatarUrl)).toEqual([
+      "https://lh3.googleusercontent.com/a/creator=s96-c",
+      null,
+      null,
+      null,
     ]);
   });
 });
