@@ -1,0 +1,44 @@
+name: Playwright fonts
+description: >-
+  Install the fonts that `playwright install --with-deps chromium` adds on ubuntu-24.04, from a
+  cache of their .deb files, so screenshot and rendering checks see the same glyphs without
+  waiting on a slow Ubuntu mirror.
+
+runs:
+  using: composite
+  steps:
+    - name: Restore font packages
+      id: cache
+      uses: actions/cache@v4
+      with:
+        path: ~/.cache/playwright-font-debs
+        key: playwright-font-debs-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('.github/actions/playwright-fonts/action.yml') }}
+    - name: Download font packages
+      if: steps.cache.outputs.cache-hit != 'true'
+      shell: bash
+      env:
+        # The font packages from Playwright 1.59's ubuntu24.04 "tools" list (nativeDeps.js).
+        # Chromium's own libraries are already on the runner image.
+        PACKAGES: >-
+          fonts-noto-color-emoji fonts-unifont xfonts-cyrillic xfonts-scalable fonts-liberation
+          fonts-ipafont-gothic fonts-wqy-zenhei fonts-tlwg-loma-otf fonts-freefont-ttf
+      run: |
+        set -euo pipefail
+        dir="$HOME/.cache/playwright-font-debs"
+        mkdir -p "$dir/partial"
+        sudo apt-get update
+        # shellcheck disable=SC2086
+        sudo apt-get install -y --no-install-recommends --download-only \
+          -o Dir::Cache::archives="$dir" $PACKAGES
+        sudo rm -rf "$dir/partial" "$dir/lock"
+        sudo chown -R "$(id -u):$(id -g)" "$dir"
+        ls "$dir"/*.deb
+    - name: Install font packages
+      shell: bash
+      run: |
+        set -euo pipefail
+        # No --no-download: apt copies local .deb files in through its file: method, which that
+        # flag also forbids. Every other dependency is already on the runner image, so nothing
+        # goes to the network.
+        sudo apt-get install -y --no-install-recommends \
+          "$HOME"/.cache/playwright-font-debs/*.deb

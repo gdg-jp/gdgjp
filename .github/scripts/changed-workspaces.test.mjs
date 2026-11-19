@@ -85,6 +85,7 @@ test("treats workflow and detector changes as global for their consumers", () =>
   const ci = classifyChanges([".github/workflows/ci.yml"]);
   const deploy = classifyChanges([".github/workflows/deploy.yml"]);
   const detector = classifyChanges([".github/scripts/changed-workspaces.mjs"]);
+  const action = classifyChanges([".github/actions/playwright-fonts/action.yml"]);
 
   assert.equal(ci.ci.length, 24);
   assert.equal(ci.deploy.length, 0);
@@ -92,6 +93,8 @@ test("treats workflow and detector changes as global for their consumers", () =>
   assert.equal(deploy.deploy.length, 21);
   assert.equal(detector.ci.length, 24);
   assert.equal(detector.deploy.length, 21);
+  assert.equal(action.ci.length, 24);
+  assert.equal(action.deploy.length, 0);
 });
 
 test("ignores unrelated documentation changes", () => {
