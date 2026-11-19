@@ -37,11 +37,7 @@ export async function loader({ request, params, context }: Route.LoaderArgs) {
     throw new Response("Not Found", { status: 404 });
   }
 
-  const { user, meeting, invitees, canSeeManualEmails } = await requireMeetingViewAccess(
-    env,
-    request,
-    meetingId,
-  );
+  const { user, meeting, invitees } = await requireMeetingViewAccess(env, request, meetingId);
   const directoryChapters = await fetchChaptersDirectory(env).catch(() => []);
   const hostChapterName =
     directoryChapters.find((c) => c.id === meeting.hostChapterId)?.name ??
@@ -70,7 +66,7 @@ export async function loader({ request, params, context }: Route.LoaderArgs) {
       lastError: meeting.lastError,
       hostChapterName,
     },
-    invitees: toPublicInviteeList(invitees, { canSeeManualEmails }),
+    invitees: toPublicInviteeList(invitees),
   };
 }
 
@@ -199,6 +195,10 @@ export default function MeetingDetail({ loaderData }: Route.ComponentProps) {
                 </Text>
                 <Text size="sm">
                   会議中に共同主催者（co-host）へ追加された方は、一度退室して入り直すとホスト管理が利用できます。
+                </Text>
+                <Text size="sm">
+                  招待メールが「不明な送信者からの招待」となり Google
+                  カレンダーに予定が自動で追加されない場合は、招待メールで出欠を「はい」と返信すると追加されます。送信者（community-support@gdgoc.jp）を連絡先に追加すると、以降の招待は自動で追加されます。
                 </Text>
               </Stack>
             </Alert>

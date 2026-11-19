@@ -57,8 +57,8 @@ PoC（2026-11-18〜19）で次の 2 方式を実機検証し、方式 B を採�
 | 重複排除の優先順位 | 複数の招待元に同一人物が含まれる場合、正規化したメールアドレスで 1 人にまとめ、`cohost` を優先する |
 | 編集・取り消し権限 | その会議の `cohost` 全員（ログイン中ユーザーの Google メールアドレスを正規化して照合、チャプター所属は問わない）＋ GDG Accounts 管理者（`is_admin`） |
 | 閲覧権限（詳細ページ） | 招待者（メール一致）、作成者、Accounts 管理者。それ以外には `404`。招待された会議の閲覧・編集にはチャプター所属は不要 |
-| Calendar 通知・ゲスト可視性 | 作成・変更・取り消しは `sendUpdates=all` で通知メール送信。生成ファイル添付のみの patch は `sendUpdates=none`。予定は `guestsCanSeeOtherGuests=false`、`guestsCanInviteOthers=false`、`guestsCanModify=false` |
-| メールアドレスの秘匿 | `meet.gdgs.jp` 画面上で、チャプター由来の招待者は**名前と役割のみ**を表示しメールアドレスはブラウザへ返さない（個人で追加した招待者のメールのみ作成者・co-host・管理者に表示可） |
+| Calendar 通知・ゲスト可視性 | 作成・変更・取り消しは `sendUpdates=all` で通知メール送信。生成ファイル添付のみの patch は `sendUpdates=none`。予定は `guestsCanSeeOtherGuests=true`（PoC 決定：通常の Google カレンダーと同じくゲスト一覧を公開）、`guestsCanInviteOthers=false`、`guestsCanModify=false` |
+| 招待者一覧の公開 | PoC では Google カレンダーと同じく、会議を閲覧できる人（招待者・作成者・管理者）全員に招待者全員の名前とメールアドレスを表示する。作成前の人数プレビューは引き続き人数のみを返し、チャプターメンバーの氏名・メールはブラウザへ返さない |
 | アクセス種別とモデレーション | 既定は `RESTRICTED`（招待者以外はノック）。作成・編集時に `TRUSTED` / `OPEN` も選択可。`moderation` は常に `ON` |
 | 生成ファイル（録画・メモ・チャット記録） | すべて招待者全員（`community-support@gdgoc.jp` を除く）へ Drive で閲覧者共有（`sendNotificationEmail=false`）、Calendar 予定へ添付、`meet.gdgs.jp` 会議ページへリンク表示 |
 | 招待者削除時の Drive 権限 | 最初の版では、既に共有済みの Drive 権限は自動で剥奪しない（誰が付与した権限か追跡していないため） |
@@ -121,7 +121,7 @@ PoC（2026-11-18〜19）で次の 2 方式を実機検証し、方式 B を採�
 1. フォーム入力を検証し、`ACCOUNTS_DIRECTORY.listChapterMembers` RPC で招待元からアクティブメンバーを取得、純粋関数で招待者を解決（正規化メール重複統合、`cohost` 優先、作成者強制追加、`community-support@gdgoc.jp` 除外）
 2. `meetings`（`status = 'creating'`）、`meeting_invite_sources`、`meeting_invitees` を D1 へ保存
 3. `spaces.create({ config: { accessType, moderation: "ON" } })` でスペース作成
-4. `events.insert`（`conferenceDataVersion=1`, `sendUpdates="all"`, `guestsCan*=false`, `extendedProperties.private.gdgsMeetId`）で予定を作成し、会議ページ URL を description に記載
+4. `events.insert`（`conferenceDataVersion=1`, `sendUpdates="all"`, `guestsCanSeeOtherGuests=true`, `guestsCanInviteOthers=false`, `guestsCanModify=false`, `extendedProperties.private.gdgsMeetId`）で予定を作成し、会議ページ URL を description に記載
 5. `meetings` を `status = 'active'` に更新し、`MEET_JOBS` へ `{ type: "sync_members", meetingId }` を送信。Consumer が `members.list` と突合し差分を `create` / `delete→create` / `delete` で冪等に同期（`spaces.create` 後に失敗した場合は `status = 'failed'` と `last_error` を保存）
 
 ### 5-2. 会議の編集・再同期・取り消し（Stage 05）
@@ -144,7 +144,7 @@ PoC（2026-11-18〜19）で次の 2 方式を実機検証し、方式 B を採�
 |---|---|---|---|
 | 会議の作成 | `/meetings/new` | チャプターに `status='active'` で所属するユーザー（Organizer / Member） | 未所属者は `/no-chapter` へリダイレクト |
 | 会議一覧の閲覧 | `/` | GDG Accounts サインイン済みユーザー全員 | 自分が作成者または招待者である会議のみ表示（管理者は全件閲覧可）。作成ボタンはチャプター所属者のみ |
-| 会議詳細の閲覧 | `/meetings/:id` | その会議の招待者（正規化メール一致）、作成者、Accounts 管理者 | チャプター所属不要。権限外は `404`。チャプター由来招待者のメールは非表示 |
+| 会議詳細の閲覧 | `/meetings/:id` | その会議の招待者（正規化メール一致）、作成者、Accounts 管理者 | チャプター所属不要。権限外は `404`。招待者全員の名前とメールを表示（PoC 決定） |
 | 会議の編集・再同期・取り消し | `/meetings/:id/edit` 等 | その会議の `cohost`（正規化メール一致）、Accounts 管理者 | チャプター所属不要。`status !== 'active'` の会議は編集不可 |
 | Google 接続・購読・ジョブ管理 | `/admin/google` | Accounts 管理者（`user.isAdmin`）のみ | 非管理者は `403` |
 | Pub/Sub Push 受信 | `POST /api/google/events` | Google Pub/Sub Push 署名 JWT（`PUBSUB_PUSH_SERVICE_ACCOUNT` & `PUBSUB_PUSH_AUDIENCE` 一致） | 認証失敗は `401` / `403` |

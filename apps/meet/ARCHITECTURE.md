@@ -9,7 +9,7 @@
 | Relying-party sessions, sign-in redirects, chapter claims, and access guards (`requireUser`, `requireUserWithChapter`, `requireAdmin`) | `app/features/auth/` |
 | Chapter directory (`ACCOUNTS` HTTP) and active chapter-member lookup (`ACCOUNTS_DIRECTORY` RPC; member emails stay server-only) | `app/features/directory/` |
 | Shared Google host OAuth connection, AES-GCM token encryption, access-token caching/refresh, email normalization, and Google API clients (Meet, Calendar, Drive, Workspace Events) | `app/features/google/` |
-| Meeting creation (Strategy B: Meet space → Calendar event → async member sync), invitee resolution, view access / email confidentiality, D1 repository, and UI forms/lists | `app/features/meetings/` |
+| Meeting creation (Strategy B: Meet space → Calendar event → async member sync), invitee resolution, view access, D1 repository, and UI forms/lists | `app/features/meetings/` |
 | `MEET_JOBS` Queue message types and handler registry (`sync_members`) | `app/features/jobs/` |
 | Shared signed-in application shell (`AppLayout`) | `app/layouts/AppLayout.tsx` |
 | Domain-independent primitives (`useHydrated`) | `app/lib/` |

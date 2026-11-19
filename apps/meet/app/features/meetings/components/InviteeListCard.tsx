@@ -22,25 +22,17 @@ export type InviteeListCardProps = {
 };
 
 function resolveInviteePrimaryLabel(invitee: PublicInvitee): string {
-  if (invitee.displayName) return invitee.displayName;
-  if (invitee.email) return invitee.email;
-  return "外部招待者（メール非公開）";
+  return invitee.displayName || invitee.email;
 }
 
-function resolveInviteeSubLabel(invitee: PublicInvitee): string | null {
-  if (invitee.displayName && invitee.email) {
+function resolveInviteeSubLabel(invitee: PublicInvitee): string {
+  if (invitee.displayName) {
     return invitee.email;
   }
-  if (invitee.isChapterDerived) {
-    return "チャプター所属メンバー";
-  }
-  if (invitee.email) {
-    return "個別メール招待";
-  }
-  return null;
+  return invitee.isChapterDerived ? "チャプター所属メンバー" : "個別メール招待";
 }
 
-/** 会議詳細画面の招待者一覧カード（チャプター由来のメールアドレスは非表示）。 */
+/** 会議詳細画面の招待者一覧カード（閲覧権限がある全員に招待者全員の名前とメールアドレスを表示する）。 */
 export function InviteeListCard({ invitees }: InviteeListCardProps) {
   const cohostCount = invitees.filter((inv) => inv.role === "cohost").length;
   const participantCount = invitees.length - cohostCount;
@@ -56,7 +48,8 @@ export function InviteeListCard({ invitees }: InviteeListCardProps) {
         </Inline>
 
         <Text tone="muted" size="sm">
-          チャプター所属由来の招待者は名前と役割のみ表示され、メールアドレスは表示されません。
+          招待者全員に、この一覧（名前とメールアドレス）が表示されます。Google
+          カレンダーの予定でもゲスト一覧が公開されます。
         </Text>
 
         <Separator />
@@ -71,15 +64,13 @@ export function InviteeListCard({ invitees }: InviteeListCardProps) {
               const primaryLabel = resolveInviteePrimaryLabel(invitee);
               const subLabel = resolveInviteeSubLabel(invitee);
               return (
-                <Item key={`${invitee.role}-${primaryLabel}-${index}`} variant="outline">
+                <Item key={`${invitee.role}-${invitee.email}-${index}`} variant="outline">
                   <ItemMedia>
                     <Icons name="UserRound" size={18} aria-hidden="true" />
                   </ItemMedia>
                   <ItemContent>
                     <ItemTitle className="break-all">{primaryLabel}</ItemTitle>
-                    {subLabel && (
-                      <ItemDescription className="break-all">{subLabel}</ItemDescription>
-                    )}
+                    <ItemDescription className="break-all">{subLabel}</ItemDescription>
                   </ItemContent>
                   <ItemActions>
                     <Inline>

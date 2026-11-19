@@ -8,7 +8,6 @@ export type MeetingViewAccess = {
   user: AuthUser;
   meeting: MeetingRecord;
   invitees: MeetingInviteeRecord[];
-  canSeeManualEmails: boolean;
 };
 
 /** 会議詳細の閲覧権限を判定する（管理者・作成者・正規化メール一致の招待者）。 */
@@ -23,30 +22,13 @@ export function canViewMeeting(
   return invitees.some((inv) => inv.emailNormalized === normalized);
 }
 
-/** 個人メール追加分（`sourceKinds` に `"email"` を含む）のメールアドレスを表示してよいか判定する。 */
-export function canViewManualInviteeEmails(
-  user: Pick<AuthUser, "id" | "email" | "isAdmin">,
-  meeting: Pick<MeetingRecord, "createdByUserId">,
-  invitees: readonly Pick<MeetingInviteeRecord, "emailNormalized" | "role">[],
-): boolean {
-  if (user.isAdmin) return true;
-  if (meeting.createdByUserId === user.id) return true;
-  const normalized = normalizeEmail(user.email);
-  return invitees.some((inv) => inv.emailNormalized === normalized && inv.role === "cohost");
-}
-
 /**
- * 招待者一覧をブラウザへ返却可能な形式へ変換する。
- * - `"email"` を含まないチャプター由来の招待者は、管理者・作成者であっても `email` を一切含めない
- * - `"email"` を含む招待者でも、閲覧者が作成者・co-host・管理者以外の場合は `email` を含めない
+ * 招待者一覧をブラウザへ返却する形式へ変換する。
+ * 会議の閲覧権限がある全員に対し、チャプター由来を含むすべての招待者の名前とメールアドレスを返す。
  */
-export function toPublicInviteeList(
-  invitees: readonly MeetingInviteeRecord[],
-  options: { canSeeManualEmails: boolean },
-): PublicInvitee[] {
+export function toPublicInviteeList(invitees: readonly MeetingInviteeRecord[]): PublicInvitee[] {
   return invitees.map((invitee) => {
     const isCreator = invitee.sourceKinds.includes("creator");
-    const isManualEmail = invitee.sourceKinds.includes("email");
     const isChapterDerived = invitee.sourceKinds.some(
       (kind) =>
         kind === "host_chapter_organizers" ||
@@ -54,17 +36,13 @@ export function toPublicInviteeList(
         kind === "chapter_all",
     );
 
-    const base: PublicInvitee = {
+    return {
       displayName: invitee.displayName,
+      email: invitee.email,
       role: invitee.role,
       isCreator,
       isChapterDerived,
     };
-
-    if (options.canSeeManualEmails && isManualEmail) {
-      return { ...base, email: invitee.email };
-    }
-    return base;
   });
 }
 
@@ -100,6 +78,5 @@ export async function requireMeetingViewAccess(
     user,
     meeting,
     invitees,
-    canSeeManualEmails: canViewManualInviteeEmails(user, meeting, invitees),
   };
 }

@@ -121,14 +121,14 @@ export type MeetingListItem = {
 
 /**
  * ブラウザへ返却する招待者情報。
- * チャプター由来の招待者には `email` キーを含めない。
+ * 会議の閲覧権限がある全員に対して、チャプター由来を含むすべての招待者の名前とメールアドレスを返す。
  */
 export type PublicInvitee = {
   displayName: string | null;
+  email: string;
   role: InviteeRole;
   isCreator: boolean;
   isChapterDerived: boolean;
-  email?: string;
 };
 
 /**

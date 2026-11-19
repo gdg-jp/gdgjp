@@ -142,7 +142,7 @@ entrypoint = "MeetDirectoryService"
 ### 制約
 
 - **UI（画面・ルート）をこのステージで作らない。** 理由: UI は Stage 04 の担当であり、本ステージは RPC 契約・権限検証・データ取得ラッパーに閉じる。
-- **`MeetDirectoryService` が返す `email` を `apps/meet` の route `loader` からブラウザへ渡さない。** 理由: 他チャプターメンバーのメールアドレス拡散を防ぐ決定事項（00-overview §2）。Stage 04 以降の画面実装でも「loader の戻り値型にチャプター由来メンバーの `email` を含めない」規約を守る。
+- **`MeetDirectoryService` の生の返却結果（作成前プレビュー等）を `apps/meet` の route `loader` / `action` からブラウザへ渡さない。** 理由: 作成前の人数プレビュー等でチャプターメンバーの氏名・メールアドレスを露出させないため（00-overview §2）。一方、作成済み会議の詳細ページでは PoC 決定（00-overview §2）に従い、`meeting_invitees` に保存された招待者のメールアドレスを表示する。
 - **`accounts` 側で `actor.chapters` の自己申告を信頼しない。** 理由: RPC 呼び出し元から渡された主張ではなく、`accounts` D1 の `memberships (status = 'active')` を毎回確認して fail-closed にする。
 - **service binding 以外の HTTP ルートとしてメンバー一覧を公開しない。** 理由: チャプターメンバーのメールアドレス一覧は `gdgjp-meet` Worker からの内部 RPC のみに限定する。
 

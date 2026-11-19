@@ -290,7 +290,7 @@ export async function createMeeting(
               ? { email: inv.email, displayName: inv.displayName }
               : { email: inv.email },
           ),
-          guestsCanSeeOtherGuests: false,
+          guestsCanSeeOtherGuests: true,
           guestsCanInviteOthers: false,
           guestsCanModify: false,
           conferenceData: {

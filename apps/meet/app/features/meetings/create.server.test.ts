@@ -345,7 +345,7 @@ afterEach(() => {
 });
 
 describe("createMeeting", () => {
-  it("方式 B でスペース作成 → Calendar 予定作成（conferenceData / guestsCan*=false / extendedProperties）→ MEET_JOBS 投入を行う", async () => {
+  it("方式 B でスペース作成 → Calendar 予定作成（conferenceData / guestsCanSeeOtherGuests=true / extendedProperties）→ MEET_JOBS 投入を行う", async () => {
     const { env, dbFixture, queueSend, listChapterMembers } = await createConnectedEnv({
       members: [
         {
@@ -427,7 +427,7 @@ describe("createMeeting", () => {
         "今月のイベント準備について話します。\n\n管理ページ: https://meet.gdgs.jp/meetings/id-1",
       start: { dateTime: "2026-12-01T10:00:00.000Z", timeZone: "Asia/Tokyo" },
       end: { dateTime: "2026-12-01T11:00:00.000Z", timeZone: "Asia/Tokyo" },
-      guestsCanSeeOtherGuests: false,
+      guestsCanSeeOtherGuests: true,
       guestsCanInviteOthers: false,
       guestsCanModify: false,
       conferenceData: {

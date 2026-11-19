@@ -58,7 +58,7 @@ Stage 04 で作成した会議のタイトル・説明・時刻・アクセス�
    - `meeting_invite_sources` と `meeting_invitees` を D1 batch で差し替える。
 4. `calendar.patchEvent`（`calendarId: "primary"`, `eventId: meeting.calendarEventId`, `sendUpdates: "all"`）:
    - `summary`, `description`（管理ページ URL 維持）, `start`, `end`（`timeZone` 付き）を更新。
-   - 招待者が変更された場合は `attendees` も新しい招待者一覧で更新する（`guestsCanSeeOtherGuests: false` 等も維持）。
+   - 招待者が変更された場合は `attendees` も新しい招待者一覧で更新する（`guestsCanSeeOtherGuests: true`、`guestsCanInviteOthers: false`、`guestsCanModify: false` を維持）。
 5. D1 `meetings` を更新（`updated_at = now`）。
 6. 招待者が変更された場合:
    - `await env.MEET_JOBS.send({ type: "sync_members", meetingId })`

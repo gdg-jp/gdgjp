@@ -124,18 +124,15 @@ CREATE INDEX meeting_invitees_email_idx ON meeting_invitees (email_normalized, m
 - **Google グループの拒否**:
   - 個別メール入力のバリデーションで `@googlegroups.com` ドメインを検出し、「Google グループ（googlegroups.com）は招待先に指定できません」としてフォームエラーで弾く（PoC で `COHOST` 指定時に 200 が返るだけで効かないため）。
 
-### 3. メールアドレスの秘匿と閲覧権限（`app/features/meetings/access.server.ts`）
+### 3. 閲覧権限と招待者一覧の返却（`app/features/meetings/access.server.ts`）
 
 - **会議の閲覧権限（`requireMeetingViewAccess`）**:
   - サインイン必須だが**チャプター所属は不要**（`requireUser(env, request)` を使う）。
   - 閲覧可の条件: `user.isAdmin`、または `meeting.createdByUserId === user.id`、または `meeting_invitees` に `email_normalized === normalizeEmail(user.email)` が存在する。
   - 上記に該当しない場合は `404 Not Found` を返す（会議の存在を漏らさないため `403` にしない）。
 - **画面へのメールアドレス返却規則（`toPublicInviteeList`）**:
-  - 決定事項に従い、チャプター由来の招待者は名前と役割だけを表示しメールアドレスを出さず、個人で追加した招待者のメールのみ作成者・`cohost`・管理者に表示可とする。
-  - 具体的には:
-    - 閲覧者が「作成者 / 会議の `cohost` / 管理者」のいずれかであり、かつ当該招待者の `source_kinds` に `"email"` が含まれる場合のみ `email` を loader の戻り値に含める。
-    - `"email"` を含まないチャプター由来の招待者は、閲覧者が管理者・作成者であっても loader の戻り値型に `email` / `emailNormalized` を含めない（`{ displayName, role, isCreator, isChapterDerived }` のみ返す）。
-    - 一般の `participant` が閲覧する場合、個人メール追加の招待者についても `email` は返さず「外部招待者（メール非公開）」等の表示にする。
+  - PoC 決定（00-overview §2）に従い、会議を閲覧できるユーザー（招待者・作成者・管理者）全員に対し、チャプター由来を含めすべての招待者の名前とメールアドレスを返す（`{ displayName, email, role, isCreator, isChapterDerived }`）。
+  - 作成前の人数プレビュー（`/meetings/new`）は引き続き人数のみを返し、チャプターメンバーの氏名・メールアドレスはブラウザへ返さない。
 
 ### 4. 会議作成フロー（`app/features/meetings/create.server.ts`）
 
@@ -151,7 +148,7 @@ CREATE INDEX meeting_invitees_email_idx ON meeting_invitees (email_normalized, m
    - `description`: ユーザー入力の説明 + 末尾に `${env.APP_URL}/meetings/${meetingId}` へのリンク
    - `start` / `end`: `{ dateTime, timeZone }`
    - `attendees`: 解決済み `invitees`（`community-support@gdgoc.jp` 除外済み）
-   - `guestsCanSeeOtherGuests: false`、`guestsCanInviteOthers: false`、`guestsCanModify: false`
+   - `guestsCanSeeOtherGuests: true`、`guestsCanInviteOthers: false`、`guestsCanModify: false`
    - `conferenceData`:
      ```ts
      {
@@ -213,12 +210,12 @@ Stage 05（`cleanup_meeting`）・Stage 06（`process_artifact`・`share_artifac
   - 送信前の招待者数内訳プレビュー: resource route または同ルートの `intent=preview` fetcher でサーバー側解決した「作成者 / 主催チャプター / 他チャプター / 個別メール / 重複統合後合計」の**人数のみ**を返す（ブラウザにチャプターメンバーのメールアドレスは返さない）。
 - **`/meetings/:id`（`app/routes/meetings/detail.tsx`）**:
   - `requireUser` + `requireMeetingViewAccess` を使用（権限外は `404`）。
-  - 表示内容: タイトル・状態バッジ、`failed` 時の `last_error`、日時・タイムゾーン、Meet 参加リンク（`meeting_uri`）、Calendar 予定リンク（`calendar_html_link`）、アクセス種別、**チャット履歴が自動保存されない旨の案内**、招待者一覧（役割 + 名前、個人追加分のみ条件付きでメール表示）。
+  - 表示内容: タイトル・状態バッジ、`failed` 時の `last_error`、日時・タイムゾーン、Meet 参加リンク（`meeting_uri`）、Calendar 予定リンク（`calendar_html_link`）、アクセス種別、**チャット履歴が自動保存されない旨の案内**、招待者一覧（役割 + 名前 + メールアドレスを閲覧権限者全員に表示）。
 
 ### 制約
 
 - **方式 A（Calendar 先行作成）は絶対に使わない。** 理由: PoC で co-host が黙って効かないことを確認済みのため。
-- **チャプター由来の招待者のメールアドレスをブラウザへ返さない。** 理由: 他チャプターメンバーのメールアドレス拡散を防ぐ決定事項のため。プレビュー機能でも件数のみを返す。
+- **作成前プレビューでチャプターメンバーの氏名・メールアドレスをブラウザへ返さない。** 理由: 作成前の人数確認で他チャプターメンバーの個人情報を露出させないため（プレビュー機能は件数のみを返す）。一方、作成済み会議の詳細ページでは PoC 決定（00-overview §2）に従い招待者全員の名前とメールアドレスを表示する。
 - **Meet メンバー同期はアクション内で同期実行せず `MEET_JOBS` Queue で行う。** 理由: 招待者が多い場合に Workers の 1 リクエストあたりサブリクエスト上限に達するのを防ぐため。
 - **`community-support@gdgoc.jp` と `@googlegroups.com` を招待者に含めない。** 理由: ホスト自身は招待対象外であり、Google グループは Meet API で効かないことが PoC で確定しているため。
 - **編集・再同期・取り消し（Stage 05）および生成ファイル・Pub/Sub・cron（Stage 06）の実装には手を出さない。** 理由: ステージ境界と並行開発の安全性を守るため。
@@ -261,10 +258,10 @@ Stage 05（`cleanup_meeting`）・Stage 06（`process_artifact`・`share_artifac
 
 ### 完了条件
 
-1. チャプター所属メンバーが `/meetings/new` から会議を作成すると、`meetings` が `active` になり、`meeting_invite_sources` / `meeting_invitees` が保存され、Google Meet スペースと Calendar 予定（`conferenceData`・`guestsCan*=false`）が作成される。
+1. チャプター所属メンバーが `/meetings/new` から会議を作成すると、`meetings` が `active` になり、`meeting_invite_sources` / `meeting_invitees` が保存され、Google Meet スペースと Calendar 予定（`conferenceData`・`guestsCanSeeOtherGuests=true`・`guestsCanInviteOthers=false`・`guestsCanModify=false`）が作成される。
 2. `MEET_JOBS` Queue が `sync_members` を処理し、解決済み招待者全員が Meet スペースのメンバー（co-host は `COHOST`、参加者は `role` なし）として登録される。
 3. `/` に自分が作成した会議・招待された会議（今後の会議・過去の会議）が表示され、チャプター未所属の招待者には「新しい会議」ボタンが出ないが会議詳細は閲覧できる。招待されていないユーザーには `/meetings/:id` が `404` になる。
-4. 招待者のメールアドレス秘匿が守られ、チャプター由来招待者のメールアドレスが詳細画面・プレビューのレスポンスに含まれない。
+4. 作成前プレビューのレスポンスにはチャプター由来メンバーの氏名・メールアドレスが含まれず、詳細画面では閲覧権限を持つ全員に招待者全員の名前とメールアドレスが表示される。
 
 ### コマンド
 
@@ -285,10 +282,10 @@ pnpm ci:quick
 - **複数招待元の重複統合と `cohost` 優先**: 同じ人が `chapter_all`（`participant`）と個別メール（`cohost`）の両方に含まれても 1 件にまとまり、`cohost` が勝つ
 - **Gmail ドット違いの同一人物判定**: `a.b@gmail.com` と `ab@gmail.com` が `normalizeEmail` により 1 件に統合される
 - **`community-support@gdgoc.jp` と Google グループの除外**: `GOOGLE_HOST_EMAIL` は招待者リストから除外され、`@googlegroups.com` はバリデーションで拒否される
-- **他チャプター由来招待者のメール非露出**: `/meetings/:id` の loader 戻り値および `/meetings/new` のプレビュー応答に、チャプター由来メンバーのメールアドレス文字列が含まれない
+- **作成前プレビューのメール非露出と詳細画面の招待者一覧返却**: `/meetings/new` のプレビュー応答にチャプター由来メンバーの氏名・メールアドレス文字列が含まれず、`toPublicInviteeList` はチャプター由来・個別メール・作成者のすべてに `email` を返す
 - **`spaces.create` 後の失敗で `status = 'failed'`**: `events.insert` がエラーを返した場合に `meetings.status = 'failed'`・`last_error`・`space_name` が D1 に残る
 - **`sync_members` の冪等性**: 同じ招待者構成で `sync_members` を 2 回実行したとき、2 回目は `members.create` / `members.delete` が 0 回になる
-- **`events.insert` のリクエスト本文検証**: `conferenceDataVersion=1`、`sendUpdates="all"`、`guestsCanSeeOtherGuests=false`、`guestsCanInviteOthers=false`、`guestsCanModify=false`、`conferenceData.entryPoints[0].uri`、`extendedProperties.private.gdgsMeetId` が正しく渡される
+- **`events.insert` のリクエスト本文検証**: `conferenceDataVersion=1`、`sendUpdates="all"`、`guestsCanSeeOtherGuests=true`、`guestsCanInviteOthers=false`、`guestsCanModify=false`、`conferenceData.entryPoints[0].uri`、`extendedProperties.private.gdgsMeetId` が正しく渡される
 - **非招待者のアクセス拒否**: 招待者・作成者・管理者のいずれでもないユーザーの `/meetings/:id` へのアクセスが `404` になる
 
 ### 手動 E2E
@@ -298,7 +295,7 @@ pnpm ci:quick
    - 参加者（`role` なし）: 組織外のテスト用 Gmail アカウント
    - 招待しない対照用: 招待されていない対照用アカウント
 2. 各招待アカウントのメールボックスに Google Calendar からの招待メールが届いていることを確認する。
-3. 招待されたテスト用アカウントの Google Calendar 上で、他のゲスト一覧が表示されない（`guestsCanSeeOtherGuests=false`）ことを確認する。
+3. 招待されたテスト用アカウントの Google Calendar 上で、他のゲスト一覧が表示される（`guestsCanSeeOtherGuests=true`）ことを確認する。
 4. Meet リンクを開き、それぞれの挙動を確認する:
    - co-host のテスト用アカウント: ノックなしで入室でき、ホスト管理アイコン（主催者用コントロール）が使える
    - 参加者のテスト用 Gmail アカウント: ノックなしで入室できるが、ホスト管理が使えない

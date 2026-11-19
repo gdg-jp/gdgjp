@@ -1,11 +1,6 @@
 import type { AuthUser } from "@gdgjp/gdg-lib";
 import { describe, expect, it } from "vitest";
-import {
-  canViewManualInviteeEmails,
-  canViewMeeting,
-  requireMeetingViewAccess,
-  toPublicInviteeList,
-} from "./access.server";
+import { canViewMeeting, requireMeetingViewAccess, toPublicInviteeList } from "./access.server";
 import type { MeetingInviteeRecord, MeetingRecord } from "./meeting";
 
 const SAMPLE_MEETING: MeetingRecord = {
@@ -175,10 +170,9 @@ describe("canViewMeeting / requireMeetingViewAccess", () => {
     );
 
     expect(access.meeting.id).toBe("mtg-1");
-    expect(access.canSeeManualEmails).toBe(true);
   });
 
-  it("管理者は招待者に含まれていなくても閲覧・個人メール参照できる", () => {
+  it("管理者は招待者に含まれていなくても閲覧できる", () => {
     const admin: AuthUser = {
       id: "u-admin",
       email: "admin@example.com",
@@ -187,46 +181,42 @@ describe("canViewMeeting / requireMeetingViewAccess", () => {
       isAdmin: true,
     };
     expect(canViewMeeting(admin, SAMPLE_MEETING, SAMPLE_INVITEES)).toBe(true);
-    expect(canViewManualInviteeEmails(admin, SAMPLE_MEETING, SAMPLE_INVITEES)).toBe(true);
   });
 });
 
 describe("toPublicInviteeList", () => {
-  it("作成者・co-host・管理者であってもチャプター由来招待者のメールアドレスを返さない", () => {
-    const result = toPublicInviteeList(SAMPLE_INVITEES, { canSeeManualEmails: true });
-    const serialized = JSON.stringify(result);
+  it("チャプター由来・個別メール・作成者のいずれについても名前とメールアドレスを返す", () => {
+    const result = toPublicInviteeList(SAMPLE_INVITEES);
 
-    // チャプター由来招待者のメールアドレスは一切含まれないこと
-    expect(serialized).not.toContain("creator@example.com");
-    expect(serialized).not.toContain("chapter.org@gmail.com");
-    expect(serialized).not.toContain("chapterorg@gmail.com");
-    expect(serialized).not.toContain("other.chapter@example.com");
-
-    // 個人メール追加分のみ email が含まれること
-    const guest = result.find((i) => !i.isChapterDerived && !i.isCreator);
-    expect(guest).toEqual({
-      displayName: null,
-      role: "participant",
-      isCreator: false,
-      isChapterDerived: false,
-      email: "guest@example.com",
-    });
-
-    // チャプター由来には email キー自体が存在しないこと
-    for (const item of result.filter((i) => i.isChapterDerived)) {
-      expect("email" in item).toBe(false);
-    }
-  });
-
-  it("一般の participant が閲覧する場合は個人メール追加分のメールアドレスも返さない", () => {
-    const result = toPublicInviteeList(SAMPLE_INVITEES, { canSeeManualEmails: false });
-    const serialized = JSON.stringify(result);
-
-    expect(serialized).not.toContain("guest@example.com");
-    expect(serialized).not.toContain("chapter.org@gmail.com");
-    expect(serialized).not.toContain("other.chapter@example.com");
-    for (const item of result) {
-      expect("email" in item).toBe(false);
-    }
+    expect(result).toEqual([
+      {
+        displayName: "Creator User",
+        email: "creator@example.com",
+        role: "cohost",
+        isCreator: true,
+        isChapterDerived: true,
+      },
+      {
+        displayName: "Chapter Organizer",
+        email: "chapter.org@gmail.com",
+        role: "cohost",
+        isCreator: false,
+        isChapterDerived: true,
+      },
+      {
+        displayName: "Other Chapter Member",
+        email: "other.chapter@example.com",
+        role: "participant",
+        isCreator: false,
+        isChapterDerived: true,
+      },
+      {
+        displayName: null,
+        email: "guest@example.com",
+        role: "participant",
+        isCreator: false,
+        isChapterDerived: false,
+      },
+    ]);
   });
 });
