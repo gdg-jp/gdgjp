@@ -1,5 +1,6 @@
 import { execFileSync } from "node:child_process";
 import { mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
+import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -112,11 +113,13 @@ describe("build-publish-package", () => {
           "void v; void k;",
         ].join("\n"),
       );
-      const tscBin = join(root, "node_modules", ".bin", "tsc");
+      // node_modules/.bin/tsc is a shell script, which Windows cannot execute directly.
+      const tsc = createRequire(import.meta.url).resolve("typescript/bin/tsc");
       expect(() =>
         execFileSync(
-          tscBin,
+          process.execPath,
           [
+            tsc,
             "--noEmit",
             "--strict",
             "--target",
