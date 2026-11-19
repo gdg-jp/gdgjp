@@ -106,7 +106,59 @@ describe("fetchChaptersDirectory", () => {
   });
 });
 
+/** RP ローカル `user.id` → accounts ユーザー ID（`oidc_subject`）を返す D1 スタブ。 */
+function fakeUserDb(oidcSubject: string | null = "accounts-u-1") {
+  const bound: unknown[][] = [];
+  const db = {
+    prepare(sql: string) {
+      return {
+        bind(...args: unknown[]) {
+          bound.push(args);
+          return {
+            async first() {
+              if (!sql.includes('FROM "user" WHERE id = ?'))
+                throw new Error(`unexpected SQL: ${sql}`);
+              return oidcSubject === null ? null : { oidc_subject: oidcSubject };
+            },
+          };
+        },
+      };
+    },
+  };
+  return { db, bound };
+}
+
 describe("fetchChapterMembers", () => {
+  it("sends the accounts user id (oidc_subject), not the RP-local user id, as the actor", async () => {
+    const listChapterMembers = vi
+      .fn<() => Promise<MeetRpcResult<{ members: MeetDirectoryMember[] }>>>()
+      .mockResolvedValue({ ok: true, members: [] });
+    const { db, bound } = fakeUserDb("accounts-u-1");
+    const env = { DB: db, ACCOUNTS_DIRECTORY: { listChapterMembers } } as unknown as Env;
+
+    await fetchChapterMembers(env, SAMPLE_INPUT);
+
+    expect(bound).toEqual([["u-1"]]);
+    expect(listChapterMembers).toHaveBeenCalledWith({
+      ...SAMPLE_INPUT,
+      actor: { ...SAMPLE_INPUT.actor, user: { ...SAMPLE_INPUT.actor.user, id: "accounts-u-1" } },
+    });
+  });
+
+  it("fails closed with DirectoryError(forbidden) when the user has no oidc_subject", async () => {
+    const listChapterMembers = vi.fn();
+    const env = {
+      DB: fakeUserDb(null).db,
+      ACCOUNTS_DIRECTORY: { listChapterMembers },
+    } as unknown as Env;
+
+    await expect(fetchChapterMembers(env, SAMPLE_INPUT)).rejects.toMatchObject({
+      name: "DirectoryError",
+      code: "forbidden",
+    });
+    expect(listChapterMembers).not.toHaveBeenCalled();
+  });
+
   it("returns members when ACCOUNTS_DIRECTORY succeeds", async () => {
     const expectedMembers: MeetDirectoryMember[] = [
       {
@@ -123,12 +175,13 @@ describe("fetchChapterMembers", () => {
       .fn<() => Promise<MeetRpcResult<{ members: MeetDirectoryMember[] }>>>()
       .mockResolvedValue({ ok: true, members: expectedMembers });
     const env = {
+      DB: fakeUserDb().db,
       ACCOUNTS_DIRECTORY: { listChapterMembers },
     } as unknown as Env;
 
     const members = await fetchChapterMembers(env, SAMPLE_INPUT);
 
-    expect(listChapterMembers).toHaveBeenCalledWith(SAMPLE_INPUT);
+    expect(listChapterMembers).toHaveBeenCalledTimes(1);
     expect(members).toEqual(expectedMembers);
   });
 
@@ -137,6 +190,7 @@ describe("fetchChapterMembers", () => {
       .fn<() => Promise<MeetRpcResult<{ members: MeetDirectoryMember[] }>>>()
       .mockResolvedValue({ ok: false, code: "forbidden", message: "no active chapter" });
     const env = {
+      DB: fakeUserDb().db,
       ACCOUNTS_DIRECTORY: { listChapterMembers },
     } as unknown as Env;
 
@@ -157,6 +211,7 @@ describe("fetchChapterMembers", () => {
   it("wraps unexpected RPC transport errors into DirectoryError(binding_error)", async () => {
     const listChapterMembers = vi.fn().mockRejectedValue(new Error("worker unavailable"));
     const env = {
+      DB: fakeUserDb().db,
       ACCOUNTS_DIRECTORY: { listChapterMembers },
     } as unknown as Env;
 

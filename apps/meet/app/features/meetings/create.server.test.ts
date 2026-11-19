@@ -230,6 +230,9 @@ function createFakeMeetingsDb(connection: GoogleConnectionRow | null) {
           if (sql.includes("FROM google_connection WHERE id = ?")) {
             return connection as T | null;
           }
+          if (sql.includes(`FROM "user" WHERE id = ?`)) {
+            return { oidc_subject: `accounts-${String(args[0])}` } as T;
+          }
           throw new Error(`未対応の first(): ${sql}`);
         },
         async run() {
@@ -402,7 +405,7 @@ describe("createMeeting", () => {
 
     expect(result).toEqual({ ok: true, meetingId: "id-1" });
     expect(listChapterMembers).toHaveBeenCalledWith({
-      actor: ACTOR,
+      actor: { ...ACTOR, user: { ...ACTOR.user, id: "accounts-u-creator" } },
       chapterIds: [1],
       roles: ["organizer"],
     });

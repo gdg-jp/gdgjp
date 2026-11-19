@@ -22,6 +22,21 @@ function meetDirectoryService(env: Env): MeetDirectoryService {
 }
 
 /**
+ * RP ローカルの `user.id` を GDG Accounts のユーザー ID（OIDC `sub`）へ変換する。
+ * gdg-lib は RP ごとに独自の UUID を `user.id` に発行するため、accounts 側の
+ * `memberships` 照合にはサインイン時に保存した `oidc_subject` を渡す必要がある。
+ */
+async function resolveAccountsUserId(env: Env, localUserId: string): Promise<string> {
+  const row = await env.DB.prepare(`SELECT oidc_subject FROM "user" WHERE id = ? LIMIT 1`)
+    .bind(localUserId)
+    .first<{ oidc_subject: string | null }>();
+  if (!row?.oidc_subject) {
+    throw new DirectoryError("forbidden", "GDG Accounts のユーザー ID を特定できません");
+  }
+  return row.oidc_subject;
+}
+
+/**
  * `ACCOUNTS` service binding 経由で公開チャプター一覧を取得し、`ChapterSummary` へ正規化する。
  * レスポンスに含まれる余分なプロパティは取り除き、ブラウザ共有可能な最小フィールドのみ返す。
  */
@@ -81,9 +96,14 @@ export async function fetchChapterMembers(
   input: ListChapterMembersInput,
 ): Promise<MeetDirectoryMember[]> {
   const service = meetDirectoryService(env);
+  const accountsUserId = await resolveAccountsUserId(env, input.actor.user.id);
+  const rpcInput: ListChapterMembersInput = {
+    ...input,
+    actor: { ...input.actor, user: { ...input.actor.user, id: accountsUserId } },
+  };
   let result: MeetRpcResult<{ members: MeetDirectoryMember[] }>;
   try {
-    result = await service.listChapterMembers(input);
+    result = await service.listChapterMembers(rpcInput);
   } catch (error) {
     throw new DirectoryError(
       "binding_error",
