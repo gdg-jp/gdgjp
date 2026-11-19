@@ -17,6 +17,9 @@ type StoredMeeting = {
   end_at: string;
   time_zone: string;
   access_type: string;
+  auto_transcription: number;
+  auto_smart_notes: number;
+  auto_recording: number;
   space_name: string | null;
   meeting_uri: string | null;
   meeting_code: string | null;
@@ -85,6 +88,9 @@ function createFakeMeetingsDb(
         endAt,
         timeZone,
         accessType,
+        autoTranscription,
+        autoSmartNotes,
+        autoRecording,
         createdByUserId,
         createdByEmail,
         createdAt,
@@ -98,6 +104,9 @@ function createFakeMeetingsDb(
         string,
         string,
         string,
+        number,
+        number,
+        number,
         string,
         string,
         string,
@@ -112,6 +121,9 @@ function createFakeMeetingsDb(
         end_at: endAt,
         time_zone: timeZone,
         access_type: accessType,
+        auto_transcription: autoTranscription,
+        auto_smart_notes: autoSmartNotes,
+        auto_recording: autoRecording,
         space_name: null,
         meeting_uri: null,
         meeting_code: null,
@@ -389,6 +401,9 @@ function buildValidForm(overrides: Record<string, string> = {}): FormData {
     hostChapterId: "1",
     includeHostOrganizers: "true",
     accessType: "RESTRICTED",
+    autoTranscription: "true",
+    autoSmartNotes: "true",
+    autoRecording: "false",
     additionalChapters: "[]",
     cohostEmails: "",
     participantEmails: "guest@example.com",
@@ -479,7 +494,17 @@ describe("createMeeting", () => {
     expect(calls[0]).toEqual({
       url: "https://meet.googleapis.com/v2/spaces",
       method: "POST",
-      body: { config: { accessType: "RESTRICTED", moderation: "ON" } },
+      body: {
+        config: {
+          accessType: "RESTRICTED",
+          moderation: "ON",
+          artifactConfig: {
+            transcriptionConfig: { autoTranscriptionGeneration: "ON" },
+            smartNotesConfig: { autoSmartNotesGeneration: "ON" },
+            recordingConfig: { autoRecordingGeneration: "OFF" },
+          },
+        },
+      },
     });
 
     const calendarUrl = new URL(calls[1].url);
@@ -520,6 +545,9 @@ describe("createMeeting", () => {
     const saved = dbFixture.meetings.get("id-1");
     expect(saved).toMatchObject({
       status: "active",
+      auto_transcription: 1,
+      auto_smart_notes: 1,
+      auto_recording: 0,
       space_name: "spaces/space-123",
       meeting_uri: "https://meet.google.com/abc-defg-hij",
       meeting_code: "abc-defg-hij",
@@ -529,6 +557,66 @@ describe("createMeeting", () => {
     });
     expect(dbFixture.invitees).toHaveLength(3);
     expect(queueSend).toHaveBeenCalledWith({ type: "sync_members", meetingId: "id-1" });
+  });
+
+  it("自動記録設定（文字起こしオフ・録画オン等）のカスタマイズが spaces.create と D1 へ反映される", async () => {
+    const { env, dbFixture } = await createConnectedEnv({ members: [] });
+    const spaceBodies: unknown[] = [];
+
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (url === "https://oauth2.googleapis.com/token") {
+        return Response.json({ access_token: "ya29.mock-token", expires_in: 3600 });
+      }
+      if (url === "https://meet.googleapis.com/v2/spaces" && init?.method === "POST") {
+        spaceBodies.push(JSON.parse(String(init.body)));
+        return Response.json({
+          name: "spaces/custom-1",
+          meetingUri: "https://meet.google.com/custom-uri",
+          meetingCode: "custom-uri",
+        });
+      }
+      if (url.startsWith("https://www.googleapis.com/calendar/v3/calendars/primary/events")) {
+        return Response.json({ id: "cal-evt-custom" });
+      }
+      throw new Error(`想定外の fetch: ${url}`);
+    }) as unknown as typeof fetch;
+
+    const result = await createMeeting(
+      env,
+      ACTOR,
+      buildValidForm({
+        includeHostOrganizers: "false",
+        autoTranscription: "false",
+        autoSmartNotes: "true",
+        autoRecording: "true",
+      }),
+      {
+        fetchFn: fetchMock,
+        now: () => new Date("2026-11-19T05:00:00.000Z"),
+        generateId: () => "mtg-custom",
+      },
+    );
+
+    expect(result).toEqual({ ok: true, meetingId: "mtg-custom" });
+    expect(spaceBodies).toEqual([
+      {
+        config: {
+          accessType: "RESTRICTED",
+          moderation: "ON",
+          artifactConfig: {
+            transcriptionConfig: { autoTranscriptionGeneration: "OFF" },
+            smartNotesConfig: { autoSmartNotesGeneration: "ON" },
+            recordingConfig: { autoRecordingGeneration: "ON" },
+          },
+        },
+      },
+    ]);
+    expect(dbFixture.meetings.get("mtg-custom")).toMatchObject({
+      auto_transcription: 0,
+      auto_smart_notes: 1,
+      auto_recording: 1,
+    });
   });
 
   it("spaces.create 成功後に events.insert が失敗した場合は status='failed'・last_error・space_name を D1 に残す", async () => {

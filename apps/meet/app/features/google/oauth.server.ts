@@ -22,9 +22,10 @@ export {
 export const GOOGLE_OAUTH_STATE_TTL_SECONDS = 600;
 export const GOOGLE_HOST_DOMAIN = "gdgoc.jp";
 
-/** 会議作成・Calendar・Drive 共有に必須の 3 スコープ。1 つでも欠けていれば接続を拒否する。 */
+/** 会議作成・スペース設定（自動録画/文字起こし/Gemini メモ）・Calendar・Drive 共有に必須の 4 スコープ。1 つでも欠けていれば接続を拒否する。 */
 export const GOOGLE_REQUIRED_SCOPES = [
   "https://www.googleapis.com/auth/meetings.space.created",
+  "https://www.googleapis.com/auth/meetings.space.settings",
   "https://www.googleapis.com/auth/calendar.events",
   "https://www.googleapis.com/auth/drive",
 ] as const;

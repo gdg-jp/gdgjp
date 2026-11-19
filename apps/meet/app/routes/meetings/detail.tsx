@@ -40,8 +40,10 @@ import {
   toPublicInviteeList,
 } from "~/features/meetings/access.server";
 import { cancelMeeting } from "~/features/meetings/cancel-meeting.server";
+import { AutoArtifactsSummary } from "~/features/meetings/components/AutoArtifactsSummary";
 import { InviteeListCard } from "~/features/meetings/components/InviteeListCard";
 import { MeetingDetailActions } from "~/features/meetings/components/MeetingDetailActions";
+import { MeetingDetailAlerts } from "~/features/meetings/components/MeetingDetailAlerts";
 import {
   MEETING_ACCESS_TYPE_OPTIONS,
   MEETING_STATUS_META,
@@ -90,6 +92,8 @@ export async function loader({ request, params, context }: Route.LoaderArgs) {
     canEdit,
     googleConnectionStatus: googleConnection.status,
     flashUpdated: url.searchParams.get("updated") === "1",
+    flashCohostAdded: url.searchParams.get("cohost_added") === "1",
+    flashInviteeRemoved: url.searchParams.get("invitee_removed") === "1",
     meeting: {
       id: meeting.id,
       title: meeting.title,
@@ -98,6 +102,9 @@ export async function loader({ request, params, context }: Route.LoaderArgs) {
       endAt: meeting.endAt,
       timeZone: meeting.timeZone,
       accessType: meeting.accessType,
+      autoTranscription: meeting.autoTranscription,
+      autoSmartNotes: meeting.autoSmartNotes,
+      autoRecording: meeting.autoRecording,
       meetingUri: meeting.meetingUri,
       meetingCode: meeting.meetingCode,
       calendarHtmlLink: meeting.calendarHtmlLink,
@@ -153,6 +160,8 @@ export default function MeetingDetail({ loaderData, actionData }: Route.Componen
     canEdit,
     googleConnectionStatus,
     flashUpdated,
+    flashCohostAdded,
+    flashInviteeRemoved,
     meeting,
     invitees,
     artifacts,
@@ -169,6 +178,10 @@ export default function MeetingDetail({ loaderData, actionData }: Route.Componen
   const schedule = formatMeetingDateTimeRange(meeting.startAt, meeting.endAt, meeting.timeZone);
   const resyncAction = actionData && actionData.intent === "resync" ? actionData : undefined;
   const cancelAction = actionData && actionData.intent === "cancel" ? actionData : undefined;
+  const showCohostAddedNotice =
+    flashCohostAdded || (resyncAction?.result.ok ? resyncAction.result.cohostAdded : false);
+  const showInviteeRemovedNotice =
+    flashInviteeRemoved || (resyncAction?.result.ok ? resyncAction.result.inviteeRemoved : false);
 
   return (
     <AppLayout user={user} accountsUrl={accountsUrl}>
@@ -186,83 +199,18 @@ export default function MeetingDetail({ loaderData, actionData }: Route.Componen
           actions={<Badge tone={statusMeta.tone}>{statusMeta.label}</Badge>}
         />
 
-        {flashUpdated && (
-          <Alert tone="success" title="会議を更新しました">
-            Google カレンダーの予定を更新し、招待者へ更新通知メールを送信しました。
-          </Alert>
-        )}
-
-        {resyncAction?.result.ok && (
-          <Alert tone="success" title="チャプターから再同期しました">
-            再同期しました（招待者 {resyncAction.result.totalCount} 名、
-            {resyncAction.result.changed ? "変更あり" : "変更なし"}）
-          </Alert>
-        )}
-
-        {resyncAction && !resyncAction.result.ok && (
-          <Alert tone="danger" title="チャプターからの再同期に失敗しました">
-            {resyncAction.result.error}
-          </Alert>
-        )}
-
-        {cancelAction?.result.ok && (
-          <Alert tone="success" title="会議を取り消しました">
-            Google カレンダーの予定を削除し、Meet スペースのクリーンアップを開始しました。
-          </Alert>
-        )}
-
-        {cancelAction && !cancelAction.result.ok && (
-          <Alert tone="danger" title="会議の取り消しに失敗しました">
-            {cancelAction.result.error}
-          </Alert>
-        )}
-
-        {meeting.status === "canceled" && (
-          <Alert tone="info" title="この会議は取り消し済みです">
-            Google カレンダーの予定は削除されており、編集・再同期・再取り消しはできません。Meet
-            スペースの登録メンバーはバックグラウンドで削除され、アクセス設定は「制限付き」へ戻ります。
-          </Alert>
-        )}
-
-        {meeting.status === "failed" && (
-          <Alert tone="danger" title="会議の作成に失敗しました">
-            {meeting.lastError ??
-              "Google API の呼び出し中にエラーが発生したため、会議の作成が完了しませんでした。"}
-          </Alert>
-        )}
-
-        {meeting.status === "creating" && (
-          <Alert tone="info" title="会議を作成しています">
-            処理完了までしばらくお待ちください。数秒後に再読み込みしてください。
-          </Alert>
-        )}
-
-        {meeting.status === "active" && meeting.lastError && (
-          <Alert tone="warning" title="メンバー同期でエラーまたは警告が発生しました">
-            {meeting.lastError}
-          </Alert>
-        )}
-
-        {canEdit && googleConnectionStatus !== "connected" && (
-          <Alert
-            tone={googleConnectionStatus === "disconnected" ? "danger" : "warning"}
-            title={
-              googleConnectionStatus === "disconnected"
-                ? "共有 Google アカウントの接続が切断されています"
-                : "共有 Google アカウントが未接続です"
-            }
-          >
-            共有 Google アカウントが接続されるまで、会議の編集・再同期・取り消しを実行できません。
-            {user.isAdmin && (
-              <>
-                {" "}
-                <UiLink asChild>
-                  <RouterLink to="/admin/google">Google 接続設定を開く</RouterLink>
-                </UiLink>
-              </>
-            )}
-          </Alert>
-        )}
+        <MeetingDetailAlerts
+          flashUpdated={flashUpdated}
+          showCohostAddedNotice={showCohostAddedNotice}
+          showInviteeRemovedNotice={showInviteeRemovedNotice}
+          resyncResult={resyncAction?.result}
+          cancelResult={cancelAction?.result}
+          meetingStatus={meeting.status}
+          lastError={meeting.lastError}
+          canEdit={canEdit}
+          isAdmin={user.isAdmin}
+          googleConnectionStatus={googleConnectionStatus}
+        />
 
         <Card>
           <Stack>
@@ -321,6 +269,15 @@ export default function MeetingDetail({ loaderData, actionData }: Route.Componen
                 )}
               </dd>
 
+              <dt className="font-semibold text-muted">自動記録設定</dt>
+              <dd className="min-w-0">
+                <AutoArtifactsSummary
+                  autoTranscription={meeting.autoTranscription}
+                  autoSmartNotes={meeting.autoSmartNotes}
+                  autoRecording={meeting.autoRecording}
+                />
+              </dd>
+
               {meeting.meetingUri && (
                 <>
                   <dt className="font-semibold text-muted">Meet URL</dt>
@@ -353,21 +310,12 @@ export default function MeetingDetail({ loaderData, actionData }: Route.Componen
 
             <Alert tone="info" title="ご利用上の注意">
               <Stack>
-                <Text size="sm">
-                  Google Meet
-                  のチャット履歴は自動保存されません。残したい内容は会議中に別途メモしてください。
-                </Text>
-                <Text size="sm">
-                  会議中に共同主催者（co-host）に追加された人は、会議に入り直すとホスト管理が使えます。
-                </Text>
-                <Text size="sm">
-                  招待者を後から外した場合でも、既に共有済みの Google
-                  ドライブファイルの閲覧権限は自動では剥奪されません。
-                </Text>
-                <Text size="sm">
-                  Google
-                  カレンダー上で直接加えた変更は取り込まれません。このアプリから編集すると内容が上書きされます。
-                </Text>
+                {!meeting.autoRecording && (
+                  <Text size="sm">
+                    録画・チャット保存がオフのため、Google Meet
+                    のチャット履歴は保存されません。残したい場合は「録画・チャット保存」をオンにするか、会議中に別途メモしてください。
+                  </Text>
+                )}
                 <Text size="sm">
                   招待メールが「不明な送信者からの招待」となり Google
                   カレンダーに予定が自動で追加されない場合は、招待メールで出欠を「はい」と返信すると追加されます。送信者（community-support@gdgoc.jp）を連絡先に追加すると、以降の招待は自動で追加されます。

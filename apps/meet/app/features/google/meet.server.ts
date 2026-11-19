@@ -10,11 +10,25 @@ const MEET_API_BASE = "https://meet.googleapis.com/v2";
 export type MeetAccessType = "RESTRICTED" | "TRUSTED" | "OPEN";
 export type MeetModeration = "ON" | "OFF";
 export type MeetMemberRole = "COHOST";
+export type MeetAutoGenerationType = "ON" | "OFF";
+
+export type MeetArtifactConfig = {
+  recordingConfig?: {
+    autoRecordingGeneration?: MeetAutoGenerationType;
+  };
+  transcriptionConfig?: {
+    autoTranscriptionGeneration?: MeetAutoGenerationType;
+  };
+  smartNotesConfig?: {
+    autoSmartNotesGeneration?: MeetAutoGenerationType;
+  };
+};
 
 export type MeetSpaceConfig = {
   accessType?: MeetAccessType;
   moderation?: MeetModeration;
   entryPointAccess?: string;
+  artifactConfig?: MeetArtifactConfig;
 };
 
 export type MeetSpace = {
@@ -75,7 +89,11 @@ export type MeetSmartNote = {
 
 export async function createSpace(
   accessToken: string,
-  config: { accessType: MeetAccessType; moderation?: MeetModeration },
+  config: {
+    accessType: MeetAccessType;
+    moderation?: MeetModeration;
+    artifactConfig?: MeetArtifactConfig;
+  },
   fetchFn?: GoogleFetch,
 ): Promise<MeetSpace> {
   return googleJsonRequest<MeetSpace>({
@@ -86,6 +104,7 @@ export async function createSpace(
       config: {
         accessType: config.accessType,
         moderation: config.moderation ?? "ON",
+        ...(config.artifactConfig ? { artifactConfig: config.artifactConfig } : {}),
       },
     },
     fetchFn,
@@ -108,7 +127,7 @@ export async function getSpace(
 export async function patchSpace(
   accessToken: string,
   spaceName: string,
-  config: { accessType?: MeetAccessType; moderation?: MeetModeration },
+  config: Pick<MeetSpaceConfig, "accessType" | "moderation" | "artifactConfig">,
   updateMask = "config.accessType",
   fetchFn?: GoogleFetch,
 ): Promise<MeetSpace> {

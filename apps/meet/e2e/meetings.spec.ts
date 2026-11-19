@@ -51,6 +51,28 @@ test("チャプター所属ユーザーは / と /meetings/new を開け、Googl
   await expect(page.getByRole("button", { name: "会議を作成" })).toBeDisabled();
 });
 
+test("/meetings/new の自動記録設定は文字起こし・Gemini Notes が既定オン、録画が既定オフで切り替えられる", async ({
+  page,
+}) => {
+  await page.goto("/dev/login?as=organizer1&chapter=1:tokyo:organizer&return_to=/meetings/new");
+  await expect(page).toHaveURL(/\/meetings\/new$/);
+
+  const transcription = page.getByRole("checkbox", { name: "文字起こし（自動開始）" });
+  const smartNotes = page.getByRole("checkbox", { name: "Gemini Notes（自動開始）" });
+  const recording = page.getByRole("checkbox", { name: "録画・チャット保存（自動開始）" });
+
+  await expect(transcription).toBeChecked();
+  await expect(smartNotes).toBeChecked();
+  await expect(recording).not.toBeChecked();
+
+  await transcription.click();
+  await recording.click();
+
+  await expect(transcription).not.toBeChecked();
+  await expect(smartNotes).toBeChecked();
+  await expect(recording).toBeChecked();
+});
+
 test("チャプター未所属ユーザーには新しい会議ボタンが出ず、/meetings/new は /no-chapter へリダイレクトされる", async ({
   browser,
 }) => {

@@ -62,6 +62,48 @@ export const MEETING_ACCESS_TYPE_OPTIONS: ReadonlyArray<{
   },
 ];
 
+/** 会議スペースの自動記録（Auto Artifacts）設定。 */
+export type MeetingAutoArtifacts = {
+  autoTranscription: boolean;
+  autoSmartNotes: boolean;
+  autoRecording: boolean;
+};
+
+/** 新規作成時の自動記録設定の既定値（録画のみ GWS 容量節約のため既定オフ）。 */
+export const DEFAULT_MEETING_AUTO_ARTIFACTS: Readonly<MeetingAutoArtifacts> = {
+  autoTranscription: true,
+  autoSmartNotes: true,
+  autoRecording: false,
+};
+
+export const MEETING_AUTO_ARTIFACT_OPTIONS: ReadonlyArray<{
+  key: keyof MeetingAutoArtifacts;
+  label: string;
+  shortLabel: string;
+  description: string;
+}> = [
+  {
+    key: "autoTranscription",
+    label: "文字起こし（自動開始）",
+    shortLabel: "文字起こし",
+    description:
+      "権限のある参加者が入室すると文字起こしを自動で開始し、Google ドキュメントとして保存します。",
+  },
+  {
+    key: "autoSmartNotes",
+    label: "Gemini Notes（自動開始）",
+    shortLabel: "Gemini Notes",
+    description:
+      "権限のある参加者が入室すると Gemini によるメモ作成を自動で開始し、議事録を保存します。",
+  },
+  {
+    key: "autoRecording",
+    label: "録画・チャット保存（自動開始）",
+    shortLabel: "録画・チャット保存",
+    description: "Google ドライブの容量消費を抑えるため、必要な会議のみオンにしてください。",
+  },
+];
+
 export type MeetingRecord = {
   id: string;
   hostChapterId: number;
@@ -71,6 +113,9 @@ export type MeetingRecord = {
   endAt: string;
   timeZone: string;
   accessType: MeetingAccessType;
+  autoTranscription: boolean;
+  autoSmartNotes: boolean;
+  autoRecording: boolean;
   spaceName: string | null;
   meetingUri: string | null;
   meetingCode: string | null;

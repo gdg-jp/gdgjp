@@ -19,6 +19,9 @@ export type MeetingRow = {
   end_at: string;
   time_zone: string;
   access_type: MeetingAccessType;
+  auto_transcription: number;
+  auto_smart_notes: number;
+  auto_recording: number;
   space_name: string | null;
   meeting_uri: string | null;
   meeting_code: string | null;
@@ -75,6 +78,9 @@ export function mapMeetingRow(row: MeetingRow): MeetingRecord {
     endAt: row.end_at,
     timeZone: row.time_zone,
     accessType: row.access_type,
+    autoTranscription: Number(row.auto_transcription) === 1,
+    autoSmartNotes: Number(row.auto_smart_notes) === 1,
+    autoRecording: Number(row.auto_recording) === 1,
     spaceName: row.space_name,
     meetingUri: row.meeting_uri,
     meetingCode: row.meeting_code,

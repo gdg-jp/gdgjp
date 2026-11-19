@@ -4,7 +4,11 @@ import type { GoogleConnectionRow } from "~/features/google/connection.server";
 import { GOOGLE_CONNECTION_AAD, encryptRefreshToken } from "~/features/google/encryption.server";
 import { resetGoogleAccessTokenCache } from "~/features/google/token.server";
 import type { MeetingInviteSourceRecord, MeetingInviteeRecord, MeetingRecord } from "./meeting";
-import { resyncMeetingInvitees, updateMeeting } from "./update-meeting.server";
+import {
+  resyncMeetingInvitees,
+  summarizeInviteeDiff,
+  updateMeeting,
+} from "./update-meeting.server";
 
 const TEST_KEY = Buffer.from(new Uint8Array(32).fill(5)).toString("base64");
 const HOST_EMAIL = "community-support@gdgoc.jp";
@@ -18,6 +22,9 @@ const ACTIVE_MEETING: MeetingRecord = {
   endAt: "2026-12-01T11:00:00.000Z",
   timeZone: "Asia/Tokyo",
   accessType: "RESTRICTED",
+  autoTranscription: true,
+  autoSmartNotes: true,
+  autoRecording: false,
   spaceName: "spaces/space-1",
   meetingUri: "https://meet.google.com/abc-defg-hij",
   meetingCode: "abc-defg-hij",
@@ -147,8 +154,20 @@ function createFakeEditDb(
       return { success: true, meta: {} };
     }
     if (sql.includes("SET title = ?, description = ?")) {
-      const [title, description, startAt, endAt, timeZone, accessType, htmlLink, updatedAt, id] =
-        args;
+      const [
+        title,
+        description,
+        startAt,
+        endAt,
+        timeZone,
+        accessType,
+        autoTranscription,
+        autoSmartNotes,
+        autoRecording,
+        htmlLink,
+        updatedAt,
+        id,
+      ] = args;
       updatedMeeting = {
         id,
         title,
@@ -157,6 +176,9 @@ function createFakeEditDb(
         endAt,
         timeZone,
         accessType,
+        autoTranscription,
+        autoSmartNotes,
+        autoRecording,
         htmlLink,
         updatedAt,
       };
@@ -311,6 +333,9 @@ function buildEditForm(overrides: Record<string, string> = {}): FormData {
     timeZone: "Asia/Tokyo",
     includeHostOrganizers: "true",
     accessType: "RESTRICTED",
+    autoTranscription: "true",
+    autoSmartNotes: "true",
+    autoRecording: "false",
     additionalChapters: "[]",
     cohostEmails: "",
     participantEmails: "guest@example.com",
@@ -367,7 +392,13 @@ describe("updateMeeting", () => {
       },
     );
 
-    expect(result).toEqual({ ok: true, meetingId: "mtg-1", inviteesChanged: false });
+    expect(result).toEqual({
+      ok: true,
+      meetingId: "mtg-1",
+      inviteesChanged: false,
+      cohostAdded: false,
+      inviteeRemoved: false,
+    });
     expect(listChapterMembers).not.toHaveBeenCalled();
     expect(queueSend).not.toHaveBeenCalled();
     expect(reshareMock).not.toHaveBeenCalled();
@@ -455,7 +486,13 @@ describe("updateMeeting", () => {
       },
     );
 
-    expect(result).toEqual({ ok: true, meetingId: "mtg-1", inviteesChanged: true });
+    expect(result).toEqual({
+      ok: true,
+      meetingId: "mtg-1",
+      inviteesChanged: true,
+      cohostAdded: true,
+      inviteeRemoved: true,
+    });
     expect(listChapterMembers).toHaveBeenCalledWith({
       actor: { ...ACTOR, user: { ...ACTOR.user, id: "accounts-u-creator" } },
       chapterIds: [1],
@@ -579,6 +616,145 @@ describe("updateMeeting", () => {
     expect(dbFixture.getUpdatedMeeting()).toBeNull();
     expect(queueSend).not.toHaveBeenCalled();
   });
+
+  it("自動記録設定のみ変更時は変更項目の updateMask だけで spaces.patch を呼び、D1 も更新する", async () => {
+    const { env, dbFixture, queueSend } = await createEnvFixture({});
+    const reshareMock = vi.fn().mockResolvedValue(undefined);
+    const calls: Array<{ url: string; method: string; body: unknown }> = [];
+
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      const method = init?.method ?? "GET";
+      if (url === "https://oauth2.googleapis.com/token") {
+        return Response.json({ access_token: "ya29.edit-token", expires_in: 3600 });
+      }
+      calls.push({
+        url,
+        method,
+        body: typeof init?.body === "string" ? JSON.parse(init.body) : undefined,
+      });
+      if (url.startsWith("https://meet.googleapis.com/v2/spaces/space-1") && method === "PATCH") {
+        return Response.json({ name: "spaces/space-1" });
+      }
+      if (url.includes("/calendar/v3/calendars/primary/events/evt-1") && method === "PATCH") {
+        return Response.json({ id: "evt-1" });
+      }
+      throw new Error(`想定外の fetch: ${method} ${url}`);
+    }) as unknown as typeof fetch;
+
+    const result = await updateMeeting(
+      env,
+      ACTOR,
+      ACTIVE_MEETING,
+      EXISTING_SOURCES,
+      EXISTING_INVITEES,
+      buildEditForm({
+        autoTranscription: "false",
+        autoSmartNotes: "true",
+        autoRecording: "true",
+      }),
+      {
+        fetchFn: fetchMock,
+        now: () => new Date("2026-11-19T06:45:00.000Z"),
+        enqueueArtifactReshareFn: reshareMock,
+      },
+    );
+
+    expect(result).toEqual({
+      ok: true,
+      meetingId: "mtg-1",
+      inviteesChanged: false,
+      cohostAdded: false,
+      inviteeRemoved: false,
+    });
+    expect(queueSend).not.toHaveBeenCalled();
+    expect(reshareMock).not.toHaveBeenCalled();
+    expect(calls[0]).toEqual({
+      url: "https://meet.googleapis.com/v2/spaces/space-1?updateMask=config.artifactConfig.transcriptionConfig.autoTranscriptionGeneration%2Cconfig.artifactConfig.recordingConfig.autoRecordingGeneration",
+      method: "PATCH",
+      body: {
+        config: {
+          artifactConfig: {
+            transcriptionConfig: { autoTranscriptionGeneration: "OFF" },
+            recordingConfig: { autoRecordingGeneration: "ON" },
+          },
+        },
+      },
+    });
+    expect(dbFixture.getUpdatedMeeting()).toMatchObject({
+      autoTranscription: 0,
+      autoSmartNotes: 1,
+      autoRecording: 1,
+    });
+  });
+
+  it("accessType と自動記録設定を同時に変更すると 1 回の spaces.patch にまとめて送信する", async () => {
+    const { env, dbFixture } = await createEnvFixture({});
+    const reshareMock = vi.fn().mockResolvedValue(undefined);
+    const spacePatches: Array<{ url: string; body: unknown }> = [];
+
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      const method = init?.method ?? "GET";
+      if (url === "https://oauth2.googleapis.com/token") {
+        return Response.json({ access_token: "ya29.edit-token", expires_in: 3600 });
+      }
+      if (url.startsWith("https://meet.googleapis.com/v2/spaces/space-1") && method === "PATCH") {
+        spacePatches.push({ url, body: JSON.parse(String(init?.body)) });
+        return Response.json({ name: "spaces/space-1" });
+      }
+      if (url.includes("/calendar/v3/calendars/primary/events/evt-1") && method === "PATCH") {
+        return Response.json({ id: "evt-1" });
+      }
+      throw new Error(`想定外の fetch: ${method} ${url}`);
+    }) as unknown as typeof fetch;
+
+    const result = await updateMeeting(
+      env,
+      ACTOR,
+      ACTIVE_MEETING,
+      EXISTING_SOURCES,
+      EXISTING_INVITEES,
+      buildEditForm({
+        accessType: "OPEN",
+        autoTranscription: "true",
+        autoSmartNotes: "false",
+        autoRecording: "true",
+      }),
+      {
+        fetchFn: fetchMock,
+        now: () => new Date("2026-11-19T06:50:00.000Z"),
+        enqueueArtifactReshareFn: reshareMock,
+      },
+    );
+
+    expect(result).toEqual({
+      ok: true,
+      meetingId: "mtg-1",
+      inviteesChanged: false,
+      cohostAdded: false,
+      inviteeRemoved: false,
+    });
+    expect(spacePatches).toHaveLength(1);
+    expect(spacePatches[0]).toEqual({
+      url: "https://meet.googleapis.com/v2/spaces/space-1?updateMask=config.accessType%2Cconfig.artifactConfig.smartNotesConfig.autoSmartNotesGeneration%2Cconfig.artifactConfig.recordingConfig.autoRecordingGeneration",
+      body: {
+        config: {
+          accessType: "OPEN",
+          artifactConfig: {
+            smartNotesConfig: { autoSmartNotesGeneration: "OFF" },
+            recordingConfig: { autoRecordingGeneration: "ON" },
+          },
+        },
+      },
+    });
+    expect(dbFixture.getUpdatedMeeting()).toMatchObject({
+      accessType: "OPEN",
+      autoTranscription: 1,
+      autoSmartNotes: 0,
+      autoRecording: 1,
+    });
+  });
 });
 
 describe("resyncMeetingInvitees", () => {
@@ -638,7 +814,13 @@ describe("resyncMeetingInvitees", () => {
       },
     );
 
-    expect(result).toEqual({ ok: true, changed: true, totalCount: 4 });
+    expect(result).toEqual({
+      ok: true,
+      changed: true,
+      totalCount: 4,
+      cohostAdded: true,
+      inviteeRemoved: false,
+    });
     expect(listChapterMembers).toHaveBeenCalledTimes(1);
     expect(calls).toHaveLength(1);
     expect(new URL(calls[0].url).searchParams.get("sendUpdates")).toBe("all");
@@ -679,7 +861,13 @@ describe("resyncMeetingInvitees", () => {
       { fetchFn: fetchMock, enqueueArtifactReshareFn: reshareMock },
     );
 
-    expect(result).toEqual({ ok: true, changed: false, totalCount: 3 });
+    expect(result).toEqual({
+      ok: true,
+      changed: false,
+      totalCount: 3,
+      cohostAdded: false,
+      inviteeRemoved: false,
+    });
     expect(fetchMock).not.toHaveBeenCalled();
     expect(dbFixture.batchHistory).toHaveLength(0);
     expect(queueSend).not.toHaveBeenCalled();
@@ -734,11 +922,58 @@ describe("resyncMeetingInvitees", () => {
       },
     );
 
-    expect(result).toEqual({ ok: true, changed: true, totalCount: 4 });
+    expect(result).toEqual({
+      ok: true,
+      changed: true,
+      totalCount: 4,
+      cohostAdded: true,
+      inviteeRemoved: false,
+    });
     expect(queueSend).toHaveBeenCalledWith({ type: "sync_members", meetingId: "mtg-1" });
     expect(reshareMock).toHaveBeenCalledWith(env, "mtg-1");
     expect(dbFixture.getUpdatedMeeting()?.lastError).toContain(
       "生成ファイルの再共有ジョブの投入に失敗しました: queue unavailable",
     );
+  });
+});
+
+describe("summarizeInviteeDiff", () => {
+  it("participant から cohost への昇格は cohostAdded: true を返す", () => {
+    expect(
+      summarizeInviteeDiff(
+        [
+          { emailNormalized: "a@example.com", role: "cohost" },
+          { emailNormalized: "b@example.com", role: "participant" },
+        ],
+        [
+          { emailNormalized: "a@example.com", role: "cohost" },
+          { emailNormalized: "b@example.com", role: "cohost" },
+        ],
+      ),
+    ).toEqual({ cohostAdded: true, inviteeRemoved: false });
+  });
+
+  it("participant のみの追加では cohostAdded: false かつ inviteeRemoved: false を返す", () => {
+    expect(
+      summarizeInviteeDiff(
+        [{ emailNormalized: "a@example.com", role: "cohost" }],
+        [
+          { emailNormalized: "a@example.com", role: "cohost" },
+          { emailNormalized: "b@example.com", role: "participant" },
+        ],
+      ),
+    ).toEqual({ cohostAdded: false, inviteeRemoved: false });
+  });
+
+  it("既存招待者が外れた場合は inviteeRemoved: true を返す", () => {
+    expect(
+      summarizeInviteeDiff(
+        [
+          { emailNormalized: "a@example.com", role: "cohost" },
+          { emailNormalized: "b@example.com", role: "participant" },
+        ],
+        [{ emailNormalized: "a@example.com", role: "cohost" }],
+      ),
+    ).toEqual({ cohostAdded: false, inviteeRemoved: true });
   });
 });

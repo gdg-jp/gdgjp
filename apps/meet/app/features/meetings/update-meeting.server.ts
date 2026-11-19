@@ -9,7 +9,10 @@ import {
   findUnshareableInvitees,
   formatUnshareableInviteesError,
 } from "~/features/invitee-checks/check-invitees.server";
-import { enqueueArtifactReshareForMeeting } from "./artifact-reshare.server";
+import {
+  enqueueArtifactReshareForMeeting,
+  enqueueArtifactReshareSafely,
+} from "./artifact-reshare.server";
 import { type CreateMeetingFieldErrors, parseMeetingEditForm } from "./form";
 import {
   buildCalendarAttendees,
@@ -21,6 +24,7 @@ import {
   haveInviteesChanged,
   previewEditMeetingInvitees,
   resolveCreatorDisplayName,
+  summarizeInviteeDiff,
   toSafeErrorSummary,
   trimTrailingSlash,
 } from "./invite-resolution.server";
@@ -32,11 +36,23 @@ import {
   updateMeetingDetails,
   updateMeetingLastError,
 } from "./meetings.repository.server";
+import { buildSpaceConfigPatch } from "./space-config.server";
 
-export { haveInviteSourcesChanged, haveInviteesChanged, previewEditMeetingInvitees };
+export {
+  haveInviteSourcesChanged,
+  haveInviteesChanged,
+  previewEditMeetingInvitees,
+  summarizeInviteeDiff,
+};
 
 export type UpdateMeetingResult =
-  | { ok: true; meetingId: string; inviteesChanged: boolean }
+  | {
+      ok: true;
+      meetingId: string;
+      inviteesChanged: boolean;
+      cohostAdded: boolean;
+      inviteeRemoved: boolean;
+    }
   | {
       ok: false;
       status?: number;
@@ -45,7 +61,13 @@ export type UpdateMeetingResult =
     };
 
 export type ResyncMeetingResult =
-  | { ok: true; changed: boolean; totalCount: number }
+  | {
+      ok: true;
+      changed: boolean;
+      totalCount: number;
+      cohostAdded: boolean;
+      inviteeRemoved: boolean;
+    }
   | { ok: false; status?: number; error: string };
 
 export type UpdateMeetingDeps = {
@@ -54,25 +76,6 @@ export type UpdateMeetingDeps = {
   generateId?: () => string;
   enqueueArtifactReshareFn?: (env: Env, meetingId: string) => Promise<void>;
 };
-
-/** 予定と D1 の更新は済んでいるため、再共有ジョブの投入に失敗しても保存自体は成功として扱う。 */
-async function enqueueArtifactReshareSafely(
-  env: Env,
-  meetingId: string,
-  enqueueFn: (env: Env, meetingId: string) => Promise<void>,
-  now: () => Date,
-): Promise<void> {
-  try {
-    await enqueueFn(env, meetingId);
-  } catch (error) {
-    await updateMeetingLastError(
-      env.DB,
-      meetingId,
-      `生成ファイルの再共有ジョブの投入に失敗しました: ${toSafeErrorSummary(error)}`.slice(0, 240),
-      now().toISOString(),
-    );
-  }
-}
 
 /**
  * 既存の `active` な会議を更新する。
@@ -180,12 +183,13 @@ export async function updateMeeting(
   try {
     const accessToken = await getGoogleAccessToken(env, fetchFn);
 
-    if (parsed.data.accessType !== meeting.accessType) {
+    const spacePatch = buildSpaceConfigPatch(meeting, parsed.data);
+    if (spacePatch) {
       await patchSpace(
         accessToken,
         meeting.spaceName,
-        { accessType: parsed.data.accessType },
-        "config.accessType",
+        spacePatch.config,
+        spacePatch.updateMask,
         fetchFn,
       );
     }
@@ -235,6 +239,9 @@ export async function updateMeeting(
     endAt: parsed.data.endAt,
     timeZone: parsed.data.timeZone,
     accessType: parsed.data.accessType,
+    autoTranscription: parsed.data.autoTranscription,
+    autoSmartNotes: parsed.data.autoSmartNotes,
+    autoRecording: parsed.data.autoRecording,
     calendarHtmlLink: patchedHtmlLink,
     updatedAt,
   });
@@ -253,7 +260,12 @@ export async function updateMeeting(
     await enqueueArtifactReshareSafely(env, meeting.id, enqueueArtifactReshareFn, now);
   }
 
-  return { ok: true, meetingId: meeting.id, inviteesChanged };
+  const diff =
+    inviteesChanged && nextInvitees
+      ? summarizeInviteeDiff(existingInvitees, nextInvitees)
+      : { cohostAdded: false, inviteeRemoved: false };
+
+  return { ok: true, meetingId: meeting.id, inviteesChanged, ...diff };
 }
 
 /**
@@ -329,7 +341,13 @@ export async function resyncMeetingInvitees(
 
   const changed = haveInviteesChanged(existingInvitees, resolved.invitees);
   if (!changed) {
-    return { ok: true, changed: false, totalCount: resolved.invitees.length };
+    return {
+      ok: true,
+      changed: false,
+      totalCount: resolved.invitees.length,
+      cohostAdded: false,
+      inviteeRemoved: false,
+    };
   }
 
   try {
@@ -370,5 +388,6 @@ export async function resyncMeetingInvitees(
   }
   await enqueueArtifactReshareSafely(env, meeting.id, enqueueArtifactReshareFn, now);
 
-  return { ok: true, changed: true, totalCount: resolved.invitees.length };
+  const diff = summarizeInviteeDiff(existingInvitees, resolved.invitees);
+  return { ok: true, changed: true, totalCount: resolved.invitees.length, ...diff };
 }

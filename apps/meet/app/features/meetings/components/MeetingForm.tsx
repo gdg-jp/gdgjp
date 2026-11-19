@@ -25,11 +25,14 @@ import { Form, Link as RouterLink, useFetcher, useNavigation } from "react-route
 import type { ChapterSummary } from "~/features/directory/directory";
 import type { AdditionalChapterRow, CreateMeetingFieldErrors } from "../form";
 import {
+  DEFAULT_MEETING_AUTO_ARTIFACTS,
   DEFAULT_TIME_ZONE,
   MEETING_ACCESS_TYPE_OPTIONS,
   type MeetingAccessType,
+  type MeetingAutoArtifacts,
   TIME_ZONE_OPTIONS,
 } from "../meeting";
+import { AutoArtifactsCard } from "./AutoArtifactsCard";
 import {
   type AdditionalChapterDraft,
   type InviteePreviewData,
@@ -60,6 +63,7 @@ export type MeetingFormProps = {
   defaultEndTime: string;
   defaultTimeZone?: string;
   defaultAccessType?: MeetingAccessType;
+  defaultAutoArtifacts?: MeetingAutoArtifacts;
   defaultIncludeHostOrganizers?: boolean;
   defaultAdditionalChapters?: AdditionalChapterRow[];
   defaultCohostEmails?: string;
@@ -84,6 +88,7 @@ export function MeetingForm({
   defaultEndTime,
   defaultTimeZone = DEFAULT_TIME_ZONE,
   defaultAccessType = "RESTRICTED",
+  defaultAutoArtifacts = DEFAULT_MEETING_AUTO_ARTIFACTS,
   defaultIncludeHostOrganizers = true,
   defaultAdditionalChapters = [],
   defaultCohostEmails = "",
@@ -105,6 +110,7 @@ export function MeetingForm({
   const [includeHostOrganizers, setIncludeHostOrganizers] = useState(defaultIncludeHostOrganizers);
   const [timeZone, setTimeZone] = useState(defaultTimeZone || DEFAULT_TIME_ZONE);
   const [accessType, setAccessType] = useState<MeetingAccessType>(defaultAccessType);
+  const [autoArtifacts, setAutoArtifacts] = useState<MeetingAutoArtifacts>(defaultAutoArtifacts);
   const [additionalChapters, setAdditionalChapters] = useState<AdditionalChapterDraft[]>(() =>
     defaultAdditionalChapters.map((row, index) => ({
       key: `init-${index}`,
@@ -182,6 +188,21 @@ export function MeetingForm({
         type="hidden"
         name="includeHostOrganizers"
         value={includeHostOrganizers ? "true" : "false"}
+      />
+      <input
+        type="hidden"
+        name="autoTranscription"
+        value={autoArtifacts.autoTranscription ? "true" : "false"}
+      />
+      <input
+        type="hidden"
+        name="autoSmartNotes"
+        value={autoArtifacts.autoSmartNotes ? "true" : "false"}
+      />
+      <input
+        type="hidden"
+        name="autoRecording"
+        value={autoArtifacts.autoRecording ? "true" : "false"}
       />
       <input type="hidden" name="additionalChapters" value={serializedAdditionalChapters} />
 
@@ -329,6 +350,8 @@ export function MeetingForm({
             </FormField>
           </Stack>
         </Card>
+
+        <AutoArtifactsCard value={autoArtifacts} onChange={setAutoArtifacts} />
 
         <InviteeSourcesCard
           allChapters={allChapters}

@@ -13,7 +13,7 @@ import {
   type ResolvedInvitee,
   resolveInvitees,
 } from "./invitees";
-import type { MeetingInviteeRecord, MeetingRecord } from "./meeting";
+import type { InviteeRole, MeetingInviteeRecord, MeetingRecord } from "./meeting";
 
 export function trimTrailingSlash(value: string): string {
   return value.endsWith("/") ? value.slice(0, -1) : value;
@@ -128,6 +128,41 @@ export function haveInviteesChanged(
   const left = existingInvitees.map(canonicalizeInvitee).sort();
   const right = nextInvitees.map(canonicalizeInvitee).sort();
   return left.some((key, index) => key !== right[index]);
+}
+
+export type InviteeDiffSummary = {
+  cohostAdded: boolean;
+  inviteeRemoved: boolean;
+};
+
+/** 招待者更新前後の差分を調べ、共同主催者の追加・昇格および既存招待者の削除の有無を返す。 */
+export function summarizeInviteeDiff(
+  existingInvitees: readonly Pick<MeetingInviteeRecord, "emailNormalized" | "role">[],
+  nextInvitees: readonly Pick<ResolvedInvitee, "emailNormalized" | "role">[],
+): InviteeDiffSummary {
+  const existingRoleByEmail = new Map<string, InviteeRole>();
+  for (const inv of existingInvitees) {
+    existingRoleByEmail.set(inv.emailNormalized, inv.role);
+  }
+
+  const nextEmails = new Set<string>();
+  let cohostAdded = false;
+  for (const inv of nextInvitees) {
+    nextEmails.add(inv.emailNormalized);
+    if (inv.role === "cohost" && existingRoleByEmail.get(inv.emailNormalized) !== "cohost") {
+      cohostAdded = true;
+    }
+  }
+
+  let inviteeRemoved = false;
+  for (const email of existingRoleByEmail.keys()) {
+    if (!nextEmails.has(email)) {
+      inviteeRemoved = true;
+      break;
+    }
+  }
+
+  return { cohostAdded, inviteeRemoved };
 }
 
 /** 既存の招待者スナップショットまたはチャプターメンバーから作成者の表示名を復元する。 */
