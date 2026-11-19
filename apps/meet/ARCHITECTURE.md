@@ -15,6 +15,7 @@
 | Hourly cron orchestration (subscription maintenance, 7-day active meeting backfill, pending artifact requeue) | `app/features/cron/` |
 | `MEET_JOBS` Queue message types and handler registry (`sync_members`, `cleanup_meeting`, `process_artifact`, `share_artifact`) | `app/features/jobs/` |
 | Shared signed-in application shell (`AppLayout`) | `app/layouts/AppLayout.tsx` |
+| Domain-independent UI components (`GoogleWorkspaceLogo` for `public/icons/*.svg`) | `app/components/` |
 | Domain-independent primitives (`useHydrated`) | `app/lib/` |
 | Route modules owning loaders, actions, metadata, and composed screens | `app/routes/` (`meetings/home.tsx`, `meetings/new.tsx`, `meetings/detail.tsx`, `meetings/edit.tsx`, `admin/google.tsx`, `admin/google.callback.ts`, `api.google.events.ts`, `dev.simulate-event.ts`, `auth/no-chapter.tsx`, auth plumbing) |
 | Route registration | `app/routes.ts` |

@@ -1,3 +1,5 @@
+import type { GoogleWorkspaceBrand } from "~/components/GoogleWorkspaceLogo";
+
 /** 会議の生成ファイル種別。文字起こしと Gemini メモは同一ドキュメントのため `notes` に統合する。 */
 export type ArtifactKind = "recording" | "notes" | "chat_log";
 
@@ -55,11 +57,12 @@ export const ARTIFACT_KIND_META: Record<
     label: string;
     tone: "info" | "success" | "neutral";
     icon: "Play" | "FileText" | "MessageSquare";
+    driveLogo: Extract<GoogleWorkspaceBrand, "docs" | "drive-video">;
   }
 > = {
-  recording: { label: "録画", tone: "info", icon: "Play" },
-  notes: { label: "文字起こし・Gemini メモ", tone: "success", icon: "FileText" },
-  chat_log: { label: "チャットの記録", tone: "neutral", icon: "MessageSquare" },
+  recording: { label: "録画", tone: "info", icon: "Play", driveLogo: "drive-video" },
+  notes: { label: "文字起こし・Gemini メモ", tone: "success", icon: "FileText", driveLogo: "docs" },
+  chat_log: { label: "チャットの記録", tone: "neutral", icon: "MessageSquare", driveLogo: "docs" },
 };
 
 /** ISO 8601 日時文字列を JST の日本語表記へ整形する。 */

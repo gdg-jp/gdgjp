@@ -2,6 +2,7 @@ import { AppShell, Icons, ThemeToggle } from "@gdgjp/design-system";
 import { GdgAccountMenu } from "@gdgjp/gdg-lib/ui";
 import type { ReactNode } from "react";
 import { Link, useLocation } from "react-router";
+import { GoogleWorkspaceLogo } from "~/components/GoogleWorkspaceLogo";
 
 export type AppUser = {
   name: string;
@@ -26,7 +27,7 @@ export function AppLayout({
       collapsible="none"
       brand={
         <Link to="/" className="inline-flex items-center gap-2">
-          <Icons name="Users" size={20} aria-hidden="true" />
+          <GoogleWorkspaceLogo brand="meet" size={20} />
           GDG Japan Meet
         </Link>
       }

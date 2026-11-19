@@ -14,6 +14,7 @@ import {
   Link as UiLink,
 } from "@gdgjp/design-system";
 import { Link as RouterLink, useNavigation } from "react-router";
+import { GoogleWorkspaceLogo } from "~/components/GoogleWorkspaceLogo";
 import { toPublicArtifact } from "~/features/artifacts/artifact";
 import { ArtifactList } from "~/features/artifacts/components/ArtifactList";
 import { listArtifactsByMeetingId } from "~/features/artifacts/repository.server";
@@ -270,7 +271,7 @@ export default function MeetingDetail({ loaderData, actionData }: Route.Componen
                 {meeting.meetingUri && (
                   <Button asChild>
                     <a href={meeting.meetingUri} target="_blank" rel="noopener noreferrer">
-                      <Icons name="ExternalLink" size={16} aria-hidden="true" />
+                      <GoogleWorkspaceLogo brand="meet" size={16} />
                       Google Meet に参加
                     </a>
                   </Button>
@@ -278,7 +279,7 @@ export default function MeetingDetail({ loaderData, actionData }: Route.Componen
                 {meeting.calendarHtmlLink && (
                   <Button variant="outline" asChild>
                     <a href={meeting.calendarHtmlLink} target="_blank" rel="noopener noreferrer">
-                      <Icons name="CalendarDays" size={16} aria-hidden="true" />
+                      <GoogleWorkspaceLogo brand="calendar" size={16} />
                       Google カレンダーで開く
                     </a>
                   </Button>

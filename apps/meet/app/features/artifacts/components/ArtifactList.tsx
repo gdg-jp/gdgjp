@@ -16,6 +16,7 @@ import {
   Stack,
   Text,
 } from "@gdgjp/design-system";
+import { GoogleWorkspaceLogo } from "~/components/GoogleWorkspaceLogo";
 import { ARTIFACT_KIND_META, type PublicArtifact, formatArtifactDateTimeJst } from "../artifact";
 
 export type ArtifactListProps = {
@@ -76,7 +77,7 @@ export function ArtifactList({ artifacts }: ArtifactListProps) {
                   <ItemActions>
                     <Button variant="outline" size="sm" asChild>
                       <a href={artifact.webViewLink} target="_blank" rel="noopener noreferrer">
-                        <Icons name="ExternalLink" size={16} aria-hidden="true" />
+                        <GoogleWorkspaceLogo brand={meta.driveLogo} size={16} />
                         Google ドライブで開く
                       </a>
                     </Button>

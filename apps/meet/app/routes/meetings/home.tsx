@@ -19,6 +19,7 @@ import {
   Link as UiLink,
 } from "@gdgjp/design-system";
 import { Link as RouterLink } from "react-router";
+import { GoogleWorkspaceLogo } from "~/components/GoogleWorkspaceLogo";
 import { buildSignInRedirect, requireUser } from "~/features/auth/access.server";
 import { ClaimsUnavailableError, fetchChaptersForUser } from "~/features/auth/chapter.server";
 import { fetchChaptersDirectory } from "~/features/directory/directory.server";
@@ -93,7 +94,7 @@ function MeetingRow({
   return (
     <Item variant="outline" className="relative">
       <ItemMedia>
-        <Icons name="CalendarDays" size={20} aria-hidden="true" />
+        <GoogleWorkspaceLogo brand="calendar" size={20} />
       </ItemMedia>
       <ItemContent>
         <ItemTitle>

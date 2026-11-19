@@ -31,3 +31,55 @@ test("チャプター未所属ユーザーには新しい会議ボタンが出�
   await expect(page).toHaveURL(/\/no-chapter$/);
   await context.close();
 });
+
+test("公式 Google Workspace ロゴ資産が配信され、ナビゲーションと Google 接続画面に表示される", async ({
+  browser,
+  request,
+}) => {
+  const iconPaths = [
+    "/favicon.svg",
+    "/icons/google-meet.svg",
+    "/icons/google-docs.svg",
+    "/icons/google-drive-video.svg",
+    "/icons/google-logo.svg",
+    "/icons/google-calendar.svg",
+  ];
+  for (const path of iconPaths) {
+    const res = await request.get(path);
+    expect(res.status(), `${path} status`).toBe(200);
+    expect(res.headers()["content-type"], `${path} content-type`).toMatch(/image\/svg\+xml/);
+  }
+
+  const adminContext = await browser.newContext();
+  const page = await adminContext.newPage();
+
+  await page.goto("/dev/login?as=admin1&chapter=1:tokyo:organizer&admin=1&return_to=/");
+  await expect(page).toHaveURL(/\/$/);
+  const brandLogo = page
+    .getByRole("link", { name: "GDG Japan Meet" })
+    .locator('img[src="/icons/google-meet.svg"]');
+  await expect(brandLogo).toBeVisible();
+  expect(
+    await brandLogo.evaluate((el) => {
+      const img = el as HTMLImageElement;
+      return img.complete && img.naturalWidth > 0;
+    }),
+  ).toBe(true);
+
+  await page.goto("/admin/google");
+  await expect(page).toHaveURL(/\/admin\/google$/);
+  const connectButton = page.getByRole("button", {
+    name: /Google アカウントを(接続|再接続)/,
+  });
+  await expect(connectButton).toBeVisible();
+  const googleLogo = connectButton.locator('img[src="/icons/google-logo.svg"]');
+  await expect(googleLogo).toBeVisible();
+  expect(
+    await googleLogo.evaluate((el) => {
+      const img = el as HTMLImageElement;
+      return img.complete && img.naturalWidth > 0;
+    }),
+  ).toBe(true);
+
+  await adminContext.close();
+});

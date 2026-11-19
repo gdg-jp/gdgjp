@@ -12,6 +12,7 @@ import {
   TypographyInlineCode,
 } from "@gdgjp/design-system";
 import { Form, redirect, useNavigation } from "react-router";
+import { GoogleWorkspaceLogo } from "~/components/GoogleWorkspaceLogo";
 import { formatArtifactDateTimeJst } from "~/features/artifacts/artifact";
 import { FailedArtifactsCard } from "~/features/artifacts/components/FailedArtifactsCard";
 import {
@@ -37,9 +38,9 @@ export function meta() {
 
 function isOAuthConfigured(env: Env): boolean {
   return Boolean(
-    env.GOOGLE_CLIENT_ID.trim() &&
-      env.GOOGLE_CLIENT_SECRET.trim() &&
-      env.GOOGLE_TOKEN_ENCRYPTION_KEY.trim(),
+    env.GOOGLE_CLIENT_ID?.trim() &&
+      env.GOOGLE_CLIENT_SECRET?.trim() &&
+      env.GOOGLE_TOKEN_ENCRYPTION_KEY?.trim(),
   );
 }
 
@@ -66,8 +67,8 @@ export async function loader({ request, context }: Route.LoaderArgs) {
     connection,
     subscription,
     failedArtifacts,
-    pubsubTopic: env.GOOGLE_PUBSUB_TOPIC.trim(),
-    pubsubConfigured: Boolean(env.PUBSUB_PUSH_SERVICE_ACCOUNT.trim()),
+    pubsubTopic: env.GOOGLE_PUBSUB_TOPIC?.trim() ?? "",
+    pubsubConfigured: Boolean(env.PUBSUB_PUSH_SERVICE_ACCOUNT?.trim()),
     flashStatus: url.searchParams.get("status"),
     flashError: url.searchParams.get("error"),
   };
@@ -332,7 +333,13 @@ export default function AdminGoogle({ loaderData, actionData }: Route.ComponentP
 
             <Form method="post">
               <input type="hidden" name="intent" value="connect" />
-              <Button type="submit" disabled={!isConfigured} loading={isConnecting}>
+              <Button
+                type="submit"
+                variant="outline"
+                disabled={!isConfigured}
+                loading={isConnecting}
+              >
+                {!isConnecting && <GoogleWorkspaceLogo brand="google" size={18} />}
                 {connection.status === "unconnected"
                   ? "Google アカウントを接続"
                   : "Google アカウントを再接続"}
