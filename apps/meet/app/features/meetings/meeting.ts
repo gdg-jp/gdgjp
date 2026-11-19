@@ -98,10 +98,9 @@ export const MEETING_AUTO_ARTIFACT_OPTIONS: ReadonlyArray<{
   },
   {
     key: "autoRecording",
-    label: "録画（自動開始）",
-    shortLabel: "録画",
-    description:
-      "Google Workspace の容量消費を抑えるため既定ではオフです。必要な会議のみオンにしてください。",
+    label: "録画・チャット保存（自動開始）",
+    shortLabel: "録画・チャット保存",
+    description: "Google ドライブの容量消費を抑えるため、必要な会議のみオンにしてください。",
   },
 ];
 

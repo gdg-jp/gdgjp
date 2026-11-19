@@ -4,7 +4,11 @@ import type { GoogleConnectionRow } from "~/features/google/connection.server";
 import { GOOGLE_CONNECTION_AAD, encryptRefreshToken } from "~/features/google/encryption.server";
 import { resetGoogleAccessTokenCache } from "~/features/google/token.server";
 import type { MeetingInviteSourceRecord, MeetingInviteeRecord, MeetingRecord } from "./meeting";
-import { resyncMeetingInvitees, updateMeeting } from "./update-meeting.server";
+import {
+  resyncMeetingInvitees,
+  summarizeInviteeDiff,
+  updateMeeting,
+} from "./update-meeting.server";
 
 const TEST_KEY = Buffer.from(new Uint8Array(32).fill(5)).toString("base64");
 const HOST_EMAIL = "community-support@gdgoc.jp";
@@ -332,7 +336,13 @@ describe("updateMeeting", () => {
       },
     );
 
-    expect(result).toEqual({ ok: true, meetingId: "mtg-1", inviteesChanged: false });
+    expect(result).toEqual({
+      ok: true,
+      meetingId: "mtg-1",
+      inviteesChanged: false,
+      cohostAdded: false,
+      inviteeRemoved: false,
+    });
     expect(listChapterMembers).not.toHaveBeenCalled();
     expect(queueSend).not.toHaveBeenCalled();
     expect(reshareMock).not.toHaveBeenCalled();
@@ -420,7 +430,13 @@ describe("updateMeeting", () => {
       },
     );
 
-    expect(result).toEqual({ ok: true, meetingId: "mtg-1", inviteesChanged: true });
+    expect(result).toEqual({
+      ok: true,
+      meetingId: "mtg-1",
+      inviteesChanged: true,
+      cohostAdded: true,
+      inviteeRemoved: true,
+    });
     expect(listChapterMembers).toHaveBeenCalledWith({
       actor: { ...ACTOR, user: { ...ACTOR.user, id: "accounts-u-creator" } },
       chapterIds: [1],
@@ -523,7 +539,13 @@ describe("updateMeeting", () => {
       },
     );
 
-    expect(result).toEqual({ ok: true, meetingId: "mtg-1", inviteesChanged: false });
+    expect(result).toEqual({
+      ok: true,
+      meetingId: "mtg-1",
+      inviteesChanged: false,
+      cohostAdded: false,
+      inviteeRemoved: false,
+    });
     expect(queueSend).not.toHaveBeenCalled();
     expect(reshareMock).not.toHaveBeenCalled();
     expect(calls[0]).toEqual({
@@ -585,7 +607,13 @@ describe("updateMeeting", () => {
       },
     );
 
-    expect(result).toEqual({ ok: true, meetingId: "mtg-1", inviteesChanged: false });
+    expect(result).toEqual({
+      ok: true,
+      meetingId: "mtg-1",
+      inviteesChanged: false,
+      cohostAdded: false,
+      inviteeRemoved: false,
+    });
     expect(spacePatches).toHaveLength(1);
     expect(spacePatches[0]).toEqual({
       url: "https://meet.googleapis.com/v2/spaces/space-1?updateMask=config.accessType%2Cconfig.artifactConfig.smartNotesConfig.autoSmartNotesGeneration%2Cconfig.artifactConfig.recordingConfig.autoRecordingGeneration",
@@ -665,7 +693,13 @@ describe("resyncMeetingInvitees", () => {
       },
     );
 
-    expect(result).toEqual({ ok: true, changed: true, totalCount: 4 });
+    expect(result).toEqual({
+      ok: true,
+      changed: true,
+      totalCount: 4,
+      cohostAdded: true,
+      inviteeRemoved: false,
+    });
     expect(listChapterMembers).toHaveBeenCalledTimes(1);
     expect(calls).toHaveLength(1);
     expect(new URL(calls[0].url).searchParams.get("sendUpdates")).toBe("all");
@@ -706,7 +740,13 @@ describe("resyncMeetingInvitees", () => {
       { fetchFn: fetchMock, enqueueArtifactReshareFn: reshareMock },
     );
 
-    expect(result).toEqual({ ok: true, changed: false, totalCount: 3 });
+    expect(result).toEqual({
+      ok: true,
+      changed: false,
+      totalCount: 3,
+      cohostAdded: false,
+      inviteeRemoved: false,
+    });
     expect(fetchMock).not.toHaveBeenCalled();
     expect(dbFixture.batchHistory).toHaveLength(0);
     expect(queueSend).not.toHaveBeenCalled();
@@ -761,11 +801,58 @@ describe("resyncMeetingInvitees", () => {
       },
     );
 
-    expect(result).toEqual({ ok: true, changed: true, totalCount: 4 });
+    expect(result).toEqual({
+      ok: true,
+      changed: true,
+      totalCount: 4,
+      cohostAdded: true,
+      inviteeRemoved: false,
+    });
     expect(queueSend).toHaveBeenCalledWith({ type: "sync_members", meetingId: "mtg-1" });
     expect(reshareMock).toHaveBeenCalledWith(env, "mtg-1");
     expect(dbFixture.getUpdatedMeeting()?.lastError).toContain(
       "生成ファイルの再共有ジョブの投入に失敗しました: queue unavailable",
     );
+  });
+});
+
+describe("summarizeInviteeDiff", () => {
+  it("participant から cohost への昇格は cohostAdded: true を返す", () => {
+    expect(
+      summarizeInviteeDiff(
+        [
+          { emailNormalized: "a@example.com", role: "cohost" },
+          { emailNormalized: "b@example.com", role: "participant" },
+        ],
+        [
+          { emailNormalized: "a@example.com", role: "cohost" },
+          { emailNormalized: "b@example.com", role: "cohost" },
+        ],
+      ),
+    ).toEqual({ cohostAdded: true, inviteeRemoved: false });
+  });
+
+  it("participant のみの追加では cohostAdded: false かつ inviteeRemoved: false を返す", () => {
+    expect(
+      summarizeInviteeDiff(
+        [{ emailNormalized: "a@example.com", role: "cohost" }],
+        [
+          { emailNormalized: "a@example.com", role: "cohost" },
+          { emailNormalized: "b@example.com", role: "participant" },
+        ],
+      ),
+    ).toEqual({ cohostAdded: false, inviteeRemoved: false });
+  });
+
+  it("既存招待者が外れた場合は inviteeRemoved: true を返す", () => {
+    expect(
+      summarizeInviteeDiff(
+        [
+          { emailNormalized: "a@example.com", role: "cohost" },
+          { emailNormalized: "b@example.com", role: "participant" },
+        ],
+        [{ emailNormalized: "a@example.com", role: "cohost" }],
+      ),
+    ).toEqual({ cohostAdded: false, inviteeRemoved: true });
   });
 });

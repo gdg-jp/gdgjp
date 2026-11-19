@@ -25,7 +25,7 @@ test("/meetings/new の自動記録設定は文字起こし・Gemini Notes が�
 
   const transcription = page.getByRole("checkbox", { name: "文字起こし（自動開始）" });
   const smartNotes = page.getByRole("checkbox", { name: "Gemini Notes（自動開始）" });
-  const recording = page.getByRole("checkbox", { name: "録画（自動開始）" });
+  const recording = page.getByRole("checkbox", { name: "録画・チャット保存（自動開始）" });
 
   await expect(transcription).toBeChecked();
   await expect(smartNotes).toBeChecked();
