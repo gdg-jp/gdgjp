@@ -207,5 +207,40 @@
 
 ## 6. 今後のステージで確認・追記する事項
 
-- **Stage 03**: OAuth `id_token` の `sub` が `//cloudidentity.googleapis.com/users/<id>` に必要な Google ユーザー ID（`signedinUser.user` で確認した数値 ID）と一致することをテスト購読で確認し、結果を本書に追記する。
+- **Stage 03（確認済み 2026-11-19）**: OAuth の `sub` は Cloud Identity のユーザー ID と一致し、`//cloudidentity.googleapis.com/users/<sub>` をそのまま購読対象に使える。詳細は §7-1。
 - **Stage 04（確定）**: `gdgoc.jp` は Business Standard。Meet 参加者 150 人、co-host 25 人、Calendar ゲスト 200 人、Drive 直接共有 600 人、Meet API 書き込み 毎分 100 件/ユーザー。これにより `MAX_INVITEES = 150`、`MAX_COHOSTS = 25` とする（出典: support.google.com/meet/answer/7317305, /meet/answer/10885976, /calendar/answer/37161, developers.google.com/workspace/meet/api/guides/limits）。
+
+---
+
+## 7. 本実装の手動 E2E（2026-11-19）で判明した事項
+
+### 7-1. Stage 03 共有ホストアカウント接続
+
+- ローカル開発ではデスクトップアプリ種別の OAuth クライアント（リダイレクト URI `http://localhost`）で `http://localhost:5193/admin/google/callback` へのコールバックが受け付けられた。本番は Web アプリ種別のクライアントを別途作成する。
+- リフレッシュトークンは AES-GCM（AAD と鍵バージョン 1）で暗号化保存され、復号とアクセストークン更新が成功した。
+- `id_token` の `sub` は Cloud Identity のユーザー ID と一致した。
+
+### 7-2. Workspace Events 購読（Stage 06 への申し送り）
+
+- `subscriptions.list` でユーザー対象（`//cloudidentity.googleapis.com/users/<id>`）を絞るには `event_types:"<イベント型>" AND target_resource="<対象>"` の形のフィルタが必要。`target_resource` だけのフィルタは 400（`INVALID_ARGUMENT`）になる。
+- 同じユーザー対象に PoC で作成した購読が残っている状態で、別のイベント型（`google.workspace.meet.participant.v2.joined`）を指定して `subscriptions.create` を呼ぶと 409 `ALREADY_EXISTS` になった。ユーザー対象ごとに購読は 1 件と考え、本実装の `ensureSubscription` は既存購読を見つけて採用するか、削除して作り直す必要がある（06-artifacts-events.md §6 に反映済み）。
+- PoC の購読は 2026-11-25 に失効する。それまでに本番の購読を作る場合は、PoC 購読を採用するか削除する（削除は利用者の承認を得てから行う）。
+
+### 7-3. Stage 02 / 04 RPC 呼び出し主体の ID
+
+- gdg-lib は RP ごとに独自の UUID を `user.id` として発行し、GDG Accounts のユーザー ID（OIDC `sub`）は `user.oidc_subject` に保存する。
+- `ACCOUNTS_DIRECTORY.listChapterMembers` の `actor.user.id` に RP ローカルの ID を渡していたため、accounts 側のメンバーシップ照合が常に一致せず、チャプターメンバーの取得が `forbidden` で失敗していた。単体テストは RPC をモックしていたため検出できなかった。
+- `oidc_subject` を引いて accounts のユーザー ID を渡すよう修正した（`fix(meet): pass the accounts user id to the directory RPC`）。
+
+### 7-4. Stage 04 会議作成の実機結果
+
+- 作成した会議は `active` になり、Meet スペースは `accessType=RESTRICTED`、`moderation=ON`。メンバーは作成者が `COHOST`、個別メール招待の参加者は役割なし（`sync_members` ジョブで登録）。
+- Calendar 予定は主催者が共有ホストアカウント、ゲストが招待者 2 名、`extendedProperties.private.gdgsMeetId` と会議リンク付きで作成され、両方のテスト用アカウントに招待メールが届いた。
+- `RESTRICTED` での入室: co-host はノックなしで入室しホスト管理を使えた。参加者はノックなしで入室しホスト管理は表示されなかった。招待していないアカウントは参加リクエスト（ノック）になった。
+- `meet.gdgs.jp` の閲覧権限: 招待していないアカウントで `/meetings/:id` を開くと 404 になった。
+
+### 7-5. Calendar のゲスト一覧と「不明な送信者」
+
+- `guestsCanSeeOtherGuests=false` では、招待者のどちらのアカウントでもゲスト一覧が見えなかった。利用者の判断で、PoC では通常の Google カレンダーと同じく `guestsCanSeeOtherGuests=true` とし、`meet.gdgs.jp` の会議詳細でも閲覧できる全員に招待者全員の名前とメールアドレスを表示する（`feat(meet): show the guest list to everyone invited`、00-overview §2）。
+- 外部 Gmail の参加者には招待が「不明な送信者からの招待」として届き、カレンダーに自動追加されなかった。受信者側の設定「カレンダーへの招待状の追加」が「送信者が既知の場合のみ」のときの挙動で、主催者側（Calendar API のパラメータ、Workspace 管理設定）からは変えられない（出典: support.google.com/calendar/answer/13159188、developers.google.com/workspace/calendar/api/v3/reference/events/insert）。招待メールで「はい」と返信すると追加され、送信者を連絡先に追加すると以降は自動で追加される。
+- Meet への入室はスペースのメンバー登録で決まるため、カレンダーに追加されていなくてもノックなしで入室できる。会議詳細ページの「ご利用上の注意」にこの対処を案内した。

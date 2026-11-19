@@ -185,6 +185,8 @@ CREATE TABLE google_subscription (
    - `google_subscription (id = 1)` を読む。
    - `targetResource = "//cloudidentity.googleapis.com/users/" + connection.googleUserId`、`eventTypes` は本番対象 4 型、`pubsubTopic = env.GOOGLE_PUBSUB_TOPIC`。
    - レコードなし・`state` が期限切れ/削除済み・`expire_time` が「現在 + 2 日未満」なら、まず `patchSubscriptionTtl(name, "0s")` を試み、期限切れ等で失敗した場合または未作成時は `createSubscription` で作り直して `google_subscription` に保存する。
+   - `createSubscription` が 409 `ALREADY_EXISTS` を返した場合（同じユーザー対象の購読が既にある場合。00a §7-2）は、`listSubscriptions` で既存購読を探す。フィルタは `event_types:"google.workspace.meet.conference.v2.ended" AND target_resource="<targetResource>"` の形にする（`target_resource` だけでは 400 になる）。見つかった購読の `notificationEndpoint.pubsubTopic` と `eventTypes`（本番対象 4 型）が一致すれば採用して `google_subscription` に保存し、`patchSubscriptionTtl(name, "0s")` で延長する。一致しなければ `deleteSubscription` で削除してから作り直す。
+   - 上記の分岐（採用・削除して再作成）と、`listSubscriptions` に渡すフィルタ文字列を単体テストで固定する。
 2. **取りこぼしの見直し（過去 7 日以内の `active` 会議）**:
    - `meetings` から `status = 'active'` かつ `end_at >= now - 7 days` かつ `start_at <= now` かつ `space_name IS NOT NULL` を取得。
    - 各会議について `meet.listConferenceRecords(accessToken, 'space.name="' + spaceName + '"')` を呼び、各開催回の `recordings` / `transcripts` / `smartNotes` を確認。
