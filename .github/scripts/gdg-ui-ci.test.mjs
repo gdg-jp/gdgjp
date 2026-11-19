@@ -2,7 +2,12 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "node:test";
 import { parse as parseYaml } from "yaml";
-import { changedSteps, completeSteps } from "../../scripts/run-ci.mjs";
+import { changedSteps, completeSteps, shellQuote } from "../../scripts/run-ci.mjs";
+
+// Step commands quote paths for the platform's shell (cmd.exe on Windows).
+function assertIncludes(command, expected) {
+  assert.ok(command.includes(expected), `${command}\n  does not include ${expected}`);
+}
 
 function readWorkflow(name) {
   return parseYaml(readFileSync(new URL(`../workflows/${name}`, import.meta.url), "utf8"));
@@ -57,7 +62,10 @@ test("UI unit-test-only changes keep typechecking and related tests without unre
     steps.map(([name]) => name),
     ["lint:ui", "typecheck", "test:ui"],
   );
-  assert.match(steps[2][1], /vitest related --run --reporter=minimal 'src\/index.test.tsx'/);
+  assertIncludes(
+    steps[2][1],
+    `vitest related --run --reporter=minimal ${shellQuote("src/index.test.tsx")}`,
+  );
   for (const extra of [
     "packages/design-system/src/index.ts",
     "packages/design-system/src/styles/tokens.css",
@@ -140,9 +148,9 @@ test("staged typechecks and builds share dependencies without widening test-only
   ]);
   const graph = steps.find(([name]) => name === "typecheck+build");
   assert.ok(graph);
-  assert.match(graph[1], /'@gdgjp\/roster#typecheck'/);
-  assert.match(graph[1], /'@gdgjp\/tinyurl#typecheck'/);
-  assert.match(graph[1], /'@gdgjp\/roster#build'/);
+  assertIncludes(graph[1], shellQuote("@gdgjp/roster#typecheck"));
+  assertIncludes(graph[1], shellQuote("@gdgjp/tinyurl#typecheck"));
+  assertIncludes(graph[1], shellQuote("@gdgjp/roster#build"));
   assert.doesNotMatch(graph[1], /@gdgjp\/tinyurl#build/);
   assert.ok(steps.every(([name]) => name !== "typecheck" && name !== "build"));
   assert.ok(steps.some(([name]) => name === "e2e:@gdgjp/roster"));
@@ -247,9 +255,9 @@ test("repository script edits do not run every workspace's checks", () => {
   const steps = changedSteps("full", [".github/scripts/workflows.test.mjs"]);
   const commands = steps.map(([, command]) => command).join("\n");
 
-  assert.match(
+  assertIncludes(
     commands,
-    /node --test --test-reporter=dot '.github\/scripts\/workflows\.test\.mjs'/,
+    `node --test --test-reporter=dot ${shellQuote(".github/scripts/workflows.test.mjs")}`,
   );
   assert.doesNotMatch(commands, /turbo typecheck/);
   assert.doesNotMatch(commands, /turbo build/);

@@ -241,7 +241,14 @@ function isNodeFile(file) {
   );
 }
 
-function shellQuote(value) {
+export function shellQuote(value) {
+  // runStep spawns with shell: true, which on Windows is ComSpec (cmd.exe), not
+  // the shell the developer typed `git commit` into. cmd.exe does not strip
+  // single quotes, so a POSIX-quoted path reaches the command with the quotes
+  // still attached and every path lookup fails.
+  if (process.platform === "win32") {
+    return `"${value.replaceAll('"', '""')}"`;
+  }
   return `'${value.replaceAll("'", "'\\''")}'`;
 }
 
