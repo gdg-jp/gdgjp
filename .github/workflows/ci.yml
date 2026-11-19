@@ -656,8 +656,13 @@ jobs:
       - name: Prepare Wiki E2E state
         if: matrix.app == 'wiki'
         run: pnpm --filter @gdgjp/wiki e2e:prepare
+      # The ubuntu-24.04 image already ships Chrome's system libraries, and --with-deps's apt-get
+      # install can stall for 10 minutes on a slow Ubuntu mirror. Keep it only for design-system,
+      # whose screenshot assertions depend on the fonts it installs.
       - name: Install Playwright browsers
-        run: pnpm --filter @gdgjp/${{ matrix.app }} exec playwright install --with-deps chromium
+        run: >-
+          pnpm --filter @gdgjp/${{ matrix.app }} exec playwright install
+          ${{ matrix.app == 'design-system' && '--with-deps' || '' }} chromium
       - name: Run E2E testing
         run: pnpm --filter @gdgjp/${{ matrix.app }} test:e2e
       - name: Upload Playwright report
