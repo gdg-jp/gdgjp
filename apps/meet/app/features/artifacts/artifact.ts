@@ -51,6 +51,68 @@ export type FailedArtifactItem = ArtifactRecord & {
   meetingTitle: string;
 };
 
+/** `artifact_share_failures` と `artifacts` の結合レコード。 */
+export type ArtifactShareFailureRecord = {
+  artifactId: string;
+  artifactKind: ArtifactKind;
+  artifactTitle: string;
+  emailNormalized: string;
+  httpStatus: number;
+  apiStatus: string | null;
+  failedAt: string;
+};
+
+export type InviteeShareFailureArtifact = {
+  artifactId: string;
+  kind: ArtifactKind;
+  title: string;
+  httpStatus: number;
+  apiStatus: string | null;
+};
+
+/** 会議詳細画面で招待者ごとにまとめて表示する Drive 共有失敗情報。 */
+export type InviteeShareFailure = {
+  emailNormalized: string;
+  email: string;
+  displayName: string | null;
+  artifacts: InviteeShareFailureArtifact[];
+};
+
+export function groupInviteeShareFailures(
+  rows: readonly ArtifactShareFailureRecord[],
+  invitees: readonly { emailNormalized: string; email: string; displayName: string | null }[],
+): InviteeShareFailure[] {
+  const inviteeByEmail = new Map(invitees.map((inv) => [inv.emailNormalized, inv]));
+  const grouped = new Map<string, InviteeShareFailure>();
+
+  for (const row of rows) {
+    // 招待者から外した人の行は、次の共有ジョブで消えるまでの間も表示しない。
+    const invitee = inviteeByEmail.get(row.emailNormalized);
+    if (!invitee) continue;
+    let entry = grouped.get(row.emailNormalized);
+    if (!entry) {
+      entry = {
+        emailNormalized: row.emailNormalized,
+        email: invitee.email,
+        displayName: invitee.displayName,
+        artifacts: [],
+      };
+      grouped.set(row.emailNormalized, entry);
+    }
+    if (!entry.artifacts.some((a) => a.artifactId === row.artifactId)) {
+      entry.artifacts.push({
+        artifactId: row.artifactId,
+        kind: row.artifactKind,
+        title: row.artifactTitle,
+        httpStatus: row.httpStatus,
+        apiStatus: row.apiStatus,
+      });
+    }
+  }
+
+  return [...grouped.values()];
+}
+
 export const ARTIFACT_KIND_META: Record<
   ArtifactKind,
   {

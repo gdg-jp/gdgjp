@@ -101,11 +101,27 @@ const ACTOR: MeetActor = {
   chapters: [{ chapterId: 1, chapterSlug: "gdg-tokyo", role: "organizer" }],
 };
 
-function createFakeEditDb(connection: GoogleConnectionRow | null) {
+function createFakeEditDb(
+  connection: GoogleConnectionRow | null,
+  options: {
+    shareChecks?: Array<{
+      email_normalized: string;
+      status: "ok" | "unshareable";
+      http_status: number | null;
+      api_status: string | null;
+      source: "probe" | "share";
+      checked_at: string;
+    }>;
+  } = {},
+) {
   let updatedMeeting: Record<string, unknown> | null = null;
   let storedSources: Array<Record<string, unknown>> = [];
   let storedInvitees: Array<Record<string, unknown>> = [];
   const batchHistory: string[][] = [];
+  const shareChecks = new Map(
+    (options.shareChecks ?? []).map((row) => [row.email_normalized, row]),
+  );
+  let probeFileId: string | null = null;
 
   type PlannedOp = { sql: string; args: unknown[] };
 
@@ -176,6 +192,29 @@ function createFakeEditDb(connection: GoogleConnectionRow | null) {
       updatedMeeting = { ...(updatedMeeting ?? {}), lastError: args[0], updatedAt: args[1] };
       return { success: true, meta: {} };
     }
+    if (sql.includes("INSERT INTO drive_share_checks")) {
+      const [emailNormalized, status, httpStatus, apiStatus, source, checkedAt] = args as [
+        string,
+        "ok" | "unshareable",
+        number | null,
+        string | null,
+        "probe" | "share",
+        string,
+      ];
+      shareChecks.set(emailNormalized, {
+        email_normalized: emailNormalized,
+        status,
+        http_status: httpStatus,
+        api_status: apiStatus,
+        source,
+        checked_at: checkedAt,
+      });
+      return { success: true, meta: {} };
+    }
+    if (sql.includes("INSERT INTO drive_probe_file")) {
+      probeFileId = String(args[0]);
+      return { success: true, meta: {} };
+    }
     throw new Error(`未対応の SQL: ${sql}`);
   }
 
@@ -195,7 +234,19 @@ function createFakeEditDb(connection: GoogleConnectionRow | null) {
           if (sql.includes(`FROM "user" WHERE id = ?`)) {
             return { oidc_subject: `accounts-${String(args[0])}` } as T;
           }
+          if (sql.includes("FROM drive_probe_file WHERE id = 1")) {
+            return (probeFileId ? { file_id: probeFileId } : null) as T | null;
+          }
           throw new Error(`未対応の first(): ${sql}`);
+        },
+        async all<T>() {
+          if (sql.includes("FROM drive_share_checks")) {
+            const results = args
+              .map((email) => shareChecks.get(String(email)))
+              .filter((row): row is NonNullable<typeof row> => Boolean(row));
+            return { results: results as T[] };
+          }
+          throw new Error(`未対応の all(): ${sql}`);
         },
         async run() {
           return executeOp({ sql, args });
@@ -222,6 +273,7 @@ function createFakeEditDb(connection: GoogleConnectionRow | null) {
 async function createEnvFixture(options: {
   connected?: boolean;
   members?: MeetDirectoryMember[];
+  registeredEmails?: string[];
 }) {
   let connection: GoogleConnectionRow | null = null;
   if (options.connected !== false) {
@@ -252,6 +304,10 @@ async function createEnvFixture(options: {
     ok: true,
     members: options.members ?? [],
   });
+  const listRegisteredEmails = vi.fn().mockResolvedValue({
+    ok: true,
+    emails: options.registeredEmails ?? ["new-cohost@example.com"],
+  });
   const env = {
     DB: dbFixture.db,
     APP_URL: "https://meet.gdgs.jp",
@@ -259,7 +315,7 @@ async function createEnvFixture(options: {
     GOOGLE_CLIENT_SECRET: "google-client-secret",
     GOOGLE_TOKEN_ENCRYPTION_KEY: TEST_KEY,
     GOOGLE_HOST_EMAIL: HOST_EMAIL,
-    ACCOUNTS_DIRECTORY: { listChapterMembers },
+    ACCOUNTS_DIRECTORY: { listChapterMembers, listRegisteredEmails },
     MEET_JOBS: { send: queueSend },
   } as unknown as Env;
 
@@ -493,6 +549,71 @@ describe("updateMeeting", () => {
 
     expect(result).toMatchObject({ ok: false, status: 409 });
     expect(fetchMock).not.toHaveBeenCalled();
+    expect(queueSend).not.toHaveBeenCalled();
+  });
+
+  it("新規追加された招待者が Drive 共有不可（400 invalidSharingRequest）の場合は D1 や Calendar/Meet API を変更せず拒否する", async () => {
+    const { env, dbFixture, queueSend } = await createEnvFixture({
+      members: [
+        {
+          userId: "u-org",
+          name: "Tokyo Organizer",
+          email: "org@example.com",
+          chapterId: 1,
+          chapterSlug: "gdg-tokyo",
+          chapterName: "GDG Tokyo",
+          role: "organizer",
+        },
+      ],
+      registeredEmails: [],
+    });
+
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      const method = init?.method ?? "GET";
+      if (url === "https://oauth2.googleapis.com/token") {
+        return Response.json({ access_token: "ya29.edit-probe", expires_in: 3600 });
+      }
+      if (url.startsWith("https://www.googleapis.com/drive/v3/files?") && method === "POST") {
+        return Response.json({ id: "probe-file-1" });
+      }
+      if (url.includes("/drive/v3/files/probe-file-1/permissions?") && method === "POST") {
+        return Response.json(
+          {
+            error: {
+              code: 400,
+              message: "Invalid sharing request",
+              errors: [{ reason: "invalidSharingRequest" }],
+            },
+          },
+          { status: 400 },
+        );
+      }
+      throw new Error(`想定外の fetch: ${method} ${url}`);
+    }) as unknown as typeof fetch;
+
+    const result = await updateMeeting(
+      env,
+      ACTOR,
+      ACTIVE_MEETING,
+      EXISTING_SOURCES,
+      EXISTING_INVITEES,
+      buildEditForm({
+        participantEmails: "guest@example.com\nBad.User@example.com",
+      }),
+      {
+        fetchFn: fetchMock,
+        now: () => new Date("2026-11-20T00:00:00.000Z"),
+      },
+    );
+
+    expect(result).toEqual({
+      ok: false,
+      formError:
+        "Google アカウントとして共有できないメールアドレスが含まれています: Bad.User@example.com。アドレスを確認するか、招待先から外してください。",
+    });
+    expect(dbFixture.batchHistory).toHaveLength(0);
+    expect(dbFixture.getUpdatedMeeting()).toBeNull();
     expect(queueSend).not.toHaveBeenCalled();
   });
 

@@ -5,7 +5,14 @@ import type { GoogleFetch } from "~/features/google/client.server";
 import { patchSpace } from "~/features/google/meet.server";
 import { getGoogleConnectionSummary } from "~/features/google/oauth.server";
 import { getGoogleAccessToken } from "~/features/google/token.server";
-import { enqueueArtifactReshareForMeeting } from "./artifact-reshare.server";
+import {
+  findUnshareableInvitees,
+  formatUnshareableInviteesError,
+} from "~/features/invitee-checks/check-invitees.server";
+import {
+  enqueueArtifactReshareForMeeting,
+  enqueueArtifactReshareSafely,
+} from "./artifact-reshare.server";
 import { type CreateMeetingFieldErrors, parseMeetingEditForm } from "./form";
 import {
   buildCalendarAttendees,
@@ -69,25 +76,6 @@ export type UpdateMeetingDeps = {
   generateId?: () => string;
   enqueueArtifactReshareFn?: (env: Env, meetingId: string) => Promise<void>;
 };
-
-/** 予定と D1 の更新は済んでいるため、再共有ジョブの投入に失敗しても保存自体は成功として扱う。 */
-async function enqueueArtifactReshareSafely(
-  env: Env,
-  meetingId: string,
-  enqueueFn: (env: Env, meetingId: string) => Promise<void>,
-  now: () => Date,
-): Promise<void> {
-  try {
-    await enqueueFn(env, meetingId);
-  } catch (error) {
-    await updateMeetingLastError(
-      env.DB,
-      meetingId,
-      `生成ファイルの再共有ジョブの投入に失敗しました: ${toSafeErrorSummary(error)}`.slice(0, 240),
-      now().toISOString(),
-    );
-  }
-}
 
 /**
  * 既存の `active` な会議を更新する。
@@ -175,6 +163,20 @@ export async function updateMeeting(
 
     nextInvitees = resolved.invitees;
     inviteesChanged = haveInviteesChanged(existingInvitees, resolved.invitees);
+    if (inviteesChanged) {
+      const unshareable = await findUnshareableInvitees(
+        env,
+        {
+          actorLocalUserId: actor.user.id,
+          invitees: resolved.invitees,
+          existingInvitees,
+        },
+        { fetchFn, now },
+      );
+      if (unshareable.length > 0) {
+        return { ok: false, formError: formatUnshareableInviteesError(unshareable) };
+      }
+    }
   }
 
   let patchedHtmlLink: string | null = null;

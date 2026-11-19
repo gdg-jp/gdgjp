@@ -35,6 +35,13 @@ export type ListUserAvatarsByEmailsInput = {
   emails: string[];
 };
 
+export type ListRegisteredEmailsInput = {
+  /** accounts 側のユーザー ID（OIDC `sub`）。 */
+  actorUserId: string;
+  /** 正規化済みまたは生のメールアドレス一覧（最大 200 件）。 */
+  emails: string[];
+};
+
 export type MeetUserAvatar = {
   /** 正規化済みメールアドレス（gmail.com / googlemail.com のドット除去 + 小文字化）。 */
   emailNormalized: string;
@@ -49,4 +56,7 @@ export interface MeetDirectoryService {
   listUserAvatarsByEmails(
     input: ListUserAvatarsByEmailsInput,
   ): Promise<MeetRpcResult<{ avatars: MeetUserAvatar[] }>>;
+  listRegisteredEmails(
+    input: ListRegisteredEmailsInput,
+  ): Promise<MeetRpcResult<{ emails: string[] }>>;
 }

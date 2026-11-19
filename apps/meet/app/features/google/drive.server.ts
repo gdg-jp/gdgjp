@@ -1,4 +1,9 @@
-import { type GoogleFetch, googleJsonRequest, paginateAll } from "~/features/google/client.server";
+import {
+  GoogleApiError,
+  type GoogleFetch,
+  googleJsonRequest,
+  paginateAll,
+} from "~/features/google/client.server";
 
 const DRIVE_API_BASE = "https://www.googleapis.com/drive/v3";
 
@@ -105,4 +110,51 @@ export async function createPermission(
     },
     fetchFn,
   });
+}
+
+export async function createFile(
+  accessToken: string,
+  options: {
+    name: string;
+    mimeType: string;
+    fields?: string;
+  },
+  fetchFn?: GoogleFetch,
+): Promise<DriveFile> {
+  const params = new URLSearchParams({
+    fields: options.fields ?? "id,name,mimeType",
+  });
+  return googleJsonRequest<DriveFile>({
+    accessToken,
+    method: "POST",
+    url: `${DRIVE_API_BASE}/files?${params.toString()}`,
+    body: {
+      name: options.name,
+      mimeType: options.mimeType,
+    },
+    fetchFn,
+  });
+}
+
+export async function deletePermission(
+  accessToken: string,
+  fileId: string,
+  permissionId: string,
+  fetchFn?: GoogleFetch,
+): Promise<void> {
+  await googleJsonRequest<void>({
+    accessToken,
+    method: "DELETE",
+    url: `${DRIVE_API_BASE}/files/${encodeURIComponent(fileId)}/permissions/${encodeURIComponent(permissionId)}`,
+    fetchFn,
+  });
+}
+
+/** Drive API の `400 invalidSharingRequest`（共有先 Google アカウント不在など）か判定する。 */
+export function isInvalidSharingRequestError(error: unknown): error is GoogleApiError {
+  return (
+    error instanceof GoogleApiError &&
+    error.httpStatus === 400 &&
+    (error.apiStatus === "invalidSharingRequest" || /invalidSharingRequest/i.test(error.apiMessage))
+  );
 }
