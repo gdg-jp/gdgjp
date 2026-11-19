@@ -8,6 +8,8 @@ exports[`public URLs > are exactly these (later stages add theirs here on purpos
   "/api/auth/*",
   "/auth/signout",
   "/dev/login",
+  "/meetings/:id",
+  "/meetings/new",
   "/no-chapter",
   "/signin",
 ]

@@ -43,6 +43,17 @@ binding = "ACCOUNTS_DIRECTORY"
 service = "gdgjp-accounts"
 entrypoint = "MeetDirectoryService"
 
+# 非同期メンバー同期・生成ファイル処理などのジョブキュー
+[[queues.producers]]
+binding = "MEET_JOBS"
+queue = "gdgjp-meet-jobs"
+
+[[queues.consumers]]
+queue = "gdgjp-meet-jobs"
+max_batch_size = 1
+max_concurrency = 1
+max_retries = 5
+
 [observability]
 enabled = true
 
