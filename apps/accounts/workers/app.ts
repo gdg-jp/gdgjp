@@ -2,6 +2,7 @@ import { AsyncLocalStorage } from "node:async_hooks";
 import { WorkerEntrypoint } from "cloudflare:workers";
 import type {
   ListChapterMembersInput,
+  ListRegisteredEmailsInput,
   ListUserAvatarsByEmailsInput,
   MeetDirectoryService as MeetDirectoryServiceContract,
 } from "@gdgjp/gdg-lib";
@@ -11,6 +12,7 @@ import { seedBetterAuthAsyncLocalStorage } from "~/features/auth/seed-better-aut
 import { reconcileSsoCookie } from "~/features/auth/sso-cookie.server";
 import {
   listMeetChapterMembers,
+  listMeetRegisteredEmails,
   listMeetUserAvatarsByEmails,
 } from "~/features/memberships/meet-directory.server";
 import { seedClients } from "~/features/oauth/seed-clients.server";
@@ -51,6 +53,10 @@ export class MeetDirectoryService
 
   listUserAvatarsByEmails(input: ListUserAvatarsByEmailsInput) {
     return listMeetUserAvatarsByEmails(this.env.DB, input);
+  }
+
+  listRegisteredEmails(input: ListRegisteredEmailsInput) {
+    return listMeetRegisteredEmails(this.env.DB, input);
   }
 }
 

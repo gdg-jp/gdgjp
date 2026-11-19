@@ -5,6 +5,7 @@ import {
   MAX_MEET_AVATAR_EMAILS,
   MAX_MEET_DIRECTORY_CHAPTER_IDS,
   listMeetChapterMembers,
+  listMeetRegisteredEmails,
   listMeetUserAvatarsByEmails,
 } from "./meet-directory.server";
 
@@ -515,6 +516,111 @@ describe("listMeetUserAvatarsByEmails", () => {
 
     await expect(
       listMeetUserAvatarsByEmails(brokenDb, {
+        actorUserId: "u-org-a",
+        emails: ["alice@example.com"],
+      }),
+    ).resolves.toEqual({ ok: false, code: "internal_error" });
+  });
+});
+
+describe("listMeetRegisteredEmails", () => {
+  it("returns normalized registered emails regardless of image presence", async () => {
+    const { db } = createDb();
+
+    const result = await listMeetRegisteredEmails(db, {
+      actorUserId: "u-outsider",
+      emails: [
+        "Carol@example.com",
+        "dave@example.com",
+        "FirstLast@gmail.com",
+        "gmail@googlemail.com",
+        "first.last@example.com",
+        "firstlast@example.com",
+        "unknown@example.com",
+      ],
+    });
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.emails.sort()).toEqual([
+      "carol@example.com",
+      "dave@example.com",
+      "first.last@example.com",
+      "firstlast@gmail.com",
+      "gmail@googlemail.com",
+    ]);
+  });
+
+  it("rejects missing or unknown actorUserId with forbidden", async () => {
+    const { db, executedSql } = createDb();
+
+    expect(
+      await listMeetRegisteredEmails(db, {
+        actorUserId: "",
+        emails: ["alice@example.com"],
+      }),
+    ).toEqual({ ok: false, code: "forbidden" });
+    expect(executedSql).toHaveLength(0);
+
+    expect(
+      await listMeetRegisteredEmails(db, {
+        actorUserId: "u-missing",
+        emails: ["alice@example.com"],
+      }),
+    ).toEqual({ ok: false, code: "forbidden" });
+    expect(executedSql).toHaveLength(1);
+  });
+
+  it("rejects invalid emails and > 200 emails, and chunks > 50 emails", async () => {
+    const { db, executedSql } = createDb();
+
+    expect(
+      await listMeetRegisteredEmails(db, {
+        actorUserId: "u-org-a",
+        emails: null as unknown as string[],
+      }),
+    ).toEqual({ ok: false, code: "invalid_emails" });
+
+    expect(
+      await listMeetRegisteredEmails(db, {
+        actorUserId: "u-org-a",
+        emails: Array.from({ length: 201 }, (_, i) => `u${i}@example.com`),
+      }),
+    ).toEqual({ ok: false, code: "too_many_emails" });
+
+    expect(
+      await listMeetRegisteredEmails(db, {
+        actorUserId: "u-org-a",
+        emails: ["  "],
+      }),
+    ).toEqual({ ok: true, emails: [] });
+
+    executedSql.length = 0;
+    const bulk = [
+      "carol@example.com",
+      ...Array.from({ length: 119 }, (_, i) => `none-${i}@example.com`),
+    ];
+    const bulkRes = await listMeetRegisteredEmails(db, {
+      actorUserId: "u-org-a",
+      emails: bulk,
+    });
+    expect(bulkRes).toEqual({ ok: true, emails: ["carol@example.com"] });
+    // 1 actor check + 3 chunked SELECTs (50 + 50 + 20)
+    expect(executedSql).toHaveLength(4);
+    for (const sql of executedSql.slice(1)) {
+      expect((sql.match(/\?/g) ?? []).length).toBeLessThanOrEqual(50);
+    }
+  });
+
+  it("converts unexpected DB exceptions into internal_error", async () => {
+    const brokenDb = {
+      prepare() {
+        throw new Error("D1 unavailable");
+      },
+    } as unknown as D1Database;
+
+    await expect(
+      listMeetRegisteredEmails(brokenDb, {
         actorUserId: "u-org-a",
         emails: ["alice@example.com"],
       }),

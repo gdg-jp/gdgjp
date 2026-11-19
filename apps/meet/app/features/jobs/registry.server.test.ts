@@ -8,10 +8,11 @@ import {
   processMeetJobBatch,
 } from "./registry.server";
 
-function createFakeMessage(body: unknown) {
+function createFakeMessage(body: unknown, attempts = 1) {
   return {
     id: "msg-1",
     body,
+    attempts,
     ack: vi.fn(),
     retry: vi.fn(),
   };
@@ -100,46 +101,68 @@ describe("dispatchMeetJobMessage / processMeetJobBatch", () => {
     warnSpy.mockRestore();
   });
 
-  it("429 GoogleApiError 発生時は 60 秒遅延付きで retry する", async () => {
+  it("429 GoogleApiError 発生時は 60 秒以上の指数バックオフ付きで retry する", async () => {
     const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
     const handlers = createFakeHandlers({
       sync_members: vi.fn().mockRejectedValue(
         new GoogleApiError({
           httpStatus: 429,
           apiStatus: "RESOURCE_EXHAUSTED",
-          apiMessage: "Quota exceeded",
+          apiMessage: "Quota exceeded for user@example.com",
         }),
       ),
     });
-    const message = createFakeMessage({ type: "sync_members", meetingId: "mtg-1" });
+    const message1 = createFakeMessage({ type: "sync_members", meetingId: "mtg-1" }, 1);
+    const message3 = createFakeMessage({ type: "sync_members", meetingId: "mtg-1" }, 3);
 
-    await dispatchMeetJobMessage(env, message, undefined, handlers);
+    await dispatchMeetJobMessage(env, message1, undefined, handlers);
+    await dispatchMeetJobMessage(env, message3, undefined, handlers);
 
-    expect(message.ack).not.toHaveBeenCalled();
-    expect(message.retry).toHaveBeenCalledWith({
+    expect(message1.ack).not.toHaveBeenCalled();
+    expect(message1.retry).toHaveBeenCalledWith({
       delaySeconds: RATE_LIMIT_RETRY_DELAY_SECONDS,
     });
+    expect(message3.retry).toHaveBeenCalledWith({
+      delaySeconds: 120,
+    });
+    const firstLog = errorSpy.mock.calls[0];
+    expect(firstLog?.[0]).toBe("[meet-jobs] job failed:");
+    expect(firstLog?.[1]).toBe("sync_members");
+    expect(firstLog?.[2]).toBe("msg-1");
+    expect(firstLog?.[3]).toContain("Google API エラー (429 RESOURCE_EXHAUSTED)");
+    expect(firstLog?.[3]).toContain("u***@example.com");
+    expect(firstLog?.join(" ")).not.toContain("user@example.com");
     errorSpy.mockRestore();
   });
 
-  it("invalid_grant などの例外発生時は retry する", async () => {
+  it("通常例外発生時は attempts に応じた指数バックオフ（上限 900 秒）で retry し、メールを伏せた要約をログに出す", async () => {
     const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
     const handlers = createFakeHandlers({
       sync_members: vi
         .fn()
-        .mockRejectedValue(new GoogleConnectionError("invalid_grant", "失効しました")),
+        .mockRejectedValue(
+          new GoogleConnectionError("invalid_grant", "失効しました: host@gdgoc.jp"),
+        ),
     });
-    const message = createFakeMessage({ type: "sync_members", meetingId: "mtg-1" });
+    const msg1 = createFakeMessage({ type: "sync_members", meetingId: "mtg-1" }, 1);
+    const msg2 = createFakeMessage({ type: "sync_members", meetingId: "mtg-1" }, 2);
+    const msg6 = createFakeMessage({ type: "sync_members", meetingId: "mtg-1" }, 6);
 
     await processMeetJobBatch(
-      { messages: [message] } as unknown as MessageBatch<unknown>,
+      { messages: [msg1, msg2, msg6] } as unknown as MessageBatch<unknown>,
       env,
       {} as ExecutionContext,
       handlers,
     );
 
-    expect(message.ack).not.toHaveBeenCalled();
-    expect(message.retry).toHaveBeenCalledWith();
+    expect(msg1.ack).not.toHaveBeenCalled();
+    expect(msg1.retry).toHaveBeenCalledWith({ delaySeconds: 30 });
+    expect(msg2.retry).toHaveBeenCalledWith({ delaySeconds: 60 });
+    expect(msg6.retry).toHaveBeenCalledWith({ delaySeconds: 900 });
+
+    const logged = errorSpy.mock.calls[0];
+    expect(logged?.[3]).toBe("失効しました: h***@gdgoc.jp");
+    expect(logged?.join(" ")).not.toContain("host@gdgoc.jp");
     errorSpy.mockRestore();
   });
 });

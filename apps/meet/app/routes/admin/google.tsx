@@ -17,6 +17,7 @@ import { formatArtifactDateTimeJst } from "~/features/artifacts/artifact";
 import { FailedArtifactsCard } from "~/features/artifacts/components/FailedArtifactsCard";
 import {
   getArtifactById,
+  listCompletedWarningArtifacts,
   listFailedArtifacts,
   resetArtifactForRetry,
 } from "~/features/artifacts/repository.server";
@@ -48,10 +49,11 @@ export async function loader({ request, context }: Route.LoaderArgs) {
   const env = context.cloudflare.env;
   const user = await requireAdmin(env, request);
   const url = new URL(request.url);
-  const [connection, subscription, failedArtifacts] = await Promise.all([
+  const [connection, subscription, failedArtifacts, warningArtifacts] = await Promise.all([
     getGoogleConnectionSummary(env.DB),
     getGoogleSubscription(env.DB),
     listFailedArtifacts(env.DB),
+    listCompletedWarningArtifacts(env.DB),
   ]);
 
   return {
@@ -67,6 +69,7 @@ export async function loader({ request, context }: Route.LoaderArgs) {
     connection,
     subscription,
     failedArtifacts,
+    warningArtifacts,
     pubsubTopic: env.GOOGLE_PUBSUB_TOPIC?.trim() ?? "",
     pubsubConfigured: Boolean(env.PUBSUB_PUSH_SERVICE_ACCOUNT?.trim()),
     flashStatus: url.searchParams.get("status"),
@@ -189,6 +192,7 @@ export default function AdminGoogle({ loaderData, actionData }: Route.ComponentP
     connection,
     subscription,
     failedArtifacts,
+    warningArtifacts,
     pubsubTopic,
     pubsubConfigured,
     flashStatus,
@@ -356,7 +360,11 @@ export default function AdminGoogle({ loaderData, actionData }: Route.ComponentP
           isRefreshing={isRefreshingSubscription}
         />
 
-        <FailedArtifactsCard artifacts={failedArtifacts} retryingArtifactId={retryingArtifactId} />
+        <FailedArtifactsCard
+          artifacts={failedArtifacts}
+          warningArtifacts={warningArtifacts}
+          retryingArtifactId={retryingArtifactId}
+        />
       </Stack>
     </AppLayout>
   );

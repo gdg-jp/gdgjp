@@ -1,8 +1,11 @@
 import { describe, expect, it, vi } from "vitest";
 import { GoogleApiError } from "~/features/google/client.server";
 import {
+  createFile,
   createPermission,
+  deletePermission,
   getFile,
+  isInvalidSharingRequestError,
   listFiles,
   listPermissions,
 } from "~/features/google/drive.server";
@@ -123,5 +126,88 @@ describe("drive.server", () => {
       expect(apiErr.apiMessage).toBe("Insufficient permissions");
       return true;
     });
+  });
+
+  it("createFile が空ファイルメタデータを作成して返す", async () => {
+    let capturedUrl = "";
+    let capturedInit: RequestInit | undefined;
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      capturedUrl = String(input);
+      capturedInit = init;
+      return Response.json({
+        id: "probe-file-1",
+        name: "Probe Doc",
+        mimeType: "application/vnd.google-apps.document",
+      });
+    }) as unknown as typeof fetch;
+
+    const created = await createFile(
+      "token-1",
+      {
+        name: "Probe Doc",
+        mimeType: "application/vnd.google-apps.document",
+      },
+      fetchMock,
+    );
+
+    expect(created).toEqual({
+      id: "probe-file-1",
+      name: "Probe Doc",
+      mimeType: "application/vnd.google-apps.document",
+    });
+    const parsedUrl = new URL(capturedUrl);
+    expect(parsedUrl.pathname).toBe("/drive/v3/files");
+    expect(parsedUrl.searchParams.get("fields")).toBe("id,name,mimeType");
+    expect(capturedInit?.method).toBe("POST");
+    expect(JSON.parse(String(capturedInit?.body))).toEqual({
+      name: "Probe Doc",
+      mimeType: "application/vnd.google-apps.document",
+    });
+  });
+
+  it("deletePermission が DELETE を送信し 204 空レスポンスを正常終了する", async () => {
+    let capturedUrl = "";
+    let capturedMethod = "";
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      capturedUrl = String(input);
+      capturedMethod = init?.method ?? "";
+      return new Response(null, { status: 204 });
+    }) as unknown as typeof fetch;
+
+    await expect(
+      deletePermission("token-1", "file-1", "perm-1", fetchMock),
+    ).resolves.toBeUndefined();
+    expect(capturedMethod).toBe("DELETE");
+    expect(new URL(capturedUrl).pathname).toBe("/drive/v3/files/file-1/permissions/perm-1");
+  });
+
+  it("isInvalidSharingRequestError が 400 invalidSharingRequest のみ true を返す", () => {
+    expect(
+      isInvalidSharingRequestError(
+        new GoogleApiError({
+          httpStatus: 400,
+          apiStatus: "invalidSharingRequest",
+          apiMessage: "Bad email",
+        }),
+      ),
+    ).toBe(true);
+    expect(
+      isInvalidSharingRequestError(
+        new GoogleApiError({
+          httpStatus: 400,
+          apiStatus: "INVALID_ARGUMENT",
+          apiMessage: "Other error",
+        }),
+      ),
+    ).toBe(false);
+    expect(
+      isInvalidSharingRequestError(
+        new GoogleApiError({
+          httpStatus: 403,
+          apiStatus: "invalidSharingRequest",
+          apiMessage: "Bad",
+        }),
+      ),
+    ).toBe(false);
   });
 });

@@ -1,8 +1,10 @@
 import type {
   ChapterRole,
   ListChapterMembersInput,
+  ListRegisteredEmailsInput,
   ListUserAvatarsByEmailsInput,
   MeetDirectoryMember,
+  MeetRpcFailure,
   MeetRpcResult,
   MeetUserAvatar,
 } from "@gdgjp/gdg-lib";
@@ -164,6 +166,64 @@ function sanitizeAvatarUrl(raw: string | null | undefined): string | null {
   }
 }
 
+const SQL_NORMALIZED_USER_EMAIL = `
+  CASE
+    WHEN instr(TRIM(email), '@') > 1
+      AND LOWER(substr(TRIM(email), instr(TRIM(email), '@') + 1)) IN ('gmail.com', 'googlemail.com')
+    THEN LOWER(replace(substr(TRIM(email), 1, instr(TRIM(email), '@') - 1), '.', '') || substr(TRIM(email), instr(TRIM(email), '@')))
+    ELSE LOWER(TRIM(email))
+  END
+`;
+
+type PreparedEmailLookup =
+  | { ok: true; uniqueEmails: string[]; uniqueEmailSet: Set<string> }
+  | MeetRpcFailure;
+
+/**
+ * `"user"` テーブル向けのメール照会 RPC（アバター取得・登録済み判定）で共通の
+ * 呼び出し主体検証・メール配列検証・正規化・上限チェックを行う。
+ */
+async function prepareUserEmailLookup(
+  db: D1Database,
+  input: { actorUserId?: unknown; emails?: unknown } | null | undefined,
+): Promise<PreparedEmailLookup> {
+  const rawActorUserId = input?.actorUserId;
+  if (typeof rawActorUserId !== "string" || rawActorUserId.trim().length === 0) {
+    return { ok: false, code: "forbidden" };
+  }
+  const actorUserId = rawActorUserId.trim();
+
+  const actorExists = await db
+    .prepare('SELECT 1 FROM "user" WHERE id = ? LIMIT 1')
+    .bind(actorUserId)
+    .first();
+  if (!actorExists) {
+    return { ok: false, code: "forbidden" };
+  }
+
+  if (!Array.isArray(input?.emails)) {
+    return { ok: false, code: "invalid_emails" };
+  }
+
+  const uniqueEmailSet = new Set<string>();
+  for (const item of input.emails) {
+    if (typeof item !== "string") {
+      return { ok: false, code: "invalid_emails" };
+    }
+    const normalized = normalizeMeetEmail(item);
+    if (normalized.length > 0) {
+      uniqueEmailSet.add(normalized);
+    }
+  }
+
+  const uniqueEmails = [...uniqueEmailSet];
+  if (uniqueEmails.length > MAX_MEET_AVATAR_EMAILS) {
+    return { ok: false, code: "too_many_emails" };
+  }
+
+  return { ok: true, uniqueEmails, uniqueEmailSet };
+}
+
 /**
  * `meet.gdgs.jp` 向け service-binding RPC（招待者の Google アカウント画像 URL 取得）。
  * 会議詳細画面はチャプター未所属の招待ゲストにも閲覧を許可するため、
@@ -174,39 +234,11 @@ export async function listMeetUserAvatarsByEmails(
   input: ListUserAvatarsByEmailsInput,
 ): Promise<MeetRpcResult<{ avatars: MeetUserAvatar[] }>> {
   try {
-    const rawActorUserId = input?.actorUserId;
-    if (typeof rawActorUserId !== "string" || rawActorUserId.trim().length === 0) {
-      return { ok: false, code: "forbidden" };
+    const prepared = await prepareUserEmailLookup(db, input);
+    if (!prepared.ok) {
+      return prepared;
     }
-    const actorUserId = rawActorUserId.trim();
-
-    const actorExists = await db
-      .prepare('SELECT 1 FROM "user" WHERE id = ? LIMIT 1')
-      .bind(actorUserId)
-      .first();
-    if (!actorExists) {
-      return { ok: false, code: "forbidden" };
-    }
-
-    if (!Array.isArray(input.emails)) {
-      return { ok: false, code: "invalid_emails" };
-    }
-
-    const uniqueEmailSet = new Set<string>();
-    for (const item of input.emails) {
-      if (typeof item !== "string") {
-        return { ok: false, code: "invalid_emails" };
-      }
-      const normalized = normalizeMeetEmail(item);
-      if (normalized.length > 0) {
-        uniqueEmailSet.add(normalized);
-      }
-    }
-
-    const uniqueEmails = [...uniqueEmailSet];
-    if (uniqueEmails.length > MAX_MEET_AVATAR_EMAILS) {
-      return { ok: false, code: "too_many_emails" };
-    }
+    const { uniqueEmails, uniqueEmailSet } = prepared;
     if (uniqueEmails.length === 0) {
       return { ok: true, avatars: [] };
     }
@@ -221,14 +253,7 @@ export async function listMeetUserAvatarsByEmails(
            FROM "user"
            WHERE image IS NOT NULL
              AND TRIM(image) != ''
-             AND (
-               CASE
-                 WHEN instr(TRIM(email), '@') > 1
-                   AND LOWER(substr(TRIM(email), instr(TRIM(email), '@') + 1)) IN ('gmail.com', 'googlemail.com')
-                 THEN LOWER(replace(substr(TRIM(email), 1, instr(TRIM(email), '@') - 1), '.', '') || substr(TRIM(email), instr(TRIM(email), '@')))
-                 ELSE LOWER(TRIM(email))
-               END
-             ) IN (${placeholders})
+             AND (${SQL_NORMALIZED_USER_EMAIL}) IN (${placeholders})
            ORDER BY updated_at DESC, id ASC`,
         )
         .bind(...chunk)
@@ -250,6 +275,51 @@ export async function listMeetUserAvatarsByEmails(
     }));
 
     return { ok: true, avatars };
+  } catch {
+    return { ok: false, code: "internal_error" };
+  }
+}
+
+/**
+ * `meet.gdgs.jp` 向け service-binding RPC（GDG Accounts 登録済みメールアドレスの照会）。
+ * `"user"` テーブルに存在する正規化済みメールアドレスのみを返す（image の有無は問わない）。
+ */
+export async function listMeetRegisteredEmails(
+  db: D1Database,
+  input: ListRegisteredEmailsInput,
+): Promise<MeetRpcResult<{ emails: string[] }>> {
+  try {
+    const prepared = await prepareUserEmailLookup(db, input);
+    if (!prepared.ok) {
+      return prepared;
+    }
+    const { uniqueEmails, uniqueEmailSet } = prepared;
+    if (uniqueEmails.length === 0) {
+      return { ok: true, emails: [] };
+    }
+
+    const registeredSet = new Set<string>();
+    for (let offset = 0; offset < uniqueEmails.length; offset += SQL_EMAIL_CHUNK_SIZE) {
+      const chunk = uniqueEmails.slice(offset, offset + SQL_EMAIL_CHUNK_SIZE);
+      const placeholders = chunk.map(() => "?").join(", ");
+      const { results } = await db
+        .prepare(
+          `SELECT email
+           FROM "user"
+           WHERE (${SQL_NORMALIZED_USER_EMAIL}) IN (${placeholders})`,
+        )
+        .bind(...chunk)
+        .all<{ email: string }>();
+
+      for (const row of results) {
+        const normalized = normalizeMeetEmail(row.email);
+        if (uniqueEmailSet.has(normalized)) {
+          registeredSet.add(normalized);
+        }
+      }
+    }
+
+    return { ok: true, emails: [...registeredSet] };
   } catch {
     return { ok: false, code: "internal_error" };
   }

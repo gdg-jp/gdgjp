@@ -1,6 +1,7 @@
 import type {
   AuthUser,
   ListChapterMembersInput,
+  ListRegisteredEmailsInput,
   ListUserAvatarsByEmailsInput,
   MeetDirectoryMember,
   MeetDirectoryService,
@@ -186,6 +187,54 @@ export async function fetchUserAvatarsByEmails(
   }
 
   return avatars;
+}
+
+/**
+ * `ACCOUNTS_DIRECTORY` RPC 経由で GDG Accounts に登録済みのメールアドレス集合を取得する。
+ * `oidc_subject` 不在・RPC 未実装・RPC エラー時は例外を投げず `null`（不明）を返す。
+ */
+export async function fetchRegisteredEmails(
+  env: Env,
+  localUserId: string,
+  emails: readonly string[],
+): Promise<Set<string> | null> {
+  const uniqueEmails = deduplicateNormalizedEmails(emails);
+  if (uniqueEmails.length === 0) return new Set();
+
+  let actorUserId: string;
+  try {
+    actorUserId = await resolveAccountsUserId(env, localUserId);
+  } catch {
+    return null;
+  }
+
+  const service = meetDirectoryService(env);
+  if (typeof service?.listRegisteredEmails !== "function") {
+    return null;
+  }
+
+  const registered = new Set<string>();
+  for (let offset = 0; offset < uniqueEmails.length; offset += RPC_EMAIL_CHUNK_SIZE) {
+    const chunk = uniqueEmails.slice(offset, offset + RPC_EMAIL_CHUNK_SIZE);
+    const rpcInput: ListRegisteredEmailsInput = { actorUserId, emails: chunk };
+    let result: MeetRpcResult<{ emails: string[] }>;
+    try {
+      result = await service.listRegisteredEmails(rpcInput);
+    } catch {
+      return null;
+    }
+    if (!result.ok || !Array.isArray(result.emails)) {
+      return null;
+    }
+    for (const email of result.emails) {
+      const normalized = normalizeEmail(email);
+      if (normalized) {
+        registered.add(normalized);
+      }
+    }
+  }
+
+  return registered;
 }
 
 /**

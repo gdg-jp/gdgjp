@@ -1,25 +1,29 @@
+import { cloudflare } from "@cloudflare/vite-plugin";
 import { reactRouter } from "@react-router/dev/vite";
-import { cloudflareDevProxy } from "@react-router/dev/vite/cloudflare";
 import tailwindcss from "@tailwindcss/vite";
 import { defineConfig } from "vite";
-import { CloudflareContext } from "./workers/context";
 
-export default defineConfig({
+export default defineConfig(({ command }) => ({
   build: { reportCompressedSize: false, target: ["edge88", "firefox78", "chrome87", "safari14"] },
-  resolve: { tsconfigPaths: true },
+  resolve: { tsconfigPaths: true, dedupe: ["react", "react-dom", "react-router"] },
   server: { port: 5182, strictPort: true },
+  cacheDir: process.env.CI ? "node_modules/.vite-e2e" : undefined,
   optimizeDeps: { include: ["@gdgjp/design-system"] },
+  environments:
+    command === "serve"
+      ? { ssr: { optimizeDeps: { include: ["@gdgjp/design-system"] } } }
+      : undefined,
   plugins: [
-    cloudflareDevProxy({
-      environment: process.env.CLOUDFLARE_ENV,
+    // Builds the Worker for workerd. The previous cloudflareDevProxy setup emitted a
+    // Node-style SSR bundle whose `createRequire(import.meta.url)` shim (for CJS deps such
+    // as use-sync-external-store) throws on Workers, where import.meta.url is undefined.
+    cloudflare({
       configPath: process.env.CLOUDFLARE_VITE_WRANGLER_CONFIG_PATH,
-      getLoadContext: ({ context }) =>
-        new CloudflareContext({
-          env: context.cloudflare.env as Env,
-          ctx: context.cloudflare.ctx,
-        }),
+      viteEnvironment: { name: "ssr" },
+      remoteBindings: false,
+      inspectorPort: process.env.CI ? false : 9282,
     }),
     tailwindcss(),
     reactRouter(),
   ],
-});
+}));

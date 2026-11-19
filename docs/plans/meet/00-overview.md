@@ -112,6 +112,9 @@ PoC（2026-11-18〜19）で次の 2 方式を実機検証し、方式 B を採�
 | `artifacts` | Stage 06 | 生成ファイル（録画・メモ・チャット記録） | `id`, `meeting_id`, `conference_record`, `kind`, `drive_file_id` (`UNIQUE`), `title`, `mime_type`, `web_view_link`, `created_at`, `shared_at`, `attached_at`, `last_error`, `attempts` |
 | `processed_events` | Stage 06 | Pub/Sub イベントの重複排除 | `dedupe_key` (`ce-type\|resourceName` PK), `received_at` |
 | `google_subscription` | Stage 06 | Workspace Events 購読状態（`id=1` 固定） | `id`, `name`, `state`, `expire_time`, `updated_at`, `last_error` |
+| `drive_share_checks` | Stage 06+ | 招待者メールアドレスの Drive 共有可否キャッシュ | `email_normalized` (PK), `status` (`ok`/`unshareable`), `http_status`, `api_status`, `source`, `checked_at` |
+| `drive_probe_file` | Stage 06+ | 保存前共有確認用の空 Google ドキュメント ID（`id=1` 固定） | `id`, `file_id`, `created_at` |
+| `artifact_share_failures` | Stage 06+ | 生成ファイルごとの招待者単位 Drive 共有失敗記録 | `artifact_id`, `email_normalized` (`PK(artifact_id, email_normalized)`), `http_status`, `api_status`, `failed_at` |
 
 ---
 

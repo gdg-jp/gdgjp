@@ -1,19 +1,28 @@
 import { getEvent, patchEvent } from "~/features/google/calendar.server";
 import { GoogleApiError, type GoogleFetch } from "~/features/google/client.server";
-import { createPermission, listPermissions } from "~/features/google/drive.server";
+import {
+  createPermission,
+  isInvalidSharingRequestError,
+  listPermissions,
+} from "~/features/google/drive.server";
 import { normalizeEmail } from "~/features/google/email";
+import { toSafeErrorSummary } from "~/features/google/error-summary.server";
 import { getGoogleAccessToken } from "~/features/google/token.server";
-import { toSafeErrorSummary } from "~/features/meetings/invite-resolution.server";
+import { upsertDriveShareCheck } from "~/features/invitee-checks/repository.server";
 import {
   getMeetingById,
   listMeetingInvitees,
 } from "~/features/meetings/meetings.repository.server";
+import { maskEmail, maskEmailsInText } from "~/lib/redact-email";
 import { getCalendarAttachmentTitle } from "./artifact";
 import {
+  deleteArtifactShareFailuresForEmails,
   getArtifactById,
+  listArtifactShareFailureEmails,
   markArtifactAttached,
   markArtifactShared,
   recordArtifactAttemptError,
+  upsertArtifactShareFailure,
 } from "./repository.server";
 
 export type ShareArtifactDeps = {
@@ -91,9 +100,15 @@ export async function shareArtifactJob(
     }
 
     const permanentWarnings: string[] = [];
+    const clearedFailureEmails: string[] = [];
+    const failedFailureEmails = new Set<string>();
+
     for (const invitee of invitees) {
       if (invitee.emailNormalized === normalizedHostEmail) continue;
-      if (sharedNormalizedEmails.has(invitee.emailNormalized)) continue;
+      if (sharedNormalizedEmails.has(invitee.emailNormalized)) {
+        clearedFailureEmails.push(invitee.emailNormalized);
+        continue;
+      }
 
       try {
         await createPermission(
@@ -108,8 +123,36 @@ export async function shareArtifactJob(
           fetchFn,
         );
         sharedNormalizedEmails.add(invitee.emailNormalized);
+        clearedFailureEmails.push(invitee.emailNormalized);
       } catch (error) {
         if (error instanceof GoogleApiError && isPermanentInviteeShareError(error)) {
+          const failedAt = now().toISOString();
+          failedFailureEmails.add(invitee.emailNormalized);
+          await upsertArtifactShareFailure(env.DB, {
+            artifactId: artifact.id,
+            emailNormalized: invitee.emailNormalized,
+            httpStatus: error.httpStatus,
+            apiStatus: error.apiStatus ?? null,
+            failedAt,
+          });
+          if (isInvalidSharingRequestError(error)) {
+            await upsertDriveShareCheck(env.DB, {
+              emailNormalized: invitee.emailNormalized,
+              status: "unshareable",
+              httpStatus: error.httpStatus,
+              apiStatus: error.apiStatus ?? null,
+              source: "share",
+              checkedAt: failedAt,
+            });
+          }
+          console.warn("[share-artifact] invitee share failed:", {
+            artifactId: artifact.id,
+            email: maskEmail(invitee.email),
+            status: error.httpStatus,
+            apiStatus: error.apiStatus ?? null,
+            apiMessage: maskEmailsInText(error.apiMessage),
+          });
+
           // 1 人の恒久エラーで他の招待者への共有を止めない。個人メールは last_error に含めない。
           const statusLabel = error.apiStatus
             ? `${error.httpStatus} ${error.apiStatus}`
@@ -120,6 +163,15 @@ export async function shareArtifactJob(
         throw error;
       }
     }
+
+    const existingFailureEmails = await listArtifactShareFailureEmails(env.DB, artifact.id);
+    const staleFailureEmails = existingFailureEmails.filter(
+      (email) => !failedFailureEmails.has(email),
+    );
+    await deleteArtifactShareFailuresForEmails(env.DB, artifact.id, [
+      ...clearedFailureEmails,
+      ...staleFailureEmails,
+    ]);
 
     const warningSummary =
       permanentWarnings.length > 0 ? permanentWarnings.join(" / ").slice(0, 400) : null;

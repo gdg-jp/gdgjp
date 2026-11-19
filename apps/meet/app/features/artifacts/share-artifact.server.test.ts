@@ -87,8 +87,29 @@ function createFakeShareDb(
   meeting: MeetingRecord | null,
   artifact: ArtifactRecord | null,
   invitees: MeetingInviteeRecord[],
+  initialShareFailures: Array<{
+    artifact_id: string;
+    email_normalized: string;
+    http_status: number;
+    api_status: string | null;
+    failed_at: string;
+  }> = [],
 ) {
   let currentArtifact = artifact ? { ...artifact } : null;
+  const shareFailures = new Map(
+    initialShareFailures.map((row) => [`${row.artifact_id}|${row.email_normalized}`, row]),
+  );
+  const driveShareChecks = new Map<
+    string,
+    {
+      email_normalized: string;
+      status: string;
+      http_status: number | null;
+      api_status: string | null;
+      source: string;
+      checked_at: string;
+    }
+  >();
 
   const db = {
     prepare(sql: string) {
@@ -164,9 +185,59 @@ function createFakeShareDb(
               })) as T[],
             };
           }
+          if (sql.includes("FROM artifact_share_failures WHERE artifact_id = ?")) {
+            const [artId] = args as [string];
+            const results = [...shareFailures.values()]
+              .filter((r) => r.artifact_id === artId)
+              .map((r) => ({ email_normalized: r.email_normalized }));
+            return { results: results as T[] };
+          }
           throw new Error(`未対応の all(): ${sql}`);
         },
         async run() {
+          if (sql.includes("INSERT INTO artifact_share_failures")) {
+            const [artifactId, emailNormalized, httpStatus, apiStatus, failedAt] = args as [
+              string,
+              string,
+              number,
+              string | null,
+              string,
+            ];
+            shareFailures.set(`${artifactId}|${emailNormalized}`, {
+              artifact_id: artifactId,
+              email_normalized: emailNormalized,
+              http_status: httpStatus,
+              api_status: apiStatus,
+              failed_at: failedAt,
+            });
+            return { success: true, meta: { changes: 1 } };
+          }
+          if (sql.includes("DELETE FROM artifact_share_failures")) {
+            const [artifactId, ...emails] = args as string[];
+            for (const email of emails) {
+              shareFailures.delete(`${artifactId}|${email}`);
+            }
+            return { success: true, meta: { changes: 1 } };
+          }
+          if (sql.includes("INSERT INTO drive_share_checks")) {
+            const [emailNormalized, status, httpStatus, apiStatus, source, checkedAt] = args as [
+              string,
+              string,
+              number | null,
+              string | null,
+              string,
+              string,
+            ];
+            driveShareChecks.set(emailNormalized, {
+              email_normalized: emailNormalized,
+              status,
+              http_status: httpStatus,
+              api_status: apiStatus,
+              source,
+              checked_at: checkedAt,
+            });
+            return { success: true, meta: { changes: 1 } };
+          }
           if (sql.includes("SET shared_at = ?, last_error = ?")) {
             const [sharedAt, lastError] = args as [string, string | null];
             if (currentArtifact) {
@@ -202,6 +273,8 @@ function createFakeShareDb(
   return {
     db: db as unknown as D1Database,
     getArtifact: () => currentArtifact,
+    getShareFailures: () => [...shareFailures.values()],
+    getDriveShareChecks: () => [...driveShareChecks.values()],
   };
 }
 
@@ -209,6 +282,13 @@ async function createEnvFixture(
   meeting: MeetingRecord | null = ACTIVE_MEETING,
   artifact: ArtifactRecord | null = BASE_ARTIFACT,
   invitees: MeetingInviteeRecord[] = INVITEES,
+  initialShareFailures: Array<{
+    artifact_id: string;
+    email_normalized: string;
+    http_status: number;
+    api_status: string | null;
+    failed_at: string;
+  }> = [],
 ) {
   const encrypted = await encryptRefreshToken(
     { GOOGLE_TOKEN_ENCRYPTION_KEY: TEST_KEY },
@@ -229,7 +309,13 @@ async function createEnvFixture(
     status: "connected",
     last_error: null,
   };
-  const dbFixture = createFakeShareDb(connection, meeting, artifact, invitees);
+  const dbFixture = createFakeShareDb(
+    connection,
+    meeting,
+    artifact,
+    invitees,
+    initialShareFailures,
+  );
   const env = {
     DB: dbFixture.db,
     GOOGLE_CLIENT_ID: "google-client-id",
@@ -488,5 +574,100 @@ describe("shareArtifactJob", () => {
 
     await shareArtifactJob(env, "art-1", { fetchFn: fetchMock });
     expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("400 invalidSharingRequest で artifact_share_failures と drive_share_checks(source=share) を記録し、warn のメールを伏せ、成功・既存権限時は失敗行を削除する", async () => {
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const { env, getShareFailures, getDriveShareChecks } = await createEnvFixture(
+      ACTIVE_MEETING,
+      BASE_ARTIFACT,
+      INVITEES,
+      [
+        {
+          artifact_id: "art-1",
+          email_normalized: "ab@gmail.com",
+          http_status: 400,
+          api_status: "invalidSharingRequest",
+          failed_at: "2026-11-18T00:00:00.000Z",
+        },
+        {
+          artifact_id: "art-1",
+          email_normalized: "another@example.com",
+          http_status: 400,
+          api_status: "invalidSharingRequest",
+          failed_at: "2026-11-18T00:00:00.000Z",
+        },
+      ],
+    );
+
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      const method = init?.method ?? "GET";
+      if (url === "https://oauth2.googleapis.com/token") {
+        return Response.json({ access_token: "ya29.share", expires_in: 3600 });
+      }
+      if (url.includes("/permissions") && method === "GET") {
+        // ab@gmail.com は既に共有済み
+        return Response.json({
+          permissions: [{ id: "p-ab", type: "user", role: "reader", emailAddress: "ab@gmail.com" }],
+        });
+      }
+      if (url.includes("/permissions") && method === "POST") {
+        const body = JSON.parse(String(init?.body)) as { emailAddress: string };
+        if (body.emailAddress === "guest@example.com") {
+          return Response.json(
+            {
+              error: {
+                code: 400,
+                message: "Cannot share with guest@example.com",
+                errors: [{ domain: "global", reason: "invalidSharingRequest" }],
+              },
+            },
+            { status: 400 },
+          );
+        }
+        return Response.json({ id: "perm-ok", ...body });
+      }
+      if (url.includes("/calendar/v3/") && method === "GET") {
+        return Response.json({ id: "evt-1", attachments: [] });
+      }
+      if (url.includes("/calendar/v3/") && method === "PATCH") {
+        return Response.json({ id: "evt-1" });
+      }
+      throw new Error(`想定外の fetch: ${method} ${url}`);
+    }) as unknown as typeof fetch;
+
+    await shareArtifactJob(env, "art-1", {
+      fetchFn: fetchMock,
+      now: () => new Date("2026-11-20T03:00:00.000Z"),
+    });
+
+    // ab@gmail.com（既存権限）と another@example.com（共有成功）は削除され、guest@example.com のみ残る
+    expect(getShareFailures()).toEqual([
+      {
+        artifact_id: "art-1",
+        email_normalized: "guest@example.com",
+        http_status: 400,
+        api_status: "invalidSharingRequest",
+        failed_at: "2026-11-20T03:00:00.000Z",
+      },
+    ]);
+    expect(getDriveShareChecks()).toEqual([
+      {
+        email_normalized: "guest@example.com",
+        status: "unshareable",
+        http_status: 400,
+        api_status: "invalidSharingRequest",
+        source: "share",
+        checked_at: "2026-11-20T03:00:00.000Z",
+      },
+    ]);
+
+    expect(warnSpy).toHaveBeenCalledTimes(1);
+    const logged = JSON.stringify(warnSpy.mock.calls[0]);
+    expect(logged).not.toContain("guest@example.com");
+    expect(logged).toContain("g***@example.com");
+    expect(logged).toContain("invalidSharingRequest");
+    warnSpy.mockRestore();
   });
 });
