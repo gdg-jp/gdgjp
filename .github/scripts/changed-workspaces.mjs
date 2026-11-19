@@ -220,6 +220,7 @@ export function classifyChanges(files, { forceAll = false } = {}) {
     (file) =>
       GLOBAL_INPUTS.has(file) ||
       file === ".github/workflows/ci.yml" ||
+      file.startsWith(".github/actions/") ||
       file.startsWith(".github/scripts/changed-workspaces."),
   );
   const deployGlobal = normalizedFiles.some(
