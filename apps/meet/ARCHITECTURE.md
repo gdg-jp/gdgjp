@@ -7,6 +7,7 @@
 | Responsibility | Path |
 | --- | --- |
 | Relying-party sessions, sign-in redirects, chapter claims, and access guards (`requireUser`, `requireUserWithChapter`) | `app/features/auth/` |
+| Chapter directory (`ACCOUNTS` HTTP) and active chapter-member lookup (`ACCOUNTS_DIRECTORY` RPC; member emails stay server-only) | `app/features/directory/` |
 | Shared signed-in application shell (`AppLayout`) | `app/layouts/AppLayout.tsx` |
 | Domain-independent primitives (`useHydrated`) | `app/lib/` |
 | Route modules owning loaders, actions, metadata, and composed screens | `app/routes/` (`meetings/home.tsx`, `auth/no-chapter.tsx`, auth plumbing) |
