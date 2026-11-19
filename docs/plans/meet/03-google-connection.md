@@ -14,6 +14,7 @@ GDG Japan Meet は共有アカウント `community-support@gdgoc.jp` の権限�
 
 1. GCP プロジェクト `gdgs-meet` で **Web アプリケーション型の OAuth 2.0 クライアント** が作成済みであり、`GOOGLE_CLIENT_ID` と `GOOGLE_CLIENT_SECRET` が取得できていること。
 2. 同クライアントの承認済みリダイレクト URI に `https://meet.gdgs.jp/admin/google/callback` と `http://localhost:5193/admin/google/callback` が登録されていること。
+   - ローカル開発では、PoC で使ったデスクトップ型クライアントを流用してよい（ループバックの `http://localhost:5193/admin/google/callback` を受け付けることを確認済み）。Web 型クライアントは本番デプロイまでに作ればよい。
 3. OAuth 同意画面が **「内部（Internal）」** に設定されていること（外部・テスト中ではリフレッシュトークンが 7 日で失効するため不可）。
 4. `gdgs-meet` で Google Meet REST API、Google Calendar API、Google Drive API、Google Workspace Events API、Cloud Pub/Sub API の 5 つがすべて有効化されていること。
 

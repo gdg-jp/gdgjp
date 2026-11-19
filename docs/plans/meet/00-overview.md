@@ -197,7 +197,7 @@ Stage 01 (workspace-scaffold)
 
 | 項目 | 現状とリスク | 確認タイミング / 緩和策 |
 |---|---|---|
-| **ゲスト数・メンバー数・co-host 数の上限** | Calendar イベントのゲスト上限、Meet スペースのメンバー/co-host 上限は `community-support@gdgoc.jp` の Workspace ライセンスに依存 | **Stage 04 実装前に確認**し、`MAX_INVITEES`（暫定値 `200`）を確定して `00a-poc-findings.md` に追記 |
+| **ゲスト数・メンバー数・co-host 数の上限** | Calendar イベントのゲスト上限、Meet スペースのメンバー/co-host 上限は `community-support@gdgoc.jp` の Workspace ライセンスに依存 | 確認済み（Business Standard）: `MAX_INVITEES = 150`、`MAX_COHOSTS = 25`（`00a-poc-findings.md` §6） |
 | **`sub` と Cloud Identity ユーザー ID の一致** | Workspace Events の購読対象 `//cloudidentity.googleapis.com/users/<id>` に必要な数値 ID が、OAuth `id_token` の `sub` と一致するか未確認 | **Stage 03 手動確認で検証**し、一致しない場合は People API / Cloud Identity からの取得手順に切り替える |
 | **長時間会議での通知遅延** | 1 分の会議で文字起こし/メモは 3.5 分後、録画は 5.3 分後に生成されたが、数時間の会議では大幅に延びる見込み | UI に「数分〜時間がかかる」旨を明記し、毎時 cron で過去 7 日以内の `active` 会議を見直す |
 | **Drive 共有のレート制限** | 招待者が数十〜百人規模の場合、1 ファイルにつき人数分の `permissions.create` が走る | `MEET_JOBS` を `max_concurrency=1` で直列化し、1 件ずつ順次実行 + Queue 再試行に委ねる |

@@ -121,6 +121,7 @@ GDG Japan / GDG on Campus Japan で共有アカウント `community-support@gdgo
 | `apps/accounts/.dev.vars.example` | `MEET_CLIENT_SECRET=""`、`MEET_CLIENT_ID=meet`、`MEET_REDIRECT_URLS=http://localhost:5193/api/auth/callback/gdgjp` |
 | `apps/accounts/types/env.d.ts` | `Env` に `MEET_CLIENT_SECRET: string;` |
 | `apps/accounts/app/features/oauth/seed-clients.server.ts` | `collectSpecs()` の `apps` 配列に `["GDG Japan Meet", env.MEET_CLIENT_ID, env.MEET_CLIENT_SECRET, env.MEET_REDIRECT_URLS]` |
+| `apps/accounts/app/features/oauth/rp-session.server.ts` | `firstPartyRpClientIds()` に `env.MEET_CLIENT_ID`（ないと `/api/rp/v1/session` が meet を拒否し、ログイン後の全リクエストが失敗する） |
 
 変更後、`pnpm --filter @gdgjp/accounts cf-typegen` で `apps/accounts` の `Env` 型を更新する（生成物はコミットしない）。
 
@@ -167,6 +168,7 @@ GDG Japan / GDG on Campus Japan で共有アカウント `community-support@gdgo
 - `.dev.vars.example`
 - `types/env.d.ts`
 - `app/features/oauth/seed-clients.server.ts`
+- `app/features/oauth/rp-session.server.ts`
 
 ### モノレポ登録・ドキュメント
 

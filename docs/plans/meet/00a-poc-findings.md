@@ -208,4 +208,4 @@
 ## 6. 今後のステージで確認・追記する事項
 
 - **Stage 03**: OAuth `id_token` の `sub` が `//cloudidentity.googleapis.com/users/<id>` に必要な Google ユーザー ID（`signedinUser.user` で確認した数値 ID）と一致することをテスト購読で確認し、結果を本書に追記する。
-- **Stage 04**: `community-support@gdgoc.jp` のライセンスにおける Calendar 予定のゲスト数上限、Meet スペースのメンバー数上限、co-host 数上限を確認し、`MAX_INVITEES` の確定値と根拠を本書に追記する。
+- **Stage 04（確定）**: `gdgoc.jp` は Business Standard。Meet 参加者 150 人、co-host 25 人、Calendar ゲスト 200 人、Drive 直接共有 600 人、Meet API 書き込み 毎分 100 件/ユーザー。これにより `MAX_INVITEES = 150`、`MAX_COHOSTS = 25` とする（出典: support.google.com/meet/answer/7317305, /meet/answer/10885976, /calendar/answer/37161, developers.google.com/workspace/meet/api/guides/limits）。

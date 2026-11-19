@@ -20,7 +20,7 @@ PoC で確定したとおり、Calendar のゲスト登録だけでは `RESTRICT
 
 ### 事前確認（実装前に必ず）
 
-1. **招待上限の確認と `MAX_INVITEES` の確定**: `community-support@gdgoc.jp` の Google Workspace ライセンスにおける Google Calendar の 1 予定あたりゲスト数上限、および Google Meet スペースのメンバー数・co-host 数上限を確認する。確認した値に基づいて定数 `MAX_INVITEES`（確認前は暫定 `200`）を確定し、`docs/plans/meet/00a-poc-findings.md` に追記する。
+1. **招待上限（確認済み）**: `MAX_INVITEES = 150`、`MAX_COHOSTS = 25`。根拠は `docs/plans/meet/00a-poc-findings.md` §6。
 
 ### 読むべきもの
 
@@ -103,7 +103,7 @@ CREATE INDEX meeting_invitees_email_idx ON meeting_invitees (email_normalized, m
 
 ブラウザからでもテストからでも使える純粋モジュールとして実装し、D1 やネットワークに依存させない。
 
-- **定数**: `export const MAX_INVITEES = 200;`（事前確認で確定した値へ更新する）。
+- **定数**: `export const MAX_INVITEES = 150;`（Business Standard の Meet 参加者上限）と `export const MAX_COHOSTS = 25;`（Meet の co-host 上限）。根拠は `00a-poc-findings.md` §6。
 - **入力型**:
   - `creator: { userId: string; email: string; name: string }`
   - `hostChapterId: number`
@@ -120,7 +120,7 @@ CREATE INDEX meeting_invitees_email_idx ON meeting_invitees (email_normalized, m
   3. `normalizeEmail(entry.email)` をキーに重複排除する:
      - `normalizeEmail(hostEmail)`（`community-support@gdgoc.jp`）に一致する候補は**除外**する（オーナー自身をゲスト・メンバーに含めない）。
      - 同一正規化メールが複数ソースから現れた場合は 1 件に統合し、**`cohost` を `participant` より優先**する。`sourceKinds` は重複なしの配列として和集合を取り、`userId` / `displayName` は非 null の値（チャプターメンバーや作成者の情報）を優先保持する。
-  4. 解決後の人数が `MAX_INVITEES` を超えた場合は `{ ok: false, code: "too_many_invitees", count, max: MAX_INVITEES }` を返す。
+  4. 解決後の人数が `MAX_INVITEES` を超えた場合は `{ ok: false, code: "too_many_invitees", count, max: MAX_INVITEES }` を、`cohost` の人数が `MAX_COHOSTS` を超えた場合は `{ ok: false, code: "too_many_cohosts", count, max: MAX_COHOSTS }` を返す。
 - **Google グループの拒否**:
   - 個別メール入力のバリデーションで `@googlegroups.com` ドメインを検出し、「Google グループ（googlegroups.com）は招待先に指定できません」としてフォームエラーで弾く（PoC で `COHOST` 指定時に 200 が返るだけで効かないため）。
 
@@ -197,7 +197,7 @@ Stage 05（`cleanup_meeting`）・Stage 06（`process_artifact`・`share_artifac
      - Meet 側にあるが役割が違う → `spaces.members.delete` → `spaces.members.create`
      - Meet 側にあるが `meeting_invitees` に無い → `spaces.members.delete`
      - **役割まで一致しているメンバーには書き込み API を一切呼ばない（冪等性）**。
-  5. 429 / 5xx / ネットワークエラー / `invalid_grant` は例外を投げて Queue の再試行に回す。特定メンバーの無効メールアドレス等（恒久的 4xx）は他メンバーの同期を止めないよう `meetings.last_error` に警告を記録して処理を継続する。
+  5. 429 / 5xx / ネットワークエラー / `invalid_grant` は例外を投げて Queue の再試行に回す（429 は `message.retry({ delaySeconds: 60 })`。Meet API の書き込みは 1 ユーザーあたり毎分 100 件まで）。特定メンバーの無効メールアドレス等（恒久的 4xx）は他メンバーの同期を止めないよう `meetings.last_error` に警告を記録して処理を継続する。
   6. Queue の再試行（`max_retries`）を使い切って捨てられた場合に備え、失敗を `meetings.last_error` に残して詳細画面に出す。回復は Stage 05 の「チャプターから再同期」（`sync_members` を再投入する）で行う。
 
 ### 6. 画面（`@gdgjp/design-system`）
