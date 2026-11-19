@@ -1,9 +1,8 @@
 import type { ChapterRole, MeetActor, MeetDirectoryMember } from "@gdgjp/gdg-lib";
 import { DirectoryError, fetchChapterMembers } from "~/features/directory/directory.server";
 import type { CalendarAttendee } from "~/features/google/calendar.server";
-import { GoogleApiError } from "~/features/google/client.server";
 import { normalizeEmail } from "~/features/google/email";
-import { GoogleConnectionError } from "~/features/google/token.server";
+import { toSafeErrorSummary } from "~/features/google/error-summary.server";
 import type { PreviewInviteesResult } from "./create.server";
 import { parseMeetingEditInviteInputs } from "./form";
 import {
@@ -31,22 +30,7 @@ export function buildCalendarAttendees(invitees: readonly ResolvedInvitee[]): Ca
   );
 }
 
-/** 外部へ表示可能な安全なエラー要約へ整形する（トークン・機密を含めない）。 */
-export function toSafeErrorSummary(error: unknown): string {
-  if (error instanceof GoogleConnectionError) {
-    return error.message.slice(0, 240);
-  }
-  if (error instanceof GoogleApiError) {
-    const statusLabel = error.apiStatus
-      ? `${error.httpStatus} ${error.apiStatus}`
-      : String(error.httpStatus);
-    return `Google API エラー (${statusLabel}): ${error.apiMessage}`.slice(0, 240);
-  }
-  if (error instanceof Error) {
-    return error.message.slice(0, 240);
-  }
-  return "予期しないエラーが発生しました";
-}
+export { toSafeErrorSummary };
 
 /** `DirectoryError` を画面向けの日本語メッセージへ変換する。 */
 export function formatDirectoryError(error: DirectoryError): string {

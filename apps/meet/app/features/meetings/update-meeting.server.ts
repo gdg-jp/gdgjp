@@ -5,6 +5,10 @@ import type { GoogleFetch } from "~/features/google/client.server";
 import { patchSpace } from "~/features/google/meet.server";
 import { getGoogleConnectionSummary } from "~/features/google/oauth.server";
 import { getGoogleAccessToken } from "~/features/google/token.server";
+import {
+  findUnshareableInvitees,
+  formatUnshareableInviteesError,
+} from "~/features/invitee-checks/check-invitees.server";
 import { enqueueArtifactReshareForMeeting } from "./artifact-reshare.server";
 import { type CreateMeetingFieldErrors, parseMeetingEditForm } from "./form";
 import {
@@ -156,6 +160,20 @@ export async function updateMeeting(
 
     nextInvitees = resolved.invitees;
     inviteesChanged = haveInviteesChanged(existingInvitees, resolved.invitees);
+    if (inviteesChanged) {
+      const unshareable = await findUnshareableInvitees(
+        env,
+        {
+          actorLocalUserId: actor.user.id,
+          invitees: resolved.invitees,
+          existingInvitees,
+        },
+        { fetchFn, now },
+      );
+      if (unshareable.length > 0) {
+        return { ok: false, formError: formatUnshareableInviteesError(unshareable) };
+      }
+    }
   }
 
   let patchedHtmlLink: string | null = null;

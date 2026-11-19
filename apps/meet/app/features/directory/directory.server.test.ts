@@ -1,6 +1,7 @@
 import { DatabaseSync } from "node:sqlite";
 import type {
   ListChapterMembersInput,
+  ListRegisteredEmailsInput,
   MeetDirectoryMember,
   MeetRpcResult,
   MeetUserAvatar,
@@ -11,6 +12,7 @@ import {
   DirectoryError,
   fetchChapterMembers,
   fetchChaptersDirectory,
+  fetchRegisteredEmails,
   fetchUserAvatarsByEmails,
   listLocalUserAvatarsByEmails,
   resolveInviteeAvatars,
@@ -513,5 +515,87 @@ describe("resolveInviteeAvatars", () => {
         ["viewer@example.com", "https://lh3.googleusercontent.com/a/viewer-accounts=s96-c"],
       ]),
     );
+  });
+});
+
+describe("fetchRegisteredEmails", () => {
+  it("resolves oidc_subject, chunks by 200 emails, and returns normalized Set", async () => {
+    const listRegisteredEmails = vi
+      .fn<(input: ListRegisteredEmailsInput) => Promise<MeetRpcResult<{ emails: string[] }>>>()
+      .mockResolvedValueOnce({
+        ok: true,
+        emails: ["a.b@gmail.com", "alice@example.com"],
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        emails: ["tail@example.com"],
+      });
+    const { db, bound } = fakeUserDb("accounts-u-1");
+    const env = {
+      DB: db,
+      ACCOUNTS_DIRECTORY: { listRegisteredEmails },
+    } as unknown as Env;
+
+    const inputEmails = [
+      "A.B@gmail.com",
+      "alice@example.com",
+      ...Array.from({ length: 205 }, (_, i) => `u${i}@example.com`),
+      "tail@example.com",
+    ];
+    const result = await fetchRegisteredEmails(env, "u-1", inputEmails);
+
+    expect(bound).toEqual([["u-1"]]);
+    expect(listRegisteredEmails).toHaveBeenCalledTimes(2);
+    expect(listRegisteredEmails.mock.calls[0]?.[0]).toMatchObject({
+      actorUserId: "accounts-u-1",
+    });
+    expect(listRegisteredEmails.mock.calls[0]?.[0].emails).toHaveLength(200);
+    expect(listRegisteredEmails.mock.calls[1]?.[0].emails).toHaveLength(8);
+    expect(result).toEqual(new Set(["ab@gmail.com", "alice@example.com", "tail@example.com"]));
+  });
+
+  it("returns empty Set for empty input without calling DB or RPC", async () => {
+    const listRegisteredEmails = vi.fn();
+    const env = {
+      DB: fakeUserDb(null).db,
+      ACCOUNTS_DIRECTORY: { listRegisteredEmails },
+    } as unknown as Env;
+
+    await expect(fetchRegisteredEmails(env, "u-1", ["  "])).resolves.toEqual(new Set());
+    expect(listRegisteredEmails).not.toHaveBeenCalled();
+  });
+
+  it("returns null without throwing on missing oidc_subject, absent RPC method, RPC error, or exception", async () => {
+    const envMissingSub = {
+      DB: fakeUserDb(null).db,
+      ACCOUNTS_DIRECTORY: { listRegisteredEmails: vi.fn() },
+    } as unknown as Env;
+    await expect(
+      fetchRegisteredEmails(envMissingSub, "u-1", ["a@example.com"]),
+    ).resolves.toBeNull();
+
+    const envOldBinding = {
+      DB: fakeUserDb("accounts-u-1").db,
+      ACCOUNTS_DIRECTORY: {},
+    } as unknown as Env;
+    await expect(
+      fetchRegisteredEmails(envOldBinding, "u-1", ["a@example.com"]),
+    ).resolves.toBeNull();
+
+    const envRpcFail = {
+      DB: fakeUserDb("accounts-u-1").db,
+      ACCOUNTS_DIRECTORY: {
+        listRegisteredEmails: vi.fn().mockResolvedValue({ ok: false, code: "internal_error" }),
+      },
+    } as unknown as Env;
+    await expect(fetchRegisteredEmails(envRpcFail, "u-1", ["a@example.com"])).resolves.toBeNull();
+
+    const envRpcThrow = {
+      DB: fakeUserDb("accounts-u-1").db,
+      ACCOUNTS_DIRECTORY: {
+        listRegisteredEmails: vi.fn().mockRejectedValue(new Error("worker unavailable")),
+      },
+    } as unknown as Env;
+    await expect(fetchRegisteredEmails(envRpcThrow, "u-1", ["a@example.com"])).resolves.toBeNull();
   });
 });

@@ -6,6 +6,10 @@ import { type MeetSpace, createSpace } from "~/features/google/meet.server";
 import { getGoogleConnectionSummary } from "~/features/google/oauth.server";
 import { getGoogleAccessToken } from "~/features/google/token.server";
 import {
+  findUnshareableInvitees,
+  formatUnshareableInviteesError,
+} from "~/features/invitee-checks/check-invitees.server";
+import {
   type CreateMeetingFieldErrors,
   parseMeetingCreateForm,
   parseMeetingInviteInputs,
@@ -157,6 +161,18 @@ export async function createMeeting(
 
   if (!resolved.ok) {
     return { ok: false, formError: formatResolveInviteesError(resolved) };
+  }
+
+  const unshareable = await findUnshareableInvitees(
+    env,
+    {
+      actorLocalUserId: actor.user.id,
+      invitees: resolved.invitees,
+    },
+    { fetchFn, now },
+  );
+  if (unshareable.length > 0) {
+    return { ok: false, formError: formatUnshareableInviteesError(unshareable) };
   }
 
   const meetingId = generateId();

@@ -8,10 +8,10 @@ GDG Japan / GDG on Campus Japan 向けの Google Meet 管理アプリ。共有 G
 
 React Router v7 SSR on Cloudflare Workers（Worker 名 `gdgjp-meet`、本番ホスト `meet.gdgs.jp`）。
 
-- **D1 (`DB` / `gdgjp-meet-db`)**: Relying-party 認証（`"user"`, `oidc_session`）、共有 Google 接続（`google_connection`, `google_oauth_state`）、会議管理（`meetings`, `meeting_invite_sources`, `meeting_invitees`）、開催回・生成ファイル・通知・購読管理（`conference_records`, `artifacts`, `processed_events`, `google_subscription`）
+- **D1 (`DB` / `gdgjp-meet-db`)**: Relying-party 認証（`"user"`, `oidc_session`）、共有 Google 接続（`google_connection`, `google_oauth_state`）、会議管理（`meetings`, `meeting_invite_sources`, `meeting_invitees`）、開催回・生成ファイル・通知・購読管理（`conference_records`, `artifacts`, `processed_events`, `google_subscription`）、招待者共有可否キャッシュ・失敗記録（`drive_share_checks`, `drive_probe_file`, `artifact_share_failures`）
 - **Service binding (`ACCOUNTS` → `gdgjp-accounts`)**: GDG Accounts OIDC 認証・チャプター一覧取得
-- **Service binding (`ACCOUNTS_DIRECTORY` → `gdgjp-accounts` / `MeetDirectoryService`)**: アクティブなチャプターメンバー一覧を取得する内部 RPC
-- **Queue (`MEET_JOBS` / `gdgjp-meet-jobs`)**: `sync_members`・`cleanup_meeting`・`process_artifact`・`share_artifact` の直列非同期処理（`max_batch_size = 1`, `max_concurrency = 1`）
+- **Service binding (`ACCOUNTS_DIRECTORY` → `gdgjp-accounts` / `MeetDirectoryService`)**: アクティブなチャプターメンバー一覧・アバター URL・登録済みメールアドレスを照会する内部 RPC
+- **Queue (`MEET_JOBS` / `gdgjp-meet-jobs`)**: `sync_members`・`cleanup_meeting`・`process_artifact`・`share_artifact` の直列非同期処理（`max_batch_size = 1`, `max_concurrency = 1`、失敗時は指数バックオフで再試行）
 - **Cron Trigger (`7 * * * *`)**: 毎時実行で Workspace Events 購読の維持・過去 7 日以内の `active` 会議の取りこぼし補完・未完了 `artifacts` の再投入を実行
 - **Pub/Sub Push エンドポイント (`POST /api/google/events`)**: Cloud Pub/Sub Push の Google 署名 OIDC JWT を WebCrypto で検証して Workspace Events 通知を受信（`PUBSUB_PUSH_SERVICE_ACCOUNT` 未設定時は全拒否）
 

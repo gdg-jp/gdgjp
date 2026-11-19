@@ -1,9 +1,12 @@
 import type {
   ArtifactKind,
   ArtifactRecord,
+  ArtifactShareFailureRecord,
   ConferenceRecord,
   FailedArtifactItem,
 } from "./artifact";
+
+const SQL_EMAIL_CHUNK_SIZE = 50;
 
 type ConferenceRecordRow = {
   name: string;
@@ -197,7 +200,7 @@ export async function listPendingArtifacts(
   return (result.results ?? []).map(mapArtifactRow);
 }
 
-/** 管理画面向けの失敗・未完了 artifact 一覧を返す。 */
+/** 管理画面向けの失敗・未完了 artifact 一覧を返す（完了済みで警告のみの行は除く）。 */
 export async function listFailedArtifacts(
   db: D1Database,
   limit = 50,
@@ -207,8 +210,36 @@ export async function listFailedArtifacts(
       `SELECT a.*, m.title AS meeting_title
        FROM artifacts a
        INNER JOIN meetings m ON m.id = a.meeting_id
-       WHERE a.last_error IS NOT NULL
-          OR (a.attempts > 0 AND (a.shared_at IS NULL OR a.attached_at IS NULL))
+       WHERE (a.shared_at IS NULL OR (a.attached_at IS NULL AND m.calendar_event_id IS NOT NULL))
+         AND (a.last_error IS NOT NULL OR a.attempts > 0)
+       ORDER BY a.created_at DESC, a.id DESC
+       LIMIT ?`,
+    )
+    .bind(limit)
+    .all<FailedArtifactRow>();
+  return (result.results ?? []).map((row) => ({
+    ...mapArtifactRow(row),
+    meetingTitle: row.meeting_title,
+  }));
+}
+
+/**
+ * 管理画面向けの「警告あり（完了済み）」artifact 一覧を返す。
+ * `shared_at` があり、かつ（`attached_at` あり、または会議に `calendar_event_id` が無い）行のうち
+ * `last_error` が残っているものを返す。
+ */
+export async function listCompletedWarningArtifacts(
+  db: D1Database,
+  limit = 50,
+): Promise<FailedArtifactItem[]> {
+  const result = await db
+    .prepare(
+      `SELECT a.*, m.title AS meeting_title
+       FROM artifacts a
+       INNER JOIN meetings m ON m.id = a.meeting_id
+       WHERE a.shared_at IS NOT NULL
+         AND (a.attached_at IS NOT NULL OR m.calendar_event_id IS NULL)
+         AND a.last_error IS NOT NULL
        ORDER BY a.created_at DESC, a.id DESC
        LIMIT ?`,
     )
@@ -259,4 +290,102 @@ export async function resetArtifactForRetry(db: D1Database, artifactId: string):
     .prepare("UPDATE artifacts SET attempts = 0, last_error = NULL WHERE id = ?")
     .bind(artifactId)
     .run();
+}
+
+export async function upsertArtifactShareFailure(
+  db: D1Database,
+  input: {
+    artifactId: string;
+    emailNormalized: string;
+    httpStatus: number;
+    apiStatus: string | null;
+    failedAt: string;
+  },
+): Promise<void> {
+  await db
+    .prepare(
+      `INSERT INTO artifact_share_failures (
+         artifact_id, email_normalized, http_status, api_status, failed_at
+       ) VALUES (?, ?, ?, ?, ?)
+       ON CONFLICT (artifact_id, email_normalized) DO UPDATE SET
+         http_status = excluded.http_status,
+         api_status = excluded.api_status,
+         failed_at = excluded.failed_at`,
+    )
+    .bind(
+      input.artifactId,
+      input.emailNormalized,
+      input.httpStatus,
+      input.apiStatus,
+      input.failedAt,
+    )
+    .run();
+}
+
+export async function deleteArtifactShareFailuresForEmails(
+  db: D1Database,
+  artifactId: string,
+  emailsNormalized: readonly string[],
+): Promise<void> {
+  const unique = [...new Set(emailsNormalized.filter(Boolean))];
+  if (unique.length === 0) return;
+
+  for (let offset = 0; offset < unique.length; offset += SQL_EMAIL_CHUNK_SIZE) {
+    const chunk = unique.slice(offset, offset + SQL_EMAIL_CHUNK_SIZE);
+    const placeholders = chunk.map(() => "?").join(", ");
+    await db
+      .prepare(
+        `DELETE FROM artifact_share_failures
+         WHERE artifact_id = ? AND email_normalized IN (${placeholders})`,
+      )
+      .bind(artifactId, ...chunk)
+      .run();
+  }
+}
+
+export async function listArtifactShareFailureEmails(
+  db: D1Database,
+  artifactId: string,
+): Promise<string[]> {
+  const result = await db
+    .prepare("SELECT email_normalized FROM artifact_share_failures WHERE artifact_id = ?")
+    .bind(artifactId)
+    .all<{ email_normalized: string }>();
+  return (result.results ?? []).map((row) => row.email_normalized);
+}
+
+type ArtifactShareFailureJoinedRow = {
+  artifact_id: string;
+  artifact_kind: ArtifactKind;
+  artifact_title: string;
+  email_normalized: string;
+  http_status: number;
+  api_status: string | null;
+  failed_at: string;
+};
+
+export async function listMeetingArtifactShareFailures(
+  db: D1Database,
+  meetingId: string,
+): Promise<ArtifactShareFailureRecord[]> {
+  const result = await db
+    .prepare(
+      `SELECT f.artifact_id, a.kind AS artifact_kind, a.title AS artifact_title,
+              f.email_normalized, f.http_status, f.api_status, f.failed_at
+       FROM artifact_share_failures f
+       INNER JOIN artifacts a ON a.id = f.artifact_id
+       WHERE a.meeting_id = ?
+       ORDER BY f.email_normalized ASC, a.created_at ASC, a.id ASC`,
+    )
+    .bind(meetingId)
+    .all<ArtifactShareFailureJoinedRow>();
+  return (result.results ?? []).map((row) => ({
+    artifactId: row.artifact_id,
+    artifactKind: row.artifact_kind,
+    artifactTitle: row.artifact_title,
+    emailNormalized: row.email_normalized,
+    httpStatus: Number(row.http_status),
+    apiStatus: row.api_status,
+    failedAt: row.failed_at,
+  }));
 }

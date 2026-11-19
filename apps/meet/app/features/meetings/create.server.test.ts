@@ -50,10 +50,26 @@ type StoredInvitee = {
   source_kinds: string;
 };
 
-function createFakeMeetingsDb(connection: GoogleConnectionRow | null) {
+function createFakeMeetingsDb(
+  connection: GoogleConnectionRow | null,
+  options: {
+    shareChecks?: Array<{
+      email_normalized: string;
+      status: "ok" | "unshareable";
+      http_status: number | null;
+      api_status: string | null;
+      source: "probe" | "share";
+      checked_at: string;
+    }>;
+  } = {},
+) {
   const meetings = new Map<string, StoredMeeting>();
   const sources: StoredSource[] = [];
   const invitees: StoredInvitee[] = [];
+  const shareChecks = new Map(
+    (options.shareChecks ?? []).map((row) => [row.email_normalized, row]),
+  );
+  let probeFileId: string | null = null;
 
   type PlannedOp = { sql: string; args: unknown[] };
 
@@ -214,6 +230,29 @@ function createFakeMeetingsDb(connection: GoogleConnectionRow | null) {
       }
       return { success: true, meta: {} };
     }
+    if (sql.includes("INSERT INTO drive_share_checks")) {
+      const [emailNormalized, status, httpStatus, apiStatus, source, checkedAt] = args as [
+        string,
+        "ok" | "unshareable",
+        number | null,
+        string | null,
+        "probe" | "share",
+        string,
+      ];
+      shareChecks.set(emailNormalized, {
+        email_normalized: emailNormalized,
+        status,
+        http_status: httpStatus,
+        api_status: apiStatus,
+        source,
+        checked_at: checkedAt,
+      });
+      return { success: true, meta: {} };
+    }
+    if (sql.includes("INSERT INTO drive_probe_file")) {
+      probeFileId = String(args[0]);
+      return { success: true, meta: {} };
+    }
     throw new Error(`未対応の SQL: ${sql}`);
   }
 
@@ -233,7 +272,19 @@ function createFakeMeetingsDb(connection: GoogleConnectionRow | null) {
           if (sql.includes(`FROM "user" WHERE id = ?`)) {
             return { oidc_subject: `accounts-${String(args[0])}` } as T;
           }
+          if (sql.includes("FROM drive_probe_file WHERE id = 1")) {
+            return (probeFileId ? { file_id: probeFileId } : null) as T | null;
+          }
           throw new Error(`未対応の first(): ${sql}`);
+        },
+        async all<T>() {
+          if (sql.includes("FROM drive_share_checks")) {
+            const results = args
+              .map((email) => shareChecks.get(String(email)))
+              .filter((row): row is NonNullable<typeof row> => Boolean(row));
+            return { results: results as T[] };
+          }
+          throw new Error(`未対応の all(): ${sql}`);
         },
         async run() {
           return executeOp({ sql, args });
@@ -257,6 +308,15 @@ function createFakeMeetingsDb(connection: GoogleConnectionRow | null) {
 async function createConnectedEnv(options: {
   connected?: boolean;
   members?: MeetDirectoryMember[];
+  registeredEmails?: string[];
+  shareChecks?: Array<{
+    email_normalized: string;
+    status: "ok" | "unshareable";
+    http_status: number | null;
+    api_status: string | null;
+    source: "probe" | "share";
+    checked_at: string;
+  }>;
 }) {
   let connection: GoogleConnectionRow | null = null;
   if (options.connected !== false) {
@@ -281,11 +341,15 @@ async function createConnectedEnv(options: {
     };
   }
 
-  const dbFixture = createFakeMeetingsDb(connection);
+  const dbFixture = createFakeMeetingsDb(connection, { shareChecks: options.shareChecks });
   const queueSend = vi.fn().mockResolvedValue(undefined);
   const listChapterMembers = vi.fn().mockResolvedValue({
     ok: true,
     members: options.members ?? [],
+  });
+  const listRegisteredEmails = vi.fn().mockResolvedValue({
+    ok: true,
+    emails: options.registeredEmails ?? ["guest@example.com"],
   });
 
   const env = {
@@ -295,7 +359,7 @@ async function createConnectedEnv(options: {
     GOOGLE_CLIENT_SECRET: "google-client-secret",
     GOOGLE_TOKEN_ENCRYPTION_KEY: TEST_KEY,
     GOOGLE_HOST_EMAIL: HOST_EMAIL,
-    ACCOUNTS_DIRECTORY: { listChapterMembers },
+    ACCOUNTS_DIRECTORY: { listChapterMembers, listRegisteredEmails },
     MEET_JOBS: { send: queueSend },
   } as unknown as Env;
 
@@ -544,6 +608,58 @@ describe("createMeeting", () => {
     expect(result.fieldErrors?.endTime).toBeTruthy();
     expect(result.fieldErrors?.cohostEmails).toContain("googlegroups.com");
     expect(dbFixture.meetings.size).toBe(0);
+  });
+
+  it("Drive で共有不可（400 invalidSharingRequest）と判定された招待者がいる場合は D1 や Meet/Calendar API 書き込み前に拒否する", async () => {
+    const { env, dbFixture, queueSend } = await createConnectedEnv({
+      members: [],
+      registeredEmails: [],
+    });
+
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      const method = init?.method ?? "GET";
+      if (url === "https://oauth2.googleapis.com/token") {
+        return Response.json({ access_token: "ya29.probe-token", expires_in: 3600 });
+      }
+      if (url.startsWith("https://www.googleapis.com/drive/v3/files?") && method === "POST") {
+        return Response.json({ id: "probe-file-1" });
+      }
+      if (url.includes("/drive/v3/files/probe-file-1/permissions?") && method === "POST") {
+        return Response.json(
+          {
+            error: {
+              code: 400,
+              message: "Invalid sharing request",
+              errors: [{ reason: "invalidSharingRequest" }],
+            },
+          },
+          { status: 400 },
+        );
+      }
+      throw new Error(`想定外の fetch: ${method} ${url}`);
+    }) as unknown as typeof fetch;
+
+    const result = await createMeeting(
+      env,
+      ACTOR,
+      buildValidForm({
+        includeHostOrganizers: "false",
+        participantEmails: "Missing.User@example.com",
+      }),
+      {
+        fetchFn: fetchMock,
+        now: () => new Date("2026-11-20T00:00:00.000Z"),
+      },
+    );
+
+    expect(result).toEqual({
+      ok: false,
+      formError:
+        "Google アカウントとして共有できないメールアドレスが含まれています: Missing.User@example.com。アドレスを確認するか、招待先から外してください。",
+    });
+    expect(dbFixture.meetings.size).toBe(0);
+    expect(queueSend).not.toHaveBeenCalled();
   });
 });
 

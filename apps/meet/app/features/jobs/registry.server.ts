@@ -1,12 +1,16 @@
 import { processArtifactJob } from "~/features/artifacts/process-artifact.server";
 import { shareArtifactJob } from "~/features/artifacts/share-artifact.server";
 import { GoogleApiError } from "~/features/google/client.server";
+import { toSafeErrorSummary } from "~/features/google/error-summary.server";
 import { cleanupCanceledMeeting } from "~/features/meetings/cleanup-meeting.server";
 import { syncMeetingMembers } from "~/features/meetings/sync-members.server";
+import { maskEmailsInText } from "~/lib/redact-email";
 import { type MeetJobMessage, type MeetJobType, isMeetJobMessage } from "./types";
 
-/** 429 レート制限時に Queue へ指定する再試行遅延（Meet API 書き込み上限: 毎分 100 件/ユーザー）。 */
+/** 429 レート制限時に Queue へ指定する最低再試行遅延（Meet API 書き込み上限: 毎分 100 件/ユーザー）。 */
 export const RATE_LIMIT_RETRY_DELAY_SECONDS = 60;
+const BASE_RETRY_DELAY_SECONDS = 30;
+const MAX_RETRY_DELAY_SECONDS = 900;
 
 export type MeetJobHandler<T extends MeetJobMessage = MeetJobMessage> = (
   env: Env,
@@ -37,7 +41,16 @@ export const JOB_HANDLERS: MeetJobHandlerRegistry = {
   },
 };
 
-export type QueueMessageLike = Pick<Message<unknown>, "id" | "body" | "ack" | "retry">;
+export type QueueMessageLike = Pick<Message<unknown>, "id" | "body" | "attempts" | "ack" | "retry">;
+
+function computeRetryDelaySeconds(attempts: number, isRateLimit: boolean): number {
+  const normalizedAttempts = Number.isFinite(attempts) && attempts >= 1 ? Math.floor(attempts) : 1;
+  const exponential = Math.min(
+    BASE_RETRY_DELAY_SECONDS * 2 ** (normalizedAttempts - 1),
+    MAX_RETRY_DELAY_SECONDS,
+  );
+  return isRateLimit ? Math.max(exponential, RATE_LIMIT_RETRY_DELAY_SECONDS) : exponential;
+}
 
 /** 単一の Queue メッセージを登録表へ振り分け、ack / retry を制御する。 */
 export async function dispatchMeetJobMessage(
@@ -63,12 +76,18 @@ export async function dispatchMeetJobMessage(
     await handler(env, message.body, ctx);
     message.ack();
   } catch (error) {
-    console.error("[meet-jobs] job failed:", message.body.type, message.id, error);
-    if (error instanceof GoogleApiError && error.httpStatus === 429) {
-      message.retry({ delaySeconds: RATE_LIMIT_RETRY_DELAY_SECONDS });
-      return;
+    const summary = maskEmailsInText(toSafeErrorSummary(error));
+    const stack = error instanceof Error && error.stack ? maskEmailsInText(error.stack) : undefined;
+    if (stack) {
+      console.error("[meet-jobs] job failed:", message.body.type, message.id, summary, stack);
+    } else {
+      console.error("[meet-jobs] job failed:", message.body.type, message.id, summary);
     }
-    message.retry();
+
+    const isRateLimit = error instanceof GoogleApiError && error.httpStatus === 429;
+    message.retry({
+      delaySeconds: computeRetryDelaySeconds(message.attempts, isRateLimit),
+    });
   }
 }
 

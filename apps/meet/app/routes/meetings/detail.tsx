@@ -15,9 +15,13 @@ import {
 } from "@gdgjp/design-system";
 import { Link as RouterLink, useNavigation } from "react-router";
 import { GoogleWorkspaceLogo } from "~/components/GoogleWorkspaceLogo";
-import { toPublicArtifact } from "~/features/artifacts/artifact";
+import { groupInviteeShareFailures, toPublicArtifact } from "~/features/artifacts/artifact";
 import { ArtifactList } from "~/features/artifacts/components/ArtifactList";
-import { listArtifactsByMeetingId } from "~/features/artifacts/repository.server";
+import { InviteeShareFailuresAlert } from "~/features/artifacts/components/InviteeShareFailuresAlert";
+import {
+  listArtifactsByMeetingId,
+  listMeetingArtifactShareFailures,
+} from "~/features/artifacts/repository.server";
 import { buildSignInRedirect } from "~/features/auth/access.server";
 import {
   ClaimsUnavailableError,
@@ -61,12 +65,15 @@ export async function loader({ request, params, context }: Route.LoaderArgs) {
   }
 
   const { user, meeting, invitees } = await requireMeetingViewAccess(env, request, meetingId);
-  const [directoryChapters, googleConnection, artifacts, avatarByEmail] = await Promise.all([
-    fetchChaptersDirectory(env).catch(() => []),
-    getGoogleConnectionSummary(env.DB),
-    listArtifactsByMeetingId(env.DB, meetingId),
-    resolveInviteeAvatars(env, user, invitees),
-  ]);
+  const canEdit = canEditMeeting(user, meeting, invitees);
+  const [directoryChapters, googleConnection, artifacts, avatarByEmail, rawShareFailures] =
+    await Promise.all([
+      fetchChaptersDirectory(env).catch(() => []),
+      getGoogleConnectionSummary(env.DB),
+      listArtifactsByMeetingId(env.DB, meetingId),
+      resolveInviteeAvatars(env, user, invitees),
+      canEdit ? listMeetingArtifactShareFailures(env.DB, meetingId) : Promise.resolve([]),
+    ]);
   const hostChapterName =
     directoryChapters.find((c) => c.id === meeting.hostChapterId)?.name ??
     `チャプター #${meeting.hostChapterId}`;
@@ -80,7 +87,7 @@ export async function loader({ request, params, context }: Route.LoaderArgs) {
       isAdmin: user.isAdmin,
     },
     accountsUrl: env.ACCOUNTS_URL,
-    canEdit: canEditMeeting(user, meeting, invitees),
+    canEdit,
     googleConnectionStatus: googleConnection.status,
     flashUpdated: url.searchParams.get("updated") === "1",
     meeting: {
@@ -101,6 +108,7 @@ export async function loader({ request, params, context }: Route.LoaderArgs) {
     },
     invitees: toPublicInviteeList(invitees, avatarByEmail),
     artifacts: artifacts.map(toPublicArtifact),
+    shareFailures: canEdit ? groupInviteeShareFailures(rawShareFailures, invitees) : [],
   };
 }
 
@@ -148,6 +156,7 @@ export default function MeetingDetail({ loaderData, actionData }: Route.Componen
     meeting,
     invitees,
     artifacts,
+    shareFailures,
   } = loaderData;
   const navigation = useNavigation();
   const submittingIntent =
@@ -367,6 +376,8 @@ export default function MeetingDetail({ loaderData, actionData }: Route.Componen
             </Alert>
           </Stack>
         </Card>
+
+        {canEdit && <InviteeShareFailuresAlert failures={shareFailures} />}
 
         <ArtifactList artifacts={artifacts} />
 
