@@ -17,8 +17,8 @@ GOOGLE_CLIENT_ID = ""
 GOOGLE_HOST_EMAIL = "community-support@gdgoc.jp"
 GOOGLE_PUBSUB_TOPIC = "projects/gdgs-meet/topics/meet-events"
 PUBSUB_PUSH_AUDIENCE = "https://meet.gdgs.jp/api/google/events"
-# Push 用サービスアカウント作成後に設定する
-PUBSUB_PUSH_SERVICE_ACCOUNT = ""
+# Pub/Sub Push の OIDC トークンを署名するサービスアカウント（gdgs-meet の Push サブスクリプション meet-events-push）
+PUBSUB_PUSH_SERVICE_ACCOUNT = "meet-pubsub-push@gdgs-meet.iam.gserviceaccount.com"
 
 [assets]
 binding = "ASSETS"
@@ -32,7 +32,7 @@ custom_domain = true
 [[d1_databases]]
 binding = "DB"
 database_name = "gdgjp-meet-db"
-database_id = "00000000-0000-0000-0000-000000000000" # デプロイ前に wrangler d1 create gdgjp-meet-db の値へ置き換える
+database_id = "e2385f4c-29ec-443e-b116-e30619b54592"
 migrations_dir = "./migrations"
 
 # Worker-to-Worker OIDC (discovery, token, UserInfo) stays on Cloudflare's
