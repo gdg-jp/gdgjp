@@ -1,10 +1,12 @@
 import { readFileSync, readdirSync } from "node:fs";
-import { dirname, relative, resolve } from "node:path";
+import { dirname, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import ts from "typescript";
 import { describe, expect, it } from "vitest";
 
 const app = dirname(fileURLToPath(import.meta.url));
+// Paths relative to app/, with "/" on every platform so the patterns below hold on Windows.
+const rel = (file: string) => relative(app, file).split(sep).join("/");
 
 function sourceFiles(directory: string): string[] {
   return readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
@@ -43,7 +45,7 @@ const imports = files.flatMap((file) => {
     const target = base
       ? files.find((candidate) => candidate === `${base}.ts` || candidate === `${base}.tsx`)
       : undefined;
-    return [{ file: relative(app, file), specifier, typeOnly, target }];
+    return [{ file: rel(file), specifier, typeOnly, target }];
   });
 });
 
@@ -51,7 +53,7 @@ describe("accounts architecture", () => {
   it("keeps domain logic out of the shared primitive directory", () => {
     expect(
       sourceFiles(resolve(app, "lib"))
-        .map((file) => relative(app, file))
+        .map((file) => rel(file))
         .sort(),
     ).toEqual([
       "lib/crypto.server.ts",
@@ -63,10 +65,8 @@ describe("accounts architecture", () => {
   });
 
   it("keeps composed screens in domain route modules", () => {
-    expect(files.filter((file) => /^features\/[^/]+\/pages\//.test(relative(app, file)))).toEqual(
-      [],
-    );
-    expect(files.filter((file) => relative(app, file).includes("/_pages/"))).toEqual([]);
+    expect(files.filter((file) => /^features\/[^/]+\/pages\//.test(rel(file)))).toEqual([]);
+    expect(files.filter((file) => rel(file).includes("/_pages/"))).toEqual([]);
     expect(files.filter((file) => file.endsWith("-page.tsx"))).toEqual([]);
   });
 
@@ -85,7 +85,7 @@ describe("accounts architecture", () => {
         ({ file, specifier, target }) =>
           file.startsWith("features/") &&
           (specifier.startsWith("~/routes/") ||
-            (target && relative(app, target).startsWith("routes/")) ||
+            (target && rel(target).startsWith("routes/")) ||
             (file.includes("/components/") && specifier.includes("/_pages/"))),
       ),
     ).toEqual([]);
@@ -107,9 +107,9 @@ describe("accounts architecture", () => {
   });
 
   it("has no runtime module cycles", () => {
-    const graph = new Map(files.map((file) => [relative(app, file), [] as string[]]));
+    const graph = new Map(files.map((file) => [rel(file), [] as string[]]));
     for (const entry of imports) {
-      if (entry.target && !entry.typeOnly) graph.get(entry.file)?.push(relative(app, entry.target));
+      if (entry.target && !entry.typeOnly) graph.get(entry.file)?.push(rel(entry.target));
     }
     const active = new Set<string>();
     const visited = new Set<string>();
