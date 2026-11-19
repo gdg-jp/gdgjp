@@ -150,37 +150,22 @@ function writeStorageStates(storageDirectory: string, secret: string, issuer: st
   }
 }
 
-// `d1 migrations apply` reprints the whole migration table after each migration, so its output
-// grows quadratically (1.3 MB at 69 migrations) and overflows execFileSync's 1 MiB default,
-// which kills wrangler mid-run with ENOBUFS.
-const WRANGLER_MAX_BUFFER = 64 * 1024 * 1024;
-
-function runWrangler(args: string[], cwd: string, phase: string): string {
+function runWrangler(
+  args: string[],
+  cwd: string,
+  phase: string,
+  stdout: "inherit" | "pipe" = "inherit",
+): string {
   try {
-    return execFileSync("pnpm", ["exec", "wrangler", ...args], {
-      cwd,
-      encoding: "utf8",
-      maxBuffer: WRANGLER_MAX_BUFFER,
-      stdio: ["ignore", "pipe", "pipe"],
-    });
-  } catch (error) {
-    const printableArgs = args.filter((argument) => !argument.includes("SESSION_SECRET"));
-    // The session secret only ever reaches the cookies, never wrangler, so its output is safe to show.
-    const {
-      code,
-      stdout = "",
-      stderr = "",
-    } = error as {
-      code?: string;
-      stdout?: string;
-      stderr?: string;
-    };
-    const output = `${stdout}\n${stderr}`.trim().split("\n").slice(-40).join("\n");
-    const reason = code ? ` (${code})` : "";
-    fail(
-      phase,
-      `command failed${reason}: pnpm exec wrangler ${printableArgs.join(" ")}\n${output}`,
+    return (
+      execFileSync("pnpm", ["exec", "wrangler", ...args], {
+        cwd,
+        encoding: "utf8",
+        stdio: ["ignore", stdout, "inherit"],
+      }) ?? ""
     );
+  } catch (error) {
+    fail(phase, error instanceof Error ? error.message : String(error));
   }
 }
 
@@ -200,6 +185,7 @@ function queryFixtureCounts(cwd: string, persistencePath: string): void {
     ],
     cwd,
     "invariant check",
+    "pipe",
   );
   let results: Array<{ results?: Array<{ count?: number | string }> }>;
   try {
