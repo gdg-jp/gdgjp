@@ -209,6 +209,7 @@
 
 - **Stage 03（確認済み 2026-11-19）**: OAuth の `sub` は Cloud Identity のユーザー ID と一致し、`//cloudidentity.googleapis.com/users/<sub>` をそのまま購読対象に使える。詳細は §7-1。
 - **Stage 04（確定）**: `gdgoc.jp` は Business Standard。Meet 参加者 150 人、co-host 25 人、Calendar ゲスト 200 人、Drive 直接共有 600 人、Meet API 書き込み 毎分 100 件/ユーザー。これにより `MAX_INVITEES = 150`、`MAX_COHOSTS = 25` とする（出典: support.google.com/meet/answer/7317305, /meet/answer/10885976, /calendar/answer/37161, developers.google.com/workspace/meet/api/guides/limits）。
+- **Stage 05 / 06（確認済み 2026-11-19）**: 実機での編集・再同期・取り消しと、生成ファイルの共有・添付・毎時 cron を確認した。本番の Push 受信は未確認。詳細は §7-6、§7-7。
 
 ---
 
@@ -224,7 +225,7 @@
 
 - `subscriptions.list` でユーザー対象（`//cloudidentity.googleapis.com/users/<id>`）を絞るには `event_types:"<イベント型>" AND target_resource="<対象>"` の形のフィルタが必要。`target_resource` だけのフィルタは 400（`INVALID_ARGUMENT`）になる。
 - 同じユーザー対象に PoC で作成した購読が残っている状態で、別のイベント型（`google.workspace.meet.participant.v2.joined`）を指定して `subscriptions.create` を呼ぶと 409 `ALREADY_EXISTS` になった。ユーザー対象ごとに購読は 1 件と考え、本実装の `ensureSubscription` は既存購読を見つけて採用するか、削除して作り直す必要がある（06-artifacts-events.md §6 に反映済み）。
-- PoC の購読は 2026-11-25 に失効する。それまでに本番の購読を作る場合は、PoC 購読を採用するか削除する（削除は利用者の承認を得てから行う）。
+- 2026-11-19、利用者の承認を得て、本実装の `ensureSubscription` で PoC の購読を置き換えた。PoC の購読は 13 種すべてのイベント型を含んでいたため採用条件（トピックと 4 型が一致）に合わず、409 `ALREADY_EXISTS` → `subscriptions.list` → 削除 → 再作成の経路（結果 `recreated`）を通った。新しい購読は 4 型のみ、状態 `ACTIVE`、有効期限は作成から 7 日後。
 
 ### 7-3. Stage 02 / 04 RPC 呼び出し主体の ID
 
@@ -244,3 +245,21 @@
 - `guestsCanSeeOtherGuests=false` では、招待者のどちらのアカウントでもゲスト一覧が見えなかった。利用者の判断で、PoC では通常の Google カレンダーと同じく `guestsCanSeeOtherGuests=true` とし、`meet.gdgs.jp` の会議詳細でも閲覧できる全員に招待者全員の名前とメールアドレスを表示する（`feat(meet): show the guest list to everyone invited`、00-overview §2）。
 - 外部 Gmail の参加者には招待が「不明な送信者からの招待」として届き、カレンダーに自動追加されなかった。受信者側の設定「カレンダーへの招待状の追加」が「送信者が既知の場合のみ」のときの挙動で、主催者側（Calendar API のパラメータ、Workspace 管理設定）からは変えられない（出典: support.google.com/calendar/answer/13159188、developers.google.com/workspace/calendar/api/v3/reference/events/insert）。招待メールで「はい」と返信すると追加され、送信者を連絡先に追加すると以降は自動で追加される。
 - Meet への入室はスペースのメンバー登録で決まるため、カレンダーに追加されていなくてもノックなしで入室できる。会議詳細ページの「ご利用上の注意」にこの対処を案内した。
+
+### 7-6. Stage 06 生成ファイルの共有・添付の実機結果
+
+- ローカルの gcloud アカウントには検証用 pull サブスクリプション `meet-events-sub` の購読者権限が無く（`IAM_PERMISSION_DENIED`）、実際の通知をローカルで受け取れなかった。そこで、実際の会議で生成されたリソース名から Pub/Sub と同じ形の封筒（`attributes` に `ce-type` / `ce-subject` / `ce-time`、`data` はリソース名だけの base64 JSON）を作って `/dev/simulate-event` に送り、毎時 cron はローカルの `http://localhost:5193/cdn-cgi/handler/scheduled?cron=7+*+*+*+*` で起動した。本番の Push 受信（OIDC JWT 検証）は実機では未確認で、Push サブスクリプション作成時に確認する。
+- 約 4 分の会議で録画・文字起こし・Gemini メモを開始した。会議終了から約 4 分で 2 種、約 7 分で 3 種すべてが `FILE_GENERATED` になった（30〜40 秒間隔のポーリングで観測）。
+- 文字起こしと Gemini メモは同じ Google ドキュメント ID で、`notes` の 1 行に統合された。保存された生成ファイルは録画（`video/mp4`）、Gemini メモ（Google ドキュメント）、チャットの記録（`text/plain`、録画ファイル名の前方一致と作成時刻で特定）の 3 件。
+- 通知は順不同・重複ありで送った（録画の `fileGenerated` を 2 回、続いて文字起こし、Gemini メモ、最後に `conference.ended`）。2 回目の録画通知は `messageId` が違っても `(ce-type|リソース名)` のキーで `duplicate` になった。約 10 秒で 3 件とも Drive 共有と Calendar 添付まで完了した。
+- Drive の閲覧権限はオーナー以外は招待者だけに付与され、正規化したメールアドレスで招待者一覧と完全に一致した（過不足なし）。Drive の共有通知メールは届かず、招待していない対照用アカウントは開けなかった。
+- Calendar 予定には 3 件が添付され、ゲスト一覧の公開設定（`guestsCanSeeOtherGuests` など）は変わらなかった。
+- 毎時 cron を実行しても購読は `ACTIVE` のまま維持され、直近の会議記録を補完しても生成ファイル・Drive 権限・Calendar 添付は重複しなかった。会議を取り消した後の cron は、その会議の再共有も再試行もしなかった。
+
+### 7-7. Stage 05 編集・再同期・取り消しの実機結果
+
+- 開始・終了時刻の変更: Calendar 予定は `sendUpdates=all` の patch で更新され、招待者に更新メールが届いた。Stage 06 が `supportsAttachments=true` で付けた添付 3 件は、`attachments` も `supportsAttachments` も指定しない patch の後も残り、ゲスト一覧の公開設定も維持された。
+- 参加者の追加: 追加したテスト用アカウントに招待メールが届き（外部 Gmail のため「不明な送信者」として届いた）、会議詳細ページを開けるようになった。生成ファイルの再共有ジョブにより、保存から約 6 秒で 3 件の閲覧権限が付与された。Drive の共有通知メールは届かず、Calendar の添付は重複しなかった。
+- co-host への昇格と降格: Meet スペースのメンバーの役割が `COHOST` と役割なしの間で切り替わり、通話に入り直すとホスト管理の表示・非表示が切り替わった。招待者のメールアドレスが変わらないため Calendar 予定の `updated` は変わらなかった。
+- チャプターからの再同期: ローカルの Accounts DB でだけ参加者のテスト用アカウントを主催チャプターのオーガナイザーにして再同期すると「変更あり」となり、co-host に昇格した（招待元は `host_chapter_organizers` と `email`、co-host が優先）。オーガナイザーから外して再同期すると参加者に戻り、もう一度再同期すると「変更なし」になった。招待者のメールアドレスが同じ間は Calendar 予定の `updated` は変わらなかった。
+- 取り消し: `events.delete`（`sendUpdates=all`）で招待者全員に取り消しメールが届き、各アカウントのカレンダーから予定が消えた。取り消し後の `events.get` は 404 ではなく `status: "cancelled"` を返した。`cleanup_meeting` ジョブで Meet スペースのメンバーは全員削除され、`accessType=RESTRICTED` のまま進行中の会議も無かった。取り消しの数分後には、招待されていたアカウントも入室にノックが必要になった。共有済みの Drive 権限は設計どおり変更されなかった。
