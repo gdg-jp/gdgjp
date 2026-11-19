@@ -37,5 +37,8 @@ runs:
       shell: bash
       run: |
         set -euo pipefail
-        sudo apt-get install -y --no-install-recommends --no-download \
+        # No --no-download: apt copies local .deb files in through its file: method, which that
+        # flag also forbids. Every other dependency is already on the runner image, so nothing
+        # goes to the network.
+        sudo apt-get install -y --no-install-recommends \
           "$HOME"/.cache/playwright-font-debs/*.deb
