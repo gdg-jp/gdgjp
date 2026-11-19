@@ -1,3 +1,5 @@
+import { processArtifactJob } from "~/features/artifacts/process-artifact.server";
+import { shareArtifactJob } from "~/features/artifacts/share-artifact.server";
 import { GoogleApiError } from "~/features/google/client.server";
 import { cleanupCanceledMeeting } from "~/features/meetings/cleanup-meeting.server";
 import { syncMeetingMembers } from "~/features/meetings/sync-members.server";
@@ -26,6 +28,12 @@ export const JOB_HANDLERS: MeetJobHandlerRegistry = {
   },
   cleanup_meeting: async (env, message) => {
     await cleanupCanceledMeeting(env, message.meetingId);
+  },
+  process_artifact: async (env, message) => {
+    await processArtifactJob(env, message);
+  },
+  share_artifact: async (env, message) => {
+    await shareArtifactJob(env, message.artifactId);
   },
 };
 

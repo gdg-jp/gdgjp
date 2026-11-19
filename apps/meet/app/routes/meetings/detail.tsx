@@ -14,6 +14,9 @@ import {
   Link as UiLink,
 } from "@gdgjp/design-system";
 import { Link as RouterLink, useNavigation } from "react-router";
+import { toPublicArtifact } from "~/features/artifacts/artifact";
+import { ArtifactList } from "~/features/artifacts/components/ArtifactList";
+import { listArtifactsByMeetingId } from "~/features/artifacts/repository.server";
 import { buildSignInRedirect } from "~/features/auth/access.server";
 import {
   ClaimsUnavailableError,
@@ -54,9 +57,10 @@ export async function loader({ request, params, context }: Route.LoaderArgs) {
   }
 
   const { user, meeting, invitees } = await requireMeetingViewAccess(env, request, meetingId);
-  const [directoryChapters, googleConnection] = await Promise.all([
+  const [directoryChapters, googleConnection, artifacts] = await Promise.all([
     fetchChaptersDirectory(env).catch(() => []),
     getGoogleConnectionSummary(env.DB),
+    listArtifactsByMeetingId(env.DB, meetingId),
   ]);
   const hostChapterName =
     directoryChapters.find((c) => c.id === meeting.hostChapterId)?.name ??
@@ -91,6 +95,7 @@ export async function loader({ request, params, context }: Route.LoaderArgs) {
       hostChapterName,
     },
     invitees: toPublicInviteeList(invitees),
+    artifacts: artifacts.map(toPublicArtifact),
   };
 }
 
@@ -129,8 +134,16 @@ export async function action({ request, params, context }: Route.ActionArgs) {
 }
 
 export default function MeetingDetail({ loaderData, actionData }: Route.ComponentProps) {
-  const { user, accountsUrl, canEdit, googleConnectionStatus, flashUpdated, meeting, invitees } =
-    loaderData;
+  const {
+    user,
+    accountsUrl,
+    canEdit,
+    googleConnectionStatus,
+    flashUpdated,
+    meeting,
+    invitees,
+    artifacts,
+  } = loaderData;
   const navigation = useNavigation();
   const submittingIntent =
     navigation.state === "submitting" ? String(navigation.formData?.get("intent") ?? "") : "";
@@ -349,6 +362,8 @@ export default function MeetingDetail({ loaderData, actionData }: Route.Componen
             </Alert>
           </Stack>
         </Card>
+
+        <ArtifactList artifacts={artifacts} />
 
         <InviteeListCard invitees={invitees} />
       </Stack>

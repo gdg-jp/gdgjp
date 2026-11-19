@@ -38,7 +38,16 @@ async function parseGoogleError(
     const root = raw as Record<string, unknown>;
     if (root.error && typeof root.error === "object") {
       const err = root.error as Record<string, unknown>;
-      const apiStatus = typeof err.status === "string" ? err.status : undefined;
+      // Drive v3 などの一部 Google API は `error.status` の代わりに `error.errors[0].reason` を返す。
+      const firstErrorReason =
+        Array.isArray(err.errors) &&
+        err.errors.length > 0 &&
+        err.errors[0] &&
+        typeof err.errors[0] === "object" &&
+        typeof (err.errors[0] as Record<string, unknown>).reason === "string"
+          ? ((err.errors[0] as Record<string, unknown>).reason as string)
+          : undefined;
+      const apiStatus = typeof err.status === "string" ? err.status : firstErrorReason;
       const apiMessage =
         typeof err.message === "string" && err.message.length > 0
           ? err.message

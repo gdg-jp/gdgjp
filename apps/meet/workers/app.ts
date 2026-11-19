@@ -1,4 +1,5 @@
 import { createRequestHandler } from "react-router";
+import { runMeetCron } from "../app/features/cron/cron.server";
 import { processMeetJobBatch } from "../app/features/jobs/registry.server";
 
 const requestHandler = createRequestHandler(
@@ -12,5 +13,8 @@ export default {
   },
   async queue(batch, env, ctx) {
     await processMeetJobBatch(batch, env, ctx);
+  },
+  async scheduled(_event, env, ctx) {
+    ctx.waitUntil(runMeetCron(env));
   },
 } satisfies ExportedHandler<Env>;

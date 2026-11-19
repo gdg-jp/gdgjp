@@ -255,6 +255,37 @@ export async function getMeetingById(
   return row ? mapMeetingRow(row) : null;
 }
 
+/** Meet スペース名（`spaces/<id>`）から管理対象の会議を検索する。 */
+export async function getMeetingBySpaceName(
+  db: D1Database,
+  spaceName: string,
+): Promise<MeetingRecord | null> {
+  const row = await db
+    .prepare("SELECT * FROM meetings WHERE space_name = ?")
+    .bind(spaceName)
+    .first<MeetingRow>();
+  return row ? mapMeetingRow(row) : null;
+}
+
+/** 過去一定期間内に開始済み・終了直後の `active` な会議（スペース設定済み）を取得する（毎時 cron の取りこぼし補完用）。 */
+export async function listRecentActiveMeetingsWithSpace(
+  db: D1Database,
+  params: { sinceEndAtIso: string; nowIso: string },
+): Promise<MeetingRecord[]> {
+  const result = await db
+    .prepare(
+      `SELECT * FROM meetings
+       WHERE status = 'active'
+         AND end_at >= ?
+         AND start_at <= ?
+         AND space_name IS NOT NULL
+       ORDER BY start_at DESC`,
+    )
+    .bind(params.sinceEndAtIso, params.nowIso)
+    .all<MeetingRow>();
+  return (result.results ?? []).map(mapMeetingRow);
+}
+
 export async function listMeetingInvitees(
   db: D1Database,
   meetingId: string,

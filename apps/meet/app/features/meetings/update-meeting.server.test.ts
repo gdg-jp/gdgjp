@@ -564,4 +564,60 @@ describe("resyncMeetingInvitees", () => {
     expect(queueSend).not.toHaveBeenCalled();
     expect(reshareMock).not.toHaveBeenCalled();
   });
+
+  it("生成ファイル再共有ジョブの投入に失敗しても再同期は成功として返し、last_error に記録する", async () => {
+    const { env, dbFixture, queueSend } = await createEnvFixture({
+      members: [
+        {
+          userId: "u-org",
+          name: "Tokyo Organizer",
+          email: "org@example.com",
+          chapterId: 1,
+          chapterSlug: "gdg-tokyo",
+          chapterName: "GDG Tokyo",
+          role: "organizer",
+        },
+        {
+          userId: "u-org-2",
+          name: "Second Organizer",
+          email: "org2@example.com",
+          chapterId: 1,
+          chapterSlug: "gdg-tokyo",
+          chapterName: "GDG Tokyo",
+          role: "organizer",
+        },
+      ],
+    });
+    const reshareMock = vi.fn().mockRejectedValue(new Error("queue unavailable"));
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (url === "https://oauth2.googleapis.com/token") {
+        return Response.json({ access_token: "ya29.resync-token", expires_in: 3600 });
+      }
+      if (url.includes("/calendar/v3/calendars/primary/events/evt-1") && init?.method === "PATCH") {
+        return Response.json({ id: "evt-1" });
+      }
+      throw new Error(`想定外の fetch: ${init?.method ?? "GET"} ${url}`);
+    }) as unknown as typeof fetch;
+
+    const result = await resyncMeetingInvitees(
+      env,
+      ACTOR,
+      ACTIVE_MEETING,
+      EXISTING_SOURCES,
+      EXISTING_INVITEES,
+      {
+        fetchFn: fetchMock,
+        now: () => new Date("2026-11-19T07:00:00.000Z"),
+        enqueueArtifactReshareFn: reshareMock,
+      },
+    );
+
+    expect(result).toEqual({ ok: true, changed: true, totalCount: 4 });
+    expect(queueSend).toHaveBeenCalledWith({ type: "sync_members", meetingId: "mtg-1" });
+    expect(reshareMock).toHaveBeenCalledWith(env, "mtg-1");
+    expect(dbFixture.getUpdatedMeeting()?.lastError).toContain(
+      "生成ファイルの再共有ジョブの投入に失敗しました: queue unavailable",
+    );
+  });
 });

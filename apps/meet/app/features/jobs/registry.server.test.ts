@@ -17,65 +17,84 @@ function createFakeMessage(body: unknown) {
   };
 }
 
+function createFakeHandlers(
+  overrides: Partial<MeetJobHandlerRegistry> = {},
+): MeetJobHandlerRegistry {
+  return {
+    sync_members: vi.fn().mockResolvedValue(undefined),
+    cleanup_meeting: vi.fn().mockResolvedValue(undefined),
+    process_artifact: vi.fn().mockResolvedValue(undefined),
+    share_artifact: vi.fn().mockResolvedValue(undefined),
+    ...overrides,
+  };
+}
+
 describe("dispatchMeetJobMessage / processMeetJobBatch", () => {
   const env = {} as Env;
 
   it("既知の sync_members メッセージをハンドラへ振り分け、成功時に ack する", async () => {
-    const syncHandler = vi.fn().mockResolvedValue(undefined);
-    const cleanupHandler = vi.fn().mockResolvedValue(undefined);
-    const handlers: MeetJobHandlerRegistry = {
-      sync_members: syncHandler,
-      cleanup_meeting: cleanupHandler,
-    };
+    const handlers = createFakeHandlers();
     const message = createFakeMessage({ type: "sync_members", meetingId: "mtg-1" });
 
     await dispatchMeetJobMessage(env, message, undefined, handlers);
 
-    expect(syncHandler).toHaveBeenCalledWith(
+    expect(handlers.sync_members).toHaveBeenCalledWith(
       env,
       { type: "sync_members", meetingId: "mtg-1" },
       undefined,
     );
-    expect(cleanupHandler).not.toHaveBeenCalled();
+    expect(handlers.cleanup_meeting).not.toHaveBeenCalled();
     expect(message.ack).toHaveBeenCalledTimes(1);
     expect(message.retry).not.toHaveBeenCalled();
   });
 
   it("既知の cleanup_meeting メッセージをハンドラへ振り分け、成功時に ack する", async () => {
-    const syncHandler = vi.fn().mockResolvedValue(undefined);
-    const cleanupHandler = vi.fn().mockResolvedValue(undefined);
-    const handlers: MeetJobHandlerRegistry = {
-      sync_members: syncHandler,
-      cleanup_meeting: cleanupHandler,
-    };
+    const handlers = createFakeHandlers();
     const message = createFakeMessage({ type: "cleanup_meeting", meetingId: "mtg-2" });
 
     await dispatchMeetJobMessage(env, message, undefined, handlers);
 
-    expect(cleanupHandler).toHaveBeenCalledWith(
+    expect(handlers.cleanup_meeting).toHaveBeenCalledWith(
       env,
       { type: "cleanup_meeting", meetingId: "mtg-2" },
       undefined,
     );
-    expect(syncHandler).not.toHaveBeenCalled();
+    expect(handlers.sync_members).not.toHaveBeenCalled();
     expect(message.ack).toHaveBeenCalledTimes(1);
     expect(message.retry).not.toHaveBeenCalled();
   });
 
+  it("既知の process_artifact / share_artifact メッセージをハンドラへ振り分け、成功時に ack する", async () => {
+    const handlers = createFakeHandlers();
+    const processMsg = createFakeMessage({
+      type: "process_artifact",
+      meetingId: "mtg-1",
+      kind: "recording",
+      conferenceRecord: "conferenceRecords/conf-1",
+      resourceName: "conferenceRecords/conf-1/recordings/rec-1",
+    });
+    const shareMsg = createFakeMessage({ type: "share_artifact", artifactId: "art-1" });
+
+    await dispatchMeetJobMessage(env, processMsg, undefined, handlers);
+    await dispatchMeetJobMessage(env, shareMsg, undefined, handlers);
+
+    expect(handlers.process_artifact).toHaveBeenCalledWith(env, processMsg.body, undefined);
+    expect(handlers.share_artifact).toHaveBeenCalledWith(env, shareMsg.body, undefined);
+    expect(processMsg.ack).toHaveBeenCalledTimes(1);
+    expect(shareMsg.ack).toHaveBeenCalledTimes(1);
+  });
+
   it("未知のメッセージ型や不正な本文は警告ログを出して ack する", async () => {
     const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
-    const syncHandler = vi.fn();
-    const cleanupHandler = vi.fn();
-    const handlers: MeetJobHandlerRegistry = {
-      sync_members: syncHandler,
-      cleanup_meeting: cleanupHandler,
-    };
+    const handlers = createFakeHandlers();
     const message = createFakeMessage({ type: "unknown_job", foo: "bar" });
 
     await dispatchMeetJobMessage(env, message, undefined, handlers);
 
-    expect(syncHandler).not.toHaveBeenCalled();
-    expect(cleanupHandler).not.toHaveBeenCalled();
+    expect(handlers.sync_members).not.toHaveBeenCalled();
+    expect(handlers.cleanup_meeting).not.toHaveBeenCalled();
+    expect(handlers.process_artifact).not.toHaveBeenCalled();
+    expect(handlers.share_artifact).not.toHaveBeenCalled();
     expect(message.ack).toHaveBeenCalledTimes(1);
     expect(message.retry).not.toHaveBeenCalled();
     warnSpy.mockRestore();
@@ -83,7 +102,7 @@ describe("dispatchMeetJobMessage / processMeetJobBatch", () => {
 
   it("429 GoogleApiError 発生時は 60 秒遅延付きで retry する", async () => {
     const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
-    const handlers: MeetJobHandlerRegistry = {
+    const handlers = createFakeHandlers({
       sync_members: vi.fn().mockRejectedValue(
         new GoogleApiError({
           httpStatus: 429,
@@ -91,8 +110,7 @@ describe("dispatchMeetJobMessage / processMeetJobBatch", () => {
           apiMessage: "Quota exceeded",
         }),
       ),
-      cleanup_meeting: vi.fn(),
-    };
+    });
     const message = createFakeMessage({ type: "sync_members", meetingId: "mtg-1" });
 
     await dispatchMeetJobMessage(env, message, undefined, handlers);
@@ -106,12 +124,11 @@ describe("dispatchMeetJobMessage / processMeetJobBatch", () => {
 
   it("invalid_grant などの例外発生時は retry する", async () => {
     const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
-    const handlers: MeetJobHandlerRegistry = {
+    const handlers = createFakeHandlers({
       sync_members: vi
         .fn()
         .mockRejectedValue(new GoogleConnectionError("invalid_grant", "失効しました")),
-      cleanup_meeting: vi.fn(),
-    };
+    });
     const message = createFakeMessage({ type: "sync_members", meetingId: "mtg-1" });
 
     await processMeetJobBatch(

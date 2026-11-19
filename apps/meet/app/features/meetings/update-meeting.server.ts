@@ -51,6 +51,25 @@ export type UpdateMeetingDeps = {
   enqueueArtifactReshareFn?: (env: Env, meetingId: string) => Promise<void>;
 };
 
+/** 予定と D1 の更新は済んでいるため、再共有ジョブの投入に失敗しても保存自体は成功として扱う。 */
+async function enqueueArtifactReshareSafely(
+  env: Env,
+  meetingId: string,
+  enqueueFn: (env: Env, meetingId: string) => Promise<void>,
+  now: () => Date,
+): Promise<void> {
+  try {
+    await enqueueFn(env, meetingId);
+  } catch (error) {
+    await updateMeetingLastError(
+      env.DB,
+      meetingId,
+      `生成ファイルの再共有ジョブの投入に失敗しました: ${toSafeErrorSummary(error)}`.slice(0, 240),
+      now().toISOString(),
+    );
+  }
+}
+
 /**
  * 既存の `active` な会議を更新する。
  * - `accessType` 変更時のみ `spaces.patch` を呼ぶ
@@ -213,7 +232,7 @@ export async function updateMeeting(
         now().toISOString(),
       );
     }
-    await enqueueArtifactReshareFn(env, meeting.id);
+    await enqueueArtifactReshareSafely(env, meeting.id, enqueueArtifactReshareFn, now);
   }
 
   return { ok: true, meetingId: meeting.id, inviteesChanged };
@@ -331,7 +350,7 @@ export async function resyncMeetingInvitees(
       now().toISOString(),
     );
   }
-  await enqueueArtifactReshareFn(env, meeting.id);
+  await enqueueArtifactReshareSafely(env, meeting.id, enqueueArtifactReshareFn, now);
 
   return { ok: true, changed: true, totalCount: resolved.invitees.length };
 }
