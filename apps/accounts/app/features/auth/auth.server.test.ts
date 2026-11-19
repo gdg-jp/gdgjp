@@ -46,8 +46,16 @@ vi.mock("better-auth/plugins", () => ({
   jwt: () => ({}),
 }));
 
+const oauthProviderMock = vi.hoisted(() => ({
+  options: undefined as Record<string, unknown> | undefined,
+  oauthProvider: vi.fn((options: Record<string, unknown>) => {
+    oauthProviderMock.options = options;
+    return {};
+  }),
+}));
+
 vi.mock("@better-auth/oauth-provider", () => ({
-  oauthProvider: () => ({}),
+  oauthProvider: oauthProviderMock.oauthProvider,
 }));
 
 vi.mock("./db", () => ({
@@ -87,6 +95,8 @@ function testEnv(): Env {
 describe("accounts auth", () => {
   beforeEach(() => {
     betterAuthMock.reset();
+    oauthProviderMock.options = undefined;
+    oauthProviderMock.oauthProvider.mockClear();
     invalidateAuthCache();
   });
 
@@ -161,5 +171,27 @@ describe("accounts auth", () => {
     );
 
     expect(response).toBe(ok);
+  });
+
+  it("allows http redirect URIs only on exact loopback hosts", () => {
+    getAuth(testEnv());
+    const allowInsecure = oauthProviderMock.options?.allowInsecureRedirectUri as
+      | ((url: URL) => boolean)
+      | undefined;
+    expect(allowInsecure).toBeTypeOf("function");
+    expect(allowInsecure?.(new URL("http://localhost:5177/api/auth/callback/gdgjp"))).toBe(true);
+    expect(allowInsecure?.(new URL("http://127.0.0.1:8787/callback"))).toBe(true);
+    expect(allowInsecure?.(new URL("http://[::1]:5177/callback"))).toBe(true);
+    expect(allowInsecure?.(new URL("http://evil.example/callback"))).toBe(false);
+    expect(allowInsecure?.(new URL("http://localhost.evil.example/callback"))).toBe(false);
+  });
+
+  it("denies Better Auth admin OAuth resource management endpoints", () => {
+    getAuth(testEnv());
+    const resourcePrivileges = oauthProviderMock.options?.resourcePrivileges as
+      | ((ctx: unknown) => boolean)
+      | undefined;
+    expect(resourcePrivileges).toBeTypeOf("function");
+    expect(resourcePrivileges?.({ user: { id: "u1", isAdmin: true } })).toBe(false);
   });
 });

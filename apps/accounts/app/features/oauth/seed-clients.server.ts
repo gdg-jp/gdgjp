@@ -30,9 +30,9 @@ export async function seedClients(env: Env): Promise<{ written: string[]; skippe
          id, clientId, clientSecret, disabled, skipConsent, enableEndSession,
          subjectType, scopes, createdAt, updatedAt, name, redirectUris,
          postLogoutRedirectUris, tokenEndpointAuthMethod, grantTypes,
-         responseTypes, public, type, requirePKCE
+         responseTypes, applicationType, public, type, requirePKCE
        ) VALUES (?, ?, ?, 0, 1, 1, 'public', ?, ?, ?, ?, ?, ?,
-                 'client_secret_basic', ?, ?, ?, 'web', ?)
+                 'client_secret_basic', ?, ?, 'web', ?, 'web', ?)
        ON CONFLICT(clientId) DO UPDATE SET
          clientSecret = excluded.clientSecret,
          disabled = 0,
@@ -46,6 +46,7 @@ export async function seedClients(env: Env): Promise<{ written: string[]; skippe
          tokenEndpointAuthMethod = excluded.tokenEndpointAuthMethod,
          grantTypes = excluded.grantTypes,
          responseTypes = excluded.responseTypes,
+         applicationType = excluded.applicationType,
          public = excluded.public,
          requirePKCE = excluded.requirePKCE`,
     )
