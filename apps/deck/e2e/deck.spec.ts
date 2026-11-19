@@ -32,8 +32,16 @@ async function signedIn(browser: Browser, options: { mobile?: boolean } = {}): P
 }
 
 async function createDeck(page: Page, name: string): Promise<string> {
-  await page.getByRole("button", { name: "デッキを作成" }).first().click();
-  await page.getByRole("textbox", { name: "名前" }).fill(name);
+  // The server-rendered button ignores clicks until React hydrates, and the test then waits out
+  // its whole timeout for a dialog that never opens. Click again until it does.
+  const nameField = page.getByRole("textbox", { name: "名前" });
+  await expect(async () => {
+    if (!(await nameField.isVisible())) {
+      await page.getByRole("button", { name: "デッキを作成" }).first().click({ timeout: 2_000 });
+    }
+    await expect(nameField).toBeVisible({ timeout: 1_000 });
+  }).toPass({ timeout: 20_000 });
+  await nameField.fill(name);
   await page.getByRole("button", { name: "作成", exact: true }).click();
   await page.waitForURL(/\/decks\/[A-Za-z0-9_-]+\/edit$/);
   return new URL(page.url()).pathname.split("/")[2] ?? "";
