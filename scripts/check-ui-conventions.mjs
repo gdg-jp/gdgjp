@@ -1,6 +1,6 @@
 import { spawnSync } from "node:child_process";
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
-import { basename, extname, join, relative, resolve } from "node:path";
+import { basename, extname, join, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const repositoryRoot = process.cwd();
@@ -664,7 +664,8 @@ function checkApp(app, { mode, cwd = repositoryRoot } = {}) {
 
   const selectedPaths = staged
     ? changedPaths.filter((path) => sourceExtensionPattern.test(path))
-    : walk(join(cwd, app, "app")).map((path) => relative(cwd, path));
+    : // Baseline entries and git index paths use "/" on every platform.
+      walk(join(cwd, app, "app")).map((path) => relative(cwd, path).split(sep).join("/"));
   const sourcePaths = new Set(selectedPaths);
   if (foundationRequested) {
     sourcePaths.add(rootPath);

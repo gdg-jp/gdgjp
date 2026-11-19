@@ -72,6 +72,13 @@ Applications live in `apps/` and shared libraries in `packages/`. Workspace glob
   their source of truth). It never calls an LLM (the OCI runner, `gdg pr runner`, does). Its rules
   come from the `skills/pr-playbook` Playbook (gdg-jp/skills submodule), bundled at build time; see
   `docs/plans/pr/`.
+- `apps/meet/` is the GDG Japan Google Meet manager (`meet.gdgs.jp`): chapter members create and
+  manage Google Meet meetings on behalf of the shared `community-support@gdgoc.jp` account without
+  sharing its password (co-hosts, participants, Calendar events, and automatic Drive sharing /
+  Calendar attachment of meeting artifacts; see `docs/plans/meet/`). React Router v7 SSR on
+  Cloudflare Workers and an `apps/accounts/` relying party; Stage 01 holds auth tables in D1 (`DB`)
+  and the `ACCOUNTS` service binding, with `ACCOUNTS_DIRECTORY` RPC, Google OAuth/APIs, `MEET_JOBS`
+  Queue, and Workspace Events / cron landing in Stages 02–06.
 - `apps/agent/` is the knowledge-platform front door for Discord and Google Chat
   (`agent.gdgs.jp`, v2 Stage 05): a plain Cloudflare Worker (D1, KV, one `PendingSweeper`
   Durable Object, `WIKI` service binding) that verifies webhooks, links chat accounts to GDG

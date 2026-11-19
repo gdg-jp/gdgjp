@@ -7,6 +7,7 @@
 // package, is deliberate: see docs/agents-local-refactoring/13-xangi-packaging.md.
 import { execFileSync } from "node:child_process";
 import { mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
+import { createRequire } from "node:module";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -14,7 +15,10 @@ const root = dirname(dirname(fileURLToPath(import.meta.url)));
 const distDir = join(root, "dist");
 
 rmSync(distDir, { recursive: true, force: true });
-execFileSync("tsc", ["-p", "tsconfig.build.json"], { cwd: root, stdio: "inherit" });
+// Run the compiler's JS entry with Node: on Windows `tsc` on PATH is tsc.cmd,
+// which execFileSync cannot start without a shell.
+const tsc = createRequire(import.meta.url).resolve("typescript/bin/tsc");
+execFileSync(process.execPath, [tsc, "-p", "tsconfig.build.json"], { cwd: root, stdio: "inherit" });
 
 // tsc emits the extensionless relative specifiers written in src/acl (this
 // monorepo's tsconfig.base.json uses moduleResolution "Bundler", which never

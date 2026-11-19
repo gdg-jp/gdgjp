@@ -1,0 +1,33 @@
+# Secrets — set as production secrets with `wrangler secret put <NAME>`.
+# HMAC key for the RP's signed session + OIDC transaction cookies.
+# Generate with `openssl rand -base64 48`.
+RP_SESSION_SECRET=""
+# Client secret issued by the accounts IdP for this RP. Must equal the value set
+# as MEET_CLIENT_SECRET on the accounts worker.
+IDP_CLIENT_SECRET=""
+
+# Google OAuth クライアント設定（GCP プロジェクト gdgs-meet の共有ホストアカウント接続用）。
+# ローカル開発時の承認済みリダイレクト URI は http://localhost:5193/admin/google/callback を使用する。
+# 本番では GOOGLE_CLIENT_ID を wrangler.toml [vars] に、GOOGLE_CLIENT_SECRET を `wrangler secret put` で設定する。
+GOOGLE_CLIENT_ID=""
+GOOGLE_CLIENT_SECRET=""
+# Google リフレッシュトークン暗号化用の AES-GCM 256-bit 鍵（32 byte base64）。
+# `openssl rand -base64 32` で生成する。本番は `wrangler secret put GOOGLE_TOKEN_ENCRYPTION_KEY` で設定する。
+GOOGLE_TOKEN_ENCRYPTION_KEY=""
+
+# Override prod URLs from wrangler.toml so dev points at the local accounts IdP.
+# APP_URL must be http://localhost:5193 in dev or gdg-lib marks cookies Secure
+# and sign-in breaks over plain HTTP.
+APP_URL=http://localhost:5193
+ACCOUNTS_URL=http://localhost:5173
+IDP_URL=http://localhost:5173
+IDP_CLIENT_ID=meet
+# Enables /dev/login and /dev/simulate-event locally (they 404 when ENVIRONMENT === "production").
+ENVIRONMENT=development
+
+# Workspace Events / Cloud Pub/Sub Push 通知設定（Stage 06）。
+# ローカルでは /dev/simulate-event から内部ハンドラを直接テストできる（/api/google/events は常に JWT 検証を行う）。
+GOOGLE_PUBSUB_TOPIC="projects/gdgs-meet/topics/meet-events"
+PUBSUB_PUSH_AUDIENCE="http://localhost:5193/api/google/events"
+# Push 用サービスアカウントのメールアドレス。空のままでは /api/google/events が全リクエストを拒否する。
+PUBSUB_PUSH_SERVICE_ACCOUNT=""
