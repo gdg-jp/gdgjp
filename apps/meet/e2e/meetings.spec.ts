@@ -1,16 +1,24 @@
 import { execFileSync } from "node:child_process";
+import { createRequire } from "node:module";
+import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { expect, test } from "@playwright/test";
+
+const require = createRequire(import.meta.url);
+const wranglerPkgPath = require.resolve("wrangler/package.json");
+const wranglerPkg = require(wranglerPkgPath) as { bin: string | { wrangler: string } };
+const wranglerBin =
+  typeof wranglerPkg.bin === "string" ? wranglerPkg.bin : wranglerPkg.bin.wrangler;
+const wranglerEntrypoint = resolve(dirname(wranglerPkgPath), wranglerBin);
 
 function runLocalD1(sql: string) {
   const persistArgs = process.env.WIKI_E2E_PERSIST_TO
     ? ["--persist-to", process.env.WIKI_E2E_PERSIST_TO]
     : [];
   execFileSync(
-    "pnpm",
+    process.execPath,
     [
-      "exec",
-      "wrangler",
+      wranglerEntrypoint,
       "d1",
       "execute",
       "gdgjp-meet-db",
@@ -22,7 +30,6 @@ function runLocalD1(sql: string) {
     {
       cwd: fileURLToPath(new URL("..", import.meta.url)),
       stdio: "pipe",
-      shell: process.platform === "win32",
     },
   );
 }
