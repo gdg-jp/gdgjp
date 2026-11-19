@@ -8,6 +8,7 @@ import {
   getMeetingById,
   listMeetingInvitees,
 } from "~/features/meetings/meetings.repository.server";
+import { getCalendarAttachmentTitle } from "./artifact";
 import {
   getArtifactById,
   markArtifactAttached,
@@ -137,7 +138,8 @@ export async function shareArtifactJob(
           ...currentAttachments,
           {
             fileUrl: artifact.webViewLink,
-            title: artifact.title,
+            // Drive の実ファイル名は Meet 生成時のまま保持し、Calendar 上の表示名のみ種別ごとの短い名称にする。
+            title: getCalendarAttachmentTitle(artifact.kind),
             mimeType: artifact.mimeType,
           },
         ];

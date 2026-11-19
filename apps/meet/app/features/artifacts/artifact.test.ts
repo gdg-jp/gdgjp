@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ARTIFACT_KIND_META } from "./artifact";
+import { ARTIFACT_KIND_META, getCalendarAttachmentTitle } from "./artifact";
 
 describe("ARTIFACT_KIND_META", () => {
   it("maps each artifact kind to its official Drive logo and row icon", () => {
@@ -10,5 +10,11 @@ describe("ARTIFACT_KIND_META", () => {
     expect(ARTIFACT_KIND_META.notes.icon).toBe("FileText");
     expect(ARTIFACT_KIND_META.chat_log.icon).toBe("MessageSquare");
     expect(ARTIFACT_KIND_META.recording.icon).toBe("Play");
+  });
+
+  it("maps each artifact kind to its short Google Calendar attachment title", () => {
+    expect(getCalendarAttachmentTitle("notes")).toBe("要約・文字起こし");
+    expect(getCalendarAttachmentTitle("recording")).toBe("録画");
+    expect(getCalendarAttachmentTitle("chat_log")).toBe("チャットの記録");
   });
 });
