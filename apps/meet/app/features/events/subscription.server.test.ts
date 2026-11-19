@@ -16,6 +16,54 @@ const TEST_KEY = Buffer.from(new Uint8Array(32).fill(3)).toString("base64");
 const HOST_EMAIL = "community-support@gdgoc.jp";
 const TOPIC = "projects/gdgs-meet/topics/meet-events";
 const TARGET_RESOURCE = "//cloudidentity.googleapis.com/users/110111222333";
+const WORKSPACE_EVENTS_ORIGIN = "https://workspaceevents.googleapis.com";
+
+/** Google 側から返る購読リソース（topic と 4 型はアプリの設定と一致）。 */
+function liveSubscription(
+  name: string,
+  state: string,
+  expireTime: string,
+  extra: Record<string, unknown> = {},
+) {
+  return {
+    name,
+    targetResource: TARGET_RESOURCE,
+    eventTypes: [...WORKSPACE_EVENT_TYPES],
+    notificationEndpoint: { pubsubTopic: TOPIC },
+    state,
+    expireTime,
+    ...extra,
+  };
+}
+
+/** オペレーション（`done: true`）で包んだ購読レスポンス。 */
+function doneOperation(subscription: ReturnType<typeof liveSubscription>) {
+  return { name: "operations/op", done: true, response: subscription };
+}
+
+/**
+ * `"<METHOD> <パス>"`（Workspace Events API のオリジンを除いたもの）ごとに応答を返す fetch モック。
+ * トークン更新は自動で応答し、それ以外の呼び出しを `called` に順に記録する。
+ */
+function routeFetch(routes: Record<string, () => Response>) {
+  const called: string[] = [];
+  const fetchFn = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+    const url = String(input);
+    if (url === "https://oauth2.googleapis.com/token") {
+      return Response.json({ access_token: "ya29.sub", expires_in: 3600 });
+    }
+    const key = `${init?.method ?? "GET"} ${url.replace(WORKSPACE_EVENTS_ORIGIN, "").split("?")[0]}`;
+    called.push(key);
+    const route = routes[key];
+    if (!route) throw new Error(`想定外の fetch: ${key}`);
+    return route();
+  }) as unknown as typeof fetch;
+  return { fetchFn, called };
+}
+
+function googleError(code: number, status: string, message: string) {
+  return Response.json({ error: { code, status, message } }, { status: code });
+}
 
 function createFakeSubscriptionDb(
   connection: GoogleConnectionRow | null,
@@ -118,15 +166,29 @@ afterEach(() => {
 });
 
 describe("ensureSubscription & ライフサイクル通知", () => {
-  it("期限が残 2 日以上あり ACTIVE な購読は API を呼ばず維持する", async () => {
-    const { env } = await createEnvFixture({
+  it("期限が残 2 日以上あり ACTIVE な購読は subscriptions.get で状態だけ確かめて維持する", async () => {
+    const { env, getSubscription } = await createEnvFixture({
       name: "subscriptions/sub-1",
       state: "ACTIVE",
       expireTime: "2026-11-25T00:00:00.000Z",
       updatedAt: "2026-11-19T00:00:00.000Z",
-      lastError: null,
+      lastError: "前回のエラー",
     });
-    const fetchMock = vi.fn() as unknown as typeof fetch;
+    const called: string[] = [];
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      const method = init?.method ?? "GET";
+      if (url === "https://oauth2.googleapis.com/token") {
+        return Response.json({ access_token: "ya29.sub", expires_in: 3600 });
+      }
+      called.push(`${method} ${url.replace("https://workspaceevents.googleapis.com", "")}`);
+      if (url.endsWith("/v1/subscriptions/sub-1") && method === "GET") {
+        return Response.json(
+          liveSubscription("subscriptions/sub-1", "ACTIVE", "2026-11-25T00:00:00.000Z"),
+        );
+      }
+      throw new Error(`想定外の fetch: ${method} ${url}`);
+    }) as unknown as typeof fetch;
 
     const result = await ensureSubscription(env, {
       fetchFn: fetchMock,
@@ -134,7 +196,13 @@ describe("ensureSubscription & ライフサイクル通知", () => {
     });
 
     expect(result).toMatchObject({ ok: true, action: "kept" });
-    expect(fetchMock).not.toHaveBeenCalled();
+    expect(called).toEqual(["GET /v1/subscriptions/sub-1"]);
+    expect(getSubscription()).toMatchObject({
+      state: "ACTIVE",
+      expireTime: "2026-11-25T00:00:00.000Z",
+      updatedAt: "2026-11-20T00:00:00.000Z",
+      lastError: null,
+    });
   });
 
   it("期限が残 2 日未満の購読は patchSubscriptionTtl(ttl: '0s') で延長する", async () => {
@@ -151,6 +219,11 @@ describe("ensureSubscription & ライフサイクル通知", () => {
       const url = String(input);
       if (url === "https://oauth2.googleapis.com/token") {
         return Response.json({ access_token: "ya29.sub", expires_in: 3600 });
+      }
+      if (url.endsWith("/v1/subscriptions/sub-1") && (init?.method ?? "GET") === "GET") {
+        return Response.json(
+          liveSubscription("subscriptions/sub-1", "ACTIVE", "2026-11-21T12:00:00.000Z"),
+        );
       }
       if (url.includes("/v1/subscriptions/sub-1") && init?.method === "PATCH") {
         patchBody = JSON.parse(String(init.body));
@@ -193,6 +266,11 @@ describe("ensureSubscription & ライフサイクル通知", () => {
       const url = String(input);
       if (url === "https://oauth2.googleapis.com/token") {
         return Response.json({ access_token: "ya29.sub", expires_in: 3600 });
+      }
+      if (url.endsWith("/v1/subscriptions/expired-sub") && (init?.method ?? "GET") === "GET") {
+        return Response.json(
+          liveSubscription("subscriptions/expired-sub", "ACTIVE", "2026-11-20T00:30:00.000Z"),
+        );
       }
       if (url.includes("/v1/subscriptions/expired-sub") && init?.method === "PATCH") {
         return Response.json(
@@ -460,5 +538,188 @@ describe("ensureSubscription & ライフサイクル通知", () => {
     });
     expect(getSubscription()?.lastError).toContain("Permission revoked");
     expect(called).toEqual(["PATCH", "CREATE", "REACTIVATE"]);
+  });
+});
+
+describe("ensureSubscription: Google 側の状態（SUSPENDED・削除済み）", () => {
+  const NOW = () => new Date("2026-11-20T00:00:00.000Z");
+  const FRESH_EXPIRE = "2026-11-25T00:00:00.000Z";
+  const NEAR_EXPIRE = "2026-11-21T00:00:00.000Z";
+
+  function activeRecord(name: string, expireTime: string): GoogleSubscriptionRecord {
+    return {
+      name,
+      state: "ACTIVE",
+      expireTime,
+      updatedAt: "2026-11-19T00:00:00.000Z",
+      lastError: null,
+    };
+  }
+
+  it("D1 では ACTIVE でも Google 側が SUSPENDED なら reactivate する（期限に余裕があれば延長しない）", async () => {
+    const { env, getSubscription } = await createEnvFixture(
+      activeRecord("subscriptions/sub-s", FRESH_EXPIRE),
+    );
+    const { fetchFn, called } = routeFetch({
+      "GET /v1/subscriptions/sub-s": () =>
+        Response.json(
+          liveSubscription("subscriptions/sub-s", "SUSPENDED", FRESH_EXPIRE, {
+            suspensionReason: "ENDPOINT_PERMISSION_DENIED",
+          }),
+        ),
+      "POST /v1/subscriptions/sub-s:reactivate": () =>
+        Response.json(
+          doneOperation(liveSubscription("subscriptions/sub-s", "ACTIVE", FRESH_EXPIRE)),
+        ),
+    });
+
+    const result = await ensureSubscription(env, { fetchFn, now: NOW });
+
+    expect(result).toMatchObject({ ok: true, action: "reactivated" });
+    expect(called).toEqual([
+      "GET /v1/subscriptions/sub-s",
+      "POST /v1/subscriptions/sub-s:reactivate",
+    ]);
+    expect(getSubscription()).toMatchObject({
+      state: "ACTIVE",
+      expireTime: FRESH_EXPIRE,
+      lastError: null,
+    });
+  });
+
+  it("SUSPENDED で期限が残 2 日未満なら reactivate のあとに延長する", async () => {
+    const { env, getSubscription } = await createEnvFixture({
+      ...activeRecord("subscriptions/sub-s", NEAR_EXPIRE),
+      state: "SUSPENDED",
+    });
+    const { fetchFn, called } = routeFetch({
+      "GET /v1/subscriptions/sub-s": () =>
+        Response.json(liveSubscription("subscriptions/sub-s", "SUSPENDED", NEAR_EXPIRE)),
+      "POST /v1/subscriptions/sub-s:reactivate": () =>
+        Response.json(
+          doneOperation(liveSubscription("subscriptions/sub-s", "ACTIVE", NEAR_EXPIRE)),
+        ),
+      "PATCH /v1/subscriptions/sub-s": () =>
+        Response.json(
+          doneOperation(
+            liveSubscription("subscriptions/sub-s", "ACTIVE", "2026-11-27T00:00:00.000Z"),
+          ),
+        ),
+    });
+
+    const result = await ensureSubscription(env, { fetchFn, now: NOW });
+
+    expect(result).toMatchObject({ ok: true, action: "reactivated" });
+    expect(called).toEqual([
+      "GET /v1/subscriptions/sub-s",
+      "POST /v1/subscriptions/sub-s:reactivate",
+      "PATCH /v1/subscriptions/sub-s",
+    ]);
+    expect(getSubscription()).toMatchObject({
+      state: "ACTIVE",
+      expireTime: "2026-11-27T00:00:00.000Z",
+      lastError: null,
+    });
+  });
+
+  it("reactivate に失敗したら作り直さず、SUSPENDED と停止理由を D1 に残して例外を投げる", async () => {
+    const { env, getSubscription } = await createEnvFixture(
+      activeRecord("subscriptions/sub-s", FRESH_EXPIRE),
+    );
+    const { fetchFn, called } = routeFetch({
+      "GET /v1/subscriptions/sub-s": () =>
+        Response.json(
+          liveSubscription("subscriptions/sub-s", "SUSPENDED", FRESH_EXPIRE, {
+            suspensionReason: "ENDPOINT_PERMISSION_DENIED",
+          }),
+        ),
+      "POST /v1/subscriptions/sub-s:reactivate": () =>
+        googleError(400, "FAILED_PRECONDITION", "Endpoint permission denied"),
+    });
+
+    await expect(ensureSubscription(env, { fetchFn, now: NOW })).rejects.toThrow(
+      "ENDPOINT_PERMISSION_DENIED",
+    );
+
+    expect(called).toEqual([
+      "GET /v1/subscriptions/sub-s",
+      "POST /v1/subscriptions/sub-s:reactivate",
+    ]);
+    const saved = getSubscription();
+    expect(saved).toMatchObject({ name: "subscriptions/sub-s", state: "SUSPENDED" });
+    expect(saved?.lastError).toContain("ENDPOINT_PERMISSION_DENIED");
+    expect(saved?.lastError).toContain("再有効化に失敗しました");
+    expect(saved?.lastError).toContain("Endpoint permission denied");
+  });
+
+  it("subscriptions.get が 404 なら延長を試みずに作り直す", async () => {
+    const { env, getSubscription } = await createEnvFixture(
+      activeRecord("subscriptions/gone", FRESH_EXPIRE),
+    );
+    const { fetchFn, called } = routeFetch({
+      "GET /v1/subscriptions/gone": () => googleError(404, "NOT_FOUND", "Subscription not found"),
+      "POST /v1/subscriptions": () =>
+        Response.json(
+          doneOperation(liveSubscription("subscriptions/new-1", "ACTIVE", FRESH_EXPIRE)),
+        ),
+    });
+
+    const result = await ensureSubscription(env, { fetchFn, now: NOW });
+
+    expect(result).toMatchObject({ ok: true, action: "created" });
+    expect(called).toEqual(["GET /v1/subscriptions/gone", "POST /v1/subscriptions"]);
+    expect(getSubscription()?.name).toBe("subscriptions/new-1");
+  });
+
+  it("subscriptions.get が 404 以外で失敗したら D1 の last_error に記録して例外を投げる", async () => {
+    const { env, getSubscription } = await createEnvFixture(
+      activeRecord("subscriptions/sub-1", FRESH_EXPIRE),
+    );
+    const { fetchFn, called } = routeFetch({
+      "GET /v1/subscriptions/sub-1": () => googleError(503, "UNAVAILABLE", "Backend unavailable"),
+    });
+
+    await expect(ensureSubscription(env, { fetchFn, now: NOW })).rejects.toThrow();
+
+    expect(called).toEqual(["GET /v1/subscriptions/sub-1"]);
+    expect(getSubscription()).toMatchObject({ name: "subscriptions/sub-1", state: "ACTIVE" });
+    expect(getSubscription()?.lastError).toContain("Backend unavailable");
+  });
+
+  it("409 で見つかった一致する既存購読が SUSPENDED なら reactivate してから延長して採用する", async () => {
+    const { env, getSubscription } = await createEnvFixture(null);
+    const { fetchFn, called } = routeFetch({
+      "POST /v1/subscriptions": () => googleError(409, "ALREADY_EXISTS", "Already exists"),
+      "GET /v1/subscriptions": () =>
+        Response.json({
+          subscriptions: [liveSubscription("subscriptions/found", "SUSPENDED", NEAR_EXPIRE)],
+        }),
+      "POST /v1/subscriptions/found:reactivate": () =>
+        Response.json(
+          doneOperation(liveSubscription("subscriptions/found", "ACTIVE", NEAR_EXPIRE)),
+        ),
+      "PATCH /v1/subscriptions/found": () =>
+        Response.json(
+          doneOperation(
+            liveSubscription("subscriptions/found", "ACTIVE", "2026-11-27T00:00:00.000Z"),
+          ),
+        ),
+    });
+
+    const result = await ensureSubscription(env, { fetchFn, now: NOW });
+
+    expect(result).toMatchObject({ ok: true, action: "adopted_and_extended" });
+    expect(called).toEqual([
+      "POST /v1/subscriptions",
+      "GET /v1/subscriptions",
+      "POST /v1/subscriptions/found:reactivate",
+      "PATCH /v1/subscriptions/found",
+    ]);
+    expect(getSubscription()).toMatchObject({
+      name: "subscriptions/found",
+      state: "ACTIVE",
+      expireTime: "2026-11-27T00:00:00.000Z",
+      lastError: null,
+    });
   });
 });

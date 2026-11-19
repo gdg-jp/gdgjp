@@ -3,14 +3,24 @@ import { getGoogleConnection } from "~/features/google/connection.server";
 import { getGoogleAccessToken } from "~/features/google/token.server";
 import {
   type WorkspaceEventSubscription,
-  createSubscription,
   deleteSubscription,
   getSubscription,
   listSubscriptions,
-  patchSubscriptionTtl,
-  reactivateSubscription,
 } from "~/features/google/workspace-events.server";
 import { toSafeErrorSummary } from "~/features/meetings/invite-resolution.server";
+import {
+  SUBSCRIPTION_RENEW_THRESHOLD_MS,
+  WORKSPACE_EVENT_TYPES,
+  createAndSaveSubscription,
+  extendAndSaveSubscription,
+  isAlreadyExistsError,
+  isExpiredOrMissingSubscriptionError,
+  isSubscriptionNotFoundError,
+  matchesDesiredSubscription,
+  needsRenewal,
+  reactivateAndSaveSubscription,
+  toSubscriptionRecord,
+} from "./subscription-ops.server";
 import {
   GOOGLE_SUBSCRIPTION_ID,
   type GoogleSubscriptionRecord,
@@ -21,19 +31,11 @@ import {
 export {
   GOOGLE_SUBSCRIPTION_ID,
   type GoogleSubscriptionRecord,
+  SUBSCRIPTION_RENEW_THRESHOLD_MS,
+  WORKSPACE_EVENT_TYPES,
   getGoogleSubscription,
   upsertGoogleSubscription,
 };
-
-export const SUBSCRIPTION_RENEW_THRESHOLD_MS = 2 * 24 * 60 * 60 * 1000;
-
-/** 本番で購読する Workspace Events の 4 イベント型。 */
-export const WORKSPACE_EVENT_TYPES = [
-  "google.workspace.meet.conference.v2.ended",
-  "google.workspace.meet.recording.v2.fileGenerated",
-  "google.workspace.meet.transcript.v2.fileGenerated",
-  "google.workspace.meet.smartNote.v2.fileGenerated",
-] as const;
 
 export type SubscriptionDeps = {
   fetchFn?: GoogleFetch;
@@ -46,9 +48,17 @@ export type EnsureSubscriptionResult =
   | { ok: false; reason: "not_connected" | "missing_topic" }
   | {
       ok: true;
-      action: "kept" | "extended" | "created" | "adopted_and_extended" | "recreated";
+      action:
+        | "kept"
+        | "extended"
+        | "reactivated"
+        | "created"
+        | "adopted_and_extended"
+        | "recreated";
       subscription: GoogleSubscriptionRecord;
     };
+
+type RevivedAction = "kept" | "extended" | "reactivated";
 
 /**
  * ユーザー対象の Workspace Events 購読を一覧検索するときのフィルタ文字列を組み立てる。
@@ -58,95 +68,88 @@ export function buildUserSubscriptionFilter(targetResource: string): string {
   return `event_types:"google.workspace.meet.conference.v2.ended" AND target_resource="${targetResource}"`;
 }
 
-function hasExactEventTypes(actual: readonly string[] | undefined): boolean {
-  if (!actual || actual.length !== WORKSPACE_EVENT_TYPES.length) return false;
-  const set = new Set(actual);
-  return WORKSPACE_EVENT_TYPES.every((eventType) => set.has(eventType));
-}
-
-function matchesDesiredSubscription(
-  sub: WorkspaceEventSubscription,
-  expectedTopic: string,
-): boolean {
-  return (
-    sub.notificationEndpoint?.pubsubTopic === expectedTopic && hasExactEventTypes(sub.eventTypes)
-  );
-}
-
-function isExpiredOrMissingSubscriptionError(error: GoogleApiError): boolean {
-  return (
-    error.httpStatus === 400 ||
-    error.httpStatus === 404 ||
-    error.httpStatus === 410 ||
-    error.apiStatus === "NOT_FOUND" ||
-    error.apiStatus === "FAILED_PRECONDITION"
-  );
-}
-
-function isAlreadyExistsError(error: GoogleApiError): boolean {
-  return error.httpStatus === 409 || error.apiStatus === "ALREADY_EXISTS";
-}
-
-function toSubscriptionRecord(
-  sub: WorkspaceEventSubscription,
+/** 失敗内容を、D1 に記録済みの最新の購読行（無ければ `fallback`）の `last_error` に残す。 */
+async function recordSubscriptionFailure(
+  db: D1Database,
+  fallback: GoogleSubscriptionRecord | null,
   nowIso: string,
-  fallbackExpireTime?: string,
-): GoogleSubscriptionRecord {
-  return {
-    name: sub.name,
-    state: sub.state ?? "ACTIVE",
-    expireTime: sub.expireTime ?? fallbackExpireTime ?? nowIso,
+  error: unknown,
+): Promise<void> {
+  const current = (await getGoogleSubscription(db)) ?? fallback;
+  if (!current) return;
+  await upsertGoogleSubscription(db, {
+    ...current,
     updatedAt: nowIso,
-    lastError: null,
-  };
+    lastError: toSafeErrorSummary(error),
+  });
 }
 
-async function resolveOperationSubscription(
+/**
+ * D1 に記録済みの購読の実際の状態を `subscriptions.get` で確かめ、必要なら再有効化・延長する。
+ * `suspended` ライフサイクル通知は通知先の権限エラーなどで届かないことがあるため、毎回 Google 側の状態を見る。
+ * Google 側で見つからない・削除済み・延長が期限切れで失敗した場合は null を返し、呼び出し元で作り直す。
+ */
+async function reviveExistingSubscription(
+  db: D1Database,
   accessToken: string,
-  result: { subscription: WorkspaceEventSubscription | null },
-  fallbackName: string | null,
-  fetchFn: GoogleFetch,
-): Promise<WorkspaceEventSubscription> {
-  if (result.subscription) return result.subscription;
-  if (fallbackName) {
-    return getSubscription(accessToken, fallbackName, fetchFn);
+  existing: GoogleSubscriptionRecord,
+  options: { forceRenew: boolean; now: Date; nowIso: string; fetchFn: GoogleFetch },
+): Promise<{ action: RevivedAction; subscription: GoogleSubscriptionRecord } | null> {
+  const { forceRenew, now, nowIso, fetchFn } = options;
+  let live: WorkspaceEventSubscription;
+  try {
+    live = await getSubscription(accessToken, existing.name, fetchFn);
+  } catch (error) {
+    if (isSubscriptionNotFoundError(error)) return null;
+    throw error;
   }
-  throw new Error("Workspace Events 購読オペレーションから購読情報を取得できませんでした");
-}
+  if (live.state === "DELETED") return null;
 
-async function createAndSaveSubscription(
-  db: D1Database,
-  accessToken: string,
-  targetResource: string,
-  pubsubTopic: string,
-  fetchFn: GoogleFetch,
-  nowIso: string,
-): Promise<GoogleSubscriptionRecord> {
-  const op = await createSubscription(
-    accessToken,
-    {
-      targetResource,
-      eventTypes: [...WORKSPACE_EVENT_TYPES],
-      pubsubTopic,
-      includeResource: false,
-    },
-    fetchFn,
+  let action: RevivedAction = "kept";
+  let record = await upsertGoogleSubscription(
+    db,
+    toSubscriptionRecord(live, nowIso, existing.expireTime),
   );
-  const sub = await resolveOperationSubscription(accessToken, op, null, fetchFn);
-  return upsertGoogleSubscription(db, toSubscriptionRecord(sub, nowIso));
-}
 
-async function extendAndSaveSubscription(
-  db: D1Database,
-  accessToken: string,
-  name: string,
-  fallbackExpireTime: string | undefined,
-  fetchFn: GoogleFetch,
-  nowIso: string,
-): Promise<GoogleSubscriptionRecord> {
-  const op = await patchSubscriptionTtl(accessToken, name, "0s", fetchFn);
-  const extended = await resolveOperationSubscription(accessToken, op, name, fetchFn);
-  return upsertGoogleSubscription(db, toSubscriptionRecord(extended, nowIso, fallbackExpireTime));
+  if (live.state === "SUSPENDED") {
+    try {
+      record = await reactivateAndSaveSubscription(
+        db,
+        accessToken,
+        live.name,
+        record.expireTime,
+        fetchFn,
+        nowIso,
+      );
+    } catch (error) {
+      const reason = live.suspensionReason ?? "理由不明";
+      throw new Error(
+        `購読が一時停止されています（${reason}）。再有効化に失敗しました: ${toSafeErrorSummary(error)}`,
+      );
+    }
+    action = "reactivated";
+  }
+
+  if (forceRenew || needsRenewal(record.expireTime, now)) {
+    try {
+      record = await extendAndSaveSubscription(
+        db,
+        accessToken,
+        record.name,
+        record.expireTime,
+        fetchFn,
+        nowIso,
+      );
+    } catch (error) {
+      if (error instanceof GoogleApiError && isExpiredOrMissingSubscriptionError(error)) {
+        return null;
+      }
+      throw error;
+    }
+    if (action === "kept") action = "extended";
+  }
+
+  return { action, subscription: record };
 }
 
 async function createOrAdoptSubscription(
@@ -190,12 +193,22 @@ async function createOrAdoptSubscription(
     }
 
     if (matchesDesiredSubscription(found, pubsubTopic)) {
-      await upsertGoogleSubscription(env.DB, toSubscriptionRecord(found, nowIso));
+      const adopted = await upsertGoogleSubscription(env.DB, toSubscriptionRecord(found, nowIso));
+      if (found.state === "SUSPENDED") {
+        await reactivateAndSaveSubscription(
+          env.DB,
+          accessToken,
+          found.name,
+          adopted.expireTime,
+          fetchFn,
+          nowIso,
+        );
+      }
       const saved = await extendAndSaveSubscription(
         env.DB,
         accessToken,
         found.name,
-        found.expireTime,
+        adopted.expireTime,
         fetchFn,
         nowIso,
       );
@@ -216,7 +229,8 @@ async function createOrAdoptSubscription(
 }
 
 /**
- * 共有ホストアカウントに対する Workspace Events 購読（`id = 1`）を維持・延長・再作成する。
+ * 共有ホストアカウントに対する Workspace Events 購読（`id = 1`）を維持・再有効化・延長・再作成する。
+ * D1 に購読があれば毎回 `subscriptions.get` で実際の状態を確かめる（`reviveExistingSubscription`）。
  */
 export async function ensureSubscription(
   env: Env,
@@ -238,41 +252,22 @@ export async function ensureSubscription(
   }
 
   const existing = await getGoogleSubscription(env.DB);
-  const expireMs = existing ? Date.parse(existing.expireTime) : Number.NaN;
-  const isHealthyAndFresh =
-    existing !== null &&
-    existing.state === "ACTIVE" &&
-    Number.isFinite(expireMs) &&
-    expireMs >= nowDate.getTime() + SUBSCRIPTION_RENEW_THRESHOLD_MS;
-
-  if (isHealthyAndFresh && !deps.forceRenew && !deps.forceRecreate) {
-    return { ok: true, action: "kept", subscription: existing };
-  }
-
   const accessToken = await getGoogleAccessToken(env, fetchFn);
   const targetResource = `//cloudidentity.googleapis.com/users/${connection.google_user_id}`;
 
   if (existing && existing.state !== "DELETED" && !deps.forceRecreate) {
     try {
-      const saved = await extendAndSaveSubscription(
-        env.DB,
-        accessToken,
-        existing.name,
-        existing.expireTime,
-        fetchFn,
+      const revived = await reviveExistingSubscription(env.DB, accessToken, existing, {
+        forceRenew: Boolean(deps.forceRenew),
+        now: nowDate,
         nowIso,
-      );
-      return { ok: true, action: "extended", subscription: saved };
+        fetchFn,
+      });
+      if (revived) return { ok: true, ...revived };
+      // Google 側で見つからない・期限切れの場合は新規作成へフォールバックする。
     } catch (error) {
-      if (!(error instanceof GoogleApiError && isExpiredOrMissingSubscriptionError(error))) {
-        await upsertGoogleSubscription(env.DB, {
-          ...existing,
-          updatedAt: nowIso,
-          lastError: toSafeErrorSummary(error),
-        });
-        throw error;
-      }
-      // 期限切れ・削除済みの場合は新規作成へフォールバックする。
+      await recordSubscriptionFailure(env.DB, existing, nowIso, error);
+      throw error;
     }
   }
 
@@ -287,13 +282,7 @@ export async function ensureSubscription(
     );
     return { ok: true, ...created };
   } catch (error) {
-    if (existing) {
-      await upsertGoogleSubscription(env.DB, {
-        ...existing,
-        updatedAt: nowIso,
-        lastError: toSafeErrorSummary(error),
-      });
-    }
+    await recordSubscriptionFailure(env.DB, existing, nowIso, error);
     throw error;
   }
 }
@@ -359,11 +348,13 @@ export async function handleSubscriptionSuspended(
 
   try {
     const accessToken = await getGoogleAccessToken(env, fetchFn);
-    const op = await reactivateSubscription(accessToken, targetName, fetchFn);
-    const reactivated = await resolveOperationSubscription(accessToken, op, targetName, fetchFn);
-    await upsertGoogleSubscription(
+    await reactivateAndSaveSubscription(
       env.DB,
-      toSubscriptionRecord(reactivated, nowIso, existing?.expireTime),
+      accessToken,
+      targetName,
+      existing?.expireTime,
+      fetchFn,
+      nowIso,
     );
   } catch (error) {
     await upsertGoogleSubscription(env.DB, {

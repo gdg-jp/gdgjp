@@ -173,6 +173,7 @@ const ERROR_MESSAGES: Record<string, string> = {
 const SUBSCRIPTION_ACTION_LABELS: Record<string, string> = {
   kept: "既存の有効な購読を確認しました。",
   extended: "購読の有効期限を延長しました。",
+  reactivated: "一時停止されていた購読を再有効化しました。",
   created: "Workspace Events 購読を新規作成しました。",
   adopted_and_extended: "既存の Workspace Events 購読を採用して有効期限を延長しました。",
   recreated: "不一致だった既存購読を削除し、新しい購読を作成しました。",

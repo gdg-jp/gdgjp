@@ -281,6 +281,16 @@ describe("runMeetCron", () => {
       if (url === "https://oauth2.googleapis.com/token") {
         return Response.json({ access_token: "ya29.cron", expires_in: 3600 });
       }
+      if (url.endsWith("/v1/subscriptions/sub-cron") && (init?.method ?? "GET") === "GET") {
+        return Response.json({
+          name: "subscriptions/sub-cron",
+          targetResource: "//cloudidentity.googleapis.com/users/110111222333",
+          eventTypes: [...WORKSPACE_EVENT_TYPES],
+          notificationEndpoint: { pubsubTopic: TOPIC },
+          state: "ACTIVE",
+          expireTime: "2026-11-20T12:00:00.000Z",
+        });
+      }
       if (url.includes("/v1/subscriptions/sub-cron") && init?.method === "PATCH") {
         return Response.json({
           name: "operations/op-extend",
