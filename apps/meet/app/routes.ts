@@ -4,6 +4,7 @@ export default [
   index("routes/meetings/home.tsx"),
   route("meetings/new", "routes/meetings/new.tsx"),
   route("meetings/:id", "routes/meetings/detail.tsx"),
+  route("meetings/:id/edit", "routes/meetings/edit.tsx"),
   route("admin/google", "routes/admin/google.tsx"),
   route("admin/google/callback", "routes/admin/google.callback.ts"),
   route("no-chapter", "routes/auth/no-chapter.tsx"),

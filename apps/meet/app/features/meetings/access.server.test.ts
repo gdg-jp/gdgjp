@@ -1,6 +1,12 @@
 import type { AuthUser } from "@gdgjp/gdg-lib";
 import { describe, expect, it } from "vitest";
-import { canViewMeeting, requireMeetingViewAccess, toPublicInviteeList } from "./access.server";
+import {
+  canEditMeeting,
+  canViewMeeting,
+  requireMeetingEditAccess,
+  requireMeetingViewAccess,
+  toPublicInviteeList,
+} from "./access.server";
 import type { MeetingInviteeRecord, MeetingRecord } from "./meeting";
 
 const SAMPLE_MEETING: MeetingRecord = {
@@ -218,5 +224,135 @@ describe("toPublicInviteeList", () => {
         isChapterDerived: false,
       },
     ]);
+  });
+});
+
+describe("canEditMeeting / requireMeetingEditAccess", () => {
+  it("cohost でない一般招待者（participant）は編集・再同期・取り消しを実行できない（403）", async () => {
+    const participant: AuthUser = {
+      id: "u-guest",
+      email: "guest@example.com",
+      name: "Guest",
+      image: null,
+      isAdmin: false,
+    };
+    expect(canEditMeeting(participant, SAMPLE_MEETING, SAMPLE_INVITEES)).toBe(false);
+
+    const env = { DB: createFakeDb(SAMPLE_MEETING, SAMPLE_INVITEES) } as unknown as Env;
+    let caught: unknown;
+    try {
+      await requireMeetingEditAccess(
+        env,
+        new Request("https://meet.gdgs.jp/meetings/mtg-1/edit"),
+        "mtg-1",
+        { requireUserFn: async () => participant },
+      );
+    } catch (error) {
+      caught = error;
+    }
+
+    expect(caught).toBeInstanceOf(Response);
+    expect((caught as Response).status).toBe(403);
+  });
+
+  it("会議に無関係な第三者は 404 で拒否する", async () => {
+    const outsider: AuthUser = {
+      id: "u-outsider",
+      email: "outsider@example.com",
+      name: "Outsider",
+      image: null,
+      isAdmin: false,
+    };
+    const env = { DB: createFakeDb(SAMPLE_MEETING, SAMPLE_INVITEES) } as unknown as Env;
+
+    let caught: unknown;
+    try {
+      await requireMeetingEditAccess(
+        env,
+        new Request("https://meet.gdgs.jp/meetings/mtg-1/edit"),
+        "mtg-1",
+        { requireUserFn: async () => outsider },
+      );
+    } catch (error) {
+      caught = error;
+    }
+
+    expect(caught).toBeInstanceOf(Response);
+    expect((caught as Response).status).toBe(404);
+  });
+
+  it("GDG Accounts 管理者（isAdmin: true）は招待されていなくても編集・取り消しできる", async () => {
+    const admin: AuthUser = {
+      id: "u-admin",
+      email: "admin@example.com",
+      name: "Admin",
+      image: null,
+      isAdmin: true,
+    };
+    expect(canEditMeeting(admin, SAMPLE_MEETING, SAMPLE_INVITEES)).toBe(true);
+
+    const env = { DB: createFakeDb(SAMPLE_MEETING, SAMPLE_INVITEES) } as unknown as Env;
+    const access = await requireMeetingEditAccess(
+      env,
+      new Request("https://meet.gdgs.jp/meetings/mtg-1/edit"),
+      "mtg-1",
+      { requireUserFn: async () => admin },
+    );
+    expect(access.meeting.id).toBe("mtg-1");
+  });
+
+  it("チャプター未所属ユーザーでも正規化メールが cohost の招待者と一致すれば編集・取り消しできる", async () => {
+    const noChapterCohost: AuthUser = {
+      id: "u-no-chapter",
+      email: "ChapterOrg@gmail.com",
+      name: "Chapter Organizer",
+      image: null,
+      isAdmin: false,
+    };
+    expect(canEditMeeting(noChapterCohost, SAMPLE_MEETING, SAMPLE_INVITEES)).toBe(true);
+
+    const env = { DB: createFakeDb(SAMPLE_MEETING, SAMPLE_INVITEES) } as unknown as Env;
+    const access = await requireMeetingEditAccess(
+      env,
+      new Request("https://meet.gdgs.jp/meetings/mtg-1/edit"),
+      "mtg-1",
+      { requireUserFn: async () => noChapterCohost },
+    );
+    expect(access.user.id).toBe("u-no-chapter");
+  });
+
+  it("status === 'canceled' や 'failed' の会議は編集・再同期・再取り消しできない（409）", async () => {
+    const cohost: AuthUser = {
+      id: "u-creator",
+      email: "creator@example.com",
+      name: "Creator User",
+      image: null,
+      isAdmin: false,
+    };
+    const canceledMeeting: MeetingRecord = {
+      ...SAMPLE_MEETING,
+      status: "canceled",
+      canceledAt: "2026-11-19T12:00:00.000Z",
+    };
+    const failedMeeting: MeetingRecord = { ...SAMPLE_MEETING, status: "failed" };
+
+    expect(canEditMeeting(cohost, canceledMeeting, SAMPLE_INVITEES)).toBe(false);
+    expect(canEditMeeting(cohost, failedMeeting, SAMPLE_INVITEES)).toBe(false);
+
+    const env = { DB: createFakeDb(canceledMeeting, SAMPLE_INVITEES) } as unknown as Env;
+    let caught: unknown;
+    try {
+      await requireMeetingEditAccess(
+        env,
+        new Request("https://meet.gdgs.jp/meetings/mtg-1/edit"),
+        "mtg-1",
+        { requireUserFn: async () => cohost },
+      );
+    } catch (error) {
+      caught = error;
+    }
+
+    expect(caught).toBeInstanceOf(Response);
+    expect((caught as Response).status).toBe(409);
   });
 });

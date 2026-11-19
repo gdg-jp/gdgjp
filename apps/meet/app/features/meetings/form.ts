@@ -3,6 +3,7 @@ import {
   DEFAULT_TIME_ZONE,
   type InviteeRole,
   type MeetingAccessType,
+  type MeetingInviteSourceRecord,
   isMeetingAccessType,
   isValidTimeZone,
   localDateTimeToUtcIso,
@@ -39,10 +40,17 @@ export type ParsedMeetingCreateForm = ParsedInviteInputs & {
   accessType: MeetingAccessType;
 };
 
-type AdditionalChapterRow = {
+export type AdditionalChapterRow = {
   chapterId: number;
   scope: "chapter_organizers" | "chapter_all";
   role: InviteeRole;
+};
+
+export type MeetingFormInviteDefaults = {
+  includeHostOrganizers: boolean;
+  additionalChapters: AdditionalChapterRow[];
+  cohostEmails: string;
+  participantEmails: string;
 };
 
 function parseAdditionalChapters(raw: string | null): {
@@ -92,17 +100,12 @@ function parseAdditionalChapters(raw: string | null): {
   return { rows };
 }
 
-/** 招待元に関するフォーム入力のみを検証・抽出する（プレビュー・作成で共用）。 */
-export function parseMeetingInviteInputs(
+function parseInviteSourcesWithHostChapter(
   formData: FormData,
-  allowedChapterIds: ReadonlySet<number>,
+  hostChapterId: number,
+  initialErrors: CreateMeetingFieldErrors,
 ): { ok: true; data: ParsedInviteInputs } | { ok: false; fieldErrors: CreateMeetingFieldErrors } {
-  const fieldErrors: CreateMeetingFieldErrors = {};
-
-  const hostChapterId = Number(String(formData.get("hostChapterId") ?? "").trim());
-  if (!Number.isSafeInteger(hostChapterId) || !allowedChapterIds.has(hostChapterId)) {
-    fieldErrors.hostChapterId = "所属チャプターから主催チャプターを選択してください。";
-  }
+  const fieldErrors: CreateMeetingFieldErrors = { ...initialErrors };
 
   const includeHostOrganizersRaw = String(formData.get("includeHostOrganizers") ?? "").trim();
   const includeHostOrganizers =
@@ -160,10 +163,32 @@ export function parseMeetingInviteInputs(
   return { ok: true, data: { hostChapterId, sources } };
 }
 
-/** 会議作成フォーム全体を検証してドメイン入力へ変換する。 */
-export function parseMeetingCreateForm(
+/** 招待元に関するフォーム入力のみを検証・抽出する（作成前のプレビュー・作成で共用）。 */
+export function parseMeetingInviteInputs(
   formData: FormData,
   allowedChapterIds: ReadonlySet<number>,
+): { ok: true; data: ParsedInviteInputs } | { ok: false; fieldErrors: CreateMeetingFieldErrors } {
+  const initialErrors: CreateMeetingFieldErrors = {};
+  const hostChapterId = Number(String(formData.get("hostChapterId") ?? "").trim());
+  if (!Number.isSafeInteger(hostChapterId) || !allowedChapterIds.has(hostChapterId)) {
+    initialErrors.hostChapterId = "所属チャプターから主催チャプターを選択してください。";
+  }
+  return parseInviteSourcesWithHostChapter(formData, hostChapterId, initialErrors);
+}
+
+/** 編集画面用の招待元フォーム入力を検証・抽出する（主催チャプターは既存の値で固定）。 */
+export function parseMeetingEditInviteInputs(
+  formData: FormData,
+  fixedHostChapterId: number,
+): { ok: true; data: ParsedInviteInputs } | { ok: false; fieldErrors: CreateMeetingFieldErrors } {
+  return parseInviteSourcesWithHostChapter(formData, fixedHostChapterId, {});
+}
+
+function parseMeetingCommonFields(
+  formData: FormData,
+  inviteResult:
+    | { ok: true; data: ParsedInviteInputs }
+    | { ok: false; fieldErrors: CreateMeetingFieldErrors },
 ):
   | { ok: true; data: ParsedMeetingCreateForm }
   | { ok: false; fieldErrors: CreateMeetingFieldErrors } {
@@ -216,7 +241,6 @@ export function parseMeetingCreateForm(
     fieldErrors.accessType = "アクセスの種類を選択してください。";
   }
 
-  const inviteResult = parseMeetingInviteInputs(formData, allowedChapterIds);
   if (!inviteResult.ok) {
     Object.assign(fieldErrors, inviteResult.fieldErrors);
   }
@@ -243,5 +267,69 @@ export function parseMeetingCreateForm(
       hostChapterId: inviteResult.data.hostChapterId,
       sources: inviteResult.data.sources,
     },
+  };
+}
+
+/** 会議作成フォーム全体を検証してドメイン入力へ変換する。 */
+export function parseMeetingCreateForm(
+  formData: FormData,
+  allowedChapterIds: ReadonlySet<number>,
+):
+  | { ok: true; data: ParsedMeetingCreateForm }
+  | { ok: false; fieldErrors: CreateMeetingFieldErrors } {
+  const inviteResult = parseMeetingInviteInputs(formData, allowedChapterIds);
+  return parseMeetingCommonFields(formData, inviteResult);
+}
+
+/** 会議編集フォーム全体を検証してドメイン入力へ変換する（主催チャプターは変更不可）。 */
+export function parseMeetingEditForm(
+  formData: FormData,
+  fixedHostChapterId: number,
+):
+  | { ok: true; data: ParsedMeetingCreateForm }
+  | { ok: false; fieldErrors: CreateMeetingFieldErrors } {
+  const inviteResult = parseMeetingEditInviteInputs(formData, fixedHostChapterId);
+  return parseMeetingCommonFields(formData, inviteResult);
+}
+
+/** D1 の `meeting_invite_sources` から `MeetingForm` の初期値へ変換する。 */
+export function inviteSourcesToFormDefaults(
+  sources: readonly Pick<MeetingInviteSourceRecord, "kind" | "chapterId" | "email" | "role">[],
+): MeetingFormInviteDefaults {
+  let includeHostOrganizers = false;
+  const additionalChapters: AdditionalChapterRow[] = [];
+  const cohostEmailList: string[] = [];
+  const participantEmailList: string[] = [];
+
+  for (const source of sources) {
+    if (source.kind === "host_chapter_organizers") {
+      includeHostOrganizers = true;
+      continue;
+    }
+    if (
+      (source.kind === "chapter_organizers" || source.kind === "chapter_all") &&
+      source.chapterId !== null
+    ) {
+      additionalChapters.push({
+        chapterId: source.chapterId,
+        scope: source.kind,
+        role: source.role,
+      });
+      continue;
+    }
+    if (source.kind === "email" && source.email) {
+      if (source.role === "cohost") {
+        cohostEmailList.push(source.email);
+      } else {
+        participantEmailList.push(source.email);
+      }
+    }
+  }
+
+  return {
+    includeHostOrganizers,
+    additionalChapters,
+    cohostEmails: cohostEmailList.join("\n"),
+    participantEmails: participantEmailList.join("\n"),
   };
 }

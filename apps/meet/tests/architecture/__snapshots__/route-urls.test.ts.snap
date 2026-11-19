@@ -9,6 +9,7 @@ exports[`public URLs > are exactly these (later stages add theirs here on purpos
   "/auth/signout",
   "/dev/login",
   "/meetings/:id",
+  "/meetings/:id/edit",
   "/meetings/new",
   "/no-chapter",
   "/signin",

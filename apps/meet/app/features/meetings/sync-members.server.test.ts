@@ -300,6 +300,51 @@ describe("syncMeetingMembers", () => {
     ]);
   });
 
+  it("cohost → participant への降格も deleteSpaceMember → createSpaceMember（role なし）の順で実行し、Drive API は呼ばない", async () => {
+    const { env } = await createEnvFixture(ACTIVE_MEETING, INVITEES);
+    const ops: string[] = [];
+
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      const method = init?.method ?? "GET";
+      if (url === "https://oauth2.googleapis.com/token") {
+        return Response.json({ access_token: "ya29.sync-token", expires_in: 3600 });
+      }
+      if (url === "https://meet.googleapis.com/v2/spaces/sync-1/members" && method === "GET") {
+        return Response.json({
+          members: [
+            {
+              name: "spaces/sync-1/members/keep-cohost",
+              email: "cohost@example.com",
+              role: "COHOST",
+            },
+            // participant へ降格された元 cohost → delete → create(role 省略)
+            { name: "spaces/sync-1/members/demoted", email: "member@gmail.com", role: "COHOST" },
+          ],
+        });
+      }
+      if (method === "DELETE") {
+        ops.push(
+          `DELETE:${decodeURIComponent(url.replace("https://meet.googleapis.com/v2/", ""))}`,
+        );
+        return new Response(null, { status: 204 });
+      }
+      if (method === "POST") {
+        const body = JSON.parse(String(init?.body)) as { email: string; role?: string };
+        ops.push(`CREATE:${body.email}:${body.role ?? "PARTICIPANT"}`);
+        return Response.json({ name: "spaces/sync-1/members/new-2", ...body });
+      }
+      throw new Error(`想定外の fetch: ${method} ${url}`);
+    }) as unknown as typeof fetch;
+
+    await syncMeetingMembers(env, "mtg-1", { fetchFn: fetchMock });
+
+    expect(ops).toEqual([
+      "DELETE:spaces/sync-1/members/demoted",
+      "CREATE:m.e.m.b.e.r@gmail.com:PARTICIPANT",
+    ]);
+  });
+
   it("429 エラー時は meetings.last_error を記録して GoogleApiError を再スローする", async () => {
     const { env, getMeeting } = await createEnvFixture(ACTIVE_MEETING, INVITEES);
 

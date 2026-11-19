@@ -1,4 +1,5 @@
 import { GoogleApiError } from "~/features/google/client.server";
+import { cleanupCanceledMeeting } from "~/features/meetings/cleanup-meeting.server";
 import { syncMeetingMembers } from "~/features/meetings/sync-members.server";
 import { type MeetJobMessage, type MeetJobType, isMeetJobMessage } from "./types";
 
@@ -22,6 +23,9 @@ export type MeetJobHandlerRegistry = {
 export const JOB_HANDLERS: MeetJobHandlerRegistry = {
   sync_members: async (env, message) => {
     await syncMeetingMembers(env, message.meetingId);
+  },
+  cleanup_meeting: async (env, message) => {
+    await cleanupCanceledMeeting(env, message.meetingId);
   },
 };
 

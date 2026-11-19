@@ -3,10 +3,15 @@
  * Stage 05（`cleanup_meeting`）・Stage 06（`process_artifact` / `share_artifact`）では
  * このユニオンに種別を 1 行ずつ追加する。
  */
-export type MeetJobMessage = {
-  type: "sync_members";
-  meetingId: string;
-};
+export type MeetJobMessage =
+  | {
+      type: "sync_members";
+      meetingId: string;
+    }
+  | {
+      type: "cleanup_meeting";
+      meetingId: string;
+    };
 
 export type MeetJobType = MeetJobMessage["type"];
 
@@ -14,7 +19,7 @@ export type MeetJobType = MeetJobMessage["type"];
 export function isMeetJobMessage(value: unknown): value is MeetJobMessage {
   if (!value || typeof value !== "object") return false;
   const obj = value as Record<string, unknown>;
-  if (obj.type === "sync_members") {
+  if (obj.type === "sync_members" || obj.type === "cleanup_meeting") {
     return typeof obj.meetingId === "string" && obj.meetingId.length > 0;
   }
   return false;

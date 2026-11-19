@@ -23,7 +23,7 @@ import {
 import { useId, useState } from "react";
 import { Form, Link as RouterLink, useFetcher, useNavigation } from "react-router";
 import type { ChapterSummary } from "~/features/directory/directory";
-import type { CreateMeetingFieldErrors } from "../form";
+import type { AdditionalChapterRow, CreateMeetingFieldErrors } from "../form";
 import {
   DEFAULT_TIME_ZONE,
   MEETING_ACCESS_TYPE_OPTIONS,
@@ -48,29 +48,52 @@ type PreviewResponse = {
 };
 
 export type MeetingFormProps = {
-  userChapters: UserChapterOption[];
+  mode?: "create" | "edit";
+  userChapters?: UserChapterOption[];
   primaryChapterId: number;
+  hostChapterName?: string;
   allChapters: ChapterSummary[];
+  defaultTitle?: string;
+  defaultDescription?: string;
   defaultDate: string;
   defaultStartTime: string;
   defaultEndTime: string;
+  defaultTimeZone?: string;
+  defaultAccessType?: MeetingAccessType;
+  defaultIncludeHostOrganizers?: boolean;
+  defaultAdditionalChapters?: AdditionalChapterRow[];
+  defaultCohostEmails?: string;
+  defaultParticipantEmails?: string;
+  cancelTo?: string;
   canSubmit: boolean;
   fieldErrors?: CreateMeetingFieldErrors;
   formError?: string;
 };
 
-/** Google Meet 会議の新規作成フォーム。 */
+/** Google Meet 会議の作成・編集フォーム。 */
 export function MeetingForm({
-  userChapters,
+  mode = "create",
+  userChapters = [],
   primaryChapterId,
+  hostChapterName,
   allChapters,
+  defaultTitle = "",
+  defaultDescription = "",
   defaultDate,
   defaultStartTime,
   defaultEndTime,
+  defaultTimeZone = DEFAULT_TIME_ZONE,
+  defaultAccessType = "RESTRICTED",
+  defaultIncludeHostOrganizers = true,
+  defaultAdditionalChapters = [],
+  defaultCohostEmails = "",
+  defaultParticipantEmails = "",
+  cancelTo = "/",
   canSubmit,
   fieldErrors = {},
   formError,
 }: MeetingFormProps) {
+  const isEdit = mode === "edit";
   const navigation = useNavigation();
   const previewFetcher = useFetcher<PreviewResponse>();
   const includeHostId = useId();
@@ -79,13 +102,24 @@ export function MeetingForm({
   const [hostChapterId, setHostChapterId] = useState(
     String(primaryChapterId || userChapters[0]?.id || ""),
   );
-  const [includeHostOrganizers, setIncludeHostOrganizers] = useState(true);
-  const [timeZone, setTimeZone] = useState(DEFAULT_TIME_ZONE);
-  const [accessType, setAccessType] = useState<MeetingAccessType>("RESTRICTED");
-  const [additionalChapters, setAdditionalChapters] = useState<AdditionalChapterDraft[]>([]);
-  const [cohostEmails, setCohostEmails] = useState("");
-  const [participantEmails, setParticipantEmails] = useState("");
-  const [rowCounter, setRowCounter] = useState(0);
+  const [includeHostOrganizers, setIncludeHostOrganizers] = useState(defaultIncludeHostOrganizers);
+  const [timeZone, setTimeZone] = useState(defaultTimeZone || DEFAULT_TIME_ZONE);
+  const [accessType, setAccessType] = useState<MeetingAccessType>(defaultAccessType);
+  const [additionalChapters, setAdditionalChapters] = useState<AdditionalChapterDraft[]>(() =>
+    defaultAdditionalChapters.map((row, index) => ({
+      key: `init-${index}`,
+      chapterId: String(row.chapterId),
+      scope: row.scope,
+      role: row.role,
+    })),
+  );
+  const [cohostEmails, setCohostEmails] = useState(defaultCohostEmails);
+  const [participantEmails, setParticipantEmails] = useState(defaultParticipantEmails);
+  const [rowCounter, setRowCounter] = useState(defaultAdditionalChapters.length);
+
+  const timeZoneOptions = TIME_ZONE_OPTIONS.some((opt) => opt.value === timeZone)
+    ? TIME_ZONE_OPTIONS
+    : [{ value: timeZone, label: timeZone }, ...TIME_ZONE_OPTIONS];
 
   const isSubmitting =
     navigation.state === "submitting" && navigation.formData?.get("intent") !== "preview";
@@ -142,7 +176,8 @@ export function MeetingForm({
 
   return (
     <Form method="post" noValidate>
-      <input type="hidden" name="intent" value="create" />
+      <input type="hidden" name="intent" value={isEdit ? "update" : "create"} />
+      {isEdit && <input type="hidden" name="hostChapterId" value={hostChapterId} />}
       <input
         type="hidden"
         name="includeHostOrganizers"
@@ -152,7 +187,10 @@ export function MeetingForm({
 
       <Stack>
         {formError && (
-          <Alert tone="danger" title="会議を作成できませんでした">
+          <Alert
+            tone="danger"
+            title={isEdit ? "会議を更新できませんでした" : "会議を作成できませんでした"}
+          >
             {formError}
           </Alert>
         )}
@@ -162,7 +200,12 @@ export function MeetingForm({
             <Heading level={2}>基本情報</Heading>
 
             <FormField label="会議タイトル" required error={fieldErrors.title}>
-              <Input name="title" maxLength={200} placeholder="例: GDG Tokyo 定例ミーティング" />
+              <Input
+                name="title"
+                maxLength={200}
+                defaultValue={defaultTitle}
+                placeholder="例: GDG Tokyo 定例ミーティング"
+              />
             </FormField>
 
             <div className="grid gap-4 sm:grid-cols-3">
@@ -183,7 +226,7 @@ export function MeetingForm({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {TIME_ZONE_OPTIONS.map((opt) => (
+                  {timeZoneOptions.map((opt) => (
                     <SelectItem key={opt.value} value={opt.value}>
                       {opt.label}
                     </SelectItem>
@@ -197,7 +240,12 @@ export function MeetingForm({
               description="Google カレンダーの予定説明に記載されます。末尾にこの会議の管理ページ URL が自動で付きます。"
               error={fieldErrors.description}
             >
-              <Textarea name="description" rows={4} maxLength={4000} />
+              <Textarea
+                name="description"
+                rows={4}
+                maxLength={4000}
+                defaultValue={defaultDescription}
+              />
             </FormField>
           </Stack>
         </Card>
@@ -206,20 +254,32 @@ export function MeetingForm({
           <Stack>
             <Heading level={2}>主催チャプターとアクセス設定</Heading>
 
-            <FormField label="主催チャプター" required error={fieldErrors.hostChapterId}>
-              <Select name="hostChapterId" value={hostChapterId} onValueChange={setHostChapterId}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {userChapters.map((chapter) => (
-                    <SelectItem key={chapter.id} value={String(chapter.id)}>
-                      {chapter.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </FormField>
+            {isEdit ? (
+              <div>
+                <Text size="sm" className="font-semibold">
+                  主催チャプター
+                </Text>
+                <Text>{hostChapterName ?? `チャプター #${primaryChapterId}`}</Text>
+                <Text tone="muted" size="sm">
+                  主催チャプターおよび作成者は変更できません。作成者は常に共同主催者（co-host）として維持されます。
+                </Text>
+              </div>
+            ) : (
+              <FormField label="主催チャプター" required error={fieldErrors.hostChapterId}>
+                <Select name="hostChapterId" value={hostChapterId} onValueChange={setHostChapterId}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {userChapters.map((chapter) => (
+                      <SelectItem key={chapter.id} value={String(chapter.id)}>
+                        {chapter.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </FormField>
+            )}
 
             <div className="flex items-start gap-3">
               <Checkbox
@@ -232,7 +292,9 @@ export function MeetingForm({
                   主催チャプターの Organizer を共同主催者（co-host）として招待する
                 </Label>
                 <Text tone="muted" size="sm">
-                  作成者であるあなたは、この設定にかかわらず常に共同主催者（co-host）として登録されます。
+                  {isEdit
+                    ? "作成者は、この設定にかかわらず常に共同主催者（co-host）として登録されます。"
+                    : "作成者であるあなたは、この設定にかかわらず常に共同主催者（co-host）として登録されます。"}
                 </Text>
               </div>
             </div>
@@ -286,10 +348,10 @@ export function MeetingForm({
 
         <Inline className="justify-end">
           <Button variant="outline" asChild>
-            <RouterLink to="/">キャンセル</RouterLink>
+            <RouterLink to={cancelTo}>キャンセル</RouterLink>
           </Button>
           <Button type="submit" disabled={!canSubmit} loading={isSubmitting}>
-            会議を作成
+            {isEdit ? "変更を保存" : "会議を作成"}
           </Button>
         </Inline>
       </Stack>

@@ -248,6 +248,23 @@ function pad2(n: number): string {
   return String(n).padStart(2, "0");
 }
 
+/** UTC ISO 8601 文字列を指定タイムゾーンのフォーム入力用ローカル日付（`YYYY-MM-DD`）・時刻（`HH:MM`）へ変換する。 */
+export function utcIsoToLocalDateTime(
+  iso: string,
+  timeZone: string,
+): { date: string; time: string } {
+  const parsed = new Date(iso);
+  if (Number.isNaN(parsed.getTime())) {
+    return { date: "", time: "" };
+  }
+  const tz = isValidTimeZone(timeZone) ? timeZone : DEFAULT_TIME_ZONE;
+  const parts = getZonedParts(parsed.getTime(), tz);
+  return {
+    date: `${parts.year}-${pad2(parts.month)}-${pad2(parts.day)}`,
+    time: `${pad2(parts.hour)}:${pad2(parts.minute)}`,
+  };
+}
+
 /** 作成フォームの初期値となる日付・開始時刻・終了時刻（次の正時から 1 時間）を返す。 */
 export function getDefaultMeetingSchedule(
   now = new Date(),

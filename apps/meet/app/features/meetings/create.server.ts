@@ -1,16 +1,25 @@
-import type { ChapterRole, MeetActor } from "@gdgjp/gdg-lib";
-import { DirectoryError, fetchChapterMembers } from "~/features/directory/directory.server";
+import type { MeetActor } from "@gdgjp/gdg-lib";
+import { DirectoryError } from "~/features/directory/directory.server";
 import { insertEvent } from "~/features/google/calendar.server";
-import { GoogleApiError, type GoogleFetch } from "~/features/google/client.server";
+import type { GoogleFetch } from "~/features/google/client.server";
 import { type MeetSpace, createSpace } from "~/features/google/meet.server";
 import { getGoogleConnectionSummary } from "~/features/google/oauth.server";
-import { GoogleConnectionError, getGoogleAccessToken } from "~/features/google/token.server";
+import { getGoogleAccessToken } from "~/features/google/token.server";
 import {
   type CreateMeetingFieldErrors,
   parseMeetingCreateForm,
   parseMeetingInviteInputs,
 } from "./form";
-import { type InviteSourceInput, MAX_COHOSTS, MAX_INVITEES, resolveInvitees } from "./invitees";
+import {
+  buildCalendarAttendees,
+  buildCalendarDescription,
+  fetchMembersForSources,
+  formatDirectoryError,
+  formatResolveInviteesError,
+  toSafeErrorSummary,
+  trimTrailingSlash,
+} from "./invite-resolution.server";
+import { MAX_COHOSTS, MAX_INVITEES, resolveInvitees } from "./invitees";
 import type { InviteePreviewCounts } from "./meeting";
 import {
   insertCreatingMeeting,
@@ -41,57 +50,6 @@ export type CreateMeetingDeps = {
   generateId?: () => string;
 };
 
-function trimTrailingSlash(value: string): string {
-  return value.endsWith("/") ? value.slice(0, -1) : value;
-}
-
-function toSafeErrorSummary(error: unknown): string {
-  if (error instanceof GoogleConnectionError) {
-    return error.message.slice(0, 240);
-  }
-  if (error instanceof GoogleApiError) {
-    const statusLabel = error.apiStatus
-      ? `${error.httpStatus} ${error.apiStatus}`
-      : String(error.httpStatus);
-    return `Google API エラー (${statusLabel}): ${error.apiMessage}`.slice(0, 240);
-  }
-  if (error instanceof Error) {
-    return error.message.slice(0, 240);
-  }
-  return "予期しないエラーが発生しました";
-}
-
-async function fetchMembersForSources(
-  env: Env,
-  actor: MeetActor,
-  sources: readonly InviteSourceInput[],
-) {
-  const chapterIdSet = new Set<number>();
-  let needsAllRoles = false;
-
-  for (const source of sources) {
-    if (source.kind === "email" || source.chapterId === null) continue;
-    chapterIdSet.add(source.chapterId);
-    if (source.kind === "chapter_all") {
-      needsAllRoles = true;
-    }
-  }
-
-  if (chapterIdSet.size === 0) return [];
-
-  const roles: ChapterRole[] = needsAllRoles ? ["organizer", "member"] : ["organizer"];
-  return fetchChapterMembers(env, {
-    actor,
-    chapterIds: [...chapterIdSet],
-    roles,
-  });
-}
-
-function buildCalendarDescription(userDescription: string, meetingUrl: string): string {
-  const linkLine = `管理ページ: ${meetingUrl}`;
-  return userDescription ? `${userDescription}\n\n${linkLine}` : linkLine;
-}
-
 /**
  * フォーム送信前の招待者数内訳をサーバー側で解決し、**人数のみ**を返す。
  * チャプターメンバーのメールアドレスや氏名はブラウザへ一切返さない。
@@ -114,10 +72,7 @@ export async function previewMeetingInvitees(
     chapterMembers = await fetchMembersForSources(env, actor, parsed.data.sources);
   } catch (error) {
     if (error instanceof DirectoryError) {
-      return {
-        ok: false,
-        error: "チャプターメンバーの取得に失敗しました。時間をおいて再度お試しください。",
-      };
+      return { ok: false, error: formatDirectoryError(error) };
     }
     throw error;
   }
@@ -187,10 +142,7 @@ export async function createMeeting(
     chapterMembers = await fetchMembersForSources(env, actor, parsed.data.sources);
   } catch (error) {
     if (error instanceof DirectoryError) {
-      return {
-        ok: false,
-        formError: "チャプターメンバーの取得に失敗しました。時間をおいて再度お試しください。",
-      };
+      return { ok: false, formError: formatDirectoryError(error) };
     }
     throw error;
   }
@@ -204,34 +156,7 @@ export async function createMeeting(
   });
 
   if (!resolved.ok) {
-    if (resolved.code === "too_many_invitees") {
-      return {
-        ok: false,
-        formError: `招待者が上限（${MAX_INVITEES} 人）を超えています（現在 ${resolved.count} 人）。招待先を減らしてください。`,
-      };
-    }
-    if (resolved.code === "too_many_cohosts") {
-      return {
-        ok: false,
-        formError: `共同主催者が上限（${MAX_COHOSTS} 人）を超えています（現在 ${resolved.count} 人）。共同主催者を減らしてください。`,
-      };
-    }
-    if (resolved.code === "google_group_not_allowed") {
-      return {
-        ok: false,
-        formError: `Google グループ（googlegroups.com）は招待先に指定できません: ${resolved.emails.join(", ")}`,
-      };
-    }
-    if (resolved.code === "invalid_email") {
-      return {
-        ok: false,
-        formError: `メールアドレスの形式が正しくありません: ${resolved.emails.join(", ")}`,
-      };
-    }
-    return {
-      ok: false,
-      formError: "招待者の解決に失敗しました。入力内容を確認してください。",
-    };
+    return { ok: false, formError: formatResolveInviteesError(resolved) };
   }
 
   const meetingId = generateId();
@@ -285,11 +210,7 @@ export async function createMeeting(
           description: buildCalendarDescription(parsed.data.description, meetingUrl),
           start: { dateTime: parsed.data.startAt, timeZone: parsed.data.timeZone },
           end: { dateTime: parsed.data.endAt, timeZone: parsed.data.timeZone },
-          attendees: resolved.invitees.map((inv) =>
-            inv.displayName
-              ? { email: inv.email, displayName: inv.displayName }
-              : { email: inv.email },
-          ),
+          attendees: buildCalendarAttendees(resolved.invitees),
           guestsCanSeeOtherGuests: true,
           guestsCanInviteOthers: false,
           guestsCanModify: false,

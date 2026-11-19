@@ -1,123 +1,23 @@
 import type { ResolvedInvitee } from "./invitees";
 import type {
-  InviteSourceKind,
-  InviteeRole,
-  InviteeSourceKind,
   MeetingAccessType,
   MeetingInviteSourceRecord,
   MeetingInviteeRecord,
   MeetingListItem,
   MeetingRecord,
-  MeetingStatus,
 } from "./meeting";
-
-type MeetingRow = {
-  id: string;
-  host_chapter_id: number;
-  title: string;
-  description: string;
-  start_at: string;
-  end_at: string;
-  time_zone: string;
-  access_type: MeetingAccessType;
-  space_name: string | null;
-  meeting_uri: string | null;
-  meeting_code: string | null;
-  calendar_event_id: string | null;
-  calendar_html_link: string | null;
-  status: MeetingStatus;
-  last_error: string | null;
-  created_by_user_id: string;
-  created_by_email: string;
-  created_at: string;
-  updated_at: string;
-  canceled_at: string | null;
-};
-
-type MeetingListRow = MeetingRow & {
-  my_role: InviteeRole | null;
-};
-
-type MeetingInviteSourceRow = {
-  id: string;
-  meeting_id: string;
-  kind: InviteSourceKind;
-  chapter_id: number | null;
-  email: string | null;
-  role: InviteeRole;
-  created_at: string;
-};
-
-type MeetingInviteeRow = {
-  meeting_id: string;
-  email_normalized: string;
-  email: string;
-  display_name: string | null;
-  user_id: string | null;
-  role: InviteeRole;
-  source_kinds: string;
-};
-
-function mapMeetingRow(row: MeetingRow): MeetingRecord {
-  return {
-    id: row.id,
-    hostChapterId: Number(row.host_chapter_id),
-    title: row.title,
-    description: row.description,
-    startAt: row.start_at,
-    endAt: row.end_at,
-    timeZone: row.time_zone,
-    accessType: row.access_type,
-    spaceName: row.space_name,
-    meetingUri: row.meeting_uri,
-    meetingCode: row.meeting_code,
-    calendarEventId: row.calendar_event_id,
-    calendarHtmlLink: row.calendar_html_link,
-    status: row.status,
-    lastError: row.last_error,
-    createdByUserId: row.created_by_user_id,
-    createdByEmail: row.created_by_email,
-    createdAt: row.created_at,
-    updatedAt: row.updated_at,
-    canceledAt: row.canceled_at,
-  };
-}
-
-function parseSourceKinds(raw: string): InviteeSourceKind[] {
-  try {
-    const parsed = JSON.parse(raw);
-    if (Array.isArray(parsed)) {
-      return parsed.filter((item): item is InviteeSourceKind => typeof item === "string");
-    }
-  } catch {
-    // 壊れた JSON があっても安全側（空配列）へ倒す。
-  }
-  return [];
-}
-
-function mapInviteeRow(row: MeetingInviteeRow): MeetingInviteeRecord {
-  return {
-    meetingId: row.meeting_id,
-    emailNormalized: row.email_normalized,
-    email: row.email,
-    displayName: row.display_name,
-    userId: row.user_id,
-    role: row.role,
-    sourceKinds: parseSourceKinds(row.source_kinds),
-  };
-}
-
-function mapInviteSourceRow(row: MeetingInviteSourceRow): MeetingInviteSourceRecord {
-  return {
-    id: row.id,
-    meetingId: row.meeting_id,
-    kind: row.kind,
-    chapterId: row.chapter_id === null ? null : Number(row.chapter_id),
-    email: row.email,
-    role: row.role,
-    createdAt: row.created_at,
-  };
-}
+import {
+  type InsertInviteSourceItem,
+  type MeetingInviteSourceRow,
+  type MeetingInviteeRow,
+  type MeetingListRow,
+  type MeetingRow,
+  buildInsertInviteSourceStatements,
+  buildInsertInviteeStatements,
+  mapInviteSourceRow,
+  mapInviteeRow,
+  mapMeetingRow,
+} from "./meetings-mappers.server";
 
 export type InsertCreatingMeetingInput = {
   id: string;
@@ -131,13 +31,7 @@ export type InsertCreatingMeetingInput = {
   createdByUserId: string;
   createdByEmail: string;
   nowIso: string;
-  sources: ReadonlyArray<{
-    id: string;
-    kind: InviteSourceKind;
-    chapterId: number | null;
-    email: string | null;
-    role: InviteeRole;
-  }>;
+  sources: readonly InsertInviteSourceItem[];
   invitees: readonly ResolvedInvitee[];
 };
 
@@ -168,47 +62,9 @@ export async function insertCreatingMeeting(
         input.nowIso,
         input.nowIso,
       ),
+    ...buildInsertInviteSourceStatements(db, input.id, input.sources, input.nowIso),
+    ...buildInsertInviteeStatements(db, input.id, input.invitees),
   ];
-
-  for (const source of input.sources) {
-    statements.push(
-      db
-        .prepare(
-          `INSERT INTO meeting_invite_sources (
-             id, meeting_id, kind, chapter_id, email, role, created_at
-           ) VALUES (?, ?, ?, ?, ?, ?, ?)`,
-        )
-        .bind(
-          source.id,
-          input.id,
-          source.kind,
-          source.chapterId,
-          source.email,
-          source.role,
-          input.nowIso,
-        ),
-    );
-  }
-
-  for (const invitee of input.invitees) {
-    statements.push(
-      db
-        .prepare(
-          `INSERT INTO meeting_invitees (
-             meeting_id, email_normalized, email, display_name, user_id, role, source_kinds
-           ) VALUES (?, ?, ?, ?, ?, ?, ?)`,
-        )
-        .bind(
-          input.id,
-          invitee.emailNormalized,
-          invitee.email,
-          invitee.displayName,
-          invitee.userId,
-          invitee.role,
-          JSON.stringify(invitee.sourceKinds),
-        ),
-    );
-  }
 
   await db.batch(statements);
 }
@@ -300,6 +156,91 @@ export async function updateMeetingLastError(
   await db
     .prepare("UPDATE meetings SET last_error = ?, updated_at = ? WHERE id = ?")
     .bind(lastError, updatedAt, meetingId)
+    .run();
+}
+
+/** 会議の基本情報（タイトル・説明・日時・タイムゾーン・アクセス種別）を更新する。 */
+export async function updateMeetingDetails(
+  db: D1Database,
+  meetingId: string,
+  params: {
+    title: string;
+    description: string;
+    startAt: string;
+    endAt: string;
+    timeZone: string;
+    accessType: MeetingAccessType;
+    calendarHtmlLink?: string | null;
+    updatedAt: string;
+  },
+): Promise<void> {
+  await db
+    .prepare(
+      `UPDATE meetings
+       SET title = ?, description = ?, start_at = ?, end_at = ?, time_zone = ?,
+           access_type = ?, calendar_html_link = COALESCE(?, calendar_html_link), updated_at = ?
+       WHERE id = ?`,
+    )
+    .bind(
+      params.title,
+      params.description,
+      params.startAt,
+      params.endAt,
+      params.timeZone,
+      params.accessType,
+      params.calendarHtmlLink ?? null,
+      params.updatedAt,
+      meetingId,
+    )
+    .run();
+}
+
+/** 編集時の招待元（`meeting_invite_sources`）と招待者（`meeting_invitees`）を D1 batch で差し替える。 */
+export async function replaceMeetingInviteSourcesAndInvitees(
+  db: D1Database,
+  meetingId: string,
+  params: {
+    sources: readonly InsertInviteSourceItem[];
+    invitees: readonly ResolvedInvitee[];
+    nowIso: string;
+  },
+): Promise<void> {
+  const statements: D1PreparedStatement[] = [
+    db.prepare("DELETE FROM meeting_invite_sources WHERE meeting_id = ?").bind(meetingId),
+    db.prepare("DELETE FROM meeting_invitees WHERE meeting_id = ?").bind(meetingId),
+    ...buildInsertInviteSourceStatements(db, meetingId, params.sources, params.nowIso),
+    ...buildInsertInviteeStatements(db, meetingId, params.invitees),
+  ];
+
+  await db.batch(statements);
+}
+
+/** チャプター再同期時の招待者スナップショット（`meeting_invitees`）と `meetings.updated_at` を D1 batch で差し替える。 */
+export async function replaceMeetingInvitees(
+  db: D1Database,
+  meetingId: string,
+  params: { invitees: readonly ResolvedInvitee[]; updatedAt: string },
+): Promise<void> {
+  const statements: D1PreparedStatement[] = [
+    db.prepare("DELETE FROM meeting_invitees WHERE meeting_id = ?").bind(meetingId),
+    ...buildInsertInviteeStatements(db, meetingId, params.invitees),
+    db.prepare("UPDATE meetings SET updated_at = ? WHERE id = ?").bind(params.updatedAt, meetingId),
+  ];
+
+  await db.batch(statements);
+}
+
+/** 取り消し完了時に `status = 'canceled'` と `canceled_at` を記録する。 */
+export async function markMeetingCanceled(
+  db: D1Database,
+  meetingId: string,
+  params: { canceledAt: string; updatedAt: string },
+): Promise<void> {
+  await db
+    .prepare(
+      "UPDATE meetings SET status = 'canceled', canceled_at = ?, updated_at = ? WHERE id = ?",
+    )
+    .bind(params.canceledAt, params.updatedAt, meetingId)
     .run();
 }
 

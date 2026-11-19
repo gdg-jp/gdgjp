@@ -22,7 +22,11 @@ describe("dispatchMeetJobMessage / processMeetJobBatch", () => {
 
   it("既知の sync_members メッセージをハンドラへ振り分け、成功時に ack する", async () => {
     const syncHandler = vi.fn().mockResolvedValue(undefined);
-    const handlers: MeetJobHandlerRegistry = { sync_members: syncHandler };
+    const cleanupHandler = vi.fn().mockResolvedValue(undefined);
+    const handlers: MeetJobHandlerRegistry = {
+      sync_members: syncHandler,
+      cleanup_meeting: cleanupHandler,
+    };
     const message = createFakeMessage({ type: "sync_members", meetingId: "mtg-1" });
 
     await dispatchMeetJobMessage(env, message, undefined, handlers);
@@ -32,6 +36,28 @@ describe("dispatchMeetJobMessage / processMeetJobBatch", () => {
       { type: "sync_members", meetingId: "mtg-1" },
       undefined,
     );
+    expect(cleanupHandler).not.toHaveBeenCalled();
+    expect(message.ack).toHaveBeenCalledTimes(1);
+    expect(message.retry).not.toHaveBeenCalled();
+  });
+
+  it("既知の cleanup_meeting メッセージをハンドラへ振り分け、成功時に ack する", async () => {
+    const syncHandler = vi.fn().mockResolvedValue(undefined);
+    const cleanupHandler = vi.fn().mockResolvedValue(undefined);
+    const handlers: MeetJobHandlerRegistry = {
+      sync_members: syncHandler,
+      cleanup_meeting: cleanupHandler,
+    };
+    const message = createFakeMessage({ type: "cleanup_meeting", meetingId: "mtg-2" });
+
+    await dispatchMeetJobMessage(env, message, undefined, handlers);
+
+    expect(cleanupHandler).toHaveBeenCalledWith(
+      env,
+      { type: "cleanup_meeting", meetingId: "mtg-2" },
+      undefined,
+    );
+    expect(syncHandler).not.toHaveBeenCalled();
     expect(message.ack).toHaveBeenCalledTimes(1);
     expect(message.retry).not.toHaveBeenCalled();
   });
@@ -39,12 +65,17 @@ describe("dispatchMeetJobMessage / processMeetJobBatch", () => {
   it("未知のメッセージ型や不正な本文は警告ログを出して ack する", async () => {
     const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
     const syncHandler = vi.fn();
-    const handlers: MeetJobHandlerRegistry = { sync_members: syncHandler };
+    const cleanupHandler = vi.fn();
+    const handlers: MeetJobHandlerRegistry = {
+      sync_members: syncHandler,
+      cleanup_meeting: cleanupHandler,
+    };
     const message = createFakeMessage({ type: "unknown_job", foo: "bar" });
 
     await dispatchMeetJobMessage(env, message, undefined, handlers);
 
     expect(syncHandler).not.toHaveBeenCalled();
+    expect(cleanupHandler).not.toHaveBeenCalled();
     expect(message.ack).toHaveBeenCalledTimes(1);
     expect(message.retry).not.toHaveBeenCalled();
     warnSpy.mockRestore();
@@ -60,6 +91,7 @@ describe("dispatchMeetJobMessage / processMeetJobBatch", () => {
           apiMessage: "Quota exceeded",
         }),
       ),
+      cleanup_meeting: vi.fn(),
     };
     const message = createFakeMessage({ type: "sync_members", meetingId: "mtg-1" });
 
@@ -78,6 +110,7 @@ describe("dispatchMeetJobMessage / processMeetJobBatch", () => {
       sync_members: vi
         .fn()
         .mockRejectedValue(new GoogleConnectionError("invalid_grant", "失効しました")),
+      cleanup_meeting: vi.fn(),
     };
     const message = createFakeMessage({ type: "sync_members", meetingId: "mtg-1" });
 

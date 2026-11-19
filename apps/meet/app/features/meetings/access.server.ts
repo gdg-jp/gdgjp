@@ -22,6 +22,30 @@ export function canViewMeeting(
   return invitees.some((inv) => inv.emailNormalized === normalized);
 }
 
+/** 会議の編集・再同期・取り消しを行える役割（管理者または正規化メール一致の `cohost`）か判定する。 */
+export function hasMeetingEditRole(
+  user: Pick<AuthUser, "email" | "isAdmin">,
+  invitees: readonly Pick<MeetingInviteeRecord, "emailNormalized" | "role">[],
+): boolean {
+  if (user.isAdmin) return true;
+  const normalized = normalizeEmail(user.email);
+  return invitees.some((inv) => inv.emailNormalized === normalized && inv.role === "cohost");
+}
+
+/**
+ * 会議の編集・再同期・取り消し権限を判定する。
+ * - `meeting.status === "active"` であること（`canceled` / `failed` / `creating` は不可）
+ * - チャプター所属は問わず、GDG Accounts 管理者または正規化メール一致の `cohost` であれば許可
+ */
+export function canEditMeeting(
+  user: Pick<AuthUser, "email" | "isAdmin">,
+  meeting: Pick<MeetingRecord, "status">,
+  invitees: readonly Pick<MeetingInviteeRecord, "emailNormalized" | "role">[],
+): boolean {
+  if (meeting.status !== "active") return false;
+  return hasMeetingEditRole(user, invitees);
+}
+
 /**
  * 招待者一覧をブラウザへ返却する形式へ変換する。
  * 会議の閲覧権限がある全員に対し、チャプター由来を含むすべての招待者の名前とメールアドレスを返す。
@@ -79,4 +103,26 @@ export async function requireMeetingViewAccess(
     meeting,
     invitees,
   };
+}
+
+/**
+ * 会議の編集・再同期・取り消しアクセス検証を行う。
+ * - 会議が存在しない、または無関係な第三者は 404
+ * - 閲覧可能だが `cohost` でも管理者でもない一般参加者は 403
+ * - `status !== "active"`（`canceled` / `failed` 等）の会議は 409
+ */
+export async function requireMeetingEditAccess(
+  env: Env,
+  request: Request,
+  meetingId: string,
+  deps: AccessDeps = {},
+): Promise<MeetingViewAccess> {
+  const access = await requireMeetingViewAccess(env, request, meetingId, deps);
+  if (!hasMeetingEditRole(access.user, access.invitees)) {
+    throw new Response("Forbidden", { status: 403 });
+  }
+  if (access.meeting.status !== "active") {
+    throw new Response("Conflict", { status: 409 });
+  }
+  return access;
 }

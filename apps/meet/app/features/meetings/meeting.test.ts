@@ -4,6 +4,7 @@ import {
   getDefaultMeetingSchedule,
   localDateTimeToUtcIso,
   splitMeetingsByTime,
+  utcIsoToLocalDateTime,
 } from "./meeting";
 
 describe("localDateTimeToUtcIso", () => {
@@ -21,6 +22,23 @@ describe("localDateTimeToUtcIso", () => {
     expect(localDateTimeToUtcIso("2026-02-30", "10:00", "Asia/Tokyo")).toBeNull();
     expect(localDateTimeToUtcIso("2026-12-01", "25:00", "Asia/Tokyo")).toBeNull();
     expect(localDateTimeToUtcIso("2026-12-01", "10:00", "Invalid/Zone")).toBeNull();
+  });
+});
+
+describe("utcIsoToLocalDateTime", () => {
+  it("UTC ISO 8601 を指定タイムゾーンのローカル日付・時刻へ変換する", () => {
+    expect(utcIsoToLocalDateTime("2026-12-01T10:00:00.000Z", "Asia/Tokyo")).toEqual({
+      date: "2026-12-01",
+      time: "19:00",
+    });
+    expect(utcIsoToLocalDateTime("2026-12-01T10:00:00.000Z", "UTC")).toEqual({
+      date: "2026-12-01",
+      time: "10:00",
+    });
+  });
+
+  it("不正な日時文字列には空文字を返す", () => {
+    expect(utcIsoToLocalDateTime("invalid", "Asia/Tokyo")).toEqual({ date: "", time: "" });
   });
 });
 
