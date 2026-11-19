@@ -414,7 +414,7 @@ describe("shareArtifactJob", () => {
         },
         {
           fileUrl: "https://drive.google.com/file/d/drive-file-1/view",
-          title: "定例会議 録画",
+          title: "録画",
           mimeType: "video/mp4",
         },
       ],
@@ -425,6 +425,72 @@ describe("shareArtifactJob", () => {
       lastError: null,
       attempts: 0,
     });
+  });
+
+  it("種別ごとの短い Calendar 表示名（要約・文字起こし / 録画 / チャットの記録）で添付し、Drive ファイル名は変更しない", async () => {
+    const cases = [
+      {
+        kind: "notes" as const,
+        driveTitle: "abc-defg-hij (2026-11-19 19:00 GMT+9) - Gemini が作成したメモ",
+        mimeType: "application/vnd.google-apps.document",
+        webViewLink: "https://docs.google.com/document/d/drive-notes-1/edit",
+        expectedCalendarTitle: "要約・文字起こし",
+      },
+      {
+        kind: "recording" as const,
+        driveTitle: "abc-defg-hij (2026-11-19 19:00 GMT+9) - 録画",
+        mimeType: "video/mp4",
+        webViewLink: "https://drive.google.com/file/d/drive-rec-1/view",
+        expectedCalendarTitle: "録画",
+      },
+      {
+        kind: "chat_log" as const,
+        driveTitle: "abc-defg-hij (2026-11-19 19:00 GMT+9) - チャットの記録",
+        mimeType: "text/plain",
+        webViewLink: "https://drive.google.com/file/d/drive-chat-1/view",
+        expectedCalendarTitle: "チャットの記録",
+      },
+    ];
+
+    for (const c of cases) {
+      const { env } = await createEnvFixture(ACTIVE_MEETING, {
+        ...BASE_ARTIFACT,
+        kind: c.kind,
+        driveFileId: `drive-${c.kind}-1`,
+        title: c.driveTitle,
+        mimeType: c.mimeType,
+        webViewLink: c.webViewLink,
+      });
+
+      let patchedTitle: string | undefined;
+      const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+        const url = String(input);
+        const method = init?.method ?? "GET";
+        if (url === "https://oauth2.googleapis.com/token") {
+          return Response.json({ access_token: "ya29.share", expires_in: 3600 });
+        }
+        if (url.includes("/permissions") && method === "GET") {
+          return Response.json({ permissions: [] });
+        }
+        if (url.includes("/permissions") && method === "POST") {
+          return Response.json({ id: "perm-1" });
+        }
+        if (url.includes("/calendar/v3/") && method === "GET") {
+          return Response.json({ id: "evt-1", attachments: [] });
+        }
+        if (url.includes("/calendar/v3/") && method === "PATCH") {
+          const body = JSON.parse(String(init?.body)) as {
+            attachments?: Array<{ title?: string }>;
+          };
+          patchedTitle = body.attachments?.[0]?.title;
+          return Response.json({ id: "evt-1" });
+        }
+        throw new Error(`想定外の fetch: ${method} ${url}`);
+      }) as unknown as typeof fetch;
+
+      await shareArtifactJob(env, "art-1", { fetchFn: fetchMock });
+      expect(patchedTitle).toBe(c.expectedCalendarTitle);
+    }
   });
 
   it("1 人の恒久的 400 エラーでは他の招待者への共有を継続して shared_at を入れ、レート制限の 403 は再試行へ回す", async () => {

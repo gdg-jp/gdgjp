@@ -117,15 +117,39 @@ export const ARTIFACT_KIND_META: Record<
   ArtifactKind,
   {
     label: string;
+    calendarTitle: string;
     tone: "info" | "success" | "neutral";
     icon: "Play" | "FileText" | "MessageSquare";
     driveLogo: Extract<GoogleWorkspaceBrand, "docs" | "drive-video">;
   }
 > = {
-  recording: { label: "録画", tone: "info", icon: "Play", driveLogo: "drive-video" },
-  notes: { label: "文字起こし・Gemini メモ", tone: "success", icon: "FileText", driveLogo: "docs" },
-  chat_log: { label: "チャットの記録", tone: "neutral", icon: "MessageSquare", driveLogo: "docs" },
+  recording: {
+    label: "録画",
+    calendarTitle: "録画",
+    tone: "info",
+    icon: "Play",
+    driveLogo: "drive-video",
+  },
+  notes: {
+    label: "文字起こし・Gemini メモ",
+    calendarTitle: "要約・文字起こし",
+    tone: "success",
+    icon: "FileText",
+    driveLogo: "docs",
+  },
+  chat_log: {
+    label: "チャットの記録",
+    calendarTitle: "チャットの記録",
+    tone: "neutral",
+    icon: "MessageSquare",
+    driveLogo: "docs",
+  },
 };
+
+/** Google Calendar 予定へ添付する際の短い表示名を返す（Drive のファイル名自体は変更しない）。 */
+export function getCalendarAttachmentTitle(kind: ArtifactKind): string {
+  return ARTIFACT_KIND_META[kind].calendarTitle;
+}
 
 /** ISO 8601 日時文字列を JST の日本語表記へ整形する。 */
 export function formatArtifactDateTimeJst(iso: string): string {
