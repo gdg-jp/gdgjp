@@ -53,7 +53,7 @@ export function ArtifactList({ artifacts }: ArtifactListProps) {
 
         {artifacts.length === 0 ? (
           <Text tone="muted" size="sm">
-            録画・文字起こし・Gemini
+            録画・チャット記録・文字起こし・Gemini
             メモは会議終了から数分（長時間会議ではさらに長くなる場合があります）後に自動で共有・添付されます。
           </Text>
         ) : (

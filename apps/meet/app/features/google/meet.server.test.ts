@@ -65,6 +65,77 @@ describe("meet.server", () => {
     expect(calls[3].init?.method).toBe("POST");
   });
 
+  it("createSpace と patchSpace は artifactConfig と対応 updateMask を正しく送信する", async () => {
+    const calls: Array<{ url: string; method: string; body: unknown }> = [];
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      calls.push({
+        url: String(input),
+        method: init?.method ?? "GET",
+        body: typeof init?.body === "string" ? JSON.parse(init.body) : undefined,
+      });
+      return Response.json({
+        name: "spaces/abc",
+        meetingUri: "https://meet.google.com/aaa-bbbb-ccc",
+        meetingCode: "aaa-bbbb-ccc",
+      });
+    }) as unknown as typeof fetch;
+
+    await createSpace(
+      "token-1",
+      {
+        accessType: "RESTRICTED",
+        artifactConfig: {
+          transcriptionConfig: { autoTranscriptionGeneration: "ON" },
+          smartNotesConfig: { autoSmartNotesGeneration: "ON" },
+          recordingConfig: { autoRecordingGeneration: "OFF" },
+        },
+      },
+      fetchMock,
+    );
+
+    expect(calls[0]).toEqual({
+      url: "https://meet.googleapis.com/v2/spaces",
+      method: "POST",
+      body: {
+        config: {
+          accessType: "RESTRICTED",
+          moderation: "ON",
+          artifactConfig: {
+            transcriptionConfig: { autoTranscriptionGeneration: "ON" },
+            smartNotesConfig: { autoSmartNotesGeneration: "ON" },
+            recordingConfig: { autoRecordingGeneration: "OFF" },
+          },
+        },
+      },
+    });
+
+    await patchSpace(
+      "token-1",
+      "spaces/abc",
+      {
+        artifactConfig: {
+          recordingConfig: { autoRecordingGeneration: "ON" },
+          transcriptionConfig: { autoTranscriptionGeneration: "OFF" },
+        },
+      },
+      "config.artifactConfig.recordingConfig.autoRecordingGeneration,config.artifactConfig.transcriptionConfig.autoTranscriptionGeneration",
+      fetchMock,
+    );
+
+    expect(calls[1]).toEqual({
+      url: "https://meet.googleapis.com/v2/spaces/abc?updateMask=config.artifactConfig.recordingConfig.autoRecordingGeneration%2Cconfig.artifactConfig.transcriptionConfig.autoTranscriptionGeneration",
+      method: "PATCH",
+      body: {
+        config: {
+          artifactConfig: {
+            recordingConfig: { autoRecordingGeneration: "ON" },
+            transcriptionConfig: { autoTranscriptionGeneration: "OFF" },
+          },
+        },
+      },
+    });
+  });
+
   it("listSpaceMembers は nextPageToken を追従して全ページを連結取得する", async () => {
     const requestedUrls: string[] = [];
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => {

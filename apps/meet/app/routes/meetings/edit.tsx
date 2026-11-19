@@ -1,4 +1,4 @@
-import { Alert, Icons, PageHeader, Stack, Text, Link as UiLink } from "@gdgjp/design-system";
+import { Alert, Icons, PageHeader, Stack, Link as UiLink } from "@gdgjp/design-system";
 import { Link as RouterLink, redirect } from "react-router";
 import { buildSignInRedirect } from "~/features/auth/access.server";
 import {
@@ -68,6 +68,9 @@ export async function loader({ request, params, context }: Route.LoaderArgs) {
       endTime: endLocal.time,
       timeZone: meeting.timeZone,
       accessType: meeting.accessType,
+      autoTranscription: meeting.autoTranscription,
+      autoSmartNotes: meeting.autoSmartNotes,
+      autoRecording: meeting.autoRecording,
     },
     inviteDefaults,
   };
@@ -102,7 +105,10 @@ export async function action({ request, params, context }: Route.ActionArgs) {
   const existingSources = await listMeetingInviteSources(env.DB, meetingId);
   const result = await updateMeeting(env, actor, meeting, existingSources, invitees, formData);
   if (result.ok) {
-    return redirect(`/meetings/${meeting.id}?updated=1`);
+    const params = new URLSearchParams({ updated: "1" });
+    if (result.cohostAdded) params.set("cohost_added", "1");
+    if (result.inviteeRemoved) params.set("invitee_removed", "1");
+    return redirect(`/meetings/${meeting.id}?${params.toString()}`);
   }
   return {
     intent: "update" as const,
@@ -156,16 +162,7 @@ export default function EditMeeting({ loaderData, actionData }: Route.ComponentP
         )}
 
         <Alert tone="info" title="編集時のご注意">
-          <Stack>
-            <Text size="sm">
-              会議中に共同主催者（co-host）に追加された人は、会議に入り直すとホスト管理が使えます。
-            </Text>
-            <Text size="sm">
-              変更を保存すると Google
-              カレンダーの予定が上書きされ、招待者へ更新通知メールが送信されます。招待者を外しても、既に共有済みの
-              Google ドライブファイルの閲覧権限は自動では剥奪されません。
-            </Text>
-          </Stack>
+          変更を保存すると Google カレンダーの予定が更新され、招待者へ更新通知メールが送信されます。
         </Alert>
 
         <MeetingForm
@@ -180,6 +177,11 @@ export default function EditMeeting({ loaderData, actionData }: Route.ComponentP
           defaultEndTime={meeting.endTime}
           defaultTimeZone={meeting.timeZone}
           defaultAccessType={meeting.accessType}
+          defaultAutoArtifacts={{
+            autoTranscription: meeting.autoTranscription,
+            autoSmartNotes: meeting.autoSmartNotes,
+            autoRecording: meeting.autoRecording,
+          }}
           defaultIncludeHostOrganizers={inviteDefaults.includeHostOrganizers}
           defaultAdditionalChapters={inviteDefaults.additionalChapters}
           defaultCohostEmails={inviteDefaults.cohostEmails}
