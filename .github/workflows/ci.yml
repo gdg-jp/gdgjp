@@ -201,9 +201,13 @@ jobs:
       - name: Build library consumer
         if: contains(fromJSON(needs.changes.outputs.ci), '@gdgjp/design-system')
         run: pnpm exec turbo test:consumer --filter=@gdgjp/design-system --output-logs=errors-only
+      # See the e2e job: the fonts come from a cache instead of --with-deps's apt-get install.
+      - name: Install Playwright fonts
+        if: contains(fromJSON(needs.changes.outputs.ci), '@gdgjp/design-system')
+        uses: ./.github/actions/playwright-fonts
       - name: Install Playwright browsers
         if: contains(fromJSON(needs.changes.outputs.ci), '@gdgjp/design-system')
-        run: pnpm --filter @gdgjp/design-system exec playwright install --with-deps chromium
+        run: pnpm --filter @gdgjp/design-system exec playwright install chromium
       - name: Check design system scenarios
         if: contains(fromJSON(needs.changes.outputs.ci), '@gdgjp/design-system')
         run: node scripts/check-design-harness.mjs scenarios
@@ -657,12 +661,14 @@ jobs:
         if: matrix.app == 'wiki'
         run: pnpm --filter @gdgjp/wiki e2e:prepare
       # The ubuntu-24.04 image already ships Chrome's system libraries, and --with-deps's apt-get
-      # install can stall for 10 minutes on a slow Ubuntu mirror. Keep it only for design-system,
-      # whose screenshot assertions depend on the fonts it installs.
+      # install can stall for 10 minutes on a slow Ubuntu mirror. Only design-system (screenshot
+      # assertions) and pr (text overflow checks on rendered images) need its fonts; they come
+      # from a cache instead.
+      - name: Install Playwright fonts
+        if: matrix.app == 'design-system' || matrix.app == 'pr'
+        uses: ./.github/actions/playwright-fonts
       - name: Install Playwright browsers
-        run: >-
-          pnpm --filter @gdgjp/${{ matrix.app }} exec playwright install
-          ${{ matrix.app == 'design-system' && '--with-deps' || '' }} chromium
+        run: pnpm --filter @gdgjp/${{ matrix.app }} exec playwright install chromium
       - name: Run E2E testing
         run: pnpm --filter @gdgjp/${{ matrix.app }} test:e2e
       - name: Upload Playwright report
