@@ -12,6 +12,9 @@ APP_URL = "https://meet.gdgs.jp"
 ACCOUNTS_URL = "https://accounts.gdgs.jp"
 IDP_URL = "https://accounts.gdgs.jp"
 IDP_CLIENT_ID = "meet"
+# 本番用 Web 型 OAuth クライアント作成後に設定する
+GOOGLE_CLIENT_ID = ""
+GOOGLE_HOST_EMAIL = "community-support@gdgoc.jp"
 
 [assets]
 binding = "ASSETS"

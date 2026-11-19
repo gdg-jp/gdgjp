@@ -1,11 +1,16 @@
 import { AppShell, Icons, ThemeToggle } from "@gdgjp/design-system";
 import { GdgAccountMenu } from "@gdgjp/gdg-lib/ui";
 import type { ReactNode } from "react";
-import { Link } from "react-router";
+import { Link, useLocation } from "react-router";
 
-export type AppUser = { name: string; email: string; image: string | null };
+export type AppUser = {
+  name: string;
+  email: string;
+  image: string | null;
+  isAdmin?: boolean;
+};
 
-/** Shared shell for signed-in GDG Japan Meet pages. */
+/** サインイン済み GDG Japan Meet 画面共通のアプリシェル。 */
 export function AppLayout({
   user,
   accountsUrl,
@@ -15,6 +20,7 @@ export function AppLayout({
   accountsUrl: string;
   children: ReactNode;
 }) {
+  const { pathname } = useLocation();
   return (
     <AppShell
       collapsible="none"
@@ -26,10 +32,19 @@ export function AppLayout({
       }
       navigation={
         <nav className="gdg-sidebar-nav" aria-label="メイン">
-          <Link to="/" aria-current="page">
+          <Link to="/" aria-current={pathname === "/" ? "page" : undefined}>
             <Icons name="CalendarDays" size={18} aria-hidden="true" />
             会議一覧
           </Link>
+          {user.isAdmin && (
+            <Link
+              to="/admin/google"
+              aria-current={pathname.startsWith("/admin/google") ? "page" : undefined}
+            >
+              <Icons name="Settings" size={18} aria-hidden="true" />
+              Google 接続設定
+            </Link>
+          )}
         </nav>
       }
       footer={

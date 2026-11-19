@@ -1,6 +1,6 @@
 import { type AuthUser, ClaimsUnavailableError } from "@gdgjp/gdg-lib";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { requireUser, requireUserWithChapter } from "~/features/auth/access.server";
+import { requireAdmin, requireUser, requireUserWithChapter } from "~/features/auth/access.server";
 
 const mockRequireUser = vi.fn();
 const mockGetSessionUser = vi.fn();
@@ -110,5 +110,45 @@ describe("requireUserWithChapter", () => {
       chapter,
       chapters: [chapter],
     });
+  });
+});
+
+describe("requireAdmin", () => {
+  it("管理者ユーザーをそのまま返す", async () => {
+    const adminUser: AuthUser = { ...USER, isAdmin: true };
+    mockRequireUser.mockResolvedValue(adminUser);
+
+    const request = new Request("https://meet.gdgs.jp/admin/google");
+    await expect(requireAdmin(ENV, request)).resolves.toEqual(adminUser);
+  });
+
+  it("非管理者は 403 Response で拒否する", async () => {
+    mockRequireUser.mockResolvedValue(USER);
+
+    const request = new Request("https://meet.gdgs.jp/admin/google");
+    let caught: unknown;
+    try {
+      await requireAdmin(ENV, request);
+    } catch (err) {
+      caught = err;
+    }
+    expect(caught).toBeInstanceOf(Response);
+    expect((caught as Response).status).toBe(403);
+  });
+
+  it("未認証時は /signin?return_to=... へリダイレクトする", async () => {
+    mockRequireUser.mockRejectedValue(new Response("Unauthorized", { status: 401 }));
+
+    const request = new Request("https://meet.gdgs.jp/admin/google");
+    let caught: unknown;
+    try {
+      await requireAdmin(ENV, request);
+    } catch (err) {
+      caught = err;
+    }
+    expect(caught).toBeInstanceOf(Response);
+    const response = caught as Response;
+    expect(response.status).toBe(302);
+    expect(response.headers.get("Location")).toBe("/signin?return_to=%2Fadmin%2Fgoogle");
   });
 });

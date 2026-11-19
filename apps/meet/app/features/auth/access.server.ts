@@ -45,3 +45,12 @@ export async function requireUserWithChapter(
 export async function getOptionalUser(env: Env, request: Request): Promise<AuthUser | null> {
   return getAuth(env).getSessionUser(request);
 }
+
+/** GDG Accounts 管理者（isAdmin）であることを要求する。非管理者は 403 で拒否する。 */
+export async function requireAdmin(env: Env, request: Request): Promise<AuthUser> {
+  const user = await requireUser(env, request);
+  if (!user.isAdmin) {
+    throw new Response("Forbidden", { status: 403 });
+  }
+  return user;
+}
