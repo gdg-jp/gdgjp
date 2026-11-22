@@ -652,7 +652,9 @@ describe("runMeetCron", () => {
       errors: [],
     });
     expect(
-      fetchSpy.mock.calls.some(([input]) => String(input).includes("meet.googleapis.com")),
+      fetchSpy.mock.calls.some(
+        ([input]) => new URL(String(input)).hostname === "meet.googleapis.com",
+      ),
     ).toBe(false);
     expect(conferenceRecords.get("conferenceRecords/expired")?.statsStatus).toBe("expired");
     expect(transcriptStats.get("conferenceRecords/expired/transcripts/t1")?.status).toBe("expired");
