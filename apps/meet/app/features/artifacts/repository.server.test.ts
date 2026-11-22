@@ -7,6 +7,7 @@ import {
   listFailedArtifacts,
   listMeetingArtifactShareFailures,
   upsertArtifactShareFailure,
+  upsertConferenceRecord,
 } from "./repository.server";
 
 function createArtifactsDb() {
@@ -20,7 +21,12 @@ function createArtifactsDb() {
     );
     CREATE TABLE conference_records (
       name TEXT PRIMARY KEY,
-      meeting_id TEXT NOT NULL REFERENCES meetings (id) ON DELETE CASCADE
+      meeting_id TEXT NOT NULL REFERENCES meetings (id) ON DELETE CASCADE,
+      start_time TEXT,
+      end_time TEXT,
+      expire_time TEXT,
+      stats_status TEXT NOT NULL DEFAULT 'pending',
+      participant_count INTEGER
     );
     CREATE TABLE artifacts (
       id TEXT PRIMARY KEY,
@@ -240,5 +246,50 @@ describe("artifacts repository", () => {
 
     await deleteArtifactShareFailuresForEmails(db, "art-1", ["other@example.com"]);
     expect(await listArtifactShareFailureEmails(db, "art-1")).toEqual(["bad@example.com"]);
+  });
+
+  it("upsertConferenceRecord は既存の stats_status や集計列をリセットしない", async () => {
+    const { raw, db } = createArtifactsDb();
+    raw
+      .prepare("INSERT INTO meetings (id, title, calendar_event_id) VALUES (?, ?, ?)")
+      .run("mtg-1", "会議1", "evt-1");
+    raw
+      .prepare(
+        `INSERT INTO conference_records (
+           name, meeting_id, start_time, end_time, expire_time, stats_status, participant_count
+         ) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      )
+      .run(
+        "conferenceRecords/cr-1",
+        "mtg-1",
+        "2026-11-19T10:00:00Z",
+        "2026-11-19T11:00:00Z",
+        null,
+        "collected",
+        5,
+      );
+
+    await upsertConferenceRecord(db, {
+      name: "conferenceRecords/cr-1",
+      meetingId: "mtg-1",
+      startTime: "2026-11-19T10:00:00Z",
+      endTime: "2026-11-19T11:00:00Z",
+      expireTime: "2026-12-19T11:00:00Z",
+    });
+
+    const row = raw
+      .prepare(
+        "SELECT expire_time, stats_status, participant_count FROM conference_records WHERE name = ?",
+      )
+      .get("conferenceRecords/cr-1") as {
+      expire_time: string;
+      stats_status: string;
+      participant_count: number;
+    };
+    expect(row).toEqual({
+      expire_time: "2026-12-19T11:00:00Z",
+      stats_status: "collected",
+      participant_count: 5,
+    });
   });
 });

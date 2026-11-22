@@ -4,6 +4,8 @@ import { GoogleApiError } from "~/features/google/client.server";
 import { toSafeErrorSummary } from "~/features/google/error-summary.server";
 import { cleanupCanceledMeeting } from "~/features/meetings/cleanup-meeting.server";
 import { syncMeetingMembers } from "~/features/meetings/sync-members.server";
+import { collectConferenceStatsJob } from "~/features/stats/collect-conference-stats.server";
+import { collectTranscriptStatsJob } from "~/features/stats/collect-transcript-stats.server";
 import { maskEmailsInText } from "~/lib/redact-email";
 import { type MeetJobMessage, type MeetJobType, isMeetJobMessage } from "./types";
 
@@ -38,6 +40,12 @@ export const JOB_HANDLERS: MeetJobHandlerRegistry = {
   },
   share_artifact: async (env, message) => {
     await shareArtifactJob(env, message.artifactId);
+  },
+  collect_conference_stats: async (env, message) => {
+    await collectConferenceStatsJob(env, message);
+  },
+  collect_transcript_stats: async (env, message) => {
+    await collectTranscriptStatsJob(env, message);
   },
 };
 

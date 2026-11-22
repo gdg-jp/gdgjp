@@ -18,9 +18,21 @@ import {
 import { getGoogleAccessToken } from "~/features/google/token.server";
 import type { ArtifactJobKind } from "~/features/jobs/types";
 import { listRecentActiveMeetingsWithSpace } from "~/features/meetings/meetings.repository.server";
+import {
+  ensureTranscriptStatsPending,
+  expireStaleConferenceStats,
+  expireStaleTranscriptStats,
+  listPendingConferenceStatsForCron,
+  listPendingTranscriptStatsForCron,
+} from "~/features/stats/repository.server";
 
 const BACKFILL_LOOKBACK_MS = 7 * 24 * 60 * 60 * 1000;
 const PENDING_ARTIFACT_MAX_ATTEMPTS = 20;
+const STATS_ENDED_GRACE_MS = 30 * 60 * 1000;
+// 通常の収集は終了の数分後に済む。2 時間たっても `collecting` なら再試行切れで止まっている。
+const STATS_STALE_COLLECTING_MS = 2 * 60 * 60 * 1000;
+const STATS_MAX_ATTEMPTS = 10;
+const STATS_CRON_LIMIT = 20;
 
 export type CronDeps = {
   fetchFn?: GoogleFetch;
@@ -34,15 +46,18 @@ export type CronRunSummary = {
     : string;
   backfilledProcessJobs: number;
   requeuedShareJobs: number;
+  enqueuedStatsJobs: number;
+  expiredStatsRecords: number;
   errors: string[];
 };
 
 /**
  * 毎時 cron ハンドラ本体。
- * `google_connection` が `connected` でなければスキップし、接続時は次の 3 段を順に実行する:
+ * `google_connection` が `connected` でなければスキップし、接続時は次の 4 段を順に実行する:
  * 1. Workspace Events 購読の維持・延長・再作成
- * 2. 過去 7 日以内の `active` 会議の生成ファイル取りこぼし補完
+ * 2. 過去 7 日以内の `active` 会議の生成ファイル取りこぼし補完（文字起こし統計の投入を含む）
  * 3. 未共有・未添付かつ再試行上限未満の `artifacts` の再投入
+ * 4. 会議統計・文字起こし統計の期限切れ更新と未完了レコードの再投入（Meet API 呼び出しなし）
  */
 export async function runMeetCron(env: Env, deps: CronDeps = {}): Promise<CronRunSummary> {
   const fetchFn = deps.fetchFn ?? globalThis.fetch;
@@ -55,12 +70,17 @@ export async function runMeetCron(env: Env, deps: CronDeps = {}): Promise<CronRu
       subscriptionAction: "skipped",
       backfilledProcessJobs: 0,
       requeuedShareJobs: 0,
+      enqueuedStatsJobs: 0,
+      expiredStatsRecords: 0,
       errors: [],
     };
   }
 
   const errors: string[] = [];
   let subscriptionAction: CronRunSummary["subscriptionAction"] = "skipped";
+  let enqueuedStatsJobs = 0;
+  let expiredStatsRecords = 0;
+  const enqueuedTranscripts = new Set<string>();
 
   // 1. 購読の維持
   try {
@@ -100,6 +120,7 @@ export async function runMeetCron(env: Env, deps: CronDeps = {}): Promise<CronRu
               meetingId: meeting.id,
               startTime: record.startTime ?? null,
               endTime: record.endTime ?? null,
+              expireTime: record.expireTime ?? null,
             });
 
             const [recordings, transcripts, smartNotes] = await Promise.all([
@@ -124,12 +145,28 @@ export async function runMeetCron(env: Env, deps: CronDeps = {}): Promise<CronRu
               }
             }
             for (const tr of transcripts) {
-              if (tr.state === "FILE_GENERATED" && tr.docsDestination?.document) {
-                candidates.push({
-                  kind: "transcript",
-                  resourceName: tr.name,
-                  fileId: tr.docsDestination.document,
-                });
+              if (tr.state === "FILE_GENERATED") {
+                const ts = await ensureTranscriptStatsPending(env.DB, tr.name, record.name);
+                if (
+                  (ts.status === "pending" || ts.status === "failed") &&
+                  ts.attempts < STATS_MAX_ATTEMPTS &&
+                  !enqueuedTranscripts.has(tr.name)
+                ) {
+                  await env.MEET_JOBS.send({
+                    type: "collect_transcript_stats",
+                    conferenceRecord: record.name,
+                    transcript: tr.name,
+                  });
+                  enqueuedTranscripts.add(tr.name);
+                  enqueuedStatsJobs += 1;
+                }
+                if (tr.docsDestination?.document) {
+                  candidates.push({
+                    kind: "transcript",
+                    resourceName: tr.name,
+                    fileId: tr.docsDestination.document,
+                  });
+                }
               }
             }
             for (const sn of smartNotes) {
@@ -184,11 +221,57 @@ export async function runMeetCron(env: Env, deps: CronDeps = {}): Promise<CronRu
     errors.push(error instanceof Error ? error.message : String(error));
   }
 
+  // 4. 会議統計・文字起こし統計の期限切れ更新と未完了レコードの再投入（Meet API 呼び出しなし）
+  try {
+    const nowDate = now();
+    const nowIso = nowDate.toISOString();
+    const endedBeforeIso = new Date(nowDate.getTime() - STATS_ENDED_GRACE_MS).toISOString();
+
+    const expiredConferences = await expireStaleConferenceStats(env.DB, nowIso);
+    const expiredTranscripts = await expireStaleTranscriptStats(env.DB, nowIso);
+    expiredStatsRecords = expiredConferences + expiredTranscripts;
+
+    const pendingConferences = await listPendingConferenceStatsForCron(env.DB, {
+      endedBeforeIso,
+      staleCollectingBeforeIso: new Date(
+        nowDate.getTime() - STATS_STALE_COLLECTING_MS,
+      ).toISOString(),
+      nowIso,
+      maxAttempts: STATS_MAX_ATTEMPTS,
+      limit: STATS_CRON_LIMIT,
+    });
+    for (const conferenceRecord of pendingConferences) {
+      await env.MEET_JOBS.send({ type: "collect_conference_stats", conferenceRecord });
+      enqueuedStatsJobs += 1;
+    }
+
+    const pendingTranscripts = await listPendingTranscriptStatsForCron(env.DB, {
+      nowIso,
+      maxAttempts: STATS_MAX_ATTEMPTS,
+      limit: STATS_CRON_LIMIT,
+    });
+    for (const item of pendingTranscripts) {
+      if (enqueuedTranscripts.has(item.transcript)) continue;
+      await env.MEET_JOBS.send({
+        type: "collect_transcript_stats",
+        conferenceRecord: item.conferenceRecord,
+        transcript: item.transcript,
+      });
+      enqueuedTranscripts.add(item.transcript);
+      enqueuedStatsJobs += 1;
+    }
+  } catch (error) {
+    console.error("[meet-cron] stats maintenance failed:", error);
+    errors.push(error instanceof Error ? error.message : String(error));
+  }
+
   return {
     skipped: false,
     subscriptionAction,
     backfilledProcessJobs,
     requeuedShareJobs,
+    enqueuedStatsJobs,
+    expiredStatsRecords,
     errors,
   };
 }

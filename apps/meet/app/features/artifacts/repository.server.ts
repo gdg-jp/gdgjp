@@ -13,6 +13,7 @@ type ConferenceRecordRow = {
   meeting_id: string;
   start_time: string | null;
   end_time: string | null;
+  expire_time?: string | null;
 };
 
 type ArtifactRow = {
@@ -41,6 +42,7 @@ function mapConferenceRecordRow(row: ConferenceRecordRow): ConferenceRecord {
     meetingId: row.meeting_id,
     startTime: row.start_time,
     endTime: row.end_time,
+    expireTime: row.expire_time ?? null,
   };
 }
 
@@ -80,17 +82,19 @@ export async function upsertConferenceRecord(
     meetingId: string;
     startTime: string | null;
     endTime: string | null;
+    expireTime?: string | null;
   },
 ): Promise<void> {
   await db
     .prepare(
-      `INSERT INTO conference_records (name, meeting_id, start_time, end_time)
-       VALUES (?, ?, ?, ?)
+      `INSERT INTO conference_records (name, meeting_id, start_time, end_time, expire_time)
+       VALUES (?, ?, ?, ?, ?)
        ON CONFLICT (name) DO UPDATE SET
          start_time = COALESCE(excluded.start_time, conference_records.start_time),
-         end_time = COALESCE(excluded.end_time, conference_records.end_time)`,
+         end_time = COALESCE(excluded.end_time, conference_records.end_time),
+         expire_time = COALESCE(excluded.expire_time, conference_records.expire_time)`,
     )
-    .bind(input.name, input.meetingId, input.startTime, input.endTime)
+    .bind(input.name, input.meetingId, input.startTime, input.endTime, input.expireTime ?? null)
     .run();
 }
 

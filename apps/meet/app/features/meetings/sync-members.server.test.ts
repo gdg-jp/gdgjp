@@ -16,6 +16,7 @@ function createFakeSyncDb(
 ) {
   let currentMeeting = meeting ? { ...meeting } : null;
   let currentConnection = connection ? { ...connection } : null;
+  const inviteeState = invitees.map((inv) => ({ ...inv, googleUser: inv.googleUser ?? null }));
 
   const db = {
     prepare(sql: string) {
@@ -62,7 +63,7 @@ function createFakeSyncDb(
         async all<T>() {
           if (sql.includes("FROM meeting_invitees")) {
             return {
-              results: invitees.map((inv) => ({
+              results: inviteeState.map((inv) => ({
                 meeting_id: inv.meetingId,
                 email_normalized: inv.emailNormalized,
                 email: inv.email,
@@ -70,12 +71,26 @@ function createFakeSyncDb(
                 user_id: inv.userId,
                 role: inv.role,
                 source_kinds: JSON.stringify(inv.sourceKinds),
+                google_user: inv.googleUser,
               })) as T[],
             };
           }
           throw new Error(`未対応の all(): ${sql}`);
         },
         async run() {
+          if (sql.includes("UPDATE meeting_invitees SET google_user = ?")) {
+            const [googleUser, meetingId, emailNormalized] = args as [
+              string | null,
+              string,
+              string,
+            ];
+            for (const inv of inviteeState) {
+              if (inv.meetingId === meetingId && inv.emailNormalized === emailNormalized) {
+                inv.googleUser = googleUser;
+              }
+            }
+            return { success: true, meta: {} };
+          }
           if (sql.includes("SET last_error = ?")) {
             const [lastError, updatedAt] = args as [string | null, string];
             if (currentMeeting) {
@@ -100,12 +115,16 @@ function createFakeSyncDb(
       };
       return stmt;
     },
+    async batch(stmts: Array<{ run: () => Promise<unknown> }>) {
+      return Promise.all(stmts.map((s) => s.run()));
+    },
   };
 
   return {
     db: db as unknown as D1Database,
     getMeeting: () => currentMeeting,
     getConnection: () => currentConnection,
+    getInvitees: () => inviteeState,
   };
 }
 
@@ -413,5 +432,43 @@ describe("syncMeetingMembers", () => {
 
     await syncMeetingMembers(env, "mtg-1", { fetchFn: fetchMock });
     expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("メンバー name 末尾が全桁数字なら users/<id>、hex ハッシュなら null を meeting_invitees.google_user へ保存する", async () => {
+    const { env, getInvitees } = await createEnvFixture(ACTIVE_MEETING, INVITEES);
+
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      const method = init?.method ?? "GET";
+      if (url === "https://oauth2.googleapis.com/token") {
+        return Response.json({ access_token: "ya29.sync-token", expires_in: 3600 });
+      }
+      if (url === "https://meet.googleapis.com/v2/spaces/sync-1/members" && method === "GET") {
+        return Response.json({
+          members: [
+            {
+              name: "spaces/sync-1/members/110222333444",
+              email: "cohost@example.com",
+              role: "COHOST",
+            },
+          ],
+        });
+      }
+      if (url === "https://meet.googleapis.com/v2/spaces/sync-1/members" && method === "POST") {
+        const body = JSON.parse(String(init?.body)) as { email: string };
+        return Response.json({
+          name: "spaces/sync-1/members/9f86d081884c7d659a2feaa0c55ad015",
+          email: body.email,
+        });
+      }
+      throw new Error(`想定外の fetch: ${method} ${url}`);
+    }) as unknown as typeof fetch;
+
+    await syncMeetingMembers(env, "mtg-1", { fetchFn: fetchMock });
+
+    expect(getInvitees().map((inv) => [inv.emailNormalized, inv.googleUser])).toEqual([
+      ["cohost@example.com", "users/110222333444"],
+      ["member@gmail.com", null],
+    ]);
   });
 });

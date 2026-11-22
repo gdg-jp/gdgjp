@@ -45,9 +45,28 @@ function createFakeCronDb(options: {
   subscription: GoogleSubscriptionRecord | null;
   meetings: MeetingRecord[];
   artifacts: ArtifactRecord[];
+  conferenceRecords?: Array<{
+    name: string;
+    meetingId: string;
+    endTime: string | null;
+    expireTime: string | null;
+    statsStatus: string;
+    statsAttempts: number;
+  }>;
+  transcriptStats?: Array<{
+    transcript: string;
+    conferenceRecord: string;
+    status: string;
+    attempts: number;
+  }>;
 }) {
   let currentSub = options.subscription ? { ...options.subscription } : null;
-  const conferenceRecords = new Set<string>();
+  const conferenceRecords = new Map(
+    (options.conferenceRecords ?? []).map((r) => [r.name, { ...r }]),
+  );
+  const transcriptStats = new Map(
+    (options.transcriptStats ?? []).map((t) => [t.transcript, { ...t }]),
+  );
 
   const toArtifactRow = (a: ArtifactRecord) => ({
     id: a.id,
@@ -92,9 +111,60 @@ function createFakeCronDb(options: {
             const hit = options.artifacts.find((a) => a.driveFileId === String(args[0]));
             return (hit ? toArtifactRow(hit) : null) as T | null;
           }
+          if (sql.includes("FROM conference_transcript_stats WHERE transcript = ?")) {
+            const hit = transcriptStats.get(String(args[0]));
+            if (!hit) return null;
+            return {
+              transcript: hit.transcript,
+              conference_record: hit.conferenceRecord,
+              status: hit.status,
+              attempts: hit.attempts,
+              collected_at: null,
+              last_error: null,
+            } as T;
+          }
           throw new Error(`未対応の first(): ${sql}`);
         },
         async all<T>() {
+          if (sql.includes("FROM conference_records") && sql.includes("stats_status IN")) {
+            const [endedBeforeIso, staleCollectingBeforeIso, nowIso, maxAttempts] = args as [
+              string,
+              string,
+              string,
+              number,
+            ];
+            return {
+              results: [...conferenceRecords.values()]
+                .filter(
+                  (r) =>
+                    r.endTime !== null &&
+                    (((r.statsStatus === "pending" || r.statsStatus === "failed") &&
+                      r.endTime < endedBeforeIso) ||
+                      (r.statsStatus === "collecting" && r.endTime < staleCollectingBeforeIso)) &&
+                    (r.expireTime === null || r.expireTime > nowIso) &&
+                    r.statsAttempts < maxAttempts,
+                )
+                .map((r) => ({ name: r.name })) as T[],
+            };
+          }
+          if (sql.includes("FROM conference_transcript_stats ts")) {
+            const [nowIso, maxAttempts] = args as [string, number];
+            return {
+              results: [...transcriptStats.values()]
+                .filter((t) => {
+                  const cr = conferenceRecords.get(t.conferenceRecord);
+                  return (
+                    (t.status === "pending" || t.status === "failed") &&
+                    (!cr || cr.expireTime === null || cr.expireTime > nowIso) &&
+                    t.attempts < maxAttempts
+                  );
+                })
+                .map((t) => ({
+                  transcript: t.transcript,
+                  conference_record: t.conferenceRecord,
+                })) as T[],
+            };
+          }
           if (sql.includes("FROM meetings")) {
             return {
               results: options.meetings.map((m) => ({
@@ -150,8 +220,76 @@ function createFakeCronDb(options: {
             return { success: true, meta: { changes: 1 } };
           }
           if (sql.includes("INSERT INTO conference_records")) {
-            conferenceRecords.add(String(args[0]));
+            const [name, meetingId, , endTime, expireTime] = args as [
+              string,
+              string,
+              string | null,
+              string | null,
+              string | null,
+            ];
+            if (!conferenceRecords.has(name)) {
+              conferenceRecords.set(name, {
+                name,
+                meetingId,
+                endTime: endTime ?? null,
+                expireTime: expireTime ?? null,
+                statsStatus: "pending",
+                statsAttempts: 0,
+              });
+            }
             return { success: true, meta: { changes: 1 } };
+          }
+          if (sql.includes("INSERT OR IGNORE INTO conference_transcript_stats")) {
+            const [transcript, conferenceRecord] = args as [string, string];
+            if (!transcriptStats.has(transcript)) {
+              transcriptStats.set(transcript, {
+                transcript,
+                conferenceRecord,
+                status: "pending",
+                attempts: 0,
+              });
+            }
+            return { success: true, meta: { changes: 1 } };
+          }
+          if (
+            sql.includes("UPDATE conference_records") &&
+            sql.includes("stats_status = 'expired'")
+          ) {
+            const nowIso = String(args[0]);
+            let changes = 0;
+            for (const r of conferenceRecords.values()) {
+              if (
+                (r.statsStatus === "pending" ||
+                  r.statsStatus === "collecting" ||
+                  r.statsStatus === "failed") &&
+                r.expireTime !== null &&
+                r.expireTime <= nowIso
+              ) {
+                r.statsStatus = "expired";
+                changes += 1;
+              }
+            }
+            return { success: true, meta: { changes } };
+          }
+          if (
+            sql.includes("UPDATE conference_transcript_stats") &&
+            sql.includes("status = 'expired'")
+          ) {
+            const nowIso = String(args[0]);
+            let changes = 0;
+            for (const t of transcriptStats.values()) {
+              const cr = conferenceRecords.get(t.conferenceRecord);
+              if (
+                (t.status === "pending" || t.status === "failed") &&
+                cr?.expireTime !== null &&
+                cr?.expireTime !== undefined &&
+                cr.expireTime <= nowIso
+              ) {
+                t.status = "expired";
+                changes += 1;
+              }
+            }
+            return { success: true, meta: { changes } };
           }
           throw new Error(`未対応の run(): ${sql}`);
         },
@@ -164,6 +302,7 @@ function createFakeCronDb(options: {
     db: db as unknown as D1Database,
     getSubscription: () => currentSub,
     conferenceRecords,
+    transcriptStats,
   };
 }
 
@@ -172,6 +311,20 @@ async function createEnvFixture(options: {
   subscription?: GoogleSubscriptionRecord | null;
   meetings?: MeetingRecord[];
   artifacts?: ArtifactRecord[];
+  conferenceRecords?: Array<{
+    name: string;
+    meetingId: string;
+    endTime: string | null;
+    expireTime: string | null;
+    statsStatus: string;
+    statsAttempts: number;
+  }>;
+  transcriptStats?: Array<{
+    transcript: string;
+    conferenceRecord: string;
+    status: string;
+    attempts: number;
+  }>;
 }) {
   let connection: GoogleConnectionRow | null = null;
   if (options.connected !== false) {
@@ -201,6 +354,8 @@ async function createEnvFixture(options: {
     subscription: options.subscription ?? null,
     meetings: options.meetings ?? [],
     artifacts: options.artifacts ?? [],
+    conferenceRecords: options.conferenceRecords,
+    transcriptStats: options.transcriptStats,
   });
   const queueSend = vi.fn().mockResolvedValue(undefined);
   const env = {
@@ -377,28 +532,139 @@ describe("runMeetCron", () => {
       subscriptionAction: "extended",
       backfilledProcessJobs: 2,
       requeuedShareJobs: 1,
+      enqueuedStatsJobs: 2,
+      expiredStatsRecords: 0,
       errors: [],
     });
     expect(getSubscription()?.expireTime).toBe("2026-11-26T12:00:00.000Z");
     expect(conferenceRecords.has("conferenceRecords/conf-1")).toBe(true);
-    expect(queueSend).toHaveBeenCalledTimes(3);
+    expect(queueSend).toHaveBeenCalledTimes(5);
     expect(queueSend).toHaveBeenNthCalledWith(1, {
+      type: "collect_transcript_stats",
+      conferenceRecord: "conferenceRecords/conf-1",
+      transcript: "conferenceRecords/conf-1/transcripts/tr-missed",
+    });
+    expect(queueSend).toHaveBeenNthCalledWith(2, {
       type: "process_artifact",
       meetingId: "mtg-recent",
       kind: "recording",
       conferenceRecord: "conferenceRecords/conf-1",
       resourceName: "conferenceRecords/conf-1/recordings/rec-missed",
     });
-    expect(queueSend).toHaveBeenNthCalledWith(2, {
+    expect(queueSend).toHaveBeenNthCalledWith(3, {
       type: "process_artifact",
       meetingId: "mtg-recent",
       kind: "transcript",
       conferenceRecord: "conferenceRecords/conf-1",
       resourceName: "conferenceRecords/conf-1/transcripts/tr-missed",
     });
-    expect(queueSend).toHaveBeenNthCalledWith(3, {
+    expect(queueSend).toHaveBeenNthCalledWith(4, {
       type: "share_artifact",
       artifactId: "art-pending",
+    });
+    expect(queueSend).toHaveBeenNthCalledWith(5, {
+      type: "collect_conference_stats",
+      conferenceRecord: "conferenceRecords/conf-1",
+    });
+  });
+
+  it("ステップ 4 で期限切れレコードを expired へ更新し、未完了統計のみ Meet API 呼び出しなしで再投入する", async () => {
+    const { env, queueSend, conferenceRecords, transcriptStats } = await createEnvFixture({
+      subscription: {
+        name: "subscriptions/sub-cron",
+        state: "ACTIVE",
+        expireTime: "2026-11-26T12:00:00.000Z",
+        updatedAt: "2026-11-18T00:00:00.000Z",
+        lastError: null,
+      },
+      conferenceRecords: [
+        {
+          name: "conferenceRecords/expired",
+          meetingId: "mtg-1",
+          endTime: "2026-10-01T10:00:00.000Z",
+          expireTime: "2026-11-01T10:00:00.000Z",
+          statsStatus: "pending",
+          statsAttempts: 0,
+        },
+        {
+          name: "conferenceRecords/pending-ok",
+          meetingId: "mtg-1",
+          endTime: "2026-11-19T10:00:00.000Z",
+          expireTime: "2026-12-19T10:00:00.000Z",
+          statsStatus: "failed",
+          statsAttempts: 1,
+        },
+        {
+          name: "conferenceRecords/collected-done",
+          meetingId: "mtg-1",
+          endTime: "2026-11-19T08:00:00.000Z",
+          expireTime: "2026-12-19T08:00:00.000Z",
+          statsStatus: "collected",
+          statsAttempts: 1,
+        },
+      ],
+      transcriptStats: [
+        {
+          transcript: "conferenceRecords/expired/transcripts/t1",
+          conferenceRecord: "conferenceRecords/expired",
+          status: "pending",
+          attempts: 0,
+        },
+        {
+          transcript: "conferenceRecords/pending-ok/transcripts/t2",
+          conferenceRecord: "conferenceRecords/pending-ok",
+          status: "pending",
+          attempts: 0,
+        },
+      ],
+    });
+
+    const fetchSpy = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (url === "https://oauth2.googleapis.com/token") {
+        return Response.json({ access_token: "ya29.cron", expires_in: 3600 });
+      }
+      if (url.endsWith("/v1/subscriptions/sub-cron") && (init?.method ?? "GET") === "GET") {
+        return Response.json({
+          name: "subscriptions/sub-cron",
+          targetResource: "//cloudidentity.googleapis.com/users/110111222333",
+          eventTypes: [...WORKSPACE_EVENT_TYPES],
+          notificationEndpoint: { pubsubTopic: TOPIC },
+          state: "ACTIVE",
+          expireTime: "2026-11-26T12:00:00.000Z",
+        });
+      }
+      throw new Error(`想定外の Meet API 呼び出し: ${url}`);
+    });
+
+    const summary = await runMeetCron(env, {
+      fetchFn: fetchSpy as unknown as typeof fetch,
+      now: () => new Date("2026-11-19T12:00:00.000Z"),
+    });
+
+    expect(summary).toEqual({
+      skipped: false,
+      subscriptionAction: "kept",
+      backfilledProcessJobs: 0,
+      requeuedShareJobs: 0,
+      enqueuedStatsJobs: 2,
+      expiredStatsRecords: 2,
+      errors: [],
+    });
+    expect(
+      fetchSpy.mock.calls.some(([input]) => String(input).includes("meet.googleapis.com")),
+    ).toBe(false);
+    expect(conferenceRecords.get("conferenceRecords/expired")?.statsStatus).toBe("expired");
+    expect(transcriptStats.get("conferenceRecords/expired/transcripts/t1")?.status).toBe("expired");
+    expect(queueSend).toHaveBeenCalledTimes(2);
+    expect(queueSend).toHaveBeenNthCalledWith(1, {
+      type: "collect_conference_stats",
+      conferenceRecord: "conferenceRecords/pending-ok",
+    });
+    expect(queueSend).toHaveBeenNthCalledWith(2, {
+      type: "collect_transcript_stats",
+      conferenceRecord: "conferenceRecords/pending-ok",
+      transcript: "conferenceRecords/pending-ok/transcripts/t2",
     });
   });
 });

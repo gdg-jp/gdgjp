@@ -58,6 +58,7 @@ export type MeetingInviteeRow = {
   user_id: string | null;
   role: InviteeRole;
   source_kinds: string;
+  google_user?: string | null;
 };
 
 export type InsertInviteSourceItem = {
@@ -117,6 +118,7 @@ export function mapInviteeRow(row: MeetingInviteeRow): MeetingInviteeRecord {
     userId: row.user_id,
     role: row.role,
     sourceKinds: parseSourceKinds(row.source_kinds),
+    googleUser: row.google_user ?? null,
   };
 }
 

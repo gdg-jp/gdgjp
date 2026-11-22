@@ -35,6 +35,7 @@ import {
 import { getGoogleConnectionSummary } from "~/features/google/oauth.server";
 import {
   canEditMeeting,
+  hasMeetingEditRole,
   requireMeetingEditAccess,
   requireMeetingViewAccess,
   toPublicInviteeList,
@@ -51,6 +52,8 @@ import {
 } from "~/features/meetings/meeting";
 import { listMeetingInviteSources } from "~/features/meetings/meetings.repository.server";
 import { resyncMeetingInvitees } from "~/features/meetings/update-meeting.server";
+import { ConferenceStatsCard } from "~/features/stats/components/ConferenceStatsCard";
+import { getMeetingStatsForViewer } from "~/features/stats/repository.server";
 import { AppLayout } from "~/layouts/AppLayout";
 import type { Route } from "./+types/detail";
 
@@ -68,14 +71,26 @@ export async function loader({ request, params, context }: Route.LoaderArgs) {
 
   const { user, meeting, invitees } = await requireMeetingViewAccess(env, request, meetingId);
   const canEdit = canEditMeeting(user, meeting, invitees);
-  const [directoryChapters, googleConnection, artifacts, avatarByEmail, rawShareFailures] =
-    await Promise.all([
-      fetchChaptersDirectory(env).catch(() => []),
-      getGoogleConnectionSummary(env.DB),
-      listArtifactsByMeetingId(env.DB, meetingId),
-      resolveInviteeAvatars(env, user, invitees),
-      canEdit ? listMeetingArtifactShareFailures(env.DB, meetingId) : Promise.resolve([]),
-    ]);
+  const canViewParticipantStats = hasMeetingEditRole(user, invitees);
+  const [
+    directoryChapters,
+    googleConnection,
+    artifacts,
+    avatarByEmail,
+    rawShareFailures,
+    conferenceStats,
+  ] = await Promise.all([
+    fetchChaptersDirectory(env).catch(() => []),
+    getGoogleConnectionSummary(env.DB),
+    listArtifactsByMeetingId(env.DB, meetingId),
+    resolveInviteeAvatars(env, user, invitees),
+    canEdit ? listMeetingArtifactShareFailures(env.DB, meetingId) : Promise.resolve([]),
+    getMeetingStatsForViewer(env.DB, {
+      meetingId,
+      invitees,
+      includeParticipants: canViewParticipantStats,
+    }),
+  ]);
   const hostChapterName =
     directoryChapters.find((c) => c.id === meeting.hostChapterId)?.name ??
     `チャプター #${meeting.hostChapterId}`;
@@ -116,6 +131,7 @@ export async function loader({ request, params, context }: Route.LoaderArgs) {
     invitees: toPublicInviteeList(invitees, avatarByEmail),
     artifacts: artifacts.map(toPublicArtifact),
     shareFailures: canEdit ? groupInviteeShareFailures(rawShareFailures, invitees) : [],
+    conferenceStats,
   };
 }
 
@@ -166,6 +182,7 @@ export default function MeetingDetail({ loaderData, actionData }: Route.Componen
     invitees,
     artifacts,
     shareFailures,
+    conferenceStats,
   } = loaderData;
   const navigation = useNavigation();
   const submittingIntent =
@@ -326,6 +343,8 @@ export default function MeetingDetail({ loaderData, actionData }: Route.Componen
         </Card>
 
         {canEdit && <InviteeShareFailuresAlert failures={shareFailures} />}
+
+        <ConferenceStatsCard stats={conferenceStats} timeZone={meeting.timeZone} />
 
         <ArtifactList artifacts={artifacts} />
 

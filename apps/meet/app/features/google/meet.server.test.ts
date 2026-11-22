@@ -11,10 +11,14 @@ import {
   getSpace,
   getTranscript,
   listConferenceRecords,
+  listParticipantSessions,
+  listParticipants,
   listRecordings,
   listSmartNotes,
   listSpaceMembers,
+  listTranscriptEntries,
   listTranscripts,
+  memberUserId,
   patchSpace,
 } from "~/features/google/meet.server";
 
@@ -253,5 +257,113 @@ describe("meet.server", () => {
       expect(apiErr.retryable).toBe(true);
       return true;
     });
+  });
+
+  it("listParticipants と listParticipantSessions が pageSize=250 で全ページ取得し、ワイルドカード経路を使わない", async () => {
+    const requestedUrls: string[] = [];
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      requestedUrls.push(url);
+      if (url.includes("/participants?")) {
+        if (!url.includes("pageToken=")) {
+          return Response.json({
+            participants: [
+              {
+                name: "conferenceRecords/cr-1/participants/101",
+                signedinUser: { user: "users/101", displayName: "User A" },
+              },
+            ],
+            nextPageToken: "p2",
+          });
+        }
+        return Response.json({
+          participants: [
+            {
+              name: "conferenceRecords/cr-1/participants/102",
+              anonymousUser: { displayName: "Anon B" },
+            },
+          ],
+        });
+      }
+      if (url.includes("/participants/101/participantSessions?")) {
+        return Response.json({
+          participantSessions: [
+            {
+              name: "conferenceRecords/cr-1/participants/101/participantSessions/1",
+              startTime: "2026-11-19T10:00:00Z",
+              endTime: "2026-11-19T10:30:00Z",
+            },
+          ],
+        });
+      }
+      throw new Error(`想定外の URL: ${url}`);
+    }) as unknown as typeof fetch;
+
+    const participants = await listParticipants("t", "conferenceRecords/cr-1", fetchMock);
+    expect(participants).toHaveLength(2);
+    expect(participants[0].signedinUser?.user).toBe("users/101");
+    expect(participants[1].anonymousUser?.displayName).toBe("Anon B");
+
+    const sessions = await listParticipantSessions(
+      "t",
+      "conferenceRecords/cr-1/participants/101",
+      fetchMock,
+    );
+    expect(sessions).toHaveLength(1);
+
+    expect(requestedUrls).toEqual([
+      "https://meet.googleapis.com/v2/conferenceRecords/cr-1/participants?pageSize=250",
+      "https://meet.googleapis.com/v2/conferenceRecords/cr-1/participants?pageSize=250&pageToken=p2",
+      "https://meet.googleapis.com/v2/conferenceRecords/cr-1/participants/101/participantSessions?pageSize=250",
+    ]);
+  });
+
+  it("listTranscriptEntries が pageSize=100 で 1 ページ分だけを返し、自動ページングしない", async () => {
+    const requestedUrls: string[] = [];
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      requestedUrls.push(url);
+      return Response.json({
+        transcriptEntries: [
+          {
+            name: "conferenceRecords/cr-1/transcripts/tr-1/entries/1",
+            participant: "conferenceRecords/cr-1/participants/101",
+            text: "こんにちは",
+            startTime: "2026-11-19T10:01:00Z",
+            endTime: "2026-11-19T10:01:05Z",
+          },
+        ],
+        nextPageToken: "next-tok",
+      });
+    }) as unknown as typeof fetch;
+
+    const page1 = await listTranscriptEntries(
+      "t",
+      "conferenceRecords/cr-1/transcripts/tr-1",
+      {},
+      fetchMock,
+    );
+    expect(page1.transcriptEntries).toHaveLength(1);
+    expect(page1.nextPageToken).toBe("next-tok");
+    expect(requestedUrls).toEqual([
+      "https://meet.googleapis.com/v2/conferenceRecords/cr-1/transcripts/tr-1/entries?pageSize=100",
+    ]);
+
+    await listTranscriptEntries(
+      "t",
+      "conferenceRecords/cr-1/transcripts/tr-1",
+      { pageToken: "next-tok" },
+      fetchMock,
+    );
+    expect(requestedUrls[1]).toBe(
+      "https://meet.googleapis.com/v2/conferenceRecords/cr-1/transcripts/tr-1/entries?pageSize=100&pageToken=next-tok",
+    );
+  });
+
+  it("memberUserId は末尾が全桁数字のときのみ users/<id> を返し、hex ハッシュ等は null を返す", () => {
+    expect(memberUserId("spaces/abc/members/110111222333")).toBe("users/110111222333");
+    expect(memberUserId("spaces/abc/members/9f86d081884c7d659a2feaa0c55ad015")).toBeNull();
+    expect(memberUserId("spaces/abc/members/m-1")).toBeNull();
+    expect(memberUserId("")).toBeNull();
   });
 });

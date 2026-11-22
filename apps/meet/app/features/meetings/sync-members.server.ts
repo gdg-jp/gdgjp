@@ -5,12 +5,14 @@ import {
   createSpaceMember,
   deleteSpaceMember,
   listSpaceMembers,
+  memberUserId,
 } from "~/features/google/meet.server";
 import { GoogleConnectionError, getGoogleAccessToken } from "~/features/google/token.server";
 import type { InviteeRole } from "./meeting";
 import {
   getMeetingById,
   listMeetingInvitees,
+  updateMeetingInviteeGoogleUsers,
   updateMeetingLastError,
 } from "./meetings.repository.server";
 
@@ -80,6 +82,7 @@ export async function syncMeetingMembers(
   }
 
   const existingByEmail = new Map<string, { name: string; role: InviteeRole }>();
+  const resolvedGoogleUsers = new Map<string, string | null>();
   for (const member of existingMembers) {
     if (!member.email) continue;
     const norm = normalizeEmail(member.email);
@@ -88,6 +91,7 @@ export async function syncMeetingMembers(
       name: member.name,
       role: member.role === "COHOST" ? "cohost" : "participant",
     });
+    resolvedGoogleUsers.set(norm, memberUserId(member.name));
   }
 
   const desiredByEmail = new Map<string, { email: string; role: InviteeRole }>();
@@ -121,12 +125,13 @@ export async function syncMeetingMembers(
           }
         }
       }
-      await createSpaceMember(
+      const created = await createSpaceMember(
         accessToken,
         meeting.spaceName,
         { email: desired.email, role: meetRole },
         fetchFn,
       );
+      resolvedGoogleUsers.set(emailNorm, memberUserId(created.name));
     } catch (error) {
       if (error instanceof GoogleApiError) {
         if (isRetryableGoogleError(error)) {
@@ -179,6 +184,11 @@ export async function syncMeetingMembers(
       throw error;
     }
   }
+
+  const googleUserUpdates = [...resolvedGoogleUsers.entries()]
+    .filter(([emailNorm]) => desiredByEmail.has(emailNorm))
+    .map(([emailNormalized, googleUser]) => ({ emailNormalized, googleUser }));
+  await updateMeetingInviteeGoogleUsers(env.DB, meetingId, googleUserUpdates);
 
   if (warnings.length > 0) {
     await updateMeetingLastError(

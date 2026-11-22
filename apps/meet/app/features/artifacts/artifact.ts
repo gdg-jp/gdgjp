@@ -9,6 +9,7 @@ export type ConferenceRecord = {
   meetingId: string;
   startTime: string | null;
   endTime: string | null;
+  expireTime?: string | null;
 };
 
 /** 会議の生成ファイル（`artifacts`）ドメインモデル。 */

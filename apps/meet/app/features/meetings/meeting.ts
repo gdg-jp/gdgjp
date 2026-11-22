@@ -148,6 +148,7 @@ export type MeetingInviteeRecord = {
   userId: string | null;
   role: InviteeRole;
   sourceKinds: InviteeSourceKind[];
+  googleUser?: string | null;
 };
 
 export type MeetingListItem = {

@@ -13,8 +13,9 @@
 | Meeting creation (Strategy B: Meet space → Calendar event → async member sync), editing, chapter resync, cancellation, `cleanup_meeting`, invitee resolution, view/edit access, D1 repository, artifact reshare enqueueing, and UI forms/lists | `app/features/meetings/` |
 | Workspace Events Pub/Sub Push JWT verification (WebCrypto + Google JWKS), Push envelope handling (`processed_events` dedupe + rollback), Workspace Events subscription lifecycle (`google_subscription`), and admin subscription status widget | `app/features/events/` |
 | Meeting artifacts (`conference_records`, `artifacts`, `artifact_share_failures` repository), `process_artifact` (Meet API fetch + chat-log detection), `share_artifact` (Drive reader sharing + Calendar attachment), and UI lists (`ArtifactList`, `FailedArtifactsCard`, `InviteeShareFailuresAlert`) | `app/features/artifacts/` |
-| Hourly cron orchestration (subscription maintenance, 7-day active meeting backfill, pending artifact requeue) | `app/features/cron/` |
-| `MEET_JOBS` Queue message types and handler registry (`sync_members`, `cleanup_meeting`, `process_artifact`, `share_artifact`, exponential backoff retry) | `app/features/jobs/` |
+| Meeting attendance and transcript speaker statistics (`aggregate`, `repository`, `collect_conference_stats`, `collect_transcript_stats`, and `ConferenceStatsCard`) | `app/features/stats/` |
+| Hourly cron orchestration (subscription maintenance, 7-day active meeting backfill, pending artifact requeue, conference/transcript stats expiration and requeue) | `app/features/cron/` |
+| `MEET_JOBS` Queue message types and handler registry (`sync_members`, `cleanup_meeting`, `process_artifact`, `share_artifact`, `collect_conference_stats`, `collect_transcript_stats`, exponential backoff retry) | `app/features/jobs/` |
 | Shared signed-in application shell (`AppLayout`) | `app/layouts/AppLayout.tsx` |
 | Domain-independent UI components (`GoogleWorkspaceLogo` for `public/icons/*.svg`) | `app/components/` |
 | Domain-independent primitives (`useHydrated`, `maskEmail`, `maskEmailsInText`) | `app/lib/` |
