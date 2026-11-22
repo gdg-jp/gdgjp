@@ -115,6 +115,12 @@ PoC（2026-11-18〜19）で次の 2 方式を実機検証し、方式 B を採�
 | `drive_share_checks` | Stage 06+ | 招待者メールアドレスの Drive 共有可否キャッシュ | `email_normalized` (PK), `status` (`ok`/`unshareable`), `http_status`, `api_status`, `source`, `checked_at` |
 | `drive_probe_file` | Stage 06+ | 保存前共有確認用の空 Google ドキュメント ID（`id=1` 固定） | `id`, `file_id`, `created_at` |
 | `artifact_share_failures` | Stage 06+ | 生成ファイルごとの招待者単位 Drive 共有失敗記録 | `artifact_id`, `email_normalized` (`PK(artifact_id, email_normalized)`), `http_status`, `api_status`, `failed_at` |
+| `conference_records`（統計列） | Stage 07 | 会議統計の収集状態・集計値 | `expire_time`, `stats_status`, `stats_attempts`, `stats_collected_at`, `stats_last_error`, `participant_count`, `invitee_attended_count`, `peak_concurrent`, `total_attendance_seconds` |
+| `conference_participants` | Stage 07 | 開催回ごとの参加者と滞在集計 | `name` (PK), `conference_record`, `meeting_id`, `kind`, `google_user`, `display_name`, `is_host_account`, `invitee_email_normalized`, `earliest_start_time`, `latest_end_time`, `session_count`, `total_seconds` |
+| `conference_participant_sessions` | Stage 07 | 参加者の個別入退室セッション | `name` (PK), `participant`, `start_time`, `end_time` |
+| `conference_transcript_stats` | Stage 07 | 文字起こし統計の収集状態 | `transcript` (PK), `conference_record`, `status`, `attempts`, `collected_at`, `last_error` |
+| `conference_speaker_stats` | Stage 07 | 文字起こしベースの話者別発言統計 | `transcript`, `participant` (`PK(transcript, participant)`), `entry_count`, `char_count`, `speaking_seconds` |
+| `meeting_invitees`（拡張列） | Stage 07 | Meet メンバー名末尾の Google ユーザー ID | `google_user`（`users/<数値ID>` または `NULL`） |
 
 ---
 
@@ -139,6 +145,12 @@ PoC（2026-11-18〜19）で次の 2 方式を実機検証し、方式 B を採�
 4. `share_artifact` ジョブ（`max_concurrency = 1` で直列実行）が `permissions.list` と正規化メールで突合し未共有招待者へ 1 件ずつ `permissions.create(sendNotificationEmail=false)` → `events.get` で既存添付を残しつつ `events.patch?supportsAttachments=true&sendUpdates=none` で予定へ添付
 5. 毎時 cron で (1) `google_subscription` の延長（残 2 日未満）/再作成、(2) 過去 7 日以内の `active` 会議の取りこぼし補完、(3) 未共有・未添付 `artifacts` の再投入を実行
 
+### 5-4. 会議統計（Stage 07）
+- `conference.v2.ended` 受信時（120 秒遅延）に `collect_conference_stats` ジョブを投入し、Pacer 経由で参加者・個別セッションを取得して D1 へ集計・保存する（完了済みレコードは再取得しない）
+- `transcript` の `fileGenerated`（または cron ステップ 2 での検知）を契機に `collect_transcript_stats` を実行し、本文は保存せず話者別のエントリ数・文字数・発言時間のみを D1 へ保存する
+- 毎時 cron のステップ 4 で、Meet API 側の 30 日保持期限（`expire_time`）内の未収集・失敗レコードを再投入し、期限切れは `expired` へ更新する
+- 会議詳細画面 `/meetings/:id` の `loader` は D1 のみを読み取り、Meet API は一切呼ばない
+
 ---
 
 ## 6. 権限モデル
@@ -151,6 +163,7 @@ PoC（2026-11-18〜19）で次の 2 方式を実機検証し、方式 B を採�
 | 会議の編集・再同期・取り消し | `/meetings/:id/edit` 等 | その会議の `cohost`（正規化メール一致）、Accounts 管理者 | チャプター所属不要。`status !== 'active'` の会議は編集不可 |
 | Google 接続・購読・ジョブ管理 | `/admin/google` | Accounts 管理者（`user.isAdmin`）のみ | 非管理者は `403` |
 | Pub/Sub Push 受信 | `POST /api/google/events` | Google Pub/Sub Push 署名 JWT（`PUBSUB_PUSH_SERVICE_ACCOUNT` & `PUBSUB_PUSH_AUDIENCE` 一致） | 認証失敗は `401` / `403` |
+| 会議統計の閲覧 | `/meetings/:id` | 集計値は閲覧権限者全員、個人別（入退室・滞在・発言）は `cohost` と管理者のみ | 個人別データは `loader` でサーバー側から除外 |
 
 ---
 
@@ -161,7 +174,7 @@ Stage 01 (workspace-scaffold)
    ├──▶ Stage 02 (accounts-directory-rpc) ──┐
    │                                        ├──▶ Stage 04 (meeting-create)
    └──▶ Stage 03 (google-connection) ───────┘       ├──▶ Stage 05 (meeting-edit-cancel)
-                                                    └──▶ Stage 06 (artifacts-events)
+                                                    └──▶ Stage 06 (artifacts-events) ──▶ Stage 07 (meeting-stats)
 ```
 
 - **並行可能**: Stage 02 と Stage 03 は互いに独立しており並行実装できる。Stage 05 と Stage 06 も互いに並行実装できる（`MEET_JOBS` のジョブ振り分けを Stage 04 で登録表にしておくことで競合を防ぐ）。
@@ -174,6 +187,7 @@ Stage 01 (workspace-scaffold)
 | **04** | [`04-meeting-create.md`](04-meeting-create.md) | 会議テーブル、招待者解決、作成・一覧・詳細 UI、`MEET_JOBS` Queue と `sync_members` | 会議作成 → 招待メール受信、co-host ノックなし＆ホスト管理あり、参加者ノックなし |
 | **05** | [`05-meeting-edit-cancel.md`](05-meeting-edit-cancel.md) | 編集フォーム、`spaces.patch` / `events.patch`、チャプター再同期、取り消しと `cleanup_meeting` | 非 co-host 拒否、時刻変更メール、取り消しで予定削除・入室不可 |
 | **06** | [`06-artifacts-events.md`](06-artifacts-events.md) | Pub/Sub Push（WebCrypto JWT 検証）、`process_artifact` / `share_artifact`、毎時 cron、生成ファイル UI・管理画面 | 録画・メモ・チャット記録が自動共有・予定添付・画面表示 |
+| **07** | [`07-meeting-stats.md`](07-meeting-stats.md) | 参加者・入退室・発言の取得と D1 保存、予算付き Queue ジョブ、会議詳細の統計カード | 会議終了数分後に統計表示、cohost のみ個人別、再取得なし |
 
 ---
 
@@ -206,6 +220,9 @@ Stage 01 (workspace-scaffold)
 | **Drive 共有のレート制限** | 招待者が数十〜百人規模の場合、1 ファイルにつき人数分の `permissions.create` が走る | `MEET_JOBS` を `max_concurrency=1` で直列化し、1 件ずつ順次実行 + Queue 再試行に委ねる |
 | **リフレッシュトークンの失効** | `community-support@gdgoc.jp` のパスワード変更や管理者によるセッション失効で `invalid_grant` になる | `google_connection.status = 'disconnected'` へ倒し、トップ画面と `/admin/google` に警告を出して再接続を促す |
 | **Calendar UI での直接編集との不整合** | `community-support@gdgoc.jp` で Calendar 上から直接編集すると D1 と乖離する | アプリ側編集時は D1 を正本として上書きする仕様を UI・README に明記する |
+| **Meet API 読み取り上限** | ユーザーあたり 600 reads/min（本アプリの全呼び出しは単一ユーザーで実行）。2026 年後半以降にクォータ超過分の課金導入予定 | Pacer で 200 ms 間隔・1 ジョブ最大 100 回に制限し、完了済みレコードは再取得せず、`loader` から API を呼ばない |
+| **統計データの保存期間が未決定** | Stage 07 では会議が存在する限り統計行を保持する（`ON DELETE CASCADE`） | 本番運用開始前に、セッション明細の 1 年後間引き等の保存・削除ポリシーを決定する |
+| **発言者の帰属精度が未確認** | PoC（`00a-poc-findings.md` §8 行 12）で複数人参加時に全エントリが 1 人へ帰属された事例あり | UI 上で発言時間・割合を必ず「（参考値）」として表示する |
 
 ---
 
@@ -216,6 +233,9 @@ Stage 01 (workspace-scaffold)
 - **繰り返し予定（Recurrence）**: 単発会議に限定した現行設計を拡張し、複数回の開催回やシリーズ単位のメンバー管理に対応
 - **Meet チャット履歴の自動保存設定**: Meet REST API がチャット保持オプションに対応した段階で設定項目を追加
 - **既存の Calendar 作成済み Meet の移行**: API 仕様上変換不可のため対象外のまま（新規作成で対応）
+- **Admin SDK Reports API による通話品質**: パケットロス・RTT・デバイス・国などの品質メトリクス取得（Workspace 管理者権限が必要、保存期間 6 か月）
+- **会議中のリアルタイム参加状況**: `participant.v2.joined` / `left` 購読による開催中の入退室ライブ表示
+- **チャプター横断の統計ダッシュボード**: D1 集計のみで実現でき、追加の Google API 呼び出し不要
 
 ---
 
