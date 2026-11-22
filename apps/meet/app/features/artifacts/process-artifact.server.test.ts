@@ -37,6 +37,17 @@ const ACTIVE_MEETING: MeetingRecord = {
 
 function createFakeProcessDb(connection: GoogleConnectionRow, meeting: MeetingRecord | null) {
   const byDriveId = new Map<string, ArtifactRecord>();
+  const transcriptStats = new Map<
+    string,
+    {
+      transcript: string;
+      conference_record: string;
+      status: string;
+      attempts: number;
+      collected_at: string | null;
+      last_error: string | null;
+    }
+  >();
 
   const toRow = (a: ArtifactRecord) => ({
     id: a.id,
@@ -98,9 +109,26 @@ function createFakeProcessDb(connection: GoogleConnectionRow, meeting: MeetingRe
             const hit = byDriveId.get(String(args[0]));
             return (hit ? toRow(hit) : null) as T | null;
           }
+          if (sql.includes("FROM conference_transcript_stats WHERE transcript = ?")) {
+            return (transcriptStats.get(String(args[0])) ?? null) as T | null;
+          }
           throw new Error(`未対応の first(): ${sql}`);
         },
         async run() {
+          if (sql.includes("INSERT OR IGNORE INTO conference_transcript_stats")) {
+            const [transcript, conferenceRecord] = args as [string, string];
+            if (!transcriptStats.has(transcript)) {
+              transcriptStats.set(transcript, {
+                transcript,
+                conference_record: conferenceRecord,
+                status: "pending",
+                attempts: 0,
+                collected_at: null,
+                last_error: null,
+              });
+            }
+            return { success: true, meta: { changes: 1 } };
+          }
           if (sql.includes("INSERT INTO artifacts")) {
             const [
               id,
@@ -155,6 +183,7 @@ function createFakeProcessDb(connection: GoogleConnectionRow, meeting: MeetingRe
   return {
     db: db as unknown as D1Database,
     artifacts: () => [...byDriveId.values()],
+    transcriptStats,
   };
 }
 
@@ -264,6 +293,11 @@ describe("processArtifactJob", () => {
       driveFileId: "doc-shared-1",
     });
     expect(queueSend).toHaveBeenCalledWith({ type: "share_artifact", artifactId: "art-1" });
+    expect(queueSend).toHaveBeenCalledWith({
+      type: "collect_transcript_stats",
+      conferenceRecord: "conferenceRecords/conf-1",
+      transcript: "conferenceRecords/conf-1/transcripts/tr-1",
+    });
   });
 
   it("親フォルダーに同スペース別会議のファイルが混在していても、今回の録画に対応するチャット記録 1 件だけを拾う", async () => {

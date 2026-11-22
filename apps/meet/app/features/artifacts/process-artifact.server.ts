@@ -4,6 +4,7 @@ import { getRecording, getSmartNote, getTranscript } from "~/features/google/mee
 import { getGoogleAccessToken } from "~/features/google/token.server";
 import type { ArtifactJobKind } from "~/features/jobs/types";
 import { getMeetingById } from "~/features/meetings/meetings.repository.server";
+import { ensureTranscriptStatsPending } from "~/features/stats/repository.server";
 import type { ArtifactKind, ArtifactRecord } from "./artifact";
 import { upsertArtifact } from "./repository.server";
 
@@ -188,6 +189,21 @@ export async function processArtifactJob(
   for (const artifact of savedArtifacts) {
     if (artifact.sharedAt === null || artifact.attachedAt === null) {
       await env.MEET_JOBS.send({ type: "share_artifact", artifactId: artifact.id });
+    }
+  }
+
+  if (input.kind === "transcript") {
+    const transcriptStats = await ensureTranscriptStatsPending(
+      env.DB,
+      input.resourceName,
+      input.conferenceRecord,
+    );
+    if (transcriptStats.status === "pending") {
+      await env.MEET_JOBS.send({
+        type: "collect_transcript_stats",
+        conferenceRecord: input.conferenceRecord,
+        transcript: input.resourceName,
+      });
     }
   }
 

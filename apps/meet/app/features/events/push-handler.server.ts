@@ -243,6 +243,7 @@ export async function processPubsubEnvelope(
         meetingId,
         startTime: remoteRecord.startTime ?? null,
         endTime: remoteRecord.endTime ?? null,
+        expireTime: remoteRecord.expireTime ?? null,
       });
     }
 
@@ -255,6 +256,16 @@ export async function processPubsubEnvelope(
         resourceName: target.resourceName,
       });
       return { status: 204, action: "enqueued" };
+    }
+
+    if (ceType === EVENT_CONFERENCE_ENDED) {
+      await env.MEET_JOBS.send(
+        {
+          type: "collect_conference_stats",
+          conferenceRecord: conferenceRecordName,
+        },
+        { delaySeconds: 120 },
+      );
     }
 
     return { status: 204, action: "recorded_conference" };

@@ -22,6 +22,17 @@ export type MeetJobMessage =
   | {
       type: "share_artifact";
       artifactId: string;
+    }
+  | {
+      type: "collect_conference_stats";
+      conferenceRecord: string;
+      cursor?: string;
+    }
+  | {
+      type: "collect_transcript_stats";
+      conferenceRecord: string;
+      transcript: string;
+      pageToken?: string;
     };
 
 export type MeetJobType = MeetJobMessage["type"];
@@ -51,6 +62,19 @@ export function isMeetJobMessage(value: unknown): value is MeetJobMessage {
   }
   if (obj.type === "share_artifact") {
     return isNonEmptyString(obj.artifactId);
+  }
+  if (obj.type === "collect_conference_stats") {
+    return (
+      isNonEmptyString(obj.conferenceRecord) &&
+      (obj.cursor === undefined || typeof obj.cursor === "string")
+    );
+  }
+  if (obj.type === "collect_transcript_stats") {
+    return (
+      isNonEmptyString(obj.conferenceRecord) &&
+      isNonEmptyString(obj.transcript) &&
+      (obj.pageToken === undefined || isNonEmptyString(obj.pageToken))
+    );
   }
   return false;
 }

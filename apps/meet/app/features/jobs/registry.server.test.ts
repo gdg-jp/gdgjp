@@ -26,6 +26,8 @@ function createFakeHandlers(
     cleanup_meeting: vi.fn().mockResolvedValue(undefined),
     process_artifact: vi.fn().mockResolvedValue(undefined),
     share_artifact: vi.fn().mockResolvedValue(undefined),
+    collect_conference_stats: vi.fn().mockResolvedValue(undefined),
+    collect_transcript_stats: vi.fn().mockResolvedValue(undefined),
     ...overrides,
   };
 }
@@ -163,6 +165,38 @@ describe("dispatchMeetJobMessage / processMeetJobBatch", () => {
     const logged = errorSpy.mock.calls[0];
     expect(logged?.[3]).toBe("失効しました: h***@gdgoc.jp");
     expect(logged?.join(" ")).not.toContain("host@gdgoc.jp");
+    errorSpy.mockRestore();
+  });
+
+  it("collect_conference_stats / collect_transcript_stats を振り分け、429 時はレート制限遅延で retry する", async () => {
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const handlers = createFakeHandlers({
+      collect_conference_stats: vi.fn().mockRejectedValueOnce(
+        new GoogleApiError({
+          httpStatus: 429,
+          apiStatus: "RESOURCE_EXHAUSTED",
+          apiMessage: "Quota",
+        }),
+      ),
+    });
+    const confMsg = createFakeMessage({
+      type: "collect_conference_stats",
+      conferenceRecord: "conferenceRecords/cr-1",
+      cursor: "conferenceRecords/cr-1/participants/p1",
+    });
+    const trMsg = createFakeMessage({
+      type: "collect_transcript_stats",
+      conferenceRecord: "conferenceRecords/cr-1",
+      transcript: "conferenceRecords/cr-1/transcripts/tr-1",
+      pageToken: "tok-2",
+    });
+
+    await dispatchMeetJobMessage(env, confMsg, undefined, handlers);
+    await dispatchMeetJobMessage(env, trMsg, undefined, handlers);
+
+    expect(confMsg.retry).toHaveBeenCalledWith({ delaySeconds: RATE_LIMIT_RETRY_DELAY_SECONDS });
+    expect(handlers.collect_transcript_stats).toHaveBeenCalledWith(env, trMsg.body, undefined);
+    expect(trMsg.ack).toHaveBeenCalledTimes(1);
     errorSpy.mockRestore();
   });
 });

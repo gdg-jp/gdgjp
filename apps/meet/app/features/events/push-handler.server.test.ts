@@ -43,7 +43,13 @@ function createFakePushDb(connection: GoogleConnectionRow, meetings: MeetingReco
   const processedEvents = new Map<string, string>();
   const conferenceRecords = new Map<
     string,
-    { name: string; meeting_id: string; start_time: string | null; end_time: string | null }
+    {
+      name: string;
+      meeting_id: string;
+      start_time: string | null;
+      end_time: string | null;
+      expire_time: string | null;
+    }
   >();
 
   const db = {
@@ -106,9 +112,10 @@ function createFakePushDb(connection: GoogleConnectionRow, meetings: MeetingReco
             return { success: true, meta: { changes: existed ? 1 : 0 } };
           }
           if (sql.includes("INSERT INTO conference_records")) {
-            const [name, meetingId, startTime, endTime] = args as [
+            const [name, meetingId, startTime, endTime, expireTime] = args as [
               string,
               string,
+              string | null,
               string | null,
               string | null,
             ];
@@ -118,6 +125,7 @@ function createFakePushDb(connection: GoogleConnectionRow, meetings: MeetingReco
               meeting_id: meetingId,
               start_time: startTime ?? prev?.start_time ?? null,
               end_time: endTime ?? prev?.end_time ?? null,
+              expire_time: expireTime ?? prev?.expire_time ?? null,
             });
             return { success: true, meta: { changes: 1 } };
           }
@@ -315,5 +323,73 @@ describe("processPubsubEnvelope", () => {
     expect(queueSend).toHaveBeenCalledTimes(2);
     expect(processedEvents.size).toBe(1);
     errorSpy.mockRestore();
+  });
+
+  it("conference.v2.ended 受信時に expire_time を保存し collect_conference_stats を 120 秒遅延で投入する（未管理スペースは無視）", async () => {
+    const { env, queueSend, conferenceRecords } = await createEnvFixture();
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url === "https://oauth2.googleapis.com/token") {
+        return Response.json({ access_token: "ya29.push", expires_in: 3600 });
+      }
+      if (url === "https://meet.googleapis.com/v2/conferenceRecords/conf-ended") {
+        return Response.json({
+          name: "conferenceRecords/conf-ended",
+          space: "spaces/managed-1",
+          startTime: "2026-11-19T10:00:00Z",
+          endTime: "2026-11-19T11:00:00Z",
+          expireTime: "2026-12-19T11:00:00Z",
+        });
+      }
+      if (url === "https://meet.googleapis.com/v2/conferenceRecords/conf-unmanaged") {
+        return Response.json({
+          name: "conferenceRecords/conf-unmanaged",
+          space: "spaces/other",
+          startTime: "2026-11-19T10:00:00Z",
+          endTime: "2026-11-19T11:00:00Z",
+          expireTime: "2026-12-19T11:00:00Z",
+        });
+      }
+      throw new Error(`想定外の fetch: ${url}`);
+    }) as unknown as typeof fetch;
+
+    const endedRes = await processPubsubEnvelope(
+      env,
+      {
+        message: {
+          attributes: { "ce-type": "google.workspace.meet.conference.v2.ended" },
+          data: encodeData({
+            conferenceRecord: { name: "conferenceRecords/conf-ended" },
+          }),
+        },
+      },
+      { fetchFn: fetchMock },
+    );
+
+    expect(endedRes).toEqual({ status: 204, action: "recorded_conference" });
+    expect(conferenceRecords.get("conferenceRecords/conf-ended")?.expire_time).toBe(
+      "2026-12-19T11:00:00Z",
+    );
+    expect(queueSend).toHaveBeenCalledTimes(1);
+    expect(queueSend).toHaveBeenCalledWith(
+      { type: "collect_conference_stats", conferenceRecord: "conferenceRecords/conf-ended" },
+      { delaySeconds: 120 },
+    );
+
+    const unmanagedRes = await processPubsubEnvelope(
+      env,
+      {
+        message: {
+          attributes: { "ce-type": "google.workspace.meet.conference.v2.ended" },
+          data: encodeData({
+            conferenceRecord: { name: "conferenceRecords/conf-unmanaged" },
+          }),
+        },
+      },
+      { fetchFn: fetchMock },
+    );
+    expect(unmanagedRes).toEqual({ status: 204, action: "unmanaged_space" });
+    expect(conferenceRecords.has("conferenceRecords/conf-unmanaged")).toBe(false);
+    expect(queueSend).toHaveBeenCalledTimes(1);
   });
 });

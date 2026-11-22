@@ -306,7 +306,7 @@ export async function listMeetingInvitees(
 ): Promise<MeetingInviteeRecord[]> {
   const result = await db
     .prepare(
-      `SELECT meeting_id, email_normalized, email, display_name, user_id, role, source_kinds
+      `SELECT meeting_id, email_normalized, email, display_name, user_id, role, source_kinds, google_user
        FROM meeting_invitees
        WHERE meeting_id = ?
        ORDER BY CASE role WHEN 'cohost' THEN 0 ELSE 1 END, COALESCE(display_name, email) ASC`,
@@ -314,6 +314,23 @@ export async function listMeetingInvitees(
     .bind(meetingId)
     .all<MeetingInviteeRow>();
   return (result.results ?? []).map(mapInviteeRow);
+}
+
+/** Meet スペースのメンバー名末尾から取得した `google_user`（`users/<id>` または `null`）を保存する。 */
+export async function updateMeetingInviteeGoogleUsers(
+  db: D1Database,
+  meetingId: string,
+  entries: ReadonlyArray<{ emailNormalized: string; googleUser: string | null }>,
+): Promise<void> {
+  if (entries.length === 0) return;
+  const statements = entries.map((entry) =>
+    db
+      .prepare(
+        "UPDATE meeting_invitees SET google_user = ? WHERE meeting_id = ? AND email_normalized = ?",
+      )
+      .bind(entry.googleUser, meetingId, entry.emailNormalized),
+  );
+  await db.batch(statements);
 }
 
 export async function listMeetingInviteSources(

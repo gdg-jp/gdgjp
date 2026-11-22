@@ -263,3 +263,26 @@
 - co-host への昇格と降格: Meet スペースのメンバーの役割が `COHOST` と役割なしの間で切り替わり、通話に入り直すとホスト管理の表示・非表示が切り替わった。招待者のメールアドレスが変わらないため Calendar 予定の `updated` は変わらなかった。
 - チャプターからの再同期: ローカルの Accounts DB でだけ参加者のテスト用アカウントを主催チャプターのオーガナイザーにして再同期すると「変更あり」となり、co-host に昇格した（招待元は `host_chapter_organizers` と `email`、co-host が優先）。オーガナイザーから外して再同期すると参加者に戻り、もう一度再同期すると「変更なし」になった。招待者のメールアドレスが同じ間は Calendar 予定の `updated` は変わらなかった。
 - 取り消し: `events.delete`（`sendUpdates=all`）で招待者全員に取り消しメールが届き、各アカウントのカレンダーから予定が消えた。取り消し後の `events.get` は 404 ではなく `status: "cancelled"` を返した。`cleanup_meeting` ジョブで Meet スペースのメンバーは全員削除され、`accessType=RESTRICTED` のまま進行中の会議も無かった。取り消しの数分後には、招待されていたアカウントも入室にノックが必要になった。共有済みの Drive 権限は設計どおり変更されなかった。
+
+---
+
+## 8. 会議統計の PoC（2026-11-22）
+
+`community-support@gdgoc.jp` のローカル開発用 `google_connection`（付与スコープ: `meetings.space.created`, `calendar.events`, `drive`, `openid`, `userinfo.email`）を使い、実際の Google Meet REST API v2 に対して読み取り専用（GET のみ）で検証した。アプリ作成スペース 4 件に紐づく 30 件の `conferenceRecords`（2026-11-18〜19 の検証会議）を対象に調査した。
+
+| 検証項目 | 方法 | 結果 | 設計への影響 |
+|---|---|---|---|
+| スコープの充足性 | `meetings.space.created` のみのトークンで `participants.list` / `participantSessions.list` / `transcripts.entries.list` / `conferenceRecords.get` を実行 | すべて HTTP 200 を返却 | **新しいスコープは不要**（`google_connection` の再接続は不要） |
+| フィルタなし `conferenceRecords.list` | フィルタを指定せず `conferenceRecords.list`（`pageSize=100`）を実行 | アプリ作成スペースの 30 件すべてが 1 ページで返却（`startTime` 降順） | 取得順・ページングの前提として利用可能 |
+| `expireTime` の期限 | 各レコードの `endTime` と `expireTime` を比較 | すべてのレコードで正確に `endTime + 30日`（例: `endTime` `2026-11-19T18:08:56.728262Z` → `expireTime` `2026-12-19T18:08:56.728262Z`）。参加者・セッションも同レコード配下に保持される | 30 日後に API から消えるため、終了後 30 日以内にすべて D1 へ保存し D1 を正本とする |
+| `Participant` リソース | `participants.list` のレスポンスを確認 | `name` は `conferenceRecords/<cr>/participants/<数値ユーザーID>`、`signedinUser { user: "users/<数値ユーザーID>", displayName }`、`earliestStartTime`、`latestEndTime` を含む。`email` はなし。観測はサインイン済みユーザーのみ（匿名・電話は未検証） | メールでの突合は不可。スキーマ上は `signedin` / `anonymous` / `phone` の 3 種に対応させる |
+| `participantSessions` | 退室・再入室を含む参加者の `participantSessions.list` を確認 | `name` は `.../participantSessions/<小さな整数>`。再入室した参加者は 2 セッションになり、1.2 秒のみのセッション（再接続ノイズ）も観測。`startTime` 降順で返却 | 入退室回数・個別セッションを保存し、滞在時間は重複区間を統合して算出する |
+| ワイルドカード `participants/-/participantSessions` | `conferenceRecords/<cr>/participants/-/participantSessions` へ GET | HTTP 200 を返すが常に 0 件 | ワイルドカードは使わず、**参加者ごとにセッションを取得**する（P 人に対し P 回呼び出し） |
+| フィルタ構文 | `filter=latest_end_time IS NULL` と `filter=latestEndTime IS NULL` を実行 | `latest_end_time IS NULL` は 200、`latestEndTime IS NULL` は 400（`"Invalid filter was provided"`） | 公式ガイド本文の `camelCase` 表記は誤り。フィルタを使う場合は **`snake_case`** を使う |
+| `spaces.members.list` とユーザー ID | `spaces.members.list` の結果と `signedinUser.user` を複数スペース・テストアカウント 2 名で突合 | レスポンスは `name`, `email`, `role` のみで `user` フィールドはなし。ただし `spaces/<s>/members/<id>` の末尾が全桁数字なら参加者の `users/<id>` と一致した。招待済み Gmail アドレス 1 件では末尾が 32 桁 hex ハッシュ（Google アカウントへ解決不能と推測）となり照合不可 | 招待者ごとに `member.name` 末尾が全桁数字のときのみ `users/<id>` を保存し、それ以外は `NULL` とする |
+| ホストアカウントの入室 | `community-support@gdgoc.jp` 自身が入室した回の参加者を確認 | `google_connection.google_user_id` と同じ ID の参加者として現れる | 統計集計（参加者数・ピーク等）から共有ホストアカウントを除外する |
+| 空の開催回・短時間開催 | 30 件の参加者数と継続時間を確認 | 30 件中 13 件が参加者 0 人（継続時間 1.4 秒〜78 秒）。参加者 1 人でも 6〜9 秒の開催回あり | 参加者 0 人の開催回は `skipped` と記録する |
+| 終了タイミングと通知受信 | `endTime` と参加者 `latestEndTime` 最大値の差、および本番 D1 `processed_events` の `conference.v2.ended` 受信時刻を確認 | `endTime` は参加者 `latestEndTime` 最大値の 0.3〜34 秒後。本番 D1 では `endTime` の 1.5 秒後に `conference.v2.ended` を受信。到着時点で全員退室済みだが、その瞬間に API が最終 `latestEndTime` を返すかは直接未検証 | 短い遅延後に収集し、`latestEndTime` が `NULL` の参加者が残っていれば遅延付きで再投入する |
+| 文字起こしエントリ（`transcripts.entries`） | 2 名・4 名参加の会議などで `transcripts.entries.list` を確認 | フィールドは `name`, `participant`（参加者リソース名）, `text`, `languageCode`（`ja-JP`）, `startTime`, `endTime`。約 20〜30 秒ごとのチャンク（サンプルでは 26〜264 文字）で `startTime` 昇順。2 名・4 名参加の会議で全エントリが 1 人の参加者に帰属された（1 人だけが話したかは不明）。0 件の文字起こし（継続 2〜29 秒）や、1 開催回で 2 件の文字起こしも観測 | 話者ごとの帰属精度は未検証のため、**発言割合・発言時間は参考値として扱う** |
+| API 呼び出しコスト | 30 件の調査での GET 回数を集計 | 調査全体（診断呼び出し含む）で 259 GET。通常収集 1 件あたり `conferenceRecords.get` 1 + `participants` ⌈P/250⌉ + `sessions` P + 文字起こし 1 件あたり ⌈E/100⌉ | 予算制御（Pacer）と完了済みレコードの再取得禁止で 600 reads/min 上限を守る |
+| 未検証項目（通話品質） | Admin SDK Reports API の要否を確認 | Meet 通話品質（パケットロス・RTT・デバイス種別・国）の取得には Workspace 管理者権限を要する Admin SDK Reports API が必要 | Stage 07 のスコープ外とする |
