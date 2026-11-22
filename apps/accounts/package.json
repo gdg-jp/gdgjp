@@ -19,11 +19,11 @@
     "openapi:generate": "pnpm openapi:bundle && openapi-typescript openapi/dist/openapi.yaml -o openapi/types.generated.ts"
   },
   "dependencies": {
-    "@better-auth/oauth-provider": "1.6.23",
+    "@better-auth/oauth-provider": "1.7.26",
     "@gdgjp/gdg-lib": "workspace:*",
     "@gdgjp/design-system": "workspace:*",
     "@react-router/cloudflare": "~7.14.2",
-    "better-auth": "1.6.23",
+    "better-auth": "1.7.26",
     "i18next": "^26.0.8",
     "isbot": "^5.1.17",
     "jose": "^6.1.3",

@@ -78,7 +78,7 @@ CREATE TABLE IF NOT EXISTS "jwks" (
   "privateKey" TEXT NOT NULL,
   "createdAt" TEXT NOT NULL,
   "expiresAt" TEXT
-);
+, "alg" TEXT, "crv" TEXT);
 CREATE TABLE IF NOT EXISTS "oauthClient" (
   "id" TEXT NOT NULL PRIMARY KEY,
   "clientId" TEXT NOT NULL UNIQUE,
@@ -110,7 +110,7 @@ CREATE TABLE IF NOT EXISTS "oauthClient" (
   "requirePKCE" INTEGER,
   "referenceId" TEXT,
   "metadata" TEXT
-);
+, "clientDiscoveryId" TEXT, "clientCredentialsScopes" TEXT, "backchannelLogoutUri" TEXT, "backchannelLogoutSessionRequired" INTEGER, "applicationType" TEXT, "jwks" TEXT, "jwksUri" TEXT, "dpopBoundAccessTokens" INTEGER DEFAULT 0);
 CREATE INDEX "oauthClient_userId_idx" ON "oauthClient" ("userId");
 CREATE TABLE IF NOT EXISTS "oauthRefreshToken" (
   "id" TEXT NOT NULL PRIMARY KEY,
@@ -124,7 +124,7 @@ CREATE TABLE IF NOT EXISTS "oauthRefreshToken" (
   "revoked" TEXT,
   "authTime" TEXT,
   "scopes" TEXT NOT NULL
-);
+, "authorizationCodeId" TEXT, "resources" TEXT, "requestedUserInfoClaims" TEXT, "rotatedAt" TEXT, "rotationReplayResponse" TEXT, "rotationReplayExpiresAt" TEXT, "confirmation" TEXT);
 CREATE INDEX "oauthRefreshToken_clientId_idx" ON "oauthRefreshToken" ("clientId");
 CREATE INDEX "oauthRefreshToken_sessionId_idx" ON "oauthRefreshToken" ("sessionId");
 CREATE INDEX "oauthRefreshToken_userId_idx" ON "oauthRefreshToken" ("userId");
@@ -139,7 +139,7 @@ CREATE TABLE IF NOT EXISTS "oauthAccessToken" (
   "expiresAt" TEXT NOT NULL,
   "createdAt" TEXT NOT NULL,
   "scopes" TEXT NOT NULL
-);
+, "authorizationCodeId" TEXT, "resources" TEXT, "requestedUserInfoClaims" TEXT, "revoked" TEXT, "confirmation" TEXT);
 CREATE INDEX "oauthAccessToken_clientId_idx" ON "oauthAccessToken" ("clientId");
 CREATE INDEX "oauthAccessToken_sessionId_idx" ON "oauthAccessToken" ("sessionId");
 CREATE INDEX "oauthAccessToken_userId_idx" ON "oauthAccessToken" ("userId");
@@ -152,7 +152,7 @@ CREATE TABLE IF NOT EXISTS "oauthConsent" (
   "scopes" TEXT NOT NULL,
   "createdAt" TEXT NOT NULL,
   "updatedAt" TEXT NOT NULL
-);
+, "resources" TEXT, "requestedUserInfoClaims" TEXT);
 CREATE INDEX "oauthConsent_clientId_idx" ON "oauthConsent" ("clientId");
 CREATE INDEX "oauthConsent_userId_idx" ON "oauthConsent" ("userId");
 CREATE TRIGGER disable_owned_oauth_clients_after_membership_delete
@@ -285,3 +285,37 @@ BEGIN
       SELECT "clientId" FROM "oauthClient" WHERE "grantTypes" LIKE '%device_code%'
     );
 END;
+CREATE INDEX "oauthRefreshToken_authorizationCodeId_idx" ON "oauthRefreshToken" ("authorizationCodeId");
+CREATE INDEX "oauthAccessToken_authorizationCodeId_idx" ON "oauthAccessToken" ("authorizationCodeId");
+CREATE TABLE IF NOT EXISTS "oauthResource" (
+  "id" TEXT NOT NULL PRIMARY KEY,
+  "identifier" TEXT NOT NULL UNIQUE,
+  "name" TEXT NOT NULL,
+  "accessTokenTtl" INTEGER,
+  "refreshTokenTtl" INTEGER,
+  "signingAlgorithm" TEXT,
+  "signingKeyId" TEXT,
+  "allowedScopes" TEXT,
+  "customClaims" TEXT,
+  "dpopBoundAccessTokensRequired" INTEGER DEFAULT 0,
+  "disabled" INTEGER DEFAULT 0,
+  "createdAt" TEXT,
+  "updatedAt" TEXT,
+  "policyVersion" INTEGER DEFAULT 1,
+  "metadata" TEXT
+);
+CREATE TABLE IF NOT EXISTS "oauthClientResource" (
+  "id" TEXT NOT NULL PRIMARY KEY,
+  "clientId" TEXT NOT NULL REFERENCES "oauthClient" ("clientId") ON DELETE CASCADE,
+  "resourceId" TEXT NOT NULL REFERENCES "oauthResource" ("identifier") ON DELETE CASCADE,
+  "metadata" TEXT,
+  "createdAt" TEXT
+);
+CREATE INDEX "oauthClientResource_clientId_idx" ON "oauthClientResource" ("clientId");
+CREATE INDEX "oauthClientResource_resourceId_idx" ON "oauthClientResource" ("resourceId");
+CREATE UNIQUE INDEX "oauthClientResource_clientId_resourceId_uidx"
+  ON "oauthClientResource" ("clientId", "resourceId");
+CREATE TABLE IF NOT EXISTS "oauthClientAssertion" (
+  "id" TEXT NOT NULL PRIMARY KEY,
+  "expiresAt" TEXT NOT NULL
+);

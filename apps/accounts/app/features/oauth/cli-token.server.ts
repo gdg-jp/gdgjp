@@ -12,7 +12,7 @@ export async function requireCliTokenUser(
   const row = await env.DB.prepare(
     `SELECT userId, scopes
      FROM oauthAccessToken
-     WHERE token = ? AND clientId = ? AND expiresAt > ? AND userId IS NOT NULL
+     WHERE token = ? AND clientId = ? AND expiresAt > ? AND revoked IS NULL AND userId IS NOT NULL
      LIMIT 1`,
   )
     .bind(await sha256Base64Url(token), CLI_CLIENT_ID, new Date().toISOString())
