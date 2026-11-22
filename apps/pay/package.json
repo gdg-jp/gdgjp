@@ -32,7 +32,7 @@
     "@types/react-dom": "^19.0.2",
     "tailwindcss": "^4.2.4",
     "typescript": "^5.7.2",
-    "vite": "^8.3.2",
+    "vite": "^8.3.3",
     "vitest": "^4.1.10",
     "wrangler": "~4.113.0"
   }
