@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 
 vi.mock("cloudflare:workers", () => ({
   DurableObject: class {},
+  WorkerEntrypoint: class {},
   WorkflowEntrypoint: class {},
 }));
 
@@ -28,6 +29,10 @@ describe("worker entry exports", () => {
     for (const name of declared) {
       expect(typeof exports[name ?? ""], name).toBe("function");
     }
+  });
+
+  it("exports the StagingSnapshot entrypoint for staging service bindings", () => {
+    expect(typeof (worker as unknown as Record<string, unknown>).StagingSnapshot).toBe("function");
   });
 
   it("keeps the decommissioned generation classes out of deleted_classes", () => {

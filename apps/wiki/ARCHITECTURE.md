@@ -126,6 +126,7 @@ app/routes/
 | Worker entry（fetch / scheduled / queue） | `workers/app.ts` |
 | Durable Object | `workers/collab-durable-object.ts`, `workers/source-import-durable-object.ts` |
 | v1 生成（撤去済み、空クラス） | `workers/decommissioned.ts` |
+| ステージングへの DO ストレージ複製（service binding 専用 RPC） | `workers/staging-snapshot.ts` |
 
 ## 読まないファイル
 

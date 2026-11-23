@@ -49,6 +49,7 @@ vi.mock("./decommissioned", () => ({
 }));
 vi.mock("./collab-durable-object", () => ({ CollabDurableObject: class {} }));
 vi.mock("./source-import-durable-object", () => ({ SourceImportDurableObject: class {} }));
+vi.mock("./staging-snapshot", () => ({ StagingSnapshot: class {} }));
 
 const { default: worker } = await import("./app");
 

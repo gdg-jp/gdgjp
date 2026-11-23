@@ -1,4 +1,9 @@
 import { DurableObject } from "cloudflare:workers";
+import {
+  type DurableObjectSnapshot,
+  exportDurableObjectStorage,
+  restoreDurableObject,
+} from "@gdgjp/gdg-lib/staging-snapshot";
 import * as decoding from "lib0/decoding";
 import * as encoding from "lib0/encoding";
 import * as awarenessProtocol from "y-protocols/awareness";
@@ -31,10 +36,14 @@ export class CollabDurableObject extends DurableObject<Env> {
 
   constructor(ctx: DurableObjectState, env: Env) {
     super(ctx, env);
-    this.ydoc = new Y.Doc();
-    this.awareness = new awarenessProtocol.Awareness(this.ydoc);
+    [this.ydoc, this.awareness] = this.createDocument();
+  }
 
-    this.ydoc.on("update", (update: Uint8Array, origin: unknown) => {
+  private createDocument(): [Y.Doc, awarenessProtocol.Awareness] {
+    const ydoc = new Y.Doc();
+    const awareness = new awarenessProtocol.Awareness(ydoc);
+
+    ydoc.on("update", (update: Uint8Array, origin: unknown) => {
       this.dirty = true;
       const originWs = origin as WebSocket;
       if (!this.connections.has(originWs)) return;
@@ -45,7 +54,7 @@ export class CollabDurableObject extends DurableObject<Env> {
       this.broadcast(message, originWs);
     });
 
-    this.awareness.on(
+    awareness.on(
       "update",
       (
         { added, updated, removed }: { added: number[]; updated: number[]; removed: number[] },
@@ -62,12 +71,29 @@ export class CollabDurableObject extends DurableObject<Env> {
         encoding.writeVarUint(encoder, MSG_AWARENESS);
         encoding.writeVarUint8Array(
           encoder,
-          awarenessProtocol.encodeAwarenessUpdate(this.awareness, changedClients),
+          awarenessProtocol.encodeAwarenessUpdate(awareness, changedClients),
         );
         const senderWs = origin instanceof WebSocket ? origin : undefined;
         this.broadcast(encoding.toUint8Array(encoder), senderWs);
       },
     );
+    return [ydoc, awareness];
+  }
+
+  async exportStagingSnapshot(): Promise<DurableObjectSnapshot> {
+    return exportDurableObjectStorage(this.ctx.storage);
+  }
+
+  async importStagingSnapshot(snapshot: DurableObjectSnapshot): Promise<void> {
+    await restoreDurableObject(this.ctx, this.env, snapshot);
+    this.connections.clear();
+    this.wsToClientId.clear();
+    this.awareness.destroy();
+    this.ydoc.destroy();
+    [this.ydoc, this.awareness] = this.createDocument();
+    this.dirty = false;
+    this.persistPending = false;
+    this.initialized = false;
   }
 
   private async initialize(spaceSlug: string, slug: string): Promise<void> {

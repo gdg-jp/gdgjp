@@ -256,3 +256,4 @@ export default {
 export { CollabDurableObject };
 export { SourceImportDurableObject };
 export { WikiGenerationAgent, WikiGenerationPhaseWorkflow } from "./decommissioned";
+export { StagingSnapshot } from "./staging-snapshot";

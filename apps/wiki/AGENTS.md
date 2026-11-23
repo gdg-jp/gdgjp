@@ -24,7 +24,9 @@ Single `ExportedHandler<Env>` — understand all three before touching:
 - Runner auth: secret `RUNNER_TOKEN` (32+ chars) is accepted only by `/api/runner/*` and the CLI routes in `tests/architecture/runner-identity-routes.test.ts`.
 - `queue` — consumes `TRANSLATION_QUEUE`, Google Docs import jobs, and `SOURCE_FETCH_QUEUE`. Source import continuation for Chat, Drive, Discord, and websites runs in `SOURCE_IMPORT_DO` alarms, not the queue.
 
-`CollabDurableObject` and `SourceImportDurableObject` are re-exported from the same file so wrangler registers them.
+`CollabDurableObject`, `SourceImportDurableObject`, and the `StagingSnapshot` entrypoint
+(`workers/staging-snapshot.ts`, service-binding RPC that copies Durable Object storage into
+staging slots) are re-exported from the same file so wrangler registers them.
 
 ## Bindings (env shape)
 

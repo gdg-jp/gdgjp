@@ -1,4 +1,9 @@
 import { DurableObject } from "cloudflare:workers";
+import {
+  type DurableObjectSnapshot,
+  exportDurableObjectStorage,
+  restoreDurableObject,
+} from "@gdgjp/gdg-lib/staging-snapshot";
 import { ensureSourceImportDoSchema } from "./features/sources/import/do-store";
 import {
   ALARM_CONTINUE_MS,
@@ -51,6 +56,17 @@ export class SourceImportDurableObject extends DurableObject<Env> {
         }),
       );
       return true;
+    });
+  }
+
+  async exportStagingSnapshot(): Promise<DurableObjectSnapshot> {
+    return exportDurableObjectStorage(this.ctx.storage);
+  }
+
+  async importStagingSnapshot(snapshot: DurableObjectSnapshot): Promise<void> {
+    await this.ctx.blockConcurrencyWhile(async () => {
+      await restoreDurableObject(this.ctx, this.env, snapshot);
+      ensureSourceImportDoSchema(this.ctx.storage.sql);
     });
   }
 
