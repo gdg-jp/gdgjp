@@ -300,7 +300,10 @@ async function ensureResources(slot, apps) {
     for (const name of needed.aiSearchNamespaces) {
       aiSearchNamespaces ??= aiSearch(["namespace", "list"]);
       if (aiSearchNamespaces === null) {
-        log(`::warning::cannot list AI Search namespaces; assuming ${name} exists`);
+        current.aiSearchUnavailable = true;
+        log(
+          `::warning::this token cannot use AI Search; ${name} is not bound and Wiki search is off in ${slot}`,
+        );
         continue;
       }
       if (!aiSearchNamespaces.includes(name)) {
@@ -652,14 +655,17 @@ export async function stagingConfigs(slot, apps, current, plans = {}) {
     configs.push({
       app,
       directory,
-      config: rewriteWorkerConfig(config, {
-        slot,
-        hosts: workerHosts,
-        resources,
-        workerNames,
-        extraVars,
-        varOverrides: plans[app.worker]?.varOverrides,
-      }),
+      config: rewriteWorkerConfig(
+        resources.aiSearchUnavailable ? { ...config, ai_search_namespaces: [] } : config,
+        {
+          slot,
+          hosts: workerHosts,
+          resources,
+          workerNames,
+          extraVars,
+          varOverrides: plans[app.worker]?.varOverrides,
+        },
+      ),
     });
   }
   return configs;
@@ -749,16 +755,21 @@ export async function deploy(slot, apps = stagingApps()) {
     const missing = workerTargets(entry.config).filter((name) => !existing.has(name));
     if (!missing.length) continue;
     log(`bootstrap ${entry.config.name} without bindings to ${missing.join(", ")}`);
-    deployOne(
-      slot,
-      { ...entry, config: withoutWorkerTargets(entry.config, missing) },
-      plans[entry.app.worker].secrets,
-      { migrate: false },
-    );
-    existing.add(entry.config.name);
+    try {
+      deployOne(
+        slot,
+        { ...entry, config: withoutWorkerTargets(entry.config, missing) },
+        plans[entry.app.worker].secrets,
+        { migrate: false },
+      );
+      existing.add(entry.config.name);
+    } catch (error) {
+      log(error.message);
+    }
   }
   let pending = configs;
-  for (let attempt = 1; attempt <= 2 && pending.length; attempt++) {
+  for (let attempt = 1; attempt <= 3 && pending.length; attempt++) {
+    if (attempt > 1) await new Promise((done) => setTimeout(done, attempt * 20000));
     const failed = [];
     for (const entry of pending) {
       log(`deploy ${entry.config.name} (attempt ${attempt})`);
