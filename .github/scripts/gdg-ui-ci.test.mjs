@@ -610,12 +610,26 @@ test("job lifecycle verification is selected across local and hosted delivery", 
   );
 });
 
+test("the ruleset's single required check gates on every CI job", () => {
+  const workflow = readWorkflow("ci.yml");
+  const job = workflow.jobs.required;
+  assert.equal(job.name, "Required checks");
+  assert.equal(job.if, "always()");
+  assert.deepEqual(
+    [...job.needs].sort(),
+    Object.keys(workflow.jobs)
+      .filter((name) => name !== "observations" && name !== "required")
+      .sort(),
+  );
+  assert.match(job.steps.at(-1).run, /\.result == "success" or \.result == "skipped"/);
+});
+
 test("hosted engineering observations run after failures and preserve missing-source status", () => {
   const workflow = readWorkflow("ci.yml");
   const job = workflow.jobs.observations;
   assert.equal(job.if, "always()");
   const expected = Object.keys(workflow.jobs)
-    .filter((name) => name !== "observations")
+    .filter((name) => name !== "observations" && name !== "required")
     .sort();
   assert.deepEqual([...job.needs].sort(), expected);
   assert.equal(job.steps[0].with["fetch-depth"], 0);
