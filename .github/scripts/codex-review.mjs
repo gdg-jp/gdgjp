@@ -12,6 +12,7 @@ export const STATUS_CONTEXT = "ai-review";
 export const BOT_LOGIN = "gdg-chan";
 export const DOCS_URL = "https://github.com/gdg-jp/gdgjp/blob/main/docs/engineering/ai-review.md";
 const AGENT_FAILED = "Codex agent failed";
+export const GATED_BASES = ["main"];
 const TRIGGER = /(^|\s)(@gdg-chan\b|\/ai-review\b)/i;
 const MARKER = /<!-- codex-review:(\w+)((?: [\w-]+=[^\s>]+)*) -->/g;
 const TRUSTED_ROLES = new Set(["admin", "maintain", "write"]);
@@ -100,10 +101,12 @@ export function contentDigest(body) {
 
 export function parsePullRequest(raw) {
   let tampered = 0;
-  const trailing = (body) => {
+  const trailing = (body, kinds) => {
+    if (!(body ?? "").trim()) return null;
     const item = markers(body).at(-1);
-    if (!item) return null;
     const valid =
+      item &&
+      kinds.includes(item.kind) &&
       authentic(item, raw.number) &&
       (item.kind !== "finding" || item.digest === contentDigest(body));
     if (!valid) tampered += 1;
@@ -112,11 +115,12 @@ export function parsePullRequest(raw) {
   const reviews = [];
   for (const review of raw.reviews?.nodes ?? []) {
     if (!isBot(review.author)) continue;
-    const found = trailing(review.body);
-    if (found?.kind === "review") {
+    const found = trailing(review.body, ["review"]);
+    if (found) {
       reviews.push({
         at: review.createdAt,
         requested: found.requested ?? review.createdAt,
+        requests: found.requests === undefined ? null : found.requests.split(","),
         head: found.head,
         findings: (found.findings ?? "").split(",").filter(Boolean),
         url: review.url,
@@ -132,15 +136,14 @@ export function parsePullRequest(raw) {
   for (const thread of raw.reviewThreads?.nodes ?? []) {
     const [first, ...replies] = thread.comments?.nodes ?? [];
     if (!first || !isBot(first.author)) continue;
-    const found = trailing(first.body);
-    if (found?.kind !== "finding") continue;
+    const found = trailing(first.body, ["finding"]);
+    if (!found) continue;
     const claims = reactionClaims(first.reactions);
     for (const reply of replies) {
       if (isBot(reply.author)) {
-        const item = trailing(reply.body);
-        if (item?.kind === "verdict" && item.id === found.id) {
-          verdicts.push({ ...item, at: reply.createdAt });
-        }
+        const item = trailing(reply.body, ["verdict"]);
+        if (item && item.id === found.id) verdicts.push({ ...item, at: reply.createdAt });
+        else if (item) tampered += 1;
       } else if (isHuman(reply.author)) {
         claims.push({
           kind: "reply",
@@ -169,7 +172,7 @@ export function parsePullRequest(raw) {
 
   for (const comment of raw.comments?.nodes ?? []) {
     if (isBot(comment.author)) {
-      const item = trailing(comment.body);
+      const item = trailing(comment.body, ["finding", "verdict", "ack"]);
       if (item?.kind === "finding") {
         findings.set(item.id, {
           id: item.id,
@@ -211,9 +214,10 @@ export function parsePullRequest(raw) {
     });
   }
 
-  const labeledAt = (raw.timelineItems?.nodes ?? [])
+  const labelEvents = (raw.timelineItems?.nodes ?? [])
     .filter((event) => event.label?.name === LABEL)
-    .map((event) => event.createdAt);
+    .map((event) => ({ id: event.id ?? `t:${event.createdAt}`, at: event.createdAt }));
+  const labeledAt = labelEvents.map((event) => event.at);
 
   const commit = raw.commits?.nodes?.[0]?.commit;
   return {
@@ -229,6 +233,7 @@ export function parsePullRequest(raw) {
     headSha: raw.headRefOid,
     labels: (raw.labels?.nodes ?? []).map((label) => label.name),
     labeledAt,
+    labelEvents,
     status: commit?.oid === raw.headRefOid ? (commit?.status?.context ?? null) : null,
     reviews,
     tampered,
@@ -254,14 +259,24 @@ export function humanActors(pr) {
   return actors;
 }
 
-export function sharedGate(numbers) {
-  return {
-    state: "failure",
-    description: `The head commit is shared with #${numbers.join(", #")}; push a distinct commit`,
-  };
+const SEVERITY = { failure: 3, error: 3, pending: 2, success: 1 };
+
+export function combineGates(own, siblings) {
+  const reviewed = siblings.filter((sibling) => sibling.reviewed);
+  const worst = reviewed.reduce(
+    (current, sibling) =>
+      SEVERITY[sibling.gate.state] > SEVERITY[current.state]
+        ? {
+            state: sibling.gate.state,
+            description: `#${sibling.number} has the same change: ${sibling.gate.description}`,
+          }
+        : current,
+    own,
+  );
+  return worst;
 }
 
-export function evaluate(pr, trusted, { sharedWith = [] } = {}) {
+export function evaluate(pr, trusted) {
   const firstReviewAt = pr.reviews.length
     ? Math.min(...pr.reviews.map((review) => time(review.at)))
     : null;
@@ -297,12 +312,16 @@ export function evaluate(pr, trusted, { sharedWith = [] } = {}) {
     return { ...finding, resolved, claims };
   });
 
-  const lastLabelAt = pr.labeledAt.length ? Math.max(...pr.labeledAt.map(time)) : null;
-  const lastRequested = pr.reviews.length
-    ? Math.max(...pr.reviews.map((review) => time(review.requested)))
-    : null;
-  const reviewRequested =
-    lastLabelAt !== null && (lastRequested === null || lastLabelAt > lastRequested);
+  const handledRequests = new Set(pr.reviews.flatMap((review) => review.requests ?? []));
+  const legacyRequested = Math.max(
+    ...pr.reviews
+      .filter((review) => review.requests === null)
+      .map((review) => time(review.requested)),
+    Number.NEGATIVE_INFINITY,
+  );
+  const reviewRequested = pr.labelEvents.some(
+    (event) => !handledRequests.has(event.id) && time(event.at) > legacyRequested,
+  );
 
   const verifications = findings.filter((finding) => finding.claims.length > 0);
   const unresolved = findings.filter((finding) => !finding.resolved);
@@ -318,8 +337,6 @@ export function evaluate(pr, trusted, { sharedWith = [] } = {}) {
       state: "failure",
       description: `${missing.length + pr.tampered} GDG-chan finding comments were deleted or altered; a maintainer must review and bypass`,
     };
-  } else if (sharedWith.length > 0) {
-    gate = sharedGate(sharedWith);
   } else if (pr.isCrossRepository) {
     gate = {
       state: "failure",
@@ -414,7 +431,7 @@ export function findingBody(finding, { pr, id, head, index, issue }) {
   return `${text}${marker("finding", { pr, id, head, path: issue ? finding.path : undefined, digest })}`;
 }
 
-export function reviewBody(result, { pr, head, requested, ids, model }) {
+export function reviewBody(result, { pr, head, requested, requests = [], ids, model }) {
   const findingCount = ids.length;
   const lines = [
     "## GDG-chan review",
@@ -427,7 +444,13 @@ export function reviewBody(result, { pr, head, requested, ids, model }) {
     "",
     `<sub>${model} · ${head.slice(0, 7)} · [AI review gate](${DOCS_URL})</sub>`,
     "",
-    marker("review", { pr, head, requested, findings: ids.join(",") }),
+    marker("review", {
+      pr,
+      head,
+      requested,
+      requests: requests.join(","),
+      findings: ids.join(","),
+    }),
   ];
   return lines.join("\n");
 }
@@ -632,7 +655,7 @@ const CONNECTIONS = {
   timelineItems: {
     field: "timelineItems",
     args: "itemTypes: [LABELED_EVENT], ",
-    nodes: "... on LabeledEvent { createdAt label { name } }",
+    nodes: "... on LabeledEvent { id createdAt label { name } }",
   },
 };
 
@@ -770,8 +793,26 @@ export class ReviewRepository {
 
   async evaluate(number) {
     const pr = await this.pullRequest(number);
-    const sharedWith = await this.sharedWith(pr);
-    return { pr, evaluation: evaluate(pr, await this.trusted(pr), { sharedWith }) };
+    const evaluation = evaluate(pr, await this.trusted(pr));
+    evaluation.gate = await this.combined(pr, evaluation.gate);
+    return { pr, evaluation };
+  }
+
+  async siblingGates(pr) {
+    const siblings = [];
+    for (const number of await this.sharedWith(pr)) {
+      const sibling = await this.pullRequest(number);
+      siblings.push({
+        number,
+        reviewed: sibling.reviews.length > 0,
+        gate: evaluate(sibling, await this.trusted(sibling)).gate,
+      });
+    }
+    return siblings;
+  }
+
+  async combined(pr, gate) {
+    return combineGates(gate, await this.siblingGates(pr));
   }
 
   async sharedWith(pr) {
@@ -785,13 +826,11 @@ export class ReviewRepository {
 
   async publishGate(pr, gate, targetUrl = DOCS_URL) {
     if (gate.state === "success") {
-      const shared = await this.sharedWith(pr);
-      if (shared.length > 0) {
-        return this.publishGate(pr, sharedGate(shared), targetUrl);
-      }
+      const before = await this.combined(pr, gate);
+      if (before.state !== "success") return this.postGate(pr, before, targetUrl);
       const posted = await this.postGate(pr, gate, targetUrl);
-      const after = await this.sharedWith(pr);
-      if (after.length > 0) await this.postGate(pr, sharedGate(after), targetUrl);
+      const after = await this.combined(pr, gate);
+      if (after.state !== "success") await this.postGate(pr, after, targetUrl);
       return posted;
     }
     return this.postGate(pr, gate, targetUrl);
@@ -826,7 +865,7 @@ export class ReviewRepository {
     );
   }
 
-  async postReview(pr, result, { runId, model, requested }) {
+  async postReview(pr, result, { runId, model, requested, requests }) {
     const files = await this.changedFiles(pr.number);
     const nonce = randomUUID().slice(0, 8);
     const prepared = result.findings.map((finding, index) => ({
@@ -843,6 +882,7 @@ export class ReviewRepository {
       pr: pr.number,
       head: pr.headSha,
       requested,
+      requests,
       ids: prepared.map((item) => item.id),
       model,
     });
@@ -914,10 +954,12 @@ export class ReviewRepository {
   }
 
   async postVerdict(pr, finding, verdict, seen) {
-    const handled = finding.claims
-      .filter((claim) => claim.at && time(claim.at) === time(seen))
-      .map((claim) => claim.key)
-      .join(",");
+    const previous = finding.verdicts.at(-1);
+    const keys = new Set(previous && time(previous.seen) === time(seen) ? previous.handled : []);
+    for (const claim of finding.claims) {
+      if (time(claim.at) === time(seen)) keys.add(claim.key);
+    }
+    const handled = [...keys].join(",");
     const body = verdictBody(verdict, {
       pr: pr.number,
       id: finding.id,
@@ -1112,6 +1154,7 @@ const ATTEMPTS = 3;
 export async function processPullRequest({ repo, codex, worktrees, number, runId, runUrl, model }) {
   for (let attempt = 1; attempt <= ATTEMPTS; attempt += 1) {
     const { pr, evaluation } = await repo.evaluate(number);
+    if (!GATED_BASES.includes(pr.baseRef)) return;
     await repo.syncThreads(evaluation);
     if (pr.state !== "OPEN" || !hasWork(evaluation)) {
       await repo.publishGate(pr, evaluation.gate);
@@ -1198,9 +1241,12 @@ async function handleWork({ repo, codex, tree, pr, evaluation, runId, model }) {
       console.log(`#${pr.number} moved past ${pr.headSha} during the review; reviewing again.`);
       return;
     }
-    await repo.postReview(pr, result, { runId, model, requested });
-    const latestLabel = Math.max(...current.labeledAt.map((value) => Date.parse(value)), 0);
-    if (latestLabel <= Date.parse(requested)) await repo.removeLabel(pr.number);
+    const requests = pr.labelEvents.map((event) => event.id);
+    await repo.postReview(pr, result, { runId, model, requested, requests });
+    const after = await repo.pullRequest(pr.number);
+    if (after.labelEvents.every((event) => requests.includes(event.id))) {
+      await repo.removeLabel(pr.number);
+    }
   }
 }
 
@@ -1220,7 +1266,7 @@ export async function plan({ repo, event, authAvailable }) {
   const work = [];
   for (const number of numbers) {
     const { pr, evaluation } = await repo.evaluate(number);
-    if (pr.state !== "OPEN") continue;
+    if (pr.state !== "OPEN" || !GATED_BASES.includes(pr.baseRef)) continue;
     await repo.syncThreads(evaluation);
     const failedBefore =
       pr.status?.state === "ERROR" && pr.status.description.startsWith(AGENT_FAILED);

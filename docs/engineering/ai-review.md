@@ -33,13 +33,14 @@ no event for reactions, so a scheduled run picks them up within about ten minute
 | pending, "queued or running" / "checking" / "working" | GDG-chan has work for this pull request. |
 | failure, "N of M GDG-chan findings are unresolved" | Respond to the remaining findings. |
 | failure, "finding comments were deleted or altered" | A finding listed by a review is gone or its marker no longer verifies. A maintainer reviews what happened and bypasses. |
-| failure, "The head commit is shared with #N" | Another open pull request from this repository has the same head commit and the same base; close one or push a distinct commit. |
+| "#N has the same change: ..." | Another open pull request from this repository has the same head and base and its own GDG-chan review; the status shows the worse of the two. |
 | success | At least one review ran and all of its findings are resolved. |
 | error, "Codex is not signed in" | Run the AI login workflow. |
 | error, "Codex agent failed" | Read the linked run; comment `/ai-review` or re-add the label to retry. |
 
-Fork pull requests do not get GDG-chan reviews; a bypass actor merges them after a human
-review.
+GDG-chan gates only pull requests into `main`, the branch the ruleset protects. Pull
+requests into other branches get no status and no review. Fork pull requests do not get
+GDG-chan reviews; a bypass actor merges them after a human review.
 
 ## How it runs
 
@@ -78,9 +79,10 @@ organization's GitHub Apps.
   People cannot post as GDG-chan, and editing a marker breaks its signature. A finding's
   marker also signs a digest of the finding's text, so editing the finding breaks it too.
   Resolving a thread by hand does not resolve a finding.
-- Each review marker lists its finding IDs, and reviews cannot be deleted. If a listed
-  finding is deleted, or any GDG-chan comment or review carries a marker that no longer
-  verifies, the gate fails instead of forgetting the finding.
+- Each review marker lists its finding IDs and the IDs of the `E-code-review` label events
+  it answered, and reviews cannot be deleted. If a listed finding is deleted, or any
+  non-empty GDG-chan comment or review lacks a valid marker of the kind expected there, the
+  gate fails instead of forgetting the finding.
 - Reactions, replies, and `/ai-review` comments count only from people with write access
   to the repository. Other bots are ignored. A verdict records the newest response it
   was given, so responses that arrive while GDG-chan is working start another check.

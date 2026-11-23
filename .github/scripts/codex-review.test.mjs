@@ -20,6 +20,7 @@ import {
   ReviewRepository,
   anchor,
   authentic,
+  combineGates,
   contentDigest,
   evaluate,
   findingBody,
@@ -577,12 +578,19 @@ test("model output cannot carry gate markers", () => {
   assert.deepEqual(markers(cleaned.reply), []);
 });
 
-test("a head commit shared with another open PR fails the gate", () => {
-  const pr = parsePullRequest(rawPullRequest({ reviews: [review("2026-11-01T00:05:00Z")] }));
-  assert.equal(evaluate(pr, trusted).gate.state, "success");
-  const shared = evaluate(pr, trusted, { sharedWith: [9] });
-  assert.equal(shared.gate.state, "failure");
-  assert.match(shared.gate.description, /#9/);
+test("an identical PR changes the status only once it has its own review", () => {
+  const own = { state: "success", description: "ok" };
+  assert.deepEqual(
+    combineGates(own, [
+      { number: 9, reviewed: false, gate: { state: "pending", description: "x" } },
+    ]),
+    own,
+  );
+  const blocked = combineGates(own, [
+    { number: 9, reviewed: true, gate: { state: "failure", description: "1 of 1 unresolved" } },
+  ]);
+  assert.equal(blocked.state, "failure");
+  assert.match(blocked.description, /#9/);
 });
 
 test("standalone findings are posted before the review that marks completion", async () => {
@@ -639,24 +647,24 @@ test("only the configured ChatGPT account is accepted", () => {
   assert.throws(() => verifyAccount(auth, ""));
 });
 
-test("a success is never published while another open PR shares the head", async () => {
+test("a success is withdrawn when an identical reviewed PR appears while posting", async () => {
   const posted = [];
-  let heads = [{ number: 7, headRefOid: "head-sha", baseRefName: "main" }];
+  let siblings = [];
   const github = {
-    graphql: async () => ({
-      repository: {
-        pullRequests: { pageInfo: { hasNextPage: false }, nodes: heads },
-      },
-    }),
     request: async (_path, { body }) => {
       posted.push(body.state);
-      heads = [...heads, { number: 8, headRefOid: "head-sha", baseRefName: "main" }];
+      siblings = [
+        { number: 8, reviewed: true, gate: { state: "failure", description: "unresolved" } },
+      ];
       return {};
     },
   };
   const repo = new ReviewRepository({ github, repository: "gdg-jp/gdgjp" });
-  const pr = parsePullRequest(rawPullRequest());
-  await repo.publishGate(pr, { state: "success", description: "ok" });
+  repo.siblingGates = async () => siblings;
+  await repo.publishGate(parsePullRequest(rawPullRequest()), {
+    state: "success",
+    description: "ok",
+  });
   assert.deepEqual(posted, ["success", "failure"]);
 
   posted.length = 0;
@@ -665,6 +673,63 @@ test("a success is never published while another open PR shares the head", async
     description: "ok",
   });
   assert.deepEqual(posted, ["failure"]);
+});
+
+test("GDG-chan posts without a valid marker count as tampering", () => {
+  const result = run({
+    reviews: [
+      review("2026-11-01T00:05:00Z"),
+      { author: bot, createdAt: "2026-11-01T00:06:00Z", body: "## GDG-chan review\n\nedited" },
+      { author: bot, createdAt: "2026-11-01T00:07:00Z", body: "" },
+    ],
+  });
+  assert.equal(result.gate.state, "failure");
+  assert.match(result.gate.description, /deleted or altered/);
+});
+
+test("label events are matched by ID, not by time", () => {
+  const events = (ids) =>
+    ids.map((id) => ({ id, createdAt: "2026-11-02T00:00:00Z", label: { name: LABEL } }));
+  const listed = (requests) => ({
+    author: bot,
+    createdAt: "2026-11-02T00:05:00Z",
+    body: marker("review", { pr: 7, head: "h", requested: "2026-11-02T00:00:00Z", requests }),
+  });
+  const raw = (ids, requests) => ({
+    ...rawPullRequest({ reviews: [listed(requests)] }),
+    timelineItems: { nodes: events(ids) },
+  });
+  assert.equal(evaluate(parsePullRequest(raw(["L1"], "L1")), trusted).reviewRequested, false);
+  assert.equal(evaluate(parsePullRequest(raw(["L1", "L2"], "L1")), trusted).reviewRequested, true);
+});
+
+test("a verdict keeps every response handled at the same timestamp", async () => {
+  const bodies = [];
+  const github = {
+    request: async (_path, { body }) => {
+      bodies.push(body.body);
+      return {};
+    },
+    graphql: async () => ({}),
+  };
+  const repo = new ReviewRepository({ github, repository: "gdg-jp/gdgjp" });
+  const finding = {
+    id: "1.1",
+    kind: "issue",
+    url: "u",
+    body: "**t**",
+    verdicts: [
+      { status: "unresolved", seen: "2026-11-01T01:00:00.000Z", handled: new Set(["c:11"]) },
+    ],
+    claims: [{ kind: "reply", at: "2026-11-01T01:00:00Z", key: "c:12" }],
+  };
+  await repo.postVerdict(
+    parsePullRequest(rawPullRequest()),
+    finding,
+    { resolved: false, reply: "まだ" },
+    "2026-11-01T01:00:00.000Z",
+  );
+  assert.deepEqual(markers(bodies[0]).at(-1).handled.split(",").sort(), ["c:11", "c:12"]);
 });
 
 test("label history and long threads are read to the last page", async () => {
