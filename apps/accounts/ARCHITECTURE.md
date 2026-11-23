@@ -7,7 +7,7 @@
 | Composed application layouts and navigation | `app/layouts/` |
 | Domain-free reusable visual primitives | `app/components/` (brand mark, page heading, locale and theme controls) |
 | Better Auth provider, sessions, redirects and runtime initialization | `app/features/auth/` |
-| Device grants, CLI bearer tokens, logout and trusted-client seeding | `app/features/oauth/` |
+| Device grants, CLI bearer tokens, logout, trusted-client seeding, consent and users' connected apps | `app/features/oauth/` |
 | Developer OAuth client ownership, validation and management | `app/features/developer-apps/` |
 | Chapter directory, regional classification and chapter administration | `app/features/chapters/` |
 | Membership queries, atomic mutations, requests and chapter management | `app/features/memberships/` |

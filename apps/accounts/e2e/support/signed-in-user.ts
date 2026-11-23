@@ -46,11 +46,11 @@ export function signSessionToken(token: string, secret: string): string {
   return encodeURIComponent(`${token}.${signature}`);
 }
 
-function sqlString(value: string): string {
+export function sqlString(value: string): string {
   return `'${value.replaceAll("'", "''")}'`;
 }
 
-function execute(database: AccountsDatabase, sql: string): void {
+export function execute(database: AccountsDatabase, sql: string): void {
   const target =
     database.kind === "local"
       ? [LOCAL_DATABASE, "--local", "--persist-to", ".wrangler/state"]
@@ -83,6 +83,28 @@ export function createSignedInUser(
   return {
     id,
     email,
+    sessionToken,
+    cookieName: sessionCookieName(accountsUrl),
+    cookieValue: signSessionToken(sessionToken, secret),
+  };
+}
+
+export function createSession(
+  database: AccountsDatabase,
+  accountsUrl: string,
+  secret: string,
+  user: Pick<SignedInUser, "id" | "email">,
+): SignedInUser {
+  const sessionToken = randomUUID().replaceAll("-", "");
+  const now = new Date();
+  const created = now.toISOString();
+  const expiresAt = new Date(now.getTime() + 60 * 60 * 1000).toISOString();
+  execute(
+    database,
+    `INSERT INTO "session" ("id", "expiresAt", "token", "createdAt", "updatedAt", "userId") VALUES (${sqlString(randomUUID())}, ${sqlString(expiresAt)}, ${sqlString(sessionToken)}, ${sqlString(created)}, ${sqlString(created)}, ${sqlString(user.id)});`,
+  );
+  return {
+    ...user,
     sessionToken,
     cookieName: sessionCookieName(accountsUrl),
     cookieValue: signSessionToken(sessionToken, secret),

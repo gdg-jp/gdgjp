@@ -128,7 +128,7 @@ export async function createDeveloperClient(
        id, clientId, clientSecret, disabled, skipConsent, enableEndSession, subjectType, scopes,
        userId, createdAt, updatedAt, name, uri, redirectUris, postLogoutRedirectUris,
        tokenEndpointAuthMethod, grantTypes, responseTypes, applicationType, public, type, requirePKCE
-     ) VALUES (?, ?, ?, 0, 1, 1, 'public', ?, ?, ?, ?, ?, ?, ?, ?, 'client_secret_basic', ?, ?, 'web', 0, 'web', 1)`,
+     ) VALUES (?, ?, ?, 0, 0, 1, 'public', ?, ?, ?, ?, ?, ?, ?, ?, 'client_secret_basic', ?, ?, 'web', 0, 'web', 1)`,
   )
     .bind(
       crypto.randomUUID(),

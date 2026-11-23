@@ -137,7 +137,7 @@ function toOAuthClient(client: DeveloperClient): OAuthClient {
     public: false,
     type: "web",
     disabled: client.disabled,
-    skip_consent: true,
+    skip_consent: false,
     enable_end_session: true,
     require_pkce: true,
     subject_type: "public",

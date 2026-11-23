@@ -1,3 +1,5 @@
+import { readFileSync, readdirSync } from "node:fs";
+import { DatabaseSync, type SQLInputValue } from "node:sqlite";
 import type { D1Database, D1PreparedStatement } from "@cloudflare/workers-types";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -248,5 +250,52 @@ describe("developer client access", () => {
       ),
     ).rejects.toMatchObject({ status: 401 });
     expect(authMocks.requireUser).not.toHaveBeenCalled();
+  });
+});
+
+describe("createDeveloperClient on the migrated schema", () => {
+  function migratedEnv() {
+    const raw = new DatabaseSync(":memory:");
+    raw.exec("PRAGMA foreign_keys = ON");
+    const directory = new URL("../../../migrations/", import.meta.url);
+    for (const file of readdirSync(directory).sort()) {
+      raw.exec(readFileSync(new URL(file, directory), "utf8"));
+    }
+    const statement = (sql: string, params: SQLInputValue[] = []) => ({
+      bind: (...next: SQLInputValue[]) => statement(sql, next),
+      first: async () => raw.prepare(sql).all(...params)[0] ?? null,
+      run: async () => raw.prepare(sql).run(...params),
+    });
+    raw.exec(`INSERT INTO chapters (id, slug, name, kind) VALUES (1, 'tokyo', 'Tokyo', 'gdg')`);
+    raw.exec(`INSERT INTO "user" (id, name, email) VALUES ('user-1', 'Member', 'm@example.com')`);
+    raw.exec(`INSERT INTO memberships (user_id, chapter_id, role, status)
+      VALUES ('user-1', 1, 'member', 'active')`);
+    const db = { prepare: (sql: string) => statement(sql) };
+    return { raw, env: { DB: db } as unknown as Env };
+  }
+
+  it("inserts an enabled client that asks its users for consent", async () => {
+    authMocks.requireUser.mockResolvedValue(user);
+    const { raw, env } = migratedEnv();
+
+    const { client } = await createDeveloperClient(env, new Request("https://accounts.example"), {
+      name: "Example",
+      redirectUris: ["https://example.com/callback"],
+    });
+
+    expect(
+      raw
+        .prepare(
+          `SELECT "userId", disabled, "skipConsent", "enableEndSession", "requirePKCE"
+           FROM "oauthClient" WHERE "clientId" = ?`,
+        )
+        .get(client.clientId),
+    ).toEqual({
+      userId: "user-1",
+      disabled: 0,
+      skipConsent: 0,
+      enableEndSession: 1,
+      requirePKCE: 1,
+    });
   });
 });

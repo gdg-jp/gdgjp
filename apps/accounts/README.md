@@ -28,7 +28,8 @@ separately since the plugin doesn't support it natively); PKCE S256 is required 
 registration is disabled. First-party clients (the trusted RPs above) get `skipConsent` and
 `enableEndSession` via the admin seeding flow below. Active chapter members can additionally
 self-register individually owned confidential clients through `/developers/apps`, gated by
-`app/features/developer-apps/oauth-clients.server.ts`.
+`app/features/developer-apps/oauth-clients.server.ts`. Those clients show a consent page, their
+grants survive sign-out, and each user removes them from `/settings/connected-apps`.
 
 Chapter membership is exposed to RPs only under the dedicated
 `https://gdgs.jp/scopes/chapters` scope, which adds `https://gdgs.jp/claims/chapters` and

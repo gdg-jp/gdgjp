@@ -1,6 +1,7 @@
 import { isOrganizerPlus } from "~/features/chapters/permissions";
 import { MembershipsSection } from "~/features/dashboard/components/memberships-section";
 import {
+  ConnectedAppsLink,
   GoogleWorkspaceLink,
   MemberSimpleOidcLink,
   RoleToolsSection,
@@ -33,6 +34,7 @@ export default function Dashboard({ loaderData }: PageProps) {
       <div>
         <MembershipsSection memberships={memberships} compact={!organizerChrome} />
         <GoogleWorkspaceLink />
+        <ConnectedAppsLink />
       </div>
       {organizerChrome ? (
         <RoleToolsSection

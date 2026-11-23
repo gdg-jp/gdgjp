@@ -25,6 +25,9 @@ export default [
     route("settings/google-workspace", "routes/google-workspace/settings.google-workspace.tsx", {
       id: "routes/settings.google-workspace",
     }),
+    route("settings/connected-apps", "routes/oauth/settings.connected-apps.tsx", {
+      id: "routes/settings.connected-apps",
+    }),
     route("admin/chapters", "routes/chapters/admin.chapters.tsx", { id: "routes/admin.chapters" }),
     route("admin/users", "routes/users/admin.users.tsx", { id: "routes/admin.users" }),
     route("admin/requests", "routes/memberships/admin.requests.tsx", {
