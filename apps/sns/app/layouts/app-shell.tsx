@@ -1,8 +1,14 @@
 import type { AuthUser } from "@gdgjp/gdg-lib";
-import { GdgAccountMenu, GdgAppLauncher, GdgThemeToggle } from "@gdgjp/gdg-lib/ui";
+import {
+  GdgAccountMenu,
+  GdgAppLauncher,
+  GdgThemeToggle,
+  gdgAccountSettingsUrl,
+  gdgAppLinks,
+} from "@gdgjp/gdg-lib/ui";
 import { ChevronDown, SquarePen } from "lucide-react";
 import { DropdownMenu as DropdownMenuPrimitive } from "radix-ui";
-import { Form, Link, NavLink, useLocation } from "react-router";
+import { Form, Link, NavLink, useLocation, useRouteLoaderData } from "react-router";
 import { chapterName } from "~/lib/utils";
 
 type Chapter = { chapterId: number; chapterSlug: string; role: string };
@@ -19,6 +25,7 @@ export function AppShell({
   chapters: Chapter[];
   showFab?: boolean;
 }) {
+  const accountsUrl = useAccountsUrl();
   const { pathname } = useLocation();
   return (
     <div className="mx-auto min-h-dvh max-w-md bg-background pb-20 md:border-x">
@@ -29,9 +36,9 @@ export function AppShell({
         </Link>
         <div className="flex items-center gap-1">
           <GdgThemeToggle ariaLabel="テーマを切り替え" />
-          <GdgAppLauncher ariaLabel="アプリ一覧" />
+          <GdgAppLauncher apps={gdgAppLinks(accountsUrl)} ariaLabel="アプリ一覧" />
           <GdgAccountMenu
-            accountUrl="https://accounts.gdgs.jp/dashboard"
+            accountUrl={gdgAccountSettingsUrl(accountsUrl)}
             onSignOut={() => window.location.assign("/auth/signout")}
             user={user}
             trigger={
@@ -104,4 +111,8 @@ function NavItem({ to, label }: { to: string; label: string }) {
       {label}
     </NavLink>
   );
+}
+
+function useAccountsUrl() {
+  return (useRouteLoaderData("root") as { accountsUrl?: string } | undefined)?.accountsUrl;
 }

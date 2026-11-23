@@ -5,6 +5,10 @@ import { Links, Meta, Outlet, Scripts, ScrollRestoration } from "react-router";
 import type { Route } from "./+types/root";
 import stylesheet from "./app.css?url";
 
+export function loader({ context }: Route.LoaderArgs) {
+  return { accountsUrl: context.cloudflare.env.ACCOUNTS_URL };
+}
+
 export const links = () => [
   { rel: "icon", href: "/favicon.ico", type: "image/x-icon" },
   { rel: "apple-touch-icon", href: "/app-icon.png" },

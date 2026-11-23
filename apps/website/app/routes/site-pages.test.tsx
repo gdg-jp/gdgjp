@@ -1,4 +1,4 @@
-import { GDG_APP_LINKS } from "@gdgjp/gdg-lib/ui/app-links";
+import { gdgAppLinks } from "@gdgjp/gdg-lib/ui/app-links";
 import { renderToStaticMarkup } from "react-dom/server";
 import { MemoryRouter } from "react-router";
 import { describe, expect, it } from "vitest";
@@ -14,7 +14,7 @@ describe("public site route screens", () => {
   ] as const)("renders %s with public navigation and metadata", (Page, meta, title, content) => {
     const html = renderToStaticMarkup(
       <MemoryRouter>
-        <Page />
+        <Page {...pageProps("https://accounts.gdgs.jp")} />
       </MemoryRouter>,
     );
 
@@ -24,16 +24,24 @@ describe("public site route screens", () => {
     expect(meta()).toContainEqual({ title });
   });
 
-  it("links every GDG application from the home screen", () => {
-    const html = renderToStaticMarkup(
-      <MemoryRouter>
-        <HomePage />
-      </MemoryRouter>,
-    );
+  it.each(["https://accounts.gdgs.jp", "https://accounts.stg1.gdgs.jp"])(
+    "links every GDG application of the %s deployment from the home screen",
+    (accountsUrl) => {
+      const html = renderToStaticMarkup(
+        <MemoryRouter>
+          <HomePage {...pageProps(accountsUrl)} />
+        </MemoryRouter>,
+      );
 
-    for (const app of GDG_APP_LINKS) {
-      expect(html).toContain(`href="${app.url}"`);
-      expect(html).toContain(app.label);
-    }
-  });
+      for (const app of gdgAppLinks(accountsUrl)) {
+        expect(html).toContain(`href="${app.url}"`);
+        expect(html).toContain(app.label);
+      }
+      if (accountsUrl.includes("stg1")) expect(html).not.toContain('href="https://wiki.gdgs.jp"');
+    },
+  );
 });
+
+function pageProps(accountsUrl: string) {
+  return { loaderData: { accountsUrl } } as unknown as Parameters<typeof HomePage>[0];
+}

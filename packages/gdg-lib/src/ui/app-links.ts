@@ -4,42 +4,19 @@ export type GdgAppLink = {
   url: string;
 };
 
-export const GDG_APP_LINKS: readonly GdgAppLink[] = [
-  {
-    iconUrl: "https://url.gdgs.jp/app-icon.png",
-    label: "TinyURL",
-    url: "https://url.gdgs.jp",
-  },
-  {
-    iconUrl: "https://wiki.gdgs.jp/app-icon.png",
-    label: "Wiki",
-    url: "https://wiki.gdgs.jp",
-  },
-  {
-    iconUrl: "https://scheduler.gdgs.jp/app-icon.png",
-    label: "Scheduler",
-    url: "https://scheduler.gdgs.jp",
-  },
-  {
-    iconUrl: "https://img.gdgs.jp/app-icon.png",
-    label: "Images",
-    url: "https://img.gdgs.jp",
-  },
-  {
-    iconUrl: "https://sns.gdgs.jp/app-icon.png",
-    label: "SNS Manager",
-    url: "https://sns.gdgs.jp",
-  },
-  {
-    iconUrl: "https://connpass.gdgs.jp/app-icon.png",
-    label: "Connpass",
-    url: "https://connpass.gdgs.jp",
-  },
-  {
-    iconUrl: "https://pay.gdgs.jp/app-icon.png",
-    label: "Pay",
-    url: "https://pay.gdgs.jp",
-  },
+const PRODUCTION_SITE = "gdgs.jp";
+
+const SITE_APPS = [
+  { subdomain: "url", label: "TinyURL" },
+  { subdomain: "wiki", label: "Wiki" },
+  { subdomain: "scheduler", label: "Scheduler" },
+  { subdomain: "img", label: "Images" },
+  { subdomain: "sns", label: "SNS Manager" },
+  { subdomain: "connpass", label: "Connpass" },
+  { subdomain: "pay", label: "Pay" },
+] as const;
+
+const EXTERNAL_APPS: readonly GdgAppLink[] = [
   {
     iconUrl: "https://raw.githubusercontent.com/gdg-jp/gdgjp/main/cli/icon.png",
     label: "CLI",
@@ -51,3 +28,34 @@ export const GDG_APP_LINKS: readonly GdgAppLink[] = [
     url: "https://learn.gdgs.jp",
   },
 ];
+
+export function gdgSiteDomain(accountsUrl: string | null | undefined): string {
+  if (!accountsUrl) return PRODUCTION_SITE;
+  let hostname: string;
+  try {
+    hostname = new URL(accountsUrl).hostname;
+  } catch {
+    return PRODUCTION_SITE;
+  }
+  const site = hostname.startsWith("accounts.") ? hostname.slice("accounts.".length) : "";
+  return site === PRODUCTION_SITE || site.endsWith(`.${PRODUCTION_SITE}`) ? site : PRODUCTION_SITE;
+}
+
+export function gdgAppLinks(accountsUrl: string | null | undefined): readonly GdgAppLink[] {
+  const site = gdgSiteDomain(accountsUrl);
+  return [
+    ...SITE_APPS.map(({ subdomain, label }) => ({
+      iconUrl: `https://${subdomain}.${site}/app-icon.png`,
+      label,
+      url: `https://${subdomain}.${site}`,
+    })),
+    ...EXTERNAL_APPS,
+  ];
+}
+
+export function gdgAccountSettingsUrl(accountsUrl: string | null | undefined): string {
+  const base = accountsUrl
+    ? accountsUrl.replace(/\/+$/, "")
+    : `https://accounts.${PRODUCTION_SITE}`;
+  return `${base}/dashboard`;
+}

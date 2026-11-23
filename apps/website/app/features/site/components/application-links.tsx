@@ -1,13 +1,13 @@
-import { GDG_APP_LINKS } from "@gdgjp/gdg-lib/ui/app-links";
+import { gdgAppLinks } from "@gdgjp/gdg-lib/ui/app-links";
 
-export function ApplicationLinks() {
+export function ApplicationLinks({ accountsUrl }: { accountsUrl: string }) {
   return (
     <section aria-labelledby="apps-heading" className="mx-auto mt-14 max-w-3xl">
       <h2 id="apps-heading" className="text-center text-lg font-semibold text-slate-900">
         アプリケーション
       </h2>
       <ul className="mt-6 grid grid-cols-2 gap-4 sm:grid-cols-4">
-        {GDG_APP_LINKS.map((app) => (
+        {gdgAppLinks(accountsUrl).map((app) => (
           <li key={app.url}>
             <a
               href={app.url}

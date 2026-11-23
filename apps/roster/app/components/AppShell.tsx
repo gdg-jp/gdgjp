@@ -1,5 +1,5 @@
 import { Icons } from "@gdgjp/design-system";
-import { GdgAccountMenu, GdgAppLauncher } from "@gdgjp/gdg-lib/ui";
+import { GdgAccountMenu, GdgAppLauncher, gdgAppLinks } from "@gdgjp/gdg-lib/ui";
 import type { ReactNode } from "react";
 import { Link, NavLink, useLocation, useNavigate, useParams } from "react-router";
 import { type EventStatus, STATUS_LABELS } from "~/features/events/status";
@@ -48,7 +48,7 @@ export function AppShell({
             <RosterBrand />
           </Link>
           <div className="sidebar-launcher">
-            <GdgAppLauncher ariaLabel="アプリ一覧" />
+            <GdgAppLauncher apps={gdgAppLinks(accountsUrl)} ariaLabel="アプリ一覧" />
           </div>
         </div>
 

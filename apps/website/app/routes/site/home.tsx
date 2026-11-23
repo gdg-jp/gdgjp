@@ -1,5 +1,10 @@
 import { ApplicationLinks } from "~/features/site/components/application-links";
 import { SiteLayout } from "~/layouts/site-layout";
+import type { Route } from "./+types/home";
+
+export function loader({ context }: Route.LoaderArgs) {
+  return { accountsUrl: context.cloudflare.env.ACCOUNTS_URL };
+}
 
 export function meta() {
   return [
@@ -15,7 +20,7 @@ export function meta() {
   ];
 }
 
-export default function HomePage() {
+export default function HomePage({ loaderData }: Route.ComponentProps) {
   return (
     <SiteLayout>
       <section className="mx-auto max-w-3xl text-center">
@@ -29,7 +34,7 @@ export default function HomePage() {
         </p>
       </section>
 
-      <ApplicationLinks />
+      <ApplicationLinks accountsUrl={loaderData.accountsUrl} />
     </SiteLayout>
   );
 }

@@ -10,11 +10,24 @@ import {
   Input,
   useTheme,
 } from "@gdgjp/design-system";
-import { GdgAccountMenu, GdgAppLauncher } from "@gdgjp/gdg-lib/ui";
+import {
+  GdgAccountMenu,
+  GdgAppLauncher,
+  gdgAccountSettingsUrl,
+  gdgAppLinks,
+} from "@gdgjp/gdg-lib/ui";
 
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Form, Link, useFetcher, useLocation, useParams, useSearchParams } from "react-router";
+import {
+  Form,
+  Link,
+  useFetcher,
+  useLocation,
+  useParams,
+  useRouteLoaderData,
+  useSearchParams,
+} from "react-router";
 import NotificationBell from "~/features/notifications/components/NotificationBell";
 
 import { Icons } from "@gdgjp/design-system";
@@ -69,10 +82,11 @@ function UiLangSwitcher() {
 }
 
 function UserMenu({ user }: { user: NonNullable<NavbarProps["user"]> }) {
+  const accountsUrl = useAccountsUrl();
   const { t } = useTranslation();
   return (
     <GdgAccountMenu
-      accountUrl="https://accounts.gdgs.jp/dashboard"
+      accountUrl={gdgAccountSettingsUrl(accountsUrl)}
       onSignOut={() => window.location.assign("/logout")}
       settings={{ href: "/settings", label: t("settings.title") }}
       signOutLabel={t("auth.sign_out")}
@@ -162,6 +176,7 @@ export default function Navbar({
   unreadNotificationCount,
   onImportZip,
 }: NavbarProps) {
+  const accountsUrl = useAccountsUrl();
   const { t } = useTranslation();
   const location = useLocation();
   const [searchParams] = useSearchParams();
@@ -227,7 +242,7 @@ export default function Navbar({
 
         {user ? (
           <>
-            <GdgAppLauncher />
+            <GdgAppLauncher apps={gdgAppLinks(accountsUrl)} />
             <UserMenu user={user} />
           </>
         ) : (
@@ -241,4 +256,8 @@ export default function Navbar({
       </div>
     </header>
   );
+}
+
+function useAccountsUrl() {
+  return (useRouteLoaderData("root") as { accountsUrl?: string } | undefined)?.accountsUrl;
 }

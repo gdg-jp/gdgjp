@@ -12,13 +12,14 @@ import {
   Inline,
   ThemeToggle,
 } from "@gdgjp/design-system";
-import { GDG_APP_LINKS } from "@gdgjp/gdg-lib/ui/app-links";
-import { Link, useLocation } from "react-router";
+import { gdgAccountSettingsUrl, gdgAppLinks } from "@gdgjp/gdg-lib/ui/app-links";
+import { Link, useLocation, useRouteLoaderData } from "react-router";
 import { GdgMark } from "~/components/gdg-mark";
 
 export type HeaderUser = { name: string; email: string; image: string | null };
 
 export function Header({ user }: { user: HeaderUser | null }) {
+  const accountsUrl = useAccountsUrl();
   const { pathname } = useLocation();
   return (
     <header className="sticky top-0 z-30 bg-surface">
@@ -49,7 +50,7 @@ export function Header({ user }: { user: HeaderUser | null }) {
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">
                     <DropdownMenuLabel>GDG アプリ</DropdownMenuLabel>
-                    {GDG_APP_LINKS.map((app) => (
+                    {gdgAppLinks(accountsUrl).map((app) => (
                       <DropdownMenuItem key={app.url} asChild>
                         <a href={app.url}>
                           <img src={app.iconUrl} alt="" width={24} height={24} />
@@ -79,7 +80,7 @@ export function Header({ user }: { user: HeaderUser | null }) {
                     </DropdownMenuLabel>
                     <DropdownMenuSeparator />
                     <DropdownMenuItem asChild>
-                      <a href="https://accounts.gdgs.jp/dashboard">アカウント設定</a>
+                      <a href={gdgAccountSettingsUrl(accountsUrl)}>アカウント設定</a>
                     </DropdownMenuItem>
                     <DropdownMenuItem asChild>
                       <a href="/auth/signout">サインアウト</a>
@@ -97,4 +98,8 @@ export function Header({ user }: { user: HeaderUser | null }) {
       </div>
     </header>
   );
+}
+
+function useAccountsUrl() {
+  return (useRouteLoaderData("root") as { accountsUrl?: string } | undefined)?.accountsUrl;
 }
