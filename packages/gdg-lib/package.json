@@ -12,7 +12,9 @@
     "./acl": "./src/acl/index.ts",
     "./acl/agent": "./src/acl/agent.ts",
     "./ui": "./src/ui/index.ts",
-    "./ui/app-links": "./src/ui/app-links.ts"
+    "./ui/app-links": "./src/ui/app-links.ts",
+    "./staging-snapshot": "./src/staging-snapshot.ts",
+    "./testing/durable-object": "./src/testing/durable-object.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
