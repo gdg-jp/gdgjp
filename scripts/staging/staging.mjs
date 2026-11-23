@@ -32,6 +32,8 @@ import {
   classifySchema,
   composeImport,
   isStagingName,
+  issuerColumns,
+  issuerRewriteSql,
   oauthRedirectRewriteSql,
   orderInserts,
   planInsertOrder,
@@ -374,7 +376,8 @@ async function exportDatabase(app, productionName, current, scratch) {
   const schema = classifySchema(
     await d1Query(productionId, "SELECT type, name, tbl_name, sql FROM sqlite_master"),
   );
-  const plan = scrubPlan(productionName, await tableColumns(productionId, schema.tables));
+  const columns = await tableColumns(productionId, schema.tables);
+  const plan = scrubPlan(productionName, columns);
   const info = {};
   for (const { name } of schema.tables)
     info[name] = {
@@ -432,12 +435,12 @@ async function exportDatabase(app, productionName, current, scratch) {
     }),
   );
   rmSync(dataFile);
-  return { importFile, scrub: plan.statements };
+  return { importFile, scrub: plan.statements, issuers: issuerColumns(columns) };
 }
 
 async function replaceDatabase(
   productionName,
-  { importFile, scrub },
+  { importFile, scrub, issuers = [] },
   slot,
   current,
   apps,
@@ -448,6 +451,7 @@ async function replaceDatabase(
   const account = await accountId();
   const tail = [
     ...scrub,
+    ...issuerRewriteSql(issuers, slot),
     ...(productionName === "gdgjp-accounts-db" ? await accountsPostSync(slot, apps) : []),
   ];
   const slotFile = join(scratch, `${target}.sql`);
