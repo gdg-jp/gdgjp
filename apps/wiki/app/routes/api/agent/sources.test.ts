@@ -61,7 +61,7 @@ function identity(): BearerIdentity {
       isAdmin: false,
     },
     chapters: [{ chapterId: 1, chapterSlug: "osaka", role: "member" }],
-    client: null,
+    client: { id: "gdg-cli", firstParty: true },
   };
 }
 
@@ -99,6 +99,16 @@ describe("POST /api/agent/sources", () => {
     expect(createSourceMock).not.toHaveBeenCalled();
     expect(createStoreMock).not.toHaveBeenCalled();
     expect(getDbMock).not.toHaveBeenCalled();
+  });
+
+  it("refuses a developer app's token without creating a source", async () => {
+    getBearerIdentityMock.mockResolvedValue({
+      ...identity(),
+      client: { id: "dev-app", firstParty: false },
+    });
+    const response = await action(actionArgs({ url: "https://example.com", chapter: "1" }));
+    expect(response.status).toBe(403);
+    expect(createSourceMock).not.toHaveBeenCalled();
   });
 
   it("returns 400 invalid_visibility and creates no row when visibility is missing", async () => {

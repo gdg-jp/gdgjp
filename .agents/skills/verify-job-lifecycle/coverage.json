@@ -182,7 +182,7 @@
     },
     {
       "path": "apps/wiki/app/features/agent-api/runner-identity.server.ts",
-      "sha256": "e9790e8e8724cc2151a183ca30de68809822c9c40bb07c457c54f869150f7fa6",
+      "sha256": "cd2e31d5d7374488501803b41f847ed6be31a5d44c83cec2a4efb7810277ea7d",
       "role": "wire-authentication"
     },
     {
@@ -317,7 +317,7 @@
     },
     {
       "path": "pnpm-lock.yaml",
-      "sha256": "110a29c8a2769cf57d782daf24cf602da4127d710b25e3ad4e6af52d6030c7fe",
+      "sha256": "5144b9f7618f0b833893cd4bce6356ffc1d31b7511864daf33a377d6a56a984c",
       "role": "tool-config"
     },
     {

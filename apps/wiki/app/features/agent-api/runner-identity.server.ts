@@ -12,7 +12,7 @@ export function runnerIdentity(): BearerIdentity {
       isAdmin: true,
     },
     chapters: [],
-    client: null,
+    client: { id: "wiki-runner", firstParty: true },
   };
 }
 

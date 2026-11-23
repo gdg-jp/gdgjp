@@ -16,6 +16,7 @@ import { action } from "./sources-inline";
 const identity = {
   user: { id: "user-a", isAdmin: false },
   chapters: [{ chapterId: "chapter-1", role: "member" }],
+  client: { id: "gdg-cli", firstParty: true } as { id: string; firstParty: boolean },
 };
 
 function args(body: unknown, method = "POST") {
@@ -44,6 +45,15 @@ describe("POST /api/agent/sources/inline", () => {
     resolveWorkspaceMock.mockResolvedValue(null);
     const response = await action(args({ title: "x", content: "body", visibility: "member" }));
     expect(response.status).toBe(401);
+    expect(createInlineSourceMock).not.toHaveBeenCalled();
+  });
+
+  it("refuses a developer app's token", async () => {
+    resolveWorkspaceMock.mockResolvedValue({
+      identity: { ...identity, client: { id: "dev-app", firstParty: false } },
+    });
+    const response = await action(args({ title: "x", content: "body", visibility: "member" }));
+    expect(response.status).toBe(403);
     expect(createInlineSourceMock).not.toHaveBeenCalled();
   });
 

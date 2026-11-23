@@ -1,5 +1,6 @@
 import type { ActionFunctionArgs } from "react-router";
 import { agentUnauthorized, resolveAgentWorkspace } from "~/features/agent-api/workspace.server";
+import { developerAppWriteRefused, writesAllowed } from "~/features/agent-api/write-access.server";
 import { createInlineSource } from "~/features/sources/sources.server";
 
 export async function action({ request, context }: ActionFunctionArgs) {
@@ -10,6 +11,7 @@ export async function action({ request, context }: ActionFunctionArgs) {
   const { env } = context.cloudflare;
   const resolved = await resolveAgentWorkspace(request, env);
   if (!resolved) return agentUnauthorized();
+  if (!writesAllowed(resolved.identity.client)) return developerAppWriteRefused();
 
   const body = (await request.json().catch(() => null)) as {
     title?: unknown;
