@@ -1,5 +1,5 @@
 import { spawn } from "node:child_process";
-import { createHmac, timingSafeEqual } from "node:crypto";
+import { createHash, createHmac, randomUUID, timingSafeEqual } from "node:crypto";
 import { appendFile, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -89,13 +89,25 @@ function reactionClaims(reactions) {
       by: reaction.user.login,
       at: reaction.createdAt,
       body: reaction.content,
+      key: `r:${reaction.user.login}:${reaction.content}`,
     }));
 }
 
+export function contentDigest(body) {
+  const text = (body ?? "").slice(0, Math.max(0, (body ?? "").lastIndexOf("<!-- codex-review:")));
+  return createHash("sha256").update(text.trimEnd()).digest("hex").slice(0, 32);
+}
+
 export function parsePullRequest(raw) {
+  let tampered = 0;
   const trailing = (body) => {
     const item = markers(body).at(-1);
-    return item && authentic(item, raw.number) ? item : null;
+    if (!item) return null;
+    const valid =
+      authentic(item, raw.number) &&
+      (item.kind !== "finding" || item.digest === contentDigest(body));
+    if (!valid) tampered += 1;
+    return valid ? item : null;
   };
   const reviews = [];
   for (const review of raw.reviews?.nodes ?? []) {
@@ -135,6 +147,7 @@ export function parsePullRequest(raw) {
           by: reply.author.login,
           at: reply.createdAt,
           body: reply.body,
+          key: `c:${reply.databaseId}`,
         });
       }
     }
@@ -194,6 +207,7 @@ export function parsePullRequest(raw) {
       status: verdict.status,
       at: verdict.at,
       seen: verdict.seen ?? verdict.at,
+      handled: new Set((verdict.handled ?? "").split(",").filter(Boolean)),
     });
   }
 
@@ -217,6 +231,7 @@ export function parsePullRequest(raw) {
     labeledAt,
     status: commit?.oid === raw.headRefOid ? (commit?.status?.context ?? null) : null,
     reviews,
+    tampered,
     findings: [...findings.values()].map((finding) => ({
       ...finding,
       verdicts: (finding.verdicts ?? []).sort((a, b) => time(a.at) - time(b.at)),
@@ -262,18 +277,22 @@ export function evaluate(pr, trusted, { sharedWith = [] } = {}) {
     const last = finding.verdicts.at(-1);
     const resolved = last?.status === "resolved";
     const since = time(last?.seen ?? finding.at);
+    const handled = last?.handled ?? new Set();
+    const unseen = (claim) =>
+      time(claim.at) > since || (time(claim.at) === since && !handled.has(claim.key));
     const claims = resolved
       ? []
       : [
-          ...finding.claims.filter((claim) => trusted.has(claim.by) && time(claim.at) > since),
+          ...finding.claims.filter((claim) => trusted.has(claim.by) && unseen(claim)),
           ...pendingMentions
-            .filter((mention) => time(mention.at) > since)
             .map((mention) => ({
               kind: "mention",
               by: mention.by,
               at: mention.at,
               body: mention.body,
-            })),
+              key: `c:${mention.id}`,
+            }))
+            .filter(unseen),
         ];
     return { ...finding, resolved, claims };
   });
@@ -283,10 +302,7 @@ export function evaluate(pr, trusted, { sharedWith = [] } = {}) {
     ? Math.max(...pr.reviews.map((review) => time(review.requested)))
     : null;
   const reviewRequested =
-    pr.labels.includes(LABEL) &&
-    (lastLabelAt === null
-      ? lastRequested === null
-      : lastRequested === null || lastLabelAt > lastRequested);
+    lastLabelAt !== null && (lastRequested === null || lastLabelAt > lastRequested);
 
   const verifications = findings.filter((finding) => finding.claims.length > 0);
   const unresolved = findings.filter((finding) => !finding.resolved);
@@ -297,10 +313,10 @@ export function evaluate(pr, trusted, { sharedWith = [] } = {}) {
   );
 
   let gate;
-  if (missing.length > 0) {
+  if (missing.length > 0 || pr.tampered > 0) {
     gate = {
       state: "failure",
-      description: `${missing.length} GDG-chan finding comments were deleted or altered; a maintainer must review and bypass`,
+      description: `${missing.length + pr.tampered} GDG-chan finding comments were deleted or altered; a maintainer must review and bypass`,
     };
   } else if (sharedWith.length > 0) {
     gate = sharedGate(sharedWith);
@@ -385,15 +401,17 @@ export function findingBody(finding, { pr, id, head, index, issue }) {
   const howTo = issue
     ? "対応したらこのコメントにリアクションするか、`/ai-review` を含むコメントで確認を依頼してください。"
     : "対応したらこのコメントにリアクションするか返信してください。";
-  return [
+  const text = [
     `**[${finding.priority}] ${finding.title}**`,
     "",
     `${location}${finding.body.trim()}`,
     "",
     `<sub>GDG-chan finding ${index} · ${howTo}GDG-chan が修正を確認すると解決になります。</sub>`,
     "",
-    marker("finding", { pr, id, head, path: issue ? finding.path : undefined }),
+    "",
   ].join("\n");
+  const digest = contentDigest(`${text}<!-- codex-review:`);
+  return `${text}${marker("finding", { pr, id, head, path: issue ? finding.path : undefined, digest })}`;
 }
 
 export function reviewBody(result, { pr, head, requested, ids, model }) {
@@ -414,7 +432,7 @@ export function reviewBody(result, { pr, head, requested, ids, model }) {
   return lines.join("\n");
 }
 
-export function verdictBody(verdict, { pr, id, seen, head }) {
+export function verdictBody(verdict, { pr, id, seen, handled, head }) {
   const heading = verdict.resolved
     ? "✅ 解決を確認しました。"
     : "❌ まだ解決していません。修正したら、もう一度返信するかリアクションしてください。";
@@ -428,6 +446,7 @@ export function verdictBody(verdict, { pr, id, seen, head }) {
       id,
       status: verdict.resolved ? "resolved" : "unresolved",
       seen,
+      handled,
       head,
     }),
   ].join("\n");
@@ -646,7 +665,7 @@ const OPEN_PULL_REQUESTS_QUERY = `query($owner: String!, $name: String!, $cursor
   repository(owner: $owner, name: $name) {
     pullRequests(states: OPEN, first: 100, after: $cursor) {
       pageInfo { hasNextPage endCursor }
-      nodes { number headRefOid isCrossRepository }
+      nodes { number headRefOid baseRefName isCrossRepository }
     }
   }
 }`;
@@ -714,7 +733,9 @@ export class ReviewRepository {
       });
       const page = data.repository.pullRequests;
       for (const node of page.nodes) {
-        if (!node.isCrossRepository) heads.set(node.number, node.headRefOid);
+        if (!node.isCrossRepository) {
+          heads.set(node.number, { head: node.headRefOid, base: node.baseRefName });
+        }
       }
       if (!page.pageInfo.hasNextPage) break;
       cursor = page.pageInfo.endCursor;
@@ -755,7 +776,10 @@ export class ReviewRepository {
 
   async sharedWith(pr) {
     return [...(await this.openHeads()).entries()]
-      .filter(([other, head]) => other !== pr.number && head === pr.headSha)
+      .filter(
+        ([other, { head, base }]) =>
+          other !== pr.number && head === pr.headSha && base === pr.baseRef,
+      )
       .map(([other]) => other);
   }
 
@@ -804,12 +828,13 @@ export class ReviewRepository {
 
   async postReview(pr, result, { runId, model, requested }) {
     const files = await this.changedFiles(pr.number);
+    const nonce = randomUUID().slice(0, 8);
     const prepared = result.findings.map((finding, index) => ({
       finding: {
         ...finding,
         priority: PRIORITIES.includes(finding.priority) ? finding.priority : "P2",
       },
-      id: `${runId}.${index + 1}`,
+      id: `${runId}.${nonce}.${index + 1}`,
       index: index + 1,
       anchor: anchor(finding, files),
     }));
@@ -889,7 +914,17 @@ export class ReviewRepository {
   }
 
   async postVerdict(pr, finding, verdict, seen) {
-    const body = verdictBody(verdict, { pr: pr.number, id: finding.id, seen, head: pr.headSha });
+    const handled = finding.claims
+      .filter((claim) => claim.at && time(claim.at) === time(seen))
+      .map((claim) => claim.key)
+      .join(",");
+    const body = verdictBody(verdict, {
+      pr: pr.number,
+      id: finding.id,
+      seen,
+      handled,
+      head: pr.headSha,
+    });
     if (finding.kind === "thread") {
       await this.github.request(
         `/repos/${this.repository}/pulls/${pr.number}/comments/${finding.commentId}/replies`,

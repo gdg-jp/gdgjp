@@ -23,6 +23,7 @@ const MIN_SECRET_LENGTH = 20;
 const TOKEN_MARGIN_MS = 10 * 60 * 1000;
 const TRUSTED_BRANCHES = ["main"];
 const TRUSTED_WORKFLOWS = [".github/workflows/ai-review.yml", ".github/workflows/ai-login.yml"];
+const TRUSTED_EVENTS = ["workflow_dispatch", "schedule", "push"];
 
 export function appJwt(appId, privateKey, now = Date.now()) {
   const encode = (value) => Buffer.from(JSON.stringify(value)).toString("base64url");
@@ -132,24 +133,32 @@ export class GitHubClient {
     return result.data;
   }
 
-  async runPath(id) {
+  async run(id) {
     if (!this.runPaths.has(id)) {
       const repository = process.env.GITHUB_REPOSITORY;
-      const run = await this.request(`/repos/${repository}/actions/runs/${id}`);
-      this.runPaths.set(id, run.path);
+      this.runPaths.set(id, await this.request(`/repos/${repository}/actions/runs/${id}`));
     }
     return this.runPaths.get(id);
   }
 
   async artifacts(name, trust = trustedSources()) {
     const repository = process.env.GITHUB_REPOSITORY;
-    const result = await this.request(
-      `/repos/${repository}/actions/artifacts?name=${encodeURIComponent(name)}&per_page=100`,
-    );
+    const all = [];
+    for (let page = 1; ; page += 1) {
+      const result = await this.request(
+        `/repos/${repository}/actions/artifacts?name=${encodeURIComponent(name)}&per_page=100&page=${page}`,
+      );
+      all.push(...result.artifacts);
+      if (result.artifacts.length < 100) break;
+    }
     const trusted = [];
-    for (const artifact of newestFirst(result.artifacts.filter((item) => !item.expired))) {
-      if (!trust.branches.includes(artifact.workflow_run?.head_branch)) continue;
-      if (!trust.workflows.includes(await this.runPath(artifact.workflow_run.id))) continue;
+    for (const artifact of newestFirst(all.filter((item) => !item.expired))) {
+      const source = artifact.workflow_run;
+      if (!source || source.head_repository_id !== source.repository_id) continue;
+      if (!trust.branches.includes(source.head_branch)) continue;
+      const run = await this.run(source.id);
+      if (run.head_repository?.full_name !== repository) continue;
+      if (!trust.workflows.includes(run.path) || !trust.events.includes(run.event)) continue;
       trusted.push(artifact);
     }
     return trusted;
@@ -181,6 +190,7 @@ export function trustedSources(env = process.env) {
   return {
     branches: list(env.AI_REVIEW_TRUSTED_BRANCHES, TRUSTED_BRANCHES),
     workflows: list(env.AI_REVIEW_TRUSTED_WORKFLOWS, TRUSTED_WORKFLOWS),
+    events: list(env.AI_REVIEW_TRUSTED_EVENTS, TRUSTED_EVENTS),
   };
 }
 

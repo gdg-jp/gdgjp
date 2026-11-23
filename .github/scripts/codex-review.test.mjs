@@ -20,6 +20,7 @@ import {
   ReviewRepository,
   anchor,
   authentic,
+  contentDigest,
   evaluate,
   findingBody,
   hasWork,
@@ -84,6 +85,10 @@ function review(at, requested = at, findings = []) {
   };
 }
 
+function signedFinding(text, fields) {
+  return `${text}${marker("finding", { ...fields, digest: contentDigest(`${text}<!-- codex-review:`) })}`;
+}
+
 function thread(id, { at = "2026-11-01T00:10:00Z", reactions = [], replies = [] } = {}) {
   return {
     id: `thread-${id}`,
@@ -97,7 +102,7 @@ function thread(id, { at = "2026-11-01T00:10:00Z", reactions = [], replies = [] 
           author: bot,
           createdAt: at,
           url: `https://example.test/${id}`,
-          body: `**[P1] 問題 ${id}**\n\n本文\n\n${marker("finding", { pr: 7, id, head: "old-sha" })}`,
+          body: signedFinding(`**[P1] 問題 ${id}**\n\n本文\n\n`, { pr: 7, id, head: "old-sha" }),
           reactions: { nodes: reactions },
         },
         ...replies,
@@ -442,7 +447,10 @@ test("review and mention bodies carry the markers the gate reads", () => {
 test("plan publishes the gate and returns PRs with pending work", async () => {
   const published = [];
   const prs = {
-    1: parsePullRequest({ ...rawPullRequest({ labels: [LABEL] }), number: 1 }),
+    1: parsePullRequest({
+      ...rawPullRequest({ labels: [LABEL], labeledAt: ["2026-11-01T00:00:00Z"] }),
+      number: 1,
+    }),
     2: parsePullRequest({ ...rawPullRequest(), number: 2 }),
     3: parsePullRequest({
       ...rawPullRequest({
@@ -633,7 +641,7 @@ test("only the configured ChatGPT account is accepted", () => {
 
 test("a success is never published while another open PR shares the head", async () => {
   const posted = [];
-  let heads = [{ number: 7, headRefOid: "head-sha" }];
+  let heads = [{ number: 7, headRefOid: "head-sha", baseRefName: "main" }];
   const github = {
     graphql: async () => ({
       repository: {
@@ -642,7 +650,7 @@ test("a success is never published while another open PR shares the head", async
     }),
     request: async (_path, { body }) => {
       posted.push(body.state);
-      heads = [...heads, { number: 8, headRefOid: "head-sha" }];
+      heads = [...heads, { number: 8, headRefOid: "head-sha", baseRefName: "main" }];
       return {};
     },
   };
@@ -775,17 +783,35 @@ test("a verdict records the newest response it was given", () => {
 });
 
 test("only logins saved by trusted workflows on trusted branches are restored", async () => {
+  const source = (id, branch, head = 1) => ({
+    id,
+    head_branch: branch,
+    repository_id: 1,
+    head_repository_id: head,
+  });
+  const run = (path, event, repository = "gdg-jp/gdgjp") => ({
+    path,
+    event,
+    head_repository: { full_name: repository },
+  });
   process.env.GITHUB_REPOSITORY = "gdg-jp/gdgjp";
   const artifacts = [
-    { id: 3, created_at: "2026-11-03T00:00:00Z", workflow_run: { id: 30, head_branch: "main" } },
-    { id: 2, created_at: "2026-11-02T00:00:00Z", workflow_run: { id: 20, head_branch: "feature" } },
-    { id: 1, created_at: "2026-11-01T00:00:00Z", workflow_run: { id: 10, head_branch: "main" } },
+    { id: 5, created_at: "2026-11-05T00:00:00Z", workflow_run: source(50, "main", 99) },
+    { id: 4, created_at: "2026-11-04T00:00:00Z", workflow_run: source(40, "main") },
+    { id: 3, created_at: "2026-11-03T00:00:00Z", workflow_run: source(30, "main") },
+    { id: 2, created_at: "2026-11-02T00:00:00Z", workflow_run: source(20, "feature") },
+    { id: 1, created_at: "2026-11-01T00:00:00Z", workflow_run: source(10, "main") },
   ];
-  const paths = { 30: ".github/workflows/other.yml", 10: ".github/workflows/ai-login.yml" };
+  const runs = {
+    50: run(".github/workflows/ai-login.yml", "workflow_dispatch", "someone/gdgjp"),
+    40: run(".github/workflows/ai-login.yml", "pull_request"),
+    30: run(".github/workflows/other.yml", "workflow_dispatch"),
+    10: run(".github/workflows/ai-login.yml", "workflow_dispatch"),
+  };
   const fetchImpl = async (url) => {
     const { pathname } = new URL(url);
-    const run = /runs\/(\d+)$/.exec(pathname);
-    const body = run ? { path: paths[run[1]] } : { artifacts };
+    const match = /runs\/(\d+)$/.exec(pathname);
+    const body = match ? runs[match[1]] : { artifacts };
     return new Response(JSON.stringify(body), { status: 200 });
   };
   const client = new GitHubClient({ token: "t", fetchImpl });
@@ -822,4 +848,63 @@ test("the GDG-chan token is refreshed before it expires", async () => {
   now += 25 * 60 * 1000;
   assert.equal(await tokens.token(), "token-2");
   assert.deepEqual(tokens.issued, ["token-1", "token-2"]);
+});
+
+test("a response with the same timestamp as the last one seen is still checked", () => {
+  const reply = (id, body) => ({
+    databaseId: id,
+    author: alice,
+    createdAt: "2026-11-01T01:00:00Z",
+    body,
+    reactions: { nodes: [] },
+  });
+  const judged = {
+    databaseId: 300,
+    author: bot,
+    createdAt: "2026-11-01T01:10:00Z",
+    body: `判定\n\n${marker("verdict", {
+      pr: 7,
+      id: "1.1",
+      status: "unresolved",
+      seen: "2026-11-01T01:00:00.000Z",
+      handled: "c:11",
+    })}`,
+    reactions: { nodes: [] },
+  };
+  const result = run({
+    reviews: [review("2026-11-01T00:05:00Z")],
+    threads: [thread("1.1", { replies: [reply(11, "先"), reply(12, "同時刻"), judged] })],
+  });
+  assert.deepEqual(
+    result.verifications[0].claims.map((claim) => claim.body),
+    ["同時刻"],
+  );
+});
+
+test("a label added after the last review is a request even if the label was removed", () => {
+  const result = run({
+    labels: [],
+    labeledAt: ["2026-11-01T00:00:00Z", "2026-11-02T00:00:00Z"],
+    reviews: [review("2026-11-01T00:05:00Z", "2026-11-01T00:00:00Z")],
+  });
+  assert.equal(result.reviewRequested, true);
+});
+
+test("pull requests into other bases do not share a head with this one", async () => {
+  const github = {
+    graphql: async () => ({
+      repository: {
+        pullRequests: {
+          pageInfo: { hasNextPage: false },
+          nodes: [
+            { number: 7, headRefOid: "head-sha", baseRefName: "main" },
+            { number: 8, headRefOid: "head-sha", baseRefName: "release" },
+            { number: 9, headRefOid: "head-sha", baseRefName: "main", isCrossRepository: true },
+          ],
+        },
+      },
+    }),
+  };
+  const repo = new ReviewRepository({ github, repository: "gdg-jp/gdgjp" });
+  assert.deepEqual(await repo.sharedWith(parsePullRequest(rawPullRequest())), []);
 });

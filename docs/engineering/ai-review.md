@@ -33,7 +33,7 @@ no event for reactions, so a scheduled run picks them up within about ten minute
 | pending, "queued or running" / "checking" / "working" | GDG-chan has work for this pull request. |
 | failure, "N of M GDG-chan findings are unresolved" | Respond to the remaining findings. |
 | failure, "finding comments were deleted or altered" | A finding listed by a review is gone or its marker no longer verifies. A maintainer reviews what happened and bypasses. |
-| failure, "The head commit is shared with #N" | Another open pull request from this repository has the same head commit; push a distinct commit. |
+| failure, "The head commit is shared with #N" | Another open pull request from this repository has the same head commit and the same base; close one or push a distinct commit. |
 | success | At least one review ran and all of its findings are resolved. |
 | error, "Codex is not signed in" | Run the AI login workflow. |
 | error, "Codex agent failed" | Read the linked run; comment `/ai-review` or re-add the label to retry. |
@@ -75,10 +75,12 @@ organization's GitHub Apps.
 
 - The gate reads only hidden `codex-review:*` markers that end a comment by
   `gdg-chan[bot]` and carry a valid HMAC over their fields and the pull request number.
-  People cannot post as GDG-chan, and editing a marker breaks its signature. Resolving a
-  thread by hand does not resolve a finding.
-- Each review marker lists its finding IDs. If a listed finding is deleted or its marker
-  no longer verifies, the gate fails instead of forgetting the finding.
+  People cannot post as GDG-chan, and editing a marker breaks its signature. A finding's
+  marker also signs a digest of the finding's text, so editing the finding breaks it too.
+  Resolving a thread by hand does not resolve a finding.
+- Each review marker lists its finding IDs, and reviews cannot be deleted. If a listed
+  finding is deleted, or any GDG-chan comment or review carries a marker that no longer
+  verifies, the gate fails instead of forgetting the finding.
 - Reactions, replies, and `/ai-review` comments count only from people with write access
   to the repository. Other bots are ignored. A verdict records the newest response it
   was given, so responses that arrive while GDG-chan is working start another check.
@@ -110,7 +112,8 @@ restore check the account against `CODEX_ACCOUNT_SHA256` and refuse any other ac
 4. The run finishes by storing the encrypted login.
 
 Every agent run restores the newest `codex-auth` artifact uploaded by `ai-review.yml` or
-`ai-login.yml` on `main`, ignoring artifacts of the same name from anywhere else, and
+`ai-login.yml` from a `workflow_dispatch`, `schedule`, or `push` run of this repository's
+`main`, ignoring artifacts of the same name from anywhere else, and
 stores a new one when Codex refreshed its tokens, keeping the three newest. All runs that
 touch the login share the `codex-auth` concurrency group so a refresh token is never used
 twice. Artifacts expire after 90 days, so an agent that has not run for 90 days needs a new
