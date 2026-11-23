@@ -245,6 +245,21 @@ async function inventory() {
   };
 }
 
+function aiSearch(args) {
+  for (let attempt = 1; attempt <= 5; attempt++) {
+    try {
+      return wrangler(["ai-search", ...args], { capture: true });
+    } catch (error) {
+      if (!/10429|Rate limited/.test(error.message) || attempt === 5) {
+        log(error.message.split("\n").find((line) => /code: \d+/.test(line)) ?? error.message);
+        return null;
+      }
+      Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, attempt * 10000);
+    }
+  }
+  return null;
+}
+
 async function ensureResources(slot, apps) {
   const account = await accountId();
   const current = await inventory();
@@ -283,10 +298,15 @@ async function ensureResources(slot, apps) {
         current.queues.add(name);
       }
     for (const name of needed.aiSearchNamespaces) {
-      aiSearchNamespaces ??= wrangler(["ai-search", "namespace", "list"], { capture: true });
+      aiSearchNamespaces ??= aiSearch(["namespace", "list"]);
+      if (aiSearchNamespaces === null) {
+        log(`::warning::cannot list AI Search namespaces; assuming ${name} exists`);
+        continue;
+      }
       if (!aiSearchNamespaces.includes(name)) {
         log(`create AI Search namespace ${name}`);
-        wrangler(["ai-search", "namespace", "create", name]);
+        if (aiSearch(["namespace", "create", name]) === null)
+          throw new Error(`Could not create AI Search namespace ${name}`);
         aiSearchNamespaces += `\n${name}`;
       }
     }
