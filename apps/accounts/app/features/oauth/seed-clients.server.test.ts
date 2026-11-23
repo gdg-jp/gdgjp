@@ -64,62 +64,131 @@ describe("collectSpecs mcp client", () => {
   });
 });
 
-describe("seedClients agents client", () => {
-  it("persists the confidential PKCE policy and required scopes", async () => {
-    let preparedSql = "";
-    let boundValues: unknown[] = [];
-    const statement = {
-      bind(...values: unknown[]) {
-        boundValues = values;
-        return statement;
-      },
-      async run() {
-        return { success: true };
-      },
-    };
-    const prepare = (sql: string) => {
-      preparedSql = sql;
-      return statement;
-    };
+describe("collectSpecs every first-party client", () => {
+  it("names each relying party and splits its comma-separated redirect URLs", () => {
+    const apps = [
+      ["TINYURL", "GDG Japan Links"],
+      ["WIKI", "GDG Japan Wiki"],
+      ["IMG", "GDG Japan Image"],
+      ["SCHEDULER", "GDG Japan Scheduler"],
+      ["SNS", "SNS Manager"],
+      ["AGENTS", "GDG Japan Agents"],
+      ["PAY", "GDG Japan Pay"],
+      ["OST", "GDG Japan OST"],
+      ["ROSTER", "GDG Japan Roster"],
+      ["MC", "GDG Japan MC"],
+      ["SCREEN", "GDG Japan Screen"],
+      ["DECK", "GDG Japan Deck"],
+      ["ROULETTE", "GDG Japan Roulette"],
+      ["PR", "GDG Japan PR"],
+      ["MCP", "GDG Japan MCP"],
+      ["MEET", "GDG Japan Meet"],
+    ] as const;
+    const env = Object.fromEntries(
+      apps.flatMap(([key]) => [
+        [`${key}_CLIENT_ID`, key.toLowerCase()],
+        [`${key}_CLIENT_SECRET`, `${key.toLowerCase()}-secret`],
+        [`${key}_REDIRECT_URLS`, ` https://${key.toLowerCase()}.example/a , ,https://b.example/b `],
+      ]),
+    ) as unknown as Env;
 
+    expect(
+      collectSpecs(env).map(({ clientId, clientName, redirectUris }) => [
+        clientId,
+        clientName,
+        redirectUris,
+      ]),
+    ).toEqual(
+      apps.map(([key, name]) => [
+        key.toLowerCase(),
+        name,
+        [`https://${key.toLowerCase()}.example/a`, "https://b.example/b"],
+      ]),
+    );
+  });
+
+  it("keeps a client with no redirect URLs so seeding can report it as skipped", () => {
+    const [spec] = collectSpecs(agentsEnv({ AGENTS_REDIRECT_URLS: undefined }));
+    expect(spec.redirectUris).toEqual([]);
+  });
+});
+
+function recordingDb() {
+  const statements: Array<{ sql: string; values: unknown[] }> = [];
+  const db = {
+    prepare(sql: string) {
+      const statement = {
+        bind(...values: unknown[]) {
+          statements.push({ sql, values });
+          return statement;
+        },
+        async run() {
+          return { success: true };
+        },
+      };
+      return statement;
+    },
+  };
+  return { db: db as unknown as D1Database, statements };
+}
+
+describe("seedClients agents client", () => {
+  it("persists a confidential client_secret_basic PKCE client with a hashed secret", async () => {
+    const { db, statements } = recordingDb();
     const result = await seedClients({
-      ...agentsEnv(),
-      DB: { prepare },
+      ...agentsEnv({
+        AGENTS_REDIRECT_URLS: "https://agent.gdgs.jp/auth/callback,https://agent.example/cb",
+      }),
+      DB: db,
     } as unknown as Env);
 
     expect(result).toEqual({ written: ["agents"], skipped: [] });
-    expect(preparedSql).toContain("?, 'web', ?");
-    expect(preparedSql).toContain("public = excluded.public");
-    expect(preparedSql).toContain("requirePKCE = excluded.requirePKCE");
-    expect(boundValues.at(-2)).toBe(0);
-    expect(boundValues.at(-1)).toBe(1);
-    expect(JSON.parse(String(boundValues[3]))).toEqual([
-      "openid",
-      "email",
-      "profile",
-      "offline_access",
-      CHAPTERS_SCOPE,
+    const [{ sql, values }] = statements;
+    expect(sql).toContain("'client_secret_basic', ?, ?, 'web', ?, 'web', ?)");
+    expect(sql).toContain("tokenEndpointAuthMethod = excluded.tokenEndpointAuthMethod");
+    expect(sql).toContain("public = excluded.public");
+    expect(sql).toContain("requirePKCE = excluded.requirePKCE");
+    expect(values.slice(1)).toEqual([
+      "agents",
+      "BylE0sLyp8XtK55lnCx2zH_JnkiEbAzKnVsE-NeiGwM",
+      JSON.stringify(["openid", "email", "profile", "offline_access", CHAPTERS_SCOPE]),
+      expect.any(String),
+      values[4],
+      "GDG Japan Agents",
+      JSON.stringify(["https://agent.gdgs.jp/auth/callback", "https://agent.example/cb"]),
+      JSON.stringify(["https://agent.gdgs.jp/signin", "https://agent.example/signin"]),
+      JSON.stringify(["authorization_code", "refresh_token"]),
+      JSON.stringify(["code"]),
+      0,
+      1,
     ]);
+  });
+
+  it("skips clients without redirect URLs instead of writing them", async () => {
+    const { db, statements } = recordingDb();
+    const result = await seedClients({
+      ...agentsEnv({ AGENTS_REDIRECT_URLS: "" }),
+      DB: db,
+    } as unknown as Env);
+    expect(result).toEqual({ written: [], skipped: ["agents"] });
+    expect(statements).toEqual([]);
   });
 });
 
 describe("trustedOAuthClientIds", () => {
-  it("includes agents among the consent-skip trusted clients", () => {
-    expect(trustedOAuthClientIds(agentsEnv())).toContain("agents");
-  });
-
-  it("includes mcp among the consent-skip trusted clients", () => {
-    expect(
-      trustedOAuthClientIds({ ...agentsEnv(), MCP_CLIENT_ID: "mcp" } as unknown as Env),
-    ).toContain("mcp");
-  });
-
-  it("includes pay among the consent-skip trusted clients", () => {
+  it("lists exactly the configured consent-skip trusted clients", () => {
     expect(
       trustedOAuthClientIds({
         ...agentsEnv(),
+        TINYURL_CLIENT_ID: "tinyurl",
+        WIKI_CLIENT_ID: "wiki",
+        IMG_CLIENT_ID: "img",
+        SCHEDULER_CLIENT_ID: "scheduler",
+        SNS_CLIENT_ID: "sns",
         PAY_CLIENT_ID: "pay",
+        MCP_CLIENT_ID: "mcp",
       } as unknown as Env),
-    ).toContain("pay");
+    ).toEqual(["tinyurl", "wiki", "img", "scheduler", "sns", "agents", "pay", "mcp"]);
+    expect(trustedOAuthClientIds(agentsEnv())).toEqual(["agents"]);
   });
 });

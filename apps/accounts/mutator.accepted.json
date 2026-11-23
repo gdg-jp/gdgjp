@@ -1,0 +1,66 @@
+{
+  "18nj732d04x": {
+    "reason": "equivalent: Number and Date.parse already ignore surrounding whitespace",
+    "where": "app/features/auth/sso-cookie.server.ts:74:50 raw.trim() -> raw"
+  },
+  "18zf4ifn57f": {
+    "reason": "equivalent: localhost and [::1] have a single label, so the label count check already yields no parent domain",
+    "where": "app/features/auth/sso-cookie.server.ts:132:76 \"[::1]\" -> \"\""
+  },
+  "1c5n4vjp702": {
+    "reason": "equivalent: Number and Date.parse already ignore surrounding whitespace",
+    "where": "app/features/auth/sso-cookie.server.ts:73:46 raw.trim() -> raw"
+  },
+  "1n2vr3mlpxr": {
+    "reason": "equivalent: localhost and [::1] have a single label, so the label count check already yields no parent domain",
+    "where": "app/features/auth/sso-cookie.server.ts:132:20 \"localhost\" -> \"\""
+  },
+  "1nky8ztqkx2": {
+    "reason": "equivalent: a fallback without '=' yields no cookie pair, like the empty header",
+    "where": "app/features/auth/sso-cookie.server.ts:103:56 \"\" -> \"Stryker was here!\""
+  },
+  "1ntxh61rvb0": {
+    "reason": "equivalent: a cookie pair starting with '=' has an empty name, which never matches a cookie name",
+    "where": "app/features/auth/sso-cookie.server.ts:66:9 separator < 0 -> separator <= 0"
+  },
+  "1odf3lmjx3x": {
+    "reason": "equivalent: returning undefined from the emptied catch is rejected by the same !credentials check as null",
+    "where": "app/features/oauth/rp-session.server.ts:119:11 { return null; } -> {}"
+  },
+  "1r21615glb1": {
+    "reason": "equivalent: the other attributes Better Auth sets on its session cookie (Path, SameSite, Secure, HttpOnly) never parse as dates",
+    "where": "app/features/auth/sso-cookie.server.ts:74:11 lower === \"expires\" -> true"
+  },
+  "1tuclpbukgd": {
+    "reason": "equivalent: localhost and [::1] have a single label, so the label count check already yields no parent domain",
+    "where": "app/features/auth/sso-cookie.server.ts:132:63 hostname === \"[::1]\" -> false"
+  },
+  "1xz2296awx": {
+    "reason": "equivalent: localhost and [::1] have a single label, so the label count check already yields no parent domain",
+    "where": "app/features/auth/sso-cookie.server.ts:132:7 hostname === \"localhost\" -> false"
+  },
+  "1ypvq0njx7k": {
+    "reason": "equivalent: the timer is always assigned before the race settles, and clearTimeout(undefined) is a no-op",
+    "where": "app/features/auth/auth.server.ts:85:9 timeout !== undefined -> true"
+  },
+  "1z9703l3km7": {
+    "reason": "equivalent: atob implements WHATWG forgiving-base64, which strips ASCII whitespace itself",
+    "where": "app/features/oauth/rp-session.server.ts:107:20 header.slice(\"Basic \".length).trim() -> header.slice(\"Basic \".length)"
+  },
+  "6eg86xatng": {
+    "reason": "equivalent: an empty token is falsy, and every caller treats it like null",
+    "where": "app/features/auth/sso-cookie.server.ts:99:10 token -> true"
+  },
+  "bddb5y4m7m": {
+    "reason": "equivalent: a cookie pair starting with '=' has an empty name, which never matches a cookie name",
+    "where": "app/features/auth/sso-cookie.server.ts:105:9 separator < 0 -> separator <= 0"
+  },
+  "gbndcr5g9b": {
+    "reason": "equivalent: both strings have the same length, so one extra index compares NaN ^ NaN, which is 0",
+    "where": "app/features/oauth/rp-session.server.ts:127:19 i < a.length -> i <= a.length"
+  },
+  "v2l9jrlyuk": {
+    "reason": "equivalent: a credential starting with ':' has an empty client ID, which firstPartyRpClientIds filters out",
+    "where": "app/features/oauth/rp-session.server.ts:112:7 separator <= 0 -> separator < 0"
+  }
+}
