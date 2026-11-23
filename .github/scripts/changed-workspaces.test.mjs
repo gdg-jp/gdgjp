@@ -319,3 +319,32 @@ test("staged unit tests skip workspaces without a test script", async () => {
   assert.ok(!names.includes("test:@gdgjp/live-checkin"));
   assert.ok(names.includes("test:@gdgjp/wiki"));
 });
+
+test("selects mutation testing for the projects whose files changed", () => {
+  assert.deepEqual(classifyChanges(["packages/gdg-lib/src/auth/rp.ts"]).mutation, [
+    "packages/gdg-lib",
+  ]);
+  assert.deepEqual(classifyChanges(["apps/accounts/mutator.accepted.json"]).mutation, [
+    "apps/accounts",
+  ]);
+  assert.deepEqual(
+    classifyChanges(["apps/accounts/app/features/oauth/rp-session.server.ts", "packages/gdg-lib/x"])
+      .mutation,
+    ["packages/gdg-lib", "apps/accounts"],
+  );
+  assert.deepEqual(classifyChanges(["scripts/run-mutation.mjs"]).mutation, [
+    "packages/gdg-lib",
+    "apps/accounts",
+  ]);
+  assert.equal(classifyChanges(["scripts/run-mutation.mjs"]).scriptTests, true);
+  assert.deepEqual(classifyChanges(["apps/wiki/app/root.tsx"]).mutation, []);
+  assert.deepEqual(classifyChanges(["pnpm-lock.yaml"]).mutation, []);
+  assert.deepEqual(
+    classifyChanges(["apps/accounts-oidc-client-demo/src/auth/oidc.ts"]).mutation,
+    [],
+  );
+  assert.deepEqual(classifyChanges([], { forceAll: true }).mutation, [
+    "packages/gdg-lib",
+    "apps/accounts",
+  ]);
+});

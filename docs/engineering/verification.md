@@ -14,6 +14,7 @@ the repository's required validation commands remain in [AGENTS.md](../../AGENTS
 | Workspace boundaries | `pnpm check:boundaries` | Rejects literal imports across application ownership and bypasses of declared public workspace exports | See [scope and limits](workspace-boundaries.md); application feature layering still needs its own tests |
 | New code comments | `pnpm check:comments` | Rejects new or edited first-party JS/TS/Go comments without exact reviewed exceptions | Existing comments and other languages still need semantic review; see [the policy](comments.md) |
 | Unit and architecture tests | `pnpm test` | Repository scripts and workspace test assertions | Coverage depends on each suite's assertions |
+| Mutation tests | `pnpm test:mutation` (diff against `main`), `pnpm test:mutation:full` (every mutant, kill matrix) | Unit tests detect each mutant of changed shared RP auth and Accounts auth/OAuth code, or the mutant is accepted with a reason | Unit tests only, against mocked `openid-client` and Better Auth; mutants of unchanged code and test-only edits are not rechecked |
 | Browser regressions | `pnpm test:e2e` | Existing automated browser journeys | Does not establish external service or production behavior |
 | Seeded UI sequences | Wiki `tests/e2e/ui-properties.spec.ts`, through the isolated E2E runner | Two seeds and two viewports execute page switches, sharing, display persistence, and authorization invariants | Forty-eight generated actions are a bounded regression sample, not all interactions |
 | ACL bounded verification | `node .agents/skills/verify-acl-boundaries/scripts/verify.mjs --mutation-proof` | Independent audience properties over the enumerated inputs, with six deliberate production-expression mutations rejected | Not an unbounded formal proof or HTTP authorization audit |
@@ -23,6 +24,21 @@ The local CI entry points are `pnpm ci:quick`, `pnpm ci:full`, and
 `pnpm ci:staged`. The staged command selects work from the index but runs against
 the working tree. It is not evidence of an isolated staged snapshot.
 Hosted workflow selection lives in `.github/scripts/changed-workspaces.mjs`.
+
+Mutation testing uses [mutator](https://github.com/mizchi/mutator) and needs Node 24.
+Each project's `mutator.config.json` names the mutated sources, all of which are
+critical regions: a surviving or unreached mutant fails the run. The hosted
+**Mutation tests** job runs `scripts/run-mutation.mjs --since` the pull request base
+for the projects whose files changed, so it judges only mutants in the diff. A full
+run exits 2 while known gaps remain; read its kill matrix as review candidates, not
+as a deletion list.
+
+When no input can tell a surviving mutant from the original, accept it from the
+project directory with `pnpm exec mutator accept <key> --reason "equivalent: <why>"`.
+Keys are in `.mutator/report/mutation.json` and in the job's annotations. The reason
+must name why no caller can observe the change. Review `mutator.accepted.json` like
+code and remove entries that a later run reports as killed or stale. Do not accept a
+mutant only because the test that would kill it is inconvenient to write.
 
 `pnpm test:e2e` copies the current working source into a disposable workspace,
 relinks shared packages inside it, supplies deterministic test credentials, and

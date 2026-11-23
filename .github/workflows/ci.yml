@@ -27,6 +27,7 @@ jobs:
       script-tests: ${{ steps.changes.outputs.script-tests }}
       cli: ${{ steps.changes.outputs.cli }}
       design-source: ${{ steps.changes.outputs.design-source }}
+      mutation: ${{ steps.changes.outputs.mutation }}
       full: ${{ steps.changes.outputs.full }}
       base: ${{ steps.changes.outputs.base }}
       head: ${{ steps.changes.outputs.head }}
@@ -365,6 +366,64 @@ jobs:
         env:
           WORKSPACES: ${{ needs.changes.outputs.ci }}
         run: node .github/scripts/run-affected.mjs test
+
+  mutation:
+    name: Mutation tests
+    needs: changes
+    if: >-
+      github.event_name == 'pull_request' &&
+      needs.changes.outputs.base != '' &&
+      needs.changes.outputs.mutation != '[]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          submodules: false
+      - name: Initialize shared UI submodule
+        run: git submodule update --init packages/design-system
+      - name: Initialize Playbook submodule
+        run: git submodule update --init skills
+      - uses: pnpm/action-setup@v4
+      # @mizchi/mutator requires Node 24 or later.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Build shared UI dependency
+        if: contains(fromJSON(needs.changes.outputs.mutation), 'apps/accounts')
+        run: pnpm --filter @gdgjp/design-system build
+      - name: Restore mutation results
+        uses: actions/cache@v4
+        with:
+          path: |
+            packages/gdg-lib/.mutator
+            apps/accounts/.mutator
+          key: mutator-${{ github.base_ref }}-${{ github.sha }}
+          restore-keys: mutator-${{ github.base_ref }}-
+      - name: Mutate changed auth code
+        env:
+          BASE_SHA: ${{ needs.changes.outputs.base }}
+          PROJECTS: ${{ needs.changes.outputs.mutation }}
+        run: |
+          args=()
+          while IFS= read -r project; do
+            args+=(--project "$project")
+          done < <(jq -r '.[]' <<<"$PROJECTS")
+          node scripts/run-mutation.mjs --since "$BASE_SHA" "${args[@]}" -- --reporter text --reporter json
+      - name: Upload mutation reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mutation-reports
+          path: |
+            packages/gdg-lib/.mutator/report/
+            apps/accounts/.mutator/report/
+          include-hidden-files: true
+          if-no-files-found: ignore
+          retention-days: 7
+
   build:
     name: Build
     needs: changes
@@ -445,7 +504,7 @@ jobs:
 
   required:
     name: Required checks
-    needs: [changes, code-comments, engineering, job-lifecycle, lint, script-tests, openapi, cli, design-harness, typecheck, test, build, e2e]
+    needs: [changes, code-comments, engineering, job-lifecycle, lint, script-tests, openapi, cli, design-harness, typecheck, test, mutation, build, e2e]
     if: always()
     runs-on: ubuntu-latest
     steps:
@@ -456,7 +515,7 @@ jobs:
 
   observations:
     name: Engineering observations
-    needs: [changes, code-comments, engineering, job-lifecycle, lint, script-tests, openapi, cli, design-harness, typecheck, test, build, e2e]
+    needs: [changes, code-comments, engineering, job-lifecycle, lint, script-tests, openapi, cli, design-harness, typecheck, test, mutation, build, e2e]
     if: always()
     runs-on: ubuntu-latest
     permissions:

@@ -217,6 +217,16 @@ const JOB_LIFECYCLE_FILES = new Set([
   "tsconfig.base.json",
 ]);
 
+export const MUTATION_PROJECTS = ["packages/gdg-lib", "apps/accounts"];
+const MUTATION_RUNNER = "scripts/run-mutation.mjs";
+
+function mutationProjects(files) {
+  if (files.includes(MUTATION_RUNNER)) return [...MUTATION_PROJECTS];
+  return MUTATION_PROJECTS.filter((project) =>
+    files.some((file) => file.startsWith(`${project}/`)),
+  );
+}
+
 export function isJobLifecycleInput(file) {
   return (
     JOB_LIFECYCLE_FILES.has(file) ||
@@ -251,6 +261,7 @@ function allResults() {
     designSource: true,
     engineering: true,
     jobLifecycle: true,
+    mutation: [...MUTATION_PROJECTS],
     full: true,
   };
 }
@@ -360,6 +371,7 @@ export function classifyChanges(files, { forceAll = false } = {}) {
         file === "scripts/engineering-health.mjs" ||
         file === "scripts/run-ci.mjs" ||
         file === "scripts/run-go-ci.mjs" ||
+        file === MUTATION_RUNNER ||
         isE2EHarnessInput(file) ||
         file === "apps/wiki/tests/e2e/setup.ts" ||
         /^apps\/pr\/(?:e2e\/(?:run\.mjs|global-setup\.ts|fonts\.ts)|(?:vite|playwright)\.config\.ts|package\.json)$/.test(
@@ -380,6 +392,7 @@ export function classifyChanges(files, { forceAll = false } = {}) {
       ),
     designSource: normalizedFiles.some((file) => isDesignSourceFile(file)),
     jobLifecycle: ciGlobal || normalizedFiles.some(isJobLifecycleInput),
+    mutation: mutationProjects(normalizedFiles),
     engineering:
       ciGlobal ||
       normalizedFiles.some((file) =>
@@ -443,6 +456,7 @@ function workflowOutputs(result, base, head) {
     "script-tests": String(result.scriptTests),
     cli: String(result.cli),
     "design-source": String(result.designSource),
+    mutation: JSON.stringify(result.mutation),
     full: String(result.full),
     base: base ?? "",
     head: head ?? "",
