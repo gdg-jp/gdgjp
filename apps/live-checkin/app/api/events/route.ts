@@ -1,3 +1,4 @@
+import { connpassUrl } from "@/lib/endpoints";
 import { withAuth } from "@/lib/middleware/auth";
 import { type NextRequest, NextResponse } from "next/server";
 
@@ -13,7 +14,7 @@ function startOfTodayJst(): number {
 
 export async function GET(req: NextRequest) {
   return withAuth(req, "events", async (req, session) => {
-    const connpassRes = await fetch(`https://connpass.gdgs.jp/api/groups/${GROUP_ID}/events`, {
+    const connpassRes = await fetch(`${connpassUrl()}/api/groups/${GROUP_ID}/events`, {
       headers: { Authorization: `Bearer ${session.accessToken}` },
       cache: "no-store",
     });

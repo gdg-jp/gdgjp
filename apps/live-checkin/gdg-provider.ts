@@ -1,4 +1,5 @@
 import type { OIDCConfig, OIDCUserConfig } from "next-auth/providers";
+import { accountsUrl } from "./lib/endpoints";
 
 interface GDGUserProfile {
   sub: string;
@@ -14,8 +15,8 @@ export function GDGAccounts(
     id: "gdg-accounts",
     name: "GDG Accounts",
     type: "oidc",
-    issuer: "https://accounts.gdgs.jp",
-    wellKnown: "https://accounts.gdgs.jp/.well-known/openid-configuration",
+    issuer: accountsUrl(),
+    wellKnown: `${accountsUrl()}/.well-known/openid-configuration`,
     clientId: process.env.GDG_CLIENT_ID,
     clientSecret: process.env.GDG_CLIENT_SECRET,
     authorization: {

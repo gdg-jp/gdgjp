@@ -1,10 +1,11 @@
+import { connpassUrl } from "@/lib/endpoints";
 import { withAuth } from "@/lib/middleware/auth";
 import { type NextRequest, NextResponse } from "next/server";
 
 export async function POST(req: NextRequest) {
   return withAuth(req, "checkin", async (req, session) => {
     const { url } = await req.json();
-    const connpassRes = await fetch("https://connpass.gdgs.jp/api/checkin", {
+    const connpassRes = await fetch(`${connpassUrl()}/api/checkin`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

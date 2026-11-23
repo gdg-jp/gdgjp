@@ -8,6 +8,10 @@
     "binding": "ASSETS",
     "directory": ".open-next/assets"
   },
+  "vars": {
+    "ACCOUNTS_URL": "https://accounts.gdgs.jp",
+    "CONNPASS_URL": "https://connpass.gdgs.jp"
+  },
   "observability": {
     "enabled": true
   }
