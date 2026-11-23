@@ -585,3 +585,21 @@ export function orderSelfReferences(statements, keys) {
   for (const entry of rows) visit(entry);
   return ordered;
 }
+
+export const PRODUCTION_ISSUER = `https://accounts.${ZONE}`;
+
+export function issuerColumns(tables) {
+  return Object.entries(tables).flatMap(([table, columns]) =>
+    columns
+      .filter((column) => column === "issuer" || column === "oidc_issuer")
+      .map((column) => ({ table, column })),
+  );
+}
+
+export function issuerRewriteSql(columns, slot) {
+  const issuer = `https://${stagingHost(`accounts.${ZONE}`, slot)}`;
+  return columns.map(
+    ({ table, column }) =>
+      `UPDATE "${table}" SET "${column}" = '${issuer}' WHERE "${column}" = '${PRODUCTION_ISSUER}';`,
+  );
+}

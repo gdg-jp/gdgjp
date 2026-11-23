@@ -4,6 +4,8 @@ import {
   classifySchema,
   composeImport,
   dependencyOrder,
+  issuerColumns,
+  issuerRewriteSql,
   oauthRedirectRewriteSql,
   orderInserts,
   orderSelfReferences,
@@ -494,4 +496,19 @@ test("comments in schema SQL do not open strings or end statements", () => {
     ),
     ['CREATE TABLE t (\n  -- JSON [{ "s": 1 }]; note\n  a TEXT /* it\'s; */\n);', "SELECT 1;"],
   );
+});
+
+test("copied relying-party identities follow the slot's issuer", () => {
+  const columns = issuerColumns({
+    user: ["id", "email", "oidc_issuer", "oidc_subject"],
+    oidc_session: ["id", "issuer"],
+    links: ["id"],
+  });
+  assert.deepEqual(columns, [
+    { table: "user", column: "oidc_issuer" },
+    { table: "oidc_session", column: "issuer" },
+  ]);
+  assert.deepEqual(issuerRewriteSql(columns.slice(0, 1), "stg-2"), [
+    `UPDATE "user" SET "oidc_issuer" = 'https://accounts.stg2.gdgs.jp' WHERE "oidc_issuer" = 'https://accounts.gdgs.jp';`,
+  ]);
 });
