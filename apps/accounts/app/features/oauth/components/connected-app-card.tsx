@@ -30,7 +30,7 @@ export function ConnectedAppCard({
 }) {
   const { t } = useTranslation();
   const isRemoving = fetcher.state !== "idle" && fetcher.formData?.get("clientId") === app.clientId;
-  const scopeLabels = scopeLabelKeys(app.scopes);
+  const scopeLabels = scopeLabelKeys(app.scopes, { developerOwned: true });
   const formatDate = (value: string | null) =>
     value
       ? new Intl.DateTimeFormat(locale, { dateStyle: "medium", timeStyle: "short" }).format(

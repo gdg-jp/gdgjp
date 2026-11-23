@@ -30,7 +30,8 @@ export default function ConsentPage({ loaderData }: PageProps) {
   const { t } = useTranslation();
   const navigation = useNavigation();
   const [params] = useSearchParams();
-  const scopeLabels = scopeLabelKeys(loaderData.scopes);
+  const developerOwned = loaderData.client?.developerOwned === true;
+  const scopeLabels = scopeLabelKeys(loaderData.scopes, { developerOwned });
   const isSubmitting = navigation.state !== "idle";
   const appName = loaderData.client?.name || t("auth.consent.unknownApp");
 
@@ -136,7 +137,7 @@ export default function ConsentPage({ loaderData }: PageProps) {
                 </div>
               </Form>
               <Text size="xs" tone="muted">
-                {t("auth.consent.privacy")}
+                {t(developerOwned ? "auth.consent.privacyDeveloper" : "auth.consent.privacy")}
               </Text>
             </Stack>
           ) : (

@@ -3,6 +3,7 @@ import type { AuthUser } from "@gdgjp/gdg-lib";
 import { betterAuth } from "better-auth";
 import { jwt } from "better-auth/plugins";
 import { listActiveChaptersForUser } from "~/features/memberships/repository.server";
+import { refuseDeveloperClientResource } from "~/features/oauth/developer-client-resource.server";
 
 export const CHAPTERS_SCOPE = "https://gdgs.jp/scopes/chapters";
 export const CLI_SCOPE = "https://gdgs.jp/scopes/cli";
@@ -106,11 +107,13 @@ export async function withAuthTimeout<T>(operation: Promise<T>, onTimeout: () =>
   }
 }
 
-export function runAuthHandler(
+export async function runAuthHandler(
   env: Env,
   request: Request,
   onTimeout: () => Response = authUnavailableResponse,
 ): Promise<Response> {
+  const refusal = await refuseDeveloperClientResource(env, request);
+  if (refusal) return refusal;
   return withAuthTimeout(getAuth(env).handler(request), onTimeout);
 }
 

@@ -305,6 +305,30 @@ CREATE TABLE IF NOT EXISTS "oauthClientAssertion" (
   "id" TEXT NOT NULL PRIMARY KEY,
   "expiresAt" TEXT NOT NULL
 );
+CREATE TRIGGER developer_client_access_token_requires_consent
+BEFORE INSERT ON "oauthAccessToken"
+WHEN NEW."userId" IS NOT NULL
+  AND NEW."clientId" IN (SELECT "clientId" FROM "oauthClient" WHERE "userId" IS NOT NULL)
+  AND NOT EXISTS (
+    SELECT 1 FROM "oauthConsent"
+    WHERE "userId" = NEW."userId" AND "clientId" = NEW."clientId"
+  )
+BEGIN
+  SELECT RAISE(ABORT, 'developer client token without consent');
+END;
+CREATE TRIGGER developer_client_refresh_token_requires_consent
+BEFORE INSERT ON "oauthRefreshToken"
+WHEN NEW."clientId" IN (SELECT "clientId" FROM "oauthClient" WHERE "userId" IS NOT NULL)
+  AND (
+    NEW."resources" IS NOT NULL
+    OR NOT EXISTS (
+      SELECT 1 FROM "oauthConsent"
+      WHERE "userId" = NEW."userId" AND "clientId" = NEW."clientId"
+    )
+  )
+BEGIN
+  SELECT RAISE(ABORT, 'developer client token without consent');
+END;
 CREATE TRIGGER session_end_revokes_oauth_tokens
 BEFORE DELETE ON "session"
 BEGIN

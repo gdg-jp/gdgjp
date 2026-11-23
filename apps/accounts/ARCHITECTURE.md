@@ -6,8 +6,8 @@
 | Composed screens and their loader/action/meta exports | `app/routes/<domain>/` |
 | Composed application layouts and navigation | `app/layouts/` |
 | Domain-free reusable visual primitives | `app/components/` (brand mark, page heading, locale and theme controls) |
-| Better Auth provider, sessions, redirects and runtime initialization | `app/features/auth/` |
-| Device grants, CLI bearer tokens, logout, trusted-client seeding, consent and users' connected apps | `app/features/oauth/` |
+| Better Auth provider, sessions, redirects and runtime initialization; `runAuthHandler` is the single entry into Better Auth | `app/features/auth/` |
+| Device grants, CLI bearer tokens, logout, trusted-client seeding, consent, users' connected apps and the developer-client resource refusal | `app/features/oauth/` |
 | Developer OAuth client ownership, validation and management | `app/features/developer-apps/` |
 | Chapter directory, regional classification and chapter administration | `app/features/chapters/` |
 | Membership queries, atomic mutations, requests and chapter management | `app/features/memberships/` |

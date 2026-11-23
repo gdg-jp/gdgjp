@@ -113,40 +113,123 @@ function addTokens(
   const expiresAt = input.expiresAt ?? FUTURE;
   const sessionId = input.sessionId ?? null;
   const revoked = input.revoked ?? null;
-  if (!input.accessOnly) {
-    raw
-      .prepare(`INSERT INTO "oauthRefreshToken"
-        (id, token, "clientId", "sessionId", "userId", "expiresAt", "createdAt", revoked, scopes)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`)
-      .run(
-        `r-${input.id}`,
-        `rt-${input.id}`,
-        input.clientId,
+  whileConsented(raw, input.clientId, input.userId, () => {
+    if (!input.accessOnly) {
+      insertRefreshToken(raw, {
+        id: `r-${input.id}`,
+        clientId: input.clientId,
+        userId: input.userId,
         sessionId,
-        input.userId,
         expiresAt,
         createdAt,
         revoked,
         scopes,
-      );
-  }
-  raw
-    .prepare(`INSERT INTO "oauthAccessToken"
-      (id, token, "clientId", "sessionId", "userId", "refreshId", "expiresAt", "createdAt",
-       revoked, scopes)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
-    .run(
-      `a-${input.id}`,
-      `at-${input.id}`,
-      input.clientId,
+      });
+    }
+    insertAccessToken(raw, {
+      id: `a-${input.id}`,
+      clientId: input.clientId,
+      userId: input.userId,
+      refreshId: input.accessOnly ? null : `r-${input.id}`,
       sessionId,
-      input.userId,
-      input.accessOnly ? null : `r-${input.id}`,
       expiresAt,
       createdAt,
       revoked,
       scopes,
+    });
+  });
+}
+
+function whileConsented(raw: DatabaseSync, clientId: string, userId: string, issue: () => void) {
+  const consented = raw
+    .prepare(`SELECT 1 FROM "oauthConsent" WHERE "clientId" = ? AND "userId" = ?`)
+    .get(clientId, userId);
+  if (consented) return issue();
+  addConsent(raw, { id: "issuing", clientId, userId, scopes: "[]" });
+  issue();
+  raw.exec(`DELETE FROM "oauthConsent" WHERE id = 'issuing'`);
+}
+
+type TokenRow = {
+  id: string;
+  clientId: string;
+  userId: string | null;
+  sessionId?: string | null;
+  refreshId?: string | null;
+  expiresAt?: string;
+  createdAt?: string;
+  revoked?: string | null;
+  scopes?: string;
+  resources?: string | null;
+};
+
+function insertRefreshToken(raw: DatabaseSync, row: TokenRow) {
+  raw
+    .prepare(`INSERT INTO "oauthRefreshToken"
+      (id, token, "clientId", "sessionId", "userId", "expiresAt", "createdAt", revoked, scopes,
+       resources)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+    .run(
+      row.id,
+      `token-${row.id}`,
+      row.clientId,
+      row.sessionId ?? null,
+      row.userId,
+      row.expiresAt ?? FUTURE,
+      row.createdAt ?? PAST,
+      row.revoked ?? null,
+      row.scopes ?? '["openid"]',
+      row.resources ?? null,
     );
+}
+
+function insertAccessToken(raw: DatabaseSync, row: TokenRow) {
+  raw
+    .prepare(`INSERT INTO "oauthAccessToken"
+      (id, token, "clientId", "sessionId", "userId", "refreshId", "expiresAt", "createdAt",
+       revoked, scopes, resources)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+    .run(
+      row.id,
+      `token-${row.id}`,
+      row.clientId,
+      row.sessionId ?? null,
+      row.userId,
+      row.refreshId ?? null,
+      row.expiresAt ?? FUTURE,
+      row.createdAt ?? PAST,
+      row.revoked ?? null,
+      row.scopes ?? '["openid"]',
+      row.resources ?? null,
+    );
+}
+
+function addAuthorizationCode(
+  raw: DatabaseSync,
+  input: { id: string; clientId: string; userId: string; type?: string },
+) {
+  raw
+    .prepare(`INSERT INTO "verification" (id, identifier, value, "expiresAt", "createdAt", "updatedAt")
+      VALUES (?, ?, ?, ?, ?, ?)`)
+    .run(
+      input.id,
+      `code-${input.id}`,
+      JSON.stringify({
+        type: input.type ?? "authorization_code",
+        query: { client_id: input.clientId, scope: "openid offline_access" },
+        userId: input.userId,
+        sessionId: "s1",
+      }),
+      FUTURE,
+      PAST,
+      PAST,
+    );
+}
+
+function verificationIds(raw: DatabaseSync) {
+  return (raw.prepare(`SELECT id FROM "verification" ORDER BY id`).all() as { id: string }[]).map(
+    (row) => row.id,
+  );
 }
 
 function addConsent(
@@ -217,6 +300,136 @@ describe("migration 0025", () => {
     expect(
       raw.prepare(`SELECT "sessionId" FROM "oauthRefreshToken" WHERE id = 'r-dev'`).get(),
     ).toEqual({ sessionId: null });
+  });
+
+  it("refuses a developer-client token without the user's consent and accepts one with it", () => {
+    const { raw } = migratedDb();
+    seed(raw);
+    addConsent(raw, { id: "other-user", clientId: "dev-app", userId: "user-2", scopes: "[]" });
+    addConsent(raw, { id: "other-app", clientId: "dev-other", userId: "user-1", scopes: "[]" });
+    const refresh = { id: "r-1", clientId: "dev-app", userId: "user-1" };
+    const access = { id: "a-1", clientId: "dev-app", userId: "user-1", refreshId: "r-1" };
+
+    expect(() => insertRefreshToken(raw, refresh)).toThrow(
+      /developer client token without consent/,
+    );
+    expect(() => insertAccessToken(raw, { ...access, refreshId: null })).toThrow(
+      /developer client token without consent/,
+    );
+    expect(tokenIds(raw)).toEqual({ access: [], refresh: [] });
+
+    addConsent(raw, { id: "granted", clientId: "dev-app", userId: "user-1", scopes: "[]" });
+    insertRefreshToken(raw, refresh);
+    insertAccessToken(raw, access);
+
+    expect(tokenIds(raw)).toEqual({ access: ["a-1"], refresh: ["r-1"] });
+  });
+
+  it("refuses a developer-client refresh token that names a resource, even with consent", () => {
+    const { raw } = migratedDb();
+    seed(raw);
+    addConsent(raw, { id: "granted", clientId: "dev-app", userId: "user-1", scopes: "[]" });
+
+    expect(() =>
+      insertRefreshToken(raw, {
+        id: "r-1",
+        clientId: "dev-app",
+        userId: "user-1",
+        resources: '["https://accounts.example/api/auth/oauth2/userinfo"]',
+      }),
+    ).toThrow(/developer client token without consent/);
+    insertAccessToken(raw, {
+      id: "a-1",
+      clientId: "dev-app",
+      userId: "user-1",
+      resources: '["https://accounts.example/api/auth/oauth2/userinfo"]',
+    });
+
+    expect(tokenIds(raw)).toEqual({ access: ["a-1"], refresh: [] });
+  });
+
+  it("leaves first-party, device-grant and userless token inserts alone", () => {
+    const { raw } = migratedDb();
+    seed(raw);
+    const resources = '["https://accounts.example/api/auth/oauth2/userinfo"]';
+
+    for (const clientId of ["fp-wiki", "fp-cli", "gdg-cli"]) {
+      insertRefreshToken(raw, { id: `r-${clientId}`, clientId, userId: "user-1", resources });
+      insertAccessToken(raw, { id: `a-${clientId}`, clientId, userId: "user-1", resources });
+      insertAccessToken(raw, { id: `m-${clientId}`, clientId, userId: null });
+    }
+    insertAccessToken(raw, { id: "m-dev-app", clientId: "dev-app", userId: null });
+
+    expect(tokenIds(raw)).toEqual({
+      access: [
+        "a-fp-cli",
+        "a-fp-wiki",
+        "a-gdg-cli",
+        "m-dev-app",
+        "m-fp-cli",
+        "m-fp-wiki",
+        "m-gdg-cli",
+      ],
+      refresh: ["r-fp-cli", "r-fp-wiki", "r-gdg-cli"],
+    });
+  });
+
+  it("deletes developer grants issued without consent and their pending codes on upgrade", () => {
+    const { raw, finishMigrations } = migratedDb({ stopBefore: TRIGGER_MIGRATION });
+    seed(raw);
+    const resources = '["https://accounts.example/api/auth/oauth2/userinfo"]';
+    addConsent(raw, { id: "kept", clientId: "dev-app", userId: "user-1", scopes: "[]" });
+    insertRefreshToken(raw, { id: "r-consented", clientId: "dev-app", userId: "user-1" });
+    insertAccessToken(raw, {
+      id: "a-consented",
+      clientId: "dev-app",
+      userId: "user-1",
+      refreshId: "r-consented",
+    });
+    insertRefreshToken(raw, {
+      id: "r-resource",
+      clientId: "dev-app",
+      userId: "user-1",
+      resources,
+    });
+    insertAccessToken(raw, {
+      id: "a-resource",
+      clientId: "dev-app",
+      userId: "user-1",
+      refreshId: "r-resource",
+    });
+    insertRefreshToken(raw, { id: "r-unconsented", clientId: "dev-app", userId: "user-2" });
+    insertAccessToken(raw, {
+      id: "a-unconsented",
+      clientId: "dev-app",
+      userId: "user-2",
+      refreshId: "r-unconsented",
+    });
+    insertAccessToken(raw, { id: "a-other-app", clientId: "dev-other", userId: "user-1" });
+    insertAccessToken(raw, { id: "a-userless", clientId: "dev-app", userId: null });
+    insertRefreshToken(raw, { id: "r-wiki", clientId: "fp-wiki", userId: "user-1", resources });
+    insertAccessToken(raw, { id: "a-wiki", clientId: "fp-wiki", userId: "user-2" });
+    insertRefreshToken(raw, { id: "r-cli", clientId: "gdg-cli", userId: "user-2" });
+    addAuthorizationCode(raw, { id: "code-consented", clientId: "dev-app", userId: "user-1" });
+    addAuthorizationCode(raw, { id: "code-unconsented", clientId: "dev-other", userId: "user-2" });
+    addAuthorizationCode(raw, { id: "code-wiki", clientId: "fp-wiki", userId: "user-1" });
+    addAuthorizationCode(raw, {
+      id: "state-dev",
+      clientId: "dev-app",
+      userId: "user-1",
+      type: "oauth_state",
+    });
+    raw.exec(`INSERT INTO "verification" (id, identifier, value, "expiresAt", "createdAt", "updatedAt")
+      VALUES ('plain', 'plain', 'not json', '${FUTURE}', '${PAST}', '${PAST}')`);
+
+    finishMigrations();
+
+    expect(tokenIds(raw)).toEqual({
+      access: ["a-consented", "a-wiki"],
+      refresh: ["r-cli", "r-consented", "r-wiki"],
+    });
+    expect(consentIds(raw)).toEqual(["kept"]);
+    expect(verificationIds(raw)).toEqual(["code-wiki", "plain", "state-dev"]);
   });
 
   it("still deletes every token when an administrator revokes the user's sessions", async () => {
@@ -291,7 +504,7 @@ describe("listConnectedApps", () => {
         name: "Dev App",
         appUrl: "https://dev.example/",
         ownerName: "Ada Owner",
-        scopes: ["openid", "email"],
+        scopes: ["openid", "email", "profile"],
         grantedAt: "2026-11-02T00:00:00.000Z",
         lastTokenAt: "2026-11-04T00:00:00.000Z",
         disabled: false,
@@ -341,7 +554,79 @@ describe("listConnectedApps", () => {
     const [app] = await listConnectedApps(db, "user-1", NOW);
 
     expect(app?.clientId).toBe("dev-app");
-    expect(app?.scopes).toEqual([]);
+    expect(app?.scopes).toEqual(["openid", "offline_access"]);
+  });
+
+  it("shows every scope the app holds across consents and live tokens", async () => {
+    const { raw, db } = migratedDb();
+    seed(raw);
+    addTokens(raw, {
+      id: "wide",
+      clientId: "dev-app",
+      userId: "user-1",
+      scopes: ["openid", "email", "offline_access"],
+      createdAt: "2026-11-03T00:00:00.000Z",
+    });
+    addTokens(raw, {
+      id: "profile",
+      clientId: "dev-app",
+      userId: "user-1",
+      scopes: ["profile"],
+      createdAt: "2026-11-04T00:00:00.000Z",
+      accessOnly: true,
+    });
+    addTokens(raw, {
+      id: "expired",
+      clientId: "dev-app",
+      userId: "user-1",
+      scopes: ["https://gdgs.jp/scopes/chapters"],
+      expiresAt: PAST,
+    });
+    addTokens(raw, {
+      id: "revoked",
+      clientId: "dev-app",
+      userId: "user-1",
+      scopes: ["https://gdgs.jp/scopes/cli"],
+      revoked: PAST,
+    });
+    addTokens(raw, { id: "theirs", clientId: "dev-app", userId: "user-2", scopes: ["phone"] });
+    addTokens(raw, { id: "other-app", clientId: "dev-other", userId: "user-1", scopes: ["x"] });
+    addConsent(raw, {
+      id: "narrow",
+      clientId: "dev-app",
+      userId: "user-1",
+      scopes: JSON.stringify(["openid"]),
+      createdAt: "2026-11-05T00:00:00.000Z",
+    });
+    addConsent(raw, {
+      id: "referenced",
+      clientId: "dev-app",
+      userId: "user-1",
+      scopes: JSON.stringify(["address"]),
+      createdAt: "2026-11-01T00:00:00.000Z",
+    });
+
+    const apps = await listConnectedApps(db, "user-1", NOW);
+
+    expect(apps.find((app) => app.clientId === "dev-app")?.scopes).toEqual([
+      "openid",
+      "address",
+      "profile",
+      "email",
+      "offline_access",
+    ]);
+  });
+
+  it("lists an app whose consent was deleted while its tokens live", async () => {
+    const { raw, db } = migratedDb();
+    seed(raw);
+    addConsent(raw, { id: "c", clientId: "dev-app", userId: "user-1", scopes: '["email"]' });
+    addTokens(raw, { id: "live", clientId: "dev-app", userId: "user-1", scopes: ["openid"] });
+    raw.exec(`DELETE FROM "oauthConsent" WHERE id = 'c'`);
+
+    const [app] = await listConnectedApps(db, "user-1", NOW);
+
+    expect(app).toMatchObject({ clientId: "dev-app", scopes: ["openid"], grantedAt: null });
   });
 
   it("uses the current time by default", async () => {
@@ -404,7 +689,7 @@ describe("listConnectedApps", () => {
       scopes: [],
     });
     const [forUser2] = await listConnectedApps(db, "user-2", NOW);
-    expect(forUser2?.scopes).toEqual(["email"]);
+    expect(forUser2?.scopes).toEqual(["email", "openid"]);
   });
 });
 
@@ -419,16 +704,46 @@ describe("removeConnectedApp", () => {
     addTokens(raw, { id: "mine-access", clientId: "dev-app", userId: "user-1", accessOnly: true });
     addTokens(raw, { id: "theirs", clientId: "dev-app", userId: "user-2" });
     addTokens(raw, { id: "other-app", clientId: "dev-other", userId: "user-1" });
+    addAuthorizationCode(raw, { id: "mine", clientId: "dev-app", userId: "user-1" });
+    addAuthorizationCode(raw, { id: "theirs", clientId: "dev-app", userId: "user-2" });
+    addAuthorizationCode(raw, { id: "other-app", clientId: "dev-other", userId: "user-1" });
+    addAuthorizationCode(raw, {
+      id: "state",
+      clientId: "dev-app",
+      userId: "user-1",
+      type: "oauth_state",
+    });
+    raw.exec(`INSERT INTO "verification" (id, identifier, value, "expiresAt", "createdAt", "updatedAt")
+      VALUES ('plain', 'plain', 'not json', '${FUTURE}', '${PAST}', '${PAST}')`);
 
     await removeConnectedApp(db, "user-1", "dev-app");
 
     expect(batches).toHaveLength(1);
-    expect(batches[0]).toHaveLength(3);
+    expect(batches[0]).toHaveLength(4);
     expect(consentIds(raw)).toEqual(["other-app", "theirs"]);
     expect(tokenIds(raw)).toEqual({
       access: ["a-other-app", "a-theirs"],
       refresh: ["r-other-app", "r-theirs"],
     });
+    expect(verificationIds(raw)).toEqual(["other-app", "plain", "state", "theirs"]);
+  });
+
+  it("stops a code exchange or refresh rotation that straddles the removal", async () => {
+    const { raw, db } = migratedDb();
+    seed(raw);
+    addConsent(raw, { id: "mine", clientId: "dev-app", userId: "user-1", scopes: "[]" });
+    addTokens(raw, { id: "old", clientId: "dev-app", userId: "user-1" });
+    raw.exec(`UPDATE "oauthRefreshToken" SET revoked = '${PAST}' WHERE id = 'r-old'`);
+
+    await removeConnectedApp(db, "user-1", "dev-app");
+
+    expect(() =>
+      insertRefreshToken(raw, { id: "r-next", clientId: "dev-app", userId: "user-1" }),
+    ).toThrow(/developer client token without consent/);
+    expect(() =>
+      insertAccessToken(raw, { id: "a-code", clientId: "dev-app", userId: "user-1" }),
+    ).toThrow(/developer client token without consent/);
+    expect(tokenIds(raw)).toEqual({ access: [], refresh: [] });
   });
 
   it("leaves first-party grants alone", async () => {
@@ -437,12 +752,14 @@ describe("removeConnectedApp", () => {
     addConsent(raw, { id: "wiki", clientId: "fp-wiki", userId: "user-1", scopes: "[]" });
     addTokens(raw, { id: "wiki", clientId: "fp-wiki", userId: "user-1" });
     addTokens(raw, { id: "cli", clientId: "fp-cli", userId: "user-1" });
+    addAuthorizationCode(raw, { id: "wiki", clientId: "fp-wiki", userId: "user-1" });
 
     await removeConnectedApp(db, "user-1", "fp-wiki");
     await removeConnectedApp(db, "user-1", "fp-cli");
 
     expect(consentIds(raw)).toEqual(["wiki"]);
     expect(tokenIds(raw)).toEqual({ access: ["a-cli", "a-wiki"], refresh: ["r-cli", "r-wiki"] });
+    expect(verificationIds(raw)).toEqual(["wiki"]);
   });
 });
 

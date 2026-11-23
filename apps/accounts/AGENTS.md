@@ -29,8 +29,22 @@ A developer-owned client (non-NULL `oauthClient.userId`) follows the per-app gra
 created with `skipConsent = 0`, Better Auth asks for consent at `/oauth/consent` and stores it in
 `oauthConsent`, and the grant survives sign-out and session expiry. Users list and remove these
 grants at `/settings/connected-apps` (`features/oauth/connected-apps.server.ts`), which deletes that
-user's consent, access tokens, and refresh tokens for the client in one batch. Seeded first-party
-clients keep skipping consent and lose their tokens with the session.
+user's pending authorization codes, consent, access tokens, and refresh tokens for the client in one
+batch. Seeded first-party clients keep skipping consent and lose their tokens with the session.
+
+Migration 0025 keeps that grant in D1. Its `BEFORE INSERT` triggers abort a developer-owned client's
+token row when the token's user has no `oauthConsent` row for the client, and abort any such refresh
+token that names a resource; a code exchange or refresh rotation that straddles a removal fails
+there. The migration deletes the developer-client tokens that have no consent row (all of them in
+practice, because these clients skipped consent before) and every pending developer-client
+authorization code, so those users see the consent page at their next sign-in through the app.
+Deploy the code before applying it. Applied first, it fails closed: a client that the old console
+creates in between keeps `skipConsent = 1`, so its users are never asked and the triggers refuse its
+tokens until `skipConsent` is set to 0. Developer clients must only ever get opaque,
+row-backed access tokens: `runAuthHandler` refuses a `resource` parameter from a developer-owned
+client at the authorization and token endpoints with `invalid_target`
+(`features/oauth/developer-client-resource.server.ts`), because Better Auth would otherwise issue a
+stateless JWT that removal cannot revoke.
 
 ## Single sign-on state for `*.gdgs.jp`
 

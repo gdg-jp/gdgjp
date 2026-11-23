@@ -542,13 +542,15 @@
       "noPermissions": "Basic account access",
       "allow": "Allow and continue",
       "deny": "Cancel",
-      "privacy": "Only approve applications you trust. You can remove access at any time from Connected apps in your account.",
+      "privacy": "Only approve applications you trust. You can revoke access by contacting the application owner.",
+      "privacyDeveloper": "Only approve applications you trust. You can remove access at any time from Connected apps in your account.",
       "invalidRequest": "This authorization request is invalid or has expired. Go back to the app and try again.",
       "scope": {
         "openid": "Confirm your identity",
         "email": "View your email address",
         "profile": "View your name and profile image",
-        "offline_access": "Keep access after you sign out, until you remove it",
+        "offline_access": "Keep access when you are away",
+        "offlineAccessUntilRemoved": "Keep access after you sign out, until you remove it",
         "chapters": "View your active chapter memberships and roles",
         "unknown": "Request additional account access"
       }

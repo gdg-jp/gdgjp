@@ -6,13 +6,22 @@ const SCOPE_LABEL_KEYS = new Map<string, string>([
   ["https://gdgs.jp/scopes/chapters", "auth.consent.scope.chapters"],
 ]);
 
+const DEVELOPER_SCOPE_LABEL_KEYS = new Map<string, string>([
+  ...SCOPE_LABEL_KEYS,
+  ["offline_access", "auth.consent.scope.offlineAccessUntilRemoved"],
+]);
+
 const UNKNOWN_SCOPE_LABEL_KEY = "auth.consent.scope.unknown";
 
-export function scopeLabelKeys(scopes: readonly string[]): string[] {
+export function scopeLabelKeys(
+  scopes: readonly string[],
+  client: { developerOwned: boolean },
+): string[] {
+  const labels = client.developerOwned ? DEVELOPER_SCOPE_LABEL_KEYS : SCOPE_LABEL_KEYS;
   const keys = new Set<string>();
   let unknown = false;
   for (const scope of scopes) {
-    const key = SCOPE_LABEL_KEYS.get(scope);
+    const key = labels.get(scope);
     if (key) keys.add(key);
     else unknown = true;
   }

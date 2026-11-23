@@ -21,8 +21,7 @@ type ConnectedAppRow = {
   uri: string | null;
   ownerName: string | null;
   disabled: number | null;
-  consentScopes: string | null;
-  tokenScopes: string | null;
+  scopeSets: string;
   grantedAt: string | null;
   lastTokenAt: string | null;
 };
@@ -39,11 +38,15 @@ export async function listConnectedApps(
     .prepare(
       `SELECT c."clientId" AS clientId, c."name" AS name, c."uri" AS uri, c."disabled" AS disabled,
               owner."name" AS ownerName,
-              (SELECT "scopes" FROM "oauthConsent"
-               WHERE "userId" = ?1 AND "clientId" = c."clientId"
-               ORDER BY "updatedAt" DESC LIMIT 1) AS consentScopes,
-              (SELECT "scopes" FROM "oauthRefreshToken" WHERE ${LIVE_TOKEN}
-               ORDER BY "createdAt" DESC LIMIT 1) AS tokenScopes,
+              (SELECT json_group_array("scopes") FROM (
+                 SELECT "scopes", 0 AS source, "updatedAt" AS at FROM "oauthConsent"
+                 WHERE "userId" = ?1 AND "clientId" = c."clientId"
+                 UNION ALL
+                 SELECT "scopes", 1, "createdAt" FROM "oauthAccessToken" WHERE ${LIVE_TOKEN}
+                 UNION ALL
+                 SELECT "scopes", 2, "createdAt" FROM "oauthRefreshToken" WHERE ${LIVE_TOKEN}
+                 ORDER BY source, at DESC
+               )) AS scopeSets,
               (SELECT MIN("createdAt") FROM "oauthConsent"
                WHERE "userId" = ?1 AND "clientId" = c."clientId") AS grantedAt,
               (SELECT MAX("createdAt") FROM (
@@ -74,10 +77,22 @@ export async function removeConnectedApp(
   userId: string,
   clientId: string,
 ): Promise<void> {
-  const ownedClient = `"userId" = ? AND "clientId" IN (
-    SELECT "clientId" FROM "oauthClient" WHERE "clientId" = ? AND "userId" IS NOT NULL
+  const ownedClient = `"userId" = ?1 AND "clientId" IN (
+    SELECT "clientId" FROM "oauthClient" WHERE "clientId" = ?2 AND "userId" IS NOT NULL
   )`;
   await db.batch([
+    db
+      .prepare(
+        `DELETE FROM "verification"
+         WHERE CASE WHEN json_valid("value") THEN
+           json_extract("value", '$.type') = 'authorization_code'
+           AND json_extract("value", '$.userId') = ?1
+           AND json_extract("value", '$.query.client_id') IN (
+             SELECT "clientId" FROM "oauthClient" WHERE "clientId" = ?2 AND "userId" IS NOT NULL
+           )
+         ELSE 0 END`,
+      )
+      .bind(userId, clientId),
     db.prepare(`DELETE FROM "oauthConsent" WHERE ${ownedClient}`).bind(userId, clientId),
     db.prepare(`DELETE FROM "oauthAccessToken" WHERE ${ownedClient}`).bind(userId, clientId),
     db.prepare(`DELETE FROM "oauthRefreshToken" WHERE ${ownedClient}`).bind(userId, clientId),
@@ -116,21 +131,19 @@ function requireSignedInUser(env: Env, request: Request) {
 }
 
 function toConnectedApp(row: ConnectedAppRow): ConnectedApp {
-  const consentScopes = parseScopes(row.consentScopes);
   return {
     clientId: row.clientId,
     name: row.name?.trim() || row.clientId,
     appUrl: safeHttpUrl(row.uri),
     ownerName: row.ownerName?.trim() || null,
-    scopes: consentScopes.length > 0 ? consentScopes : parseScopes(row.tokenScopes),
+    scopes: [...new Set(parseStrings(row.scopeSets).flatMap(parseStrings))],
     grantedAt: row.grantedAt,
     lastTokenAt: row.lastTokenAt,
     disabled: row.disabled === 1,
   };
 }
 
-function parseScopes(value: string | null): string[] {
-  if (!value) return [];
+function parseStrings(value: string): string[] {
   try {
     const parsed: unknown = JSON.parse(value);
     return Array.isArray(parsed) ? parsed.filter((scope) => typeof scope === "string") : [];

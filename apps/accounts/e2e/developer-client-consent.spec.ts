@@ -81,7 +81,7 @@ async function signedInPage(browser: Browser, session: SignedInUser) {
   return page;
 }
 
-function authorizeUrl(verifier: string) {
+function authorizeUrl(verifier: string, extra: Record<string, string> = {}) {
   const query = new URLSearchParams({
     client_id: clientId,
     response_type: "code",
@@ -90,8 +90,36 @@ function authorizeUrl(verifier: string) {
     state: randomUUID(),
     code_challenge: createHash("sha256").update(verifier).digest("base64url"),
     code_challenge_method: "S256",
+    ...extra,
   });
   return `${ACCOUNTS_URL}/api/auth/oauth2/authorize?${query}`;
+}
+
+async function approve(page: Page, verifier: string) {
+  await page.goto(authorizeUrl(verifier));
+  await expectConsentPage(page);
+  await page.getByRole("button", { name: "Allow and continue" }).click();
+  await expect(page).toHaveURL(new RegExp(`^${REDIRECT_URI}\\?`));
+  const code = new URL(page.url()).searchParams.get("code");
+  expect(code).toBeTruthy();
+  return code ?? "";
+}
+
+async function removeAccess(page: Page) {
+  await page.goto(`${ACCOUNTS_URL}/settings/connected-apps`);
+  await expect(page.getByRole("heading", { level: 2, name: APP_NAME })).toBeVisible();
+  await page.getByRole("button", { name: "Remove access" }).click();
+  await page.getByRole("alertdialog").getByRole("button", { name: "Remove access" }).click();
+  await expect(page.getByText("No apps have access to your account.")).toBeVisible();
+}
+
+function exchange(request: APIRequestContext, code: string, verifier: string) {
+  return token(request, {
+    grant_type: "authorization_code",
+    code,
+    redirect_uri: REDIRECT_URI,
+    code_verifier: verifier,
+  });
 }
 
 async function expectConsentPage(page: Page) {
@@ -184,5 +212,94 @@ test("a developer client asks for consent and keeps its grant until the user rem
   await expect(settings).toHaveURL(new RegExp(`^${REDIRECT_URI}\\?`));
   expect(new URL(settings.url()).searchParams.get("error")).toBe("access_denied");
   await settings.context().close();
+  await app.dispose();
+});
+
+test("an authorization code issued before the user removes access cannot be exchanged", async ({
+  browser,
+}) => {
+  const page = await signedInPage(
+    browser,
+    createSession(database, ACCOUNTS_URL, betterAuthSecret(), user),
+  );
+  const app = await apiRequest.newContext();
+
+  const removedVerifier = randomBytes(32).toString("base64url");
+  const removedCode = await approve(page, removedVerifier);
+  await removeAccess(page);
+  const afterRemoval = await exchange(app, removedCode, removedVerifier);
+  expect(afterRemoval.status()).toBe(400);
+  expect(((await afterRemoval.json()) as { error?: string }).error).toBe("invalid_grant");
+
+  const racingVerifier = randomBytes(32).toString("base64url");
+  const racingCode = await approve(page, racingVerifier);
+  const consents = (await (
+    await page.request.get(`${ACCOUNTS_URL}/api/auth/oauth2/get-consents`)
+  ).json()) as { id: string; clientId: string }[];
+  const consent = consents.find((row) => row.clientId === clientId);
+  expect(consent).toBeTruthy();
+  const deleted = await page.request.post(`${ACCOUNTS_URL}/api/auth/oauth2/delete-consent`, {
+    headers: { Origin: ACCOUNTS_URL },
+    data: { id: consent?.id },
+  });
+  expect(deleted.ok()).toBe(true);
+
+  const withoutConsent = await exchange(app, racingCode, racingVerifier);
+  test.info().annotations.push({
+    type: "code exchange after consent deletion",
+    description: `${withoutConsent.status()} ${await withoutConsent.text()}`,
+  });
+  expect(withoutConsent.status()).toBeGreaterThanOrEqual(400);
+  expect(await withoutConsent.text()).not.toContain("access_token");
+  const retried = await exchange(app, racingCode, racingVerifier);
+  expect(retried.status()).toBe(400);
+  expect(((await retried.json()) as { error?: string }).error).toBe("invalid_grant");
+  await page.goto(`${ACCOUNTS_URL}/settings/connected-apps`);
+  await expect(page.getByText("No apps have access to your account.")).toBeVisible();
+
+  await page.context().close();
+  await app.dispose();
+});
+
+test("a developer client cannot obtain a token bound to a resource", async ({ browser }) => {
+  const page = await signedInPage(
+    browser,
+    createSession(database, ACCOUNTS_URL, betterAuthSecret(), user),
+  );
+  const app = await apiRequest.newContext();
+  const state = randomUUID();
+
+  for (const path of ["/api/auth/oauth2/authorize", "/authorize"]) {
+    const url = new URL(
+      authorizeUrl(randomBytes(32).toString("base64url"), {
+        resource: `${ACCOUNTS_URL}/api/auth/oauth2/userinfo`,
+        state,
+      }),
+    );
+    url.pathname = path;
+    const refused = await page.request.get(url.toString(), { maxRedirects: 0 });
+    expect(refused.status(), path).toBe(302);
+    const location = new URL(refused.headers().location ?? "");
+    expect(`${location.origin}${location.pathname}`, path).toBe(REDIRECT_URI);
+    const redirected = location.searchParams;
+    expect(redirected.get("error"), path).toBe("invalid_target");
+    expect(redirected.get("state"), path).toBe(state);
+    expect(redirected.get("code"), path).toBeNull();
+  }
+
+  for (const endpoint of ["/api/auth/oauth2/token", "/oauth/token"]) {
+    const refused = await app.post(`${ACCOUNTS_URL}${endpoint}`, {
+      headers: { Authorization: basic },
+      form: {
+        grant_type: "refresh_token",
+        refresh_token: "unused",
+        resource: `${ACCOUNTS_URL}/api/auth/oauth2/userinfo`,
+      },
+    });
+    expect(refused.status(), endpoint).toBe(400);
+    expect(((await refused.json()) as { error?: string }).error, endpoint).toBe("invalid_target");
+  }
+
+  await page.context().close();
   await app.dispose();
 });

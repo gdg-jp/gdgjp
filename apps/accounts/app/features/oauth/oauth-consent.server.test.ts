@@ -1,5 +1,6 @@
 import { readFileSync, readdirSync } from "node:fs";
 import { DatabaseSync, type SQLInputValue } from "node:sqlite";
+import { makeSignature } from "better-auth/crypto";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const authMocks = vi.hoisted(() => ({
@@ -10,6 +11,10 @@ const authMocks = vi.hoisted(() => ({
 vi.mock("@better-auth/oauth-provider", () => ({
   verifyOAuthQueryParams: authMocks.verifyOAuthQueryParams,
 }));
+
+const { verifyOAuthQueryParams } = await vi.importActual<
+  typeof import("@better-auth/oauth-provider")
+>("@better-auth/oauth-provider");
 
 vi.mock("~/features/auth/auth.server", () => ({
   runAuthHandler: authMocks.runAuthHandler,
@@ -68,7 +73,12 @@ describe("loadOauthConsent", () => {
 
     await expect(loadOauthConsent(consentPage(query, db))).resolves.toEqual({
       valid: true,
-      client: { name: "Dev App", appUrl: "https://dev.example/", ownerName: "Ada Owner" },
+      client: {
+        name: "Dev App",
+        appUrl: "https://dev.example/",
+        ownerName: "Ada Owner",
+        developerOwned: true,
+      },
       scopes: ["openid", "email"],
       title: "meta.oauthConsent",
     });
@@ -104,7 +114,66 @@ describe("loadOauthConsent", () => {
 
     await expect(loadOauthConsent(consentPage("client_id=bare-app", db))).resolves.toEqual({
       valid: true,
-      client: { name: "", appUrl: null, ownerName: null },
+      client: { name: "", appUrl: null, ownerName: null, developerOwned: false },
+      scopes: [],
+      title: "meta.oauthConsent",
+    });
+  });
+});
+
+describe("loadOauthConsent with Better Auth's signature check", () => {
+  const SECRET = "secret";
+
+  async function signedQuery(entries: Record<string, string>) {
+    const params = new URLSearchParams(entries);
+    const canonical = new URLSearchParams(
+      [...params.entries()].sort(([a], [b]) => (a < b ? -1 : 1)),
+    );
+    params.set("sig", await makeSignature(canonical.toString(), SECRET));
+    return params;
+  }
+
+  function inOneHour() {
+    return String(Math.floor(Date.now() / 1000) + 3600);
+  }
+
+  beforeEach(() => {
+    authMocks.verifyOAuthQueryParams.mockReset();
+    authMocks.verifyOAuthQueryParams.mockImplementation(verifyOAuthQueryParams);
+  });
+
+  it("shows the client and scopes of a query Better Auth signed", async () => {
+    const { db } = migratedDb();
+    const query = await signedQuery({ client_id: "dev-app", scope: "openid", exp: inOneHour() });
+
+    await expect(loadOauthConsent(consentPage(query.toString(), db))).resolves.toMatchObject({
+      valid: true,
+      client: { name: "Dev App", developerOwned: true },
+      scopes: ["openid"],
+    });
+  });
+
+  it("shows no client and no scopes for a tampered query", async () => {
+    const { db } = migratedDb();
+    const query = await signedQuery({ client_id: "dev-app", scope: "openid", exp: inOneHour() });
+    query.set("scope", "openid email offline_access");
+
+    await expect(loadOauthConsent(consentPage(query.toString(), db))).resolves.toEqual({
+      valid: false,
+      client: null,
+      scopes: [],
+      title: "meta.oauthConsent",
+    });
+  });
+
+  it("shows no client and no scopes for an expired query", async () => {
+    const { db } = migratedDb();
+    const expired = String(Math.floor(Date.now() / 1000) - 60);
+    const query = await signedQuery({ client_id: "dev-app", scope: "openid", exp: expired });
+
+    await expect(loadOauthConsent(consentPage(query.toString(), db))).resolves.toEqual({
+      valid: false,
+      client: null,
       scopes: [],
       title: "meta.oauthConsent",
     });

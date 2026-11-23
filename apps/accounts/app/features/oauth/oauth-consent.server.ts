@@ -5,8 +5,18 @@ import { splitScopeParameter } from "~/features/oauth/scope-labels";
 import { i18n } from "~/lib/i18n/i18n.server";
 import type { RouteRequestArgs } from "~/lib/route-args";
 
-type PublicClient = { name: string; appUrl: string | null; ownerName: string | null };
-type ClientRow = { name: string | null; uri: string | null; ownerName: string | null };
+type PublicClient = {
+  name: string;
+  appUrl: string | null;
+  ownerName: string | null;
+  developerOwned: boolean;
+};
+type ClientRow = {
+  name: string | null;
+  uri: string | null;
+  ownerName: string | null;
+  developerOwned: number;
+};
 
 export async function loadOauthConsent({ request, context }: RouteRequestArgs) {
   const env = context.cloudflare.env;
@@ -15,7 +25,8 @@ export async function loadOauthConsent({ request, context }: RouteRequestArgs) {
   const valid = await verifyOAuthQueryParams(query.toString(), env.BETTER_AUTH_SECRET);
   const client = valid
     ? await env.DB.prepare(
-        `SELECT c."name" AS name, c."uri" AS uri, owner."name" AS ownerName
+        `SELECT c."name" AS name, c."uri" AS uri, owner."name" AS ownerName,
+                c."userId" IS NOT NULL AS developerOwned
          FROM "oauthClient" c LEFT JOIN "user" owner ON owner."id" = c."userId"
          WHERE c."clientId" = ? AND COALESCE(c."disabled", 0) = 0 LIMIT 1`,
       )
@@ -66,6 +77,7 @@ function toPublicClient(client: ClientRow): PublicClient {
     name: client.name?.trim() || "",
     appUrl: safeHttpUrl(client.uri),
     ownerName: client.ownerName?.trim() || null,
+    developerOwned: client.developerOwned === 1,
   };
 }
 
