@@ -1,5 +1,10 @@
 import { DurableObject } from "cloudflare:workers";
 import {
+  type DurableObjectSnapshot,
+  exportDurableObjectStorage,
+  restoreDurableObject,
+} from "@gdgjp/gdg-lib/staging-snapshot";
+import {
   type Catalog,
   type Clip,
   type UploadedClip,
@@ -98,6 +103,14 @@ export class McRoom extends DurableObject<Env> {
     log.push(full);
     this.ctx.storage.kv.put("log", log.slice(-LOG_LIMIT));
     this.broadcast("controller", { type: "log", entry: full });
+  }
+
+  async exportStagingSnapshot(): Promise<DurableObjectSnapshot> {
+    return exportDurableObjectStorage(this.ctx.storage);
+  }
+
+  async importStagingSnapshot(snapshot: DurableObjectSnapshot): Promise<void> {
+    await restoreDurableObject(this.ctx, this.env, snapshot);
   }
 
   async fetch(request: Request): Promise<Response> {

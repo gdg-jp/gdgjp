@@ -28,3 +28,4 @@ export default {
 } satisfies ExportedHandler<Env>;
 
 export { McRoom } from "./mc-room";
+export { StagingSnapshot } from "./staging-snapshot";
