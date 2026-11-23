@@ -1,0 +1,69 @@
+name: AI review bootstrap
+
+on:
+  pull_request:
+    types: [opened, synchronize]
+
+permissions: {}
+
+jobs:
+  agent:
+    name: Process PR 183
+    if: github.head_ref == 'ai-review-bootstrap'
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    concurrency:
+      group: codex-auth
+      cancel-in-progress: false
+    permissions:
+      actions: write
+      contents: read
+    env:
+      AI_REVIEW_TRUSTED_BRANCHES: Harineko0/agent-review,ai-review-bootstrap
+      AI_REVIEW_TRUSTED_WORKFLOWS: .github/workflows/codex-login.yml,.github/workflows/ai-review-bootstrap.yml
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - run: npm install --global "@openai/codex@0.171.0"
+      - run: sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+      - name: Restore Codex login
+        id: restore
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          CODEX_AUTH_KEY: ${{ secrets.CODEX_AUTH_KEY }}
+          CODEX_ACCOUNT_SHA256: ${{ secrets.CODEX_ACCOUNT_SHA256 }}
+        run: |
+          echo "CODEX_HOME=$RUNNER_TEMP/codex-home" >> "$GITHUB_ENV"
+          node .github/scripts/codex-auth.mjs restore "$RUNNER_TEMP/codex-home"
+      - run: node .github/scripts/codex-review.mjs sandbox-check
+      - name: Plan and run
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          GDG_CHAN_APP_ID: ${{ vars.GDG_CHAN_APP_ID }}
+          GDG_CHAN_PRIVATE_KEY: ${{ secrets.GDG_CHAN_PRIVATE_KEY }}
+          AI_REVIEW_SIGNING_KEY: ${{ secrets.AI_REVIEW_SIGNING_KEY }}
+          CODEX_MODEL: gpt-6.2-astra
+          CODEX_EFFORT: medium
+        run: |
+          echo '{"inputs":{"pr":"183"}}' > "$RUNNER_TEMP/event.json"
+          GITHUB_EVENT_PATH="$RUNNER_TEMP/event.json" GITHUB_OUTPUT="$RUNNER_TEMP/out" node .github/scripts/codex-review.mjs plan
+          numbers=$(sed -n 's/^numbers=//p' "$RUNNER_TEMP/out")
+          if [ -n "$numbers" ]; then node .github/scripts/codex-review.mjs agent "$numbers"; fi
+      - name: Prepare refreshed Codex login
+        id: save
+        if: always() && steps.restore.outcome == 'success'
+        env:
+          CODEX_AUTH_KEY: ${{ secrets.CODEX_AUTH_KEY }}
+          CODEX_ACCOUNT_SHA256: ${{ secrets.CODEX_ACCOUNT_SHA256 }}
+        run: node .github/scripts/codex-auth.mjs save "$CODEX_HOME" "$RUNNER_TEMP/codex-auth-upload"
+      - if: always() && steps.save.outputs.changed == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: codex-auth
+          path: ${{ runner.temp }}/codex-auth-upload/codex-auth.enc
+          retention-days: 90
