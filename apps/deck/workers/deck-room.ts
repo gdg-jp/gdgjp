@@ -1,4 +1,9 @@
 import { DurableObject } from "cloudflare:workers";
+import {
+  type DurableObjectSnapshot,
+  exportDurableObjectStorage,
+  restoreDurableObject,
+} from "@gdgjp/gdg-lib/staging-snapshot";
 import { getDeck } from "../app/features/deck/decks.server";
 import { type DeckLayout, emptyLayout } from "../app/features/deck/model";
 import { type ObsState, emptyObsState } from "../app/features/obs/state";
@@ -101,6 +106,14 @@ export class DeckRoom extends DurableObject<Env> {
     this.ctx.storage.kv.delete("obs");
     this.ctx.storage.kv.delete("switches");
     this.ctx.storage.kv.delete("log");
+  }
+
+  async exportStagingSnapshot(): Promise<DurableObjectSnapshot> {
+    return exportDurableObjectStorage(this.ctx.storage);
+  }
+
+  async importStagingSnapshot(snapshot: DurableObjectSnapshot): Promise<void> {
+    await restoreDurableObject(this.ctx, this.env, snapshot);
   }
 
   async fetch(request: Request): Promise<Response> {

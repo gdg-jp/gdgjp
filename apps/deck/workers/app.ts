@@ -53,3 +53,4 @@ export default {
 } satisfies ExportedHandler<Env>;
 
 export { DeckRoom } from "./deck-room";
+export { StagingSnapshot } from "./staging-snapshot";
