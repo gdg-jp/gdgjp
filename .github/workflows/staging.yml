@@ -18,7 +18,7 @@ jobs:
       vars.STAGING_ENABLED == 'true' && (
       github.event_name == 'push' || github.event_name == 'workflow_dispatch' ||
       github.event.action == 'closed' ||
-      startsWith(github.event.label.name, 'deploy-stg-'))
+      startsWith(github.event.label.name, 'E-deploy-stg'))
     permissions:
       contents: read
       deployments: read
@@ -65,7 +65,7 @@ jobs:
     needs: [select, deploy]
     if: >-
       always() && github.event_name == 'pull_request_target' &&
-      github.event.action == 'labeled' && startsWith(github.event.label.name, 'deploy-stg-')
+      github.event.action == 'labeled' && startsWith(github.event.label.name, 'E-deploy-stg')
     runs-on: ubuntu-latest
     permissions:
       issues: write

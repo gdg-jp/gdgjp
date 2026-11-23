@@ -22,7 +22,7 @@ stops the deploy instead of reaching production.
 
 ## Deploying a pull request
 
-Add the label `deploy-stg-1`, `deploy-stg-2`, or `deploy-stg-3` to a pull request from
+Add the label `E-deploy-stg1`, `E-deploy-stg2`, or `E-deploy-stg3` to a pull request from
 this repository. [The Staging workflow](../../.github/workflows/staging.yml) builds and
 bundles every Worker from the PR head in a job without secrets, then deploys that output
 from a job that runs only `main`'s scripts and tools. Migrations run after each Worker

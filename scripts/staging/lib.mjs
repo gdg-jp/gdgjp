@@ -1,7 +1,7 @@
 export const SLOTS = ["stg-1", "stg-2", "stg-3"];
 export const ZONE = "gdgs.jp";
 export const EXCLUDED_APPS = new Set();
-export const LABEL_PATTERN = /^deploy-(stg-[1-3])$/;
+export const LABEL_PATTERN = /^E-deploy-stg([1-3])$/;
 
 const IDENTIFIER_PATHS = /^\/(?:scopes|claims)\//;
 
@@ -17,7 +17,8 @@ export function assertSlot(slot) {
 }
 
 export function slotFromLabel(label) {
-  return LABEL_PATTERN.exec(label ?? "")?.[1] ?? null;
+  const number = LABEL_PATTERN.exec(label ?? "")?.[1];
+  return number ? `stg-${number}` : null;
 }
 
 export function stagingName(name, slot) {

@@ -31,10 +31,11 @@ import {
 } from "../../scripts/staging/staging.mjs";
 
 test("labels select exactly the three staging slots", () => {
-  assert.equal(slotFromLabel("deploy-stg-1"), "stg-1");
-  assert.equal(slotFromLabel("deploy-stg-3"), "stg-3");
-  assert.equal(slotFromLabel("deploy-stg-4"), null);
-  assert.equal(slotFromLabel("deploy-stg-1-extra"), null);
+  assert.equal(slotFromLabel("E-deploy-stg1"), "stg-1");
+  assert.equal(slotFromLabel("E-deploy-stg3"), "stg-3");
+  assert.equal(slotFromLabel("E-deploy-stg4"), null);
+  assert.equal(slotFromLabel("E-deploy-stg1-extra"), null);
+  assert.equal(slotFromLabel("deploy-stg-1"), null);
   assert.equal(slotFromLabel(undefined), null);
 });
 
@@ -308,14 +309,14 @@ test("a deploy label claims its slot for the PR head", () => {
       ...base,
       event: "pull_request",
       action: "labeled",
-      label: "deploy-stg-2",
+      label: "E-deploy-stg2",
       pr: 12,
       headSha: "head",
       headRepo: repo,
     }),
     [{ slot: "stg-2", ref: "head", pr: "12" }],
   );
-  for (const label of ["bug", "deploy-stg-9"])
+  for (const label of ["bug", "E-deploy-stg9"])
     assert.deepEqual(
       selectTargets({
         ...base,
@@ -333,7 +334,7 @@ test("a deploy label claims its slot for the PR head", () => {
       ...base,
       event: "pull_request",
       action: "labeled",
-      label: "deploy-stg-1",
+      label: "E-deploy-stg1",
       pr: 3,
       headSha: "h",
       headRepo: "someone/fork",
