@@ -11,6 +11,8 @@ ENVIRONMENT = "production"
 APP_URL = "https://connpass.gdgs.jp"
 BASE_URL = "https://connpass.gdgs.jp"
 ACCOUNTS_URL = "https://accounts.gdgs.jp"
+# Developer-owned Accounts clients allowed to check attendees in (the QR check-in app).
+CHECKIN_CLIENT_IDS = "2d508320-bc12-47d1-9d39-d93e7e197332"
 IDP_URL = "https://accounts.gdgs.jp"
 CONNPASS_API_BASE_URL = "https://connpass.com/api/v2"
 

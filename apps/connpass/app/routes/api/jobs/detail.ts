@@ -1,13 +1,12 @@
-import { getBearerIdentity } from "@gdgjp/gdg-lib";
 import type { LoaderFunctionArgs } from "react-router";
-import { accountsBaseUrl } from "~/features/auth/accounts-url.server";
 import { canReadGroup, getAllowedGroup, resolveGroupSlug } from "~/features/auth/authorize.server";
+import { connpassIdentity } from "~/features/auth/bearer.server";
 import { jobToJson } from "~/features/jobs/job-presentation";
 import { getJob } from "~/features/jobs/job-repository.server";
 
 export async function loader({ request, context, params }: LoaderFunctionArgs) {
   const { env } = context.cloudflare;
-  const identity = await getBearerIdentity(request, accountsBaseUrl(env));
+  const identity = await connpassIdentity(request, env);
   if (!identity) return Response.json({ error: "invalid_token" }, { status: 401 });
 
   const jobId = params.jobId;

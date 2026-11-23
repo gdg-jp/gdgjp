@@ -1,11 +1,10 @@
-import { getBearerIdentity } from "@gdgjp/gdg-lib";
 import type { ActionFunctionArgs } from "react-router";
-import { accountsBaseUrl } from "~/features/auth/accounts-url.server";
 import {
   canWriteAnyGroup,
   canWriteGroup,
   getAllowedLumaCalendar,
 } from "~/features/auth/authorize.server";
+import { checkinClientIds, connpassIdentity } from "~/features/auth/bearer.server";
 import { checkInWithFetch } from "~/features/connpass/checkin-fetch.server";
 import { checkInInBrowser } from "~/features/connpass/connpass-browser-read.server";
 import { parseCheckinUrl } from "~/features/connpass/ui/checkin";
@@ -16,7 +15,7 @@ export async function action({ request, context }: ActionFunctionArgs) {
   if (request.method !== "POST")
     return Response.json({ error: "method_not_allowed" }, { status: 405 });
   const { env } = context.cloudflare;
-  const identity = await getBearerIdentity(request, accountsBaseUrl(env));
+  const identity = await connpassIdentity(request, env, checkinClientIds(env));
   if (!identity) return Response.json({ error: "invalid_token" }, { status: 401 });
 
   const body = (await request.json().catch(() => null)) as { url?: unknown } | null;
