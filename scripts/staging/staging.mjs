@@ -31,10 +31,10 @@ import {
   assertSlot,
   classifySchema,
   composeImport,
-  dependencyOrder,
   isStagingName,
   oauthRedirectRewriteSql,
   orderInserts,
+  planInsertOrder,
   requiredResources,
   rewriteUrls,
   rewriteWorkerConfig,
@@ -44,6 +44,7 @@ import {
   workerTargets,
 } from "./lib.mjs";
 import { copyBuckets } from "./r2-copy.mjs";
+import { rehearseImport } from "./rehearse.mjs";
 import { UNCOPIED_KV_TITLES, firstPartyClientSql, scrubPlan } from "./scrub.mjs";
 import {
   clientIdForSecret,
@@ -351,19 +352,22 @@ async function exportDatabase(app, productionName, current, scratch) {
     await d1Query(productionId, "SELECT type, name, tbl_name, sql FROM sqlite_master"),
   );
   const plan = scrubPlan(productionName, await tableColumns(productionId, schema.tables));
-  const references = {};
+  const info = {};
   for (const { name } of schema.tables)
-    references[name] = (
-      await d1Query(productionId, 'SELECT "table" FROM pragma_foreign_key_list(?)', [name])
-    ).map((row) => row.table);
-  const order = dependencyOrder(
+    info[name] = {
+      keys: await d1Query(
+        productionId,
+        'SELECT "table", "from", "to" FROM pragma_foreign_key_list(?)',
+        [name],
+      ),
+      columns: await d1Query(productionId, 'SELECT name, "notnull", pk FROM pragma_table_info(?)', [
+        name,
+      ]),
+    };
+  const insertPlan = planInsertOrder(
     schema.tables.map(({ name }) => name),
-    references,
+    info,
   );
-  if (plan.unreviewed.length)
-    throw new Error(
-      `${productionName} has credential-like columns without a scrub decision: ${plan.unreviewed.join(", ")}. Classify them in scripts/staging/scrub.mjs.`,
-    );
   const dataFile = join(scratch, `${productionName}.data.sql`);
   writeFileSync(dataFile, "");
   if (schema.tables.length)
@@ -400,7 +404,7 @@ async function exportDatabase(app, productionName, current, scratch) {
     importFile,
     composeImport({
       schema,
-      data: orderInserts(readFileSync(dataFile, "utf8"), order),
+      data: orderInserts(readFileSync(dataFile, "utf8"), insertPlan),
       virtualRows,
     }),
   );
@@ -424,7 +428,9 @@ async function replaceDatabase(
     ...(productionName === "gdgjp-accounts-db" ? await accountsPostSync(slot, apps) : []),
   ];
   const slotFile = join(scratch, `${target}.sql`);
-  writeFileSync(slotFile, `${readFileSync(importFile, "utf8")}${tail.join("\n")}\n`);
+  const sql = `${readFileSync(importFile, "utf8")}${tail.join("\n")}\n`;
+  rehearseImport(sql, target);
+  writeFileSync(slotFile, sql);
   if (current.d1[target]) {
     log(`replace D1 ${target}`);
     await api(`/accounts/${account}/d1/database/${current.d1[target]}`, { method: "DELETE" });
@@ -436,6 +442,25 @@ async function replaceDatabase(
     wrangler(["d1", "execute", target, "--remote", "--file", slotFile, "--yes"], { cwd: scratch });
   } finally {
     rmSync(slotFile, { force: true });
+  }
+}
+
+export async function rehearse(apps = stagingApps()) {
+  const account = await accountId();
+  const d1 = Object.fromEntries(
+    (await paged(`/accounts/${account}/d1/database`)).map(({ name, uuid }) => [name, uuid]),
+  );
+  const scratch = mkdtempSync(join(tmpdir(), "gdgjp-staging-rehearse-"));
+  try {
+    for (const app of apps)
+      for (const { database_name } of sourceConfig(app, { requireBuild: false }).config
+        .d1_databases ?? []) {
+        const { importFile, scrub } = await exportDatabase(app, database_name, { d1 }, scratch);
+        rehearseImport(`${readFileSync(importFile, "utf8")}${scrub.join("\n")}\n`, database_name);
+        log(`rehearsed ${database_name}`);
+      }
+  } finally {
+    rmSync(scratch, { recursive: true, force: true });
   }
 }
 
@@ -762,6 +787,7 @@ async function main([command, ...args]) {
   if (command === "sync") return sync(slot ? slot.split(",") : SLOTS, apps);
   if (command === "deploy") return deploy(assertSlot(slot), apps);
   if (command === "provision") return ensureResources(assertSlot(slot), apps);
+  if (command === "rehearse") return rehearse(apps);
   if (command === "plan") {
     const configs = await stagingConfigs(assertSlot(slot), apps);
     process.stdout.write(
@@ -797,7 +823,7 @@ async function main([command, ...args]) {
     return;
   }
   throw new Error(
-    "Usage: node scripts/staging/staging.mjs <build|sync|deploy|provision|plan|e2e-env|hosts> --slot stg-N [--apps a,b]",
+    "Usage: node scripts/staging/staging.mjs <build|sync|deploy|provision|rehearse|plan|e2e-env|hosts> --slot stg-N [--apps a,b]",
   );
 }
 

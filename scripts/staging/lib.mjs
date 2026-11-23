@@ -373,8 +373,20 @@ export function splitStatements(sql) {
         if (sql[index + 1] === quote) index++;
         else quote = null;
       }
+    } else if (char === "-" && sql[index + 1] === "-") {
+      const end = sql.indexOf("\n", index);
+      index = end < 0 ? sql.length : end;
+    } else if (char === "/" && sql[index + 1] === "*") {
+      const end = sql.indexOf("*/", index + 2);
+      index = end < 0 ? sql.length : end + 1;
     } else if (char === "'" || char === '"') quote = char;
     else if (char === ";") {
+      const pending = sql.slice(start, index);
+      if (
+        /^\s*CREATE\s+(?:TEMP\s+|TEMPORARY\s+)?TRIGGER\b/i.test(pending) &&
+        !/\bEND\s*$/i.test(pending)
+      )
+        continue;
       const statement = sql.slice(start, index + 1).trim();
       if (statement) statements.push(statement);
       start = index + 1;
@@ -401,7 +413,13 @@ export function dependencyOrder(tables, references) {
   return ordered;
 }
 
-export function orderInserts(data, order) {
+export function orderInserts(data, plan) {
+  const {
+    order,
+    deferred = {},
+    selfKeys = {},
+    primaryKeys = {},
+  } = Array.isArray(plan) ? { order: plan } : plan;
   const byTable = new Map(order.map((table) => [table, []]));
   const other = [];
   for (const statement of splitStatements(data)) {
@@ -410,5 +428,160 @@ export function orderInserts(data, order) {
     if (table && byTable.has(table)) byTable.get(table).push(statement);
     else other.push(statement);
   }
-  return [...order.flatMap((table) => byTable.get(table)), ...other].join("\n");
+  const updates = [];
+  const inserts = order.flatMap((table) =>
+    orderSelfReferences(byTable.get(table), selfKeys[table] ?? []).map((statement) => {
+      if (!deferred[table]?.length) return statement;
+      const result = deferColumns(statement, deferred[table], primaryKeys[table] ?? []);
+      updates.push(...result.updates);
+      return result.insert;
+    }),
+  );
+  return [...inserts, ...updates, ...other].join("\n");
+}
+
+function splitTopLevel(text) {
+  const parts = [];
+  let depth = 0;
+  let quote = null;
+  let start = 0;
+  for (let index = 0; index < text.length; index++) {
+    const char = text[index];
+    if (quote) {
+      if (char === quote) {
+        if (text[index + 1] === quote) index++;
+        else quote = null;
+      }
+    } else if (char === "'" || char === '"') quote = char;
+    else if (char === "(") depth++;
+    else if (char === ")") depth--;
+    else if (char === "," && depth === 0) {
+      parts.push(text.slice(start, index).trim());
+      start = index + 1;
+    }
+  }
+  parts.push(text.slice(start).trim());
+  return parts;
+}
+
+function literalValue(token) {
+  if (/^NULL$/i.test(token)) return null;
+  if (token.startsWith("'")) return token.slice(1, -1).replaceAll("''", "'");
+  return token;
+}
+
+export function parseInsert(statement) {
+  const match = /^INSERT INTO "([^"]+)"\s*\(([^)]*)\)\s*VALUES\s*\(([\s\S]*)\);?$/i.exec(statement);
+  if (!match) return null;
+  const columns = splitTopLevel(match[2]).map((column) => column.replace(/^"|"$/g, ""));
+  const raw = splitTopLevel(match[3]);
+  if (columns.length !== raw.length) return null;
+  return {
+    table: match[1],
+    columns,
+    raw,
+    row: Object.fromEntries(columns.map((column, i) => [column, literalValue(raw[i])])),
+  };
+}
+
+export function planInsertOrder(tables, info) {
+  const references = Object.fromEntries(
+    tables.map((table) => [table, (info[table]?.keys ?? []).filter((key) => key.table !== table)]),
+  );
+  const reaches = (from, target, seen = new Set()) => {
+    if (from === target) return true;
+    if (seen.has(from)) return false;
+    seen.add(from);
+    return (references[from] ?? []).some(
+      (key) => tables.includes(key.table) && reaches(key.table, target, seen),
+    );
+  };
+  const deferred = {};
+  for (const table of tables)
+    references[table] = references[table].filter((key) => {
+      if (!tables.includes(key.table) || !reaches(key.table, table)) return true;
+      const column = info[table].columns.find(({ name }) => name === key.from);
+      if (!column || column.notnull) return true;
+      deferred[table] = [...(deferred[table] ?? []), key.from];
+      return false;
+    });
+  const order = dependencyOrder(
+    tables,
+    Object.fromEntries(tables.map((table) => [table, references[table].map((key) => key.table)])),
+  );
+  const position = new Map(order.map((table, index) => [table, index]));
+  for (const table of tables)
+    for (const key of references[table])
+      if (tables.includes(key.table) && position.get(key.table) > position.get(table))
+        throw new Error(
+          `${table}.${key.from} -> ${key.table} is part of a cycle through NOT NULL columns`,
+        );
+  const selfKeys = Object.fromEntries(
+    tables.map((table) => [
+      table,
+      (info[table]?.keys ?? [])
+        .filter((key) => key.table === table)
+        .map((key) => ({ from: key.from, to: key.to ?? "rowid" })),
+    ]),
+  );
+  const primaryKeys = Object.fromEntries(
+    tables.map((table) => [
+      table,
+      (info[table]?.columns ?? [])
+        .filter(({ pk }) => pk > 0)
+        .sort((a, b) => a.pk - b.pk)
+        .map(({ name }) => name),
+    ]),
+  );
+  return { order, deferred, selfKeys, primaryKeys };
+}
+
+function deferColumns(statement, columns, primaryKey) {
+  const parsed = parseInsert(statement);
+  if (!parsed)
+    throw new Error(`Cannot parse a row with deferred references: ${statement.slice(0, 80)}`);
+  if (!primaryKey.length)
+    throw new Error(`${parsed.table} needs a primary key to defer references`);
+  const raw = [...parsed.raw];
+  const updates = [];
+  for (const column of columns) {
+    const index = parsed.columns.indexOf(column);
+    if (index < 0 || /^NULL$/i.test(raw[index])) continue;
+    const where = primaryKey
+      .map((key) => `"${key}" = ${parsed.raw[parsed.columns.indexOf(key)]}`)
+      .join(" AND ");
+    updates.push(`UPDATE "${parsed.table}" SET "${column}" = ${raw[index]} WHERE ${where};`);
+    raw[index] = "NULL";
+  }
+  return {
+    insert: `INSERT INTO "${parsed.table}" (${parsed.columns.map((column) => `"${column}"`).join(",")}) VALUES(${raw.join(",")});`,
+    updates,
+  };
+}
+
+export function orderSelfReferences(statements, keys) {
+  if (!keys.length) return statements;
+  const rows = statements.map((statement) => ({ statement, row: parseInsert(statement)?.row }));
+  if (rows.some(({ row }) => !row)) throw new Error("Cannot parse a self-referencing row");
+  const ordered = [];
+  const placed = new Set();
+  const byKey = new Map();
+  for (const entry of rows)
+    for (const { to } of keys) byKey.set(`${to}\0${String(entry.row[to])}`, entry);
+  const visiting = new Set();
+  const visit = (entry) => {
+    if (placed.has(entry) || visiting.has(entry)) return;
+    visiting.add(entry);
+    for (const { from, to } of keys) {
+      const value = entry.row[from];
+      if (value === null || value === undefined) continue;
+      const parent = byKey.get(`${to}\0${String(value)}`);
+      if (parent && parent !== entry) visit(parent);
+    }
+    visiting.delete(entry);
+    placed.add(entry);
+    ordered.push(entry.statement);
+  };
+  for (const entry of rows) visit(entry);
+  return ordered;
 }

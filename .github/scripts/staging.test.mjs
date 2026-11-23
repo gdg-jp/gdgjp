@@ -6,6 +6,9 @@ import {
   dependencyOrder,
   oauthRedirectRewriteSql,
   orderInserts,
+  orderSelfReferences,
+  parseInsert,
+  planInsertOrder,
   requiredResources,
   rewriteUrls,
   rewriteWorkerConfig,
@@ -418,4 +421,77 @@ test("imports insert parent rows before the rows that reference them", () => {
     ["tags", "links", "link_tags", "sqlite_sequence"],
   );
   assert.match(ordered[1], /line one;\nline two ''quoted''/);
+});
+
+test("self-referencing rows are inserted parent first", () => {
+  const rows = [
+    `INSERT INTO "items" ("id","parent_id","note") VALUES(3,2,'c, (x)');`,
+    `INSERT INTO "items" ("id","parent_id","note") VALUES(2,1,'it''s');`,
+    `INSERT INTO "items" ("id","parent_id","note") VALUES(1,NULL,'root');`,
+    `INSERT INTO "items" ("id","parent_id","note") VALUES(4,NULL,'other');`,
+  ];
+  assert.deepEqual(
+    orderSelfReferences(rows, [{ from: "parent_id", to: "id" }]).map(
+      (statement) => parseInsert(statement).row.id,
+    ),
+    ["1", "2", "3", "4"],
+  );
+  assert.deepEqual(parseInsert(rows[0]).row, { id: "3", parent_id: "2", note: "c, (x)" });
+});
+
+test("cycles through nullable references insert NULL first and restore it afterwards", () => {
+  const info = {
+    campaigns: {
+      keys: [{ table: "assets", from: "cover_asset_id", to: "id" }],
+      columns: [
+        { name: "id", notnull: 0, pk: 1 },
+        { name: "cover_asset_id", notnull: 0, pk: 0 },
+      ],
+    },
+    assets: {
+      keys: [{ table: "campaigns", from: "campaign_id", to: "id" }],
+      columns: [
+        { name: "id", notnull: 0, pk: 1 },
+        { name: "campaign_id", notnull: 1, pk: 0 },
+      ],
+    },
+  };
+  const plan = planInsertOrder(["assets", "campaigns"], info);
+  assert.deepEqual(plan.order, ["campaigns", "assets"]);
+  assert.deepEqual(plan.deferred, { campaigns: ["cover_asset_id"] });
+  const sql = orderInserts(
+    [
+      `INSERT INTO "assets" ("id","campaign_id") VALUES(9,1);`,
+      `INSERT INTO "campaigns" ("id","cover_asset_id") VALUES(1,9);`,
+    ].join("\n"),
+    plan,
+  );
+  assert.deepEqual(splitStatements(sql), [
+    `INSERT INTO "campaigns" ("id","cover_asset_id") VALUES(1,NULL);`,
+    `INSERT INTO "assets" ("id","campaign_id") VALUES(9,1);`,
+    `UPDATE "campaigns" SET "cover_asset_id" = 9 WHERE "id" = 1;`,
+  ]);
+  info.campaigns.columns[1].notnull = 1;
+  assert.throws(() => planInsertOrder(["assets", "campaigns"], info), /cycle through NOT NULL/);
+});
+
+test("trigger bodies stay one statement", () => {
+  assert.deepEqual(
+    splitStatements(
+      "CREATE TRIGGER t AFTER DELETE ON a BEGIN DELETE FROM b; UPDATE c SET x = 'END;'; END;\nSELECT 1;",
+    ),
+    [
+      "CREATE TRIGGER t AFTER DELETE ON a BEGIN DELETE FROM b; UPDATE c SET x = 'END;'; END;",
+      "SELECT 1;",
+    ],
+  );
+});
+
+test("comments in schema SQL do not open strings or end statements", () => {
+  assert.deepEqual(
+    splitStatements(
+      'CREATE TABLE t (\n  -- JSON [{ "s": 1 }]; note\n  a TEXT /* it\'s; */\n);\nSELECT 1;',
+    ),
+    ['CREATE TABLE t (\n  -- JSON [{ "s": 1 }]; note\n  a TEXT /* it\'s; */\n);', "SELECT 1;"],
+  );
 });
