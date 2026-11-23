@@ -74,7 +74,8 @@ Workers, because Cloudflare tokens cannot be limited by Worker name.
 
 ## Setup
 
-The `staging` GitHub environment holds:
+The workflows stay inert until the repository variable `STAGING_ENABLED` is `true`.
+Set it after the secrets below exist. The `staging` GitHub environment holds:
 
 | Secret | Contents |
 | --- | --- |

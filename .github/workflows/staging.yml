@@ -14,9 +14,10 @@ jobs:
     name: Select staging slots
     runs-on: ubuntu-latest
     if: >-
+      vars.STAGING_ENABLED == 'true' && (
       github.event_name == 'push' ||
       github.event.action == 'closed' ||
-      startsWith(github.event.label.name, 'deploy-stg-')
+      startsWith(github.event.label.name, 'deploy-stg-'))
     permissions:
       contents: read
       deployments: read
