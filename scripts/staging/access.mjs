@@ -42,7 +42,7 @@ export function applicationBody({ slot, identityProviderId, serviceTokenId }) {
         decision: "allow",
         include: [
           {
-            github_organization: {
+            "github-organization": {
               name: GITHUB_ORGANIZATION,
               identity_provider_id: identityProviderId,
             },

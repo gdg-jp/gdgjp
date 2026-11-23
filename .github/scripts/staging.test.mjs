@@ -527,8 +527,8 @@ test("each slot sits behind one Access application for gdg-jp members and CI", (
     body.policies.map(({ decision, include }) => [decision, Object.keys(include[0])[0]]),
     [
       ["non_identity", "service_token"],
-      ["allow", "github_organization"],
+      ["allow", "github-organization"],
     ],
   );
-  assert.equal(body.policies[1].include[0].github_organization.name, "gdg-jp");
+  assert.equal(body.policies[1].include[0]["github-organization"].name, "gdg-jp");
 });
