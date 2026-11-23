@@ -4,6 +4,10 @@ const CALENDAR_API_BASE = "https://www.googleapis.com/calendar/v3";
 
 export type CalendarSendUpdates = "all" | "externalOnly" | "none";
 
+export function attendeeUpdates(env: { CALENDAR_SEND_UPDATES?: string }): CalendarSendUpdates {
+  return env.CALENDAR_SEND_UPDATES === "none" ? "none" : "all";
+}
+
 export type CalendarDateTime = {
   dateTime: string;
   timeZone?: string;

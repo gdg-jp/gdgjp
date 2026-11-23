@@ -1,6 +1,10 @@
 import type { MeetActor, MeetDirectoryMember } from "@gdgjp/gdg-lib";
 import { DirectoryError } from "~/features/directory/directory.server";
-import { type CalendarEventBody, patchEvent } from "~/features/google/calendar.server";
+import {
+  type CalendarEventBody,
+  attendeeUpdates,
+  patchEvent,
+} from "~/features/google/calendar.server";
 import type { GoogleFetch } from "~/features/google/client.server";
 import { patchSpace } from "~/features/google/meet.server";
 import { getGoogleConnectionSummary } from "~/features/google/oauth.server";
@@ -205,7 +209,7 @@ export async function updateMeeting(
       {
         calendarId: "primary",
         eventId: meeting.calendarEventId,
-        sendUpdates: "all",
+        sendUpdates: attendeeUpdates(env),
         body: patchBody,
       },
       fetchFn,
@@ -345,7 +349,7 @@ export async function resyncMeetingInvitees(
       {
         calendarId: "primary",
         eventId: meeting.calendarEventId,
-        sendUpdates: "all",
+        sendUpdates: attendeeUpdates(env),
         body: {
           attendees: buildCalendarAttendees(resolved.invitees),
           guestsCanSeeOtherGuests: true,

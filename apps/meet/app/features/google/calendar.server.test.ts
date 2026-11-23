@@ -1,5 +1,11 @@
 import { describe, expect, it, vi } from "vitest";
-import { deleteEvent, getEvent, insertEvent, patchEvent } from "~/features/google/calendar.server";
+import {
+  attendeeUpdates,
+  deleteEvent,
+  getEvent,
+  insertEvent,
+  patchEvent,
+} from "~/features/google/calendar.server";
 import { GoogleApiError } from "~/features/google/client.server";
 
 describe("calendar.server", () => {
@@ -140,5 +146,13 @@ describe("calendar.server", () => {
         return true;
       },
     );
+  });
+});
+
+describe("attendeeUpdates", () => {
+  it("notifies attendees unless the deployment turns invitations off", () => {
+    expect(attendeeUpdates({ CALENDAR_SEND_UPDATES: "all" })).toBe("all");
+    expect(attendeeUpdates({ CALENDAR_SEND_UPDATES: "none" })).toBe("none");
+    expect(attendeeUpdates({ CALENDAR_SEND_UPDATES: "typo" })).toBe("all");
   });
 });

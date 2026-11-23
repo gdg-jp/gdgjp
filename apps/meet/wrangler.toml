@@ -15,6 +15,7 @@ IDP_CLIENT_ID = "meet"
 # gdgs-meet の Web 型 OAuth クライアント（リダイレクト URI: https://meet.gdgs.jp/admin/google/callback）
 GOOGLE_CLIENT_ID = "828916707531-67pbiah9tl8b71qkj2eb03or3olrufe0.apps.googleusercontent.com"
 GOOGLE_HOST_EMAIL = "community-support@gdgoc.jp"
+CALENDAR_SEND_UPDATES = "all"
 GOOGLE_PUBSUB_TOPIC = "projects/gdgs-meet/topics/meet-events"
 PUBSUB_PUSH_AUDIENCE = "https://meet.gdgs.jp/api/google/events"
 # Pub/Sub Push の OIDC トークンを署名するサービスアカウント（gdgs-meet の Push サブスクリプション meet-events-push）

@@ -1,6 +1,6 @@
 import type { MeetActor } from "@gdgjp/gdg-lib";
 import { DirectoryError } from "~/features/directory/directory.server";
-import { insertEvent } from "~/features/google/calendar.server";
+import { attendeeUpdates, insertEvent } from "~/features/google/calendar.server";
 import type { GoogleFetch } from "~/features/google/client.server";
 import { type MeetSpace, createSpace } from "~/features/google/meet.server";
 import { getGoogleConnectionSummary } from "~/features/google/oauth.server";
@@ -220,7 +220,7 @@ export async function createMeeting(
       {
         calendarId: "primary",
         conferenceDataVersion: 1,
-        sendUpdates: "all",
+        sendUpdates: attendeeUpdates(env),
         body: {
           summary: parsed.data.title,
           description: buildCalendarDescription(parsed.data.description, meetingUrl),

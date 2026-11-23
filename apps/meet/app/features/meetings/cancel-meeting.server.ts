@@ -1,4 +1,4 @@
-import { deleteEvent } from "~/features/google/calendar.server";
+import { attendeeUpdates, deleteEvent } from "~/features/google/calendar.server";
 import { GoogleApiError, type GoogleFetch } from "~/features/google/client.server";
 import { getGoogleConnectionSummary } from "~/features/google/oauth.server";
 import { getGoogleAccessToken } from "~/features/google/token.server";
@@ -49,7 +49,7 @@ export async function cancelMeeting(
           {
             calendarId: "primary",
             eventId: meeting.calendarEventId,
-            sendUpdates: "all",
+            sendUpdates: attendeeUpdates(env),
           },
           fetchFn,
         );
