@@ -45,7 +45,7 @@ const CI_WORKSPACES = [
   { directory: "apps/go-extension", workspace: "@gdgjp/go-extension", build: true, e2e: false },
 ];
 
-const DEPLOY_TARGETS = [
+export const DEPLOY_TARGETS = [
   {
     app: "accounts",
     workspace: "@gdgjp/accounts",
@@ -349,6 +349,7 @@ export function classifyChanges(files, { forceAll = false } = {}) {
     scriptTests: normalizedFiles.some(
       (file) =>
         /^\.github\/scripts\/.*\.mjs$/.test(file) ||
+        file.startsWith("scripts/staging/") ||
         file === "scripts/check-ui-conventions.mjs" ||
         file === "scripts/check-design-harness.mjs" ||
         file === "scripts/pstack.mjs" ||

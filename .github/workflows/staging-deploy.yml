@@ -1,0 +1,108 @@
+name: Staging deploy
+
+on:
+  workflow_call:
+    inputs:
+      slot:
+        type: string
+        required: true
+      ref:
+        type: string
+        required: true
+      pr:
+        type: string
+        required: false
+        default: ""
+
+env:
+  NODE_VERSION: "22"
+
+jobs:
+  deploy:
+    name: Deploy ${{ inputs.slot }}
+    runs-on: ubuntu-24.04
+    environment: staging
+    concurrency:
+      group: staging-${{ inputs.slot }}
+      cancel-in-progress: false
+    permissions:
+      contents: read
+      deployments: write
+      pull-requests: write
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.STAGING_CLOUDFLARE_API_TOKEN || secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      GH_TOKEN: ${{ github.token }}
+      SLOT: ${{ inputs.slot }}
+      REF: ${{ inputs.ref }}
+      PR: ${{ inputs.pr }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref }}
+          submodules: false
+      - name: Initialize shared UI submodule
+        run: git submodule update --init packages/design-system
+      - name: Initialize Playbook submodule
+        run: git submodule update --init skills
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Record the slot deployment
+        id: record
+        run: |
+          id=$(jq -n --arg ref "$REF" --arg slot "$SLOT" --arg pr "$PR" \
+            '{ref: $ref, environment: $slot, auto_merge: false, required_contexts: [],
+              transient_environment: false, payload: {pr: $pr},
+              description: (if $pr == "" then "main" else "PR #\($pr)" end)}' \
+            | gh api "repos/${GITHUB_REPOSITORY}/deployments" --input - --jq .id)
+          echo "id=$id" >> "$GITHUB_OUTPUT"
+          gh api "repos/${GITHUB_REPOSITORY}/deployments/$id/statuses" -f state=in_progress \
+            -f log_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}" >/dev/null
+      - name: Build
+        run: node scripts/staging/staging.mjs build
+      - name: Deploy every Worker to the slot
+        env:
+          STAGING_WORKER_SECRETS: ${{ secrets.STAGING_WORKER_SECRETS }}
+        run: node scripts/staging/staging.mjs deploy --slot "$SLOT"
+      - name: Install Playwright browser
+        run: pnpm --filter @gdgjp/accounts exec playwright install chromium
+      - name: Sign in to every relying party
+        env:
+          STAGING_WORKER_SECRETS: ${{ secrets.STAGING_WORKER_SECRETS }}
+        run: |
+          secret=$(jq -r '.["gdgjp-accounts"].BETTER_AUTH_SECRET // empty' <<<"$STAGING_WORKER_SECRETS")
+          if [ -z "$secret" ]; then
+            echo "::error::STAGING_WORKER_SECRETS has no gdgjp-accounts.BETTER_AUTH_SECRET"
+            exit 1
+          fi
+          echo "::add-mask::$secret"
+          export E2E_BETTER_AUTH_SECRET="$secret"
+          set -a
+          eval "$(node scripts/staging/staging.mjs e2e-env --slot "$SLOT")"
+          set +a
+          pnpm --filter @gdgjp/accounts exec playwright test --config playwright.staging.config.ts
+      - name: Upload Playwright report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: staging-${{ inputs.slot }}-playwright-report
+          path: apps/accounts/playwright-report/
+          if-no-files-found: ignore
+          retention-days: 7
+      - name: Report the result
+        if: always() && steps.record.outputs.id
+        env:
+          RESULT: ${{ job.status }}
+          DEPLOYMENT: ${{ steps.record.outputs.id }}
+        run: |
+          state=$([ "$RESULT" = success ] && echo success || echo failure)
+          gh api "repos/${GITHUB_REPOSITORY}/deployments/$DEPLOYMENT/statuses" -f state="$state" \
+            -f environment_url="https://accounts.${SLOT}.gdgs.jp" \
+            -f log_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}" >/dev/null
+          if [ -n "$PR" ] && [ "$GITHUB_EVENT_NAME" = pull_request ]; then
+            gh pr comment "$PR" --repo "$GITHUB_REPOSITORY" --body "Staging \`${SLOT}\` deploy of ${REF::12}: **${RESULT}**. Accounts: https://accounts.${SLOT}.gdgs.jp · [run](${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID})"
+          fi

@@ -1,0 +1,74 @@
+name: Staging
+
+on:
+  pull_request:
+    types: [labeled, closed]
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  select:
+    name: Select staging slots
+    runs-on: ubuntu-latest
+    if: >-
+      github.event_name == 'push' ||
+      github.event.action == 'closed' ||
+      startsWith(github.event.label.name, 'deploy-stg-')
+    permissions:
+      contents: read
+      deployments: read
+    outputs:
+      targets: ${{ steps.select.outputs.targets }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: scripts/staging
+      - name: Select slots and refs
+        id: select
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EVENT: ${{ github.event_name }}
+          ACTION: ${{ github.event.action }}
+          LABEL: ${{ github.event.label.name }}
+          PR: ${{ github.event.pull_request.number }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}
+          MAIN_SHA: ${{ github.sha }}
+        run: node scripts/staging/select.mjs >> "$GITHUB_OUTPUT"
+
+  deploy:
+    name: Deploy
+    needs: select
+    if: needs.select.outputs.targets != '[]' && needs.select.outputs.targets != ''
+    strategy:
+      fail-fast: false
+      matrix:
+        target: ${{ fromJSON(needs.select.outputs.targets) }}
+    uses: ./.github/workflows/staging-deploy.yml
+    with:
+      slot: ${{ matrix.target.slot }}
+      ref: ${{ matrix.target.ref }}
+      pr: ${{ matrix.target.pr }}
+    secrets: inherit
+    permissions:
+      contents: read
+      deployments: write
+      pull-requests: write
+
+  unlabel:
+    name: Remove the deploy label
+    needs: [select, deploy]
+    if: always() && github.event.action == 'labeled' && startsWith(github.event.label.name, 'deploy-stg-')
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+      pull-requests: write
+    steps:
+      - env:
+          GH_TOKEN: ${{ github.token }}
+          LABEL: ${{ github.event.label.name }}
+          PR: ${{ github.event.pull_request.number }}
+        run: gh pr edit "$PR" --repo "$GITHUB_REPOSITORY" --remove-label "$LABEL"

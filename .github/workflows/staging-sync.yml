@@ -1,0 +1,78 @@
+name: Staging data sync
+
+on:
+  schedule:
+    - cron: "0 18 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: staging-sync
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    name: Copy production data into every slot
+    runs-on: ubuntu-24.04
+    environment: staging
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.STAGING_CLOUDFLARE_API_TOKEN || secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      R2_ACCESS_KEY_ID: ${{ secrets.STAGING_R2_ACCESS_KEY_ID }}
+      R2_SECRET_ACCESS_KEY: ${{ secrets.STAGING_R2_SECRET_ACCESS_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: false
+      - name: Initialize shared UI submodule
+        run: git submodule update --init packages/design-system
+      - name: Initialize Playbook submodule
+        run: git submodule update --init skills
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Replace slot data with production data
+        run: node scripts/staging/staging.mjs sync
+
+  select:
+    name: Select slot refs
+    needs: sync
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      deployments: read
+    outputs:
+      targets: ${{ steps.select.outputs.targets }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: scripts/staging
+      - id: select
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EVENT: schedule
+          MAIN_SHA: ${{ github.sha }}
+        run: node scripts/staging/select.mjs >> "$GITHUB_OUTPUT"
+
+  redeploy:
+    name: Redeploy
+    needs: select
+    strategy:
+      fail-fast: false
+      matrix:
+        target: ${{ fromJSON(needs.select.outputs.targets) }}
+    uses: ./.github/workflows/staging-deploy.yml
+    with:
+      slot: ${{ matrix.target.slot }}
+      ref: ${{ matrix.target.ref }}
+      pr: ${{ matrix.target.pr }}
+    secrets: inherit
+    permissions:
+      contents: read
+      deployments: write
+      pull-requests: write
