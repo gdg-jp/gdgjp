@@ -53,7 +53,8 @@ that chapter may view and edit it.
 `board/protocol.ts` (`normalizeTopicText`), `events/slug.ts`, `board/votes.ts`, `board/scoring.ts` (`buildUnits`,
 `scoreUnit` = **sum** of member votes), `board/assign.ts` (`rankUnits` = votes desc then earliest
 submission, `autoAssign` zips onto desks by `sortOrder`), `layout/geometry.ts` (desk geometry, contain-fit
-transform). DO classes are not unit-tested — cover via `e2e/`.
+transform). DO behavior is covered via `e2e/`; `workers/staging-snapshot.test.ts` only checks the
+staging snapshot copy of `OstBoard` storage.
 
 ## Config
 

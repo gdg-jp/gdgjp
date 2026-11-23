@@ -1,4 +1,9 @@
 import { DurableObject } from "cloudflare:workers";
+import {
+  type DurableObjectSnapshot,
+  exportDurableObjectStorage,
+  restoreDurableObject,
+} from "@gdgjp/gdg-lib/staging-snapshot";
 import { autoAssign, rankUnits } from "../app/features/board/assign";
 import {
   type BoardMessage,
@@ -39,6 +44,15 @@ export class OstBoard extends DurableObject<Env> {
     ctx.blockConcurrencyWhile(async () => {
       ensureOstBoardSchema(this.ctx.storage.sql);
     });
+  }
+
+  async exportStagingSnapshot(): Promise<DurableObjectSnapshot> {
+    return exportDurableObjectStorage(this.ctx.storage);
+  }
+
+  async importStagingSnapshot(snapshot: DurableObjectSnapshot): Promise<void> {
+    await restoreDurableObject(this.ctx, this.env, snapshot);
+    ensureOstBoardSchema(this.ctx.storage.sql);
   }
 
   listState(): OstBoardState {

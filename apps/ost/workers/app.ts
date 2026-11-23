@@ -21,3 +21,4 @@ export default {
 } satisfies ExportedHandler<Env>;
 
 export { OstBoard } from "./ost-board";
+export { StagingSnapshot } from "./staging-snapshot";
