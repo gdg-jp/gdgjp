@@ -296,6 +296,7 @@ function statement(sql) {
 export function composeImport({ schema, data, virtualRows }) {
   const parts = ["PRAGMA defer_foreign_keys=TRUE;"];
   for (const table of schema.tables) parts.push(statement(table.sql));
+  for (const index of schema.indexes) parts.push(statement(index.sql));
   parts.push(data.replace(/^PRAGMA defer_foreign_keys=TRUE;\s*/i, "").trim());
   for (const table of schema.virtualTables) {
     parts.push(statement(table.sql));
@@ -306,7 +307,7 @@ export function composeImport({ schema, data, virtualRows }) {
       );
     }
   }
-  for (const group of [schema.indexes, schema.views, schema.triggers])
+  for (const group of [schema.views, schema.triggers])
     for (const object of group) parts.push(statement(object.sql));
   return `${parts.filter(Boolean).join("\n")}\n`;
 }
@@ -359,4 +360,55 @@ export function withoutWorkerTargets(config, names) {
     workflows: (config.workflows ?? []).filter(({ script_name }) => !drop.has(script_name)),
     tail_consumers: (config.tail_consumers ?? []).filter(({ service }) => !drop.has(service)),
   };
+}
+
+export function splitStatements(sql) {
+  const statements = [];
+  let start = 0;
+  let quote = null;
+  for (let index = 0; index < sql.length; index++) {
+    const char = sql[index];
+    if (quote) {
+      if (char === quote) {
+        if (sql[index + 1] === quote) index++;
+        else quote = null;
+      }
+    } else if (char === "'" || char === '"') quote = char;
+    else if (char === ";") {
+      const statement = sql.slice(start, index + 1).trim();
+      if (statement) statements.push(statement);
+      start = index + 1;
+    }
+  }
+  if (quote) throw new Error("Unterminated string in SQL dump");
+  const rest = sql.slice(start).trim();
+  if (rest) statements.push(rest);
+  return statements;
+}
+
+export function dependencyOrder(tables, references) {
+  const ordered = [];
+  const state = new Map();
+  const visit = (table) => {
+    if (state.get(table) === "done" || state.get(table) === "visiting") return;
+    state.set(table, "visiting");
+    for (const parent of references[table] ?? [])
+      if (parent !== table && tables.includes(parent)) visit(parent);
+    state.set(table, "done");
+    ordered.push(table);
+  };
+  for (const table of tables) visit(table);
+  return ordered;
+}
+
+export function orderInserts(data, order) {
+  const byTable = new Map(order.map((table) => [table, []]));
+  const other = [];
+  for (const statement of splitStatements(data)) {
+    if (/^PRAGMA\s+defer_foreign_keys/i.test(statement)) continue;
+    const table = /^INSERT INTO "([^"]+)"/.exec(statement)?.[1];
+    if (table && byTable.has(table)) byTable.get(table).push(statement);
+    else other.push(statement);
+  }
+  return [...order.flatMap((table) => byTable.get(table)), ...other].join("\n");
 }

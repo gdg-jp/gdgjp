@@ -31,8 +31,10 @@ import {
   assertSlot,
   classifySchema,
   composeImport,
+  dependencyOrder,
   isStagingName,
   oauthRedirectRewriteSql,
+  orderInserts,
   requiredResources,
   rewriteUrls,
   rewriteWorkerConfig,
@@ -349,6 +351,15 @@ async function exportDatabase(app, productionName, current, scratch) {
     await d1Query(productionId, "SELECT type, name, tbl_name, sql FROM sqlite_master"),
   );
   const plan = scrubPlan(productionName, await tableColumns(productionId, schema.tables));
+  const references = {};
+  for (const { name } of schema.tables)
+    references[name] = (
+      await d1Query(productionId, 'SELECT "table" FROM pragma_foreign_key_list(?)', [name])
+    ).map((row) => row.table);
+  const order = dependencyOrder(
+    schema.tables.map(({ name }) => name),
+    references,
+  );
   if (plan.unreviewed.length)
     throw new Error(
       `${productionName} has credential-like columns without a scrub decision: ${plan.unreviewed.join(", ")}. Classify them in scripts/staging/scrub.mjs.`,
@@ -387,7 +398,11 @@ async function exportDatabase(app, productionName, current, scratch) {
   const importFile = join(scratch, `${productionName}.import.sql`);
   writeFileSync(
     importFile,
-    composeImport({ schema, data: readFileSync(dataFile, "utf8"), virtualRows }),
+    composeImport({
+      schema,
+      data: orderInserts(readFileSync(dataFile, "utf8"), order),
+      virtualRows,
+    }),
   );
   rmSync(dataFile);
   return { importFile, scrub: plan.statements };

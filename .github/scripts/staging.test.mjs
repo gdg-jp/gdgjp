@@ -3,11 +3,14 @@ import test from "node:test";
 import {
   classifySchema,
   composeImport,
+  dependencyOrder,
   oauthRedirectRewriteSql,
+  orderInserts,
   requiredResources,
   rewriteUrls,
   rewriteWorkerConfig,
   slotFromLabel,
+  splitStatements,
   sqlLiteral,
   stagingHost,
   stagingName,
@@ -237,10 +240,10 @@ test("imports recreate tables before data and virtual tables, triggers last", ()
     "PRAGMA defer_foreign_keys=TRUE;",
     "CREATE TABLE pages",
     "CREATE TABLE d1_migrations",
+    "CREATE INDEX pages_id",
     'INSERT INTO "pages"',
     "CREATE VIRTUAL TABLE pages_fts",
     `INSERT INTO "pages_fts" ("rowid", "page_id", "title") VALUES (7, 'p1', 'It''s');`,
-    "CREATE INDEX pages_id",
     "CREATE TRIGGER pages_fts_insert",
   ].map((fragment) => sql.indexOf(fragment));
   assert.ok(
@@ -390,4 +393,29 @@ test("staging turns off notifications that would reach people in copied data", (
     { slot: "stg-1", hosts: ["accounts.gdgs.jp"], resources, workerNames: new Set() },
   );
   assert.match(accounts.vars.EMAIL_FROM, /onboarding@resend\.dev/);
+});
+
+test("imports insert parent rows before the rows that reference them", () => {
+  assert.deepEqual(
+    dependencyOrder(["link_tags", "tags", "links", "folders"], {
+      link_tags: ["tags", "links"],
+      links: ["folders"],
+      folders: ["folders"],
+    }),
+    ["tags", "folders", "links", "link_tags"],
+  );
+  const data = [
+    "PRAGMA defer_foreign_keys=TRUE;",
+    `INSERT INTO "link_tags" VALUES('l1','t1');`,
+    `INSERT INTO "links" VALUES('l1','line one;`,
+    `line two ''quoted''');`,
+    `INSERT INTO "tags" VALUES('t1');`,
+    `INSERT INTO "sqlite_sequence" VALUES('links',3);`,
+  ].join("\n");
+  const ordered = splitStatements(orderInserts(data, ["tags", "links", "link_tags"]));
+  assert.deepEqual(
+    ordered.map((statement) => /INTO "([^"]+)"/.exec(statement)[1]),
+    ["tags", "links", "link_tags", "sqlite_sequence"],
+  );
+  assert.match(ordered[1], /line one;\nline two ''quoted''/);
 });
