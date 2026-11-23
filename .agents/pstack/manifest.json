@@ -60,9 +60,11 @@
     "technical-writing",
     "typescript-best-practices",
     "unslop",
+    "verify-accounts-client-revocation",
     "verify-acl-boundaries",
     "verify-job-lifecycle",
     "verify-platform",
+    "verify-pr-approval",
     "verify-wiki",
     "why"
   ]

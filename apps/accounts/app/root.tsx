@@ -17,7 +17,7 @@ import stylesheet from "./app.css?url";
 
 export const loader = async (args: Route.LoaderArgs) => {
   const locale = await i18n.getLocale(args.request);
-  return { locale };
+  return { locale, accountsUrl: args.context.cloudflare.env.APP_URL };
 };
 
 export const shouldRevalidate: ShouldRevalidateFunction = ({

@@ -10,9 +10,9 @@ import {
   Icons,
 } from "@gdgjp/design-system";
 import { cn } from "@gdgjp/design-system";
-import { GDG_APP_LINKS } from "@gdgjp/gdg-lib/ui/app-links";
+import { gdgAccountSettingsUrl, gdgAppLinks } from "@gdgjp/gdg-lib/ui/app-links";
 import { useTranslation } from "react-i18next";
-import { Link, useLocation } from "react-router";
+import { Link, useLocation, useRouteLoaderData } from "react-router";
 import { GdgMark } from "~/components/gdg-mark";
 import { LocaleSwitcher } from "~/components/locale-switcher";
 import { ThemeToggle } from "~/components/theme-toggle";
@@ -92,6 +92,7 @@ function PrimaryNavLink({ item }: { item: TopBarNavItem }) {
 }
 
 function AppLauncher() {
+  const accountsUrl = useAccountsUrl();
   const { t } = useTranslation();
   return (
     <DropdownMenu>
@@ -102,7 +103,7 @@ function AppLauncher() {
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-72 p-4">
         <div className="grid grid-cols-3 gap-3">
-          {GDG_APP_LINKS.map((app) => (
+          {gdgAppLinks(accountsUrl).map((app) => (
             <DropdownMenuItem
               key={app.url}
               asChild
@@ -176,4 +177,8 @@ function UserMenu({ user }: { user: TopBarUser | null }) {
       </DropdownMenuContent>
     </DropdownMenu>
   );
+}
+
+function useAccountsUrl() {
+  return (useRouteLoaderData("root") as { accountsUrl?: string } | undefined)?.accountsUrl;
 }

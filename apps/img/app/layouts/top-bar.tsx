@@ -11,12 +11,13 @@ import {
   Inline,
   ThemeToggle,
 } from "@gdgjp/design-system";
-import { GDG_APP_LINKS } from "@gdgjp/gdg-lib/ui/app-links";
-import { Link } from "react-router";
+import { gdgAccountSettingsUrl, gdgAppLinks } from "@gdgjp/gdg-lib/ui/app-links";
+import { Link, useRouteLoaderData } from "react-router";
 
 export type TopBarUser = { email: string; image: string | null; name: string };
 
 export function TopBar({ user }: { user: TopBarUser | null }) {
+  const accountsUrl = useAccountsUrl();
   const title = user?.name || user?.email || "Account";
   const initials = title
     .split(/\s+|@/)
@@ -48,7 +49,7 @@ export function TopBar({ user }: { user: TopBarUser | null }) {
                   </IconButton>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="max-h-[70vh] overflow-y-auto">
-                  {GDG_APP_LINKS.map((app) => (
+                  {gdgAppLinks(accountsUrl).map((app) => (
                     <DropdownMenuItem key={app.url} asChild>
                       <a href={app.url} target="_blank" rel="noreferrer">
                         <img
@@ -82,7 +83,7 @@ export function TopBar({ user }: { user: TopBarUser | null }) {
                   </DropdownMenuLabel>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem asChild>
-                    <a href="https://accounts.gdgs.jp/dashboard">Manage your account</a>
+                    <a href={gdgAccountSettingsUrl(accountsUrl)}>Manage your account</a>
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem asChild>
@@ -96,4 +97,8 @@ export function TopBar({ user }: { user: TopBarUser | null }) {
       </div>
     </header>
   );
+}
+
+function useAccountsUrl() {
+  return (useRouteLoaderData("root") as { accountsUrl?: string } | undefined)?.accountsUrl;
 }

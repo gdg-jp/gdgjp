@@ -9,12 +9,14 @@ import {
   IconButton,
   Icons,
 } from "@gdgjp/design-system";
-import { GDG_APP_LINKS } from "@gdgjp/gdg-lib/ui/app-links";
+import { gdgAccountSettingsUrl, gdgAppLinks } from "@gdgjp/gdg-lib/ui/app-links";
+import { useRouteLoaderData } from "react-router";
 export type UserMenuUser = { email: string; image: string | null; name: string };
 export function UserMenu({
   user,
   launcherPosition = "left",
 }: { launcherPosition?: "left" | "right"; user: UserMenuUser | null }) {
+  const accountsUrl = useAccountsUrl();
   if (!user) return null;
   return (
     <div
@@ -28,7 +30,7 @@ export function UserMenu({
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
           <DropdownMenuLabel>GDG アプリ</DropdownMenuLabel>
-          {GDG_APP_LINKS.map((app) => (
+          {gdgAppLinks(accountsUrl).map((app) => (
             <DropdownMenuItem key={app.url} asChild>
               <a href={app.url}>
                 <img src={app.iconUrl} width={20} height={20} alt="" />
@@ -56,7 +58,7 @@ export function UserMenu({
           </DropdownMenuLabel>
           <DropdownMenuSeparator />
           <DropdownMenuItem asChild>
-            <a href="https://accounts.gdgs.jp/dashboard">アカウント設定</a>
+            <a href={gdgAccountSettingsUrl(accountsUrl)}>アカウント設定</a>
           </DropdownMenuItem>
           <DropdownMenuItem asChild>
             <a href="/auth/signout">ログアウト</a>
@@ -65,4 +67,8 @@ export function UserMenu({
       </DropdownMenu>
     </div>
   );
+}
+
+function useAccountsUrl() {
+  return (useRouteLoaderData("root") as { accountsUrl?: string } | undefined)?.accountsUrl;
 }

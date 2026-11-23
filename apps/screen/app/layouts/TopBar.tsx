@@ -1,4 +1,4 @@
-import { GdgAccountMenu, GdgAppLauncher } from "@gdgjp/gdg-lib/ui";
+import { GdgAccountMenu, GdgAppLauncher, gdgAppLinks } from "@gdgjp/gdg-lib/ui";
 
 export type TopBarUser = { name: string; email: string; image: string | null };
 
@@ -7,7 +7,7 @@ export function TopBar({ user, accountsUrl }: { user: TopBarUser; accountsUrl: s
     <header className="sc-topbar">
       <span className="sc-brand">screen.gdgs.jp</span>
       <span className="sc-spacer" />
-      <GdgAppLauncher ariaLabel="アプリ一覧" />
+      <GdgAppLauncher apps={gdgAppLinks(accountsUrl)} ariaLabel="アプリ一覧" />
       <GdgAccountMenu
         accountUrl={`${accountsUrl}/dashboard`}
         onSignOut={() => window.location.assign("/auth/signout")}

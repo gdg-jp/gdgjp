@@ -20,6 +20,13 @@ const RELYING_PARTIES = (
   .filter(Boolean);
 
 const database = accountsDatabaseFromEnvironment();
+const accessHeaders: Record<string, string> =
+  process.env.E2E_ACCESS_CLIENT_ID && process.env.E2E_ACCESS_CLIENT_SECRET
+    ? {
+        "CF-Access-Client-Id": process.env.E2E_ACCESS_CLIENT_ID,
+        "CF-Access-Client-Secret": process.env.E2E_ACCESS_CLIENT_SECRET,
+      }
+    : {};
 let newUser: SignedInUser;
 let returningUser: SignedInUser;
 
@@ -39,7 +46,7 @@ async function signInThroughRelyingParty(
   relyingParty: string,
   user: SignedInUser,
 ) {
-  const context = await browser.newContext();
+  const context = await browser.newContext({ extraHTTPHeaders: accessHeaders });
   const accounts = new URL(ACCOUNTS_URL);
   await context.addCookies([
     {

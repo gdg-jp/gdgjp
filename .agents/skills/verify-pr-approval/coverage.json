@@ -1,0 +1,344 @@
+{
+  "syncedCommit": "1fae012c5d3f4e75dad651833dd3a779c36bc1ca",
+  "bounds": "2 chapters, 3 users, 2 accounts (one dispatch target each), 3 draft versions, 2 overlapping Worker requests, one schedule item with one draft; every trace of up to 14 states (18 for the WhenSerial and InOrderlyUse checks)",
+  "sources": {
+    "apps/pr/app/features/drafts/state-machine.ts": "846283ba11a03e5aa6d60130b3909579e924fea92cdd9ba1b52abd59461dddc2",
+    "apps/pr/app/features/drafts/review.server.ts": "2dfa5953356e1a5a52cc585ecbc9bc164e6e56bcb3565045cb7dd45897b7acf4",
+    "apps/pr/app/features/drafts/draft.repository.server.ts": "38f6e6f541e2ba7686c0dd3a8cf321855b6ff8bfd20c99b3dd0009562e0057e9",
+    "apps/pr/app/features/drafts/detail.server.ts": "4b04e4dc1396538d7b0a0732f55765ee6125b21da1f2ed59dc00302afbbe92aa",
+    "apps/pr/app/features/dispatch/dispatch.server.ts": "db2ac7ebecc57f02695166def8df571d1e329760e5630de78ca897dbee1f76ff",
+    "apps/pr/app/features/dispatch/target.ts": "9a58bd80e5892eaf4532bc6c859cab05e982ca78a985176e093afb046959d423",
+    "apps/pr/app/features/dispatch/target.repository.server.ts": "07db22fd4ec2875490d204638c1098c7736d7cc40345d140f2cafc365fcfb97c",
+    "apps/pr/app/features/connpass/mail.server.ts": "c4e53d6519506f24b5bb157703a6f4354749fd4f194d5a15e3c57dc32b219ebf",
+    "apps/pr/app/features/campaigns/access.server.ts": "ba9bba03b280b8faf0f39a2e5f2f2dcc1630d10285915fc07b1afc04dcc5a677"
+  },
+  "censusRoots": [
+    "apps/pr/app",
+    "apps/pr/workers"
+  ],
+  "guardedWrites": [
+    "appendVersion(",
+    "setDraftStatus(",
+    "moveTarget(",
+    "ensureTargets(",
+    "createScheduledPost(",
+    "sendMessage(",
+    "UPDATE drafts",
+    "dispatch_targets"
+  ],
+  "callSites": {
+    "appendVersion(": {
+      "apps/pr/app/features/analyze/analyze.server.ts": 1,
+      "apps/pr/app/features/drafts/draft.repository.server.ts": 1,
+      "apps/pr/app/features/drafts/review.server.ts": 1,
+      "apps/pr/app/features/jobs/complete.server.ts": 1,
+      "apps/pr/app/features/jobs/import-page.server.ts": 1,
+      "apps/pr/app/features/learning/retro.server.ts": 1,
+      "apps/pr/app/features/listings/listing.server.ts": 1,
+      "apps/pr/app/features/live/generate.server.ts": 1
+    },
+    "setDraftStatus(": {
+      "apps/pr/app/features/drafts/draft.repository.server.ts": 1,
+      "apps/pr/app/features/drafts/review.server.ts": 1
+    },
+    "moveTarget(": {
+      "apps/pr/app/features/connpass/mail.server.ts": 3,
+      "apps/pr/app/features/connpass/poll.server.ts": 1,
+      "apps/pr/app/features/dispatch/dispatch.server.ts": 5,
+      "apps/pr/app/features/dispatch/poll.server.ts": 1,
+      "apps/pr/app/features/dispatch/target.repository.server.ts": 1
+    },
+    "ensureTargets(": {
+      "apps/pr/app/features/dispatch/dispatch.server.ts": 1,
+      "apps/pr/app/features/dispatch/target.repository.server.ts": 1
+    },
+    "createScheduledPost(": {
+      "apps/pr/app/features/dispatch/dispatch.server.ts": 1
+    },
+    "sendMessage(": {
+      "apps/pr/app/features/connpass/mail.server.ts": 1
+    },
+    "UPDATE drafts": {
+      "apps/pr/app/features/drafts/draft.repository.server.ts": 4,
+      "apps/pr/app/features/jobs/complete.server.ts": 1
+    },
+    "dispatch_targets": {
+      "apps/pr/app/features/dispatch/target.repository.server.ts": 4
+    }
+  },
+  "anchors": [
+    {
+      "file": "apps/pr/app/routes/drafts/detail.tsx",
+      "text": "const wanted = Number(new URL(request.url).searchParams.get(\"v\")) || draft.currentVersion;",
+      "model": "loadPage"
+    },
+    {
+      "file": "apps/pr/app/routes/drafts/detail.tsx",
+      "text": "name=\"version\"",
+      "model": "begin: the review form carries no version",
+      "absent": true
+    },
+    {
+      "file": "apps/pr/app/features/dispatch/components/DeliveryCard.tsx",
+      "text": "name=\"version\"",
+      "model": "begin: the target form carries no version",
+      "absent": true
+    },
+    {
+      "file": "apps/pr/app/features/drafts/detail.server.ts",
+      "text": "const draft = await getDraft(env.DB, access.campaign.id, draftId);",
+      "model": "begin"
+    },
+    {
+      "file": "apps/pr/app/features/campaigns/access.server.ts",
+      "text": "return { manage: user.isAdmin || hostOrganizer || lead, edit: true };",
+      "model": "canManage, hasAccess"
+    },
+    {
+      "file": "apps/pr/app/features/drafts/review.server.ts",
+      "text": "const canApprove = access.permissions.manage;",
+      "model": "canManage, canReview"
+    },
+    {
+      "file": "apps/pr/app/features/drafts/state-machine.ts",
+      "text": "if (current === \"needs_approval\" && actor.canApprove) return \"approved\";",
+      "model": "nextStatus"
+    },
+    {
+      "file": "apps/pr/app/features/drafts/state-machine.ts",
+      "text": "if (current === \"in_review\" && actor.canApprove && actor.canReview) return \"approved\";",
+      "model": "nextStatus"
+    },
+    {
+      "file": "apps/pr/app/features/drafts/review.server.ts",
+      "text": "const changed = await setDraftStatus(db, draft.id, draft.status, to, itemStatusFor(to), {",
+      "model": "reviewCas, reviewCasLost"
+    },
+    {
+      "file": "apps/pr/app/features/drafts/draft.repository.server.ts",
+      "text": "WHERE id = ? AND status = ?`,",
+      "model": "reviewCas, reviewCasLost"
+    },
+    {
+      "file": "apps/pr/app/features/drafts/detail.server.ts",
+      "text": "await afterDraftApproval(env, access.campaign, approved);",
+      "model": "ensureTargets"
+    },
+    {
+      "file": "apps/pr/app/features/dispatch/target.repository.server.ts",
+      "text": "`INSERT OR IGNORE INTO dispatch_targets (schedule_item_id, account_id)",
+      "model": "ensureTargets"
+    },
+    {
+      "file": "apps/pr/app/features/drafts/review.server.ts",
+      "text": "const status = statusAfterEdit(draft.status);",
+      "model": "editSave"
+    },
+    {
+      "file": "apps/pr/app/features/drafts/state-machine.ts",
+      "text": "return current === \"rejected\" || current === \"superseded\" ? current : \"in_review\";",
+      "model": "editSave"
+    },
+    {
+      "file": "apps/pr/app/features/drafts/draft.repository.server.ts",
+      "text": "VALUES (?, (SELECT COALESCE(MAX(version), 0) + 1 FROM draft_versions WHERE draft_id = ?), ?, ?, ?, ?, ?, ?)",
+      "model": "editSave, systemSave"
+    },
+    {
+      "file": "apps/pr/app/features/jobs/complete.server.ts",
+      "text": "const status = fixing ? \"generating\" : \"in_review\";",
+      "model": "systemSave"
+    },
+    {
+      "file": "apps/pr/app/features/live/generate.server.ts",
+      "text": "status: \"in_review\",",
+      "model": "systemSave"
+    },
+    {
+      "file": "apps/pr/app/features/jobs/complete.server.ts",
+      "text": "\"UPDATE drafts SET status = 'in_review', updated_at = unixepoch() WHERE id = ? AND status = 'generating'\",",
+      "model": "releaseFix"
+    },
+    {
+      "file": "apps/pr/app/features/dispatch/dispatch.server.ts",
+      "text": "if (draft.status !== \"approved\") return { ok: false, error: \"下書きを先に承認してください\" };",
+      "model": "targetApproveCas"
+    },
+    {
+      "file": "apps/pr/app/features/dispatch/dispatch.server.ts",
+      "text": "if (!canApproveTarget(target.account, viewer))",
+      "model": "targetApproveCas"
+    },
+    {
+      "file": "apps/pr/app/features/dispatch/target.ts",
+      "text": "const chapter = viewer.chapters.find((c) => c.chapterId === account.chapterId);",
+      "model": "canApproveTarget"
+    },
+    {
+      "file": "apps/pr/app/features/dispatch/target.ts",
+      "text": "return viewer.isMember || viewer.isAdmin || chapter.role === \"organizer\";",
+      "model": "canApproveTarget"
+    },
+    {
+      "file": "apps/pr/app/features/dispatch/dispatch.server.ts",
+      "text": "const approved = await moveTarget(env.DB, target.id, [\"pending\", \"failed\"], \"approved\", {",
+      "model": "targetApproveCas, targetCasLost"
+    },
+    {
+      "file": "apps/pr/app/features/dispatch/target.repository.server.ts",
+      "text": "WHERE id = ? AND status IN (${from.map(() => \"?\").join(\",\")})`,",
+      "model": "every target compare-and-swap"
+    },
+    {
+      "file": "apps/pr/app/features/dispatch/dispatch.server.ts",
+      "text": "if (draft.kind === \"connpass_mail\")",
+      "model": "targetApproveCas: a mail target waits for the cron"
+    },
+    {
+      "file": "apps/pr/app/features/dispatch/target.repository.server.ts",
+      "text": "JOIN drafts d ON d.schedule_item_id = i.id AND d.status = 'approved'",
+      "model": "mailCronRead"
+    },
+    {
+      "file": "apps/pr/app/features/dispatch/target.repository.server.ts",
+      "text": "WHERE i.kind = 'connpass_mail' AND t.status = 'approved' AND i.due_at <= ? LIMIT ?`,",
+      "model": "mailCronRead"
+    },
+    {
+      "file": "apps/pr/app/features/dispatch/dispatch.server.ts",
+      "text": "if (!(await moveTarget(env.DB, targetId, [\"approved\"], \"dispatching\")))",
+      "model": "dispatchClaim, claimLost"
+    },
+    {
+      "file": "apps/pr/app/features/connpass/mail.server.ts",
+      "text": "if (!(await moveTarget(env.DB, target.id, [\"approved\"], \"dispatching\"))) continue;",
+      "model": "dispatchClaim, claimLost"
+    },
+    {
+      "file": "apps/pr/app/features/dispatch/dispatch.server.ts",
+      "text": "const version = await latestVersion(env.DB, draft.id);",
+      "model": "send"
+    },
+    {
+      "file": "apps/pr/app/features/dispatch/dispatch.server.ts",
+      "text": "snsService(env).createScheduledPost({",
+      "model": "send"
+    },
+    {
+      "file": "apps/pr/app/features/connpass/mail.server.ts",
+      "text": "? ((await latestVersion(env.DB, draft.id))?.content as { subject?: string } | null)",
+      "model": "send"
+    },
+    {
+      "file": "apps/pr/app/features/connpass/mail.server.ts",
+      "text": "const actor = parseActor(target.actorSnapshot);",
+      "model": "send: the mail goes out as the approver snapshot"
+    },
+    {
+      "file": "apps/pr/app/features/connpass/mail.server.ts",
+      "text": "call: () => connpassService(env).sendMessage({ actor, ...event, subject, body }),",
+      "model": "send"
+    },
+    {
+      "file": "apps/pr/app/features/dispatch/dispatch.server.ts",
+      "text": "await moveTarget(env.DB, targetId, [\"dispatching\"], \"scheduled\", {",
+      "model": "finishScheduled"
+    },
+    {
+      "file": "apps/pr/app/features/dispatch/dispatch.server.ts",
+      "text": "await moveTarget(env.DB, targetId, [\"dispatching\"], \"failed\", { error });",
+      "model": "fail"
+    },
+    {
+      "file": "apps/pr/app/features/dispatch/poll.server.ts",
+      "text": "const to = post.status === \"published\" ? \"done\" : \"failed\";",
+      "model": "pollFailed"
+    },
+    {
+      "file": "apps/pr/app/features/connpass/poll.server.ts",
+      "text": "[\"scheduled\", \"dispatching\"],",
+      "model": "pollFailed"
+    },
+    {
+      "file": "apps/pr/app/routes/drafts/detail.tsx",
+      "text": "const canAct = draft.status === \"in_review\" || draft.status === \"needs_approval\";",
+      "model": "viaForms"
+    },
+    {
+      "file": "apps/pr/app/features/dispatch/components/DeliveryCard.tsx",
+      "text": "{!view.dispatchable ? (",
+      "model": "viaForms"
+    },
+    {
+      "file": "apps/pr/app/features/dispatch/delivery.server.ts",
+      "text": "dispatchable: draft.status === \"approved\",",
+      "model": "viaForms"
+    }
+  ],
+  "checks": [
+    {
+      "name": "SendNeedsDraftApproval",
+      "expect": "holds",
+      "property": "Nothing is sent unless a lead, the host chapter's organizer, or an admin approved the draft.",
+      "harm": "A post or a mail to every participant goes out although nobody with approval rights approved it."
+    },
+    {
+      "name": "SendRunsAsChapterMember",
+      "expect": "holds",
+      "property": "Every send for an account runs as a member of that account's chapter who approved that target.",
+      "harm": "Someone outside a chapter posts from that chapter's X account or connpass group."
+    },
+    {
+      "name": "OneSendPerTargetApproval",
+      "expect": "holds",
+      "property": "One approval of a dispatch target causes at most one send.",
+      "harm": "The same post or mail goes out twice."
+    },
+    {
+      "name": "SentVersionWasApproved",
+      "expect": "finding",
+      "property": "When people act through the pages and requests may overlap, the version that goes out was the latest version at a moment when the draft was approved.",
+      "harm": "Text that nobody approved is posted or mailed under a chapter's name.",
+      "finding": "F1"
+    },
+    {
+      "name": "SentVersionWasApprovedWhenSerial",
+      "expect": "holds",
+      "property": "When requests do not overlap, the version that goes out was the latest version at a moment when the draft was approved.",
+      "harm": "Text that nobody approved is posted or mailed under a chapter's name."
+    },
+    {
+      "name": "SentVersionWasChapterApprovedInOrderlyUse",
+      "expect": "finding",
+      "property": "When people act one at a time through the pages, the version that goes out for an account was the latest version when that account's chapter approved the target.",
+      "harm": "A chapter's approval of one text sends a later text it never approved.",
+      "finding": "F2"
+    },
+    {
+      "name": "DraftApproverSawSentVersionInOrderlyUse",
+      "expect": "finding",
+      "property": "When people act one at a time through the pages, the version that goes out was on the draft approver's screen when they pressed approve.",
+      "harm": "The approver approves a text they have not read.",
+      "finding": "F3"
+    },
+    {
+      "name": "ChapterApproverSawSentVersionInOrderlyUse",
+      "expect": "finding",
+      "property": "When people act one at a time through the pages, a version the draft approver saw, sent for an account, was also on that chapter approver's screen when they approved the target.",
+      "harm": "A chapter member approves sending a text they have not read from their chapter's account.",
+      "finding": "F4"
+    },
+    {
+      "name": "XPostGoesOut",
+      "expect": "reachable"
+    },
+    {
+      "name": "MailGoesOut",
+      "expect": "reachable"
+    },
+    {
+      "name": "ResendAfterFailure",
+      "expect": "reachable"
+    }
+  ]
+}

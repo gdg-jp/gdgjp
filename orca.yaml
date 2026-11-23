@@ -1,0 +1,3 @@
+scripts:
+  setup: |
+    node scripts/setup-worktree.mjs

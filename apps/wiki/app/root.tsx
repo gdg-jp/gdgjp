@@ -84,7 +84,7 @@ export async function loader({ request, context }: LoaderFunctionArgs) {
         }
       : null;
 
-  return { locale, origin, firebaseConfig };
+  return { locale, origin, firebaseConfig, accountsUrl: env.ACCOUNTS_URL };
 }
 
 export const meta: MetaFunction<typeof loader> = () => [

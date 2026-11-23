@@ -2,9 +2,14 @@ import { Grid3X3, LogOut, Settings } from "lucide-react";
 import { DropdownMenu as DropdownMenuPrimitive } from "radix-ui";
 import type { ReactNode } from "react";
 import { preload } from "react-dom";
-import { GDG_APP_LINKS, type GdgAppLink } from "./app-links";
+import type { GdgAppLink } from "./app-links";
 
-export { GDG_APP_LINKS, type GdgAppLink } from "./app-links";
+export {
+  type GdgAppLink,
+  gdgAccountSettingsUrl,
+  gdgAppLinks,
+  gdgSiteDomain,
+} from "./app-links";
 
 const menuTriggerClassName =
   "inline-flex size-8 shrink-0 items-center justify-center rounded-md text-sm font-medium outline-none transition-all hover:bg-accent hover:text-accent-foreground focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50";
@@ -12,10 +17,10 @@ const menuContentClassName =
   "z-50 max-h-(--radix-dropdown-menu-content-available-height) min-w-[8rem] origin-(--radix-dropdown-menu-content-transform-origin) overflow-x-hidden overflow-y-auto rounded-md bg-popover p-1 text-popover-foreground shadow-md data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95";
 
 export function GdgAppLauncher({
-  apps = GDG_APP_LINKS,
+  apps,
   ariaLabel = "Open app launcher",
 }: {
-  apps?: readonly GdgAppLink[];
+  apps: readonly GdgAppLink[];
   ariaLabel?: string;
 }) {
   for (const app of apps) {

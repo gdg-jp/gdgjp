@@ -6,7 +6,10 @@ import type { Route } from "./+types/root";
 import stylesheet from "./app.css?url";
 
 export function loader({ context }: Route.LoaderArgs) {
-  return { domainsEnabled: String(context.cloudflare.env.DOMAINS_ENABLED) === "true" };
+  return {
+    accountsUrl: context.cloudflare.env.ACCOUNTS_URL,
+    domainsEnabled: String(context.cloudflare.env.DOMAINS_ENABLED) === "true",
+  };
 }
 
 export const links: Route.LinksFunction = () => [

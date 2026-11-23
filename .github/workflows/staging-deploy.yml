@@ -120,6 +120,9 @@ jobs:
       - name: Locate the slot's relying parties
         run: node scripts/staging/staging.mjs e2e-env --slot "$SLOT" --github-env
       - name: Sign in to every relying party
+        env:
+          E2E_ACCESS_CLIENT_ID: ${{ secrets.STAGING_ACCESS_CLIENT_ID }}
+          E2E_ACCESS_CLIENT_SECRET: ${{ secrets.STAGING_ACCESS_CLIENT_SECRET }}
         run: pnpm --filter @gdgjp/accounts exec playwright test --config playwright.staging.config.ts
       - name: Upload Playwright report
         if: always()

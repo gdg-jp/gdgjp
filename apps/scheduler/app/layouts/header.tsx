@@ -11,13 +11,14 @@ import {
   Icons,
   ThemeToggle,
 } from "@gdgjp/design-system";
-import { GDG_APP_LINKS } from "@gdgjp/gdg-lib/ui/app-links";
-import { Link } from "react-router";
+import { gdgAccountSettingsUrl, gdgAppLinks } from "@gdgjp/gdg-lib/ui/app-links";
+import { Link, useRouteLoaderData } from "react-router";
 import { GdgMark } from "~/components/gdg-mark";
 
 export type HeaderUser = { name: string; email: string; image: string | null };
 
 export function Header({ user }: { user: HeaderUser | null }) {
+  const accountsUrl = useAccountsUrl();
   return (
     <header className="sticky top-0 z-30 bg-background">
       <div className="mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-2 px-4 py-3">
@@ -39,7 +40,7 @@ export function Header({ user }: { user: HeaderUser | null }) {
                   </IconButton>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
-                  {GDG_APP_LINKS.map((app) => (
+                  {gdgAppLinks(accountsUrl).map((app) => (
                     <DropdownMenuItem key={app.url} asChild>
                       <a href={app.url} target="_blank" rel="noreferrer">
                         <img src={app.iconUrl} alt="" width={24} height={24} />
@@ -67,7 +68,7 @@ export function Header({ user }: { user: HeaderUser | null }) {
                   </DropdownMenuLabel>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem asChild>
-                    <a href="https://accounts.gdgs.jp/dashboard">
+                    <a href={gdgAccountSettingsUrl(accountsUrl)}>
                       <Icons name="Settings" size={16} />
                       Manage your account
                     </a>
@@ -89,4 +90,8 @@ export function Header({ user }: { user: HeaderUser | null }) {
       </div>
     </header>
   );
+}
+
+function useAccountsUrl() {
+  return (useRouteLoaderData("root") as { accountsUrl?: string } | undefined)?.accountsUrl;
 }

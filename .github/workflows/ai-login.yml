@@ -1,0 +1,89 @@
+name: AI login
+
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: codex-auth
+  cancel-in-progress: false
+
+permissions: {}
+
+env:
+  NODE_VERSION: "22"
+  CODEX_VERSION: "0.171.0"
+
+jobs:
+  login:
+    name: Sign in to Codex
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    environment: ai-review
+    permissions:
+      actions: write
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: .github/scripts
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      - name: Check the encryption key
+        env:
+          CODEX_AUTH_KEY: ${{ secrets.CODEX_AUTH_KEY }}
+          CODEX_ACCOUNT_SHA256: ${{ secrets.CODEX_ACCOUNT_SHA256 }}
+        run: node .github/scripts/codex-auth.mjs check-key
+      - name: Install Codex
+        run: npm install --global "@openai/codex@${CODEX_VERSION}"
+      - name: Show the login link
+        run: |
+          echo "CODEX_HOME=$RUNNER_TEMP/codex-home" >> "$GITHUB_ENV"
+          export CODEX_HOME="$RUNNER_TEMP/codex-home"
+          mkdir -p "$CODEX_HOME"
+          log="$RUNNER_TEMP/codex-login.log"
+          nohup sh -c 'codex login --device-auth -c cli_auth_credentials_store="file"; echo $? > "$0.exit"' "$log" > "$log" 2>&1 &
+          for _ in $(seq 1 60); do
+            if node .github/scripts/codex-auth.mjs device-login "$log"; then
+              exit 0
+            fi
+            sleep 1
+          done
+          cat "$log"
+          exit 1
+      - name: Wait for the browser sign-in
+        run: |
+          log="$RUNNER_TEMP/codex-login.log"
+          for _ in $(seq 1 1000); do
+            if [ -f "$log.exit" ]; then
+              if [ "$(cat "$log.exit")" != 0 ] || [ ! -s "$CODEX_HOME/auth.json" ]; then
+                cat "$log"
+                echo "::error::Codex login failed."
+                exit 1
+              fi
+              echo "Codex login completed."
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "::error::The device code expired before the sign-in finished."
+          exit 1
+      - name: Encrypt the login
+        id: save
+        env:
+          CODEX_AUTH_KEY: ${{ secrets.CODEX_AUTH_KEY }}
+          CODEX_ACCOUNT_SHA256: ${{ secrets.CODEX_ACCOUNT_SHA256 }}
+        run: node .github/scripts/codex-auth.mjs save "$CODEX_HOME" "$RUNNER_TEMP/codex-auth-upload"
+      - name: Store the login
+        uses: actions/upload-artifact@v4
+        with:
+          name: codex-auth
+          path: ${{ runner.temp }}/codex-auth-upload/codex-auth.enc
+          retention-days: 90
+          if-no-files-found: error
+      - name: Delete older logins
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: node .github/scripts/codex-auth.mjs prune
