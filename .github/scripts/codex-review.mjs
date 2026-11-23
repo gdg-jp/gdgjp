@@ -200,6 +200,13 @@ export function humanActors(pr) {
   return actors;
 }
 
+export function sharedGate(numbers) {
+  return {
+    state: "failure",
+    description: `The head commit is shared with #${numbers.join(", #")}; push a distinct commit`,
+  };
+}
+
 export function evaluate(pr, trusted, { sharedWith = [] } = {}) {
   const firstReviewAt = pr.reviews.length
     ? Math.min(...pr.reviews.map((review) => time(review.at)))
@@ -247,10 +254,7 @@ export function evaluate(pr, trusted, { sharedWith = [] } = {}) {
 
   let gate;
   if (sharedWith.length > 0) {
-    gate = {
-      state: "failure",
-      description: `The head commit is shared with #${sharedWith.join(", #")}; push a distinct commit`,
-    };
+    gate = sharedGate(sharedWith);
   } else if (pr.isCrossRepository) {
     gate = {
       state: "failure",
@@ -532,9 +536,6 @@ const PULL_REQUEST_QUERY = `query($owner: String!, $name: String!, $number: Int!
       number url title body state isDraft isCrossRepository headRefOid baseRefName
       author { login }
       labels(first: 100) { nodes { name } }
-      timelineItems(itemTypes: [LABELED_EVENT], last: 100) {
-        nodes { ... on LabeledEvent { createdAt label { name } } }
-      }
       commits(last: 1) {
         nodes { commit { oid status { context(name: "${STATUS_CONTEXT}") { state description } } } }
       }
@@ -546,36 +547,47 @@ const COMMENT_FIELDS = `databaseId body createdAt url author { __typename login 
   reactions(last: 50) { nodes { content createdAt user { login } } }`;
 
 const CONNECTIONS = {
-  reviews: "body createdAt url author { __typename login }",
-  reviewThreads: `id isResolved path line originalLine
-    head: comments(first: 1) { nodes { ${COMMENT_FIELDS} } }
-    tail: comments(last: 60) { nodes { ${COMMENT_FIELDS} } }`,
-  comments: COMMENT_FIELDS,
+  reviews: { field: "reviews", nodes: "body createdAt url author { __typename login }" },
+  reviewThreads: {
+    field: "reviewThreads",
+    nodes: `id isResolved path line originalLine
+      comments(first: 60) {
+        pageInfo { hasNextPage endCursor }
+        nodes { ${COMMENT_FIELDS} }
+      }`,
+  },
+  comments: { field: "comments", nodes: COMMENT_FIELDS },
+  timelineItems: {
+    field: "timelineItems",
+    args: "itemTypes: [LABELED_EVENT], ",
+    nodes: "... on LabeledEvent { createdAt label { name } }",
+  },
 };
 
 function connectionQuery(name) {
+  const { field, args = "", nodes } = CONNECTIONS[name];
   return `query($owner: String!, $name: String!, $number: Int!, $cursor: String) {
   repository(owner: $owner, name: $name) {
     pullRequest(number: $number) {
-      ${name}(first: 50, after: $cursor) {
+      ${field}(${args}first: 50, after: $cursor) {
         pageInfo { hasNextPage endCursor }
-        nodes { ${CONNECTIONS[name]} }
+        nodes { ${nodes} }
       }
     }
   }
 }`;
 }
 
-function threadComments(thread) {
-  const seen = new Set();
-  const nodes = [];
-  for (const comment of [...(thread.head?.nodes ?? []), ...(thread.tail?.nodes ?? [])]) {
-    if (seen.has(comment.databaseId)) continue;
-    seen.add(comment.databaseId);
-    nodes.push(comment);
+const THREAD_COMMENTS_QUERY = `query($id: ID!, $cursor: String) {
+  node(id: $id) {
+    ... on PullRequestReviewThread {
+      comments(first: 100, after: $cursor) {
+        pageInfo { hasNextPage endCursor }
+        nodes { ${COMMENT_FIELDS} }
+      }
+    }
   }
-  return { nodes };
-}
+}`;
 
 const OPEN_PULL_REQUESTS_QUERY = `query($owner: String!, $name: String!, $cursor: String) {
   repository(owner: $owner, name: $name) {
@@ -604,7 +616,7 @@ export class ReviewRepository {
         number,
         cursor,
       });
-      const page = data.repository.pullRequest[name];
+      const page = data.repository.pullRequest[CONNECTIONS[name].field];
       nodes.push(...page.nodes);
       if (!page.pageInfo.hasNextPage) return { nodes };
       cursor = page.pageInfo.endCursor;
@@ -618,18 +630,27 @@ export class ReviewRepository {
       number,
     });
     const threads = await this.connection(number, "reviewThreads");
+    for (const thread of threads.nodes) {
+      let page = thread.comments.pageInfo;
+      while (page.hasNextPage) {
+        const more = await this.github.graphql(THREAD_COMMENTS_QUERY, {
+          id: thread.id,
+          cursor: page.endCursor,
+        });
+        thread.comments.nodes.push(...more.node.comments.nodes);
+        page = more.node.comments.pageInfo;
+      }
+    }
     return parsePullRequest({
       ...data.repository.pullRequest,
+      timelineItems: await this.connection(number, "timelineItems"),
       reviews: await this.connection(number, "reviews"),
-      reviewThreads: {
-        nodes: threads.nodes.map((thread) => ({ ...thread, comments: threadComments(thread) })),
-      },
+      reviewThreads: threads,
       comments: await this.connection(number, "comments"),
     });
   }
 
   async openHeads() {
-    if (this.heads) return this.heads;
     const heads = new Map();
     let cursor = null;
     for (;;) {
@@ -643,7 +664,6 @@ export class ReviewRepository {
       if (!page.pageInfo.hasNextPage) break;
       cursor = page.pageInfo.endCursor;
     }
-    this.heads = heads;
     return heads;
   }
 
@@ -674,13 +694,31 @@ export class ReviewRepository {
 
   async evaluate(number) {
     const pr = await this.pullRequest(number);
-    const sharedWith = [...(await this.openHeads()).entries()]
-      .filter(([other, head]) => other !== pr.number && head === pr.headSha)
-      .map(([other]) => other);
+    const sharedWith = await this.sharedWith(pr);
     return { pr, evaluation: evaluate(pr, await this.trusted(pr), { sharedWith }) };
   }
 
+  async sharedWith(pr) {
+    return [...(await this.openHeads()).entries()]
+      .filter(([other, head]) => other !== pr.number && head === pr.headSha)
+      .map(([other]) => other);
+  }
+
   async publishGate(pr, gate, targetUrl = DOCS_URL) {
+    if (gate.state === "success") {
+      const shared = await this.sharedWith(pr);
+      if (shared.length > 0) {
+        return this.publishGate(pr, sharedGate(shared), targetUrl);
+      }
+      const posted = await this.postGate(pr, gate, targetUrl);
+      const after = await this.sharedWith(pr);
+      if (after.length > 0) await this.postGate(pr, sharedGate(after), targetUrl);
+      return posted;
+    }
+    return this.postGate(pr, gate, targetUrl);
+  }
+
+  async postGate(pr, gate, targetUrl) {
     if (
       pr.status?.state === gate.state.toUpperCase() &&
       pr.status?.description === gate.description
@@ -1154,7 +1192,7 @@ async function main() {
           codex,
           worktrees,
           number,
-          runId: process.env.GITHUB_RUN_ID,
+          runId: `${process.env.GITHUB_RUN_ID}-${process.env.GITHUB_RUN_ATTEMPT ?? "1"}`,
           runUrl,
           model: `${model} (${process.env.CODEX_EFFORT})`,
         });

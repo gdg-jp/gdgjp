@@ -609,3 +609,81 @@ test("only the configured ChatGPT account is accepted", () => {
   );
   assert.throws(() => verifyAccount(auth, ""));
 });
+
+test("a success is never published while another open PR shares the head", async () => {
+  const posted = [];
+  let heads = [{ number: 7, headRefOid: "head-sha" }];
+  const github = {
+    graphql: async () => ({
+      repository: {
+        pullRequests: { pageInfo: { hasNextPage: false }, nodes: heads },
+      },
+    }),
+    request: async (_path, { body }) => {
+      posted.push(body.state);
+      heads = [...heads, { number: 8, headRefOid: "head-sha" }];
+      return {};
+    },
+  };
+  const repo = new ReviewRepository({ github, repository: "gdg-jp/gdgjp" });
+  const pr = parsePullRequest(rawPullRequest());
+  await repo.publishGate(pr, { state: "success", description: "ok" });
+  assert.deepEqual(posted, ["success", "failure"]);
+
+  posted.length = 0;
+  await repo.publishGate(parsePullRequest(rawPullRequest()), {
+    state: "success",
+    description: "ok",
+  });
+  assert.deepEqual(posted, ["failure"]);
+});
+
+test("label history and long threads are read to the last page", async () => {
+  const page = (nodes, hasNextPage) => ({
+    pageInfo: { hasNextPage, endCursor: hasNextPage ? "next" : null },
+    nodes,
+  });
+  const reply = (id, at) => ({
+    databaseId: id,
+    author: alice,
+    createdAt: at,
+    body: "直しました",
+    reactions: { nodes: [] },
+  });
+  const findingComment = thread("1.1").comments.nodes[0];
+  const github = {
+    graphql: async (query, { cursor }) => {
+      if (query.includes("node(id:")) {
+        return { node: { comments: page([reply(2, "2026-11-01T02:00:00Z")], false) } };
+      }
+      const base = rawPullRequest({ reviews: [] });
+      if (query.includes("timelineItems(")) {
+        const events = cursor
+          ? [{ createdAt: "2026-11-02T00:00:00Z", label: { name: LABEL } }]
+          : [{ createdAt: "2026-10-01T00:00:00Z", label: { name: "other" } }];
+        return { repository: { pullRequest: { timelineItems: page(events, !cursor) } } };
+      }
+      if (query.includes("reviewThreads(")) {
+        const node = {
+          ...thread("1.1"),
+          comments: page([findingComment], true),
+        };
+        return { repository: { pullRequest: { reviewThreads: page([node], false) } } };
+      }
+      if (query.includes("reviews(")) {
+        return {
+          repository: { pullRequest: { reviews: page([review("2026-11-01T00:05:00Z")], false) } },
+        };
+      }
+      if (query.includes("comments(")) {
+        return { repository: { pullRequest: { comments: page([], false) } } };
+      }
+      return { repository: { pullRequest: { ...base, labels: { nodes: [{ name: LABEL }] } } } };
+    },
+  };
+  const repo = new ReviewRepository({ github, repository: "gdg-jp/gdgjp" });
+  const pr = await repo.pullRequest(7);
+  assert.deepEqual(pr.labeledAt, ["2026-11-02T00:00:00Z"]);
+  assert.equal(pr.findings[0].claims.length, 1);
+  assert.equal(evaluate(pr, trusted).reviewRequested, true);
+});
