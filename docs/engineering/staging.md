@@ -85,8 +85,15 @@ name looks like a credential stops the sync until it is classified. The MCP OAut
 connpass session, and agent KV namespaces are not copied.
 
 Wiki's AI Search index is rebuilt in the slot: the sync clears `knowledge_items`, and the
-hourly cron pushes every page to the slot's namespace. Durable Object storage is copied
-through each app's `StagingSnapshot` entrypoint.
+hourly cron pushes every page to the slot's namespace.
+
+Durable Object storage (Wiki collaboration documents and source imports, Screen stages,
+OST boards, MC rooms, and Deck rooms) is copied through each app's `StagingSnapshot`
+entrypoint. A temporary Worker binds to the production and staging entrypoints, so the
+copy never passes through a public URL; import refuses to run without `STAGING_SLOT`.
+Objects are found by the names the app derives from its D1 rows, so a room whose name no
+longer appears there is not copied. Agent's `PendingSweeper` holds only an alarm that
+replies to real Discord and Chat users, so it is not copied.
 
 `wrangler d1 export` makes the production database briefly unavailable. That is why the
 sync is a nightly batch, not part of each PR deploy.

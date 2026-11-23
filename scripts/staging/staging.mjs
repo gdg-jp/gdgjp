@@ -24,6 +24,7 @@ import {
   workersSubdomain,
   wrangler,
 } from "./cloudflare.mjs";
+import { durableObjectWorkers, syncDurableObjects } from "./durable-objects.mjs";
 import {
   EXCLUDED_APPS,
   SLOTS,
@@ -506,6 +507,13 @@ export async function sync(slots, apps = stagingApps()) {
         ),
       ),
     ];
+    for (const slot of slots)
+      await syncDurableObjects({
+        slot,
+        workers: durableObjectWorkers(apps, slot),
+        runWrangler: wrangler,
+        log,
+      });
     const subdomain = await workersSubdomain();
     for (const slot of slots)
       await copyBuckets({
