@@ -30,7 +30,7 @@ export async function searchContributorCandidates(request: Request, env: Env) {
   ]);
   const url = new URL("/api/users/search", env.ACCOUNTS_URL);
   url.searchParams.set("q", query);
-  const response = await fetch(url, {
+  const response = await env.ACCOUNTS.fetch(url.toString(), {
     headers: { Authorization: `Bearer ${accessToken}` },
   });
   if (!response.ok) {

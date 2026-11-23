@@ -6,12 +6,14 @@ export type DirectoryChapter = {
 };
 
 export async function loadChapterDirectory(
-  env: { ACCOUNTS_URL: string },
+  env: { ACCOUNTS_URL: string; ACCOUNTS: Pick<Fetcher, "fetch"> },
   query = "",
 ): Promise<DirectoryChapter[]> {
   const url = new URL("/api/chapters/directory", env.ACCOUNTS_URL);
   if (query) url.searchParams.set("q", query);
-  const response = await fetch(url, { headers: { Accept: "application/json" } });
+  const response = await env.ACCOUNTS.fetch(url.toString(), {
+    headers: { Accept: "application/json" },
+  });
   if (!response.ok) {
     throw new Error(`accounts chapter directory returned ${response.status}`);
   }
