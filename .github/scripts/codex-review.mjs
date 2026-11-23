@@ -532,10 +532,10 @@ const PULL_REQUEST_QUERY = `query($owner: String!, $name: String!, $number: Int!
       reviewThreads(first: 100) {
         nodes {
           id isResolved path line originalLine
-          comments(first: 100) {
+          comments(first: 60) {
             nodes {
               databaseId body createdAt url author { __typename login }
-              reactions(first: 50) { nodes { content createdAt user { login } } }
+              reactions(first: 20) { nodes { content createdAt user { login } } }
             }
           }
         }
@@ -543,7 +543,7 @@ const PULL_REQUEST_QUERY = `query($owner: String!, $name: String!, $number: Int!
       comments(last: 100) {
         nodes {
           databaseId body createdAt url author { __typename login }
-          reactions(first: 50) { nodes { content createdAt user { login } } }
+          reactions(first: 20) { nodes { content createdAt user { login } } }
         }
       }
     }
