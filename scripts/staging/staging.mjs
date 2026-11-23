@@ -547,13 +547,6 @@ export async function sync(slots, apps = stagingApps()) {
         ),
       ),
     ];
-    for (const slot of slots)
-      await syncDurableObjects({
-        slot,
-        workers: durableObjectWorkers(apps, slot),
-        runWrangler: wrangler,
-        log,
-      });
     const subdomain = await workersSubdomain();
     for (const slot of slots)
       await copyBuckets({
@@ -566,6 +559,18 @@ export async function sync(slots, apps = stagingApps()) {
       });
   } finally {
     rmSync(scratch, { recursive: true, force: true });
+  }
+}
+
+export async function syncDurableObjectsInto(slots, apps = stagingApps()) {
+  const existing = await workerScripts();
+  for (const slot of slots) {
+    const workers = durableObjectWorkers(apps, slot).filter(({ staging }) => {
+      if (existing.has(staging)) return true;
+      log(`::warning::${staging} is not deployed; its Durable Objects were not copied`);
+      return false;
+    });
+    await syncDurableObjects({ slot, workers, runWrangler: wrangler, log });
   }
 }
 
@@ -785,6 +790,8 @@ async function main([command, ...args]) {
   const apps = selectApps(option("apps"));
   if (command === "build") return build(apps);
   if (command === "sync") return sync(slot ? slot.split(",") : SLOTS, apps);
+  if (command === "sync-durable-objects")
+    return syncDurableObjectsInto(slot ? slot.split(",") : SLOTS, apps);
   if (command === "deploy") return deploy(assertSlot(slot), apps);
   if (command === "provision") return ensureResources(assertSlot(slot), apps);
   if (command === "rehearse") return rehearse(apps);
@@ -823,7 +830,7 @@ async function main([command, ...args]) {
     return;
   }
   throw new Error(
-    "Usage: node scripts/staging/staging.mjs <build|sync|deploy|provision|rehearse|plan|e2e-env|hosts> --slot stg-N [--apps a,b]",
+    "Usage: node scripts/staging/staging.mjs <build|sync|sync-durable-objects|deploy|provision|rehearse|plan|e2e-env|hosts> --slot stg-N [--apps a,b]",
   );
 }
 

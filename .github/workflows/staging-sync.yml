@@ -81,3 +81,29 @@ jobs:
       contents: read
       deployments: write
       pull-requests: write
+
+  durable-objects:
+    name: Copy Durable Object storage into every slot
+    needs: [sync, redeploy]
+    if: always() && needs.sync.result == 'success'
+    runs-on: ubuntu-24.04
+    environment: staging
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: false
+      - name: Initialize shared UI submodule
+        run: git submodule update --init packages/design-system
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Copy production Durable Objects
+        env:
+          APPS: ${{ inputs.apps }}
+        run: node scripts/staging/staging.mjs sync-durable-objects ${APPS:+--apps "$APPS"}

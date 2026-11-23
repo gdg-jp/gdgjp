@@ -89,7 +89,7 @@ hourly cron pushes every page to the slot's namespace.
 
 Durable Object storage (Wiki collaboration documents and source imports, Screen stages,
 OST boards, MC rooms, and Deck rooms) is copied through each app's `StagingSnapshot`
-entrypoint. A temporary Worker binds to the production and staging entrypoints, so the
+entrypoint after the slot is redeployed. A temporary Worker binds to the production and staging entrypoints, so the
 copy never passes through a public URL; import refuses to run without `STAGING_SLOT`.
 Objects are found by the names the app derives from its D1 rows, so a room whose name no
 longer appears there is not copied. Agent's `PendingSweeper` holds only an alarm that
