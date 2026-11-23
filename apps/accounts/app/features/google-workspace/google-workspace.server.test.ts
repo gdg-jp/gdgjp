@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { DatabaseSync } from "node:sqlite";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   decryptRefreshToken,
@@ -363,6 +365,33 @@ describe("reserveTokenVendQuota", () => {
 
     vi.setSystemTime(new Date("2026-01-01T00:05:00.000Z"));
     expect(await reserveTokenVendQuota(db, "gdgagent-svc")).toBe(true);
+  });
+
+  it("admits only the window's max when requests overlap", async () => {
+    const raw = new DatabaseSync(":memory:");
+    raw.exec(`CREATE TABLE "user" (id TEXT PRIMARY KEY);`);
+    raw.exec(
+      readFileSync(
+        new URL("../../../migrations/0021_add_google_workspace_connections.sql", import.meta.url),
+        "utf8",
+      ),
+    );
+    const statement = (sql: string, params: unknown[] = []) => ({
+      bind: (...next: unknown[]) => statement(sql, next),
+      first: async () => raw.prepare(sql).get(...(params as never[])) ?? null,
+      run: async () => ({
+        meta: { changes: Number(raw.prepare(sql).run(...(params as never[])).changes) },
+      }),
+    });
+    const db = { prepare: (sql: string) => statement(sql) } as unknown as D1Database;
+
+    const results = await Promise.all(
+      Array.from({ length: TOKEN_VEND_RATE_LIMIT_MAX + 5 }, () =>
+        reserveTokenVendQuota(db, "gdgagent-svc"),
+      ),
+    );
+
+    expect(results.filter(Boolean)).toHaveLength(TOKEN_VEND_RATE_LIMIT_MAX);
   });
 });
 

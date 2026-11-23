@@ -170,3 +170,4 @@ app/routes/
 | `tests/architecture/source-surface-exclusions.test.ts` | conversation ソースが 3 サーフェスで DB クエリ時に除外される |
 | `tests/architecture/search-source-exclusions.test.ts` | キーワード `/search` が生ソースを引かない（pages FTS のみ） |
 | `tests/architecture/agent-workspace-routes.test.ts` | エージェント API のパス解決契約（contracts / paths / wiki-adapter 横断） |
+| `tests/architecture/admin-route-gates.test.ts` | `/admin` 配下の子ルートの loader / action がそれぞれ `requireAdmin` を呼ぶ（レイアウトの loader は子と並列に走るので、それだけでは守れない） |

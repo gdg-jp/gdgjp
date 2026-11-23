@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { DatabaseSync } from "node:sqlite";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   DEVICE_GRANT_TYPE,
@@ -9,6 +11,7 @@ import {
   handleDeviceAuthorizationRequest,
   handleDeviceTokenGrant,
 } from "~/features/oauth/device-authorization.server";
+import { sha256Base64Url } from "~/lib/crypto.server";
 
 type ClientRow = {
   clientId: string;
@@ -574,6 +577,85 @@ describe("handleDeviceTokenGrant", () => {
     expect(response?.status).toBe(500);
     expect((await response?.json()) as { error: string }).toMatchObject({ error: "server_error" });
     expect(deviceCodes).toHaveLength(0);
+  });
+});
+
+function createSqliteEnv(parties: number) {
+  const raw = new DatabaseSync(":memory:");
+  raw.exec(`CREATE TABLE "user" (id TEXT PRIMARY KEY);
+    CREATE TABLE oauthClient (clientId TEXT PRIMARY KEY, redirectUris TEXT);
+    INSERT INTO "user" VALUES ('user-1');
+    INSERT INTO oauthClient VALUES ('gdg-cli', '["http://127.0.0.1:8787/callback"]');`);
+  raw.exec(
+    readFileSync(
+      new URL("../../../migrations/0019_add_oauth_device_code.sql", import.meta.url),
+      "utf8",
+    ),
+  );
+  const waiting = new Map<string, Array<() => void>>();
+  const lockstep = (sql: string) =>
+    new Promise<void>((resolve) => {
+      if (!sql.includes("oauthDeviceCode")) return resolve();
+      const queue = [...(waiting.get(sql) ?? []), resolve];
+      if (queue.length < parties) return void waiting.set(sql, queue);
+      waiting.delete(sql);
+      for (const release of queue) release();
+    });
+  const statement = (sql: string, params: unknown[] = []) => ({
+    bind: (...next: unknown[]) => statement(sql, next),
+    first: async () => {
+      await lockstep(sql);
+      return raw.prepare(sql).get(...(params as never[])) ?? null;
+    },
+    run: async () => {
+      await lockstep(sql);
+      return { meta: { changes: Number(raw.prepare(sql).run(...(params as never[])).changes) } };
+    },
+  });
+  const env = {
+    DB: { prepare: (sql: string) => statement(sql) },
+    APP_URL: "https://accounts.example",
+  } as unknown as Env;
+  return { env, raw };
+}
+
+describe("handleDeviceTokenGrant with overlapping polls", () => {
+  it("hands the one-time authorization code to only one of two concurrent polls", async () => {
+    const { env, raw } = createSqliteEnv(2);
+    const now = new Date();
+    raw
+      .prepare(
+        `INSERT INTO oauthDeviceCode (id, deviceCodeHash, userCodeHash, clientId, scope,
+           codeVerifier, status, userId, authorizationCode, expiresAt, createdAt)
+         VALUES ('d1', ?, 'user-hash', 'gdg-cli', 'openid', 'verifier', 'completed', 'user-1',
+           'auth-code-xyz', ?, ?)`,
+      )
+      .run(
+        await sha256Base64Url("device-code"),
+        new Date(now.getTime() + 60_000).toISOString(),
+        now.toISOString(),
+      );
+    const runAuthHandler = vi
+      .fn()
+      .mockImplementation(async () => Response.json({ access_token: "at" }));
+    const poll = () =>
+      handleDeviceTokenGrant(
+        env,
+        tokenRequest({
+          grant_type: DEVICE_GRANT_TYPE,
+          device_code: "device-code",
+          client_id: "gdg-cli",
+        }),
+        runAuthHandler,
+      );
+
+    const responses = await Promise.all([poll(), poll()]);
+
+    expect(responses.map((r) => r?.status).sort()).toEqual([200, 400]);
+    expect(runAuthHandler).toHaveBeenCalledTimes(1);
+    expect(raw.prepare("SELECT COUNT(*) AS count FROM oauthDeviceCode").get()).toEqual({
+      count: 0,
+    });
   });
 });
 

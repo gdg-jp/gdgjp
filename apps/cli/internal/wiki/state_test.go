@@ -1,7 +1,9 @@
 package wiki
 
 import (
+	"encoding/json"
 	"os"
+	"sort"
 	"strings"
 	"testing"
 )
@@ -29,6 +31,47 @@ func TestWriteACLSourcesIncludesOnlyResolvedSourceMetadata(t *testing.T) {
 	}
 	if strings.Contains(got, "legacy") || strings.Contains(got, "missing-visibility") {
 		t.Fatalf("ACL source metadata included unresolved source: %s", got)
+	}
+}
+
+func TestWriteACLSourcesWritesOnlyVisibilityAndChapter(t *testing.T) {
+	root := t.TempDir()
+	mediaType := "text/markdown"
+	capturedAt := int64(1)
+	manifest := SourcesManifest{Version: 1, Documents: []SourcesManifestEntry{{
+		DocumentID:       "document-1",
+		SourceID:         stringPtr("source-1"),
+		Kind:             "source-document",
+		Title:            "Secret title",
+		Path:             "raw/source-1/conversation.md",
+		ContentHash:      "content-hash",
+		MediaType:        &mediaType,
+		CapturedAt:       &capturedAt,
+		Visibility:       stringPtr("chapter-member"),
+		ChapterID:        stringPtr("tokyo"),
+		ChapterIDPresent: true,
+	}}}
+	if err := WriteACLSources(root, manifest); err != nil {
+		t.Fatal(err)
+	}
+	raw, err := os.ReadFile(ACLSourcesPath(root))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var sources map[string]map[string]json.RawMessage
+	if err := json.Unmarshal(raw, &sources); err != nil {
+		t.Fatal(err)
+	}
+	if len(sources) != 1 || sources["source-1"] == nil {
+		t.Fatalf("ACL sources = %s", raw)
+	}
+	keys := make([]string, 0, len(sources["source-1"]))
+	for key := range sources["source-1"] {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	if strings.Join(keys, ",") != "chapterId,visibility" {
+		t.Fatalf("ACL source fields = %v, want only chapterId and visibility", keys)
 	}
 }
 

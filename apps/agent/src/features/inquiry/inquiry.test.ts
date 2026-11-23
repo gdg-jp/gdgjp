@@ -97,6 +97,15 @@ describe("chooseReader", () => {
       id: "g1",
     });
   });
+  it("answers in a Chat space as the space even for a linked organizer", () => {
+    expect(
+      chooseReader({ kind: "chat_space", space: "spaces/s1" }, "organizer-token", false),
+    ).toEqual({
+      kind: "principal",
+      type: "chat_space",
+      id: "spaces/s1",
+    });
+  });
   it("uses the asker's token for DMs and the private re-answer", () => {
     expect(chooseReader({ kind: "discord_dm" }, "t", false)).toEqual({ kind: "user", token: "t" });
     expect(chooseReader({ kind: "discord_guild", guildId: "g1" }, "t", true)).toEqual({
