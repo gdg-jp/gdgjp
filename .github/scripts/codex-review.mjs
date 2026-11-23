@@ -267,13 +267,11 @@ export function humanActors(pr) {
 const SEVERITY = { failure: 3, error: 3, pending: 2, success: 1 };
 
 export function combineGates(self, siblings) {
+  if (siblings.length === 0) return self.gate;
   const members = [self, ...siblings].sort((a, b) => a.number - b.number);
-  const reviewed = members.filter((member) => member.reviewed);
-  if (reviewed.length === 0) return self.gate;
-  const worst = reviewed.reduce((current, member) =>
+  const worst = members.reduce((current, member) =>
     SEVERITY[member.gate.state] > SEVERITY[current.gate.state] ? member : current,
   );
-  if (siblings.length === 0) return worst.gate;
   return {
     state: worst.gate.state,
     description: `#${worst.number} (same change as #${members
@@ -303,13 +301,7 @@ export function evaluate(pr, trusted) {
     const last = finding.verdicts.at(-1);
     const resolved = last?.status === "resolved";
     const handled = handledKeys(finding);
-    const legacySeen = Math.max(
-      ...finding.verdicts
-        .filter((verdict) => verdict.handled === null)
-        .map((verdict) => time(verdict.seen)),
-      time(finding.at),
-    );
-    const unseen = (claim) => !handled.has(claim.key) && time(claim.at) > legacySeen;
+    const unseen = (claim) => !handled.has(claim.key);
     const claims = resolved
       ? []
       : [
@@ -829,6 +821,19 @@ export class ReviewRepository {
     return siblings;
   }
 
+  async withdraw(pr) {
+    const [sibling] = await this.sharedWith(pr);
+    if (sibling) {
+      const { pr: open, evaluation } = await this.evaluate(sibling);
+      await this.publishGate(open, evaluation.gate);
+      return;
+    }
+    await this.postGate(pr, {
+      state: "pending",
+      description: "The pull request that reviewed this commit is closed",
+    });
+  }
+
   async combined(pr, gate) {
     return combineGates(
       { number: pr.number, reviewed: pr.reviews.length > 0, gate },
@@ -1284,7 +1289,12 @@ export async function plan({ repo, event, authAvailable }) {
   const work = [];
   for (const number of numbers) {
     const { pr, evaluation } = await repo.evaluate(number);
-    if (pr.state !== "OPEN" || !GATED_BASES.includes(pr.baseRef)) continue;
+    if (!GATED_BASES.includes(pr.baseRef)) continue;
+    if (pr.state === "CLOSED") {
+      await repo.withdraw(pr);
+      continue;
+    }
+    if (pr.state !== "OPEN") continue;
     await repo.syncThreads(evaluation);
     const failedBefore =
       pr.status?.state === "ERROR" && pr.status.description.startsWith(AGENT_FAILED);

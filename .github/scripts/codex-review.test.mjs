@@ -112,12 +112,12 @@ function thread(id, { at = "2026-11-01T00:10:00Z", reactions = [], replies = [] 
   };
 }
 
-function verdict(id, status, at, seen) {
+function verdict(id, status, at, seen, handled) {
   return {
     databaseId: 200,
     author: bot,
     createdAt: at,
-    body: `判定\n\n${marker("verdict", { pr: 7, id, status, seen })}`,
+    body: `判定\n\n${marker("verdict", { pr: 7, id, status, seen, handled })}`,
     reactions: { nodes: [] },
   };
 }
@@ -284,32 +284,36 @@ test("only the agent's verdict resolves a finding", () => {
   assert.equal(forged.findings[0].resolved, false);
 });
 
-test("an unresolved verdict waits for a response newer than what the agent saw", () => {
-  const options = (replyAt) => ({
+test("an unresolved verdict waits for a response it has not handled", () => {
+  const reply = (id, createdAt, body) => ({
+    databaseId: id,
+    author: alice,
+    createdAt,
+    body,
+    reactions: { nodes: [] },
+  });
+  const options = (handled) => ({
     reviews: [review("2026-11-01T00:05:00Z")],
     threads: [
       thread("1.1", {
         replies: [
-          {
-            author: alice,
-            createdAt: "2026-11-01T01:00:00Z",
-            body: "直しました",
-            reactions: { nodes: [] },
-          },
-          { author: alice, createdAt: replyAt, body: "再度直しました", reactions: { nodes: [] } },
-          verdict("1.1", "unresolved", "2026-11-01T01:10:00Z", "2026-11-01T01:05:00Z"),
+          reply(11, "2026-11-01T01:00:00Z", "直しました"),
+          reply(12, "2026-11-01T01:02:00Z", "再度直しました"),
+          verdict("1.1", "unresolved", "2026-11-01T01:10:00Z", "2026-11-01T01:05:00Z", handled),
         ],
       }),
     ],
   });
-  const during = run(options("2026-11-01T01:07:00Z"));
+  const missed = run(options("c:11"));
   assert.deepEqual(
-    during.verifications[0].claims.map((claim) => claim.body),
+    missed.verifications[0].claims.map((claim) => claim.body),
     ["再度直しました"],
   );
-  const before = run(options("2026-11-01T01:02:00Z"));
-  assert.equal(before.verifications.length, 0);
-  assert.equal(before.gate.state, "failure");
+  const both = run(options("c:11,c:12"));
+  assert.equal(both.verifications.length, 0);
+  assert.equal(both.gate.state, "failure");
+  const legacy = run(options(undefined));
+  assert.equal(legacy.verifications[0].claims.length, 2);
 });
 
 test("a mention claims every unresolved finding once", () => {
@@ -578,19 +582,38 @@ test("model output cannot carry gate markers", () => {
   assert.deepEqual(markers(cleaned.reply), []);
 });
 
-test("identical PRs get the same status whichever of them writes it", () => {
+test("identical PRs each need their own passing review", () => {
   const reviewed = { number: 7, reviewed: true, gate: { state: "success", description: "ok" } };
   const fresh = { number: 9, reviewed: false, gate: { state: "pending", description: "add" } };
-  assert.equal(combineGates(reviewed, [fresh]).state, "success");
-  assert.equal(combineGates(fresh, [reviewed]).state, "success");
-  assert.deepEqual(combineGates(reviewed, [fresh]), combineGates(fresh, [reviewed]));
+  const waiting = combineGates(reviewed, [fresh]);
+  assert.equal(waiting.state, "pending");
+  assert.match(waiting.description, /#9/);
+  assert.deepEqual(waiting, combineGates(fresh, [reviewed]));
 
-  const failing = { number: 9, reviewed: true, gate: { state: "failure", description: "1 of 1" } };
-  const blocked = combineGates(reviewed, [failing]);
-  assert.equal(blocked.state, "failure");
-  assert.match(blocked.description, /#9/);
-  assert.deepEqual(blocked, combineGates(failing, [reviewed]));
+  const tampered = {
+    number: 9,
+    reviewed: false,
+    gate: { state: "failure", description: "altered" },
+  };
+  assert.equal(combineGates(reviewed, [tampered]).state, "failure");
+  const passing = { number: 9, reviewed: true, gate: { state: "success", description: "ok" } };
+  assert.equal(combineGates(reviewed, [passing]).state, "success");
   assert.deepEqual(combineGates(fresh, []), fresh.gate);
+});
+
+test("closing a pull request withdraws its success from the shared commit", async () => {
+  const posted = [];
+  const github = {
+    request: async (_path, { body }) => posted.push([body.state, body.description]),
+  };
+  const repo = new ReviewRepository({ github, repository: "gdg-jp/gdgjp" });
+  repo.sharedWith = async () => [];
+  const closed = parsePullRequest({ ...rawPullRequest(), state: "CLOSED" });
+  closed.status = { state: "SUCCESS", description: "ok" };
+  repo.evaluate = async () => ({ pr: closed, evaluation: evaluate(closed, trusted) });
+  await plan({ repo, event: { inputs: { pr: "7" } }, authAvailable: async () => true });
+  assert.equal(posted[0][0], "pending");
+  assert.match(posted[0][1], /closed/);
 });
 
 test("a GDG-chan post edited by someone else counts as tampering", () => {

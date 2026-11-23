@@ -2,7 +2,7 @@ name: AI review
 
 on:
   pull_request:
-    types: [opened, reopened, synchronize, ready_for_review, labeled]
+    types: [opened, reopened, synchronize, ready_for_review, labeled, closed]
   pull_request_review_comment:
     types: [created]
   issue_comment:

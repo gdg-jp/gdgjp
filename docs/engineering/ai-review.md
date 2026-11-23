@@ -33,7 +33,8 @@ no event for reactions, so a scheduled run picks them up within about ten minute
 | pending, "queued or running" / "checking" / "working" | GDG-chan has work for this pull request. |
 | failure, "N of M GDG-chan findings are unresolved" | Respond to the remaining findings. |
 | failure, "finding comments were deleted or altered" | A finding listed by a review is gone or its marker no longer verifies. A maintainer reviews what happened and bypasses. |
-| "#N (same change as #M): ..." | Open pull requests from this repository share the head and base, so they carry the same change and one status. Among those with a GDG-chan review, the worst state wins. |
+| "#N (same change as #M): ..." | Open pull requests from this repository share the head and base, so they share one status. Each must pass on its own review; the worst state wins. Close the duplicate or review it. |
+| pending, "The pull request that reviewed this commit is closed" | A closed pull request's success is withdrawn from its head commit. |
 | success | At least one review ran and all of its findings are resolved. |
 | error, "Codex is not signed in" | Run the AI login workflow. |
 | error, "Codex agent failed" | Read the linked run; comment `/ai-review` or re-add the label to retry. |
@@ -87,7 +88,8 @@ organization's GitHub Apps.
 - Reactions, replies, and `/ai-review` comments count only from people with write access
   to the repository. Other bots are ignored. Each verdict records the IDs of every response
   GDG-chan has checked for that finding, so any response it has not seen starts another
-  check, whenever it arrived.
+  check, whenever it arrived. A verdict written before IDs were recorded gets its responses
+  checked once more.
 - Codex runs without any token under a permission profile that allows reading the
   filesystem, denies the Codex home that holds the login, and allows no writes. Before
   each run, `codex-review.mjs sandbox-check` confirms through `codex sandbox` that the
