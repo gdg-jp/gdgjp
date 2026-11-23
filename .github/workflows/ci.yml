@@ -262,7 +262,8 @@ jobs:
     if: >-
       contains(fromJSON(needs.changes.outputs.ci), '@gdgjp/design-system') ||
       needs.changes.outputs.design-source == 'true'
-    runs-on: ubuntu-latest
+    # Playwright 1.59 cannot install Chromium on ubuntu-26.04 (ubuntu-latest since 2026-11).
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
         with:
@@ -289,9 +290,13 @@ jobs:
       - name: Build library consumer
         if: contains(fromJSON(needs.changes.outputs.ci), '@gdgjp/design-system')
         run: pnpm exec turbo test:consumer --filter=@gdgjp/design-system --output-logs=errors-only
+      # See the e2e job: the fonts come from a cache instead of --with-deps's apt-get install.
+      - name: Install Playwright fonts
+        if: contains(fromJSON(needs.changes.outputs.ci), '@gdgjp/design-system')
+        uses: ./.github/actions/playwright-fonts
       - name: Install Playwright browsers
         if: contains(fromJSON(needs.changes.outputs.ci), '@gdgjp/design-system')
-        run: pnpm --filter @gdgjp/design-system exec playwright install --with-deps chromium
+        run: pnpm --filter @gdgjp/design-system exec playwright install chromium
       - name: Check design system scenarios
         if: contains(fromJSON(needs.changes.outputs.ci), '@gdgjp/design-system')
         run: node scripts/check-design-harness.mjs scenarios
@@ -403,7 +408,8 @@ jobs:
     name: E2E (${{ matrix.app }})
     needs: changes
     if: needs.changes.outputs.e2e != '[]'
-    runs-on: ubuntu-latest
+    # Playwright 1.59 cannot install Chromium on ubuntu-26.04 (ubuntu-latest since 2026-11).
+    runs-on: ubuntu-24.04
     strategy:
       fail-fast: false
       matrix:
@@ -422,8 +428,11 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      - name: Install Playwright fonts
+        if: matrix.app == 'design-system' || matrix.app == 'pr'
+        uses: ./.github/actions/playwright-fonts
       - name: Install Playwright browsers
-        run: pnpm --filter @gdgjp/${{ matrix.app }} exec playwright install --with-deps chromium
+        run: pnpm --filter @gdgjp/${{ matrix.app }} exec playwright install chromium
       - name: Run E2E testing
         run: pnpm test:e2e --workspace @gdgjp/${{ matrix.app }}
       - name: Upload Playwright report

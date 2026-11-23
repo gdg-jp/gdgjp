@@ -36,6 +36,8 @@ ROULETTE_CLIENT_ID = "roulette"
 ROULETTE_REDIRECT_URLS = "https://roulette.gdgs.jp/api/auth/callback/gdgjp"
 PR_CLIENT_ID = "pr"
 PR_REDIRECT_URLS = "https://pr.gdgs.jp/api/auth/callback/gdgjp"
+MEET_CLIENT_ID = "meet"
+MEET_REDIRECT_URLS = "https://meet.gdgs.jp/api/auth/callback/gdgjp"
 # GDG Japan MCP (mcp.gdgs.jp) signs MCP clients' users in through this trusted client.
 MCP_CLIENT_ID = "mcp"
 MCP_REDIRECT_URLS = "https://mcp.gdgs.jp/callback"

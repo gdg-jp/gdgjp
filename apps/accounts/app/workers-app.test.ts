@@ -6,6 +6,8 @@ const mocks = vi.hoisted(() => ({
   warmAuth: vi.fn(async () => undefined),
 }));
 
+// workers/app.ts exports the MeetDirectoryService RPC entrypoint, which needs the Workers runtime.
+vi.mock("cloudflare:workers", () => ({ WorkerEntrypoint: class {} }));
 vi.mock("react-router", () => ({ createRequestHandler: () => mocks.requestHandler }));
 vi.mock("~/features/auth/auth.server", () => ({
   warmAuth: mocks.warmAuth,

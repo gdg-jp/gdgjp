@@ -1,0 +1,14 @@
+@layer theme, base, gdg-tokens, gdg-base, gdg-components, utilities;
+@import "tailwindcss";
+@import "@gdgjp/design-system/tailwind.css";
+@import "@gdgjp/design-system/components.css";
+@import "@gdgjp/design-system/fonts.css";
+
+/* Layout utilities of the shared account menu / app launcher (@gdgjp/gdg-lib/ui). */
+@source "../../../packages/gdg-lib/src/ui";
+
+@layer base {
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+  }
+}

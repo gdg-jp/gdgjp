@@ -30,6 +30,7 @@ declare global {
     ROULETTE_CLIENT_SECRET: string;
     PR_CLIENT_SECRET: string;
     MCP_CLIENT_SECRET: string;
+    MEET_CLIENT_SECRET: string;
     RESEND_API_KEY?: string;
     EMAIL_FROM?: string;
     /** Better Auth encryption/signing secret. Set with wrangler secret put. */

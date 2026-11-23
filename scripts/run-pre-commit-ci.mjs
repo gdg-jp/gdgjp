@@ -15,10 +15,13 @@ for (const name of gitLocalEnvironmentNames) {
   delete environment[name];
 }
 
-const result = spawnSync("pnpm", ["ci:staged"], {
+// Spawn through a shell so Windows resolves pnpm to pnpm.CMD, which Node
+// refuses to execute directly. scripts/run-ci.mjs spawns the same way.
+const result = spawnSync("pnpm ci:staged", {
   cwd: repositoryRoot,
   env: environment,
   stdio: "inherit",
+  shell: true,
 });
 
 if (result.error) {

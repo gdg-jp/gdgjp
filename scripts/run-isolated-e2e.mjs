@@ -30,6 +30,7 @@ const ports = {
   deck: [6189, 4467],
   roulette: [6190],
   pr: [6191, 5298, 5299],
+  meet: [6193],
   "design-system": [6016, 6017],
 };
 const applicationPorts = Object.fromEntries(

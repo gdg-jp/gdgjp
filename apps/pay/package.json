@@ -24,6 +24,7 @@
     "@gdgjp/design-system": "workspace:*"
   },
   "devDependencies": {
+    "@cloudflare/vite-plugin": "~1.46.0",
     "@cloudflare/workers-types": "^4.20250101.0",
     "@react-router/dev": "~7.14.2",
     "@tailwindcss/vite": "^4.2.4",
@@ -31,7 +32,7 @@
     "@types/react-dom": "^19.0.2",
     "tailwindcss": "^4.2.4",
     "typescript": "^5.7.2",
-    "vite": "^8.3.2",
+    "vite": "^8.3.3",
     "vitest": "^4.1.10",
     "wrangler": "~4.113.0"
   }

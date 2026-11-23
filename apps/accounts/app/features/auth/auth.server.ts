@@ -222,6 +222,11 @@ function buildAuth(env: Env) {
         ],
         allowDynamicClientRegistration: false,
         allowUnauthenticatedClientRegistration: false,
+        // Allow http:// only on exact loopback hosts so web clients work in local dev and E2E.
+        allowInsecureRedirectUri: (url) =>
+          url.hostname === "localhost" || url.hostname === "127.0.0.1" || url.hostname === "[::1]",
+        // Protected resources are not managed through Better Auth's admin CRUD endpoints.
+        resourcePrivileges: () => false,
         clientPrivileges: async ({ user }) => {
           if (!user) return false;
           const membership = await env.DB.prepare(

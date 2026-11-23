@@ -10,6 +10,7 @@ import {
   recordEngineeringObservations,
   runConcurrentSteps,
   runStep,
+  shellQuote,
 } from "../../scripts/run-ci.mjs";
 
 const runner = fileURLToPath(new URL("../../scripts/run-ci.mjs", import.meta.url));
@@ -123,7 +124,7 @@ test("step metrics record elapsed time and failure exit codes", async () => {
   for (const exitCode of [0, 7]) {
     const metric = await runStep([
       "fixture",
-      `'${process.execPath}' -e 'setTimeout(() => process.exit(${exitCode}), 25)'`,
+      `${shellQuote(process.execPath)} -e ${shellQuote(`setTimeout(() => process.exit(${exitCode}), 25)`)}`,
     ]);
     assert.equal(metric.exitCode, exitCode);
     assert.ok(metric.durationMs >= 25);
@@ -212,9 +213,7 @@ writeFileSync(mark(name + "-done"), "");
   );
   const step = (name) => [
     `e2e:@gdgjp/${name}`,
-    [process.execPath, fixture, cwd, name]
-      .map((arg) => `'${arg.replaceAll("'", "'\\''")}'`)
-      .join(" "),
+    [process.execPath, fixture, cwd, name].map(shellQuote).join(" "),
   ];
   const passed = await runConcurrentSteps([
     step("accounts"),
@@ -255,6 +254,8 @@ writeFileSync(mark(name + "-done"), "");
 });
 
 test("Go CI retains formatting, every vet analyzer, host builds and all six release targets", (t) => {
+  // The fake go/gofmt/pnpm are shebang scripts found through a ":"-joined PATH.
+  if (process.platform === "win32") return t.skip("POSIX-only fixture (shebang executables)");
   const cwd = mkdtempSync(join(tmpdir(), "gdg-ci-go-"));
   t.after(() => rmSync(cwd, { recursive: true, force: true }));
   mkdirSync(join(cwd, "apps/cli"), { recursive: true });

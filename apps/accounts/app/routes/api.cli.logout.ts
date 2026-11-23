@@ -17,7 +17,7 @@ export async function action({ request, context }: Route.ActionArgs) {
   const row = await context.cloudflare.env.DB.prepare(
     `SELECT refreshId, scopes
      FROM oauthAccessToken
-     WHERE token = ? AND clientId = ? AND expiresAt > ?
+     WHERE token = ? AND clientId = ? AND expiresAt > ? AND revoked IS NULL
      LIMIT 1`,
   )
     .bind(tokenHash, CLI_CLIENT_ID, new Date().toISOString())

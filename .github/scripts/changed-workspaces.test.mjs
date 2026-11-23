@@ -65,6 +65,7 @@ test("propagates gdg-lib changes to every dependent application", () => {
     "@gdgjp/deck",
     "@gdgjp/roulette",
     "@gdgjp/pr",
+    "@gdgjp/meet",
     "@gdgjp/website",
     "@gdgjp/gdg-lib",
   ]);
@@ -85,6 +86,7 @@ test("propagates gdg-lib changes to every dependent application", () => {
       "deck",
       "roulette",
       "pr",
+      "meet",
       "website",
     ],
   );
@@ -93,9 +95,9 @@ test("propagates gdg-lib changes to every dependent application", () => {
 test("fans common configuration changes out to every target", () => {
   const result = classifyChanges(["pnpm-lock.yaml"]);
 
-  assert.equal(result.ci.length, 23);
-  assert.equal(result.build.length, 22);
-  assert.equal(result.deploy.length, 20);
+  assert.equal(result.ci.length, 24);
+  assert.equal(result.build.length, 23);
+  assert.equal(result.deploy.length, 21);
   assert.equal(result.openapi, true);
 });
 
@@ -103,13 +105,16 @@ test("treats workflow and detector changes as global for their consumers", () =>
   const ci = classifyChanges([".github/workflows/ci.yml"]);
   const deploy = classifyChanges([".github/workflows/deploy.yml"]);
   const detector = classifyChanges([".github/scripts/changed-workspaces.mjs"]);
+  const action = classifyChanges([".github/actions/playwright-fonts/action.yml"]);
 
-  assert.equal(ci.ci.length, 23);
+  assert.equal(ci.ci.length, 24);
   assert.equal(ci.deploy.length, 0);
   assert.equal(deploy.ci.length, 0);
-  assert.equal(deploy.deploy.length, 20);
-  assert.equal(detector.ci.length, 23);
-  assert.equal(detector.deploy.length, 20);
+  assert.equal(deploy.deploy.length, 21);
+  assert.equal(detector.ci.length, 24);
+  assert.equal(detector.deploy.length, 21);
+  assert.equal(action.ci.length, 24);
+  assert.equal(action.deploy.length, 0);
 });
 
 test("ignores unrelated documentation changes", () => {
@@ -147,8 +152,8 @@ test("manual execution selects every CI and deploy target", () => {
   const result = classifyChanges([], { forceAll: true });
 
   assert.equal(result.full, true);
-  assert.equal(result.ci.length, 23);
-  assert.equal(result.deploy.length, 20);
+  assert.equal(result.ci.length, 24);
+  assert.equal(result.deploy.length, 21);
   assert.equal(result.lint, true);
   assert.equal(result.cli, true);
 });
@@ -169,6 +174,7 @@ test("GDG UI changes validate and deploy its consumers", () => {
     "@gdgjp/deck",
     "@gdgjp/roulette",
     "@gdgjp/pr",
+    "@gdgjp/meet",
   ]);
   assert.deepEqual(result.build, [
     "@gdgjp/design-system",
@@ -184,6 +190,7 @@ test("GDG UI changes validate and deploy its consumers", () => {
     "@gdgjp/deck",
     "@gdgjp/roulette",
     "@gdgjp/pr",
+    "@gdgjp/meet",
   ]);
   assert.deepEqual(result.e2e, [
     "design-system",
@@ -199,6 +206,7 @@ test("GDG UI changes validate and deploy its consumers", () => {
     "deck",
     "roulette",
     "pr",
+    "meet",
   ]);
   assert.deepEqual(
     result.deploy.map(({ app }) => app),
@@ -215,6 +223,7 @@ test("GDG UI changes validate and deploy its consumers", () => {
       "deck",
       "roulette",
       "pr",
+      "meet",
     ],
   );
 });

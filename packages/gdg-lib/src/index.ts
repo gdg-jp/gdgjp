@@ -3,3 +3,4 @@ export * from "./auth/rp";
 export * from "./auth/cookie";
 export * from "./image-upload";
 export * from "./pr-rpc";
+export * from "./meet-rpc";

@@ -27,18 +27,28 @@ export async function actOnOauthConsent({ request, context }: RouteRequestArgs) 
   const accept = form.get("accept") === "true";
   const url = new URL(request.url);
   url.pathname = "/api/auth/oauth2/consent";
+  const headers = new Headers({
+    cookie: request.headers.get("cookie") ?? "",
+    "content-type": "application/json",
+  });
+  const origin = request.headers.get("origin");
+  if (origin) headers.set("origin", origin);
+  const referer = request.headers.get("referer");
+  if (referer) headers.set("referer", referer);
+
   const response = await runAuthHandler(
     context.cloudflare.env,
     new Request(url, {
       method: "POST",
-      headers: { cookie: request.headers.get("cookie") ?? "", "content-type": "application/json" },
+      headers,
       body: JSON.stringify({ accept, oauth_query: oauthQuery }),
     }),
   );
   if (!response.ok) return response;
-  const data = (await response.json()) as { redirect_uri?: string };
-  if (!data.redirect_uri) return new Response("Invalid consent response", { status: 500 });
-  throw redirect(data.redirect_uri);
+  const data = (await response.json()) as { url?: string; redirect_uri?: string };
+  const target = data.url ?? data.redirect_uri;
+  if (!target) return new Response("Invalid consent response", { status: 500 });
+  throw redirect(target);
 }
 
 function toPublicClient(client: { name: string | null; uri: string | null }): PublicClient {
