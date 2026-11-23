@@ -443,6 +443,17 @@ jobs:
           path: local_data/pstack/e2e/
           retention-days: 7
 
+  required:
+    name: Required checks
+    needs: [changes, code-comments, engineering, job-lifecycle, lint, script-tests, openapi, cli, design-harness, typecheck, test, build, e2e]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require every selected check to pass
+        env:
+          RESULTS: ${{ toJSON(needs) }}
+        run: jq -e 'all(.[]; .result == "success" or .result == "skipped")' <<<"$RESULTS"
+
   observations:
     name: Engineering observations
     needs: [changes, code-comments, engineering, job-lifecycle, lint, script-tests, openapi, cli, design-harness, typecheck, test, build, e2e]
