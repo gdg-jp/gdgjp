@@ -24,7 +24,7 @@ variable `CODEX_REVIEW_MODEL` (default `gpt-6.2-astra`) at the reasoning effort 
 4. To ask GDG-chan to check every unresolved finding at once, comment `/ai-review` (or
    mention `@gdg-chan`) on the pull request.
 
-Replies, labels, and `/ai-review` comments start GDG-chan within a minute. GitHub sends
+Replies, labels, and `/ai-review` comments start GDG-chan, usually within a minute. GitHub sends
 no event for reactions, so a scheduled run picks them up within about ten minutes.
 
 | Status | Meaning |
