@@ -1,9 +1,11 @@
+import { decodeBasicCredentials } from "better-auth/oauth2";
+
 const AUTHORIZE_PATH = "/api/auth/oauth2/authorize";
 const TOKEN_PATH = "/api/auth/oauth2/token";
-const JSON_CONTENT_TYPE = /^application\/([a-z0-9.+-]*\+)?json/i;
-const REFUSAL = "resource indicators are not available to developer-owned clients";
+const FORM_MEDIA_TYPE = /^application\/x-www-form-urlencoded\s*(;|$)/i;
+const REFUSAL = "resource indicators are available only to first-party clients";
 
-type ClientRow = { clientId: string; redirectUris: string };
+type ClientRow = { developer: number; redirectUris: string };
 
 export async function refuseDeveloperClientResource(
   env: Pick<Env, "DB" | "APP_URL">,
@@ -15,28 +17,32 @@ export async function refuseDeveloperClientResource(
   return null;
 }
 
+export async function formParameters(request: Request): Promise<URLSearchParams> {
+  if (!request.headers.get("content-type")?.match(FORM_MEDIA_TYPE)) {
+    return new URLSearchParams();
+  }
+  return new URLSearchParams(await request.clone().text());
+}
+
 async function refuseAuthorization(
   env: Pick<Env, "DB" | "APP_URL">,
   request: Request,
   url: URL,
 ): Promise<Response | null> {
-  const sources = [url.searchParams, await bodyParameters(request)];
-  if (!sources.some((params) => params.has("resource"))) return null;
-  const client = await findDeveloperClient(
-    env.DB,
-    sources.flatMap((params) => params.getAll("client_id")),
-  );
-  if (!client) return null;
-  const params = sources.find((source) => source.has("redirect_uri")) ?? url.searchParams;
-  const redirectUri = params.get("redirect_uri");
-  const registered: unknown = JSON.parse(client.redirectUris);
+  const params = request.method === "POST" ? await formParameters(request) : url.searchParams;
+  if (!params.has("resource")) return null;
+  const clientId = soleValue(params, "client_id");
+  const client = clientId === null ? null : await findClient(env.DB, clientId);
+  if (client?.developer === 0) return null;
+  const redirectUri = soleValue(params, "redirect_uri");
+  const registered: unknown = JSON.parse(client?.redirectUris ?? "null");
   if (!redirectUri || !Array.isArray(registered) || !registered.includes(redirectUri)) {
     return invalidTarget();
   }
   const target = new URL(redirectUri);
   target.searchParams.set("error", "invalid_target");
   target.searchParams.set("error_description", REFUSAL);
-  const state = params.get("state");
+  const state = soleValue(params, "state");
   if (state) target.searchParams.set("state", state);
   target.searchParams.set("iss", new URL(env.APP_URL).origin);
   return new Response(null, {
@@ -46,66 +52,43 @@ async function refuseAuthorization(
 }
 
 async function refuseTokenRequest(db: D1Database, request: Request): Promise<Response | null> {
-  const params = await bodyParameters(request);
+  const params = await formParameters(request);
   if (!params.has("resource")) return null;
-  const clientIds = params.getAll("client_id");
-  const basic = basicClientId(request.headers.get("authorization"));
-  if (basic !== null) clientIds.push(basic);
-  if (clientIds.length === 0) return invalidTarget();
-  return (await findDeveloperClient(db, clientIds)) ? invalidTarget() : null;
+  const clientId = tokenClientId(request.headers.get("authorization"), params);
+  const client = clientId === null ? null : await findClient(db, clientId);
+  return client?.developer === 0 ? null : invalidTarget();
 }
 
-function findDeveloperClient(db: D1Database, clientIds: string[]): Promise<ClientRow | null> {
-  return db
-    .prepare(
-      `SELECT "clientId" AS clientId,
-              CASE WHEN json_valid("redirectUris") THEN "redirectUris" ELSE 'null' END
-                AS redirectUris
-       FROM "oauthClient"
-       WHERE "userId" IS NOT NULL AND "clientId" IN (SELECT value FROM json_each(?))
-       LIMIT 1`,
-    )
-    .bind(JSON.stringify(clientIds))
-    .first<ClientRow>();
-}
-
-async function bodyParameters(request: Request): Promise<URLSearchParams> {
-  const params = new URLSearchParams();
-  const contentType = request.headers.get("content-type");
-  if (!contentType) return params;
-  for (const [key, value] of await bodyEntries(request, contentType)) {
-    params.append(key, String(value));
-  }
-  return params;
-}
-
-async function bodyEntries(request: Request, contentType: string): Promise<[string, unknown][]> {
+function tokenClientId(authorization: string | null, params: URLSearchParams): string | null {
+  const bodyIds = params.getAll("client_id").filter((value) => value.length > 0);
+  if (bodyIds.length > 1) return null;
+  if (params.has("client_assertion") || params.has("client_assertion_type")) return null;
+  if (!authorization) return bodyIds[0] ?? null;
+  let basicId: string;
   try {
-    if (JSON_CONTENT_TYPE.test(contentType)) {
-      return Object.entries((await request.clone().json()) ?? {});
-    }
-    return [...(await request.clone().formData())];
-  } catch {
-    return [];
-  }
-}
-
-function basicClientId(authorization: string | null): string | null {
-  const match = authorization?.match(/^basic\s+(\S+)/i);
-  if (!match?.[1]) return null;
-  let decoded: string;
-  try {
-    decoded = atob(match[1]);
+    basicId = decodeBasicCredentials(authorization).clientId;
   } catch {
     return null;
   }
-  const separator = decoded.indexOf(":");
-  const encoded = separator === -1 ? decoded : decoded.slice(0, separator);
-  try {
-    return decodeURIComponent(encoded);
-  } catch {
-    return encoded;
-  }
+  return bodyIds.every((id) => id === basicId) ? basicId : null;
+}
+
+function soleValue(params: URLSearchParams, name: string): string | null {
+  const values = params.getAll(name);
+  return values.length === 1 && values[0] ? values[0] : null;
+}
+
+function findClient(db: D1Database, clientId: string): Promise<ClientRow | null> {
+  return db
+    .prepare(
+      `SELECT "userId" IS NOT NULL AS developer,
+              CASE WHEN json_valid("redirectUris") THEN "redirectUris" ELSE 'null' END
+                AS redirectUris
+       FROM "oauthClient"
+       WHERE "clientId" = ?`,
+    )
+    .bind(clientId)
+    .first<ClientRow>();
 }
 
 function invalidTarget(): Response {

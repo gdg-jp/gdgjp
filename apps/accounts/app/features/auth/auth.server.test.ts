@@ -400,11 +400,24 @@ describe("accounts auth", () => {
     await expect(
       getSessionUser(testEnv(), new Request("https://accounts.example/")),
     ).rejects.toThrow("D1 unavailable");
+  });
 
-    betterAuthMock.handler.mockRejectedValueOnce(new Error("handler crashed"));
-    await expect(
-      runAuthHandler(testEnv(), new Request("https://accounts.example/api/auth/ok")),
-    ).rejects.toThrow("handler crashed");
+  it("has Better Auth throw unexpected errors and answers them with a bare 500", async () => {
+    const error = new Error("handler crashed");
+    const logged = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    betterAuthMock.handler.mockRejectedValueOnce(error);
+
+    const response = await runAuthHandler(
+      testEnv(),
+      new Request("https://accounts.example/api/auth/oauth2/token", { method: "POST" }),
+    );
+
+    expect(betterAuthMock.getOptions()).toMatchObject({ onAPIError: { throw: true } });
+    expect(response.status).toBe(500);
+    expect(response.statusText).toBe("Internal Server Error");
+    await expect(response.text()).resolves.toBe("");
+    expect(logged).toHaveBeenCalledWith("Better Auth request failed", error);
+    logged.mockRestore();
   });
 
   it("clears the deadline timer once the operation settles", async () => {

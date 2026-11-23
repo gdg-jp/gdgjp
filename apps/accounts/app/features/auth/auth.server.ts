@@ -4,6 +4,12 @@ import { betterAuth } from "better-auth";
 import { jwt } from "better-auth/plugins";
 import { listActiveChaptersForUser } from "~/features/memberships/repository.server";
 import { refuseDeveloperClientResource } from "~/features/oauth/developer-client-resource.server";
+import {
+  grantRemovedDuringIssuance,
+  inactiveIntrospection,
+  introspectsDeveloperClientJwt,
+  refuseDeveloperClientUserInfo,
+} from "~/features/oauth/developer-client-tokens.server";
 
 export const CHAPTERS_SCOPE = "https://gdgs.jp/scopes/chapters";
 export const CLI_SCOPE = "https://gdgs.jp/scopes/cli";
@@ -112,9 +118,28 @@ export async function runAuthHandler(
   request: Request,
   onTimeout: () => Response = authUnavailableResponse,
 ): Promise<Response> {
-  const refusal = await refuseDeveloperClientResource(env, request);
+  const refusal =
+    (await refuseDeveloperClientResource(env, request)) ??
+    (await refuseDeveloperClientUserInfo(env.DB, request));
   if (refusal) return refusal;
-  return withAuthTimeout(getAuth(env).handler(request), onTimeout);
+  const concealIntrospection = await introspectsDeveloperClientJwt(env.DB, request);
+  const response = await handleAuthRequest(env, request, onTimeout);
+  return concealIntrospection && response.ok ? inactiveIntrospection() : response;
+}
+
+async function handleAuthRequest(
+  env: Env,
+  request: Request,
+  onTimeout: () => Response,
+): Promise<Response> {
+  try {
+    return await withAuthTimeout(getAuth(env).handler(request), onTimeout);
+  } catch (error) {
+    const refusal = grantRemovedDuringIssuance(request, error);
+    if (refusal) return refusal;
+    console.error("Better Auth request failed", error);
+    return new Response(null, { status: 500, statusText: "Internal Server Error" });
+  }
 }
 
 export async function requireUser(env: Env, request: Request): Promise<AuthUser> {
@@ -144,6 +169,7 @@ function buildAuth(env: Env) {
     basePath: "/api/auth",
     secret: env.BETTER_AUTH_SECRET,
     database: env.DB,
+    onAPIError: { throw: true },
     advanced: {
       cookiePrefix: "gdgjp-accounts",
       database: { generateId: "uuid" },

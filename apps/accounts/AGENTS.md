@@ -32,19 +32,51 @@ grants at `/settings/connected-apps` (`features/oauth/connected-apps.server.ts`)
 user's pending authorization codes, consent, access tokens, and refresh tokens for the client in one
 batch. Seeded first-party clients keep skipping consent and lose their tokens with the session.
 
-Migration 0025 keeps that grant in D1. Its `BEFORE INSERT` triggers abort a developer-owned client's
-token row when the token's user has no `oauthConsent` row for the client, and abort any such refresh
-token that names a resource; a code exchange or refresh rotation that straddles a removal fails
-there. The migration deletes the developer-client tokens that have no consent row (all of them in
-practice, because these clients skipped consent before) and every pending developer-client
-authorization code, so those users see the consent page at their next sign-in through the app.
-Deploy the code before applying it. Applied first, it fails closed: a client that the old console
-creates in between keeps `skipConsent = 1`, so its users are never asked and the triggers refuse its
-tokens until `skipConsent` is set to 0. Developer clients must only ever get opaque,
-row-backed access tokens: `runAuthHandler` refuses a `resource` parameter from a developer-owned
-client at the authorization and token endpoints with `invalid_target`
-(`features/oauth/developer-client-resource.server.ts`), because Better Auth would otherwise issue a
-stateless JWT that removal cannot revoke.
+The `oauthConsent` row is the grant, and migration 0025 keeps that rule in D1:
+
+- `BEFORE INSERT` triggers abort a developer-owned client's access or refresh token when the token's
+  user has no consent row for the client (message `developer client token without consent`), and
+  abort any such refresh token that names a resource. A code exchange or refresh rotation that
+  straddles a removal fails there. `runAuthHandler` answers that abort at the token endpoint with
+  400 `invalid_grant` ("grant revoked during token issuance"); Better Auth is configured with
+  `onAPIError.throw` so that the error reaches it, and every other unexpected error stays a bare 500.
+- An `AFTER DELETE` trigger on `oauthConsent` deletes the user's access tokens, refresh tokens and
+  pending authorization codes for a developer-owned client when the last consent row for that user
+  and client goes, whichever path deletes it (connected apps, Better Auth's `oauth2/delete-consent`,
+  admin revocation). Duplicate consent rows keep the grant until the last one goes. A user deletion
+  cascades through it; a client deletion cascades the tokens by foreign key and leaves its pending
+  codes, which no longer name a client.
+- The migration deletes every existing developer-client token and pending authorization code, with
+  or without a consent row, because all of them predate this model, and keeps consent rows. Users
+  without consent see the consent page at their next sign-in through the app.
+
+Scope coverage is deliberately not enforced on token inserts: Better Auth replaces a consent's scopes
+when the user approves a request for scopes it does not cover, so an app that asks for different
+scope sets at different times legitimately holds tokens wider than its current consent row.
+
+Admin revocation (`revokeUserSessions`) deletes the user's developer-client consent rows in its batch
+as well as every token and session. `setUserAdmin` deletes tokens and sessions so claims are minted
+afresh but keeps consent: changing the admin flag is not the user withdrawing a grant.
+
+Developer clients must only ever get opaque, row-backed access tokens. `runAuthHandler`
+(`features/oauth/developer-client-resource.server.ts`) refuses a `resource` parameter at the
+authorization and token endpoints with `invalid_target` unless the request identifies exactly one
+first-party client the way Better Auth does: a POST authorization request from its form body, a GET
+from its query, and a token request from Better Auth's own Basic-credential decoder, refusing an
+undecodable or non-Basic Authorization header, client assertions, and conflicting client IDs.
+Because a JWT could still exist (issued before this change, or from a code or signed authorization
+query that stored a resource), `features/oauth/developer-client-tokens.server.ts` also answers a
+developer client's JWT (by its `azp`) with 401 `invalid_token` at UserInfo and `{"active": false}` at
+introspection. Other apps accept Accounts access tokens only through UserInfo
+(`packages/gdg-lib/src/auth/bearer.ts`), so this covers them too.
+
+Deploy the code before applying migration 0025. Between the two, the new Worker still issues
+developer-client tokens without consent (existing clients keep `skipConsent = 1`); the migration
+then deletes them. Applying the migration first is not fully closed: the old Worker has no resource
+gate and no JWT refusal, so it can still issue a developer client a JWT access token that reads
+UserInfo until it expires (one hour) or the new Worker is deployed, whichever comes first, and a
+client that the old console creates in between keeps `skipConsent = 1`, so its users are never asked
+and the triggers refuse its tokens until `skipConsent` is set to 0.
 
 ## Single sign-on state for `*.gdgs.jp`
 
@@ -57,7 +89,8 @@ the `sid` its session was bound to and calls `POST /api/rp/v1/session`
 claims on every authenticated request. The `session_end_revokes_oauth_tokens` trigger (migration
 0023, replaced by 0025) deletes a session's OAuth tokens when the session row is deleted, except for
 device-grant (CLI) clients and developer-owned clients. Admin revocation (`revokeUserSessions`,
-`setUserAdmin`) still deletes every token of the user explicitly.
+`setUserAdmin`) still deletes every token of the user explicitly; `revokeUserSessions` also deletes
+the user's developer-client consents.
 
 Chapter authorization uses the dedicated `https://gdgs.jp/scopes/chapters` scope. UserInfo and ID
 tokens include `https://gdgs.jp/claims/chapters` and `https://gdgs.jp/claims/is_admin` only when that

@@ -100,7 +100,11 @@ function migratedDb() {
     async batch(statements: Statement[]) {
       raw.exec("BEGIN");
       try {
-        const results = statements.map((item) => ({ results: run(item) }));
+        const results = statements.map(({ sql, params }) => {
+          const prepared = raw.prepare(sql);
+          if (prepared.columns().length > 0) return { results: prepared.all(...params) };
+          return { results: [], meta: { changes: Number(prepared.run(...params).changes) } };
+        });
         raw.exec("COMMIT");
         return results;
       } catch (error) {
@@ -195,6 +199,46 @@ describe("setUserAdmin", () => {
     await expect(
       setUserAdmin(db, { actorId: "admin-1", targetId: "missing", isAdmin: true }),
     ).resolves.toEqual({ status: "not_found" });
+  });
+});
+
+describe("admin revocation and developer-client grants", () => {
+  function seedGrant() {
+    const { raw, db } = migratedDb();
+    raw.exec(`INSERT INTO "user" (id, name, email, is_admin) VALUES
+      ('owner', 'Owner', 'owner@example.com', 0),
+      ('user-1', 'User', 'user@example.com', 0),
+      ('admin-1', 'Admin', 'admin@example.com', 1)`);
+    raw.exec(`INSERT INTO "oauthClient" (id, "clientId", "redirectUris", "userId") VALUES
+      ('c1', 'dev-app', '[]', 'owner')`);
+    raw.exec(`INSERT INTO "oauthConsent" (id, "clientId", "userId", scopes, "createdAt", "updatedAt")
+      VALUES ('consent', 'dev-app', 'user-1', '[]', '2026-11-01', '2026-11-01')`);
+    raw.exec(`INSERT INTO "oauthRefreshToken"
+      (id, token, "clientId", "userId", "expiresAt", "createdAt", scopes)
+      VALUES ('r1', 't1', 'dev-app', 'user-1', '2999-01-01', '2026-11-01', '[]')`);
+    const counts = () => ({
+      consent: raw.prepare(`SELECT id FROM "oauthConsent"`).all().length,
+      refresh: raw.prepare(`SELECT id FROM "oauthRefreshToken"`).all().length,
+    });
+    return { db, counts };
+  }
+
+  it("revoking a user's sessions revokes their developer-client consent", async () => {
+    const { db, counts } = seedGrant();
+
+    await revokeUserSessions(db, { actorId: "admin-1", targetId: "user-1" });
+
+    expect(counts()).toEqual({ consent: 0, refresh: 0 });
+  });
+
+  it("changing a user's admin flag resets their tokens but keeps their consent", async () => {
+    const { db, counts } = seedGrant();
+
+    await expect(
+      setUserAdmin(db, { actorId: "admin-1", targetId: "user-1", isAdmin: true }),
+    ).resolves.toEqual({ status: "updated" });
+
+    expect(counts()).toEqual({ consent: 1, refresh: 0 });
   });
 });
 

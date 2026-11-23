@@ -147,7 +147,12 @@ function whileConsented(raw: DatabaseSync, clientId: string, userId: string, iss
   if (consented) return issue();
   addConsent(raw, { id: "issuing", clientId, userId, scopes: "[]" });
   issue();
-  raw.exec(`DELETE FROM "oauthConsent" WHERE id = 'issuing'`);
+  detachConsent(raw, "issuing");
+}
+
+function detachConsent(raw: DatabaseSync, id: string) {
+  raw.prepare(`UPDATE "oauthConsent" SET "userId" = NULL WHERE id = ?`).run(id);
+  raw.prepare(`DELETE FROM "oauthConsent" WHERE id = ?`).run(id);
 }
 
 type TokenRow = {
@@ -374,38 +379,29 @@ describe("migration 0025", () => {
     });
   });
 
-  it("deletes developer grants issued without consent and their pending codes on upgrade", () => {
+  it("deletes every existing developer-client token and pending code on upgrade", () => {
     const { raw, finishMigrations } = migratedDb({ stopBefore: TRIGGER_MIGRATION });
     seed(raw);
     const resources = '["https://accounts.example/api/auth/oauth2/userinfo"]';
-    addConsent(raw, { id: "kept", clientId: "dev-app", userId: "user-1", scopes: "[]" });
-    insertRefreshToken(raw, { id: "r-consented", clientId: "dev-app", userId: "user-1" });
+    addConsent(raw, { id: "narrow", clientId: "dev-app", userId: "user-1", scopes: "[]" });
+    addConsent(raw, {
+      id: "wide",
+      clientId: "dev-other",
+      userId: "user-1",
+      scopes: '["openid","offline_access"]',
+    });
+    insertRefreshToken(raw, { id: "r-narrow", clientId: "dev-app", userId: "user-1" });
     insertAccessToken(raw, {
-      id: "a-consented",
+      id: "a-narrow",
       clientId: "dev-app",
       userId: "user-1",
-      refreshId: "r-consented",
+      refreshId: "r-narrow",
+      scopes: '["openid","email"]',
     });
-    insertRefreshToken(raw, {
-      id: "r-resource",
-      clientId: "dev-app",
-      userId: "user-1",
-      resources,
-    });
-    insertAccessToken(raw, {
-      id: "a-resource",
-      clientId: "dev-app",
-      userId: "user-1",
-      refreshId: "r-resource",
-    });
-    insertRefreshToken(raw, { id: "r-unconsented", clientId: "dev-app", userId: "user-2" });
-    insertAccessToken(raw, {
-      id: "a-unconsented",
-      clientId: "dev-app",
-      userId: "user-2",
-      refreshId: "r-unconsented",
-    });
-    insertAccessToken(raw, { id: "a-other-app", clientId: "dev-other", userId: "user-1" });
+    insertRefreshToken(raw, { id: "r-covered", clientId: "dev-other", userId: "user-1" });
+    insertAccessToken(raw, { id: "a-covered", clientId: "dev-other", userId: "user-1" });
+    insertRefreshToken(raw, { id: "r-resource", clientId: "dev-app", userId: "user-2", resources });
+    insertAccessToken(raw, { id: "a-unconsented", clientId: "dev-app", userId: "user-2" });
     insertAccessToken(raw, { id: "a-userless", clientId: "dev-app", userId: null });
     insertRefreshToken(raw, { id: "r-wiki", clientId: "fp-wiki", userId: "user-1", resources });
     insertAccessToken(raw, { id: "a-wiki", clientId: "fp-wiki", userId: "user-2" });
@@ -424,26 +420,136 @@ describe("migration 0025", () => {
 
     finishMigrations();
 
-    expect(tokenIds(raw)).toEqual({
-      access: ["a-consented", "a-wiki"],
-      refresh: ["r-cli", "r-consented", "r-wiki"],
-    });
-    expect(consentIds(raw)).toEqual(["kept"]);
+    expect(tokenIds(raw)).toEqual({ access: ["a-wiki"], refresh: ["r-cli", "r-wiki"] });
+    expect(consentIds(raw)).toEqual(["narrow", "wide"]);
     expect(verificationIds(raw)).toEqual(["code-wiki", "plain", "state-dev"]);
   });
 
-  it("still deletes every token when an administrator revokes the user's sessions", async () => {
+  it("revokes the user's grant for an app when its last consent row is deleted", () => {
+    const { raw } = migratedDb();
+    seed(raw);
+    addConsent(raw, { id: "first", clientId: "dev-app", userId: "user-1", scopes: "[]" });
+    addConsent(raw, { id: "second", clientId: "dev-app", userId: "user-1", scopes: "[]" });
+    addConsent(raw, { id: "theirs", clientId: "dev-app", userId: "user-2", scopes: "[]" });
+    addConsent(raw, { id: "other-app", clientId: "dev-other", userId: "user-1", scopes: "[]" });
+    addConsent(raw, { id: "wiki", clientId: "fp-wiki", userId: "user-1", scopes: "[]" });
+    for (const [id, clientId, userId] of [
+      ["mine", "dev-app", "user-1"],
+      ["theirs", "dev-app", "user-2"],
+      ["other-app", "dev-other", "user-1"],
+      ["wiki", "fp-wiki", "user-1"],
+    ] as const) {
+      addTokens(raw, { id, clientId, userId });
+      addAuthorizationCode(raw, { id: `code-${id}`, clientId, userId });
+    }
+    addAuthorizationCode(raw, {
+      id: "state-mine",
+      clientId: "dev-app",
+      userId: "user-1",
+      type: "oauth_state",
+    });
+    const unchanged = {
+      tokens: tokenIds(raw),
+      codes: ["code-mine", "code-other-app", "code-theirs", "code-wiki", "state-mine"],
+    };
+    expect(verificationIds(raw)).toEqual(unchanged.codes);
+
+    raw.exec(`DELETE FROM "oauthConsent" WHERE id = 'first'`);
+    expect(tokenIds(raw)).toEqual(unchanged.tokens);
+    expect(verificationIds(raw)).toEqual(unchanged.codes);
+
+    raw.exec(`DELETE FROM "oauthConsent" WHERE id IN ('second', 'wiki')`);
+    expect(tokenIds(raw)).toEqual({
+      access: ["a-other-app", "a-theirs", "a-wiki"],
+      refresh: ["r-other-app", "r-theirs", "r-wiki"],
+    });
+    expect(verificationIds(raw)).toEqual([
+      "code-other-app",
+      "code-theirs",
+      "code-wiki",
+      "state-mine",
+    ]);
+  });
+
+  it("deletes both duplicate consent rows' grant in one statement", () => {
+    const { raw } = migratedDb();
+    seed(raw);
+    addConsent(raw, { id: "first", clientId: "dev-app", userId: "user-1", scopes: "[]" });
+    addConsent(raw, { id: "second", clientId: "dev-app", userId: "user-1", scopes: "[]" });
+    addTokens(raw, { id: "mine", clientId: "dev-app", userId: "user-1" });
+
+    raw.exec(`DELETE FROM "oauthConsent" WHERE "clientId" = 'dev-app'`);
+
+    expect(tokenIds(raw)).toEqual({ access: [], refresh: [] });
+  });
+
+  it("lets a user or client deletion cascade through consent", () => {
+    const { raw } = migratedDb();
+    seed(raw);
+    addConsent(raw, { id: "mine", clientId: "dev-app", userId: "user-1", scopes: "[]" });
+    addConsent(raw, { id: "theirs", clientId: "dev-other", userId: "user-2", scopes: "[]" });
+    addTokens(raw, { id: "mine", clientId: "dev-app", userId: "user-1" });
+    addTokens(raw, { id: "theirs", clientId: "dev-other", userId: "user-2" });
+    addAuthorizationCode(raw, { id: "code-theirs", clientId: "dev-other", userId: "user-2" });
+
+    raw.exec(`DELETE FROM "user" WHERE id = 'user-1'`);
+    raw.exec(`DELETE FROM "oauthClient" WHERE "clientId" = 'dev-other'`);
+
+    expect(consentIds(raw)).toEqual([]);
+    expect(tokenIds(raw)).toEqual({ access: [], refresh: [] });
+    expect(verificationIds(raw)).toEqual(["code-theirs"]);
+  });
+
+  it("keeps consent when the owner's last membership ends and migration 0014 revokes tokens", () => {
+    const { raw } = migratedDb();
+    seed(raw);
+    raw.exec(`INSERT INTO chapters (id, slug, name, kind) VALUES (1, 'tokyo', 'Tokyo', 'gdg')`);
+    raw.exec(`INSERT INTO memberships (user_id, chapter_id, role, status)
+      VALUES ('owner', 1, 'member', 'active')`);
+    addConsent(raw, { id: "mine", clientId: "dev-app", userId: "user-1", scopes: "[]" });
+    addTokens(raw, { id: "mine", clientId: "dev-app", userId: "user-1" });
+
+    raw.exec(`DELETE FROM memberships WHERE user_id = 'owner'`);
+
+    expect(tokenIds(raw)).toEqual({ access: [], refresh: [] });
+    expect(consentIds(raw)).toEqual(["mine"]);
+    expect(
+      raw.prepare(`SELECT disabled FROM "oauthClient" WHERE "clientId" = 'dev-app'`).get(),
+    ).toEqual({ disabled: 1 });
+  });
+
+  it("revokes developer grants and every token when an administrator revokes the user's sessions", async () => {
     const { raw, db } = migratedDb();
     seed(raw);
     addSession(raw, "s1", "user-1");
+    addConsent(raw, { id: "mine", clientId: "dev-app", userId: "user-1", scopes: "[]" });
+    addConsent(raw, { id: "theirs", clientId: "dev-app", userId: "user-2", scopes: "[]" });
+    addConsent(raw, { id: "wiki", clientId: "fp-wiki", userId: "user-1", scopes: "[]" });
     addTokens(raw, { id: "dev", clientId: "dev-app", userId: "user-1", sessionId: "s1" });
     addTokens(raw, { id: "wiki", clientId: "fp-wiki", userId: "user-1", sessionId: "s1" });
+    addAuthorizationCode(raw, { id: "code-mine", clientId: "dev-app", userId: "user-1" });
 
     await expect(revokeUserSessions(db, { actorId: "admin", targetId: "user-1" })).resolves.toEqual(
       { status: "revoked" },
     );
 
     expect(tokenIds(raw)).toEqual({ access: [], refresh: [] });
+    expect(consentIds(raw)).toEqual(["theirs", "wiki"]);
+    expect(verificationIds(raw)).toEqual([]);
+  });
+
+  it("stops a rotation whose successor lands on either side of an administrator's revocation", async () => {
+    const { raw, db } = migratedDb();
+    seed(raw);
+    addConsent(raw, { id: "mine", clientId: "dev-app", userId: "user-1", scopes: "[]" });
+    insertRefreshToken(raw, { id: "r-before", clientId: "dev-app", userId: "user-1" });
+
+    await revokeUserSessions(db, { actorId: "admin", targetId: "user-1" });
+
+    expect(tokenIds(raw)).toEqual({ access: [], refresh: [] });
+    expect(() =>
+      insertRefreshToken(raw, { id: "r-after", clientId: "dev-app", userId: "user-1" }),
+    ).toThrow(/developer client token without consent/);
   });
 });
 
@@ -617,16 +723,18 @@ describe("listConnectedApps", () => {
     ]);
   });
 
-  it("lists an app whose consent was deleted while its tokens live", async () => {
+  it("drops an app whose last consent row is deleted", async () => {
     const { raw, db } = migratedDb();
     seed(raw);
     addConsent(raw, { id: "c", clientId: "dev-app", userId: "user-1", scopes: '["email"]' });
     addTokens(raw, { id: "live", clientId: "dev-app", userId: "user-1", scopes: ["openid"] });
+    expect((await listConnectedApps(db, "user-1", NOW)).map((app) => app.clientId)).toEqual([
+      "dev-app",
+    ]);
+
     raw.exec(`DELETE FROM "oauthConsent" WHERE id = 'c'`);
 
-    const [app] = await listConnectedApps(db, "user-1", NOW);
-
-    expect(app).toMatchObject({ clientId: "dev-app", scopes: ["openid"], grantedAt: null });
+    await expect(listConnectedApps(db, "user-1", NOW)).resolves.toEqual([]);
   });
 
   it("uses the current time by default", async () => {
@@ -734,14 +842,17 @@ describe("removeConnectedApp", () => {
     addConsent(raw, { id: "mine", clientId: "dev-app", userId: "user-1", scopes: "[]" });
     addTokens(raw, { id: "old", clientId: "dev-app", userId: "user-1" });
     raw.exec(`UPDATE "oauthRefreshToken" SET revoked = '${PAST}' WHERE id = 'r-old'`);
+    insertRefreshToken(raw, { id: "r-before", clientId: "dev-app", userId: "user-1" });
+    insertAccessToken(raw, { id: "a-before", clientId: "dev-app", userId: "user-1" });
 
     await removeConnectedApp(db, "user-1", "dev-app");
 
+    expect(tokenIds(raw)).toEqual({ access: [], refresh: [] });
     expect(() =>
-      insertRefreshToken(raw, { id: "r-next", clientId: "dev-app", userId: "user-1" }),
+      insertRefreshToken(raw, { id: "r-after", clientId: "dev-app", userId: "user-1" }),
     ).toThrow(/developer client token without consent/);
     expect(() =>
-      insertAccessToken(raw, { id: "a-code", clientId: "dev-app", userId: "user-1" }),
+      insertAccessToken(raw, { id: "a-after", clientId: "dev-app", userId: "user-1" }),
     ).toThrow(/developer client token without consent/);
     expect(tokenIds(raw)).toEqual({ access: [], refresh: [] });
   });

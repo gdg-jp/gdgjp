@@ -15,6 +15,7 @@ import {
   createSignedInUser,
   deleteSignedInUser,
   execute,
+  queryRows,
   sqlString,
 } from "./support/signed-in-user";
 
@@ -31,6 +32,12 @@ let owner: SignedInUser;
 let user: SignedInUser;
 
 type Tokens = { access_token: string; refresh_token?: string };
+
+const INVALID_CODE = { error: "invalid_grant", error_description: "invalid code" };
+const GRANT_REVOKED = {
+  error: "invalid_grant",
+  error_description: "grant revoked during token issuance",
+};
 
 test.describe.configure({ mode: "serial" });
 
@@ -145,6 +152,26 @@ function userinfo(request: APIRequestContext, accessToken: string) {
   });
 }
 
+async function deleteConsentThroughBetterAuth(page: Page) {
+  const consents = (await (
+    await page.request.get(`${ACCOUNTS_URL}/api/auth/oauth2/get-consents`)
+  ).json()) as { id: string; clientId: string }[];
+  const consent = consents.find((row) => row.clientId === clientId);
+  expect(consent).toBeTruthy();
+  const deleted = await page.request.post(`${ACCOUNTS_URL}/api/auth/oauth2/delete-consent`, {
+    headers: { Origin: ACCOUNTS_URL },
+    data: { id: consent?.id },
+  });
+  expect(deleted.ok()).toBe(true);
+}
+
+function pendingCodeOfUser() {
+  return `json_valid("value")
+    AND json_extract("value", '$.type') = 'authorization_code'
+    AND json_extract("value", '$.userId') = ${sqlString(user.id)}
+    AND json_extract("value", '$.query.client_id') = ${sqlString(clientId)}`;
+}
+
 test("a developer client asks for consent and keeps its grant until the user removes it", async ({
   browser,
 }) => {
@@ -231,31 +258,116 @@ test("an authorization code issued before the user removes access cannot be exch
   expect(afterRemoval.status()).toBe(400);
   expect(((await afterRemoval.json()) as { error?: string }).error).toBe("invalid_grant");
 
+  const deletedVerifier = randomBytes(32).toString("base64url");
+  const deletedCode = await approve(page, deletedVerifier);
+  await deleteConsentThroughBetterAuth(page);
+  const afterDeletion = await exchange(app, deletedCode, deletedVerifier);
+  expect(afterDeletion.status(), "the consent trigger deletes the pending code").toBe(400);
+  expect(await afterDeletion.json()).toEqual(INVALID_CODE);
+
   const racingVerifier = randomBytes(32).toString("base64url");
   const racingCode = await approve(page, racingVerifier);
-  const consents = (await (
-    await page.request.get(`${ACCOUNTS_URL}/api/auth/oauth2/get-consents`)
-  ).json()) as { id: string; clientId: string }[];
-  const consent = consents.find((row) => row.clientId === clientId);
-  expect(consent).toBeTruthy();
-  const deleted = await page.request.post(`${ACCOUNTS_URL}/api/auth/oauth2/delete-consent`, {
-    headers: { Origin: ACCOUNTS_URL },
-    data: { id: consent?.id },
-  });
-  expect(deleted.ok()).toBe(true);
-
+  execute(
+    database,
+    `UPDATE "oauthConsent" SET "userId" = ${sqlString(owner.id)}
+     WHERE "userId" = ${sqlString(user.id)} AND "clientId" = ${sqlString(clientId)};`,
+  );
+  expect(
+    queryRows(database, `SELECT 1 AS pending FROM "verification" WHERE ${pendingCodeOfUser()}`),
+  ).toHaveLength(1);
   const withoutConsent = await exchange(app, racingCode, racingVerifier);
-  test.info().annotations.push({
-    type: "code exchange after consent deletion",
-    description: `${withoutConsent.status()} ${await withoutConsent.text()}`,
-  });
-  expect(withoutConsent.status()).toBeGreaterThanOrEqual(400);
-  expect(await withoutConsent.text()).not.toContain("access_token");
+  expect(withoutConsent.status(), "the insert trigger refuses the token").toBe(400);
+  expect(withoutConsent.headers()["cache-control"]).toBe("no-store");
+  expect(await withoutConsent.json()).toEqual(GRANT_REVOKED);
   const retried = await exchange(app, racingCode, racingVerifier);
   expect(retried.status()).toBe(400);
-  expect(((await retried.json()) as { error?: string }).error).toBe("invalid_grant");
+  expect(await retried.json()).toEqual(INVALID_CODE);
+  execute(
+    database,
+    `DELETE FROM "oauthConsent"
+     WHERE "userId" = ${sqlString(owner.id)} AND "clientId" = ${sqlString(clientId)};`,
+  );
   await page.goto(`${ACCOUNTS_URL}/settings/connected-apps`);
   await expect(page.getByText("No apps have access to your account.")).toBeVisible();
+
+  await page.context().close();
+  await app.dispose();
+});
+
+test("Better Auth's own consent deletion revokes the tokens already issued", async ({
+  browser,
+}) => {
+  const page = await signedInPage(
+    browser,
+    createSession(database, ACCOUNTS_URL, betterAuthSecret(), user),
+  );
+  const app = await apiRequest.newContext();
+  const verifier = randomBytes(32).toString("base64url");
+  const issued = await exchange(app, await approve(page, verifier), verifier);
+  expect(issued.status()).toBe(200);
+  const tokens = (await issued.json()) as Tokens;
+  expect((await userinfo(app, tokens.access_token)).status()).toBe(200);
+
+  await deleteConsentThroughBetterAuth(page);
+
+  const me = await userinfo(app, tokens.access_token);
+  expect(me.status()).toBe(401);
+  expect(((await me.json()) as { error?: string }).error).toBe("invalid_token");
+  const refreshed = await token(app, {
+    grant_type: "refresh_token",
+    refresh_token: tokens.refresh_token ?? "",
+  });
+  expect(refreshed.status()).toBe(400);
+  expect(((await refreshed.json()) as { error?: string }).error).toBe("invalid_grant");
+
+  await page.context().close();
+  await app.dispose();
+});
+
+test("a developer client's JWT access token does not work at Accounts", async ({ browser }) => {
+  const page = await signedInPage(
+    browser,
+    createSession(database, ACCOUNTS_URL, betterAuthSecret(), user),
+  );
+  const app = await apiRequest.newContext();
+  const userinfoUrl = `${ACCOUNTS_URL}/api/auth/oauth2/userinfo`;
+  const verifier = randomBytes(32).toString("base64url");
+  const code = await approve(page, verifier);
+  execute(
+    database,
+    `UPDATE "verification"
+     SET "value" = json_set("value", '$.resource', json(${sqlString(JSON.stringify([userinfoUrl]))}),
+                            '$.query.scope', 'openid email')
+     WHERE ${pendingCodeOfUser()};`,
+  );
+
+  const issued = await exchange(app, code, verifier);
+  expect(issued.status(), "a stored resource is inherited without a resource parameter").toBe(200);
+  const { access_token: accessToken } = (await issued.json()) as Tokens;
+  const payload = JSON.parse(
+    Buffer.from(accessToken.split(".")[1] ?? "", "base64url").toString("utf8"),
+  ) as { azp?: string; aud?: string };
+  expect(payload).toMatchObject({ azp: clientId, aud: userinfoUrl });
+
+  for (const path of ["/api/auth/oauth2/userinfo", "/userinfo"]) {
+    const refused = await app.get(`${ACCOUNTS_URL}${path}`, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+    expect(refused.status(), path).toBe(401);
+    expect(refused.headers()["www-authenticate"], path).toBe(
+      'Bearer error="invalid_token", error_description="Invalid access token"',
+    );
+    expect(await refused.json(), path).toEqual({
+      error: "invalid_token",
+      error_description: "Invalid access token",
+    });
+  }
+  const introspected = await app.post(`${ACCOUNTS_URL}/api/auth/oauth2/introspect`, {
+    headers: { Authorization: basic },
+    form: { token: accessToken },
+  });
+  expect(introspected.status()).toBe(200);
+  expect(await introspected.json()).toEqual({ active: false });
 
   await page.context().close();
   await app.dispose();

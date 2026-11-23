@@ -329,6 +329,26 @@ WHEN NEW."clientId" IN (SELECT "clientId" FROM "oauthClient" WHERE "userId" IS N
 BEGIN
   SELECT RAISE(ABORT, 'developer client token without consent');
 END;
+CREATE TRIGGER developer_client_consent_removal_revokes_grant
+AFTER DELETE ON "oauthConsent"
+WHEN OLD."userId" IS NOT NULL
+  AND OLD."clientId" IN (SELECT "clientId" FROM "oauthClient" WHERE "userId" IS NOT NULL)
+  AND NOT EXISTS (
+    SELECT 1 FROM "oauthConsent"
+    WHERE "userId" = OLD."userId" AND "clientId" = OLD."clientId"
+  )
+BEGIN
+  DELETE FROM "verification"
+  WHERE CASE WHEN json_valid("value") THEN
+    json_extract("value", '$.type') = 'authorization_code'
+    AND json_extract("value", '$.userId') = OLD."userId"
+    AND json_extract("value", '$.query.client_id') = OLD."clientId"
+  ELSE 0 END;
+  DELETE FROM "oauthAccessToken"
+  WHERE "userId" = OLD."userId" AND "clientId" = OLD."clientId";
+  DELETE FROM "oauthRefreshToken"
+  WHERE "userId" = OLD."userId" AND "clientId" = OLD."clientId";
+END;
 CREATE TRIGGER session_end_revokes_oauth_tokens
 BEFORE DELETE ON "session"
 BEGIN
