@@ -1,3 +1,5 @@
+import { base64Url } from "@better-auth/utils/base64";
+import { createHash } from "@better-auth/utils/hash";
 import { decodeBasicCredentials } from "better-auth/oauth2";
 
 const AUTHORIZE_PATH = "/api/auth/oauth2/authorize";
@@ -81,12 +83,8 @@ async function codeStoresResource(db: D1Database, code: string): Promise<boolean
 }
 
 async function storedCodeIdentifier(code: string): Promise<string> {
-  const digest = new Uint8Array(
-    await crypto.subtle.digest("SHA-256", new TextEncoder().encode(code)),
-  );
-  let binary = "";
-  for (const byte of digest) binary += String.fromCharCode(byte);
-  return btoa(binary).replace(/=+$/, "").replace(/\+/g, "-").replace(/\//g, "_");
+  const digest = await createHash("SHA-256").digest(new TextEncoder().encode(code));
+  return base64Url.encode(new Uint8Array(digest), { padding: false });
 }
 
 function tokenClientId(authorization: string | null, params: URLSearchParams): string | null {

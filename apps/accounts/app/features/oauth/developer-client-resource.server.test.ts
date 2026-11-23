@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { readFileSync, readdirSync } from "node:fs";
 import { DatabaseSync, type SQLInputValue } from "node:sqlite";
 import { describe, expect, it } from "vitest";
@@ -13,7 +14,7 @@ const FP_REDIRECT = "https://wiki.example/callback";
 const REFUSAL = "resource indicators are available only to first-party clients";
 const FORM = "application/x-www-form-urlencoded";
 
-function testEnv() {
+function testEnv(storedCodes: Record<string, unknown> = {}) {
   const raw = new DatabaseSync(":memory:");
   raw.exec("PRAGMA foreign_keys = ON");
   const directory = new URL("../../../migrations/", import.meta.url);
@@ -36,6 +37,12 @@ function testEnv() {
       JSON.stringify([DEV_REDIRECT]),
       JSON.stringify([DEV_REDIRECT]),
     );
+  for (const [code, value] of Object.entries(storedCodes)) {
+    raw
+      .prepare(`INSERT INTO "verification" (id, identifier, value, "expiresAt", "createdAt", "updatedAt")
+        VALUES (?, ?, ?, '2999-01-01', '2026-01-01', '2026-01-01')`)
+      .run(code, createHash("sha256").update(code).digest("base64url"), JSON.stringify(value));
+  }
   const statement = (sql: string, params: SQLInputValue[] = []) => ({
     bind: (...next: SQLInputValue[]) => statement(sql, next),
     first: async () => raw.prepare(sql).all(...params)[0] ?? null,
@@ -360,6 +367,71 @@ describe("refuseDeveloperClientResource at the token endpoint", () => {
     ],
   ])("lets %s through", async (_name, request) => {
     await expect(refuseDeveloperClientResource(testEnv(), request)).resolves.toBeNull();
+  });
+});
+
+describe("refuseDeveloperClientResource for a stored authorization code", () => {
+  const codeFor = (client: string, extra: Record<string, unknown>) => ({
+    type: "authorization_code",
+    userId: "owner",
+    query: { client_id: client },
+    ...extra,
+  });
+  const storedCodes = {
+    "dev-resource": codeFor("dev:app", { resource: RESOURCE }),
+    "dev-resources": codeFor("dev:app", { resource: [RESOURCE] }),
+    "dev-query": { ...codeFor("dev:app", {}), query: { client_id: "dev:app", resource: RESOURCE } },
+    "dev-null": codeFor("dev:app", { resource: null }),
+    "dev-empty": codeFor("dev:app", { resource: [] }),
+    "dev-plain": codeFor("dev:app", {}),
+    "fp-resource": codeFor("fp-wiki", { resource: RESOURCE }),
+  };
+  const exchange = (code: string, client: string, grantType = "authorization_code") =>
+    refuseDeveloperClientResource(
+      testEnv(storedCodes),
+      tokenForm(
+        { grant_type: grantType, code, redirect_uri: DEV_REDIRECT },
+        {
+          Authorization: basic(`${encodeURIComponent(client)}:secret`),
+        },
+      ),
+    );
+
+  it.each(["dev-resource", "dev-resources", "dev-query"])(
+    "refuses a developer client's exchange of %s",
+    async (code) => {
+      await expectInvalidTarget(await exchange(code, "dev:app"));
+      await expectInvalidTarget(await exchange(code, "missing"));
+    },
+  );
+
+  it.each(["dev-null", "dev-empty", "dev-plain", "never-issued"])(
+    "lets a developer client exchange %s",
+    async (code) => {
+      await expect(exchange(code, "dev:app")).resolves.toBeNull();
+    },
+  );
+
+  it("lets a first-party client exchange a code that stores a resource", async () => {
+    await expect(exchange("fp-resource", "fp-wiki")).resolves.toBeNull();
+  });
+
+  it("looks a code up only for an authorization-code exchange", async () => {
+    await expect(exchange("dev-resource", "dev:app", "refresh_token")).resolves.toBeNull();
+    const untouched = {
+      DB: {
+        prepare: () => {
+          throw new Error("the database must not be read");
+        },
+      } as unknown as D1Database,
+      APP_URL: ORIGIN,
+    };
+    await expect(
+      refuseDeveloperClientResource(
+        untouched,
+        tokenForm({ grant_type: "refresh_token" }, { Authorization: basic("dev%3Aapp:s") }),
+      ),
+    ).resolves.toBeNull();
   });
 });
 

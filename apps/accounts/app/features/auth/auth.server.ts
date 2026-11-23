@@ -250,11 +250,11 @@ function buildAuth(env: Env) {
         grantTypes: ["authorization_code", "refresh_token"],
         silenceWarnings: { oauthAuthServerConfig: true, openidConfig: true },
         customUserInfoClaims: async ({ user, scopes, jwt }) => ({
-          ...(scopes.includes(CHAPTERS_SCOPE) ? await chapterClaims(env.DB, user.id, user) : {}),
+          ...(grants(scopes, CHAPTERS_SCOPE) ? await chapterClaims(env.DB, user.id, user) : {}),
           ...(await clientClaim(env.DB, jwt)),
         }),
         customIdTokenClaims: async ({ user, scopes }) =>
-          scopes.includes(CHAPTERS_SCOPE) ? chapterClaims(env.DB, user.id, user) : {},
+          grants(scopes, CHAPTERS_SCOPE) ? chapterClaims(env.DB, user.id, user) : {},
       }),
     ],
   });
@@ -281,12 +281,16 @@ async function clientClaim(
   jwt: Record<string, unknown> | undefined,
 ): Promise<Record<string, unknown>> {
   const id = typeof jwt?.client_id === "string" ? jwt.client_id : jwt?.azp;
-  if (typeof id !== "string" || !id) return {};
+  if (typeof id !== "string" || id.length === 0) return {};
   const client = await db
     .prepare(`SELECT "userId" IS NULL AS firstParty FROM "oauthClient" WHERE "clientId" = ?`)
     .bind(id)
     .first<{ firstParty: number }>();
   return client ? { [CLIENT_CLAIM]: { id, first_party: client.firstParty === 1 } } : {};
+}
+
+function grants(scopes: readonly string[], scope: string): boolean {
+  return scopes.some((granted) => granted === scope);
 }
 
 function trimTrailing(value: string): string {

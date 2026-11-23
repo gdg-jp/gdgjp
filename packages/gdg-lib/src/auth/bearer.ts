@@ -43,7 +43,7 @@ export async function getBearerIdentity(
 }
 
 function parseClient(value: unknown): BearerClient | null {
-  if (!value || typeof value !== "object") return null;
+  if (!value) return null;
   const client = value as Record<string, unknown>;
   if (typeof client.id !== "string" || !client.id) return null;
   if (typeof client.first_party !== "boolean") return null;

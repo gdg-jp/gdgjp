@@ -316,7 +316,9 @@ describe("accounts auth", () => {
       ],
       allowDynamicClientRegistration: false,
       allowUnauthenticatedClientRegistration: false,
-      advertisedMetadata: { claims_supported: [CHAPTERS_CLAIM, IS_ADMIN_CLAIM, CLIENT_CLAIM] },
+      advertisedMetadata: {
+        claims_supported: [CHAPTERS_CLAIM, IS_ADMIN_CLAIM, "https://gdgs.jp/claims/client"],
+      },
       accessTokenExpiresIn: 3_600,
       refreshTokenExpiresIn: 2_592_000,
       grantTypes: ["authorization_code", "refresh_token"],
@@ -390,17 +392,13 @@ describe("accounts auth", () => {
 
   it("tells UserInfo callers whether the token's client is first-party", async () => {
     const owners: Record<string, string | null> = { wiki: null, "dev-app": "owner" };
-    const env = {
-      ...testEnv(),
-      DB: {
-        prepare: () => ({
-          bind: (clientId: string) => ({
-            first: async () =>
-              clientId in owners ? { firstParty: owners[clientId] === null ? 1 : 0 } : null,
-          }),
-        }),
-      },
-    } as unknown as Env;
+    const prepare = vi.fn(() => ({
+      bind: (clientId: string) => ({
+        first: async () =>
+          clientId in owners ? { firstParty: owners[clientId] === null ? 1 : 0 } : null,
+      }),
+    }));
+    const env = { ...testEnv(), DB: { prepare } } as unknown as Env;
     getAuth(env);
     const userInfo = oauthProviderMock.options?.customUserInfoClaims as (ctx: {
       user: Record<string, unknown>;
@@ -411,13 +409,17 @@ describe("accounts auth", () => {
     const scopes = ["openid"];
 
     await expect(userInfo({ user, scopes, jwt: { client_id: "wiki" } })).resolves.toEqual({
-      [CLIENT_CLAIM]: { id: "wiki", first_party: true },
+      "https://gdgs.jp/claims/client": { id: "wiki", first_party: true },
     });
     await expect(userInfo({ user, scopes, jwt: { azp: "dev-app" } })).resolves.toEqual({
       [CLIENT_CLAIM]: { id: "dev-app", first_party: false },
     });
     await expect(userInfo({ user, scopes, jwt: { client_id: "gone" } })).resolves.toEqual({});
-    await expect(userInfo({ user, scopes, jwt: {} })).resolves.toEqual({});
+    prepare.mockClear();
+    for (const jwt of [{}, { client_id: "" }, { azp: "" }, { azp: 7 }]) {
+      await expect(userInfo({ user, scopes, jwt })).resolves.toEqual({});
+    }
+    expect(prepare).not.toHaveBeenCalled();
     const idToken = oauthProviderMock.options?.customIdTokenClaims as typeof userInfo;
     await expect(idToken({ user, scopes, jwt: { client_id: "wiki" } })).resolves.toEqual({});
   });

@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { getBearerIdentity, getCliIdentity } from "./bearer";
-import { CHAPTERS_CLAIM, CLIENT_CLAIM, IS_ADMIN_CLAIM } from "./claims";
+import { CHAPTERS_CLAIM, IS_ADMIN_CLAIM } from "./claims";
 
 function jsonResponse(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
@@ -73,7 +73,7 @@ describe("getBearerIdentity", () => {
     const identityWith = async (claim: unknown) => {
       vi.stubGlobal(
         "fetch",
-        vi.fn(async () => jsonResponse({ sub: "user-1", [CLIENT_CLAIM]: claim })),
+        vi.fn(async () => jsonResponse({ sub: "user-1", "https://gdgs.jp/claims/client": claim })),
       );
       return (await getBearerIdentity(requestWithAuth("Bearer t"), "https://accounts.example"))
         ?.client;
