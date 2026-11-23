@@ -4,7 +4,7 @@ import {
   removeAclSpans,
   sourceAudienceKey,
 } from "@gdgjp/gdg-lib/acl";
-import { sourceAudience } from "~/features/sources/audience";
+import { NO_AUDIENCE, sourceAudience } from "~/features/sources/audience";
 import { PAGE_AUDIENCE, aclItemKey, pageItemKey } from "./shared";
 
 export type MirrorItem = {
@@ -38,7 +38,7 @@ export function spanAudience(
   const cited = srcIds.map((id) => sources.get(id));
   if (cited.length === 0 || cited.some((source) => !source)) return null;
   const audiences = [...new Set(cited.map((source) => sourceAudience(source as MirrorSource)))];
-  if (audiences.length === 1) return audiences[0] === "none" ? null : (audiences[0] ?? null);
+  if (audiences.length === 1) return audiences[0] === NO_AUDIENCE ? null : (audiences[0] ?? null);
   const keys = (cited as MirrorSource[]).map((source) => ({
     audience: sourceAudience(source),
     key: sourceAudienceKey(source.visibility, source.chapterId),

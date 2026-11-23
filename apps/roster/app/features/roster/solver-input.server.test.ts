@@ -162,6 +162,23 @@ describe("buildSolverInput", () => {
     expect(input.applications.map((a) => a.id)).toEqual(["app_a", "app_m", "app_z"]);
   });
 
+  it("inserts demands in demandKey order regardless of D1 row order", async () => {
+    await testDb
+      .prepare(
+        `INSERT INTO demands (event_id, time_slot_id, track_id, role_id, min_count, ideal_count, lead_min, new_max)
+         VALUES ('evt_1', 'slot_2', 'trk_1', 'guide', 1, 1, 0, 99),
+                ('evt_1', 'slot_1', 'trk_1', 'reception', 1, 1, 0, 99)`,
+      )
+      .run();
+
+    const input = await buildSolverInput(asD1(testDb), EVENT, 1);
+    expect([...input.demands.keys()]).toEqual([
+      "slot_0|trk_1|reception",
+      "slot_1|trk_1|reception",
+      "slot_2|trk_1|guide",
+    ]);
+  });
+
   it("excludes a withdrawn applicant from SolverInput entirely", async () => {
     await seedApplication(testDb, "app_active");
     await seedApplication(testDb, "app_gone", { withdrawn: true });

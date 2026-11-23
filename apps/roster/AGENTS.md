@@ -227,15 +227,17 @@ whose id is `default:<eventId>`. The stage descriptions below still say `/e/:id/
 
 ## Architecture tests (`tests/architecture/`, ported from `wiki/`)
 
-Five tests make the rules above mechanical instead of aspirational (ADR-003): `layering.test.ts`,
+Six tests make the rules above mechanical instead of aspirational (ADR-003): `layering.test.ts`,
 `file-size.test.ts` (400-line cap), `test-colocation.test.ts` (`<subject>.test.ts` next to its
 source), `route-urls.test.ts` (snapshot of the public URL surface — expect it to fail when you
-add a route; update the snapshot once you've confirmed the new URL is intentional), and Stage 09's
+add a route; update the snapshot once you've confirmed the new URL is intentional), Stage 09's
 `public-view-exposure.test.ts` (scans `app/features/public-roster/` AND `app/routes/r.$token.tsx`
 for a reintroduced experience-level type/constant/literal — `Level`/`LEVELS`/`"lead"`/`"exp"` —
 enforcing ADR-005 mechanically rather than by UI review alone; the route file is scanned
 explicitly, not just the feature directory, since it already imports from
-`~/features/solver/types` where `Level` also lives). **Every allowlist in these tests is
+`~/features/solver/types` where `Level` also lives), and `data-grid-utilities.test.ts` (rejects
+Tailwind `bg-*`/`align-*` utilities on `.data-grid-cell` elements and grid `td`/`th`, which
+`app/app.css`'s unlayered grid rules silently override). **Every allowlist in these tests is
 shrink-only.** Adding to one
 instead of fixing the placement is not an option — see `docs/roster/index.md` §8.
 

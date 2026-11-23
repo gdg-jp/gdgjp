@@ -243,6 +243,10 @@ describe("deleteEventRole", () => {
     await addApplicant(db, "app-1", demanded.id);
     await addApplicant(db, "app-2", assigned.id);
     await addAssignment(db, "sheet:other", "app-2", assigned.id);
+    await db
+      .prepare("INSERT INTO event_roles (event_id, role_id) VALUES ('evt', ?)")
+      .bind(demanded.id)
+      .run();
 
     expect(await deleteEventRole(db, "evt", demanded.id)).toBe("in-use");
     expect(await deleteEventRole(db, "evt", assigned.id)).toBe("in-use");
@@ -253,6 +257,7 @@ describe("deleteEventRole", () => {
     }
     expect(await count(db, "demands WHERE role_id = ?", demanded.id)).toBe(1);
     expect(await count(db, "assignments WHERE role_id = ?", assigned.id)).toBe(1);
+    expect(await count(db, "event_roles WHERE role_id = ?", demanded.id)).toBe(1);
   });
 
   it("deletes an unused role with its zero demands, skills, selections, and archived-sheet rows", async () => {

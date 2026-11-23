@@ -411,6 +411,25 @@ describe("getApplicationByEventAndEmail", () => {
     await seedEvent(testDb);
     expect(await getApplicationByEventAndEmail(db, EVENT_ID, "nobody@example.com")).toBeNull();
   });
+
+  it("finds a row whose stored email differs from the lookup only in case and whitespace", async () => {
+    const testDb = createTestD1(MIGRATIONS);
+    const db = asD1(testDb);
+    await seedEvent(testDb);
+    const created = await createApplication(db, EVENT_ID, {
+      userId: null,
+      email: "person@example.com",
+      name: "Person",
+      contact: null,
+      party: "undecided",
+      note: null,
+      updatedBy: "owner",
+    });
+    if (!created.ok) throw new Error("setup failed");
+
+    const found = await getApplicationByEventAndEmail(db, EVENT_ID, "  Person@Example.COM ");
+    expect(found?.id).toBe(created.application.id);
+  });
 });
 
 describe("correctApplication", () => {

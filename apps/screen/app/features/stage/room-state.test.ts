@@ -264,4 +264,19 @@ describe("noise suppression", () => {
       attenDb: 80,
     });
   });
+
+  it("upgrades peers saved before noise suppression and simulcast on reconnect", () => {
+    const data = room();
+    const peer = data.peers[alice.id];
+    if (!peer) throw new Error("no alice");
+    const { denoise: _d, denoiseState: _s, simulcast: _l, ...legacy } = peer;
+    const saved: RoomData = {
+      ...data,
+      peers: { ...data.peers, [alice.id]: legacy as typeof peer },
+    };
+    const upgraded = connectPeer(saved, alice, 40).peers[alice.id];
+    expect(upgraded?.denoise).toEqual({ on: true, attenDb: 80 });
+    expect(upgraded?.denoiseState).toBeNull();
+    expect(upgraded?.simulcast).toEqual({ camera: false, screen: false });
+  });
 });

@@ -29,6 +29,16 @@ describe("canAccessCampaign", () => {
   it("grants a super-admin access regardless of chapter membership", () => {
     expect(canAccessCampaign(user({ isAdmin: true }), [], { chapterIds: [42] })).toBe(true);
   });
+
+  it("ignores ownerUserId: the creator outside every campaign chapter is denied", () => {
+    const campaign = { chapterIds: [42], ownerUserId: "user_1" };
+    expect(canAccessCampaign(user({ id: "user_1" }), [chapter(1)], campaign)).toBe(false);
+  });
+
+  it("ignores ownerUserId: a non-creator member of a campaign chapter is granted", () => {
+    const campaign = { chapterIds: [42], ownerUserId: "someone_else" };
+    expect(canAccessCampaign(user({ id: "user_1" }), [chapter(42)], campaign)).toBe(true);
+  });
 });
 
 describe("chapterIdsAreOwnedByCaller", () => {

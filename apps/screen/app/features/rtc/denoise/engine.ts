@@ -1,9 +1,10 @@
 import workletUrl from "./denoise.worklet.ts?worker&url";
+import dfnAssets from "./dfn-assets.json";
 import type { FromWorklet, ToWorklet, WorkletOptions } from "./worklet-messages";
 
-export const DFN_BASE = "/dfn/v1";
-const WASM_URL = `${DFN_BASE}/df_bg.wasm`;
-const MODEL_URL = `${DFN_BASE}/model.bin`;
+export const DFN_BASE = `/dfn/${dfnAssets.version}`;
+const WASM_URL = `${DFN_BASE}/${dfnAssets.wasm}`;
+const MODEL_URL = `${DFN_BASE}/${dfnAssets.model}`;
 
 const READY_TIMEOUT_MS = 15_000;
 

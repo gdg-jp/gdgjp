@@ -5,6 +5,10 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
+	"regexp"
+	"strconv"
 	"testing"
 	"time"
 )
@@ -72,6 +76,26 @@ func TestCreateDomainReturnsDomainResponse(t *testing.T) {
 	}
 	if out.Domain.Id != 7 || out.Domain.Hostname != "go.example.org" {
 		t.Fatalf("out = %+v", out)
+	}
+}
+
+func TestMaxAnalyticsRangeDaysMatchesServer(t *testing.T) {
+	t.Parallel()
+	path := filepath.Join("..", "..", "..", "tinyurl", "app", "features", "campaigns", "campaign-cli-analytics.ts")
+	source, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	match := regexp.MustCompile(`(?m)^const MAX_RANGE_DAYS = (\d+);`).FindSubmatch(source)
+	if match == nil {
+		t.Fatalf("MAX_RANGE_DAYS not found in %s", path)
+	}
+	server, err := strconv.Atoi(string(match[1]))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if MaxAnalyticsRangeDays != server {
+		t.Fatalf("MaxAnalyticsRangeDays = %d, server MAX_RANGE_DAYS = %d", MaxAnalyticsRangeDays, server)
 	}
 }
 

@@ -26,7 +26,7 @@ describe("0054_add_source_visibility migration", () => {
     return db;
   }
 
-  it("backfills chapter-scoped and all-chapters rows without violating the new CHECK", () => {
+  it("keeps every seeded row; a CHECK-violating backfill would silently drop sources", () => {
     const db = openPreMigrationDb();
     db.prepare(
       "INSERT INTO sources (id, kind, url, title, added_by, chapter_id) VALUES (?, ?, ?, ?, ?, ?)",

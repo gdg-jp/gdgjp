@@ -35,7 +35,7 @@
 | 通知（メール / FCM / Discord） | `app/features/notifications/` — README あり |
 | タスク | サーバ・UI は `app/features/tasks/`（README あり）。ルートは `app/routes/tasks/`, `app/routes/api/tasks/`。リマインダ cron は `app/features/discord/reminders.server.ts` |
 | DB スキーマ | `app/db/schema/`（ドメイン別モジュール。テーブル割り当ては下の「DB スキーマ」節） |
-| 横断プリミティブ（DB / 時刻 / 色 / URL / キュー振り分け / 章ディレクトリ / OG 画像） | `app/lib/`（8 本のみ: `db.server.ts`, `utils.ts`, `time.ts`, `color-utils.ts`, `url-extract.ts`, `queue-processors.server.ts`, `chapter-directory.server.ts`, `og-image.server.tsx`） |
+| 横断プリミティブ（DB / 時刻 / 色 / キュー振り分け / 章ディレクトリ / OG 画像） | `app/lib/`（6 本のみ: `db.server.ts`, `time.ts`, `color-utils.ts`, `queue-processors.server.ts`, `chapter-directory.server.ts`, `og-image.server.tsx`） |
 | アプリシェル UI | `app/components/`（10 本 + `ui/` プリミティブのみ。それ以外は feature 配下） |
 
 ## ルート構成
@@ -102,7 +102,7 @@ app/routes/
 1. **ドメインを持つコードは `app/features/<domain>/` に置く。** サーバ・クライアント・UI・テストを
    同居させる。UI は `app/features/<domain>/components/`。
 2. **`app/lib/` に残すのは、どのドメインにも属さない横断プリミティブだけ。** 残すもの:
-   `db.server.ts` (fan-in 91), `utils.ts`, `time.ts`, `color-utils.ts`, `url-extract.ts`,
+   `db.server.ts` (fan-in 91), `time.ts`, `color-utils.ts`,
    `queue-processors.server.ts`（キュー振り分けのディスパッチャ）, `chapter-directory.server.ts`,
    `og-image.server.tsx`。**新規ファイルを `app/lib/` に足すことは原則禁止**（architecture
    テストでホワイトリスト固定）。

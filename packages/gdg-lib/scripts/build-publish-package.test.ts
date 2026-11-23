@@ -28,6 +28,14 @@ describe("build-publish-package", () => {
     expect(manifest.scripts).toBeUndefined();
   });
 
+  it("ships a README stating that span ACLs are not a security boundary", () => {
+    expect(files).toContain("README.md");
+    const readme = readFileSync(join(distDir, "README.md"), "utf8");
+    expect(readme).toContain("Span ACLs are not a security boundary");
+    expect(readme).toContain("canClassesAccessSourceInChannel");
+    expect(readme).toContain("canClassesSeePageInChannel");
+  });
+
   it("keeps the published surface narrow: only ./acl/agent", () => {
     expect(Object.keys(manifest.exports).sort()).toEqual(["./acl/agent"]);
   });
@@ -88,6 +96,9 @@ describe("build-publish-package", () => {
       expect(() =>
         execFileSync("node", ["smoke.mjs"], { cwd: scratchDir, stdio: "pipe" }),
       ).not.toThrow();
+      expect(
+        readFileSync(join(scratchDir, "node_modules", installedName, "README.md"), "utf8"),
+      ).toContain("Span ACLs are not a security boundary");
 
       writeFileSync(join(scratchDir, "smoke-not-exported.mjs"), `import "${installedName}/acl";`);
       expect(() =>

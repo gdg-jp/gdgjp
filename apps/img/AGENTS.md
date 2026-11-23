@@ -30,10 +30,10 @@ Vars: `APP_URL`, `ACCOUNTS_URL`, `IDP_URL`, `IDP_CLIENT_ID`, `IMG_AUTO_MAX_WIDTH
 
 OAuth RP of accounts. Does NOT run better-auth — SSO through `gdg-lib`'s `initializeRpAuth`. `lib/auth.server.ts` caches one `RpAuthInstance` per `env`.
 
-- `requireUserWithChapter(env, request)` in `lib/auth-redirect.ts` is the standard route gate — returns `{ user, chapter, chapters, accountId }` (`chapter` = primary membership, `chapters` = every active membership) or throws `redirect("/signin?return_to=...")`. Use in every protected loader/action; build the image-service actor as `{ user, chapters }` (not `{ user, chapters: [chapter] }` — a user with several memberships must see images shared with any of them).
+- `requireUserWithChapter(env, request)` in `lib/auth-redirect.ts` is the standard route gate — returns `{ user, chapter, chapters }` (`chapter` = primary membership, `chapters` = every active membership) or throws `redirect("/signin?return_to=...")`. Use in every protected loader/action; build the image-service actor as `{ user, chapters }` (not `{ user, chapters: [chapter] }` — a user with several memberships must see images shared with any of them).
 - `signin` route bounces to `/api/auth/signin` (handled by `getAuth().handleAuthRequest`). `safeReturnTo` validates local return-to (must start with `/` but not `//`; rejects control chars/whitespace).
 - Chapter memberships fetched via `fetchChaptersForUser` (`lib/chapter.server.ts`) from `/userinfo`, cached in-memory 30s/user (LRU 500) as `{ primary, all }`. `fetchChapterForUser` is a thin wrapper returning just `primary`. `ClaimsUnavailableError` → sign-in redirect; no primary chapter → `/no-chapter`.
-- Post-SSO-migration: NO `account` table — `user.id` is the stable internal UUID. New `images` rows store `user_id === account_id`; older rows keep historical `account_id` (Google `sub`) for back-compat reads. **Don't reintroduce an `account` table or join on `account_id`.**
+- Post-SSO-migration: NO `account` table — `user.id` is the stable internal UUID. `createImage` writes `user_id` into `account_id`, so new rows have `user_id === account_id`; older rows keep historical `account_id` (Google `sub`) for back-compat reads. **Don't reintroduce an `account` table or join on `account_id`.**
 
 ## Image flow
 

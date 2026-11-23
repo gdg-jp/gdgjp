@@ -6,6 +6,7 @@ import {
   listCompletedWarningArtifacts,
   listFailedArtifacts,
   listMeetingArtifactShareFailures,
+  listPendingArtifacts,
   upsertArtifactShareFailure,
   upsertConferenceRecord,
 } from "./repository.server";
@@ -17,7 +18,8 @@ function createArtifactsDb() {
     CREATE TABLE meetings (
       id TEXT PRIMARY KEY,
       title TEXT NOT NULL,
-      calendar_event_id TEXT
+      calendar_event_id TEXT,
+      status TEXT NOT NULL DEFAULT 'active'
     );
     CREATE TABLE conference_records (
       name TEXT PRIMARY KEY,
@@ -174,6 +176,54 @@ describe("artifacts repository", () => {
 
     const warnings = await listCompletedWarningArtifacts(db);
     expect(warnings.map((a) => a.id)).toEqual(["art-nocal-warn", "art-completed-warn"]);
+  });
+
+  it("listPendingArtifacts は取り消し済み会議と予定のない会議の未添付を毎時の再試行に含めない", async () => {
+    const { raw, db } = createArtifactsDb();
+    const insertMeeting = raw.prepare(
+      "INSERT INTO meetings (id, title, calendar_event_id, status) VALUES (?, ?, ?, ?)",
+    );
+    insertMeeting.run("mtg-cal", "予定あり会議", "evt-1", "active");
+    insertMeeting.run("mtg-nocal", "予定なし会議", null, "active");
+    insertMeeting.run("mtg-canceled", "取り消し済み会議", "evt-2", "canceled");
+    for (const meetingId of ["mtg-cal", "mtg-nocal", "mtg-canceled"]) {
+      raw
+        .prepare("INSERT INTO conference_records (name, meeting_id) VALUES (?, ?)")
+        .run(`conferenceRecords/${meetingId}`, meetingId);
+    }
+    const insertArt = raw.prepare(
+      `INSERT INTO artifacts (
+         id, meeting_id, conference_record, kind, drive_file_id, title, mime_type,
+         web_view_link, created_at, shared_at, attached_at, attempts
+       ) VALUES (?, ?, ?, 'recording', ?, ?, 'video/mp4', 'https://drive.google.com/x', ?, ?, ?, ?)`,
+    );
+    const shared = "2026-11-20T00:30:00.000Z";
+    const rows: [string, string, string | null, string | null, number][] = [
+      ["cal-unshared", "mtg-cal", null, null, 0],
+      ["cal-unattached", "mtg-cal", shared, null, 0],
+      ["cal-done", "mtg-cal", shared, shared, 0],
+      ["cal-exhausted", "mtg-cal", null, null, 20],
+      ["nocal-unshared", "mtg-nocal", null, null, 0],
+      ["nocal-unattached", "mtg-nocal", shared, null, 0],
+      ["canceled-unshared", "mtg-canceled", null, null, 0],
+      ["canceled-unattached", "mtg-canceled", shared, null, 0],
+    ];
+    rows.forEach(([id, meetingId, sharedAt, attachedAt, attempts], idx) => {
+      insertArt.run(
+        id,
+        meetingId,
+        `conferenceRecords/${meetingId}`,
+        `df-${id}`,
+        id,
+        `2026-11-20T0${idx}:00:00.000Z`,
+        sharedAt,
+        attachedAt,
+        attempts,
+      );
+    });
+
+    const pending = await listPendingArtifacts(db, 20);
+    expect(pending.map((a) => a.id)).toEqual(["cal-unshared", "cal-unattached", "nocal-unshared"]);
   });
 
   it("artifact_share_failures の upsert・会議単位取得・メール指定削除が動作する", async () => {

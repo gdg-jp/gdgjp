@@ -11,7 +11,7 @@ vi.mock("react-router", async (importOriginal) => ({
 
 import { CellDrawer } from "./CellDrawer";
 
-function renderDrawer() {
+function renderDrawer(overrides: Partial<Parameters<typeof CellDrawer>[0]> = {}) {
   const router = createMemoryRouter(
     [
       {
@@ -51,6 +51,7 @@ function renderDrawer() {
             },
             confirmation: "signed-confirmation",
           },
+          ...overrides,
         }),
       },
     ],
@@ -88,5 +89,35 @@ describe("CellDrawer cross-sheet warning", () => {
     expect(button).toContain("disabled");
     expect(button).toContain('aria-busy="true"');
     expect(button).toContain("割り当て中…");
+  });
+});
+
+describe("CellDrawer candidate warnings", () => {
+  beforeEach(() => {
+    mockUseNavigation.mockReturnValue({ state: "idle", formData: null });
+  });
+
+  it("keeps the assign button enabled for a candidate with hard-constraint warnings", () => {
+    const html = renderDrawer({
+      crossSheetWarning: undefined,
+      candidates: [
+        {
+          trackId: "track_1",
+          roleId: "guide",
+          demand: { min: 1, ideal: 1, leadMin: 0, newMax: 99 },
+          current: 1,
+          leadCurrent: 0,
+          newCurrent: 0,
+          warnings: ["連続勤務の上限を超えます"],
+        },
+      ],
+    });
+    const candidate = html.match(/<li class="rounded-xl[\s\S]*?<\/li><\/ul><\/li>/)?.[0];
+
+    expect(candidate).toContain("⚠ 連続勤務の上限を超えます");
+    const button = candidate?.match(/<button[^>]*>割り当てる<\/button>/)?.[0];
+    expect(button).toBeDefined();
+    expect(button).not.toContain("disabled");
+    expect(button).not.toContain("aria-disabled");
   });
 });

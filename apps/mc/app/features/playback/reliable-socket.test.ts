@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { PONG, STALE_MS } from "./protocol";
+import { CLOSE_TOKEN_ROTATED, PONG, STALE_MS } from "./protocol";
 import { ReliableSocket, reconnectDelay } from "./reliable-socket";
 
 class FakeSocket {
@@ -64,6 +64,26 @@ describe("ReliableSocket", () => {
     expect(FakeSocket.instances).toHaveLength(2);
     FakeSocket.instances[1].open();
     expect(statuses.at(-1)).toBe("open");
+    socket.stop();
+  });
+
+  it("reports a rotated token and retries only slowly", () => {
+    const rejected: number[] = [];
+    const socket = new ReliableSocket({
+      url: () => "ws://x/ws",
+      onMessage: () => {},
+      onStatus: () => {},
+      onRejected: (code) => rejected.push(code),
+      WebSocketImpl: FakeSocket as unknown as typeof WebSocket,
+    });
+    socket.start();
+    FakeSocket.instances[0].open();
+    FakeSocket.instances[0].drop(CLOSE_TOKEN_ROTATED);
+    expect(rejected).toEqual([CLOSE_TOKEN_ROTATED]);
+    vi.advanceTimersByTime(4999);
+    expect(FakeSocket.instances).toHaveLength(1);
+    vi.advanceTimersByTime(1);
+    expect(FakeSocket.instances).toHaveLength(2);
     socket.stop();
   });
 

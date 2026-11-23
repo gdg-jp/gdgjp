@@ -1,14 +1,16 @@
 import { useEffect, useId } from "react";
 
-export function GridSearch({
-  query,
-  onQueryChange,
-  matchCount,
-}: {
+type GridSearchProps = {
   query: string;
   onQueryChange: (value: string) => void;
   matchCount: number;
-}) {
+};
+
+export function GridSearch({ view, ...props }: GridSearchProps & { view: string }) {
+  return <GridSearchInput key={view} {...props} />;
+}
+
+function GridSearchInput({ query, onQueryChange, matchCount }: GridSearchProps) {
   const inputId = useId();
   const hasQuery = query.trim().length > 0;
 

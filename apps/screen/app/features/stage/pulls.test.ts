@@ -91,4 +91,11 @@ describe("simulcast layer picks", () => {
     expect(outputRefs(layered, "mic")).toEqual([{ sessionId: "sfu-a", trackName: "mic" }]);
     expect(outputRefs(speaker("c", { online: false }), "camera")).toEqual([]);
   });
+
+  it("pulls single streams from peers saved before simulcast existed", () => {
+    const { simulcast: _old, ...legacy } = speaker("a");
+    const peer = legacy as Peer;
+    expect(controlRoomRefs([peer], { A: peer.id }).some((r) => r.simulcast)).toBe(false);
+    expect(outputRefs(peer, "screen").some((r) => r.simulcast)).toBe(false);
+  });
 });

@@ -58,7 +58,6 @@ const LIB_ALLOWED_FILES = new Set([
   "db.server.ts",
   "time.ts",
   "color-utils.ts",
-  "url-extract.ts",
   "queue-processors.server.ts",
   "chapter-directory.server.ts",
   "og-image.server.tsx",

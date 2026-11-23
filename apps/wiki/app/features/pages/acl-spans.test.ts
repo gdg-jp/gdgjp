@@ -1,3 +1,4 @@
+import { canAccessSource } from "@gdgjp/gdg-lib/acl";
 import { describe, expect, it, vi } from "vitest";
 import {
   ACL_REDACTION_PLACEHOLDER,
@@ -656,5 +657,47 @@ describe("cross-space span references", () => {
         [{ chapterId: "tokyo", role: "member" }],
       ),
     ).resolves.toMatchObject({ ok: false, error: "acl_unknown_source", sourceId: "elsewhere" });
+  });
+});
+
+describe("span policy and raw source visibility", () => {
+  const visibilities = ["private", "member", "organizer", "chapter-member", "chapter-organizer"];
+  const chapterSets = [
+    [],
+    [{ chapterId: "tokyo", role: "member" }],
+    [{ chapterId: "tokyo", role: "organizer" }],
+    [{ chapterId: "osaka", role: "member" }],
+    [
+      { chapterId: "osaka", role: "organizer" },
+      { chapterId: "tokyo", role: "member" },
+    ],
+  ];
+
+  it("allows a src span exactly when canAccessSource allows its source", async () => {
+    for (const visibility of visibilities) {
+      for (const addedBy of ["owner", "reader"]) {
+        for (const status of ["ready", "archived"]) {
+          const source = {
+            id: "s1",
+            addedBy,
+            spaceId: "gdg-jp",
+            chapterId: visibility.startsWith("chapter-") ? "tokyo" : null,
+            visibility,
+            status,
+          };
+          for (const isAdmin of [false, true]) {
+            const user = { id: "reader", email: "r@example.com", name: "R", image: null, isAdmin };
+            for (const chapters of chapterSets) {
+              const allow = await buildAclSpanPolicy(mockDb([source]), ["s1"], user, chapters);
+              const [span] = parseAclSpans('<acl src="s1">secret</acl>');
+              expect(
+                allow(span as NonNullable<typeof span>),
+                `${visibility} / ${addedBy} / ${status} / admin=${isAdmin} / ${JSON.stringify(chapters)}`,
+              ).toBe(canAccessSource(source, user, chapters));
+            }
+          }
+        }
+      }
+    }
   });
 });

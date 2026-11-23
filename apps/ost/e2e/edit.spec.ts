@@ -1,8 +1,13 @@
 import { expect, test } from "@playwright/test";
 
-async function seed(request: import("@playwright/test").APIRequestContext, slug: string) {
+async function seedFreshEvent(
+  request: import("@playwright/test").APIRequestContext,
+  name: string,
+): Promise<string> {
+  const slug = `e2e-edit-${name}-${Date.now()}`;
   const res = await request.get(`/dev/seed?slug=${slug}&title=E2E%20Edit&chapter=1:dev-chapter`);
   expect(res.ok()).toBeTruthy();
+  return slug;
 }
 
 async function readRotation(desk: import("@playwright/test").Locator): Promise<number> {
@@ -16,8 +21,7 @@ test("resize handle grows the desk by the pointer delta without moving it", asyn
   page,
   request,
 }) => {
-  const slug = `e2e-edit-resize-${Date.now()}`;
-  await seed(request, slug);
+  const slug = await seedFreshEvent(request, "resize");
   await page.goto(`/dev/login?as=owner&chapter=1:dev-chapter&return_to=/${slug}/edit`);
   await page.getByRole("button", { name: "机を追加" }).click();
 
@@ -61,8 +65,7 @@ test("rotate handle tracks the cursor from grab without jumping or moving the de
   page,
   request,
 }) => {
-  const slug = `e2e-edit-rotate-${Date.now()}`;
-  await seed(request, slug);
+  const slug = await seedFreshEvent(request, "rotate");
   await page.goto(`/dev/login?as=owner&chapter=1:dev-chapter&return_to=/${slug}/edit`);
   await page.getByRole("button", { name: "机を追加" }).click();
 

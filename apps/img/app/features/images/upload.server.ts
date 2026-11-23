@@ -3,9 +3,12 @@ import {
   type ImageUploadResult,
   MAX_IMAGE_UPLOAD_BYTES,
 } from "@gdgjp/gdg-lib";
+import { canAccessFolder } from "~/features/folders/policy";
+import { getFolder } from "~/features/folders/repository.server";
 import { validateImageFile } from "./file";
 import { generateUniqueImageId } from "./id.server";
 import { imageUrl } from "./img-url";
+import { setImageFolderForActor } from "./metadata.server";
 import { resolveActorChapter } from "./policy";
 import { probeImageDimensions } from "./probe.server";
 import { createImage } from "./repository.server";
@@ -47,7 +50,6 @@ export async function uploadImage(
     await createImage(env.DB, {
       id,
       userId: ownerId,
-      accountId: ownerId,
       chapterId: input.chapterId,
       r2Key: id,
       contentType: input.contentType,
@@ -107,5 +109,25 @@ export async function uploadImageForActor(
     user: actor.user,
     chapterId: chapter.chapterId,
   });
+  return ok(result);
+}
+
+export async function uploadImageToFolderForActor(
+  env: Env,
+  ctx: ExecutionContext,
+  actor: ImageActor,
+  input: Omit<ImageUploadInput, "user" | "chapterId">,
+  folderId: number,
+): Promise<ImageServiceResult<ImageUploadResult>> {
+  const folder = await getFolder(env.DB, folderId);
+  if (!folder) return fail("folder_not_found");
+  if (!canAccessFolder(actor, folder)) return fail("forbidden");
+
+  const result = await uploadImage(env, ctx, {
+    ...input,
+    user: actor.user,
+    chapterId: folder.chapterId,
+  });
+  await setImageFolderForActor(env, actor, result.id, folder.id);
   return ok(result);
 }

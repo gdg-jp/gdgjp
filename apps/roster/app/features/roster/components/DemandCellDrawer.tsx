@@ -45,7 +45,7 @@ export function DemandCellDrawer({
   currentOccupants: readonly { applicationId: string; name: string; level?: Level }[];
   suggestions: readonly DemandSuggestion[];
   error?: string;
-  succeeded: unknown;
+  succeeded: { ok: true } | undefined;
   onClose: () => void;
 }) {
   const dialogRef = useRef<HTMLDialogElement>(null);

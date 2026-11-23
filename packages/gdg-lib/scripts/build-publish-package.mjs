@@ -63,3 +63,17 @@ const publishManifest = {
 
 mkdirSync(distDir, { recursive: true });
 writeFileSync(join(distDir, "package.json"), `${JSON.stringify(publishManifest, null, 2)}\n`);
+
+const readme = `# ${publishManifest.name}
+
+${publishManifest.description}. Import it from \`${publishManifest.name}/acl/agent\`.
+
+## Span ACLs are not a security boundary
+
+\`<acl>\` span tags (\`parseAclSpans\`, \`redactAclSpans\`, \`validateAclSpans\`) depend on the
+LLM that wrote the page reporting its sources correctly. They only hide specific sentences
+inside a page that is otherwise visible to the reader. Enforce access with the real boundaries:
+raw source access (\`canClassesAccessSourceInChannel\`) and page-level visibility
+(\`canClassesSeePageInChannel\`). Never rely on span redaction to protect content.
+`;
+writeFileSync(join(distDir, "README.md"), readme);

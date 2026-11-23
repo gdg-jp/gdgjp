@@ -413,6 +413,80 @@ describe("e.$id.design sheet routing", () => {
     ).toEqual({ start_time: "13:00" });
   });
 
+  it("rejects a confirmed demand loss when another demand row was added after preview", async () => {
+    owner();
+    await db
+      .prepare(
+        `INSERT INTO time_slots (id, event_id, idx, start_time, end_time, roster_sheet_id)
+         VALUES ('slot-demand-remove', 'event-a', 0, '13:00', '14:00', 'sheet-a2')`,
+      )
+      .run();
+    const insertDemand = (roleId: string) =>
+      db
+        .prepare(
+          `INSERT INTO demands
+           (event_id, time_slot_id, track_id, role_id, min_count, ideal_count, roster_sheet_id)
+           VALUES ('event-a', 'slot-demand-remove', 'track-sheet', ?, 1, 1, 'sheet-a2')`,
+        )
+        .bind(roleId)
+        .run();
+    await insertDemand("reception");
+    const previewConfirmation = slotDataLossOnSlotChange(
+      [{ id: "slot-demand-remove", start: "13:00", end: "14:00" }],
+      [
+        { start: "14:00", end: "15:00" },
+        { start: "15:00", end: "16:00" },
+      ],
+      [
+        {
+          timeSlotId: "slot-demand-remove",
+          trackId: "track-sheet",
+          roleId: "reception",
+          min: 1,
+          ideal: 1,
+          leadMin: 0,
+          newMax: 99,
+        },
+      ],
+      {},
+      {},
+    ).confirmationKey;
+    expect(previewConfirmation).toBeTruthy();
+    await insertDemand("guide");
+
+    const form = new FormData();
+    for (const [key, value] of Object.entries({
+      intent: "updateSettings",
+      name: "Parallel updated",
+      date: "2026-11-09",
+      startTime: "14:00",
+      endTime: "16:00",
+      stepMin: "60",
+      maxConsecutive: "5",
+      slotDataLossConfirmation: previewConfirmation,
+    })) {
+      form.set(key, value);
+    }
+    const result = await action(
+      args(
+        new Request("http://localhost/e/event-a/s/sheet-a2/design", { method: "POST", body: form }),
+        asD1(db),
+        { id: "event-a", sheetId: "sheet-a2" },
+      ) as Parameters<typeof action>[0],
+    );
+
+    expect(result).toMatchObject({ error: expect.any(String) });
+    expect(
+      (
+        await db
+          .prepare(
+            "SELECT COUNT(*) AS count FROM demands WHERE time_slot_id = 'slot-demand-remove'",
+          )
+          .first<{ count: number }>()
+      )?.count,
+    ).toBe(2);
+  });
+
   it("rolls back settings and slot deletion if availability arrives after impact validation", async () => {
     owner();
     await db

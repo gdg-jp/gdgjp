@@ -1,5 +1,6 @@
 "use client";
 
+import { ALLOWED_CHAPTER_SLUG } from "@/lib/chapters";
 import jsQR from "jsqr";
 import { Camera, ExternalLink, RefreshCw, SlidersHorizontal } from "lucide-react";
 import { useSession } from "next-auth/react";
@@ -8,8 +9,6 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import SettingsModal from "./_components/SettingsModal";
 import { loadSettings, saveSettings } from "./_lib/settingsStorage";
 import validateCheckInURL from "./_lib/validateCheckInURL";
-
-const ALLOWED_CHAPTER_SLUG = "gdg-kwansai";
 
 export default function CheckInPage() {
   const { data: session, status } = useSession();

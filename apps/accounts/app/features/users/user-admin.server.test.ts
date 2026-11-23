@@ -1,3 +1,5 @@
+import { readFileSync, readdirSync } from "node:fs";
+import { DatabaseSync, type SQLInputValue } from "node:sqlite";
 import type { D1Database, D1PreparedStatement } from "@cloudflare/workers-types";
 import { describe, expect, it } from "vitest";
 import {
@@ -75,6 +77,39 @@ function testDb(
   }) as typeof db.prepare;
 
   return { db: db as D1Database, calls, preparedSql, batches };
+}
+
+function migratedDb() {
+  const raw = new DatabaseSync(":memory:");
+  raw.exec("PRAGMA foreign_keys = ON");
+  const migrations = new URL("../../../migrations/", import.meta.url);
+  for (const file of readdirSync(migrations).sort()) {
+    raw.exec(readFileSync(new URL(file, migrations), "utf8"));
+  }
+  type Statement = { sql: string; params: SQLInputValue[] };
+  const run = ({ sql, params }: Statement) => raw.prepare(sql).all(...params);
+  const statement = (sql: string, params: SQLInputValue[] = []) => ({
+    sql,
+    params,
+    bind: (...next: SQLInputValue[]) => statement(sql, next),
+    first: async () => run({ sql, params })[0] ?? null,
+    all: async () => ({ results: run({ sql, params }) }),
+  });
+  const db = {
+    prepare: (sql: string) => statement(sql),
+    async batch(statements: Statement[]) {
+      raw.exec("BEGIN");
+      try {
+        const results = statements.map((item) => ({ results: run(item) }));
+        raw.exec("COMMIT");
+        return results;
+      } catch (error) {
+        raw.exec("ROLLBACK");
+        throw error;
+      }
+    },
+  };
+  return { raw, db: db as unknown as D1Database };
 }
 
 describe("listManagedUsers", () => {
@@ -179,6 +214,28 @@ describe("setUserChapters", () => {
     expect(
       preparedSql.some((sql) => sql.includes("DELETE FROM memberships WHERE user_id = ?")),
     ).toBe(true);
+  });
+
+  it("keeps the user's developer clients enabled when moving them to another chapter", async () => {
+    const { raw, db } = migratedDb();
+    raw.exec(`INSERT INTO chapters (id, slug, name, kind) VALUES
+      (1, 'tokyo', 'Tokyo', 'gdg'), (2, 'osaka', 'Osaka', 'gdg')`);
+    raw.exec(`INSERT INTO "user" (id, name, email) VALUES ('user-1', 'User', 'user@example.com')`);
+    raw.exec(`INSERT INTO memberships (user_id, chapter_id, role, status)
+      VALUES ('user-1', 1, 'member', 'active')`);
+    raw.exec(`INSERT INTO "oauthClient" (id, "clientId", "redirectUris", "userId", disabled)
+      VALUES ('client-1', 'dev-app', '[]', 'user-1', 0)`);
+
+    await expect(setUserChapters(db, { targetId: "user-1", chapterIds: [2] })).resolves.toEqual({
+      status: "updated",
+    });
+
+    expect(raw.prepare("SELECT chapter_id, status FROM memberships").all()).toEqual([
+      { chapter_id: 2, status: "active" },
+    ]);
+    expect(raw.prepare(`SELECT disabled FROM "oauthClient" WHERE id = 'client-1'`).get()).toEqual({
+      disabled: 0,
+    });
   });
 
   it("does not remove the final active organizer from an unselected chapter", async () => {

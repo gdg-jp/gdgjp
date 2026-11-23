@@ -68,7 +68,7 @@ function TrackChannels() {
 
   return (
     <Tabs value={tab} onValueChange={changeTab} activationMode="manual" className="mc-app">
-      <ControllerProvider key={tab} track={tab}>
+      <ControllerProvider track={tab}>
         <ClipEditorProvider>
           <ControllerScreen />
         </ClipEditorProvider>

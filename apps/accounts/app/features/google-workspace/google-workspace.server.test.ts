@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { DatabaseSync } from "node:sqlite";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
+  CURRENT_ENCRYPTION_KEY_VERSION,
   decryptRefreshToken,
   encryptRefreshToken,
 } from "~/features/google-workspace/encryption.server";
@@ -181,6 +182,24 @@ describe("encryptRefreshToken / decryptRefreshToken", () => {
     await expect(
       decryptRefreshToken(TEST_ENV, "user-2", keyVersion, ciphertext, nonce),
     ).rejects.toThrow();
+  });
+
+  it("records the current key version and rejects a version with no configured secret", async () => {
+    const { ciphertext, nonce, keyVersion } = await encryptRefreshToken(
+      TEST_ENV,
+      "user-1",
+      "refresh-token-value",
+    );
+    expect(keyVersion).toBe(CURRENT_ENCRYPTION_KEY_VERSION);
+    await expect(
+      decryptRefreshToken(
+        TEST_ENV,
+        "user-1",
+        CURRENT_ENCRYPTION_KEY_VERSION + 1,
+        ciphertext,
+        nonce,
+      ),
+    ).rejects.toThrow(/unsupported Google Workspace encryption key version/);
   });
 
   it("uses a fresh random nonce per encryption", async () => {

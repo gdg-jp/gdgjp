@@ -105,6 +105,28 @@ export type Job = {
   finishedAt: number | null;
 };
 
+export type RunnerJob = {
+  id: string;
+  type: JobType;
+  spaceId: string;
+  campaignId: number;
+  payload: JobPayload;
+  attempts: number;
+  deadlineAt: null;
+};
+
+export function toRunnerJob(job: Job): RunnerJob {
+  return {
+    id: job.id,
+    type: job.type,
+    spaceId: String(job.campaignId),
+    campaignId: job.campaignId,
+    payload: job.payload,
+    attempts: job.attempts,
+    deadlineAt: null,
+  };
+}
+
 export type RunnerResult = {
   status: "succeeded" | "failed" | "needs_review";
   result?: {

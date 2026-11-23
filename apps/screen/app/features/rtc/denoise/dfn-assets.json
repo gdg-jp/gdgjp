@@ -1,0 +1,5 @@
+{
+  "version": "v1",
+  "wasm": "df_bg.wasm",
+  "model": "model.bin"
+}

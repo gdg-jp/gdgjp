@@ -71,7 +71,7 @@ export function RosterGridViews({
         </div>
         {view !== "coverage" ? (
           <GridSearch
-            key={view}
+            view={view}
             query={search}
             onQueryChange={setSearch}
             matchCount={matchedIds.size}

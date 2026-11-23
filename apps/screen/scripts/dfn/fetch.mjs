@@ -3,16 +3,20 @@ import { createHash } from "node:crypto";
 import { copyFile, mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import dfnAssets from "../../app/features/rtc/denoise/dfn-assets.json" with { type: "json" };
 
-const VERSION = "v1";
+const VERSION = dfnAssets.version;
 const RELEASE = `https://github.com/gdg-jp/gdgjp/releases/download/screen-dfn/${VERSION}`;
 // Release file → [served name, sha256]. The model is served as .bin: servers
 // (Vite's among them) send a .tar.gz with `Content-Encoding: gzip`, so the
 // browser would hand the wasm an already-unpacked tar.
 const FILES = {
-  "df_bg.wasm": ["df_bg.wasm", "7d5b36f82972941ef98b988cb2f5bdbad17201750a47c17f8df348fe7d4cadaf"],
+  "df_bg.wasm": [
+    dfnAssets.wasm,
+    "7d5b36f82972941ef98b988cb2f5bdbad17201750a47c17f8df348fe7d4cadaf",
+  ],
   "DeepFilterNet3_onnx.tar.gz": [
-    "model.bin",
+    dfnAssets.model,
     "c94d91f70911001c946e0fabb4aa9adc37045f45a03b56008cb0c8244cb63616",
   ],
 };

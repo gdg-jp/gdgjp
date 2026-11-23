@@ -50,7 +50,7 @@ export function CellDrawer({
   roleNameById: ReadonlyMap<string, string>;
   error?: string;
   crossSheetWarning?: CrossSheetAssignmentWarning;
-  succeeded: unknown;
+  succeeded: { ok: true } | undefined;
   onClose: () => void;
 }) {
   const dialogRef = useRef<HTMLDialogElement>(null);

@@ -8,6 +8,7 @@ import {
 } from "../app/features/clips/catalog";
 import { listUploaded } from "../app/features/clips/uploads.server";
 import {
+  CLOSE_TOKEN_ROTATED,
   type ControllerMessage,
   type LogEntry,
   MAX_LOOP_GAP_SEC,
@@ -240,7 +241,8 @@ export class McRoom extends DurableObject<Env> {
       case "rotateToken": {
         const token = randomToken();
         this.ctx.storage.kv.put("token", token);
-        for (const ws of this.ctx.getWebSockets("player")) ws.close(4001, "token rotated");
+        for (const ws of this.ctx.getWebSockets("player"))
+          ws.close(CLOSE_TOKEN_ROTATED, "token rotated");
         this.appendLog({ level: "warn", code: "token-rotated" });
         this.broadcast("controller", { type: "token", token });
         return;

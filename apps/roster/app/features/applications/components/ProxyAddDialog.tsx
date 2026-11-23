@@ -41,7 +41,7 @@ export function ProxyAddDialog({
   rosterSheets?: readonly ApplyFormRosterSheet[];
   timeSlots?: AvailabilityGridSlot[];
   error?: string;
-  succeeded: unknown;
+  succeeded: { ok: true } | undefined;
 }) {
   const dialogRef = useRef<HTMLDialogElement>(null);
   const formRef = useRef<HTMLFormElement>(null);

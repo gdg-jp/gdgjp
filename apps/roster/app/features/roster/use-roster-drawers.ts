@@ -32,7 +32,7 @@ export function useRosterDrawers({
   slotLabelById: ReadonlyMap<string, string>;
   trackNameById: ReadonlyMap<string, string>;
   roleNameById: ReadonlyMap<string, string>;
-  closeOnSuccess: unknown;
+  closeOnSuccess: { ok: true } | undefined;
 }) {
   const [staffSelection, setStaffSelection] = useState<CellDrawerSelection | null>(null);
   const [demandSelection, setDemandSelection] = useState<DemandCellSelection | null>(null);

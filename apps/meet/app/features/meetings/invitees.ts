@@ -7,9 +7,11 @@ import type {
   InviteeSourceKind,
 } from "./meeting";
 
-export const MAX_INVITEES = 150;
+const BUSINESS_STANDARD_MEET_LIMITS = { participants: 150, cohosts: 25 } as const;
 
-export const MAX_COHOSTS = 25;
+export const MAX_INVITEES = BUSINESS_STANDARD_MEET_LIMITS.participants;
+
+export const MAX_COHOSTS = BUSINESS_STANDARD_MEET_LIMITS.cohosts;
 
 const GOOGLE_GROUPS_DOMAIN = "googlegroups.com";
 

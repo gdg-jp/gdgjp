@@ -128,7 +128,7 @@ export async function action({ request, context, params }: Route.ActionArgs) {
 
     if (intent === "withdraw") {
       await withdrawApplication(db, existing.id, "owner");
-      return { ok: true, intent: "withdraw" as const };
+      return { ok: true as const, intent: "withdraw" as const };
     }
 
     const { roles, rosterSheets } = await getPublicApplyData(db, event.id);
@@ -175,7 +175,7 @@ export async function action({ request, context, params }: Route.ActionArgs) {
         intent: "correct" as const,
       };
     }
-    return { ok: true, intent: "correct" as const };
+    return { ok: true as const, intent: "correct" as const };
   }
 
   if (intent === "updateStatus") {
@@ -189,7 +189,7 @@ export async function action({ request, context, params }: Route.ActionArgs) {
       maxConsecutive: event.maxConsecutive,
       noSoloNewcomer: event.noSoloNewcomer,
     });
-    return { ok: true, intent: "updateStatus" as const };
+    return { ok: true as const, intent: "updateStatus" as const };
   }
 
   if (intent !== "proxyAdd") return { error: "不明な操作です。", intent: "unknown" as const };
@@ -247,7 +247,7 @@ export async function action({ request, context, params }: Route.ActionArgs) {
     };
   }
 
-  return { ok: true, intent: "proxyAdd" as const };
+  return { ok: true as const, intent: "proxyAdd" as const };
 }
 
 export default function StaffPage({ loaderData, actionData }: Route.ComponentProps) {

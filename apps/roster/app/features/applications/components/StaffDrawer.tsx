@@ -40,7 +40,7 @@ export function StaffDrawer({
   rosterSheets?: readonly ApplyFormRosterSheet[];
   timeSlots?: AvailabilityGridSlot[];
   error?: string;
-  succeeded: unknown;
+  succeeded: { ok: true } | undefined;
   onClose: () => void;
 }) {
   const dialogRef = useRef<HTMLDialogElement>(null);

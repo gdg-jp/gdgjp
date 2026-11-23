@@ -1,8 +1,6 @@
 import { MAX_IMAGE_UPLOAD_BYTES } from "@gdgjp/gdg-lib";
 import { requireUserWithChapter } from "~/features/auth/auth-redirect.server";
-import { getFolderForActor } from "~/features/folders/service.server";
-import { setImageFolderForActor } from "~/features/images/metadata.server";
-import { uploadImage } from "~/features/images/upload.server";
+import { uploadImage, uploadImageToFolderForActor } from "~/features/images/upload.server";
 import type { components } from "../../../../openapi/types.generated";
 import type { Route } from "./+types/upload";
 
@@ -28,30 +26,38 @@ export async function action(args: Route.ActionArgs) {
 
   const folderId = parseFolderId(form.get("folderId"));
   if (folderId === INVALID) return new Response("invalid folderId", { status: 400 });
-  let uploadChapterId = chapter.chapterId;
-  if (folderId !== undefined) {
-    const folderResult = await getFolderForActor(env, actor, folderId);
-    if (!folderResult.ok) {
-      return new Response(folderResult.error === "not_found" ? "Folder not found" : "Forbidden", {
-        status: folderResult.error === "not_found" ? 404 : 403,
-      });
-    }
-    uploadChapterId = folderResult.value.chapterId;
-  }
-
-  const result = await uploadImage(env, args.context.cloudflare.ctx, {
+  const input = {
     bytes: await file.arrayBuffer(),
     contentType: file.type,
-    user,
-    chapterId: uploadChapterId,
     filename: file.name || null,
-  });
+  };
 
-  if (folderId !== undefined) {
-    await setImageFolderForActor(env, actor, result.id, folderId);
+  let id: string;
+  if (folderId === undefined) {
+    const result = await uploadImage(env, args.context.cloudflare.ctx, {
+      ...input,
+      user,
+      chapterId: chapter.chapterId,
+    });
+    id = result.id;
+  } else {
+    const result = await uploadImageToFolderForActor(
+      env,
+      args.context.cloudflare.ctx,
+      actor,
+      input,
+      folderId,
+    );
+    if (!result.ok) {
+      const notFound = result.error === "folder_not_found";
+      return new Response(notFound ? "Folder not found" : "Forbidden", {
+        status: notFound ? 404 : 403,
+      });
+    }
+    id = result.value.id;
   }
 
-  const body: components["schemas"]["ImageId"] = { id: result.id };
+  const body: components["schemas"]["ImageId"] = { id };
   return Response.json(body);
 }
 

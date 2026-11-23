@@ -161,7 +161,6 @@ export async function listVisibleImages(
 export type CreateImageInput = {
   id: string;
   userId: string;
-  accountId: string;
   chapterId: number;
   r2Key: string;
   contentType: string;
@@ -180,7 +179,7 @@ export async function createImage(db: D1Database, input: CreateImageInput): Prom
     .bind(
       input.id,
       input.userId,
-      input.accountId,
+      input.userId,
       input.chapterId,
       input.r2Key,
       input.contentType,

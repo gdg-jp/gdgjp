@@ -117,6 +117,26 @@ or redirect/post-logout URI changes:
 3. `pnpm --filter @gdgjp/accounts deploy`.
 4. Sign in as an admin and submit the form at `/admin/seed-clients`.
 
+## Rotating the Google Workspace encryption key
+
+Stored Workspace refresh tokens are AES-GCM encrypted with the secret selected by the row's
+`encryptionKeyVersion` (`app/features/google-workspace/encryption.server.ts`). Version 1 is
+`GOOGLE_WORKSPACE_ENCRYPTION_KEY`. To rotate to version `n`:
+
+1. `wrangler secret put GOOGLE_WORKSPACE_ENCRYPTION_KEY_V<n>` (a base64 AES-256 key), and add it
+   to `.dev.vars.example` so generated `Env` types include it.
+2. Add a `case n:` returning that secret to `encryptionKeySecret`. Keep every older case.
+3. Bump `CURRENT_ENCRYPTION_KEY_VERSION` to `n` so new writes use the new key, then deploy.
+
+Existing rows are not re-encrypted in place. They stay on their recorded version until the row
+is written again: a reconnect, or a successful token vend, which re-encrypts stale rows. Remove an
+old secret and its `case` only after no live row still uses that version:
+
+```sql
+SELECT encryptionKeyVersion, COUNT(*) FROM googleWorkspaceConnection
+WHERE revokedAt IS NULL GROUP BY encryptionKeyVersion;
+```
+
 ## Testing
 
 Unit tests (Vitest) sit beside the code they cover as `app/**/*.test.ts` — auth config, device

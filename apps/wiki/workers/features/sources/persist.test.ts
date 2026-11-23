@@ -281,6 +281,46 @@ describe("persistSourceDocument", () => {
     });
   });
 
+  it.each(["archived", "pending"])(
+    "keeps the stored document when the source turns %s during the put with its lease id",
+    async (status) => {
+      const asset = {
+        path: "raw/src-1/assets/hello.png",
+        r2Key: "raw/src-1/assets/hello.png",
+        mimeType: "image/png",
+        byteSize: 12,
+        contentHash: "asset-hash",
+      };
+      const input = {
+        sourceId: SOURCE_ID,
+        fetchAttemptId: ATTEMPT_ID,
+        path: "index",
+        title: "Hello",
+        body: markdownBody("# Hello"),
+        mediaType: MARKDOWN_MEDIA_TYPE,
+        assets: [asset],
+      };
+      const first = await persistSourceDocument(env(), input);
+      putMock.mockImplementationOnce(async () => {
+        sqlite.prepare("UPDATE sources SET status = ? WHERE id = ?").run(status, SOURCE_ID);
+      });
+
+      const result = await persistSourceDocument(env(), {
+        ...input,
+        body: markdownBody("# Changed"),
+        assets: [],
+      });
+
+      expect(result).toEqual({ skipped: true });
+      expect(sqlite.prepare("SELECT content_hash FROM source_documents").all()).toEqual([
+        { content_hash: first.contentHash },
+      ]);
+      expect(sqlite.prepare("SELECT r2_key FROM source_assets").all()).toEqual([
+        { r2_key: asset.r2Key },
+      ]);
+    },
+  );
+
   it("uses a PDF R2 key and binary content type for a PDF document", async () => {
     const body = new Uint8Array([0x25, 0x50, 0x44, 0x46, 0x2d]);
     const result = await persistSourceDocument(env(), {

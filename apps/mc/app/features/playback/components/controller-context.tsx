@@ -86,6 +86,14 @@ function readCues(): Record<string, number> {
 }
 
 export function ControllerProvider({ track, children }: { track: string; children: ReactNode }) {
+  return (
+    <TrackController key={track} track={track}>
+      {children}
+    </TrackController>
+  );
+}
+
+function TrackController({ track, children }: { track: string; children: ReactNode }) {
   const { room, send, setLoop, setPlayed, resetPlayed, rotateToken } = useControllerRoom(track);
   const [cues, setCues] = useState<Record<string, number>>({});
   const [busy, setBusy] = useState<Set<string>>(new Set());

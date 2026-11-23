@@ -1,10 +1,9 @@
+import { ALLOWED_CHAPTER_SLUG } from "@/lib/chapters";
 import NextAuth from "next-auth";
 import { GDGAccounts } from "./gdg-provider";
 
 const CHAPTERS_CLAIM = "https://gdgs.jp/claims/chapters";
 const IS_ADMIN_CLAIM = "https://gdgs.jp/claims/is_admin";
-
-export const ALLOWED_CHAPTER_SLUG = "gdg-kwansai";
 
 export type GdgChapter = {
   chapterId: number;

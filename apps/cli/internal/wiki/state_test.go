@@ -75,4 +75,40 @@ func TestWriteACLSourcesWritesOnlyVisibilityAndChapter(t *testing.T) {
 	}
 }
 
+func TestWriteACLSourcesKeepsConversationSourcesAbsentFromTheManifest(t *testing.T) {
+	root := t.TempDir()
+	if err := os.MkdirAll(ConfigDir(root), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	existing := `{"conversation-1":{"visibility":"member","chapterId":null},"source-1":{"visibility":"public","chapterId":null}}`
+	if err := os.WriteFile(ACLSourcesPath(root), []byte(existing), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	manifest := SourcesManifest{Documents: []SourcesManifestEntry{{
+		SourceID:         stringPtr("source-1"),
+		Visibility:       stringPtr("chapter-member"),
+		ChapterID:        stringPtr("tokyo"),
+		ChapterIDPresent: true,
+	}}}
+	if err := WriteACLSources(root, manifest); err != nil {
+		t.Fatal(err)
+	}
+	raw, err := os.ReadFile(ACLSourcesPath(root))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var sources map[string]ACLSource
+	if err := json.Unmarshal(raw, &sources); err != nil {
+		t.Fatal(err)
+	}
+	conversation, ok := sources["conversation-1"]
+	if !ok || conversation.Visibility != "member" || conversation.ChapterID != nil {
+		t.Fatalf("conversation source not preserved: %s", raw)
+	}
+	refreshed := sources["source-1"]
+	if refreshed.Visibility != "chapter-member" || refreshed.ChapterID == nil || *refreshed.ChapterID != "tokyo" {
+		t.Fatalf("manifest source not refreshed: %s", raw)
+	}
+}
+
 func stringPtr(value string) *string { return &value }

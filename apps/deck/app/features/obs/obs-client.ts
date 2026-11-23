@@ -13,6 +13,8 @@ const OP = {
   requestBatchResponse: 9,
 } as const;
 
+const AUTHENTICATION_FAILED_CLOSE_CODE = 4009;
+
 export type ObsStatus = "connecting" | "open" | "offline" | "auth-failed";
 
 export type RequestStatus = { result: boolean; code: number; comment?: string };
@@ -154,7 +156,7 @@ export class ObsClient {
       this.ws = null;
       this.identified = false;
       this.failPending("OBS との接続が切れました");
-      if (event.code === 4009) {
+      if (event.code === AUTHENTICATION_FAILED_CLOSE_CODE) {
         this.opts.onStatus("auth-failed", "パスワードが違います");
         return;
       }

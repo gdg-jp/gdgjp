@@ -52,15 +52,15 @@ export async function stepListing(
           limit: DISCORD_PAGE_SIZE,
           after: after ?? current.run.sinceCursor ?? undefined,
         });
-        const newest = messages[messages.length - 1];
-        if (newest) metaSet(ctx.sql, cursorKey, newest.id);
+        const newest = newestMessageId(messages);
+        if (newest) metaSet(ctx.sql, cursorKey, newest);
       } else {
         messages = await listChannelMessages(botToken, channelId, {
           limit: DISCORD_PAGE_SIZE,
           before: pageCursor ?? undefined,
         });
-        const oldest = messages[messages.length - 1];
-        if (oldest) metaSet(ctx.sql, cursorKey, oldest.id);
+        const oldest = oldestMessageId(messages);
+        if (oldest) metaSet(ctx.sql, cursorKey, oldest);
       }
     } catch (error) {
       const code = (error as Error & { code?: string }).code;
@@ -115,6 +115,22 @@ export async function stepListing(
   return { phaseComplete: true };
 }
 
+function newestMessageId(messages: readonly DiscordMessage[]): string | undefined {
+  return messages.reduce<string | undefined>(
+    (newest, message) =>
+      newest === undefined || BigInt(message.id) > BigInt(newest) ? message.id : newest,
+    undefined,
+  );
+}
+
+function oldestMessageId(messages: readonly DiscordMessage[]): string | undefined {
+  return messages.reduce<string | undefined>(
+    (oldest, message) =>
+      oldest === undefined || BigInt(message.id) < BigInt(oldest) ? message.id : oldest,
+    undefined,
+  );
+}
+
 function weekOfSnowflake(id: string): string | null {
   try {
     const unixMs = Number((BigInt(id) >> 22n) + 1420070400000n);
@@ -161,9 +177,9 @@ async function regenerateOpenDocument(
       throw error;
     }
     for (const message of messages) indexMessage(ctx.sql, message);
-    const newest = messages[messages.length - 1];
+    const newest = newestMessageId(messages);
     if (messages.length < DISCORD_PAGE_SIZE || !newest) break;
-    metaSet(ctx.sql, "open_regenerate_after", newest.id);
+    metaSet(ctx.sql, "open_regenerate_after", newest);
   }
   metaSet(ctx.sql, "open_regenerated", "1");
   return true;

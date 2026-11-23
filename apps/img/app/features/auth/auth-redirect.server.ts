@@ -14,7 +14,7 @@ export function buildSignInRedirect(request: Request): Response {
 export async function requireUserWithChapter(
   env: Env,
   request: Request,
-): Promise<{ user: AuthUser; chapter: UserChapter; chapters: UserChapter[]; accountId: string }> {
+): Promise<{ user: AuthUser; chapter: UserChapter; chapters: UserChapter[] }> {
   let user: AuthUser;
   try {
     user = await getAuth(env).requireUser(request);
@@ -30,5 +30,5 @@ export async function requireUserWithChapter(
     throw err;
   }
   if (!resolved.primary) throw redirect("/no-chapter");
-  return { user, chapter: resolved.primary, chapters: resolved.all, accountId: user.id };
+  return { user, chapter: resolved.primary, chapters: resolved.all };
 }

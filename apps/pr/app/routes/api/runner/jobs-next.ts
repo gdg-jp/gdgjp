@@ -1,6 +1,6 @@
 import { leaseNextJob } from "~/features/jobs/job.repository.server";
 import { requireRunner, runnerHost } from "~/features/jobs/runner-auth.server";
-import { JOB_TYPES, type JobType } from "~/features/jobs/shared";
+import { JOB_TYPES, type JobType, toRunnerJob } from "~/features/jobs/shared";
 import type { Route } from "./+types/jobs-next";
 
 const POLL_MS = 2000;
@@ -17,15 +17,7 @@ export async function loader({ request, context }: Route.LoaderArgs) {
   do {
     const job = await leaseNextJob(env.DB, { types, host: runnerHost(request) });
     if (job) {
-      return Response.json({
-        id: job.id,
-        type: job.type,
-        spaceId: String(job.campaignId),
-        campaignId: job.campaignId,
-        payload: job.payload,
-        attempts: job.attempts,
-        deadlineAt: null,
-      });
+      return Response.json(toRunnerJob(job));
     }
     if (Date.now() + POLL_MS > deadline) break;
     await new Promise((resolve) => setTimeout(resolve, POLL_MS));

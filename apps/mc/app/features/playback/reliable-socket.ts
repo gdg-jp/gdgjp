@@ -1,4 +1,11 @@
-import { HEARTBEAT_MS, PING, PONG, STALE_MS } from "./protocol";
+import {
+  CLOSE_REPLACED,
+  CLOSE_TOKEN_ROTATED,
+  HEARTBEAT_MS,
+  PING,
+  PONG,
+  STALE_MS,
+} from "./protocol";
 
 export type SocketStatus = "connecting" | "open" | "offline";
 
@@ -18,7 +25,7 @@ export function reconnectDelay(attempt: number): number {
   return Math.min(2000, 500 * 2 ** (attempt - 1));
 }
 
-const FATAL_CODES = new Set([4001, 4003]);
+const FATAL_CODES = new Set([CLOSE_TOKEN_ROTATED]);
 const CONNECT_TIMEOUT_MS = 4000;
 
 export class ReliableSocket {
@@ -146,7 +153,7 @@ export class ReliableSocket {
     this.ws = null;
     old.onopen = old.onmessage = old.onclose = old.onerror = null;
     try {
-      old.close(4000, "replaced");
+      old.close(CLOSE_REPLACED, "replaced");
     } catch {}
   }
 

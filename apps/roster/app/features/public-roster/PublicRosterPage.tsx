@@ -119,7 +119,7 @@ export function PublicRosterPage({ loaderData }: { loaderData: PublicRosterView 
           ))}
         </div>
         <GridSearch
-          key={view}
+          view={view}
           query={search}
           onQueryChange={setSearch}
           matchCount={matchedIds.size}

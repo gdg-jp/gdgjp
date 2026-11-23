@@ -1,3 +1,4 @@
+import { spawnSync } from "node:child_process";
 import { describe, expect, it } from "vitest";
 import { align, segmentsFromLines, silencesFromPcm, splitPhrases } from "./align";
 
@@ -70,5 +71,18 @@ describe("splitPhrases", () => {
       "どうぞ。",
       "「ありがとう」！",
     ]);
+  });
+});
+
+describe("align.ts under Node type stripping", () => {
+  it("loads in plain Node for scripts/build-clips.mjs", () => {
+    const source = new URL("./align.ts", import.meta.url).href;
+    const program = `const m = await import(${JSON.stringify(source)});
+console.log([m.align, m.fixNotation, m.splitPhrases].map((f) => typeof f).join(","));`;
+    const result = spawnSync(process.execPath, ["--input-type=module", "-e", program], {
+      encoding: "utf8",
+    });
+    expect(result.stderr).not.toMatch(/Error/);
+    expect(result.stdout.trim()).toBe("function,function,function");
   });
 });

@@ -7,6 +7,9 @@ export function roomName(track: string): string {
 }
 export const PONG = "pong";
 
+export const CLOSE_REPLACED = 4000;
+export const CLOSE_TOKEN_ROTATED = 4001;
+
 export type PlayerStatus = "idle" | "playing" | "paused" | "ended" | "gap";
 
 export type LoopSetting = { enabled: boolean; gapSec: number };

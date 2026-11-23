@@ -123,3 +123,44 @@ describe("Discord incremental listing", () => {
     ).toEqual({ count: 0 });
   });
 });
+
+describe("Discord listing cursors", () => {
+  const page = Array.from({ length: 100 }, (_, index) =>
+    message(String(1001 + index), new Date(Date.UTC(2026, 8, 1, 0, index)).toISOString()),
+  );
+  const orders = [
+    { order: "ascending", messages: page },
+    { order: "descending", messages: [...page].reverse() },
+  ];
+
+  it.each(orders)("advances `after` to the newest snowflake of a $order page", async (fixture) => {
+    listChannelMessages.mockResolvedValueOnce(fixture.messages).mockResolvedValue([]);
+    await stepListing(context(memorySql()), current("1000"));
+    expect(listChannelMessages.mock.calls[1]?.[2]).toMatchObject({ after: "1100" });
+  });
+
+  it.each(orders)("advances `before` to the oldest snowflake of a $order page", async (fixture) => {
+    listChannelMessages.mockResolvedValueOnce(fixture.messages).mockResolvedValue([]);
+    await stepListing(context(memorySql()), current(null));
+    expect(listChannelMessages.mock.calls[1]?.[2]).toMatchObject({ before: "1001" });
+  });
+
+  it.each(orders)(
+    "resumes the open-document re-fetch after the newest snowflake of a $order page",
+    async (fixture) => {
+      sqlite
+        .prepare(
+          `INSERT INTO source_documents
+            (id, source_id, path, title, r2_key, content_hash, captured_at, cursor)
+           VALUES ('open', ?, '2026-09-07.md', 'Weeks', 'raw/open', 'hash', unixepoch(), '100')`,
+        )
+        .run(SOURCE_ID);
+      listChannelMessages
+        .mockResolvedValueOnce([message("200", "2026-10-20T03:00:00.000Z")])
+        .mockResolvedValueOnce(fixture.messages)
+        .mockResolvedValue([]);
+      await stepListing(context(memorySql()), current("100"));
+      expect(listChannelMessages.mock.calls[2]?.[2]).toMatchObject({ after: "1100" });
+    },
+  );
+});

@@ -194,6 +194,34 @@ describe("createOrReplaceAnswerNote — slug collision is decided by the databas
     expect(upsertCatalogEntryMock).not.toHaveBeenCalled();
   });
 
+  it("returns 409 when a concurrent filing claims the slug after any read", async () => {
+    const prepare = vi.fn((statement: string) => ({
+      bind: () => ({
+        run: async () => {
+          if (!/ON CONFLICT\s*\(\s*space_id\s*,\s*slug\s*\)\s*DO NOTHING/i.test(statement)) {
+            throw new Error("D1_ERROR: UNIQUE constraint failed: pages.space_id, pages.slug");
+          }
+          pagesBySlug["venue-picks"] = { slug: "venue-picks", parentId: NS_ANSWERS };
+          return { meta: { changes: 0 } };
+        },
+      }),
+    }));
+    const e = {
+      APP_URL: "https://wiki.gdgs.jp",
+      DB: { prepare, batch: vi.fn(async () => []) },
+    } as never;
+
+    const result = await createOrReplaceAnswerNote(e, workspaceCtx(["A"]), body);
+
+    expect(result).toMatchObject({
+      ok: false,
+      error: "slug_exists",
+      status: 409,
+      path: "/wiki/answers/venue-picks",
+    });
+    expect(upsertCatalogEntryMock).not.toHaveBeenCalled();
+  });
+
   it("omits the answers path when the conflicting slug is outside the namespace", async () => {
     pagesBySlug["venue-picks"] = { slug: "venue-picks", parentId: "ns-venues" };
     const { env: e } = env({ changes: 0 });
