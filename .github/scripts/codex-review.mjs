@@ -7,12 +7,11 @@ import { pathToFileURL } from "node:url";
 import { GitHubClient, readAuthSecrets, redact } from "./codex-auth.mjs";
 
 export const LABEL = "E-code-review";
-export const STATUS_CONTEXT = "codex-review";
-export const BOT_LOGIN = "github-actions";
-export const DOCS_URL =
-  "https://github.com/gdg-jp/gdgjp/blob/main/docs/engineering/codex-review.md";
+export const STATUS_CONTEXT = "ai-review";
+export const BOT_LOGIN = "gdg-chan";
+export const DOCS_URL = "https://github.com/gdg-jp/gdgjp/blob/main/docs/engineering/ai-review.md";
 const AGENT_FAILED = "Codex agent failed";
-const TRIGGER = /(^|\s)(@github-actions\b|\/codex\b)/i;
+const TRIGGER = /(^|\s)(@gdg-chan\b|\/codex\b)/i;
 const MARKER = /<!-- codex-review:(\w+)((?: [\w-]+=[^\s>]+)*) -->/g;
 const TRUSTED_ROLES = new Set(["admin", "maintain", "write"]);
 const PRIORITIES = ["P0", "P1", "P2", "P3"];
@@ -347,7 +346,7 @@ export function findingBody(finding, { id, head, index, issue }) {
 
 export function reviewBody(result, { head, requested, findingCount, model }) {
   const lines = [
-    "## Codex review",
+    "## GDG-chan review",
     "",
     result.summary.trim(),
     "",
@@ -355,7 +354,7 @@ export function reviewBody(result, { head, requested, findingCount, model }) {
       ? "指摘事項はありません。"
       : `指摘事項は ${findingCount} 件です。各指摘にリアクションするか返信すると、エージェントが修正を確認して解決にします。PR に \`/codex\` とコメントすると未解決の指摘をまとめて確認します。`,
     "",
-    `<sub>${model} · ${head.slice(0, 7)} · [Codex review gate](${DOCS_URL})</sub>`,
+    `<sub>${model} · ${head.slice(0, 7)} · [AI review gate](${DOCS_URL})</sub>`,
     "",
     marker("review", { head, requested }),
   ];
@@ -1141,7 +1140,8 @@ export async function checkSandbox(codexHome) {
 
 async function main() {
   const [command, ...args] = process.argv.slice(2);
-  const github = new GitHubClient({ token: process.env.GITHUB_TOKEN });
+  const github = new GitHubClient({ token: process.env.GDG_CHAN_TOKEN });
+  const actions = new GitHubClient({ token: process.env.GITHUB_TOKEN });
   const repository = process.env.GITHUB_REPOSITORY;
   const repo = new ReviewRepository({ github, repository });
   const runUrl = `${process.env.GITHUB_SERVER_URL}/${repository}/actions/runs/${process.env.GITHUB_RUN_ID}`;
@@ -1155,7 +1155,7 @@ async function main() {
       repo,
       event,
       authAvailable: async () => {
-        available ??= (await github.latestArtifact("codex-auth")) !== null;
+        available ??= (await actions.latestArtifact("codex-auth")) !== null;
         return available;
       },
     });

@@ -1,4 +1,4 @@
-name: Codex login
+name: AI login
 
 on:
   workflow_dispatch:

@@ -31,7 +31,7 @@ import {
   verdictBody,
 } from "./codex-review.mjs";
 
-const bot = { __typename: "Bot", login: "github-actions" };
+const bot = { __typename: "Bot", login: "gdg-chan" };
 const otherBot = { __typename: "Bot", login: "dependabot" };
 const alice = { __typename: "User", login: "alice" };
 const mallory = { __typename: "User", login: "mallory" };

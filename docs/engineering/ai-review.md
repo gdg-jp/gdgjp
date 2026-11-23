@@ -1,6 +1,6 @@
-# Codex review gate
+# AI review gate
 
-Pull requests into `main` need the `codex-review` commit status to pass before they
+Pull requests into `main` need the `ai-review` commit status to pass before they
 merge. Only the `main` ruleset's bypass actors can merge without it. The status passes
 after at least one Codex review has run on the pull request and every finding from every
 Codex review on it has been confirmed resolved by the agent.
@@ -8,7 +8,15 @@ Codex review on it has been confirmed resolved by the agent.
 The agent runs Codex CLI on GitHub-hosted runners with the model in the repository
 variable `CODEX_REVIEW_MODEL` (default `gpt-6.2-astra`) at the reasoning effort in
 `CODEX_REVIEW_EFFORT` (default `medium`). It signs in with a ChatGPT account through the
-[Codex login workflow](../../.github/workflows/codex-login.yml).
+[AI login workflow](../../.github/workflows/ai-login.yml).
+
+The agent posts as **GDG-chan**, a GitHub App owned by the gdg-jp organization and
+installed only on this repository. Its app ID is the repository variable
+`GDG_CHAN_APP_ID` and its private key is the secret `GDG_CHAN_PRIVATE_KEY`. Each job
+creates a short-lived installation token with `actions/create-github-app-token`, which
+can write code, commit statuses, issues, and pull requests. `GITHUB_TOKEN` is used only
+for the login artifacts. Change the name or icon in the app's settings under the
+organization's GitHub Apps.
 
 ## Using it on a pull request
 
@@ -22,7 +30,7 @@ variable `CODEX_REVIEW_MODEL` (default `gpt-6.2-astra`) at the reasoning effort 
    the thread. Otherwise it replies with ❌ and what remains; respond again after the next
    fix.
 4. To ask the agent to check every unresolved finding at once, comment `/codex` (or
-   mention `@github-actions`) on the pull request.
+   mention `@gdg-chan`) on the pull request.
 
 Replies, labels, and `/codex` comments start the agent immediately. GitHub sends no
 event for reactions, so a scheduled run picks them up within about ten minutes.
@@ -33,7 +41,7 @@ event for reactions, so a scheduled run picks them up within about ten minutes.
 | pending, "queued or running" / "checking" | The agent has work for this pull request. |
 | failure, "N of M Codex findings are unresolved" | Respond to the remaining findings. |
 | success | At least one review ran and all of its findings are resolved. |
-| error, "Codex is not signed in" | Run the Codex login workflow. |
+| error, "Codex is not signed in" | Run the AI login workflow. |
 | error, "Codex agent failed" | Read the linked run; comment `/codex` or re-add the label to retry. |
 
 Fork pull requests do not get Codex reviews because their workflows cannot use the
@@ -42,7 +50,7 @@ login; a bypass actor merges them after a human review.
 ## Trust model
 
 - Only the agent's own replies change a finding's state. The gate reads hidden
-  `codex-review:*` markers in comments authored by `github-actions[bot]`, which people
+  `codex-review:*` markers in comments authored by `gdg-chan[bot]`, which people
   cannot post. Resolving a thread by hand does not resolve the finding.
 - Reactions, replies, and `/codex` comments count only from people with write access
   to the repository. Other bots are ignored.
@@ -67,7 +75,7 @@ public too. Anyone who enters the code first could attach their own ChatGPT acco
 the login and every restore check that the account's email hashes to the repository secret
 `CODEX_ACCOUNT_SHA256` (SHA-256 of the lowercase email) and refuse any other account.
 
-1. Open Actions → **Codex login** → **Run workflow**.
+1. Open Actions → **AI login** → **Run workflow**.
 2. Open the run. The **Show the login link** step prints the link and one-time code, and
    the run summary shows them as an annotation.
 3. Open the link, sign in to the ChatGPT account the agent should use, and enter the
@@ -90,7 +98,7 @@ printf '%s' 'agent-account@example.com' | shasum -a 256 | cut -d' ' -f1 | gh sec
 
 ## Files
 
-- [`codex-review.yml`](../../.github/workflows/codex-review.yml): the plan job sets the
+- [`ai-review.yml`](../../.github/workflows/ai-review.yml): the plan job sets the
   status on each event or every ten minutes for all open pull requests; the agent job
   runs Codex when there is work.
 - [`codex-review.mjs`](../../.github/scripts/codex-review.mjs): gate evaluation, prompts,
