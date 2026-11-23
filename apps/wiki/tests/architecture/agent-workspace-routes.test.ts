@@ -43,6 +43,7 @@ function identity(overrides?: Partial<BearerIdentity["user"]> & { id?: string })
       ...overrides,
     },
     chapters: [{ chapterId: 1, chapterSlug: "osaka", role: "member" }],
+    client: null,
   };
 }
 

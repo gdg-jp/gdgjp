@@ -320,7 +320,7 @@
       "demoteTitle": "Remove admin access from {{name}}?",
       "demoteDescription": "They will return to a regular user and lose access to administration tools.",
       "revokeTitle": "Revoke every session for {{name}}?",
-      "revokeDescription": "They will be signed out of Accounts and connected apps, and must sign in again.",
+      "revokeDescription": "They will be signed out of Accounts and connected apps, and must sign in again. Every access they granted to developer apps is also removed, so they must approve each app again.",
       "changeChapterTitle": "Change {{name}}'s chapter?",
       "changeChapterDescription": "Select every chapter they should belong to. Memberships for unselected chapters will be removed."
     },

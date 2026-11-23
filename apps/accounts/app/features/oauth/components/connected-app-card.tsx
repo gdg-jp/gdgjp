@@ -19,6 +19,14 @@ import type { FetcherWithComponents } from "react-router";
 import type { ConnectedApp } from "~/features/oauth/connected-apps.server";
 import { scopeLabelKeys } from "~/features/oauth/scope-labels";
 
+export function formatConnectedAt(value: string, locale: string): string {
+  return new Intl.DateTimeFormat(locale, {
+    dateStyle: "medium",
+    timeStyle: "short",
+    timeZone: "Asia/Tokyo",
+  }).format(new Date(value));
+}
+
 export function ConnectedAppCard({
   app,
   locale,
@@ -32,11 +40,7 @@ export function ConnectedAppCard({
   const isRemoving = fetcher.state !== "idle" && fetcher.formData?.get("clientId") === app.clientId;
   const scopeLabels = scopeLabelKeys(app.scopes, { developerOwned: true });
   const formatDate = (value: string | null) =>
-    value
-      ? new Intl.DateTimeFormat(locale, { dateStyle: "medium", timeStyle: "short" }).format(
-          new Date(value),
-        )
-      : t("settings.connectedApps.notRecorded");
+    value ? formatConnectedAt(value, locale) : t("settings.connectedApps.notRecorded");
 
   return (
     <Card>

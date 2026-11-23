@@ -53,10 +53,40 @@ async function refuseAuthorization(
 
 async function refuseTokenRequest(db: D1Database, request: Request): Promise<Response | null> {
   const params = await formParameters(request);
-  if (!params.has("resource")) return null;
+  const code = params.get("grant_type") === "authorization_code" ? soleValue(params, "code") : null;
+  if (!params.has("resource") && code === null) return null;
   const clientId = tokenClientId(request.headers.get("authorization"), params);
   const client = clientId === null ? null : await findClient(db, clientId);
-  return client?.developer === 0 ? null : invalidTarget();
+  if (client?.developer === 0) return null;
+  if (params.has("resource")) return invalidTarget();
+  if (code === null) return null;
+  return (await codeStoresResource(db, code)) ? invalidTarget() : null;
+}
+
+async function codeStoresResource(db: D1Database, code: string): Promise<boolean> {
+  const row = await db
+    .prepare(
+      `SELECT CASE WHEN json_valid("value") THEN
+                COALESCE(json_type("value", '$.resource') NOT IN ('null')
+                  AND NOT (json_type("value", '$.resource') = 'array'
+                           AND json_array_length("value", '$.resource') = 0), 0)
+                OR json_type("value", '$.query.resource') IS NOT NULL
+              ELSE 0 END AS stored
+       FROM "verification"
+       WHERE "identifier" = ?`,
+    )
+    .bind(await storedCodeIdentifier(code))
+    .first<{ stored: number }>();
+  return row?.stored === 1;
+}
+
+async function storedCodeIdentifier(code: string): Promise<string> {
+  const digest = new Uint8Array(
+    await crypto.subtle.digest("SHA-256", new TextEncoder().encode(code)),
+  );
+  let binary = "";
+  for (const byte of digest) binary += String.fromCharCode(byte);
+  return btoa(binary).replace(/=+$/, "").replace(/\+/g, "-").replace(/\//g, "_");
 }
 
 function tokenClientId(authorization: string | null, params: URLSearchParams): string | null {

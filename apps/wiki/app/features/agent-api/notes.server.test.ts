@@ -46,6 +46,7 @@ describe("computeAccessFloor", () => {
           chapterSlug: chapterId,
           role: "member",
         })),
+        client: null,
       },
       workspace: {} as never,
       chapterIds,

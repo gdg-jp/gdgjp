@@ -217,6 +217,27 @@ test("a developer client asks for consent and keeps its grant until the user rem
     browser,
     createSession(database, ACCOUNTS_URL, betterAuthSecret(), user),
   );
+  const againVerifier = randomBytes(32).toString("base64url");
+  const reauthorized = await settings.request.get(authorizeUrl(againVerifier), {
+    headers: { Accept: "text/html", "Sec-Fetch-Mode": "navigate" },
+    maxRedirects: 0,
+  });
+  expect(reauthorized.status()).toBe(302);
+  const callback = new URL(reauthorized.headers().location ?? "", ACCOUNTS_URL);
+  expect(
+    `${callback.origin}${callback.pathname}`,
+    "the stored grant covers the same scopes, so no consent page is shown",
+  ).toBe(REDIRECT_URI);
+  const againCode = callback.searchParams.get("code");
+  expect(againCode, "a new sign-in session gets a code without a consent step").toBeTruthy();
+  const again = await token(app, {
+    grant_type: "authorization_code",
+    code: againCode ?? "",
+    redirect_uri: REDIRECT_URI,
+    code_verifier: againVerifier,
+  });
+  expect(again.status()).toBe(200);
+
   await settings.goto(`${ACCOUNTS_URL}/dashboard`);
   await settings.getByRole("link", { name: "Apps with access to your account" }).click();
   await expect(settings).toHaveURL(/\/settings\/connected-apps$/);
@@ -324,7 +345,9 @@ test("Better Auth's own consent deletion revokes the tokens already issued", asy
   await app.dispose();
 });
 
-test("a developer client's JWT access token does not work at Accounts", async ({ browser }) => {
+test("a developer code that stores a resource cannot be exchanged for a JWT", async ({
+  browser,
+}) => {
   const page = await signedInPage(
     browser,
     createSession(database, ACCOUNTS_URL, betterAuthSecret(), user),
@@ -342,32 +365,10 @@ test("a developer client's JWT access token does not work at Accounts", async ({
   );
 
   const issued = await exchange(app, code, verifier);
-  expect(issued.status(), "a stored resource is inherited without a resource parameter").toBe(200);
-  const { access_token: accessToken } = (await issued.json()) as Tokens;
-  const payload = JSON.parse(
-    Buffer.from(accessToken.split(".")[1] ?? "", "base64url").toString("utf8"),
-  ) as { azp?: string; aud?: string };
-  expect(payload).toMatchObject({ azp: clientId, aud: userinfoUrl });
-
-  for (const path of ["/api/auth/oauth2/userinfo", "/userinfo"]) {
-    const refused = await app.get(`${ACCOUNTS_URL}${path}`, {
-      headers: { Authorization: `Bearer ${accessToken}` },
-    });
-    expect(refused.status(), path).toBe(401);
-    expect(refused.headers()["www-authenticate"], path).toBe(
-      'Bearer error="invalid_token", error_description="Invalid access token"',
-    );
-    expect(await refused.json(), path).toEqual({
-      error: "invalid_token",
-      error_description: "Invalid access token",
-    });
-  }
-  const introspected = await app.post(`${ACCOUNTS_URL}/api/auth/oauth2/introspect`, {
-    headers: { Authorization: basic },
-    form: { token: accessToken },
-  });
-  expect(introspected.status()).toBe(200);
-  expect(await introspected.json()).toEqual({ active: false });
+  expect(issued.status(), "a stored resource is refused even without a resource parameter").toBe(
+    400,
+  );
+  expect(await issued.json()).toMatchObject({ error: "invalid_target" });
 
   await page.context().close();
   await app.dispose();

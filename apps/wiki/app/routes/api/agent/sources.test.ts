@@ -61,6 +61,7 @@ function identity(): BearerIdentity {
       isAdmin: false,
     },
     chapters: [{ chapterId: 1, chapterSlug: "osaka", role: "member" }],
+    client: null,
   };
 }
 

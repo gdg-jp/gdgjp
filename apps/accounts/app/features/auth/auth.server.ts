@@ -15,6 +15,7 @@ export const CHAPTERS_SCOPE = "https://gdgs.jp/scopes/chapters";
 export const CLI_SCOPE = "https://gdgs.jp/scopes/cli";
 export const CHAPTERS_CLAIM = "https://gdgs.jp/claims/chapters";
 export const IS_ADMIN_CLAIM = "https://gdgs.jp/claims/is_admin";
+export const CLIENT_CLAIM = "https://gdgs.jp/claims/client";
 export const OAUTH_STATE_STORAGE = "cookie" as const;
 export const SESSION_LOOKUP_TIMEOUT_MS = 5_000;
 export const AUTH_HANDLER_TIMEOUT_MS = 10_000;
@@ -118,28 +119,24 @@ export async function runAuthHandler(
   request: Request,
   onTimeout: () => Response = authUnavailableResponse,
 ): Promise<Response> {
-  const refusal =
-    (await refuseDeveloperClientResource(env, request)) ??
-    (await refuseDeveloperClientUserInfo(env.DB, request));
-  if (refusal) return refusal;
-  const concealIntrospection = await introspectsDeveloperClientJwt(env.DB, request);
-  const response = await handleAuthRequest(env, request, onTimeout);
-  return concealIntrospection && response.ok ? inactiveIntrospection() : response;
-}
-
-async function handleAuthRequest(
-  env: Env,
-  request: Request,
-  onTimeout: () => Response,
-): Promise<Response> {
   try {
-    return await withAuthTimeout(getAuth(env).handler(request), onTimeout);
+    return await withAuthTimeout(handleAuthRequest(env, request), onTimeout);
   } catch (error) {
     const refusal = grantRemovedDuringIssuance(request, error);
     if (refusal) return refusal;
     console.error("Better Auth request failed", error);
     return new Response(null, { status: 500, statusText: "Internal Server Error" });
   }
+}
+
+async function handleAuthRequest(env: Env, request: Request): Promise<Response> {
+  const refusal =
+    (await refuseDeveloperClientResource(env, request)) ??
+    (await refuseDeveloperClientUserInfo(env.DB, request));
+  if (refusal) return refusal;
+  const concealIntrospection = await introspectsDeveloperClientJwt(env.DB, request);
+  const response = await getAuth(env).handler(request);
+  return concealIntrospection && response.ok ? inactiveIntrospection() : response;
 }
 
 export async function requireUser(env: Env, request: Request): Promise<AuthUser> {
@@ -245,15 +242,17 @@ function buildAuth(env: Env) {
           return membership?.ok === 1;
         },
         advertisedMetadata: {
-          claims_supported: [CHAPTERS_CLAIM, IS_ADMIN_CLAIM],
+          claims_supported: [CHAPTERS_CLAIM, IS_ADMIN_CLAIM, CLIENT_CLAIM],
         },
         cachedTrustedClients: new Set<string>(trustedClientIds),
         accessTokenExpiresIn: 60 * 60,
         refreshTokenExpiresIn: 60 * 60 * 24 * 30,
         grantTypes: ["authorization_code", "refresh_token"],
         silenceWarnings: { oauthAuthServerConfig: true, openidConfig: true },
-        customUserInfoClaims: async ({ user, scopes }) =>
-          scopes.includes(CHAPTERS_SCOPE) ? chapterClaims(env.DB, user.id, user) : {},
+        customUserInfoClaims: async ({ user, scopes, jwt }) => ({
+          ...(scopes.includes(CHAPTERS_SCOPE) ? await chapterClaims(env.DB, user.id, user) : {}),
+          ...(await clientClaim(env.DB, jwt)),
+        }),
         customIdTokenClaims: async ({ user, scopes }) =>
           scopes.includes(CHAPTERS_SCOPE) ? chapterClaims(env.DB, user.id, user) : {},
       }),
@@ -275,6 +274,19 @@ async function chapterClaims(
     })),
     [IS_ADMIN_CLAIM]: user.isAdmin === true,
   };
+}
+
+async function clientClaim(
+  db: D1Database,
+  jwt: Record<string, unknown> | undefined,
+): Promise<Record<string, unknown>> {
+  const id = typeof jwt?.client_id === "string" ? jwt.client_id : jwt?.azp;
+  if (typeof id !== "string" || !id) return {};
+  const client = await db
+    .prepare(`SELECT "userId" IS NULL AS firstParty FROM "oauthClient" WHERE "clientId" = ?`)
+    .bind(id)
+    .first<{ firstParty: number }>();
+  return client ? { [CLIENT_CLAIM]: { id, first_party: client.firstParty === 1 } } : {};
 }
 
 function trimTrailing(value: string): string {

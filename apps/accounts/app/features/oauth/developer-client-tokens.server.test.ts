@@ -6,7 +6,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("~/lib/i18n/i18n.server", () => ({ i18n: {} }));
 
-import { getAuth, invalidateAuthCache, runAuthHandler } from "~/features/auth/auth.server";
+import {
+  CLIENT_CLAIM,
+  getAuth,
+  invalidateAuthCache,
+  runAuthHandler,
+} from "~/features/auth/auth.server";
 import { removeConnectedApp } from "~/features/oauth/connected-apps.server";
 import {
   grantRemovedDuringIssuance,
@@ -147,12 +152,34 @@ function consent(raw: DatabaseSync, id = "consent") {
     .run(id, NOW(), NOW());
 }
 
+function grantCode(raw: DatabaseSync) {
+  const identifier = `grant-${randomUUID()}`;
+  raw
+    .prepare(`INSERT INTO "verification" (id, identifier, value, "expiresAt", "createdAt", "updatedAt")
+      VALUES (?, ?, ?, ?, ?, ?)`)
+    .run(
+      identifier,
+      identifier,
+      JSON.stringify({
+        type: "authorization_code",
+        query: { client_id: "dev-app", scope: "openid email offline_access" },
+        userId: "user-1",
+      }),
+      FUTURE(),
+      NOW(),
+      NOW(),
+    );
+  raw.prepare(`DELETE FROM "verification" WHERE id = ?`).run(identifier);
+  return identifier;
+}
+
 function refreshToken(raw: DatabaseSync, token: string) {
   raw
     .prepare(`INSERT INTO "oauthRefreshToken"
-      (id, token, "clientId", "sessionId", "userId", "expiresAt", "createdAt", scopes)
-      VALUES (?, ?, 'dev-app', NULL, 'user-1', ?, ?, '["openid","email","offline_access"]')`)
-    .run(randomUUID(), hash(token), FUTURE(), NOW());
+      (id, token, "clientId", "sessionId", "userId", "expiresAt", "createdAt", scopes,
+       "authorizationCodeId")
+      VALUES (?, ?, 'dev-app', NULL, 'user-1', ?, ?, '["openid","email","offline_access"]', ?)`)
+    .run(randomUUID(), hash(token), FUTURE(), NOW(), grantCode(raw));
 }
 
 function authorizationCode(
@@ -268,7 +295,7 @@ async function developerJwt(env: Env, raw: DatabaseSync, code = "dev-code") {
     scope: "openid email",
     resource: USERINFO,
   });
-  const response = await runAuthHandler(env, exchange(code, DEV_REDIRECT, DEV_BASIC));
+  const response = await getAuth(env).handler(exchange(code, DEV_REDIRECT, DEV_BASIC));
   expect(response.status).toBe(200);
   const { access_token: accessToken } = (await response.json()) as { access_token: string };
   return accessToken;
@@ -372,7 +399,76 @@ describe("developer client tokens with Better Auth", () => {
     expect(tokenIds(raw)).toEqual({ access: 0, refresh: 0 });
   });
 
-  it("issues a JWT from a code that carries a stored resource, which Accounts then refuses", async () => {
+  it("refuses to exchange a developer code that carries a stored resource", async () => {
+    const { raw, env } = setup();
+    consent(raw);
+    for (const [code, resource] of [
+      ["stored", { resource: USERINFO }],
+      ["queried", {}],
+    ] as const) {
+      authorizationCode(raw, {
+        code,
+        clientId: "dev-app",
+        redirectUri: DEV_REDIRECT,
+        scope: "openid email",
+        ...resource,
+      });
+    }
+    raw.exec(`UPDATE "verification" SET value = json_set(value, '$.query.resource', '${USERINFO}')
+      WHERE identifier = '${hash("queried")}'`);
+
+    for (const code of ["stored", "queried"]) {
+      const response = await runAuthHandler(env, exchange(code, DEV_REDIRECT, DEV_BASIC));
+      expect(response.status).toBe(400);
+      await expect(response.json()).resolves.toMatchObject({ error: "invalid_target" });
+    }
+    const unidentified = await runAuthHandler(
+      env,
+      exchange("stored", DEV_REDIRECT, DEV_BASIC, { client_id: "fp-wiki" }),
+    );
+    expect(unidentified.status).toBe(400);
+    await expect(unidentified.json()).resolves.toMatchObject({ error: "invalid_target" });
+    expect(tokenIds(raw)).toEqual({ access: 0, refresh: 0 });
+    expect(raw.prepare(`SELECT id FROM "verification"`).all()).toHaveLength(2);
+  });
+
+  it("exchanges a first-party code that stores a resource and a developer code that does not", async () => {
+    const { raw, env } = setup();
+    consent(raw);
+    authorizationCode(raw, {
+      code: "wiki-code",
+      clientId: "fp-wiki",
+      redirectUri: FP_REDIRECT,
+      scope: "openid email",
+      resource: USERINFO,
+    });
+    authorizationCode(raw, {
+      code: "dev-plain",
+      clientId: "dev-app",
+      redirectUri: DEV_REDIRECT,
+      scope: "openid email",
+    });
+
+    const firstParty = await runAuthHandler(env, exchange("wiki-code", FP_REDIRECT, FP_BASIC));
+    expect(firstParty.status).toBe(200);
+    const developer = await runAuthHandler(env, exchange("dev-plain", DEV_REDIRECT, DEV_BASIC));
+    expect(developer.status).toBe(200);
+    const { access_token: accessToken } = (await developer.json()) as { access_token: string };
+    expect(accessToken.split(".")).toHaveLength(1);
+
+    const { access_token: firstPartyToken } = (await firstParty.json()) as {
+      access_token: string;
+    };
+    const claims = async (token: string) => {
+      const response = await runAuthHandler(env, userinfo(token));
+      expect(response.status).toBe(200);
+      return ((await response.json()) as Record<string, unknown>)[CLIENT_CLAIM];
+    };
+    await expect(claims(accessToken)).resolves.toEqual({ id: "dev-app", first_party: false });
+    await expect(claims(firstPartyToken)).resolves.toEqual({ id: "fp-wiki", first_party: true });
+  });
+
+  it("refuses a developer JWT issued before the exchange gate at UserInfo", async () => {
     const { raw, env } = setup();
     const accessToken = await developerJwt(env, raw);
     expect(decodeJwt(accessToken)).toMatchObject({ azp: "dev-app", aud: USERINFO });

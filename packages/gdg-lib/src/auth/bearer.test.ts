@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { getBearerIdentity, getCliIdentity } from "./bearer";
-import { CHAPTERS_CLAIM, IS_ADMIN_CLAIM } from "./claims";
+import { CHAPTERS_CLAIM, CLIENT_CLAIM, IS_ADMIN_CLAIM } from "./claims";
 
 function jsonResponse(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
@@ -65,7 +65,37 @@ describe("getBearerIdentity", () => {
     ).resolves.toEqual({
       user: { id: "user-1", email: "", name: "", image: null, isAdmin: false },
       chapters: [],
+      client: null,
     });
+  });
+
+  it("reports the token's client only from a well-formed client claim", async () => {
+    const identityWith = async (claim: unknown) => {
+      vi.stubGlobal(
+        "fetch",
+        vi.fn(async () => jsonResponse({ sub: "user-1", [CLIENT_CLAIM]: claim })),
+      );
+      return (await getBearerIdentity(requestWithAuth("Bearer t"), "https://accounts.example"))
+        ?.client;
+    };
+
+    await expect(identityWith({ id: "pr", first_party: true })).resolves.toEqual({
+      id: "pr",
+      firstParty: true,
+    });
+    await expect(identityWith({ id: "dev-app", first_party: false })).resolves.toEqual({
+      id: "dev-app",
+      firstParty: false,
+    });
+    for (const malformed of [
+      null,
+      "pr",
+      { id: "", first_party: true },
+      { id: "pr", first_party: "true" },
+      { first_party: true },
+    ]) {
+      await expect(identityWith(malformed)).resolves.toBeNull();
+    }
   });
 
   it("drops malformed chapter entries but preserves valid ones", async () => {
@@ -96,6 +126,7 @@ describe("getBearerIdentity", () => {
         { chapterId: 10, chapterSlug: "tokyo", role: "organizer" },
         { chapterId: 30, chapterSlug: "nagoya", role: "member" },
       ],
+      client: null,
     });
   });
 });
@@ -126,6 +157,7 @@ describe("getCliIdentity", () => {
     ).resolves.toEqual({
       user: { id: "user-1", email: "a@b.c", name: "A", image: null, isAdmin: false },
       chapters: [],
+      client: { id: "gdg-cli", firstParty: true },
     });
     expect(fetchMock).toHaveBeenCalledOnce();
   });
@@ -187,6 +219,7 @@ describe("getCliIdentity", () => {
         isAdmin: true,
       },
       chapters: [{ chapterId: 10, chapterSlug: "tokyo", role: "organizer" }],
+      client: { id: "gdg-cli", firstParty: true },
     });
   });
 

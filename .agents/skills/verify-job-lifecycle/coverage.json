@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "syncedBaseCommit": "e98dddd90e24908ef16931649d1d8ddedb1e69fc",
+  "syncedBaseCommit": "1e7b661528087e3fba693beb0e26d1025c65f312",
   "method": "Bounded exhaustive execution of production TypeScript and SQL in SQLite, with targeted adversarial request interleavings and production-expression mutations.",
   "tools": {
     "node": "v26.3.1",
@@ -182,7 +182,7 @@
     },
     {
       "path": "apps/wiki/app/features/agent-api/runner-identity.server.ts",
-      "sha256": "63003b857fe1ca88a736d192a90acd96abca0b0cca883dc584ae69b30ccfd1f8",
+      "sha256": "e9790e8e8724cc2151a183ca30de68809822c9c40bb07c457c54f869150f7fa6",
       "role": "wire-authentication"
     },
     {

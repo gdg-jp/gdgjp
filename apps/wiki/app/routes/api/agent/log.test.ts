@@ -40,6 +40,7 @@ function identity(
       isAdmin: false,
     },
     chapters,
+    client: null,
   };
 }
 

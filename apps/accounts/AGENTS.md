@@ -40,9 +40,16 @@ The `oauthConsent` row is the grant, and migration 0025 keeps that rule in D1:
   straddles a removal fails there. `runAuthHandler` answers that abort at the token endpoint with
   400 `invalid_grant` ("grant revoked during token issuance"); Better Auth is configured with
   `onAPIError.throw` so that the error reaches it, and every other unexpected error stays a bare 500.
+- A grant is also bound to the consent it was issued under. An `AFTER INSERT` trigger on
+  `verification` records each developer-client authorization code issued while the user's consent
+  exists, and stores no resource, in `developerClientGrantCode` (keyed by Better Auth's hashed code
+  identifier, which it copies into `authorizationCodeId` through refresh rotations). The token
+  triggers also abort a token whose `authorizationCodeId` has no record for its user and client.
+  Removing the last consent deletes the records, so a code or refresh token read before a removal
+  cannot mint tokens even when the user approves the app again in between.
 - An `AFTER DELETE` trigger on `oauthConsent` deletes the user's access tokens, refresh tokens and
-  pending authorization codes for a developer-owned client when the last consent row for that user
-  and client goes, whichever path deletes it (connected apps, Better Auth's `oauth2/delete-consent`,
+  pending authorization codes (and their grant-code records) for a developer-owned client when the
+  last consent row for that user and client goes, whichever path deletes it (connected apps, Better Auth's `oauth2/delete-consent`,
   admin revocation). Duplicate consent rows keep the grant until the last one goes. A user deletion
   cascades through it; a client deletion cascades the tokens by foreign key and leaves its pending
   codes, which no longer name a client.
@@ -63,7 +70,9 @@ Developer clients must only ever get opaque, row-backed access tokens. `runAuthH
 authorization and token endpoints with `invalid_target` unless the request identifies exactly one
 first-party client the way Better Auth does: a POST authorization request from its form body, a GET
 from its query, and a token request from Better Auth's own Basic-credential decoder, refusing an
-undecodable or non-Basic Authorization header, client assertions, and conflicting client IDs.
+undecodable or non-Basic Authorization header, client assertions, and conflicting client IDs. It
+also refuses a developer client's authorization-code exchange when the stored code carries a
+resource, which Better Auth would otherwise inherit and answer with a JWT.
 Because a JWT could still exist (issued before this change, or from a code or signed authorization
 query that stored a resource), `features/oauth/developer-client-tokens.server.ts` also answers a
 developer client's JWT (by its `azp`) with 401 `invalid_token` at UserInfo and `{"active": false}` at
@@ -91,6 +100,10 @@ claims on every authenticated request. The `session_end_revokes_oauth_tokens` tr
 device-grant (CLI) clients and developer-owned clients. Admin revocation (`revokeUserSessions`,
 `setUserAdmin`) still deletes every token of the user explicitly; `revokeUserSessions` also deletes
 the user's developer-client consents.
+
+UserInfo always returns `https://gdgs.jp/claims/client` (`CLIENT_CLAIM`): `{ id, first_party }` for
+the client the access token was issued to, so resource servers can tell a first-party app from a
+developer-owned one. ID tokens do not carry it.
 
 Chapter authorization uses the dedicated `https://gdgs.jp/scopes/chapters` scope. UserInfo and ID
 tokens include `https://gdgs.jp/claims/chapters` and `https://gdgs.jp/claims/is_admin` only when that

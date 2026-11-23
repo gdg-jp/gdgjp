@@ -78,6 +78,7 @@ import {
   AUTH_IP_ADDRESS_HEADERS,
   CHAPTERS_CLAIM,
   CHAPTERS_SCOPE,
+  CLIENT_CLAIM,
   CLI_SCOPE,
   IS_ADMIN_CLAIM,
   OAUTH_STATE_STORAGE,
@@ -178,6 +179,45 @@ describe("accounts auth", () => {
     vi.useRealTimers();
   });
 
+  it("applies the timeout to the D1 checks that run before Better Auth", async () => {
+    vi.useFakeTimers();
+    const env = {
+      ...testEnv(),
+      DB: { prepare: () => ({ bind: () => ({ first: () => new Promise(() => undefined) }) }) },
+    } as unknown as Env;
+    const request = new Request(
+      "https://accounts.example/api/auth/oauth2/authorize?client_id=dev&resource=https%3A%2F%2Fr",
+    );
+
+    const pending = runAuthHandler(env, request, () => new Response("fallback", { status: 504 }));
+    await vi.advanceTimersByTimeAsync(AUTH_HANDLER_TIMEOUT_MS);
+    const response = await pending;
+
+    expect(response.status).toBe(504);
+    await expect(response.text()).resolves.toBe("fallback");
+    expect(betterAuthMock.handler).not.toHaveBeenCalled();
+    vi.useRealTimers();
+  });
+
+  it("answers a failing D1 check before Better Auth with a logged 500", async () => {
+    const error = new Error("D1 unavailable");
+    const env = {
+      ...testEnv(),
+      DB: { prepare: () => ({ bind: () => ({ first: () => Promise.reject(error) }) }) },
+    } as unknown as Env;
+    const logged = vi.spyOn(console, "error").mockImplementation(() => undefined);
+
+    const response = await runAuthHandler(
+      env,
+      new Request("https://accounts.example/api/auth/oauth2/authorize?client_id=dev&resource=x"),
+    );
+
+    expect(response.status).toBe(500);
+    expect(logged).toHaveBeenCalledWith("Better Auth request failed", error);
+    expect(betterAuthMock.handler).not.toHaveBeenCalled();
+    logged.mockRestore();
+  });
+
   it("passes through a settled auth.handler response unchanged", async () => {
     const ok = new Response("handler-ok", { status: 200 });
     betterAuthMock.handler.mockResolvedValue(ok);
@@ -276,7 +316,7 @@ describe("accounts auth", () => {
       ],
       allowDynamicClientRegistration: false,
       allowUnauthenticatedClientRegistration: false,
-      advertisedMetadata: { claims_supported: [CHAPTERS_CLAIM, IS_ADMIN_CLAIM] },
+      advertisedMetadata: { claims_supported: [CHAPTERS_CLAIM, IS_ADMIN_CLAIM, CLIENT_CLAIM] },
       accessTokenExpiresIn: 3_600,
       refreshTokenExpiresIn: 2_592_000,
       grantTypes: ["authorization_code", "refresh_token"],
@@ -330,6 +370,7 @@ describe("accounts auth", () => {
       const claims = oauthProviderMock.options?.[key] as (ctx: {
         user: Record<string, unknown>;
         scopes: string[];
+        jwt?: Record<string, unknown>;
       }) => Promise<Record<string, unknown>>;
       await expect(
         claims({ user: { id: "u1", isAdmin: true }, scopes: ["openid", CHAPTERS_SCOPE] }),
@@ -345,6 +386,40 @@ describe("accounts auth", () => {
       ).resolves.toEqual({});
     }
     expect(memberships.listActiveChaptersForUser).toHaveBeenCalledWith(env.DB, "u1");
+  });
+
+  it("tells UserInfo callers whether the token's client is first-party", async () => {
+    const owners: Record<string, string | null> = { wiki: null, "dev-app": "owner" };
+    const env = {
+      ...testEnv(),
+      DB: {
+        prepare: () => ({
+          bind: (clientId: string) => ({
+            first: async () =>
+              clientId in owners ? { firstParty: owners[clientId] === null ? 1 : 0 } : null,
+          }),
+        }),
+      },
+    } as unknown as Env;
+    getAuth(env);
+    const userInfo = oauthProviderMock.options?.customUserInfoClaims as (ctx: {
+      user: Record<string, unknown>;
+      scopes: string[];
+      jwt: Record<string, unknown>;
+    }) => Promise<Record<string, unknown>>;
+    const user = { id: "u1", isAdmin: false };
+    const scopes = ["openid"];
+
+    await expect(userInfo({ user, scopes, jwt: { client_id: "wiki" } })).resolves.toEqual({
+      [CLIENT_CLAIM]: { id: "wiki", first_party: true },
+    });
+    await expect(userInfo({ user, scopes, jwt: { azp: "dev-app" } })).resolves.toEqual({
+      [CLIENT_CLAIM]: { id: "dev-app", first_party: false },
+    });
+    await expect(userInfo({ user, scopes, jwt: { client_id: "gone" } })).resolves.toEqual({});
+    await expect(userInfo({ user, scopes, jwt: {} })).resolves.toEqual({});
+    const idToken = oauthProviderMock.options?.customIdTokenClaims as typeof userInfo;
+    await expect(idToken({ user, scopes, jwt: { client_id: "wiki" } })).resolves.toEqual({});
   });
 
   it("maps the Better Auth session user and requires one for protected loaders", async () => {

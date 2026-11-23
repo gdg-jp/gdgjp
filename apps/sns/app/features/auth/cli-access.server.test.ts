@@ -19,6 +19,7 @@ function identity(over: Partial<BearerIdentity> = {}): BearerIdentity {
   return {
     user: { id: "u1", email: "u@example.com", name: "U", image: null, isAdmin: false },
     chapters: [],
+    client: { id: "gdg-cli", firstParty: true },
     ...over,
   };
 }

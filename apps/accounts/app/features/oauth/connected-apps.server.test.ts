@@ -166,14 +166,47 @@ type TokenRow = {
   revoked?: string | null;
   scopes?: string;
   resources?: string | null;
+  code?: string | null;
 };
+
+let issuedCodes = 0;
+
+function issueGrantCode(raw: DatabaseSync, clientId: string, userId: string | null) {
+  issuedCodes += 1;
+  const identifier = `grant-${issuedCodes}`;
+  raw
+    .prepare(`INSERT INTO "verification" (id, identifier, value, "expiresAt", "createdAt", "updatedAt")
+      VALUES (?, ?, ?, ?, ?, ?)`)
+    .run(
+      identifier,
+      identifier,
+      JSON.stringify({
+        type: "authorization_code",
+        query: { client_id: clientId, scope: "openid offline_access" },
+        userId,
+      }),
+      FUTURE,
+      PAST,
+      PAST,
+    );
+  raw.prepare(`DELETE FROM "verification" WHERE id = ?`).run(identifier);
+  return identifier;
+}
+
+function grantCodeIds(raw: DatabaseSync) {
+  return (
+    raw
+      .prepare(`SELECT "authorizationCodeId" AS id FROM "developerClientGrantCode" ORDER BY 1`)
+      .all() as { id: string }[]
+  ).map((row) => row.id);
+}
 
 function insertRefreshToken(raw: DatabaseSync, row: TokenRow) {
   raw
     .prepare(`INSERT INTO "oauthRefreshToken"
       (id, token, "clientId", "sessionId", "userId", "expiresAt", "createdAt", revoked, scopes,
-       resources)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+       resources, "authorizationCodeId")
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
     .run(
       row.id,
       `token-${row.id}`,
@@ -185,6 +218,7 @@ function insertRefreshToken(raw: DatabaseSync, row: TokenRow) {
       row.revoked ?? null,
       row.scopes ?? '["openid"]',
       row.resources ?? null,
+      row.code === undefined ? issueGrantCode(raw, row.clientId, row.userId) : row.code,
     );
 }
 
@@ -192,8 +226,8 @@ function insertAccessToken(raw: DatabaseSync, row: TokenRow) {
   raw
     .prepare(`INSERT INTO "oauthAccessToken"
       (id, token, "clientId", "sessionId", "userId", "refreshId", "expiresAt", "createdAt",
-       revoked, scopes, resources)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+       revoked, scopes, resources, "authorizationCodeId")
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
     .run(
       row.id,
       `token-${row.id}`,
@@ -206,6 +240,7 @@ function insertAccessToken(raw: DatabaseSync, row: TokenRow) {
       row.revoked ?? null,
       row.scopes ?? '["openid"]',
       row.resources ?? null,
+      row.code === undefined ? issueGrantCode(raw, row.clientId, row.userId) : row.code,
     );
 }
 
@@ -550,6 +585,107 @@ describe("migration 0025", () => {
     expect(() =>
       insertRefreshToken(raw, { id: "r-after", clientId: "dev-app", userId: "user-1" }),
     ).toThrow(/developer client token without consent/);
+  });
+});
+
+describe("grants bound to the consent they were issued under", () => {
+  it("refuses an old grant's token after removal and re-approval, and accepts a new grant", async () => {
+    const { raw, db } = migratedDb();
+    seed(raw);
+    addConsent(raw, {
+      id: "wide",
+      clientId: "dev-app",
+      userId: "user-1",
+      scopes: '["openid","offline_access","email"]',
+    });
+    const oldCode = issueGrantCode(raw, "dev-app", "user-1");
+    insertRefreshToken(raw, { id: "r-old", clientId: "dev-app", userId: "user-1", code: oldCode });
+
+    await removeConnectedApp(db, "user-1", "dev-app");
+    addConsent(raw, { id: "narrow", clientId: "dev-app", userId: "user-1", scopes: '["openid"]' });
+
+    expect(grantCodeIds(raw)).toEqual([]);
+    expect(() =>
+      insertRefreshToken(raw, {
+        id: "r-rotated",
+        clientId: "dev-app",
+        userId: "user-1",
+        code: oldCode,
+        scopes: '["openid","offline_access","email"]',
+      }),
+    ).toThrow(/developer client token without consent/);
+    expect(() =>
+      insertAccessToken(raw, {
+        id: "a-exchanged",
+        clientId: "dev-app",
+        userId: "user-1",
+        code: oldCode,
+      }),
+    ).toThrow(/developer client token without consent/);
+
+    const newCode = issueGrantCode(raw, "dev-app", "user-1");
+    insertRefreshToken(raw, { id: "r-new", clientId: "dev-app", userId: "user-1", code: newCode });
+    insertAccessToken(raw, {
+      id: "a-new",
+      clientId: "dev-app",
+      userId: "user-1",
+      refreshId: "r-new",
+      code: newCode,
+    });
+
+    expect(tokenIds(raw)).toEqual({ access: ["a-new"], refresh: ["r-new"] });
+  });
+
+  it("refuses a developer-client token whose code was issued without consent or names no code", () => {
+    const { raw } = migratedDb();
+    seed(raw);
+    const unconsented = issueGrantCode(raw, "dev-app", "user-1");
+    addConsent(raw, { id: "granted", clientId: "dev-app", userId: "user-1", scopes: "[]" });
+
+    for (const code of [unconsented, null, "never-issued"]) {
+      expect(() =>
+        insertRefreshToken(raw, { id: "r-1", clientId: "dev-app", userId: "user-1", code }),
+      ).toThrow(/developer client token without consent/);
+      expect(() =>
+        insertAccessToken(raw, { id: "a-1", clientId: "dev-app", userId: "user-1", code }),
+      ).toThrow(/developer client token without consent/);
+    }
+    expect(grantCodeIds(raw)).toEqual([]);
+  });
+
+  it("records no grant for a code that stores a resource or belongs to another user", () => {
+    const { raw } = migratedDb();
+    seed(raw);
+    addConsent(raw, { id: "granted", clientId: "dev-app", userId: "user-1", scopes: "[]" });
+    const insert = (id: string, value: Record<string, unknown>) =>
+      raw
+        .prepare(`INSERT INTO "verification"
+          (id, identifier, value, "expiresAt", "createdAt", "updatedAt")
+          VALUES (?, ?, ?, ?, ?, ?)`)
+        .run(id, id, JSON.stringify(value), FUTURE, PAST, PAST);
+    const query = { client_id: "dev-app", scope: "openid" };
+
+    insert("stored", {
+      type: "authorization_code",
+      query,
+      userId: "user-1",
+      resource: ["https://r"],
+    });
+    insert("queried", {
+      type: "authorization_code",
+      query: { ...query, resource: "https://r" },
+      userId: "user-1",
+    });
+    insert("other-user", { type: "authorization_code", query, userId: "user-2" });
+    insert("state", { type: "oauth_state", query, userId: "user-1" });
+    insert("empty-resource", { type: "authorization_code", query, userId: "user-1", resource: [] });
+    insert("wiki", {
+      type: "authorization_code",
+      query: { client_id: "fp-wiki", scope: "openid" },
+      userId: "user-1",
+    });
+
+    expect(grantCodeIds(raw)).toEqual(["empty-resource"]);
   });
 });
 

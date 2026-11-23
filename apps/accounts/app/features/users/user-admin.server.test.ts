@@ -213,9 +213,13 @@ describe("admin revocation and developer-client grants", () => {
       ('c1', 'dev-app', '[]', 'owner')`);
     raw.exec(`INSERT INTO "oauthConsent" (id, "clientId", "userId", scopes, "createdAt", "updatedAt")
       VALUES ('consent', 'dev-app', 'user-1', '[]', '2026-11-01', '2026-11-01')`);
+    raw.exec(`INSERT INTO "verification" (id, identifier, value, "expiresAt", "createdAt", "updatedAt")
+      VALUES ('code', 'code', '{"type":"authorization_code","query":{"client_id":"dev-app"},"userId":"user-1"}',
+        '2999-01-01', '2026-11-01', '2026-11-01')`);
+    raw.exec(`DELETE FROM "verification" WHERE id = 'code'`);
     raw.exec(`INSERT INTO "oauthRefreshToken"
-      (id, token, "clientId", "userId", "expiresAt", "createdAt", scopes)
-      VALUES ('r1', 't1', 'dev-app', 'user-1', '2999-01-01', '2026-11-01', '[]')`);
+      (id, token, "clientId", "userId", "expiresAt", "createdAt", scopes, "authorizationCodeId")
+      VALUES ('r1', 't1', 'dev-app', 'user-1', '2999-01-01', '2026-11-01', '[]', 'code')`);
     const counts = () => ({
       consent: raw.prepare(`SELECT id FROM "oauthConsent"`).all().length,
       refresh: raw.prepare(`SELECT id FROM "oauthRefreshToken"`).all().length,
