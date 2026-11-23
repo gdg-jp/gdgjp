@@ -115,7 +115,9 @@ export const SCRUB = {
   },
   "gdgjp-screen-db": { scrub: [], reviewed: ["stage.invite_token", "stage.output_token"] },
   "gdgjp-sns-db": {
-    scrub: ['DELETE FROM "x_accounts";'],
+    scrub: [
+      'UPDATE "x_accounts" SET "access_token_ciphertext" = \'\', "refresh_token_ciphertext" = NULL, "access_token_expires_at" = NULL;',
+    ],
     reviewed: [
       "x_accounts.access_token_ciphertext",
       "x_accounts.refresh_token_ciphertext",

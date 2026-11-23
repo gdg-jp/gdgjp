@@ -121,3 +121,31 @@ test("sync removes credentials and refuses unreviewed credential columns", () =>
   assert.ok(isCredentialColumn("discord_webhook_cipher"));
   assert.ok(!isCredentialColumn("title"));
 });
+
+test("scrub deletes only rows nothing references without a cascade", async () => {
+  const { existsSync, readFileSync, readdirSync } = await import("node:fs");
+  const { SCRUB } = await import("../../scripts/staging/scrub.mjs");
+  const schemaOf = (app) => {
+    const directory = new URL(`../../apps/${app}/`, import.meta.url);
+    if (existsSync(new URL("schema.sql", directory)))
+      return readFileSync(new URL("schema.sql", directory), "utf8");
+    return readdirSync(new URL("migrations/", directory))
+      .filter((file) => file.endsWith(".sql"))
+      .map((file) => readFileSync(new URL(`migrations/${file}`, directory), "utf8"))
+      .join("\n");
+  };
+  for (const [database, { scrub }] of Object.entries(SCRUB)) {
+    const app = database.replace(/^gdgjp-/, "").replace(/-db$/, "");
+    const schema = schemaOf(app).split(";");
+    for (const statement of [...scrub, 'DELETE FROM "oidc_session";']) {
+      const table = /^DELETE FROM "([^"]+)"/.exec(statement)?.[1];
+      if (!table) continue;
+      const blocking = schema.filter((definition) =>
+        new RegExp(
+          `REFERENCES "?${table}"?\\s*\\([^)]*\\)(?![^,]*ON DELETE (CASCADE|SET NULL))`,
+        ).test(definition),
+      );
+      assert.deepEqual(blocking, [], `${database}: deleting ${table} would violate a foreign key`);
+    }
+  }
+});
