@@ -35,6 +35,7 @@ jobs:
       - name: Check the encryption key
         env:
           CODEX_AUTH_KEY: ${{ secrets.CODEX_AUTH_KEY }}
+          CODEX_ACCOUNT_SHA256: ${{ secrets.CODEX_ACCOUNT_SHA256 }}
         run: node .github/scripts/codex-auth.mjs check-key
       - name: Install Codex
         run: npm install --global "@openai/codex@${CODEX_VERSION}"
@@ -74,6 +75,7 @@ jobs:
         id: save
         env:
           CODEX_AUTH_KEY: ${{ secrets.CODEX_AUTH_KEY }}
+          CODEX_ACCOUNT_SHA256: ${{ secrets.CODEX_ACCOUNT_SHA256 }}
         run: node .github/scripts/codex-auth.mjs save "$CODEX_HOME" "$RUNNER_TEMP/codex-auth-upload"
       - name: Store the login
         uses: actions/upload-artifact@v4

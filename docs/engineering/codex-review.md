@@ -46,9 +46,15 @@ login; a bypass actor merges them after a human review.
   cannot post. Resolving a thread by hand does not resolve the finding.
 - Reactions, replies, and `/codex` comments count only from people with write access
   to the repository. Other bots are ignored.
-- Codex runs in its read-only sandbox without the GitHub token, so pull request content
-  cannot make it push, comment, or change labels. The workflow posts only the JSON that
-  Codex returns, after redacting every value from the Codex login.
+- Codex runs without the GitHub token under a permission profile that allows reading the
+  filesystem, denies the Codex home that holds the login, and allows no writes. Before
+  each run, `codex-review.mjs sandbox-check` confirms through `codex sandbox` that the
+  sandbox can read the checkout but cannot read `auth.json` or write, and the job stops
+  if it can. Pull request content therefore cannot make Codex push, comment, change labels,
+  or read the login. The workflow posts only the JSON that Codex returns, after redacting
+  every value from the login and neutralizing any `<!--` so it cannot carry gate markers.
+- A verdict marker counts only as the last marker of the agent's reply in that
+  finding's thread.
 - Pull request authors with write access can change these workflows in their branch, as
   with any `pull_request` check. The ruleset's code-owner review on `.github/` covers that.
 
@@ -56,7 +62,10 @@ login; a bypass actor merges them after a human review.
 
 The login is a ChatGPT device-code sign-in stored as a workflow artifact encrypted with
 the repository secret `CODEX_AUTH_KEY` (AES-256-GCM). The repository is public, so the
-artifact is never stored in plain text.
+artifact is never stored in plain text. The run log, and therefore the one-time code, is
+public too. Anyone who enters the code first could attach their own ChatGPT account, so
+the login and every restore check that the account's email hashes to the repository secret
+`CODEX_ACCOUNT_SHA256` (SHA-256 of the lowercase email) and refuse any other account.
 
 1. Open Actions → **Codex login** → **Run workflow**.
 2. Open the run. The **Show the login link** step prints the link and one-time code, and
@@ -71,11 +80,12 @@ Codex refreshed its tokens, keeping the three newest. All runs that touch the lo
 the `codex-auth` concurrency group so a refresh token is never used twice. Artifacts
 expire after 90 days, so an agent that has not run for 90 days needs a new sign-in.
 
-To rotate the encryption key, set a new `CODEX_AUTH_KEY` and run the login workflow
-again:
+To rotate the encryption key or change the account, set the secrets and run the login
+workflow again:
 
 ```sh
 openssl rand -base64 48 | gh secret set CODEX_AUTH_KEY
+printf '%s' 'agent-account@example.com' | shasum -a 256 | cut -d' ' -f1 | gh secret set CODEX_ACCOUNT_SHA256
 ```
 
 ## Files

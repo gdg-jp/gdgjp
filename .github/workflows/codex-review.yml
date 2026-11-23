@@ -73,7 +73,6 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          filter: blob:none
           persist-credentials: false
       - uses: actions/setup-node@v4
         with:
@@ -87,9 +86,14 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ github.token }}
           CODEX_AUTH_KEY: ${{ secrets.CODEX_AUTH_KEY }}
+          CODEX_ACCOUNT_SHA256: ${{ secrets.CODEX_ACCOUNT_SHA256 }}
         run: |
           echo "CODEX_HOME=$RUNNER_TEMP/codex-home" >> "$GITHUB_ENV"
           node .github/scripts/codex-auth.mjs restore "$RUNNER_TEMP/codex-home"
+      - name: Check that the sandbox hides the Codex login
+        env:
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        run: node .github/scripts/codex-review.mjs sandbox-check
       - name: Run Codex agent
         env:
           GITHUB_TOKEN: ${{ github.token }}
@@ -102,6 +106,7 @@ jobs:
         if: always() && steps.restore.outcome == 'success'
         env:
           CODEX_AUTH_KEY: ${{ secrets.CODEX_AUTH_KEY }}
+          CODEX_ACCOUNT_SHA256: ${{ secrets.CODEX_ACCOUNT_SHA256 }}
         run: node .github/scripts/codex-auth.mjs save "$CODEX_HOME" "$RUNNER_TEMP/codex-auth-upload"
       - name: Store refreshed Codex login
         if: always() && steps.save.outputs.changed == 'true'

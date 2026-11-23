@@ -1,5 +1,5 @@
 import { execFile } from "node:child_process";
-import { createCipheriv, createDecipheriv, createHash, randomBytes } from "node:crypto";
+import { createCipheriv, createDecipheriv, createHash, randomBytes, scryptSync } from "node:crypto";
 import { appendFile, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -95,7 +95,7 @@ function key(secret) {
   if (!secret || secret.length < 32) {
     throw new Error("CODEX_AUTH_KEY must be set to a random value of at least 32 characters");
   }
-  return createHash("sha256").update(secret).digest();
+  return scryptSync(secret, "gdgjp-codex-auth", 32);
 }
 
 export function encrypt(plaintext, secret) {
@@ -156,6 +156,29 @@ export function parseDeviceLogin(output) {
   return url && code ? { url, code } : null;
 }
 
+export function accountEmail(auth) {
+  const payload = auth?.tokens?.id_token?.split(".")[1];
+  if (!payload) return null;
+  try {
+    return JSON.parse(Buffer.from(payload, "base64url").toString("utf8")).email ?? null;
+  } catch {
+    return null;
+  }
+}
+
+export function verifyAccount(auth, expectedDigest) {
+  if (!expectedDigest) {
+    throw new Error("CODEX_ACCOUNT_SHA256 must name the ChatGPT account the agent signs in with");
+  }
+  const email = accountEmail(auth);
+  const actual = email ? digest(email.trim().toLowerCase()) : null;
+  if (actual !== expectedDigest.trim().toLowerCase()) {
+    throw new Error(
+      "The Codex login belongs to a different ChatGPT account than CODEX_ACCOUNT_SHA256",
+    );
+  }
+}
+
 function digest(text) {
   return createHash("sha256").update(text).digest("hex");
 }
@@ -164,7 +187,7 @@ async function setOutput(name, value) {
   if (process.env.GITHUB_OUTPUT) await appendFile(process.env.GITHUB_OUTPUT, `${name}=${value}\n`);
 }
 
-async function restore({ github, codexHome, secret }) {
+async function restore({ github, codexHome, secret, account }) {
   const artifact = await github.latestArtifact(ARTIFACT_NAME);
   if (!artifact) {
     throw new Error("No Codex login is stored. Run the Codex login workflow first.");
@@ -177,6 +200,7 @@ async function restore({ github, codexHome, secret }) {
       maxBuffer: 16 * 1024 * 1024,
     });
     const auth = decrypt(stdout, secret);
+    verifyAccount(JSON.parse(auth), account);
     for (const value of authSecrets(JSON.parse(auth))) console.log(`::add-mask::${value}`);
     await mkdir(codexHome, { recursive: true, mode: 0o700 });
     await writeFile(join(codexHome, "auth.json"), auth, { mode: 0o600 });
@@ -187,9 +211,9 @@ async function restore({ github, codexHome, secret }) {
   }
 }
 
-async function save({ codexHome, outDir, secret }) {
+async function save({ codexHome, outDir, secret, account }) {
   const auth = await readFile(join(codexHome, "auth.json"), "utf8");
-  JSON.parse(auth);
+  verifyAccount(JSON.parse(auth), account);
   const previous = await readFile(join(codexHome, ".restored-digest"), "utf8").catch(() => "");
   if (previous === digest(auth)) {
     console.log("The Codex login did not change.");
@@ -216,10 +240,15 @@ async function main() {
   const [command, ...args] = process.argv.slice(2);
   const github = new GitHubClient({ token: process.env.GITHUB_TOKEN });
   const secret = process.env.CODEX_AUTH_KEY;
-  if (command === "restore") return restore({ github, codexHome: args[0], secret });
-  if (command === "save") return save({ codexHome: args[0], outDir: args[1], secret });
+  const account = process.env.CODEX_ACCOUNT_SHA256;
+  if (command === "restore") return restore({ github, codexHome: args[0], secret, account });
+  if (command === "save") return save({ codexHome: args[0], outDir: args[1], secret, account });
   if (command === "prune") return prune({ github });
-  if (command === "check-key") return key(secret) && undefined;
+  if (command === "check-key") {
+    key(secret);
+    if (!account) throw new Error("CODEX_ACCOUNT_SHA256 is not set");
+    return;
+  }
   if (command === "device-login") {
     const login = parseDeviceLogin(await readFile(args[0], "utf8"));
     if (!login) return process.exit(2);

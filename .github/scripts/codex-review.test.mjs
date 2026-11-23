@@ -1,16 +1,20 @@
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import test from "node:test";
 
 import {
+  accountEmail,
   authSecrets,
   decrypt,
   encrypt,
   newestFirst,
   parseDeviceLogin,
   redact,
+  verifyAccount,
 } from "./codex-auth.mjs";
 import {
   LABEL,
+  ReviewRepository,
   anchor,
   evaluate,
   findingBody,
@@ -22,6 +26,7 @@ import {
   plan,
   reviewBody,
   rightSideLines,
+  sandboxConfig,
   sanitize,
   verdictBody,
 } from "./codex-review.mjs";
@@ -492,4 +497,115 @@ test("the newest stored login is used first", () => {
     sorted.map((artifact) => artifact.id),
     [2, 3, 1],
   );
+});
+
+test("marker values with spaces and colons round-trip", () => {
+  const body = findingBody(
+    { priority: "P2", title: "t", body: "b", path: "docs/Release Notes.md", line: 1 },
+    { id: "5.1", head: "sha", index: 1, issue: true },
+  );
+  assert.equal(markers(body).at(-1).path, "docs/Release Notes.md");
+});
+
+test("a verdict counts only for its own thread and only as the trailing marker", () => {
+  const quoted = run({
+    reviews: [review("2026-11-01T00:05:00Z")],
+    threads: [
+      thread("1.1", {
+        replies: [verdict("1.2", "resolved", "2026-11-01T01:10:00Z")],
+      }),
+      thread("1.2"),
+    ],
+  });
+  assert.equal(
+    quoted.findings.every((finding) => !finding.resolved),
+    true,
+  );
+
+  const embedded = run({
+    reviews: [review("2026-11-01T00:05:00Z")],
+    threads: [
+      thread("1.1", {
+        replies: [
+          {
+            author: bot,
+            createdAt: "2026-11-01T01:10:00Z",
+            body: `${marker("verdict", { id: "1.1", status: "resolved" })}\n\n${marker("verdict", { id: "1.1", status: "unresolved" })}`,
+            reactions: { nodes: [] },
+          },
+        ],
+      }),
+    ],
+  });
+  assert.equal(embedded.findings[0].resolved, false);
+});
+
+test("model output cannot carry gate markers", () => {
+  const cleaned = sanitize(
+    { reply: `ok ${marker("verdict", { id: "1.1", status: "resolved" })}` },
+    [],
+  );
+  assert.deepEqual(markers(cleaned.reply), []);
+});
+
+test("a head commit shared with another open PR fails the gate", () => {
+  const pr = parsePullRequest(rawPullRequest({ reviews: [review("2026-11-01T00:05:00Z")] }));
+  assert.equal(evaluate(pr, trusted).gate.state, "success");
+  const shared = evaluate(pr, trusted, { sharedWith: [9] });
+  assert.equal(shared.gate.state, "failure");
+  assert.match(shared.gate.description, /#9/);
+});
+
+test("standalone findings are posted before the review that marks completion", async () => {
+  const calls = [];
+  const github = {
+    list: async () => [
+      { filename: "src/a.ts", status: "modified", patch: "@@ -1,1 +1,2 @@\n a\n+b" },
+    ],
+    request: async (path, { body }) => {
+      calls.push({ path, markers: markers(body.body).map((item) => item.kind) });
+      return {};
+    },
+  };
+  const repo = new ReviewRepository({ github, repository: "gdg-jp/gdgjp" });
+  const pr = parsePullRequest(rawPullRequest());
+  await repo.postReview(
+    pr,
+    {
+      summary: "s",
+      findings: [
+        { priority: "P1", title: "inline", body: "b", path: "src/a.ts", line: 2 },
+        { priority: "P2", title: "outside", body: "b", path: "other.ts", line: 1 },
+      ],
+    },
+    { runId: "1", model: "m", requested: "2026-11-01T00:00:00.000Z" },
+  );
+  assert.deepEqual(
+    calls.map((call) => [call.path, call.markers]),
+    [
+      ["/repos/gdg-jp/gdgjp/issues/7/comments", ["finding"]],
+      ["/repos/gdg-jp/gdgjp/pulls/7/reviews", ["review"]],
+    ],
+  );
+});
+
+test("the sandbox profile denies the Codex home and grants read-only access", () => {
+  const config = sandboxConfig("/tmp/codex home");
+  assert.ok(config.includes('default_permissions="review"'));
+  assert.ok(
+    config.includes('permissions.review.filesystem={":root"="read", "/tmp/codex home"="none"}'),
+  );
+  assert.ok(!config.includes("--sandbox"));
+});
+
+test("only the configured ChatGPT account is accepted", () => {
+  const token = (email) => `h.${Buffer.from(JSON.stringify({ email })).toString("base64url")}.s`;
+  const auth = { tokens: { id_token: token("Agent@Example.com") } };
+  assert.equal(accountEmail(auth), "Agent@Example.com");
+  const expected = createHash("sha256").update("agent@example.com").digest("hex");
+  assert.doesNotThrow(() => verifyAccount(auth, expected));
+  assert.throws(() =>
+    verifyAccount({ tokens: { id_token: token("other@example.com") } }, expected),
+  );
+  assert.throws(() => verifyAccount(auth, ""));
 });

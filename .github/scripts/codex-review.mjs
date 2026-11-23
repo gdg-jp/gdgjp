@@ -23,7 +23,7 @@ export function markers(body) {
     const fields = {};
     for (const pair of match[2].trim().split(" ").filter(Boolean)) {
       const index = pair.indexOf("=");
-      fields[pair.slice(0, index)] = pair.slice(index + 1);
+      fields[pair.slice(0, index)] = decodeURIComponent(pair.slice(index + 1));
     }
     found.push({ kind: match[1], ...fields });
   }
@@ -33,7 +33,7 @@ export function markers(body) {
 export function marker(kind, fields) {
   const pairs = Object.entries(fields)
     .filter(([, value]) => value !== undefined && value !== "")
-    .map(([key, value]) => ` ${key}=${value}`)
+    .map(([key, value]) => ` ${key}=${encodeURIComponent(value)}`)
     .join("");
   return `<!-- codex-review:${kind}${pairs} -->`;
 }
@@ -86,8 +86,9 @@ export function parsePullRequest(raw) {
     const claims = reactionClaims(first.reactions);
     for (const reply of replies) {
       if (isBot(reply.author)) {
-        for (const item of markers(reply.body)) {
-          if (item.kind === "verdict") verdicts.push({ ...item, at: reply.createdAt });
+        const item = markers(reply.body).at(-1);
+        if (item?.kind === "verdict" && item.id === found.id) {
+          verdicts.push({ ...item, at: reply.createdAt });
         }
       } else if (isHuman(reply.author)) {
         claims.push({
@@ -116,25 +117,24 @@ export function parsePullRequest(raw) {
 
   for (const comment of raw.comments?.nodes ?? []) {
     if (isBot(comment.author)) {
-      for (const item of markers(comment.body)) {
-        if (item.kind === "finding") {
-          findings.set(item.id, {
-            id: item.id,
-            head: item.head,
-            kind: "issue",
-            commentId: comment.databaseId,
-            path: item.path ?? null,
-            line: null,
-            body: comment.body,
-            url: comment.url,
-            at: comment.createdAt,
-            claims: reactionClaims(comment.reactions),
-          });
-        } else if (item.kind === "verdict") {
-          verdicts.push({ ...item, at: comment.createdAt });
-        } else if (item.kind === "ack") {
-          acked.add(item.comment);
-        }
+      const item = markers(comment.body).at(-1);
+      if (item?.kind === "finding") {
+        findings.set(item.id, {
+          id: item.id,
+          head: item.head,
+          kind: "issue",
+          commentId: comment.databaseId,
+          path: item.path ?? null,
+          line: null,
+          body: comment.body,
+          url: comment.url,
+          at: comment.createdAt,
+          claims: reactionClaims(comment.reactions),
+        });
+      } else if (item?.kind === "verdict") {
+        verdicts.push({ ...item, at: comment.createdAt });
+      } else if (item?.kind === "ack") {
+        acked.add(item.comment);
       }
     } else if (isHuman(comment.author) && TRIGGER.test(comment.body ?? "")) {
       mentions.push({
@@ -200,7 +200,7 @@ export function humanActors(pr) {
   return actors;
 }
 
-export function evaluate(pr, trusted) {
+export function evaluate(pr, trusted, { sharedWith = [] } = {}) {
   const firstReviewAt = pr.reviews.length
     ? Math.min(...pr.reviews.map((review) => time(review.at)))
     : null;
@@ -246,7 +246,12 @@ export function evaluate(pr, trusted) {
   const unresolved = findings.filter((finding) => !finding.resolved);
 
   let gate;
-  if (pr.isCrossRepository) {
+  if (sharedWith.length > 0) {
+    gate = {
+      state: "failure",
+      description: `The head commit is shared with #${sharedWith.join(", #")}; push a distinct commit`,
+    };
+  } else if (pr.isCrossRepository) {
     gate = {
       state: "failure",
       description: "Codex review does not run on fork PRs; a ruleset bypass is required",
@@ -353,7 +358,7 @@ export function reviewBody(result, { head, requested, findingCount, model }) {
   return lines.join("\n");
 }
 
-export function verdictBody(verdict, { id, seen }) {
+export function verdictBody(verdict, { id, seen, head }) {
   const heading = verdict.resolved
     ? "✅ 解決を確認しました。"
     : "❌ まだ解決していません。修正したら、もう一度返信するかリアクションしてください。";
@@ -362,7 +367,12 @@ export function verdictBody(verdict, { id, seen }) {
     "",
     verdict.reply.trim(),
     "",
-    marker("verdict", { id, status: verdict.resolved ? "resolved" : "unresolved", seen }),
+    marker("verdict", {
+      id,
+      status: verdict.resolved ? "resolved" : "unresolved",
+      seen,
+      head,
+    }),
   ].join("\n");
 }
 
@@ -521,40 +531,57 @@ const PULL_REQUEST_QUERY = `query($owner: String!, $name: String!, $number: Int!
     pullRequest(number: $number) {
       number url title body state isDraft isCrossRepository headRefOid baseRefName
       author { login }
-      labels(first: 50) { nodes { name } }
-      timelineItems(itemTypes: [LABELED_EVENT], last: 50) {
+      labels(first: 100) { nodes { name } }
+      timelineItems(itemTypes: [LABELED_EVENT], last: 100) {
         nodes { ... on LabeledEvent { createdAt label { name } } }
       }
       commits(last: 1) {
         nodes { commit { oid status { context(name: "${STATUS_CONTEXT}") { state description } } } }
       }
-      reviews(first: 100) { nodes { body createdAt url author { __typename login } } }
-      reviewThreads(first: 100) {
-        nodes {
-          id isResolved path line originalLine
-          comments(first: 60) {
-            nodes {
-              databaseId body createdAt url author { __typename login }
-              reactions(first: 20) { nodes { content createdAt user { login } } }
-            }
-          }
-        }
-      }
-      comments(last: 100) {
-        nodes {
-          databaseId body createdAt url author { __typename login }
-          reactions(first: 20) { nodes { content createdAt user { login } } }
-        }
+    }
+  }
+}`;
+
+const COMMENT_FIELDS = `databaseId body createdAt url author { __typename login }
+  reactions(last: 50) { nodes { content createdAt user { login } } }`;
+
+const CONNECTIONS = {
+  reviews: "body createdAt url author { __typename login }",
+  reviewThreads: `id isResolved path line originalLine
+    head: comments(first: 1) { nodes { ${COMMENT_FIELDS} } }
+    tail: comments(last: 60) { nodes { ${COMMENT_FIELDS} } }`,
+  comments: COMMENT_FIELDS,
+};
+
+function connectionQuery(name) {
+  return `query($owner: String!, $name: String!, $number: Int!, $cursor: String) {
+  repository(owner: $owner, name: $name) {
+    pullRequest(number: $number) {
+      ${name}(first: 50, after: $cursor) {
+        pageInfo { hasNextPage endCursor }
+        nodes { ${CONNECTIONS[name]} }
       }
     }
   }
 }`;
+}
+
+function threadComments(thread) {
+  const seen = new Set();
+  const nodes = [];
+  for (const comment of [...(thread.head?.nodes ?? []), ...(thread.tail?.nodes ?? [])]) {
+    if (seen.has(comment.databaseId)) continue;
+    seen.add(comment.databaseId);
+    nodes.push(comment);
+  }
+  return { nodes };
+}
 
 const OPEN_PULL_REQUESTS_QUERY = `query($owner: String!, $name: String!, $cursor: String) {
   repository(owner: $owner, name: $name) {
     pullRequests(states: OPEN, first: 100, after: $cursor) {
       pageInfo { hasNextPage endCursor }
-      nodes { number }
+      nodes { number headRefOid }
     }
   }
 }`;
@@ -567,17 +594,43 @@ export class ReviewRepository {
     this.permissions = new Map();
   }
 
+  async connection(number, name) {
+    const nodes = [];
+    let cursor = null;
+    for (;;) {
+      const data = await this.github.graphql(connectionQuery(name), {
+        owner: this.owner,
+        name: this.name,
+        number,
+        cursor,
+      });
+      const page = data.repository.pullRequest[name];
+      nodes.push(...page.nodes);
+      if (!page.pageInfo.hasNextPage) return { nodes };
+      cursor = page.pageInfo.endCursor;
+    }
+  }
+
   async pullRequest(number) {
     const data = await this.github.graphql(PULL_REQUEST_QUERY, {
       owner: this.owner,
       name: this.name,
       number,
     });
-    return parsePullRequest(data.repository.pullRequest);
+    const threads = await this.connection(number, "reviewThreads");
+    return parsePullRequest({
+      ...data.repository.pullRequest,
+      reviews: await this.connection(number, "reviews"),
+      reviewThreads: {
+        nodes: threads.nodes.map((thread) => ({ ...thread, comments: threadComments(thread) })),
+      },
+      comments: await this.connection(number, "comments"),
+    });
   }
 
-  async openPullRequests() {
-    const numbers = [];
+  async openHeads() {
+    if (this.heads) return this.heads;
+    const heads = new Map();
     let cursor = null;
     for (;;) {
       const data = await this.github.graphql(OPEN_PULL_REQUESTS_QUERY, {
@@ -586,10 +639,16 @@ export class ReviewRepository {
         cursor,
       });
       const page = data.repository.pullRequests;
-      numbers.push(...page.nodes.map((node) => node.number));
-      if (!page.pageInfo.hasNextPage) return numbers;
+      for (const node of page.nodes) heads.set(node.number, node.headRefOid);
+      if (!page.pageInfo.hasNextPage) break;
       cursor = page.pageInfo.endCursor;
     }
+    this.heads = heads;
+    return heads;
+  }
+
+  async openPullRequests() {
+    return [...(await this.openHeads()).keys()];
   }
 
   async trusted(pr) {
@@ -615,7 +674,10 @@ export class ReviewRepository {
 
   async evaluate(number) {
     const pr = await this.pullRequest(number);
-    return { pr, evaluation: evaluate(pr, await this.trusted(pr)) };
+    const sharedWith = [...(await this.openHeads()).entries()]
+      .filter(([other, head]) => other !== pr.number && head === pr.headSha)
+      .map(([other]) => other);
+    return { pr, evaluation: evaluate(pr, await this.trusted(pr), { sharedWith }) };
   }
 
   async publishGate(pr, gate, targetUrl = DOCS_URL) {
@@ -671,7 +733,9 @@ export class ReviewRepository {
       side: "RIGHT",
       body: findingBody(item.finding, { id: item.id, head: pr.headSha, index: item.index }),
     }));
-    let posted = inline;
+    for (const item of prepared) {
+      if (!inline.includes(item)) await this.postStandaloneFinding(pr, item);
+    }
     try {
       await this.github.request(`/repos/${this.repository}/pulls/${pr.number}/reviews`, {
         method: "POST",
@@ -679,15 +743,11 @@ export class ReviewRepository {
       });
     } catch (error) {
       console.log(`Inline review failed, posting findings separately: ${error.message}`);
+      for (const item of inline) await this.postStandaloneFinding(pr, item);
       await this.github.request(`/repos/${this.repository}/pulls/${pr.number}/reviews`, {
         method: "POST",
         body: { commit_id: pr.headSha, event: "COMMENT", body },
       });
-      posted = [];
-    }
-    for (const item of prepared) {
-      if (posted.includes(item)) continue;
-      await this.postStandaloneFinding(pr, item);
     }
   }
 
@@ -724,7 +784,7 @@ export class ReviewRepository {
   }
 
   async postVerdict(pr, finding, verdict, seen) {
-    const body = verdictBody(verdict, { id: finding.id, seen });
+    const body = verdictBody(verdict, { id: finding.id, seen, head: pr.headSha });
     if (finding.kind === "thread") {
       await this.github.request(
         `/repos/${this.repository}/pulls/${pr.number}/comments/${finding.commentId}/replies`,
@@ -795,6 +855,18 @@ function run(command, args, { cwd, env, input, timeoutMs = 0 } = {}) {
   });
 }
 
+export function sandboxConfig(codexHome) {
+  const filesystem = `{":root"="read", ${JSON.stringify(codexHome)}="none"}`;
+  return [
+    "-c",
+    'cli_auth_credentials_store="file"',
+    "-c",
+    'default_permissions="review"',
+    "-c",
+    `permissions.review.filesystem=${filesystem}`,
+  ];
+}
+
 export class CodexRunner {
   constructor({ codexHome, model, effort, secrets, timeoutMs = 40 * 60 * 1000 }) {
     this.codexHome = codexHome;
@@ -815,10 +887,7 @@ export class CodexRunner {
       this.model,
       "-c",
       `model_reasoning_effort="${this.effort}"`,
-      "-c",
-      'cli_auth_credentials_store="file"',
-      "--sandbox",
-      "read-only",
+      ...sandboxConfig(this.codexHome),
       "--ephemeral",
       "--ignore-user-config",
       "--output-schema",
@@ -854,7 +923,7 @@ export class CodexRunner {
 }
 
 export function sanitize(value, secrets) {
-  if (typeof value === "string") return redact(value, secrets);
+  if (typeof value === "string") return redact(value, secrets).replaceAll("<!--", "&lt;!--");
   if (Array.isArray(value)) return value.map((item) => sanitize(item, secrets));
   if (value && typeof value === "object") {
     return Object.fromEntries(
@@ -890,78 +959,92 @@ class Worktrees {
   }
 }
 
+const ATTEMPTS = 3;
+
 export async function processPullRequest({ repo, codex, worktrees, number, runId, runUrl, model }) {
-  const { pr, evaluation } = await repo.evaluate(number);
-  if (pr.state !== "OPEN" || !hasWork(evaluation)) {
-    await repo.publishGate(pr, evaluation.gate);
-    return;
-  }
-  const seen = new Date().toISOString();
-  await repo.publishGate(pr, { state: "pending", description: "Codex agent is running" }, runUrl);
-  const tree = await worktrees.prepare(pr);
-  try {
-    const outcomes = new Map();
-    if (evaluation.verifications.length > 0) {
-      const result = sanitize(
-        await codex.exec({
-          cwd: tree.dir,
-          prompt: verifyPrompt(pr, evaluation.verifications),
-          schema: VERIFY_SCHEMA,
-        }),
-        codex.secrets,
-      );
-      const verdicts = new Map(result.verdicts.map((verdict) => [verdict.id, verdict]));
-      for (const finding of evaluation.verifications) {
-        const verdict = verdicts.get(finding.id) ?? {
-          resolved: false,
-          reply: "この指摘について判定を返せませんでした。もう一度返信して確認を依頼してください。",
-        };
-        await repo.postVerdict(pr, finding, verdict, seen);
-        outcomes.set(finding.id, verdict.resolved);
-      }
+  for (let attempt = 1; attempt <= ATTEMPTS; attempt += 1) {
+    const { pr, evaluation } = await repo.evaluate(number);
+    if (pr.state !== "OPEN" || !hasWork(evaluation)) {
+      await repo.publishGate(pr, evaluation.gate);
+      return;
     }
-    for (const mention of evaluation.pendingMentions) {
-      const handled = evaluation.findings
-        .filter((finding) => outcomes.has(finding.id))
-        .filter((finding) =>
-          finding.claims.some((claim) => claim.kind === "mention" && claim.at === mention.at),
-        )
-        .map((finding) => ({
-          title: findingTitle(finding),
-          url: finding.url,
-          resolved: outcomes.get(finding.id),
-        }));
-      await repo.postMentionReply(pr, mention, handled);
+    await repo.publishGate(pr, { state: "pending", description: "Codex agent is running" }, runUrl);
+    const tree = await worktrees.prepare(pr);
+    let stale = false;
+    try {
+      stale = !(await handleWork({ repo, codex, tree, pr, evaluation, runId, model }));
+    } finally {
+      await worktrees.remove(tree.dir);
     }
-    if (evaluation.reviewRequested) {
-      const files = [...(await repo.changedFiles(pr.number)).keys()];
-      const requested = new Date(
-        Math.max(...pr.labeledAt.map((value) => Date.parse(value)), 0) || Date.now(),
-      ).toISOString();
-      const result = sanitize(
-        await codex.exec({
-          cwd: tree.dir,
-          prompt: reviewPrompt(pr, {
-            mergeBase: tree.mergeBase,
-            files,
-            previous: evaluation.findings.map((finding) => ({
-              path: finding.path,
-              line: finding.line,
-              title: findingTitle(finding),
-            })),
-          }),
-          schema: REVIEW_SCHEMA,
-        }),
-        codex.secrets,
-      );
-      await repo.postReview(pr, result, { runId, model, requested });
-      await repo.removeLabel(pr.number);
-    }
-  } finally {
-    await worktrees.remove(tree.dir);
+    if (!stale) break;
+    console.log(`#${number} moved past ${pr.headSha} during verification; checking again.`);
   }
   const after = await repo.evaluate(number);
   await repo.publishGate(after.pr, after.evaluation.gate);
+}
+
+async function handleWork({ repo, codex, tree, pr, evaluation, runId, model }) {
+  const seen = new Date().toISOString();
+  const outcomes = new Map();
+  if (evaluation.verifications.length > 0) {
+    const result = sanitize(
+      await codex.exec({
+        cwd: tree.dir,
+        prompt: verifyPrompt(pr, evaluation.verifications),
+        schema: VERIFY_SCHEMA,
+      }),
+      codex.secrets,
+    );
+    const current = await repo.pullRequest(pr.number);
+    if (current.headSha !== pr.headSha) return false;
+    const verdicts = new Map(result.verdicts.map((verdict) => [verdict.id, verdict]));
+    for (const finding of evaluation.verifications) {
+      const verdict = verdicts.get(finding.id) ?? {
+        resolved: false,
+        reply: "この指摘について判定を返せませんでした。もう一度返信して確認を依頼してください。",
+      };
+      await repo.postVerdict(pr, finding, verdict, seen);
+      outcomes.set(finding.id, verdict.resolved);
+    }
+  }
+  for (const mention of evaluation.pendingMentions) {
+    const handled = evaluation.findings
+      .filter((finding) => outcomes.has(finding.id))
+      .filter((finding) =>
+        finding.claims.some((claim) => claim.kind === "mention" && claim.at === mention.at),
+      )
+      .map((finding) => ({
+        title: findingTitle(finding),
+        url: finding.url,
+        resolved: outcomes.get(finding.id),
+      }));
+    await repo.postMentionReply(pr, mention, handled);
+  }
+  if (evaluation.reviewRequested) {
+    const files = [...(await repo.changedFiles(pr.number)).keys()];
+    const requested = new Date(
+      Math.max(...pr.labeledAt.map((value) => Date.parse(value)), 0) || Date.now(),
+    ).toISOString();
+    const result = sanitize(
+      await codex.exec({
+        cwd: tree.dir,
+        prompt: reviewPrompt(pr, {
+          mergeBase: tree.mergeBase,
+          files,
+          previous: evaluation.findings.map((finding) => ({
+            path: finding.path,
+            line: finding.line,
+            title: findingTitle(finding),
+          })),
+        }),
+        schema: REVIEW_SCHEMA,
+      }),
+      codex.secrets,
+    );
+    await repo.postReview(pr, result, { runId, model, requested });
+    await repo.removeLabel(pr.number);
+  }
+  return true;
 }
 
 function eventPullRequest(event) {
@@ -999,6 +1082,25 @@ export async function plan({ repo, event, authAvailable }) {
   return work;
 }
 
+export async function checkSandbox(codexHome) {
+  const env = { PATH: process.env.PATH, HOME: process.env.HOME, CODEX_HOME: codexHome };
+  const allowed = (command) =>
+    run("codex", ["sandbox", ...sandboxConfig(codexHome), "--", ...command], { env }).then(
+      () => true,
+      () => false,
+    );
+  if (!(await allowed(["cat", process.argv[1]]))) {
+    throw new Error("The Codex sandbox cannot read the repository");
+  }
+  if (await allowed(["cat", join(codexHome, "auth.json")])) {
+    throw new Error("The Codex sandbox can read the Codex login");
+  }
+  if (await allowed(["touch", join(process.cwd(), ".codex-sandbox-probe")])) {
+    throw new Error("The Codex sandbox can write to the checkout");
+  }
+  console.log("The Codex sandbox reads the checkout, cannot read the login, and cannot write.");
+}
+
 async function main() {
   const [command, ...args] = process.argv.slice(2);
   const github = new GitHubClient({ token: process.env.GITHUB_TOKEN });
@@ -1020,6 +1122,11 @@ async function main() {
       },
     });
     await writeOutput("numbers", work.join(","));
+    return;
+  }
+
+  if (command === "sandbox-check") {
+    await checkSandbox(process.env.CODEX_HOME);
     return;
   }
 
@@ -1073,7 +1180,9 @@ async function main() {
     return;
   }
 
-  throw new Error("Usage: node .github/scripts/codex-review.mjs plan | agent <numbers>");
+  throw new Error(
+    "Usage: node .github/scripts/codex-review.mjs plan | sandbox-check | agent <numbers>",
+  );
 }
 
 if (import.meta.url === pathToFileURL(process.argv[1] ?? "").href) {
