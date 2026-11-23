@@ -166,6 +166,25 @@ describe("refuseDeveloperClientResource at the authorization endpoint", () => {
     }
   });
 
+  it("refuses an absent or repeated client_id without asking the database", async () => {
+    const env = {
+      DB: {
+        prepare: () => {
+          throw new Error("no query expected");
+        },
+      } as unknown as D1Database,
+      APP_URL: ORIGIN,
+    };
+    for (const client_id of [[], ["dev:app", "fp-wiki"]]) {
+      await expectInvalidTarget(
+        await refuseDeveloperClientResource(
+          env,
+          authorize({ client_id, redirect_uri: DEV_REDIRECT, resource: RESOURCE }),
+        ),
+      );
+    }
+  });
+
   it.each([
     [{ redirect_uri: "https://evil.example/callback" }],
     [{ redirect_uri: `${DEV_REDIRECT}&x=1` }],
