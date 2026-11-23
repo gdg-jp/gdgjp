@@ -1,29 +1,56 @@
-import { spawnSync } from "node:child_process";
-import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import {
+  existsSync,
+  mkdtempSync,
+  readFileSync,
+  readdirSync,
+  rmSync,
+  statSync,
+  writeFileSync,
+} from "node:fs";
+import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { parse as parseToml } from "smol-toml";
 import { DEPLOY_TARGETS } from "../../.github/scripts/changed-workspaces.mjs";
 import {
+  TRUSTED_ROOT,
+  accountId,
+  api,
+  d1Query,
+  log,
+  paged,
+  run,
+  workersSubdomain,
+  wrangler,
+} from "./cloudflare.mjs";
+import {
   EXCLUDED_APPS,
-  POST_SYNC_SQL,
   SLOTS,
   assertSlot,
   classifySchema,
   composeImport,
   isStagingName,
-  missingSecrets,
+  oauthRedirectRewriteSql,
   requiredResources,
   rewriteUrls,
   rewriteWorkerConfig,
+  stagingHost,
   stagingName,
   withoutWorkerTargets,
   workerTargets,
 } from "./lib.mjs";
+import { copyBuckets } from "./r2-copy.mjs";
+import { UNCOPIED_KV_TITLES, firstPartyClientSql, scrubPlan } from "./scrub.mjs";
+import {
+  clientIdForSecret,
+  deriveSecret,
+  externalKey,
+  externalValues,
+  hashClientSecret,
+  stagingSecretsFor,
+} from "./secrets.mjs";
 
-const ROOT = resolve(fileURLToPath(new URL("../..", import.meta.url)));
-const API = "https://api.cloudflare.com/client/v4";
 export const RELYING_PARTY_APPS = [
   "tinyurl",
   "wiki",
@@ -41,104 +68,117 @@ export const RELYING_PARTY_APPS = [
   "meet",
 ];
 
-function log(message) {
-  process.stderr.write(`${message}\n`);
-}
+const BUNDLE_DIRECTORY = ".staging-bundle";
+const COMPATIBILITY_DATE = "2026-07-25";
+const SOURCE = resolve(process.env.STAGING_SOURCE ?? TRUSTED_ROOT);
 
-function run(command, args, { cwd = ROOT, capture = false, env } = {}) {
-  const result = spawnSync(command, args, {
-    cwd,
-    encoding: "utf8",
-    stdio: capture ? ["ignore", "pipe", "pipe"] : ["ignore", "inherit", "inherit"],
-    env: { ...process.env, WRANGLER_SEND_METRICS: "false", ...env },
-    maxBuffer: 512 * 1024 * 1024,
-  });
-  if (result.status !== 0) {
-    const detail = capture ? `\n${result.stderr}${result.stdout}` : "";
-    throw new Error(`${command} ${args.join(" ")} exited ${result.status}${detail}`);
+export function parseJsonc(text) {
+  let output = "";
+  let inString = false;
+  for (let index = 0; index < text.length; index++) {
+    const char = text[index];
+    if (inString) {
+      output += char;
+      if (char === "\\") output += text[++index] ?? "";
+      else if (char === '"') inString = false;
+    } else if (char === '"') {
+      inString = true;
+      output += char;
+    } else if (char === "/" && text[index + 1] === "/") {
+      while (index < text.length && text[index] !== "\n") index++;
+      output += "\n";
+    } else if (char === "/" && text[index + 1] === "*") {
+      index = text.indexOf("*/", index + 2) + 1;
+      if (index === 0) throw new Error("Unterminated comment in JSONC");
+    } else output += char;
   }
-  return result.stdout ?? "";
+  return JSON.parse(output.replace(/,(\s*[}\]])/g, "$1"));
 }
 
-function wrangler(args, options = {}) {
-  return run("pnpm", ["exec", "wrangler", ...args], {
-    ...options,
-    cwd: options.cwd ?? join(ROOT, "apps/accounts"),
-  });
+function readBaseConfig(directory) {
+  const toml = join(directory, "wrangler.toml");
+  if (existsSync(toml)) return parseToml(readFileSync(toml, "utf8"));
+  return parseJsonc(readFileSync(join(directory, "wrangler.jsonc"), "utf8"));
 }
 
-let credentials;
-function cloudflare() {
-  if (!credentials) {
-    const token =
-      process.env.CLOUDFLARE_API_TOKEN ??
-      wrangler(["auth", "token"], { capture: true }).trim().split("\n").at(-1).trim();
-    credentials = { token, account: process.env.CLOUDFLARE_ACCOUNT_ID };
-  }
-  return credentials;
-}
-
-async function api(path, { method = "GET", body, raw = false } = {}) {
-  const { token } = cloudflare();
-  const response = await fetch(`${API}${path}`, {
-    method,
-    headers: {
-      Authorization: `Bearer ${token}`,
-      ...(body === undefined ? {} : { "Content-Type": "application/json" }),
-    },
-    body: body === undefined ? undefined : JSON.stringify(body),
-  });
-  const json = await response.json();
-  if (!json.success)
-    throw new Error(`${method} ${path} failed: ${JSON.stringify(json.errors ?? json)}`);
-  return raw ? json : json.result;
-}
-
-async function accountId() {
-  const current = cloudflare();
-  if (!current.account) {
-    const accounts = await api("/accounts");
-    if (accounts.length !== 1)
-      throw new Error("Set CLOUDFLARE_ACCOUNT_ID; the token can see several accounts");
-    current.account = accounts[0].id;
-  }
-  return current.account;
-}
-
-async function paged(path) {
-  const results = [];
-  for (let page = 1; ; page++) {
-    const separator = path.includes("?") ? "&" : "?";
-    const json = await api(`${path}${separator}page=${page}&per_page=100`, { raw: true });
-    results.push(...json.result);
-    const info = json.result_info;
-    if (!info || json.result.length === 0 || page * (info.per_page ?? 100) >= info.total_count)
-      return results;
-  }
-}
-
-export function stagingApps() {
+export function stagingApps(source = SOURCE) {
   return DEPLOY_TARGETS.filter(
     ({ provider, app }) => provider === "cloudflare" && !EXCLUDED_APPS.has(app),
   ).map(({ app, workspace }) => {
-    const directory = join(ROOT, "apps", app);
+    const directory = join(source, "apps", app);
     const manifest = JSON.parse(readFileSync(join(directory, "package.json"), "utf8"));
-    const toml = parseToml(readFileSync(join(directory, "wrangler.toml"), "utf8"));
+    const base = readBaseConfig(directory);
     const migrateDatabases = [
       ...(manifest.scripts?.["migrate:remote"] ?? "").matchAll(/d1 migrations apply (\S+)/g),
     ].map((match) => match[1]);
-    return { app, workspace, directory, worker: toml.name, toml, migrateDatabases };
+    return { app, workspace, directory, worker: base.name, base, migrateDatabases };
   });
 }
 
-function sourceConfig(app) {
+function bundleEntry(directory) {
+  const bundle = join(directory, BUNDLE_DIRECTORY);
+  if (!existsSync(bundle)) return null;
+  const entries = readdirSync(bundle).filter((file) => /\.m?js$/.test(file));
+  if (entries.length !== 1) throw new Error(`${bundle} must contain exactly one module`);
+  return `${BUNDLE_DIRECTORY}/${entries[0]}`;
+}
+
+export function sourceConfig(app, { requireBuild = true } = {}) {
   const built = join(app.directory, "build/server/wrangler.json");
   if (existsSync(built))
     return {
       config: JSON.parse(readFileSync(built, "utf8")),
       directory: join(app.directory, "build/server"),
     };
-  return { config: app.toml, directory: app.directory };
+  const entry = bundleEntry(app.directory);
+  if (entry)
+    return {
+      config: {
+        ...app.base,
+        main: entry,
+        no_bundle: true,
+        rules: [{ type: "ESModule", globs: ["**/*.js", "**/*.mjs"] }],
+      },
+      directory: app.directory,
+    };
+  if (requireBuild) throw new Error(`${app.app} has no build output; run the staging build first`);
+  return { config: app.base, directory: app.directory };
+}
+
+export function build(apps = stagingApps()) {
+  run("pnpm", ["--filter", "@gdgjp/design-system", "build"], { cwd: SOURCE });
+  const workspaces = apps
+    .filter(({ app }) => app !== "live-checkin")
+    .map(({ workspace }) => `--filter=${workspace}`);
+  if (workspaces.length)
+    run("pnpm", ["exec", "turbo", "build", "--concurrency=4", ...workspaces], { cwd: SOURCE });
+  for (const app of apps) {
+    if (existsSync(join(app.directory, "build/server/wrangler.json"))) continue;
+    if (app.app === "live-checkin")
+      run("pnpm", ["exec", "opennextjs-cloudflare", "build"], { cwd: app.directory });
+    rmSync(join(app.directory, BUNDLE_DIRECTORY), { recursive: true, force: true });
+    run("pnpm", ["exec", "wrangler", "deploy", "--dry-run", "--outdir", BUNDLE_DIRECTORY], {
+      cwd: app.directory,
+    });
+    for (const file of readdirSync(join(app.directory, BUNDLE_DIRECTORY))) {
+      if (/\.m?js$/.test(file)) continue;
+      if (!/\.map$|^README\.md$/.test(file))
+        throw new Error(
+          `${app.app} bundles an additional module ${file}; teach the staging build to ship it`,
+        );
+      rmSync(join(app.directory, BUNDLE_DIRECTORY, file));
+    }
+  }
+}
+
+function removeUntrustedEnvironment(directory) {
+  for (const entry of readdirSync(directory)) {
+    if (entry === "node_modules" || entry === ".git") continue;
+    const path = join(directory, entry);
+    if (/^\.env(\..*)?$|^\.dev\.vars/.test(entry) || entry === ".vercel")
+      rmSync(path, { recursive: true, force: true });
+    else if (statSync(path).isDirectory()) removeUntrustedEnvironment(path);
+  }
 }
 
 async function productionHosts() {
@@ -170,6 +210,16 @@ async function productionVars(worker) {
   );
 }
 
+async function productionSecretNames(workers) {
+  const account = await accountId();
+  const names = {};
+  for (const worker of workers)
+    names[worker] = (await api(`/accounts/${account}/workers/scripts/${worker}/secrets`)).map(
+      ({ name }) => name,
+    );
+  return names;
+}
+
 async function inventory() {
   const account = await accountId();
   const d1 = Object.fromEntries(
@@ -194,16 +244,14 @@ async function inventory() {
 async function ensureResources(slot, apps) {
   const account = await accountId();
   const current = await inventory();
+  let aiSearchNamespaces;
   for (const app of apps) {
-    const needed = requiredResources(sourceConfig(app).config, slot);
+    const needed = requiredResources(sourceConfig(app, { requireBuild: false }).config, slot);
     for (const name of needed.d1)
       if (!current.d1[name]) {
         log(`create D1 ${name}`);
         current.d1[name] = (
-          await api(`/accounts/${account}/d1/database`, {
-            method: "POST",
-            body: { name },
-          })
+          await api(`/accounts/${account}/d1/database`, { method: "POST", body: { name } })
         ).uuid;
       }
     for (const productionId of needed.kv) {
@@ -231,23 +279,66 @@ async function ensureResources(slot, apps) {
         current.queues.add(name);
       }
     for (const name of needed.aiSearchNamespaces) {
-      const listed = wrangler(["ai-search", "namespace", "list"], { capture: true });
-      if (!listed.includes(name)) {
+      aiSearchNamespaces ??= wrangler(["ai-search", "namespace", "list"], { capture: true });
+      if (!aiSearchNamespaces.includes(name)) {
         log(`create AI Search namespace ${name}`);
         wrangler(["ai-search", "namespace", "create", name]);
+        aiSearchNamespaces += `\n${name}`;
       }
     }
   }
   return current;
 }
 
-async function d1Query(databaseId, sql, params = []) {
-  const account = await accountId();
-  const result = await api(`/accounts/${account}/d1/database/${databaseId}/query`, {
-    method: "POST",
-    body: { sql, params },
-  });
-  return result[0]?.results ?? [];
+function rootSecret() {
+  const root = process.env.STAGING_ROOT_SECRET;
+  if (!root) throw new Error("STAGING_ROOT_SECRET is required");
+  return root;
+}
+
+function allExternalSecrets() {
+  const raw = process.env.STAGING_SECRETS_JSON;
+  if (!raw) return {};
+  const parsed = JSON.parse(raw);
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed))
+    throw new Error("STAGING_SECRETS_JSON must be a JSON object");
+  return parsed;
+}
+
+function hostOf(apps, name, slot) {
+  const url = apps.find(({ app }) => app === name)?.base.vars?.APP_URL;
+  return url ? new URL(rewriteUrls(url, slot)).host : stagingHost(`${name}.gdgs.jp`, slot);
+}
+
+async function accountsPostSync(slot, apps) {
+  const root = rootSecret();
+  const accounts =
+    apps.find(({ app }) => app === "accounts") ??
+    stagingApps().find(({ app }) => app === "accounts");
+  const { "gdgjp-accounts": names } = await productionSecretNames(["gdgjp-accounts"]);
+  const clients = names
+    .map((name) => clientIdForSecret(name, "gdgjp-accounts", accounts.base.vars))
+    .filter(Boolean)
+    .map((clientId) => ({
+      clientId,
+      secretHash: hashClientSecret(deriveSecret(root, slot, `client:${clientId}`)),
+    }));
+  const checkin = stagingHost("checkin.gdgs.jp", slot);
+  const checkinHash = hashClientSecret(deriveSecret(root, slot, "client:live-checkin"));
+  return [
+    oauthRedirectRewriteSql(slot),
+    ...firstPartyClientSql(clients),
+    `UPDATE "oauthClient" SET "clientSecret" = '${checkinHash}' WHERE "redirectUris" LIKE '%//${checkin}/%';`,
+  ];
+}
+
+async function tableColumns(databaseId, tables) {
+  const columns = {};
+  for (const { name } of tables)
+    columns[name] = (
+      await d1Query(databaseId, "SELECT name FROM pragma_table_info(?)", [name])
+    ).map((row) => row.name);
+  return columns;
 }
 
 async function exportDatabase(app, productionName, current, scratch) {
@@ -256,6 +347,11 @@ async function exportDatabase(app, productionName, current, scratch) {
   const schema = classifySchema(
     await d1Query(productionId, "SELECT type, name, tbl_name, sql FROM sqlite_master"),
   );
+  const plan = scrubPlan(productionName, await tableColumns(productionId, schema.tables));
+  if (plan.unreviewed.length)
+    throw new Error(
+      `${productionName} has credential-like columns without a scrub decision: ${plan.unreviewed.join(", ")}. Classify them in scripts/staging/scrub.mjs.`,
+    );
   const dataFile = join(scratch, `${productionName}.data.sql`);
   writeFileSync(dataFile, "");
   if (schema.tables.length)
@@ -270,7 +366,7 @@ async function exportDatabase(app, productionName, current, scratch) {
         "--output",
         dataFile,
       ],
-      { cwd: app.directory },
+      { cwd: scratch },
     );
   const virtualRows = {};
   for (const { name } of schema.virtualTables) {
@@ -293,13 +389,26 @@ async function exportDatabase(app, productionName, current, scratch) {
     composeImport({ schema, data: readFileSync(dataFile, "utf8"), virtualRows }),
   );
   rmSync(dataFile);
-  return importFile;
+  return { importFile, scrub: plan.statements };
 }
 
-async function replaceDatabase(app, productionName, importFile, slot, current) {
+async function replaceDatabase(
+  productionName,
+  { importFile, scrub },
+  slot,
+  current,
+  apps,
+  scratch,
+) {
   const target = stagingName(productionName, slot);
   if (!isStagingName(target, slot)) throw new Error(`Refusing to replace ${target}`);
   const account = await accountId();
+  const tail = [
+    ...scrub,
+    ...(productionName === "gdgjp-accounts-db" ? await accountsPostSync(slot, apps) : []),
+  ];
+  const slotFile = join(scratch, `${target}.sql`);
+  writeFileSync(slotFile, `${readFileSync(importFile, "utf8")}${tail.join("\n")}\n`);
   if (current.d1[target]) {
     log(`replace D1 ${target}`);
     await api(`/accounts/${account}/d1/database/${current.d1[target]}`, { method: "DELETE" });
@@ -307,11 +416,11 @@ async function replaceDatabase(app, productionName, importFile, slot, current) {
   current.d1[target] = (
     await api(`/accounts/${account}/d1/database`, { method: "POST", body: { name: target } })
   ).uuid;
-  wrangler(["d1", "execute", target, "--remote", "--file", importFile, "--yes"], {
-    cwd: app.directory,
-  });
-  const postSync = POST_SYNC_SQL[productionName];
-  if (postSync) await d1Query(current.d1[target], postSync(slot));
+  try {
+    wrangler(["d1", "execute", target, "--remote", "--file", slotFile, "--yes"], { cwd: scratch });
+  } finally {
+    rmSync(slotFile, { force: true });
+  }
 }
 
 async function readNamespace(productionId) {
@@ -366,78 +475,104 @@ async function replaceNamespace(productionId, entries, slot, current) {
   log(`copied ${entries.length} KV entries into ${title}`);
 }
 
-async function syncBuckets(names, slot) {
-  if (!process.env.R2_ACCESS_KEY_ID || !process.env.R2_SECRET_ACCESS_KEY) {
-    log("::warning::R2_ACCESS_KEY_ID/R2_SECRET_ACCESS_KEY are not set; R2 objects were not copied");
-    return;
-  }
-  const endpoint = `https://${await accountId()}.r2.cloudflarestorage.com`;
-  for (const name of names)
-    run(
-      "aws",
-      [
-        "s3",
-        "sync",
-        `s3://${name}`,
-        `s3://${stagingName(name, slot)}`,
-        "--delete",
-        "--only-show-errors",
-        "--endpoint-url",
-        endpoint,
-      ],
-      {
-        env: {
-          AWS_ACCESS_KEY_ID: process.env.R2_ACCESS_KEY_ID,
-          AWS_SECRET_ACCESS_KEY: process.env.R2_SECRET_ACCESS_KEY,
-          AWS_DEFAULT_REGION: "auto",
-        },
-      },
-    );
-}
-
 export async function sync(slots, apps = stagingApps()) {
   for (const slot of slots) assertSlot(slot);
+  rootSecret();
   let current;
   for (const slot of slots) current = await ensureResources(slot, apps);
   const scratch = mkdtempSync(join(tmpdir(), "gdgjp-staging-sync-"));
   try {
     for (const app of apps) {
-      const config = sourceConfig(app).config;
+      const config = sourceConfig(app, { requireBuild: false }).config;
       for (const { database_name } of config.d1_databases ?? []) {
         log(`export D1 ${database_name}`);
-        const importFile = await exportDatabase(app, database_name, current, scratch);
+        const exported = await exportDatabase(app, database_name, current, scratch);
         for (const slot of slots)
-          await replaceDatabase(app, database_name, importFile, slot, current);
-        rmSync(importFile);
+          await replaceDatabase(database_name, exported, slot, current, apps, scratch);
+        rmSync(exported.importFile);
       }
       for (const { id } of config.kv_namespaces ?? []) {
-        const entries = await readNamespace(id);
+        const entries = UNCOPIED_KV_TITLES.has(current.kvTitles[id]) ? [] : await readNamespace(id);
         for (const slot of slots) await replaceNamespace(id, entries, slot, current);
       }
-      const buckets = (config.r2_buckets ?? []).map(({ bucket_name }) => bucket_name);
-      for (const slot of slots) await syncBuckets(buckets, slot);
     }
+    const buckets = [
+      ...new Set(
+        apps.flatMap(
+          (app) =>
+            sourceConfig(app, { requireBuild: false }).config.r2_buckets?.map(
+              ({ bucket_name }) => bucket_name,
+            ) ?? [],
+        ),
+      ),
+    ];
+    const subdomain = await workersSubdomain();
+    for (const slot of slots)
+      await copyBuckets({
+        name: `gdgjp-staging-r2-copy-${slot}`,
+        pairs: buckets.map((source) => ({ source, target: stagingName(source, slot) })),
+        compatibilityDate: COMPATIBILITY_DATE,
+        subdomain,
+        runWrangler: wrangler,
+        log,
+      });
   } finally {
     rmSync(scratch, { recursive: true, force: true });
   }
 }
 
-function workerSecrets() {
-  const raw = process.env.STAGING_WORKER_SECRETS;
-  if (!raw) return {};
-  const parsed = JSON.parse(raw);
-  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed))
-    throw new Error("STAGING_WORKER_SECRETS must be a JSON object keyed by production Worker");
-  return parsed;
+async function configSecrets(app, slot, current) {
+  if (app.app !== "live-checkin") return {};
+  const checkin = stagingHost("checkin.gdgs.jp", slot);
+  const database = current.d1[stagingName("gdgjp-accounts-db", slot)];
+  const [client] = database
+    ? await d1Query(
+        database,
+        `SELECT "clientId" FROM "oauthClient" WHERE "redirectUris" LIKE ? LIMIT 1`,
+        [`%//${checkin}/%`],
+      )
+    : [];
+  return {
+    AUTH_URL: `https://${checkin}`,
+    ...(client ? { GDG_CLIENT_ID: client.clientId } : {}),
+  };
 }
 
-export async function stagingConfigs(slot, apps, current) {
+export async function secretPlan(slot, apps, current) {
+  const root = rootSecret();
+  const external = allExternalSecrets();
+  const names = await productionSecretNames(apps.map(({ worker }) => worker));
+  const plans = {};
+  for (const app of apps) {
+    const plan = stagingSecretsFor({
+      worker: app.worker,
+      slot,
+      productionSecrets: names[app.worker],
+      vars: app.base.vars ?? {},
+      root,
+      external: externalValues(app.worker, external),
+      config: await configSecrets(app, slot, current),
+    });
+    if (plan.unknown.length)
+      throw new Error(
+        `${app.worker} has production secrets with no staging rule: ${plan.unknown.join(", ")}. Classify them in scripts/staging/secrets.mjs.`,
+      );
+    for (const name of plan.missingExternal)
+      log(
+        `::warning::${app.worker}: ${name} has no staging value; set the ${externalKey(app.worker, name)} secret`,
+      );
+    plans[app.worker] = plan;
+  }
+  return plans;
+}
+
+export async function stagingConfigs(slot, apps, current, plans = {}) {
   const hosts = await productionHosts();
   const workerNames = new Set(stagingApps().map(({ worker }) => worker));
   const resources = current ?? (await inventory());
   const configs = [];
   for (const app of apps) {
-    const { config, directory } = sourceConfig(app);
+    const { config, directory } = sourceConfig(app, { requireBuild: !!plans[app.worker] });
     const extraVars = config.keep_vars ? await productionVars(app.worker) : {};
     const workerHosts = hosts[app.worker] ?? [];
     if (!workerHosts.length) throw new Error(`${app.worker} has no production domain or route`);
@@ -450,6 +585,7 @@ export async function stagingConfigs(slot, apps, current) {
         resources,
         workerNames,
         extraVars,
+        varOverrides: plans[app.worker]?.varOverrides,
       }),
     });
   }
@@ -462,13 +598,12 @@ function deployOne(slot, { app, directory, config }, secrets, { migrate = true }
   const scratch = mkdtempSync(join(tmpdir(), `gdgjp-${slot}-secrets-`));
   try {
     const args = ["deploy", "--config", configPath];
-    const values = secrets[app.worker] ?? {};
-    if (Object.keys(values).length) {
+    if (Object.keys(secrets).length) {
       const secretsPath = join(scratch, "secrets.json");
-      writeFileSync(secretsPath, JSON.stringify(values), { mode: 0o600 });
+      writeFileSync(secretsPath, JSON.stringify(secrets), { mode: 0o600 });
       args.push("--secrets-file", secretsPath);
     }
-    wrangler(args, { cwd: app.directory });
+    wrangler(args, { cwd: directory });
     for (const database of migrate ? app.migrateDatabases : [])
       wrangler(
         [
@@ -480,7 +615,7 @@ function deployOne(slot, { app, directory, config }, secrets, { migrate = true }
           "--config",
           configPath,
         ],
-        { cwd: app.directory, env: { CI: "true" } },
+        { cwd: directory, env: { CI: "true" } },
       );
   } finally {
     rmSync(scratch, { recursive: true, force: true });
@@ -488,29 +623,65 @@ function deployOne(slot, { app, directory, config }, secrets, { migrate = true }
   }
 }
 
+async function workerScripts() {
+  const account = await accountId();
+  return new Set((await api(`/accounts/${account}/workers/scripts`)).map(({ id }) => id));
+}
+
+function deployGateway(slot) {
+  const worker = "gdgjp-tinyurl-gateway";
+  const external = externalValues(worker, allExternalSecrets());
+  const missing = ["VERCEL_TOKEN", "VERCEL_ORG_ID", "VERCEL_PROJECT_ID"].filter(
+    (name) => !external[name],
+  );
+  if (missing.length) {
+    log(
+      `::warning::${worker} was not deployed; set ${missing.map((name) => externalKey(worker, name)).join(", ")}`,
+    );
+    return;
+  }
+  const vercel = createRequire(join(TRUSTED_ROOT, "apps/tinyurl-gateway/package.json")).resolve(
+    "vercel/dist/vc.js",
+  );
+  const shared = deriveSecret(rootSecret(), slot, "shared:tinyurl-gateway");
+  run(
+    process.execPath,
+    [
+      vercel,
+      "deploy",
+      join(SOURCE, "apps/tinyurl-gateway"),
+      "--yes",
+      "--token",
+      external.VERCEL_TOKEN,
+      "--env",
+      `TINYURL_INTERNAL_BASE=https://${stagingHost("url.gdgs.jp", slot)}`,
+      "--env",
+      `GATEWAY_SHARED_SECRET=${shared}`,
+    ],
+    {
+      cwd: SOURCE,
+      env: { VERCEL_ORG_ID: external.VERCEL_ORG_ID, VERCEL_PROJECT_ID: external.VERCEL_PROJECT_ID },
+    },
+  );
+}
+
 export async function deploy(slot, apps = stagingApps()) {
   assertSlot(slot);
+  if (SOURCE !== TRUSTED_ROOT) removeUntrustedEnvironment(join(SOURCE, "apps"));
   const current = await ensureResources(slot, apps);
-  const configs = await stagingConfigs(slot, apps, current);
-  const secrets = workerSecrets();
-  const required = await productionSecretNames(apps);
-  const incomplete = apps
-    .map(({ worker }) => [worker, missingSecrets(required[worker], secrets[worker])])
-    .filter(([, missing]) => missing.length);
-  if (incomplete.length)
-    throw new Error(
-      `Staging would run production data without production secrets: ${incomplete
-        .map(([worker, missing]) => `${worker} (${missing.join(", ")})`)
-        .join("; ")}. Fill STAGING_WORKER_SECRETS from secrets-template.`,
-    );
+  const plans = await secretPlan(slot, apps, current);
+  const configs = await stagingConfigs(slot, apps, current, plans);
   const existing = await workerScripts();
   for (const entry of configs) {
     const missing = workerTargets(entry.config).filter((name) => !existing.has(name));
     if (!missing.length) continue;
     log(`bootstrap ${entry.config.name} without bindings to ${missing.join(", ")}`);
-    deployOne(slot, { ...entry, config: withoutWorkerTargets(entry.config, missing) }, secrets, {
-      migrate: false,
-    });
+    deployOne(
+      slot,
+      { ...entry, config: withoutWorkerTargets(entry.config, missing) },
+      plans[entry.app.worker].secrets,
+      { migrate: false },
+    );
     existing.add(entry.config.name);
   }
   let pending = configs;
@@ -519,7 +690,7 @@ export async function deploy(slot, apps = stagingApps()) {
     for (const entry of pending) {
       log(`deploy ${entry.config.name} (attempt ${attempt})`);
       try {
-        deployOne(slot, entry, secrets);
+        deployOne(slot, entry, plans[entry.app.worker].secrets);
       } catch (error) {
         log(error.message);
         failed.push(entry);
@@ -531,58 +702,21 @@ export async function deploy(slot, apps = stagingApps()) {
     throw new Error(
       `Staging deploy failed for ${pending.map(({ config }) => config.name).join(", ")}`,
     );
+  deployGateway(slot);
 }
 
-export async function e2eEnvironment(slot, apps = stagingApps()) {
+export function e2eEnvironment(slot, apps = stagingApps()) {
   assertSlot(slot);
-  const byApp = Object.fromEntries(apps.map((app) => [app.app, app]));
-  const appUrl = (name) => {
-    const url = byApp[name]?.toml.vars?.APP_URL;
-    if (!url) throw new Error(`${name} has no APP_URL`);
-    return rewriteUrls(url, slot).replace(/\/+$/, "");
-  };
+  const appUrl = (name) => `https://${hostOf(apps, name, slot)}`;
+  const root = process.env.STAGING_ROOT_SECRET;
   return {
     E2E_ACCOUNTS_URL: appUrl("accounts"),
     E2E_RP_URLS: RELYING_PARTY_APPS.map(appUrl).join(","),
     E2E_ACCOUNTS_D1: `remote:${stagingName("gdgjp-accounts-db", slot)}`,
+    ...(root
+      ? { E2E_BETTER_AUTH_SECRET: deriveSecret(root, slot, "gdgjp-accounts:BETTER_AUTH_SECRET") }
+      : {}),
   };
-}
-
-async function workerScripts() {
-  const account = await accountId();
-  return new Set((await api(`/accounts/${account}/workers/scripts`)).map(({ id }) => id));
-}
-
-async function productionSecretNames(apps) {
-  const account = await accountId();
-  const names = {};
-  for (const app of apps)
-    names[app.worker] = (
-      await api(`/accounts/${account}/workers/scripts/${app.worker}/secrets`)
-    ).map(({ name }) => name);
-  return names;
-}
-
-export async function secretsTemplate(apps = stagingApps()) {
-  const account = await accountId();
-  const template = {};
-  for (const app of apps) {
-    const secrets = await api(`/accounts/${account}/workers/scripts/${app.worker}/secrets`);
-    if (secrets.length)
-      template[app.worker] = Object.fromEntries(secrets.map(({ name }) => [name, ""]));
-  }
-  return template;
-}
-
-export function build(apps = stagingApps()) {
-  run("pnpm", ["--filter", "@gdgjp/design-system", "build"]);
-  run("pnpm", [
-    "exec",
-    "turbo",
-    "build",
-    "--concurrency=4",
-    ...apps.map(({ workspace }) => `--filter=${workspace}`),
-  ]);
 }
 
 function selectApps(names) {
@@ -606,22 +740,41 @@ async function main([command, ...args]) {
   if (command === "deploy") return deploy(assertSlot(slot), apps);
   if (command === "provision") return ensureResources(assertSlot(slot), apps);
   if (command === "plan") {
+    const configs = await stagingConfigs(assertSlot(slot), apps);
     process.stdout.write(
-      `${JSON.stringify(await stagingConfigs(assertSlot(slot), apps), null, 2)}\n`,
+      `${JSON.stringify(
+        configs.map(({ config }) => config),
+        null,
+        2,
+      )}\n`,
     );
     return;
   }
   if (command === "e2e-env") {
-    for (const [key, value] of Object.entries(await e2eEnvironment(assertSlot(slot), apps)))
-      process.stdout.write(`${key}=${value}\n`);
+    const environment = e2eEnvironment(assertSlot(slot), apps);
+    if (args.includes("--github-env")) {
+      if (environment.E2E_BETTER_AUTH_SECRET)
+        process.stdout.write(`::add-mask::${environment.E2E_BETTER_AUTH_SECRET}\n`);
+      writeFileSync(
+        process.env.GITHUB_ENV,
+        Object.entries(environment)
+          .map(([key, value]) => `${key}=${value}\n`)
+          .join(""),
+        { flag: "a" },
+      );
+      return;
+    }
+    for (const [key, value] of Object.entries(environment))
+      if (key !== "E2E_BETTER_AUTH_SECRET") process.stdout.write(`${key}=${value}\n`);
     return;
   }
-  if (command === "secrets-template") {
-    process.stdout.write(`${JSON.stringify(await secretsTemplate(apps), null, 2)}\n`);
+  if (command === "hosts") {
+    for (const app of apps)
+      process.stdout.write(`${app.app} https://${hostOf(apps, app.app, assertSlot(slot))}\n`);
     return;
   }
   throw new Error(
-    "Usage: node scripts/staging/staging.mjs <build|sync|deploy|provision|plan|e2e-env|secrets-template> --slot stg-N [--apps a,b]",
+    "Usage: node scripts/staging/staging.mjs <build|sync|deploy|provision|plan|e2e-env|hosts> --slot stg-N [--apps a,b]",
   );
 }
 

@@ -1,9 +1,15 @@
 export const SLOTS = ["stg-1", "stg-2", "stg-3"];
 export const ZONE = "gdgs.jp";
-export const EXCLUDED_APPS = new Set(["live-checkin"]);
+export const EXCLUDED_APPS = new Set();
 export const LABEL_PATTERN = /^deploy-(stg-[1-3])$/;
 
 const IDENTIFIER_PATHS = /^\/(?:scopes|claims)\//;
+
+export const STAGING_VAR_DEFAULTS = {
+  "gdgjp-meet": { CALENDAR_SEND_UPDATES: "none" },
+  "gdgjp-accounts": { EMAIL_FROM: "GDG Japan Staging <onboarding@resend.dev>" },
+  "gdgjp-pay": { EMAIL_FROM: "GDG Japan Pay Staging <onboarding@resend.dev>" },
+};
 
 export function assertSlot(slot) {
   if (!SLOTS.includes(slot)) throw new Error(`Unknown staging slot: ${slot}`);
@@ -21,6 +27,10 @@ export function stagingName(name, slot) {
   return `${name}-${slot}`;
 }
 
+export function hostLabel(slot) {
+  return assertSlot(slot).replace("-", "");
+}
+
 export function isStagingName(name, slot) {
   return typeof name === "string" && name.endsWith(`-${assertSlot(slot)}`);
 }
@@ -28,8 +38,9 @@ export function isStagingName(name, slot) {
 export function stagingHost(host, slot) {
   assertSlot(slot);
   const lower = host.toLowerCase();
-  if (lower === ZONE) return `${slot}.${ZONE}`;
-  if (lower.endsWith(`.${ZONE}`)) return `${lower.slice(0, -ZONE.length)}${slot}.${ZONE}`;
+  const label = hostLabel(slot);
+  if (lower === ZONE) return `${label}.${ZONE}`;
+  if (lower.endsWith(`.${ZONE}`)) return `${lower.slice(0, -ZONE.length)}${label}.${ZONE}`;
   return host;
 }
 
@@ -115,11 +126,18 @@ const REWRITTEN = new Set([
   "env",
 ]);
 
-function renameService(service, slot, workerNames) {
-  return workerNames.has(service) ? stagingName(service, slot) : service;
+function renameService(service, slot, workerNames, owner) {
+  if (!workerNames.has(service))
+    throw new Error(
+      `${owner}: binding to ${service}, which has no staging copy, would reach production`,
+    );
+  return stagingName(service, slot);
 }
 
-export function rewriteWorkerConfig(config, { slot, hosts, resources, workerNames, extraVars }) {
+export function rewriteWorkerConfig(
+  config,
+  { slot, hosts, resources, workerNames, extraVars, varOverrides },
+) {
   assertSlot(slot);
   for (const [key, value] of Object.entries(config)) {
     if (PASSTHROUGH.has(key) || REWRITTEN.has(key)) continue;
@@ -131,10 +149,15 @@ export function rewriteWorkerConfig(config, { slot, hosts, resources, workerName
     if ((PASSTHROUGH.has(key) || isEmpty(value)) && key !== "env" && key !== "route")
       output[key] = value;
   output.name = stagingName(config.name, slot);
-  output.vars = rewriteVarValue({ ...(extraVars ?? {}), ...(config.vars ?? {}) }, slot);
+  output.vars = {
+    ...rewriteVarValue({ ...(extraVars ?? {}), ...(config.vars ?? {}) }, slot),
+    ...(STAGING_VAR_DEFAULTS[config.name] ?? {}),
+    ...(varOverrides ?? {}),
+    STAGING_SLOT: slot,
+  };
   output.workers_dev = false;
   output.preview_urls = false;
-  output.triggers = { crons: [] };
+  output.triggers = { crons: [...(config.triggers?.crons ?? [])] };
   output.routes = [...new Set(hosts.map((host) => stagingHost(host, slot)))]
     .sort()
     .map((pattern) => ({ pattern, custom_domain: true }));
@@ -173,12 +196,15 @@ export function rewriteWorkerConfig(config, { slot, hosts, resources, workerName
   };
   output.services = (config.services ?? []).map(({ remote: _remote, ...service }) => ({
     ...service,
-    service: renameService(service.service, slot, workerNames),
+    service: renameService(service.service, slot, workerNames, config.name),
   }));
   output.durable_objects = {
     bindings: (config.durable_objects?.bindings ?? []).map((binding) =>
       binding.script_name
-        ? { ...binding, script_name: renameService(binding.script_name, slot, workerNames) }
+        ? {
+            ...binding,
+            script_name: renameService(binding.script_name, slot, workerNames, config.name),
+          }
         : binding,
     ),
   };
@@ -186,7 +212,7 @@ export function rewriteWorkerConfig(config, { slot, hosts, resources, workerName
     ...workflow,
     name: stagingName(workflow.name, slot),
     ...(workflow.script_name
-      ? { script_name: renameService(workflow.script_name, slot, workerNames) }
+      ? { script_name: renameService(workflow.script_name, slot, workerNames, config.name) }
       : {}),
   }));
   output.analytics_engine_datasets = (config.analytics_engine_datasets ?? []).map((dataset) => ({
@@ -201,7 +227,7 @@ export function rewriteWorkerConfig(config, { slot, hosts, resources, workerName
   );
   output.tail_consumers = (config.tail_consumers ?? []).map((consumer) => ({
     ...consumer,
-    service: renameService(consumer.service, slot, workerNames),
+    service: renameService(consumer.service, slot, workerNames, config.name),
   }));
   return output;
 }
@@ -287,18 +313,15 @@ export function composeImport({ schema, data, virtualRows }) {
 
 export function oauthRedirectRewriteSql(slot) {
   assertSlot(slot);
+  const label = hostLabel(slot);
   const rewrite = (column) =>
-    `replace(replace(${column}, '.${ZONE}', '.${slot}.${ZONE}'), '//${ZONE}', '//${slot}.${ZONE}')`;
+    `replace(replace(${column}, '.${ZONE}', '.${label}.${ZONE}'), '//${ZONE}', '//${label}.${ZONE}')`;
   return [
     `UPDATE "oauthClient" SET "redirectUris" = ${rewrite('"redirectUris"')},`,
     `"postLogoutRedirectUris" = ${rewrite('"postLogoutRedirectUris"')}`,
     `WHERE "redirectUris" LIKE '%${ZONE}%' OR "postLogoutRedirectUris" LIKE '%${ZONE}%';`,
   ].join(" ");
 }
-
-export const POST_SYNC_SQL = {
-  "gdgjp-accounts-db": oauthRedirectRewriteSql,
-};
 
 export function relyingPartyUrls(slot, hostsByWorker, relyingParties) {
   return relyingParties
@@ -308,10 +331,6 @@ export function relyingPartyUrls(slot, hostsByWorker, relyingParties) {
       return `https://${stagingHost(host, slot)}`;
     })
     .sort();
-}
-
-export function missingSecrets(required = [], supplied = {}) {
-  return required.filter((name) => typeof supplied?.[name] !== "string" || !supplied[name]).sort();
 }
 
 export function workerTargets(config) {

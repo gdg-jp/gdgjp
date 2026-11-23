@@ -1,7 +1,7 @@
 name: Staging
 
 on:
-  pull_request:
+  pull_request_target:
     types: [labeled, closed]
   push:
     branches: [main]
@@ -31,13 +31,13 @@ jobs:
         id: select
         env:
           GH_TOKEN: ${{ github.token }}
-          EVENT: ${{ github.event_name }}
+          EVENT: ${{ github.event_name == 'pull_request_target' && 'pull_request' || github.event_name }}
           ACTION: ${{ github.event.action }}
           LABEL: ${{ github.event.label.name }}
           PR: ${{ github.event.pull_request.number }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
           HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}
-          MAIN_SHA: ${{ github.sha }}
+          MAIN_SHA: ${{ github.event_name == 'push' && github.sha || github.event.pull_request.base.sha }}
         run: node scripts/staging/select.mjs >> "$GITHUB_OUTPUT"
 
   deploy:
@@ -62,7 +62,9 @@ jobs:
   unlabel:
     name: Remove the deploy label
     needs: [select, deploy]
-    if: always() && github.event.action == 'labeled' && startsWith(github.event.label.name, 'deploy-stg-')
+    if: >-
+      always() && github.event_name == 'pull_request_target' &&
+      github.event.action == 'labeled' && startsWith(github.event.label.name, 'deploy-stg-')
     runs-on: ubuntu-latest
     permissions:
       issues: write

@@ -3,7 +3,6 @@ import test from "node:test";
 import {
   classifySchema,
   composeImport,
-  missingSecrets,
   oauthRedirectRewriteSql,
   requiredResources,
   rewriteUrls,
@@ -16,7 +15,12 @@ import {
   workerTargets,
 } from "../../scripts/staging/lib.mjs";
 import { selectTargets } from "../../scripts/staging/select.mjs";
-import { RELYING_PARTY_APPS, e2eEnvironment, stagingApps } from "../../scripts/staging/staging.mjs";
+import {
+  RELYING_PARTY_APPS,
+  e2eEnvironment,
+  parseJsonc,
+  stagingApps,
+} from "../../scripts/staging/staging.mjs";
 
 test("labels select exactly the three staging slots", () => {
   assert.equal(slotFromLabel("deploy-stg-1"), "stg-1");
@@ -27,9 +31,9 @@ test("labels select exactly the three staging slots", () => {
 });
 
 test("staging hosts nest under the slot inside the gdgs.jp zone", () => {
-  assert.equal(stagingHost("accounts.gdgs.jp", "stg-2"), "accounts.stg-2.gdgs.jp");
-  assert.equal(stagingHost("gdgs.jp", "stg-1"), "stg-1.gdgs.jp");
-  assert.equal(stagingHost("api.webmcp.gdgs.jp", "stg-1"), "api.webmcp.stg-1.gdgs.jp");
+  assert.equal(stagingHost("accounts.gdgs.jp", "stg-2"), "accounts.stg2.gdgs.jp");
+  assert.equal(stagingHost("gdgs.jp", "stg-1"), "stg1.gdgs.jp");
+  assert.equal(stagingHost("api.webmcp.gdgs.jp", "stg-1"), "api.webmcp.stg1.gdgs.jp");
   assert.equal(stagingHost("example.com", "stg-1"), "example.com");
   assert.throws(() => stagingHost("accounts.gdgs.jp", "prod"), /Unknown staging slot/);
 });
@@ -40,7 +44,7 @@ test("URL rewriting keeps protocol identifiers and other domains", () => {
       "https://url.gdgs.jp/api/auth/callback/gdgjp,https://go.gdgs.jp/x https://gdgs.jp",
       "stg-1",
     ),
-    "https://url.stg-1.gdgs.jp/api/auth/callback/gdgjp,https://go.stg-1.gdgs.jp/x https://stg-1.gdgs.jp",
+    "https://url.stg1.gdgs.jp/api/auth/callback/gdgjp,https://go.stg1.gdgs.jp/x https://stg1.gdgs.jp",
   );
   assert.equal(
     rewriteUrls("https://gdgs.jp/scopes/chapters", "stg-1"),
@@ -95,10 +99,7 @@ test("worker configs point every stateful binding at slot resources", () => {
         producers: [{ binding: "Q", queue: "gdgjp-wiki-source-fetch" }],
         consumers: [{ queue: "gdgjp-wiki-source-fetch", max_batch_size: 1 }],
       },
-      services: [
-        { binding: "ACCOUNTS", service: "gdgjp-accounts", remote: true },
-        { binding: "OTHER", service: "someone-else" },
-      ],
+      services: [{ binding: "ACCOUNTS", service: "gdgjp-accounts", remote: true }],
       durable_objects: { bindings: [{ name: "COLLAB_DO", class_name: "CollabDurableObject" }] },
       workflows: [{ name: "gdgjp-wiki-generation", binding: "W", class_name: "Phase" }],
       ai_search_namespaces: [{ binding: "KNOWLEDGE", namespace: "gdgjp-knowledge" }],
@@ -112,16 +113,19 @@ test("worker configs point every stateful binding at slot resources", () => {
       resources,
       workerNames: new Set(["gdgjp-wiki", "gdgjp-accounts"]),
       extraVars: { AI_GATEWAY_BASE_URL: "https://gateway.example", APP_URL: "ignored" },
+      varOverrides: { GOOGLE_CLIENT_ID: "staging-client" },
     },
   );
   assert.equal(output.name, "gdgjp-wiki-stg-1");
   assert.deepEqual(output.vars, {
     AI_GATEWAY_BASE_URL: "https://gateway.example",
-    APP_URL: "https://wiki.stg-1.gdgs.jp",
+    APP_URL: "https://wiki.stg1.gdgs.jp",
     SCOPE: "https://gdgs.jp/scopes/chapters",
+    GOOGLE_CLIENT_ID: "staging-client",
+    STAGING_SLOT: "stg-1",
   });
-  assert.deepEqual(output.routes, [{ pattern: "wiki.stg-1.gdgs.jp", custom_domain: true }]);
-  assert.deepEqual(output.triggers, { crons: [] });
+  assert.deepEqual(output.routes, [{ pattern: "wiki.stg1.gdgs.jp", custom_domain: true }]);
+  assert.deepEqual(output.triggers, { crons: ["0 * * * *"] });
   assert.equal(output.workers_dev, false);
   assert.deepEqual(output.d1_databases, [
     {
@@ -135,10 +139,7 @@ test("worker configs point every stateful binding at slot resources", () => {
   assert.equal(output.r2_buckets[0].bucket_name, "gdgjp-wiki-storage-stg-1");
   assert.equal(output.queues.producers[0].queue, "gdgjp-wiki-source-fetch-stg-1");
   assert.equal(output.queues.consumers[0].queue, "gdgjp-wiki-source-fetch-stg-1");
-  assert.deepEqual(output.services, [
-    { binding: "ACCOUNTS", service: "gdgjp-accounts-stg-1" },
-    { binding: "OTHER", service: "someone-else" },
-  ]);
+  assert.deepEqual(output.services, [{ binding: "ACCOUNTS", service: "gdgjp-accounts-stg-1" }]);
   assert.equal(output.workflows[0].name, "gdgjp-wiki-generation-stg-1");
   assert.equal(output.ai_search_namespaces[0].namespace, "gdgjp-knowledge-stg-1");
   assert.equal(output.analytics_engine_datasets[0].dataset, "CLICKS_AE-stg-1");
@@ -147,6 +148,14 @@ test("worker configs point every stateful binding at slot resources", () => {
 });
 
 test("unknown non-empty bindings stop the deploy instead of sharing production state", () => {
+  assert.throws(
+    () =>
+      rewriteWorkerConfig(
+        { name: "gdgjp-x", services: [{ binding: "R", service: "gdgjp-discord-relay" }] },
+        { slot: "stg-1", hosts: ["x.gdgs.jp"], resources, workerNames: new Set(["gdgjp-x"]) },
+      ),
+    /gdgjp-discord-relay, which has no staging copy, would reach production/,
+  );
   assert.throws(
     () =>
       rewriteWorkerConfig(
@@ -255,29 +264,31 @@ test("SQL literals encode text, numbers, null and blobs", () => {
 
 test("copied OAuth clients redirect to the slot's relying parties", () => {
   const sql = oauthRedirectRewriteSql("stg-3");
-  assert.match(sql, /replace\(replace\("redirectUris", '\.gdgs\.jp', '\.stg-3\.gdgs\.jp'\)/);
-  assert.match(sql, /'\/\/gdgs\.jp', '\/\/stg-3\.gdgs\.jp'/);
+  assert.match(sql, /replace\(replace\("redirectUris", '\.gdgs\.jp', '\.stg3\.gdgs\.jp'\)/);
+  assert.match(sql, /'\/\/gdgs\.jp', '\/\/stg3\.gdgs\.jp'/);
   assert.match(sql, /^UPDATE "oauthClient"/);
 });
 
-test("staging covers every Cloudflare deploy target except the excluded ones", async () => {
-  const apps = stagingApps().map(({ app }) => app);
-  assert.ok(apps.includes("accounts"));
-  assert.ok(!apps.includes("live-checkin"));
-  assert.ok(!apps.includes("tinyurl-gateway"));
-  for (const app of RELYING_PARTY_APPS) assert.ok(apps.includes(app), app);
-  const environment = await e2eEnvironment("stg-2");
-  assert.equal(environment.E2E_ACCOUNTS_URL, "https://accounts.stg-2.gdgs.jp");
+test("staging covers every Cloudflare deploy target, including live-checkin", () => {
+  const apps = stagingApps();
+  const names = apps.map(({ app }) => app);
+  assert.ok(names.includes("accounts"));
+  assert.ok(names.includes("live-checkin"));
+  assert.equal(apps.find(({ app }) => app === "live-checkin").worker, "gdgjp-live-checkin");
+  assert.ok(!names.includes("tinyurl-gateway"));
+  for (const app of RELYING_PARTY_APPS) assert.ok(names.includes(app), app);
+  const environment = e2eEnvironment("stg-2");
+  assert.equal(environment.E2E_ACCOUNTS_URL, "https://accounts.stg2.gdgs.jp");
   assert.equal(environment.E2E_ACCOUNTS_D1, "remote:gdgjp-accounts-db-stg-2");
-  assert.ok(environment.E2E_RP_URLS.split(",").includes("https://url.stg-2.gdgs.jp"));
-  assert.ok(environment.E2E_RP_URLS.split(",").every((url) => url.endsWith(".stg-2.gdgs.jp")));
+  assert.ok(environment.E2E_RP_URLS.split(",").includes("https://url.stg2.gdgs.jp"));
+  assert.ok(environment.E2E_RP_URLS.split(",").every((url) => url.endsWith(".stg2.gdgs.jp")));
 });
 
-test("deploys refuse workers whose production secrets were not all supplied", () => {
-  assert.deepEqual(missingSecrets(["B", "A", "C"], { A: "x", C: "" }), ["B", "C"]);
-  assert.deepEqual(missingSecrets(["A"], { A: "x" }), []);
-  assert.deepEqual(missingSecrets([], undefined), []);
-  assert.deepEqual(missingSecrets(["A"], undefined), ["A"]);
+test("JSONC configs keep URLs inside strings while dropping comments", () => {
+  assert.deepEqual(
+    parseJsonc('{\n  // note\n  "a": "https://x.example/y", /* c */ "b": [1, 2,],\n}'),
+    { a: "https://x.example/y", b: [1, 2] },
+  );
 });
 
 const repo = "gdg-jp/gdgjp";
@@ -366,4 +377,17 @@ test("first deploys drop bindings to Workers that do not exist yet", () => {
     ["COLLAB_DO"],
   );
   assert.equal(bootstrap.workflows.length, 1);
+});
+
+test("staging turns off notifications that would reach people in copied data", () => {
+  const meet = rewriteWorkerConfig(
+    { name: "gdgjp-meet", vars: { CALENDAR_SEND_UPDATES: "all" } },
+    { slot: "stg-1", hosts: ["meet.gdgs.jp"], resources, workerNames: new Set() },
+  );
+  assert.equal(meet.vars.CALENDAR_SEND_UPDATES, "none");
+  const accounts = rewriteWorkerConfig(
+    { name: "gdgjp-accounts", vars: { EMAIL_FROM: "GDG Japan <noreply@gdgs.jp>" } },
+    { slot: "stg-1", hosts: ["accounts.gdgs.jp"], resources, workerNames: new Set() },
+  );
+  assert.match(accounts.vars.EMAIL_FROM, /onboarding@resend\.dev/);
 });

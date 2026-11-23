@@ -18,8 +18,49 @@ env:
   NODE_VERSION: "22"
 
 jobs:
+  build:
+    name: Build ${{ inputs.slot }}
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref }}
+          submodules: false
+      - name: Initialize shared UI submodule
+        run: git submodule update --init packages/design-system
+      - name: Initialize Playbook submodule
+        run: git submodule update --init skills
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      - run: pnpm install --frozen-lockfile
+      - name: Build and bundle every Worker
+        run: node scripts/staging/staging.mjs build
+      - name: Package deployable output
+        run: |
+          shopt -s nullglob
+          paths=()
+          for app in apps/*/; do
+            app=${app%/}
+            for entry in package.json wrangler.toml wrangler.jsonc migrations build .staging-bundle .open-next/assets; do
+              [ -e "$app/$entry" ] && paths+=("$app/$entry")
+            done
+          done
+          tar --exclude=node_modules --exclude='build/server/.dev.vars*' -czf "$RUNNER_TEMP/staging.tgz" \
+            "${paths[@]}" apps/tinyurl-gateway/api apps/tinyurl-gateway/src apps/tinyurl-gateway/public \
+            apps/tinyurl-gateway/vercel.json apps/tinyurl-gateway/tsconfig.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: staging-${{ inputs.slot }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/staging.tgz
+          retention-days: 1
+
   deploy:
     name: Deploy ${{ inputs.slot }}
+    needs: build
     runs-on: ubuntu-24.04
     environment: staging
     concurrency:
@@ -30,8 +71,9 @@ jobs:
       deployments: write
       pull-requests: write
     env:
-      CLOUDFLARE_API_TOKEN: ${{ secrets.STAGING_CLOUDFLARE_API_TOKEN || secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      STAGING_ROOT_SECRET: ${{ secrets.STAGING_ROOT_SECRET }}
       GH_TOKEN: ${{ github.token }}
       SLOT: ${{ inputs.slot }}
       REF: ${{ inputs.ref }}
@@ -39,12 +81,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ inputs.ref }}
+          ref: ${{ github.event.repository.default_branch }}
           submodules: false
       - name: Initialize shared UI submodule
         run: git submodule update --init packages/design-system
-      - name: Initialize Playbook submodule
-        run: git submodule update --init skills
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
@@ -62,29 +102,25 @@ jobs:
           echo "id=$id" >> "$GITHUB_OUTPUT"
           gh api "repos/${GITHUB_REPOSITORY}/deployments/$id/statuses" -f state=in_progress \
             -f log_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}" >/dev/null
-      - name: Build
-        run: node scripts/staging/staging.mjs build
+      - uses: actions/download-artifact@v4
+        with:
+          name: staging-${{ inputs.slot }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}
+      - name: Unpack the build without executing it
+        run: |
+          mkdir -p "$RUNNER_TEMP/source"
+          tar -xzf "$RUNNER_TEMP/staging.tgz" -C "$RUNNER_TEMP/source" --no-same-owner
+          echo "STAGING_SOURCE=$RUNNER_TEMP/source" >> "$GITHUB_ENV"
       - name: Deploy every Worker to the slot
         env:
-          STAGING_WORKER_SECRETS: ${{ secrets.STAGING_WORKER_SECRETS }}
+          STAGING_SECRETS_JSON: ${{ toJSON(secrets) }}
         run: node scripts/staging/staging.mjs deploy --slot "$SLOT"
       - name: Install Playwright browser
         run: pnpm --filter @gdgjp/accounts exec playwright install chromium
+      - name: Locate the slot's relying parties
+        run: node scripts/staging/staging.mjs e2e-env --slot "$SLOT" --github-env
       - name: Sign in to every relying party
-        env:
-          STAGING_WORKER_SECRETS: ${{ secrets.STAGING_WORKER_SECRETS }}
-        run: |
-          secret=$(jq -r '.["gdgjp-accounts"].BETTER_AUTH_SECRET // empty' <<<"$STAGING_WORKER_SECRETS")
-          if [ -z "$secret" ]; then
-            echo "::error::STAGING_WORKER_SECRETS has no gdgjp-accounts.BETTER_AUTH_SECRET"
-            exit 1
-          fi
-          echo "::add-mask::$secret"
-          export E2E_BETTER_AUTH_SECRET="$secret"
-          set -a
-          eval "$(node scripts/staging/staging.mjs e2e-env --slot "$SLOT")"
-          set +a
-          pnpm --filter @gdgjp/accounts exec playwright test --config playwright.staging.config.ts
+        run: pnpm --filter @gdgjp/accounts exec playwright test --config playwright.staging.config.ts
       - name: Upload Playwright report
         if: always()
         uses: actions/upload-artifact@v4
@@ -100,9 +136,10 @@ jobs:
           DEPLOYMENT: ${{ steps.record.outputs.id }}
         run: |
           state=$([ "$RESULT" = success ] && echo success || echo failure)
+          label=${SLOT/-/}
           gh api "repos/${GITHUB_REPOSITORY}/deployments/$DEPLOYMENT/statuses" -f state="$state" \
-            -f environment_url="https://accounts.${SLOT}.gdgs.jp" \
+            -f environment_url="https://accounts.${label}.gdgs.jp" \
             -f log_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}" >/dev/null
-          if [ -n "$PR" ] && [ "$GITHUB_EVENT_NAME" = pull_request ]; then
-            gh pr comment "$PR" --repo "$GITHUB_REPOSITORY" --body "Staging \`${SLOT}\` deploy of ${REF::12}: **${RESULT}**. Accounts: https://accounts.${SLOT}.gdgs.jp · [run](${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID})"
+          if [ -n "$PR" ] && [ "$GITHUB_EVENT_NAME" = pull_request_target ]; then
+            gh pr comment "$PR" --repo "$GITHUB_REPOSITORY" --body "Staging \`${SLOT}\` deploy of ${REF::12}: **${RESULT}**. Accounts: https://accounts.${label}.gdgs.jp · [run](${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID})"
           fi
