@@ -14,7 +14,7 @@ import { fileURLToPath } from "node:url";
 import { createWorkspaceSnapshot } from "./verification/workspace-snapshot.mjs";
 
 const ports = {
-  accounts: [6173],
+  accounts: [6173, 6174],
   tinyurl: [6173, 6174],
   img: [6173, 6175],
   scheduler: [6173, 6176],
@@ -36,7 +36,10 @@ const ports = {
 const applicationPorts = Object.fromEntries(
   Object.entries(ports)
     .filter(([name]) => name !== "design-system")
-    .map(([name, values]) => [name, values.find((port) => port !== 6173) ?? 6173]),
+    .map(([name, values]) => [
+      name,
+      name === "accounts" ? 6173 : (values.find((port) => port !== 6173) ?? 6173),
+    ]),
 );
 const builtPreviews = new Set([
   "accounts",
@@ -252,6 +255,7 @@ export async function runIsolatedE2E({ source, workspace, playwrightArgs = [] })
         )
       )
         migrations.add("accounts");
+      if (migrations.has("accounts")) migrations.add("tinyurl");
       for (const name of migrations) {
         exitCode = await execute(["--filter", `@gdgjp/${name}`, "migrate:local"], environment);
         if (exitCode) return exitCode;
