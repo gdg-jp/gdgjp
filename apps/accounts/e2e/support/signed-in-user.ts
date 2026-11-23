@@ -46,11 +46,11 @@ export function signSessionToken(token: string, secret: string): string {
   return encodeURIComponent(`${token}.${signature}`);
 }
 
-function sqlString(value: string): string {
+export function sqlString(value: string): string {
   return `'${value.replaceAll("'", "''")}'`;
 }
 
-function execute(database: AccountsDatabase, sql: string): void {
+export function execute(database: AccountsDatabase, sql: string): void {
   const target =
     database.kind === "local"
       ? [LOCAL_DATABASE, "--local", "--persist-to", ".wrangler/state"]
@@ -87,6 +87,64 @@ export function createSignedInUser(
     cookieName: sessionCookieName(accountsUrl),
     cookieValue: signSessionToken(sessionToken, secret),
   };
+}
+
+export function createSession(
+  database: AccountsDatabase,
+  accountsUrl: string,
+  secret: string,
+  user: Pick<SignedInUser, "id" | "email">,
+): SignedInUser {
+  const sessionToken = randomUUID().replaceAll("-", "");
+  const now = new Date();
+  const created = now.toISOString();
+  const expiresAt = new Date(now.getTime() + 60 * 60 * 1000).toISOString();
+  execute(
+    database,
+    `INSERT INTO "session" ("id", "expiresAt", "token", "createdAt", "updatedAt", "userId") VALUES (${sqlString(randomUUID())}, ${sqlString(expiresAt)}, ${sqlString(sessionToken)}, ${sqlString(created)}, ${sqlString(created)}, ${sqlString(user.id)});`,
+  );
+  return {
+    ...user,
+    sessionToken,
+    cookieName: sessionCookieName(accountsUrl),
+    cookieValue: signSessionToken(sessionToken, secret),
+  };
+}
+
+export function queryRows<Row>(database: AccountsDatabase, sql: string): Row[] {
+  const target =
+    database.kind === "local"
+      ? [LOCAL_DATABASE, "--local", "--persist-to", ".wrangler/state"]
+      : [database.name, "--remote"];
+  const output = execFileSync(
+    "pnpm",
+    ["exec", "wrangler", "d1", "execute", ...target, "--json", "--command", sql],
+    {
+      cwd: ACCOUNTS_DIRECTORY,
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "pipe"],
+      env: { ...process.env, WRANGLER_SEND_METRICS: "false" },
+    },
+  );
+  const [result] = JSON.parse(output.slice(output.indexOf("["))) as { results: Row[] }[];
+  return result?.results ?? [];
+}
+
+export function findExistingMember(
+  database: AccountsDatabase,
+): Pick<SignedInUser, "id" | "email"> | null {
+  const [member] = queryRows<{ id: string; email: string }>(
+    database,
+    `SELECT u."id", u."email" FROM "user" u
+     JOIN "memberships" m ON m."user_id" = u."id" AND m."status" = 'active'
+     WHERE u."email" NOT LIKE 'e2e-%' AND u."email_verified" = 1
+     ORDER BY u."created_at" ASC LIMIT 1;`,
+  );
+  return member ?? null;
+}
+
+export function deleteSession(database: AccountsDatabase, user: SignedInUser): void {
+  execute(database, `DELETE FROM "session" WHERE "token" = ${sqlString(user.sessionToken)};`);
 }
 
 export function deleteSignedInUser(database: AccountsDatabase, user: SignedInUser): void {
