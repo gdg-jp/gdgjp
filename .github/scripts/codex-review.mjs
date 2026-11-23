@@ -90,7 +90,7 @@ function reactionClaims(reactions) {
       by: reaction.user.login,
       at: reaction.createdAt,
       body: reaction.content,
-      key: `r:${reaction.user.login}:${reaction.content}`,
+      key: `r:${reaction.user.login}:${reaction.content}:${reaction.createdAt}`,
     }));
 }
 
@@ -101,6 +101,7 @@ export function contentDigest(body) {
 
 export function parsePullRequest(raw) {
   let tampered = 0;
+  const editedByOthers = (post) => Boolean(post.editor?.login) && post.editor.login !== BOT_LOGIN;
   const trailing = (body, kinds) => {
     if (!(body ?? "").trim()) return null;
     const item = markers(body).at(-1);
@@ -115,6 +116,7 @@ export function parsePullRequest(raw) {
   const reviews = [];
   for (const review of raw.reviews?.nodes ?? []) {
     if (!isBot(review.author)) continue;
+    if (editedByOthers(review)) tampered += 1;
     const found = trailing(review.body, ["review"]);
     if (found) {
       reviews.push({
@@ -136,11 +138,13 @@ export function parsePullRequest(raw) {
   for (const thread of raw.reviewThreads?.nodes ?? []) {
     const [first, ...replies] = thread.comments?.nodes ?? [];
     if (!first || !isBot(first.author)) continue;
+    if (editedByOthers(first)) tampered += 1;
     const found = trailing(first.body, ["finding"]);
     if (!found) continue;
     const claims = reactionClaims(first.reactions);
     for (const reply of replies) {
       if (isBot(reply.author)) {
+        if (editedByOthers(reply)) tampered += 1;
         const item = trailing(reply.body, ["verdict"]);
         if (item && item.id === found.id) verdicts.push({ ...item, at: reply.createdAt });
         else if (item) tampered += 1;
@@ -172,6 +176,7 @@ export function parsePullRequest(raw) {
 
   for (const comment of raw.comments?.nodes ?? []) {
     if (isBot(comment.author)) {
+      if (editedByOthers(comment)) tampered += 1;
       const item = trailing(comment.body, ["finding", "verdict", "ack"]);
       if (item?.kind === "finding") {
         findings.set(item.id, {
@@ -210,7 +215,7 @@ export function parsePullRequest(raw) {
       status: verdict.status,
       at: verdict.at,
       seen: verdict.seen ?? verdict.at,
-      handled: new Set((verdict.handled ?? "").split(",").filter(Boolean)),
+      handled: verdict.handled === undefined ? null : new Set(verdict.handled.split(",")),
     });
   }
 
@@ -261,19 +266,25 @@ export function humanActors(pr) {
 
 const SEVERITY = { failure: 3, error: 3, pending: 2, success: 1 };
 
-export function combineGates(own, siblings) {
-  const reviewed = siblings.filter((sibling) => sibling.reviewed);
-  const worst = reviewed.reduce(
-    (current, sibling) =>
-      SEVERITY[sibling.gate.state] > SEVERITY[current.state]
-        ? {
-            state: sibling.gate.state,
-            description: `#${sibling.number} has the same change: ${sibling.gate.description}`,
-          }
-        : current,
-    own,
+export function combineGates(self, siblings) {
+  const members = [self, ...siblings].sort((a, b) => a.number - b.number);
+  const reviewed = members.filter((member) => member.reviewed);
+  if (reviewed.length === 0) return self.gate;
+  const worst = reviewed.reduce((current, member) =>
+    SEVERITY[member.gate.state] > SEVERITY[current.gate.state] ? member : current,
   );
-  return worst;
+  if (siblings.length === 0) return worst.gate;
+  return {
+    state: worst.gate.state,
+    description: `#${worst.number} (same change as #${members
+      .filter((member) => member !== worst)
+      .map((member) => member.number)
+      .join(", #")}): ${worst.gate.description}`,
+  };
+}
+
+export function handledKeys(finding) {
+  return new Set(finding.verdicts.flatMap((verdict) => [...(verdict.handled ?? [])]));
 }
 
 export function evaluate(pr, trusted) {
@@ -291,10 +302,14 @@ export function evaluate(pr, trusted) {
   const findings = pr.findings.map((finding) => {
     const last = finding.verdicts.at(-1);
     const resolved = last?.status === "resolved";
-    const since = time(last?.seen ?? finding.at);
-    const handled = last?.handled ?? new Set();
-    const unseen = (claim) =>
-      time(claim.at) > since || (time(claim.at) === since && !handled.has(claim.key));
+    const handled = handledKeys(finding);
+    const legacySeen = Math.max(
+      ...finding.verdicts
+        .filter((verdict) => verdict.handled === null)
+        .map((verdict) => time(verdict.seen)),
+      time(finding.at),
+    );
+    const unseen = (claim) => !handled.has(claim.key) && time(claim.at) > legacySeen;
     const claims = resolved
       ? []
       : [
@@ -638,11 +653,14 @@ const PULL_REQUEST_QUERY = `query($owner: String!, $name: String!, $number: Int!
   }
 }`;
 
-const COMMENT_FIELDS = `databaseId body createdAt url author { __typename login }
+const COMMENT_FIELDS = `databaseId body createdAt url author { __typename login } editor { login }
   reactions(last: 50) { nodes { content createdAt user { login } } }`;
 
 const CONNECTIONS = {
-  reviews: { field: "reviews", nodes: "body createdAt url author { __typename login }" },
+  reviews: {
+    field: "reviews",
+    nodes: "body createdAt url author { __typename login } editor { login }",
+  },
   reviewThreads: {
     field: "reviewThreads",
     nodes: `id isResolved path line originalLine
@@ -812,7 +830,10 @@ export class ReviewRepository {
   }
 
   async combined(pr, gate) {
-    return combineGates(gate, await this.siblingGates(pr));
+    return combineGates(
+      { number: pr.number, reviewed: pr.reviews.length > 0, gate },
+      await this.siblingGates(pr),
+    );
   }
 
   async sharedWith(pr) {
@@ -954,11 +975,8 @@ export class ReviewRepository {
   }
 
   async postVerdict(pr, finding, verdict, seen) {
-    const previous = finding.verdicts.at(-1);
-    const keys = new Set(previous && time(previous.seen) === time(seen) ? previous.handled : []);
-    for (const claim of finding.claims) {
-      if (time(claim.at) === time(seen)) keys.add(claim.key);
-    }
+    const keys = handledKeys(finding);
+    for (const claim of finding.claims) keys.add(claim.key);
     const handled = [...keys].join(",");
     const body = verdictBody(verdict, {
       pr: pr.number,

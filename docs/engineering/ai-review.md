@@ -33,7 +33,7 @@ no event for reactions, so a scheduled run picks them up within about ten minute
 | pending, "queued or running" / "checking" / "working" | GDG-chan has work for this pull request. |
 | failure, "N of M GDG-chan findings are unresolved" | Respond to the remaining findings. |
 | failure, "finding comments were deleted or altered" | A finding listed by a review is gone or its marker no longer verifies. A maintainer reviews what happened and bypasses. |
-| "#N has the same change: ..." | Another open pull request from this repository has the same head and base and its own GDG-chan review; the status shows the worse of the two. |
+| "#N (same change as #M): ..." | Open pull requests from this repository share the head and base, so they carry the same change and one status. Among those with a GDG-chan review, the worst state wins. |
 | success | At least one review ran and all of its findings are resolved. |
 | error, "Codex is not signed in" | Run the AI login workflow. |
 | error, "Codex agent failed" | Read the linked run; comment `/ai-review` or re-add the label to retry. |
@@ -81,11 +81,13 @@ organization's GitHub Apps.
   Resolving a thread by hand does not resolve a finding.
 - Each review marker lists its finding IDs and the IDs of the `E-code-review` label events
   it answered, and reviews cannot be deleted. If a listed finding is deleted, or any
-  non-empty GDG-chan comment or review lacks a valid marker of the kind expected there, the
-  gate fails instead of forgetting the finding.
+  non-empty GDG-chan comment or review lacks a valid marker of the kind expected there, or
+  GitHub reports that someone other than GDG-chan edited a GDG-chan post, the gate fails
+  instead of forgetting the finding.
 - Reactions, replies, and `/ai-review` comments count only from people with write access
-  to the repository. Other bots are ignored. A verdict records the newest response it
-  was given, so responses that arrive while GDG-chan is working start another check.
+  to the repository. Other bots are ignored. Each verdict records the IDs of every response
+  GDG-chan has checked for that finding, so any response it has not seen starts another
+  check, whenever it arrived.
 - Codex runs without any token under a permission profile that allows reading the
   filesystem, denies the Codex home that holds the login, and allows no writes. Before
   each run, `codex-review.mjs sandbox-check` confirms through `codex sandbox` that the

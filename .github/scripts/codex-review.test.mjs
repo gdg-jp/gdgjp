@@ -578,19 +578,32 @@ test("model output cannot carry gate markers", () => {
   assert.deepEqual(markers(cleaned.reply), []);
 });
 
-test("an identical PR changes the status only once it has its own review", () => {
-  const own = { state: "success", description: "ok" };
-  assert.deepEqual(
-    combineGates(own, [
-      { number: 9, reviewed: false, gate: { state: "pending", description: "x" } },
-    ]),
-    own,
-  );
-  const blocked = combineGates(own, [
-    { number: 9, reviewed: true, gate: { state: "failure", description: "1 of 1 unresolved" } },
-  ]);
+test("identical PRs get the same status whichever of them writes it", () => {
+  const reviewed = { number: 7, reviewed: true, gate: { state: "success", description: "ok" } };
+  const fresh = { number: 9, reviewed: false, gate: { state: "pending", description: "add" } };
+  assert.equal(combineGates(reviewed, [fresh]).state, "success");
+  assert.equal(combineGates(fresh, [reviewed]).state, "success");
+  assert.deepEqual(combineGates(reviewed, [fresh]), combineGates(fresh, [reviewed]));
+
+  const failing = { number: 9, reviewed: true, gate: { state: "failure", description: "1 of 1" } };
+  const blocked = combineGates(reviewed, [failing]);
   assert.equal(blocked.state, "failure");
   assert.match(blocked.description, /#9/);
+  assert.deepEqual(blocked, combineGates(failing, [reviewed]));
+  assert.deepEqual(combineGates(fresh, []), fresh.gate);
+});
+
+test("a GDG-chan post edited by someone else counts as tampering", () => {
+  const edited = thread("1.1");
+  edited.comments.nodes[0].editor = { login: "alice" };
+  const result = run({ reviews: [review("2026-11-01T00:05:00Z")], threads: [edited] });
+  assert.equal(result.gate.state, "failure");
+  const self = thread("1.1");
+  self.comments.nodes[0].editor = { login: "gdg-chan" };
+  assert.notEqual(
+    run({ reviews: [review("2026-11-01T00:05:00Z")], threads: [self] }).gate.description,
+    result.gate.description,
+  );
 });
 
 test("standalone findings are posted before the review that marks completion", async () => {
