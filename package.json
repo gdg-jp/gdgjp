@@ -19,6 +19,8 @@
     "openapi:check": "pnpm openapi:lint && pnpm openapi:generate && (cd apps/cli && go generate ./...) && git diff --exit-code",
     "test": "node --test .github/scripts/*.test.mjs && turbo test",
     "test:e2e": "node scripts/run-isolated-e2e.mjs",
+    "test:mutation": "node scripts/run-mutation.mjs --since main",
+    "test:mutation:full": "node scripts/run-mutation.mjs -- --kill-matrix --reporter text --reporter json",
     "ci:go": "node scripts/run-ci.mjs go",
     "ci:quick": "node scripts/run-ci.mjs quick",
     "ci:full": "node scripts/run-ci.mjs full",
@@ -27,6 +29,7 @@
   },
   "devDependencies": {
     "@biomejs/biome": "^1.9.4",
+    "@mizchi/mutator": "0.5.3",
     "@playwright/test": "^1.49.1",
     "@redocly/cli": "^2.40.0",
     "@types/node": "^22.15.30",

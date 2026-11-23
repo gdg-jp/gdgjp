@@ -1,0 +1,14 @@
+{
+  "$schema": "../../node_modules/@mizchi/mutator/schema/mutator.config.schema.json",
+  "include": [
+    "app/features/auth/**/*.ts",
+    "app/features/oauth/**/*.ts",
+    "app/features/developer-apps/oauth-clients.server.ts"
+  ],
+  "exclude": ["app/**/*.test.ts"],
+  "critical": [
+    "app/features/auth/**/*.ts",
+    "app/features/oauth/**/*.ts",
+    "app/features/developer-apps/oauth-clients.server.ts"
+  ]
+}

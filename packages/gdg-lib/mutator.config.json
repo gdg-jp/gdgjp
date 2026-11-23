@@ -1,0 +1,6 @@
+{
+  "$schema": "../../node_modules/@mizchi/mutator/schema/mutator.config.schema.json",
+  "include": ["src/auth/**/*.ts"],
+  "exclude": ["src/**/*.test.ts"],
+  "critical": ["src/auth/**/*.ts"]
+}
