@@ -29,31 +29,34 @@ describe("getBearerIdentity", () => {
     ).resolves.toBe(null);
   });
 
-  it("returns null when userinfo responds non-OK", async () => {
+  it("returns null when userinfo responds non-OK, whatever the body says", async () => {
     vi.stubGlobal(
       "fetch",
-      vi.fn(async () => jsonResponse({ error: "invalid_token" }, 401)),
+      vi.fn(async () => jsonResponse({ sub: "user-1" }, 401)),
     );
     await expect(
       getBearerIdentity(requestWithAuth("Bearer t"), "https://accounts.example"),
     ).resolves.toBe(null);
   });
 
-  it("returns null when sub is missing", async () => {
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(async () => jsonResponse({ email: "a@b.c" })),
-    );
-    await expect(
-      getBearerIdentity(requestWithAuth("Bearer t"), "https://accounts.example"),
-    ).resolves.toBe(null);
+  it("returns null when sub is missing, empty, or not a string", async () => {
+    for (const body of [{ email: "a@b.c" }, { sub: "" }, { sub: 123 }]) {
+      vi.stubGlobal(
+        "fetch",
+        vi.fn(async () => jsonResponse(body)),
+      );
+      await expect(
+        getBearerIdentity(requestWithAuth("Bearer t"), "https://accounts.example"),
+      ).resolves.toBe(null);
+    }
   });
 
-  it("normalizes claims and defaults missing optional strings", async () => {
+  it("forwards the bearer token to userinfo and defaults missing optional strings", async () => {
     vi.stubGlobal(
       "fetch",
-      vi.fn(async (url: string | URL) => {
+      vi.fn(async (url: string | URL, init?: RequestInit) => {
         expect(String(url)).toBe("https://accounts.example/api/auth/oauth2/userinfo");
+        expect(new Headers(init?.headers).get("authorization")).toBe("Bearer t");
         return jsonResponse({ sub: "user-1" });
       }),
     );
@@ -78,7 +81,9 @@ describe("getBearerIdentity", () => {
             { chapterId: 10, chapterSlug: "tokyo", role: "organizer" },
             { chapterId: "not-a-number", chapterSlug: "osaka", role: "member" },
             { chapterId: 20, chapterSlug: "kyoto", role: "not-a-role" },
+            { chapterId: 30, chapterSlug: "nagoya", role: "member" },
             "not-an-object",
+            null,
           ],
         }),
       ),
@@ -87,37 +92,72 @@ describe("getBearerIdentity", () => {
       getBearerIdentity(requestWithAuth("Bearer t"), "https://accounts.example"),
     ).resolves.toEqual({
       user: { id: "user-1", email: "a@b.c", name: "A", image: null, isAdmin: true },
-      chapters: [{ chapterId: 10, chapterSlug: "tokyo", role: "organizer" }],
+      chapters: [
+        { chapterId: 10, chapterSlug: "tokyo", role: "organizer" },
+        { chapterId: 30, chapterSlug: "nagoya", role: "member" },
+      ],
     });
   });
 });
 
 describe("getCliIdentity", () => {
   it("returns null when the Authorization header is missing or not Bearer-prefixed", async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
     await expect(getCliIdentity(requestWithAuth(), "https://accounts.example")).resolves.toBe(null);
+    await expect(
+      getCliIdentity(requestWithAuth("Basic abc"), "https://accounts.example"),
+    ).resolves.toBe(null);
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
-  it("calls the CLI identity endpoint, not userinfo", async () => {
-    const fetchMock = vi.fn(async (url: string | URL) => {
+  it("forwards the bearer token to the CLI identity endpoint, not userinfo", async () => {
+    const fetchMock = vi.fn(async (url: string | URL, init?: RequestInit) => {
       expect(String(url)).toBe("https://accounts.example/api/cli/v1/identity");
+      expect(new Headers(init?.headers).get("authorization")).toBe("Bearer t");
       return jsonResponse({
         user: { id: "user-1", email: "a@b.c", name: "A", image: null, isAdmin: false },
         chapters: [],
       });
     });
     vi.stubGlobal("fetch", fetchMock);
-    await getCliIdentity(requestWithAuth("Bearer t"), "https://accounts.example");
+    await expect(
+      getCliIdentity(requestWithAuth("Bearer t"), "https://accounts.example"),
+    ).resolves.toEqual({
+      user: { id: "user-1", email: "a@b.c", name: "A", image: null, isAdmin: false },
+      chapters: [],
+    });
     expect(fetchMock).toHaveBeenCalledOnce();
   });
 
-  it("returns null when the response is non-OK", async () => {
+  it("returns null when the response is non-OK, whatever the body says", async () => {
     vi.stubGlobal(
       "fetch",
-      vi.fn(async () => jsonResponse({ error: "invalid_token" }, 401)),
+      vi.fn(async () =>
+        jsonResponse(
+          {
+            user: { id: "user-1", email: "a@b.c", name: "A", image: null, isAdmin: false },
+            chapters: [],
+          },
+          401,
+        ),
+      ),
     );
     await expect(
       getCliIdentity(requestWithAuth("Bearer t"), "https://accounts.example"),
     ).resolves.toBe(null);
+  });
+
+  it("returns null when the body is not JSON or not an object", async () => {
+    for (const body of ["not json", "null"]) {
+      vi.stubGlobal(
+        "fetch",
+        vi.fn(async () => new Response(body, { status: 200 })),
+      );
+      await expect(
+        getCliIdentity(requestWithAuth("Bearer t"), "https://accounts.example"),
+      ).resolves.toBe(null);
+    }
   });
 
   it("returns the full user shape including image and isAdmin", async () => {
@@ -168,18 +208,27 @@ describe("getCliIdentity", () => {
     ).resolves.toBe(null);
   });
 
-  it("rejects a response missing required user fields", async () => {
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(async () =>
-        jsonResponse({
-          user: { id: "user-1", email: "a@b.c" },
-          chapters: [],
-        }),
-      ),
-    );
-    await expect(
-      getCliIdentity(requestWithAuth("Bearer t"), "https://accounts.example"),
-    ).resolves.toBe(null);
+  it("rejects a response with any one required field missing or mistyped", async () => {
+    const user = { id: "user-1", email: "a@b.c", name: "A", image: null, isAdmin: false };
+    const bodies = [
+      { user: null, chapters: [] },
+      { user: { ...user, id: "" }, chapters: [] },
+      { user: { ...user, id: 1 }, chapters: [] },
+      { user: { ...user, email: undefined }, chapters: [] },
+      { user: { ...user, name: undefined }, chapters: [] },
+      { user: { ...user, image: undefined }, chapters: [] },
+      { user: { ...user, isAdmin: "true" }, chapters: [] },
+      { user, chapters: "tokyo" },
+      { user, chapters: [null] },
+    ];
+    for (const body of bodies) {
+      vi.stubGlobal(
+        "fetch",
+        vi.fn(async () => jsonResponse(body)),
+      );
+      await expect(
+        getCliIdentity(requestWithAuth("Bearer t"), "https://accounts.example"),
+      ).resolves.toBe(null);
+    }
   });
 });

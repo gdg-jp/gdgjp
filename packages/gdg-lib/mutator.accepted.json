@@ -1,0 +1,110 @@
+{
+  "10hkdy3iyd7": {
+    "reason": "equivalent: a value without a non-empty body before '.' fails the HMAC verify that follows; the early return is a fast path",
+    "where": "src/auth/cookie.ts:32:7 idx <= 0 -> idx < 0"
+  },
+  "130an59xn3l": {
+    "reason": "equivalent: a non-string sub never equals the session subject, so checkIdpSession discards those claims",
+    "where": "src/auth/rp.ts:828:52 \"\" -> \"Stryker was here!\""
+  },
+  "134cg3cy5y2": {
+    "reason": "equivalent: reading chapter fields on a primitive entry yields undefined, so the shape check drops it",
+    "where": "src/auth/bearer.ts:67:17 typeof entry !== \"object\" -> false"
+  },
+  "14tqlk5u1de": {
+    "reason": "equivalent: account-linking error messages only reach console.error; the callback answers a generic 400",
+    "where": "src/auth/rp.ts:773:23 \"Email is already linked to a different OIDC identity\" -> \"\""
+  },
+  "15d2qjdne7f": {
+    "reason": "equivalent: account-linking error messages only reach console.error; the callback answers a generic 400",
+    "where": "src/auth/rp.ts:744:21 \"Cannot link a new OIDC identity without a verified email\" -> \"\""
+  },
+  "1bw4x4fg0g7": {
+    "reason": "equivalent: atob implements WHATWG forgiving-base64, which decodes unpadded input identically",
+    "where": "src/auth/cookie.ts:16:41 \"=\" -> \"\""
+  },
+  "1dmja08owrv": {
+    "reason": "equivalent: String.prototype.split always returns at least one element, so idRaw is never undefined",
+    "where": "src/auth/rp.ts:690:48 \"\" -> \"Stryker was here!\""
+  },
+  "1ialkbknvvs": {
+    "reason": "equivalent: account-linking error messages only reach console.error; the callback answers a generic 400",
+    "where": "src/auth/rp.ts:769:27 \"OIDC identity link changed concurrently\" -> \"\""
+  },
+  "1ivdhxiv3cp": {
+    "reason": "equivalent: fetchAccessToken reads only accessToken from the refreshed row; the persisted refresh and ID tokens are asserted through the UPDATE arguments",
+    "where": "src/auth/rp.ts:638:14 refreshed.id_token ?? current.idToken -> (refreshed.id_token && current.idToken)"
+  },
+  "1khbycf4f02": {
+    "reason": "equivalent: when the signature does not decode, ok stays undefined and the !ok check returns null anyway",
+    "where": "src/auth/cookie.ts:39:11 { return null; } -> {}"
+  },
+  "1tgv7njr9nc": {
+    "reason": "equivalent: an undefined body is rejected by the !value check exactly like null",
+    "where": "src/auth/bearer.ts:49:52 null -> undefined"
+  },
+  "1wk33u49i9v": {
+    "reason": "equivalent: atob implements WHATWG forgiving-base64, which decodes unpadded input identically",
+    "where": "src/auth/cookie.ts:16:15 s.length % 4 === 0 -> true"
+  },
+  "1xnxo5hgeri": {
+    "reason": "equivalent: the ID Token claims are undefined only when sub is missing too, and the subject check above has already returned",
+    "where": "src/auth/rp.ts:258:28 ?. -> ."
+  },
+  "2aih5ij93qu": {
+    "reason": "equivalent: a value without a non-empty body before '.' fails the HMAC verify that follows; the early return is a fast path",
+    "where": "src/auth/cookie.ts:32:7 idx <= 0 -> false"
+  },
+  "2ake5f1nzo4": {
+    "reason": "equivalent: the HMAC key never leaves importKey, so whether it is extractable is unobservable",
+    "where": "src/auth/cookie.ts:6:70 false -> true"
+  },
+  "2bk89tzqzkn": {
+    "reason": "equivalent: fetchAccessToken reads only accessToken from the refreshed row; the persisted refresh and ID tokens are asserted through the UPDATE arguments",
+    "where": "src/auth/rp.ts:637:19 refreshed.refresh_token ?? current.refreshToken -> (refreshed.refresh_token && current.refreshToken)"
+  },
+  "2bodw3i28rd": {
+    "reason": "equivalent: an empty dev identity falls back to \"dev\" after sanitizing",
+    "where": "src/auth/rp.ts:648:36 \"dev\" -> \"\""
+  },
+  "2c3ekg2vi9j": {
+    "reason": "equivalent: the strict equality with the configured issuer string that follows implies the type check",
+    "where": "src/auth/rp.ts:566:5 typeof session.issuer === \"string\" -> true"
+  },
+  "2dsszux9zy1": {
+    "reason": "equivalent: btoa emits '=' only as trailing padding, so dropping the end anchor removes the same characters",
+    "where": "src/auth/cookie.ts:12:68 /=+$/ -> /=+/"
+  },
+  "2elkt4itez9": {
+    "reason": "equivalent: reading chapter fields on a primitive entry yields undefined, so the shape check drops it",
+    "where": "src/auth/rp.ts:814:23 typeof entry !== \"object\" -> false"
+  },
+  "2fidp2p8d61": {
+    "reason": "equivalent: a part starting with '=' has an empty name, which the !k check skips anyway",
+    "where": "src/auth/cookie.ts:79:9 eq < 0 -> eq <= 0"
+  },
+  "7dqn5b03xw": {
+    "reason": "equivalent: account-linking error messages only reach console.error; the callback answers a generic 400",
+    "where": "src/auth/rp.ts:784:23 \"OIDC identity link changed concurrently\" -> \"\""
+  },
+  "ik3o9vxm29": {
+    "reason": "equivalent: a non-object JSON body has no user property, so parseStrictUser rejects it",
+    "where": "src/auth/bearer.ts:50:17 typeof value !== \"object\" -> false"
+  },
+  "mt5jupz5rx": {
+    "reason": "equivalent: writing one index past the end of a Uint8Array is a no-op",
+    "where": "src/auth/cookie.ts:19:19 i < bin.length -> i <= bin.length"
+  },
+  "nsg1pdwr1x": {
+    "reason": "equivalent: the (issuer, subject) lookup before it returns a row with this issuer and subject first, so such an email row never reaches the repair branch",
+    "where": "src/auth/rp.ts:757:9 existingByEmail.oidc_subject !== subject -> true"
+  },
+  "p87i2dcfu8": {
+    "reason": "equivalent: any fallback state without the retry. prefix takes the same restart branch",
+    "where": "src/auth/rp.ts:337:50 \"\" -> \"Stryker was here!\""
+  },
+  "szycn82zsp": {
+    "reason": "equivalent: reading id on a primitive user yields undefined, so the id check rejects it",
+    "where": "src/auth/bearer.ts:81:17 typeof value !== \"object\" -> false"
+  }
+}
