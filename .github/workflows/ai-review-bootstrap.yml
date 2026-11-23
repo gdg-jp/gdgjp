@@ -21,6 +21,7 @@ jobs:
     env:
       AI_REVIEW_TRUSTED_BRANCHES: Harineko0/agent-review,ai-review-bootstrap
       AI_REVIEW_TRUSTED_WORKFLOWS: .github/workflows/codex-login.yml,.github/workflows/ai-review-bootstrap.yml
+      AI_REVIEW_TRUSTED_EVENTS: pull_request
     steps:
       - uses: actions/checkout@v4
         with:
