@@ -22,6 +22,7 @@ const oidc = vi.hoisted(() => ({
     for (const [key, value] of Object.entries(parameters)) url.searchParams.set(key, value);
     return url;
   }),
+  ClientSecretBasic: vi.fn((secret: string) => ({ basic: secret })),
   allowInsecureRequests: Symbol("allowInsecureRequests"),
   customFetch: Symbol("customFetch"),
 }));
@@ -269,8 +270,8 @@ describe("OIDC RP sign-in", () => {
     expect(oidc.discovery).toHaveBeenCalledWith(
       new URL("https://service-bound-issuer.example"),
       "client",
-      "client-secret",
       undefined,
+      { basic: "client-secret" },
       expect.objectContaining({
         timeout: 10,
         [oidc.customFetch]: idpFetch,

@@ -127,8 +127,8 @@ async function getIssuer(env: Env): Promise<oidc.Configuration> {
       .discovery(
         new URL(env.IDP_ISSUER),
         env.IDP_CLIENT_ID as string,
-        env.IDP_CLIENT_SECRET as string,
         undefined,
+        oidc.ClientSecretBasic(env.IDP_CLIENT_SECRET as string),
         {
           timeout: 10,
         },

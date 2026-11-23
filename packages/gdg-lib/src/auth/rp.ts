@@ -137,7 +137,13 @@ function getIssuerConfig(config: RpAuthConfig): Promise<oidc.Configuration> {
       ...(isLocal ? { execute: [oidc.allowInsecureRequests] } : {}),
     };
     p = oidc
-      .discovery(issuerUrl, config.idp.clientId, config.idp.clientSecret, undefined, options)
+      .discovery(
+        issuerUrl,
+        config.idp.clientId,
+        undefined,
+        oidc.ClientSecretBasic(config.idp.clientSecret),
+        options,
+      )
       .catch((err) => {
         issuerCache.delete(key);
         throw err;

@@ -8,6 +8,7 @@ const oidc = vi.hoisted(() => ({
   buildAuthorizationUrl: vi.fn(),
   buildEndSessionUrl: vi.fn(),
   calculatePKCECodeChallenge: vi.fn(),
+  ClientSecretBasic: vi.fn((secret: string) => ({ basic: secret })),
   discovery: vi.fn(),
   fetchUserInfo: vi.fn(),
   randomNonce: vi.fn(),
