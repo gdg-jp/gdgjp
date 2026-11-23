@@ -5,6 +5,7 @@ on:
     types: [labeled, closed]
   push:
     branches: [main]
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -15,7 +16,7 @@ jobs:
     runs-on: ubuntu-latest
     if: >-
       vars.STAGING_ENABLED == 'true' && (
-      github.event_name == 'push' ||
+      github.event_name == 'push' || github.event_name == 'workflow_dispatch' ||
       github.event.action == 'closed' ||
       startsWith(github.event.label.name, 'deploy-stg-'))
     permissions:
@@ -37,7 +38,7 @@ jobs:
           PR: ${{ github.event.pull_request.number }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
           HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}
-          MAIN_SHA: ${{ github.event_name == 'push' && github.sha || github.event.pull_request.base.sha }}
+          MAIN_SHA: ${{ github.event.pull_request.base.sha || github.sha }}
         run: node scripts/staging/select.mjs >> "$GITHUB_OUTPUT"
 
   deploy:
