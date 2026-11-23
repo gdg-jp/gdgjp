@@ -7,9 +7,7 @@ const NS_LOG = "ns-log";
 export type AppendLogEntryInput = {
   subject: string;
   lines: string[];
-  /** Fixed to `query` for the agent log route. */
   type?: "query";
-  /** Override for tests; defaults to UTC today. */
   date?: string;
 };
 
@@ -20,7 +18,6 @@ export type UpsertCatalogEntryInput = {
   summary: string;
 };
 
-/** Strip newlines and a leading `#` so untrusted chat text cannot forge headings. */
 export function hardenCatalogField(value: string, maxLength: number): string {
   let text = value.replace(/\r?\n/g, " ").replace(/\s+/g, " ").trim();
   while (text.startsWith("#")) {
@@ -56,10 +53,6 @@ export function formatIndexLine(input: {
   return `- [${title}](${input.sectionSlug}/${input.slug}) — ${summary}`;
 }
 
-/**
- * Atomic append to the log page. Concurrent callers cannot lose each other's
- * entries the way a read-modify-write would.
- */
 export async function appendLogEntry(
   env: Env,
   input: AppendLogEntryInput,
@@ -96,11 +89,6 @@ export async function appendLogEntry(
   return { ok: true };
 }
 
-/**
- * Insert or replace a catalog line under `## <section>` on the matching
- * namespace page (`ns-<slug>`). Read-modify-write guarded by sync_revision;
- * retries once on mismatch.
- */
 export async function upsertCatalogEntry(
   db: ReturnType<typeof getDb>,
   env: Env,
@@ -143,7 +131,6 @@ export async function upsertCatalogEntry(
 
     if ((result.meta?.changes ?? 0) === 1) return;
   }
-  // Give up quietly after one retry — filing must not throw on catalog races.
 }
 
 export function sectionToPathSlug(section: string): string {
@@ -159,7 +146,6 @@ export function sectionToPathSlug(section: string): string {
   return known[section] ?? section.toLowerCase().replace(/\s+/g, "-");
 }
 
-/** Pure helper: ensure `## Section` exists and the slug's line is unique. */
 export function upsertSectionLine(
   content: string,
   section: string,

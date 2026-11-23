@@ -5,7 +5,6 @@ import { Link } from "react-router";
 
 export type AdminUser = { name: string; email: string; image: string | null };
 
-/** Frame for the signed-in pages: project list and project admin. */
 export function AdminLayout({
   user,
   accountsUrl,
@@ -17,7 +16,6 @@ export function AdminLayout({
 }) {
   return (
     <AppShell
-      // One navigation item: nothing to collapse (same as tinyurl).
       collapsible="none"
       brand={
         <Link to="/" className="inline-flex items-center gap-2">

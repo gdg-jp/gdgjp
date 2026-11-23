@@ -39,10 +39,6 @@ function Hint({ label, children }: { label: string; children: React.ReactNode })
   );
 }
 
-/**
- * A speaker in the participant list: presence, level, link quality, the
- * one-click slot picker, noise suppression, and the personal audio monitor.
- */
 export function ParticipantRow({
   peer,
   slots,
@@ -63,7 +59,6 @@ export function ParticipantRow({
   mic: MediaStreamTrack | null;
   screenAudio: MediaStreamTrack | null;
   monitored: boolean;
-  /** The operator's own speaker toggle; off silences every speaker. */
   speakerOn: boolean;
   sinkId: string;
   onAssign: (slot: Slot | null) => void;

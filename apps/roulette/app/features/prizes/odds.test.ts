@@ -47,7 +47,6 @@ describe("currentOdds", () => {
   });
 
   it("counts what is left for standard", () => {
-    // 100 expected, 21 drawn, 2 finite left → the losing slot counts as 77.
     const odds = currentOdds(prizes, "standard", 100, 21);
     expect(odds[0]).toBeCloseTo(1 / 79);
     expect(odds[1]).toBeCloseTo(1 / 79);
@@ -56,7 +55,6 @@ describe("currentOdds", () => {
 
   it("only draws unlimited prizes once past the expected count", () => {
     const odds = currentOdds(prizes, "standard", 10, 30);
-    // The pool is empty but finite prizes are still in the box.
     expect(odds[2]).toBe(0);
     const empty = prizes.map((prize) =>
       prize.stock === null ? prize : { ...prize, won: prize.stock },
@@ -68,7 +66,6 @@ describe("currentOdds", () => {
     const evil = prizes.map((prize) =>
       prize.id === "pixel" ? { ...prize, excluded: true } : prize,
     );
-    // Standard would be 1 : 1 : 77; the pixel's ticket is taken out.
     const odds = currentOdds(evil, "evil", 100, 21);
     expect(odds[0]).toBe(0);
     expect(odds[1]).toBeCloseTo(1 / 78);
@@ -76,7 +73,6 @@ describe("currentOdds", () => {
   });
 
   it("falls back to the unlimited prizes left when the evil box runs dry", () => {
-    // Only the excluded pixel's ticket would be left.
     const evil = prizes.map((prize) =>
       prize.id === "pixel" ? { ...prize, excluded: true } : { ...prize, won: prize.stock ?? 98 },
     );

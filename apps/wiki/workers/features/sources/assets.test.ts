@@ -64,8 +64,6 @@ describe("resolveSourceAssets", () => {
     const first = await resolveSourceAssets(envWith(putMock), input);
     const second = await resolveSourceAssets(envWith(putMock), input);
 
-    // A random asset id here would change the markdown on every refresh, which would
-    // change the document's content_hash and rewrite R2 even when nothing changed.
     expect(second.markdown).toBe(first.markdown);
   });
 

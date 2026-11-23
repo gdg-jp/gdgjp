@@ -28,7 +28,6 @@ async function eventCalendarApiId(
     });
     calendarApiId = event?.calendar_api_id;
   } catch (error) {
-    // Unknown event, or the bot is not a host / check-in manager of it.
     if (isLumaStatus(error, 400, 403, 404)) return null;
     throw error;
   }
@@ -37,12 +36,6 @@ async function eventCalendarApiId(
   return calendarApiId;
 }
 
-/**
- * Same contract as connpass reception check-in: the event's Luma calendar is
- * resolved (KV-cached) and `authorize` must approve it before any write. The guest
- * is then looked up by the ticket's proxy key exactly as Luma's own scanner does,
- * and checked in only when already approved — the bot never approves a guest.
- */
 export async function checkInLumaGuest(
   env: Env,
   checkin: LumaCheckinUrl,

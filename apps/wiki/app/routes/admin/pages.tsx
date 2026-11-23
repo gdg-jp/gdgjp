@@ -11,10 +11,6 @@ import { getDb } from "~/lib/db.server";
 import { PageTreeTable } from "./_components/PageTreeTable";
 import { buildAdminPageTree } from "./_components/admin-page-tree";
 
-// ---------------------------------------------------------------------------
-// Loader
-// ---------------------------------------------------------------------------
-
 export async function loader({ request, context }: LoaderFunctionArgs) {
   const { env } = context.cloudflare;
   await requireAdmin(request, env);
@@ -37,7 +33,6 @@ export async function loader({ request, context }: LoaderFunctionArgs) {
     })
     .from(schema.pages)
     .leftJoin(schema.user, eq(schema.pages.authorId, schema.user.id))
-    // The admin tree is the default space's tree; other spaces are managed by their owners.
     .where(eq(schema.pages.spaceId, "gdg-jp"))
     .orderBy(schema.pages.sortOrder)
     .all()
@@ -45,10 +40,6 @@ export async function loader({ request, context }: LoaderFunctionArgs) {
 
   return { pages };
 }
-
-// ---------------------------------------------------------------------------
-// Action
-// ---------------------------------------------------------------------------
 
 export async function action({ request, context }: ActionFunctionArgs) {
   const { env } = context.cloudflare;
@@ -88,10 +79,6 @@ export async function action({ request, context }: ActionFunctionArgs) {
 
   return {};
 }
-
-// ---------------------------------------------------------------------------
-// UI
-// ---------------------------------------------------------------------------
 
 export default function AdminPages() {
   const { pages } = useLoaderData<typeof loader>();

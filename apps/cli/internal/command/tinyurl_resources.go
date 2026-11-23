@@ -11,7 +11,6 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// tinyurlIDArg parses a numeric path argument, e.g. TAG_ID or FOLDER_ID.
 func tinyurlIDArg(label, raw string) (int, error) {
 	value, err := strconv.Atoi(raw)
 	if err != nil || value <= 0 {
@@ -19,8 +18,6 @@ func tinyurlIDArg(label, raw string) (int, error) {
 	}
 	return value, nil
 }
-
-// --- tags ----------------------------------------------------------------
 
 func newTinyurlTagsCommand(credentials store.CredentialStore) *cobra.Command {
 	command := &cobra.Command{
@@ -134,8 +131,6 @@ func newTinyurlTagsDeleteCommand(credentials store.CredentialStore) *cobra.Comma
 		},
 	}
 }
-
-// --- folders -------------------------------------------------------------
 
 func newTinyurlFoldersCommand(credentials store.CredentialStore) *cobra.Command {
 	command := &cobra.Command{

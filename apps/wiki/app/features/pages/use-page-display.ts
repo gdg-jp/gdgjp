@@ -11,9 +11,7 @@ export function usePageDisplay(pageId: string, userId: string | null) {
     try {
       const saved = JSON.parse(localStorage.getItem(key) ?? "null");
       value = { smallText: saved?.smallText === true, fullWidth: saved?.fullWidth === true };
-    } catch {
-      /* Storage is optional for viewing. */
-    }
+    } catch {}
     setState({ key, value });
   }, [key]);
   const value = state.key === key ? state.value : defaults;
@@ -21,9 +19,7 @@ export function usePageDisplay(pageId: string, userId: string | null) {
     setState({ key, value: next });
     try {
       localStorage.setItem(key, JSON.stringify(next));
-    } catch {
-      /* Keep session state. */
-    }
+    } catch {}
   };
   return [value, change] as const;
 }

@@ -7,8 +7,8 @@ describe("validateSlug", () => {
     expect(validateSlug("hello-world_42")).toEqual({ ok: true });
     expect(validateSlug("a")).toEqual({ ok: true });
     expect(validateSlug("my_pic-2")).toEqual({ ok: true });
-    expect(validateSlug("abc123")).toEqual({ ok: true }); // 6 chars, not id-shaped
-    expect(validateSlug("abcd-234")).toEqual({ ok: true }); // 8 chars but has a hyphen
+    expect(validateSlug("abc123")).toEqual({ ok: true });
+    expect(validateSlug("abcd-234")).toEqual({ ok: true });
   });
 
   it("rejects illegal characters and lengths", () => {
@@ -37,12 +37,10 @@ describe("validateSlug", () => {
 });
 
 describe("RESERVED_SLUGS", () => {
-  // Guards against a new top-level route being added without reserving its
-  // first path segment, which would let a slug shadow it (or vice versa).
   it("covers every non-parameterized top-level route segment", () => {
     for (const route of routes) {
       const path = (route as { path?: string }).path;
-      if (!path) continue; // index route
+      if (!path) continue;
       const first = path.split("/")[0];
       if (!first || first.startsWith(":") || first === "*") continue;
       expect(RESERVED_SLUGS.has(first.toLowerCase())).toBe(true);

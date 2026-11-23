@@ -6,9 +6,6 @@ import { getAccessIdentity, requireUser } from "~/features/auth/utils.server";
 import { getEffectivePagePermissions } from "~/features/pages/access.server";
 import { getDb } from "~/lib/db.server";
 
-// ---------------------------------------------------------------------------
-// GET — list tasks for a task list
-// ---------------------------------------------------------------------------
 export async function loader({ request, params, context }: LoaderFunctionArgs) {
   const { env } = context.cloudflare;
   const user = await requireUser(request, env);
@@ -18,8 +15,6 @@ export async function loader({ request, params, context }: LoaderFunctionArgs) {
   const { taskListId } = params;
   if (!taskListId) return Response.json({ error: "Missing taskListId" }, { status: 400 });
 
-  // Task lists are pages (pageType="task-list"); apply the same visibility
-  // rules used by the /tasks/:slug page route.
   const page = await db
     .select({
       id: schema.pages.id,
@@ -64,9 +59,6 @@ export async function loader({ request, params, context }: LoaderFunctionArgs) {
   return Response.json({ tasks, teams, deps });
 }
 
-// ---------------------------------------------------------------------------
-// POST — create a new task
-// ---------------------------------------------------------------------------
 export async function action({ request, params, context }: ActionFunctionArgs) {
   const { env } = context.cloudflare;
   const user = await requireUser(request, env);
@@ -76,9 +68,6 @@ export async function action({ request, params, context }: ActionFunctionArgs) {
   const { taskListId } = params;
   if (!taskListId) return Response.json({ error: "Missing taskListId" }, { status: 400 });
 
-  // Creating tasks mutates the task list (increments nextTaskNumber and
-  // appends to it). Only the page author or an admin may do that — same
-  // gate as /tasks/:slug intent="updateSettings".
   const page = await db
     .select({
       id: schema.pages.id,
@@ -125,7 +114,6 @@ export async function action({ request, params, context }: ActionFunctionArgs) {
   const taskId = nanoid();
   const depIds = Array.isArray(dependencies) ? dependencies : [];
 
-  // Atomically increment nextTaskNumber and get both the assigned number and max sort order
   const [updated] = await db
     .update(schema.taskLists)
     .set({ nextTaskNumber: sql`${schema.taskLists.nextTaskNumber} + 1` })

@@ -3,7 +3,6 @@ import { requireUser } from "~/features/auth/utils.server";
 import { getGoogleDriveAccessToken } from "~/features/google/drive-token.server";
 import { getDb } from "~/lib/db.server";
 
-/** Supplies the authenticated browser with the short-lived token Google Picker requires. */
 export async function loader({ request, context }: LoaderFunctionArgs) {
   const { env } = context.cloudflare;
   const user = await requireUser(request, env);

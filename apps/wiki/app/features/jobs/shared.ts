@@ -1,5 +1,3 @@
-// Client-safe job vocabulary (Stage 02 / 04).
-
 export type AgentJobType = "synthesize" | "answer" | "consolidate" | "translate";
 export type AgentJobStatus =
   | "queued"
@@ -17,7 +15,6 @@ export const JOB_PRIORITY = {
   consolidate: -10,
 } as const;
 
-/** A human's request, from a page's "ask the agent" button (Stage 04 §3-4). */
 export type SynthesizeRequest = {
   pageSlug: string;
   text: string;
@@ -32,5 +29,4 @@ export type SynthesizePayload = {
   requests?: SynthesizeRequest[];
 };
 
-/** Synthesize runs at most once an hour per space (the runner shares a personal quota). */
 export const SYNTHESIZE_MIN_INTERVAL_SECONDS = 60 * 60;

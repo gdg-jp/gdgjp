@@ -3,15 +3,9 @@ import type { PlanBody } from "~/features/plans/plan";
 
 const ANSWER_TYPES = new Set(["free_text", "checkbox", "radio", "dropdown"]);
 
-/** The 4th standard question (constants.surveyQuestions): where people heard of the event. */
 export const isSourceQuestion = (title: string, standard: readonly string[]) =>
   title.includes(standard[3] ?? "知った場所");
 
-/**
- * The plan's survey as connpass questions. "Where did you hear of it" offers exactly the labels
- * of the plan's adopted channels (constants.channelLabels), so answers map back to tinyurl
- * channels; a channel without a label is refused rather than guessed.
- */
 export function surveyFromPlan(
   plan: Pick<PlanBody, "surveyQuestions" | "channelMix">,
   constants: { channelLabels: Record<string, string>; surveyQuestions: readonly string[] },

@@ -3,7 +3,6 @@ import type { EncryptedPayload } from "./token-crypto";
 
 export type ChatPlatform = "discord" | "google-chat";
 
-/** Same shape as the v1 Redis record, so migrated links keep working. */
 export type StoredLinkRecord = {
   platform: ChatPlatform;
   chatUserId: string;
@@ -14,7 +13,6 @@ export type StoredLinkRecord = {
   linkedAt: number;
 };
 
-/** Link storage with compare-and-set, so concurrent refreshes cannot both rotate a token. */
 export type LinkStore = {
   read(
     platform: ChatPlatform,

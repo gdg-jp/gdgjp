@@ -6,8 +6,6 @@ interface AdminNavSectionProps {
   isCollapsed: boolean;
 }
 
-// Direct link to /admin/pages, not /admin — /admin/index.tsx server-redirects,
-// which would cost a round trip on every click from the normal sidebar.
 const ADMIN_CHILDREN = [
   { to: "/admin/pages", labelKey: "admin.nav.pages", icon: "FileText" },
   { to: "/admin/tags", labelKey: "admin.nav.tags", icon: "Tag" },
@@ -15,11 +13,6 @@ const ADMIN_CHILDREN = [
   { to: "/admin/stats", labelKey: "admin.nav.stats", icon: "Activity" },
 ] as const;
 
-/**
- * Admin entry in the shared sidebar. Shows only the "Admin" parent while
- * outside `/admin`; expands the child links once the user is on an admin
- * screen (and the sidebar isn't collapsed).
- */
 export default function AdminNavSection({ isCollapsed }: AdminNavSectionProps) {
   const { t } = useTranslation();
   const location = useLocation();

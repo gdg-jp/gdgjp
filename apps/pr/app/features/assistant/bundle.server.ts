@@ -8,7 +8,6 @@ import { listMessages } from "./message.repository.server";
 import { listSources } from "./source.repository.server";
 import { campaignState, isoJst } from "./state.server";
 
-/** Images and files the runner gets beside the text files, newest first, within this much. */
 const MAX_BINARY_BYTES = 12 * 1024 * 1024;
 const MAX_IMAGES = 24;
 const EXT: Record<string, string> = {
@@ -46,10 +45,6 @@ function threadMd(messages: Message[], paths: Map<string, string>): string {
   return lines.join("\n");
 }
 
-/**
- * The assist job's files: the thread, the brief (or a stub), the campaign's state, and every
- * source and attachment the Worker collected. Images go as binary files the runner attaches.
- */
 export async function assistBundle(
   env: Env,
   job: Job,

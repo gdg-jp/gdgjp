@@ -1,11 +1,7 @@
-// Client-safe vocabulary of the knowledge index (Stage 03).
-
 export type KnowledgeLayer = "raw" | "page" | "acl";
 export const KNOWLEDGE_LAYERS: readonly KnowledgeLayer[] = ["raw", "page", "acl"];
-/** UI search never shows raw material by default; agents opt in. */
 export const DEFAULT_UI_LAYERS: readonly KnowledgeLayer[] = ["page", "acl"];
 
-/** `audience` of the redacted page body — readable by every viewer of the space. */
 export const PAGE_AUDIENCE = "page";
 
 /** The five custom metadata fields every instance declares (AI Search allows five). */
@@ -17,7 +13,6 @@ export const KNOWLEDGE_METADATA_FIELDS = [
   "lang",
 ] as const;
 
-/** Item keys are ids, not slugs: stable across renames and within the 128-char limit. */
 export function pageItemKey(pageId: string, lang: "ja" | "en"): string {
   return `pages/${pageId}.${lang}.md`;
 }

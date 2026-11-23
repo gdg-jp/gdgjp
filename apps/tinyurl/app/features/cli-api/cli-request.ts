@@ -1,4 +1,3 @@
-/** Parses a numeric route path param (e.g. `:id`). Returns null for anything that isn't a positive integer. */
 export function parsePathId(raw: string | undefined): number | null {
   const value = Number(raw);
   return Number.isInteger(value) && value > 0 ? value : null;
@@ -6,7 +5,6 @@ export function parsePathId(raw: string | undefined): number | null {
 
 export type ListQuery = { includeArchived: boolean; limit?: number; cursor: string | null };
 
-/** Parses the shared `includeArchived`/`limit`/`cursor` list query params. Returns null on malformed input. */
 export function parseListQuery(url: URL): ListQuery | null {
   const includeArchivedRaw = url.searchParams.get("includeArchived");
   if (includeArchivedRaw !== null && !["true", "false", "1", "0"].includes(includeArchivedRaw)) {
@@ -25,15 +23,6 @@ export function parseListQuery(url: URL): ListQuery | null {
   return { includeArchived, limit, cursor: url.searchParams.get("cursor") };
 }
 
-/**
- * Marks a field that was present in the request body but had the wrong
- * type — distinct from `undefined` (field omitted entirely). Every
- * `optional*`/`integerArray` extractor below returns this instead of
- * silently downgrading a malformed value to "absent": a caller-supplied
- * `{"sortOrder": "x"}` or `{"defaultDestinationUrl": 42}` must fail the
- * request, not get treated as "not provided" and silently defaulted or
- * left untouched.
- */
 export const INVALID: unique symbol = Symbol("invalid_field");
 export type InvalidField = typeof INVALID;
 
@@ -50,7 +39,6 @@ export function optionalString(
   return typeof value === "string" ? value : INVALID;
 }
 
-/** Distinguishes "field omitted" (undefined) from "field explicitly cleared" (null) for nullable patch fields. */
 export function optionalNullableString(
   body: Record<string, unknown>,
   key: string,
@@ -79,7 +67,6 @@ export function optionalBoolean(
   return typeof value === "boolean" ? value : INVALID;
 }
 
-/** Returns INVALID (rather than a partial list) when any entry isn't an integer, so callers can reject the whole request. */
 export function integerArray(
   body: Record<string, unknown>,
   key: string,

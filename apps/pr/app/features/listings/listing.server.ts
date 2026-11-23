@@ -54,7 +54,6 @@ export async function setListingTarget(
     .run();
 }
 
-/** Listing drafts need no runner: they are mapped from the brief, then a person edits them. */
 export async function createListingDrafts(env: Env, access: CampaignAccess, items: ScheduleItem[]) {
   const brief = (await latestBrief(env.DB, access.campaign.id))?.brief;
   if (!brief) return 0;
@@ -99,7 +98,6 @@ export async function createListingDrafts(env: Env, access: CampaignAccess, item
   return made;
 }
 
-/** Findy's submission cannot be taken back: one per campaign. */
 export async function listingApprovalBlockers(env: Env, access: CampaignAccess, draft: Draft) {
   if (draft.kind !== "listing" || !draft.scheduleItemId) return [];
   const item = await getItem(env.DB, access.campaign.id, draft.scheduleItemId);
@@ -117,10 +115,6 @@ export async function listingApprovalBlockers(env: Env, access: CampaignAccess, 
     : [];
 }
 
-/**
- * After approval: through the connpass app's listing job when the platform is configured and
- * supported; otherwise the text stays here for a person to paste, and they mark it done.
- */
 export async function afterListingApproval(env: Env, access: CampaignAccess, draft: Draft) {
   const content = (await latestVersion(env.DB, draft.id))?.content as ListingContent | null;
   if (!content || !draft.scheduleItemId)
@@ -164,7 +158,6 @@ export async function afterListingApproval(env: Env, access: CampaignAccess, dra
     : { ok: false as const, error: result.error };
 }
 
-/** A person listed it by hand: the item is done, with the listing's URL. */
 export async function markListedByHand(
   env: Env,
   access: CampaignAccess,

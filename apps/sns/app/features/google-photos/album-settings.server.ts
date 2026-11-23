@@ -44,8 +44,6 @@ export async function updateAlbumSettings(request: Request, env: Env, chapterId:
     .first<{ id: string; album_url: string }>();
   const albumChanged = Boolean(existing && existing.album_url !== albumUrl);
   if (existing && albumChanged) {
-    // Stop an in-flight import before removing its media. The run-scoped lease prevents it
-    // from adding old-album photos back after this reset.
     await env.DB.prepare(
       "UPDATE google_photos_albums SET enabled = 0, lease_expires_at = NULL, active_run_id = NULL, updated_at = ? WHERE id = ?",
     )

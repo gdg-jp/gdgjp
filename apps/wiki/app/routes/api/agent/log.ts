@@ -2,7 +2,6 @@ import type { ActionFunctionArgs } from "react-router";
 import { agentUnauthorized, resolveAgentWorkspace } from "~/features/agent-api/workspace.server";
 import { appendLogEntry } from "~/features/pages/wiki-catalog.server";
 
-/** POST /api/agent/log — atomic append of a query log entry. */
 export async function action({ request, context }: ActionFunctionArgs) {
   if (request.method !== "POST") {
     return Response.json({ error: "method_not_allowed" }, { status: 405 });

@@ -1,4 +1,3 @@
-/** The fields an ads CSV row is mapped to (the rest of the columns are ignored). */
 export const AD_FIELDS = [
   "date",
   "campaignName",
@@ -35,7 +34,6 @@ export type AdRow = {
   results: number | null;
 };
 
-/** RFC 4180-ish: quoted fields with commas, doubled quotes and newlines; a BOM is dropped. */
 export function parseCsv(text: string): string[][] {
   const rows: string[][] = [];
   let row: string[] = [];
@@ -67,14 +65,12 @@ export function parseCsv(text: string): string[][] {
   return rows;
 }
 
-/** "¥12,345" / "12,345.6 円" → 12346. */
 export const toYen = (raw: string) => Math.round(Number(raw.replace(/[^\d.-]/g, "")) || 0);
 const toInt = (raw: string | undefined) =>
   raw === undefined || raw.trim() === ""
     ? null
     : Math.round(Number(raw.replace(/[^\d.-]/g, "")) || 0);
 
-/** "2026/9/5", "2026-09-05", "9/5/2026" → "2026-09-05"; null when unreadable. */
 export function toDate(raw: string): string | null {
   const s = raw.trim();
   let m = s.match(/^(\d{4})[-/.年](\d{1,2})[-/.月](\d{1,2})/);
@@ -84,7 +80,6 @@ export function toDate(raw: string): string | null {
   return null;
 }
 
-/** Apply a column map to parsed CSV rows; problems name the column or row that failed. */
 export function mapAdRows(rows: string[][], map: ColumnMap): { rows: AdRow[]; problems: string[] } {
   const [header, ...body] = rows;
   if (!header) return { rows: [], problems: ["空の CSV です"] };
@@ -98,7 +93,6 @@ export function mapAdRows(rows: string[][], map: ColumnMap): { rows: AdRow[]; pr
     const get = (f: AdField) => (index(f) >= 0 ? cells[index(f)] : undefined);
     const date = toDate(get("date") ?? "");
     if (!date) {
-      // Totals rows and notes at the end of exports have no date.
       if ((get("date") ?? "").trim()) problems.push(`${i + 2} 行目: 日付が読めない`);
       return;
     }
@@ -116,7 +110,6 @@ export function mapAdRows(rows: string[][], map: ColumnMap): { rows: AdRow[]; pr
   return { rows: out, problems };
 }
 
-/** Columns a header most likely means, so the first import needs fewer choices. */
 export function guessColumnMap(header: string[]): ColumnMap {
   const patterns: Record<AdField, RegExp> = {
     date: /^(日付|日|day|date|報告開始日|reporting starts)/i,

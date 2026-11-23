@@ -4,9 +4,7 @@ import { WIKI_READ, WIKI_WRITE } from "../oauth/scopes";
 import { WikiApiError, type WikiBinary, type WikiClient } from "./client";
 
 const DEFAULT_SPACE = "gdg-jp";
-/** Text returned by one tool call before the rest is left to `maxChars` / paging. */
 const DEFAULT_MAX_CHARS = 60_000;
-/** Binary bodies (images, PDFs) inlined as base64 up to this size. */
 const MAX_INLINE_BYTES = 5 * 1024 * 1024;
 
 const SOURCE_VISIBILITY = z
@@ -91,7 +89,6 @@ function clip(text: string, maxChars: number): { text: string; truncated: boolea
     : { text, truncated: false };
 }
 
-/** Text as text (clipped), images as image content, other small files as a blob resource. */
 function binaryResult(file: WikiBinary, uri: string, maxChars: number): ToolResult {
   const mimeType = file.contentType.split(";")[0]?.trim() || "application/octet-stream";
   if (isTextual(file.contentType)) {
@@ -117,11 +114,6 @@ function binaryResult(file: WikiBinary, uri: string, maxChars: number): ToolResu
   return { content: [{ type: "resource", resource: { uri, mimeType, blob: base64(file.bytes) } }] };
 }
 
-/**
- * Wiki tools. Everything a person's own token can do through `gdg wiki` and the agent API.
- * Page bodies are written only by the knowledge runner in v2 (`/sync` answers
- * `agent_pages_runner_only` to people), so pages change by adding sources, not by editing.
- */
 export function registerWikiTools(
   server: McpServer,
   wiki: WikiClient,
@@ -129,8 +121,6 @@ export function registerWikiTools(
 ): void {
   const writeChallenge = requireScopes(WIKI_READ, WIKI_WRITE);
   const readChallenge = requireScopes(WIKI_READ);
-
-  // ── read ───────────────────────────────────────────────────────────────────
 
   server.registerTool(
     "wiki_list_spaces",
@@ -379,8 +369,6 @@ export function registerWikiTools(
         });
       }),
   );
-
-  // ── write ──────────────────────────────────────────────────────────────────
 
   server.registerTool(
     "wiki_add_source",

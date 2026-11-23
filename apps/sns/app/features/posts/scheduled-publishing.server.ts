@@ -13,9 +13,6 @@ export async function claimAndPublish(env: Env, postId: string): Promise<void> {
   )
     .bind(nowIso(), post.id)
     .run();
-  // The claimed post now goes through the one shared X-posting step; the CLI's
-  // `publishNow` uses the same step after its own atomic claim, so the minute
-  // cron and an operator "publish now" can never both post the same row.
   if (claim.meta.changes === 1) await runXPublish(env, post.id);
 }
 

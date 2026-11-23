@@ -20,10 +20,6 @@ export const MEDIUM_LABELS: Record<Medium, string> = {
   print: "印刷",
 };
 
-/**
- * Overrun: actual above planned × (1 + ratio), or spending faster than 1.5× the planned daily
- * pace so far (a mis-set budget burned ¥60,000 in DevFest 2026). The ratio is the Playbook's.
- */
 export function overrun(
   flight: Pick<AdFlight, "plannedYen" | "actualYen" | "startAt" | "endAt">,
   ratio: number,
@@ -42,7 +38,6 @@ export function overrun(
   return null;
 }
 
-/** X : IG share of ad spend against constants.budget.xIgRatioRange (3 : 7 〜 4 : 6). */
 export function xIgSplit(
   flights: Pick<AdFlight, "medium" | "plannedYen" | "actualYen">[],
   range: number[][],

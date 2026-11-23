@@ -126,8 +126,6 @@ type WorkspaceTokenResult struct {
 	ExpiresIn   int
 }
 
-// accessToken must be gdgagent-svc's own gdg login access token; userID is the
-// target GDG account's sub whose stored Workspace refresh token gets exchanged.
 func (c *AccountsClient) VendWorkspaceToken(
 	ctx context.Context,
 	accessToken string,

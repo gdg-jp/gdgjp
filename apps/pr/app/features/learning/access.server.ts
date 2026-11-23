@@ -1,6 +1,5 @@
 import { requireUserWithChapter } from "~/features/auth/access.server";
 
-/** /playbook/proposals is for organizers: their own chapters' proposals (admins see their chapters too). */
 export async function requireOrganizer(env: Env, request: Request) {
   const { user, chapters } = await requireUserWithChapter(env, request);
   const chapterIds = chapters
@@ -10,7 +9,6 @@ export async function requireOrganizer(env: Env, request: Request) {
   return { user, chapters, chapterIds };
 }
 
-/** The digest feedback.mjs compares against (canonical JSON of the parsed file). */
 export async function digestJson(value: unknown): Promise<string> {
   const bytes = new TextEncoder().encode(JSON.stringify(value));
   const hash = await crypto.subtle.digest("SHA-256", bytes);

@@ -2,8 +2,6 @@ import { getXAccount } from "~/features/x-accounts/x-account.repository.server";
 import { decryptSecret, encryptSecret } from "~/lib/crypto.server";
 import { nowIso } from "~/lib/utils";
 
-// X requires both tweet.read and users.read for GET /2/users/me. The latter
-// identifies the account that just granted the posting authorization.
 const X_SCOPES = "tweet.read tweet.write users.read offline.access media.write";
 
 function encodeBase64Url(bytes: Uint8Array): string {

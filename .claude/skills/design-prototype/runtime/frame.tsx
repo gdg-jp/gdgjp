@@ -4,7 +4,6 @@ import { type ControlValues, type Prototype, initialControls } from "./kit";
 
 export type Theme = "light" | "dark";
 
-/** What a frame document renders: one board frame, or the interactive App. */
 export interface FrameConfig {
   target: string;
   theme: Theme;
@@ -21,10 +20,6 @@ export function frameName(config: FrameConfig) {
   return NAME_PREFIX + JSON.stringify(config);
 }
 
-/**
- * A frame document is either an iframe named by the board, or the top-level page opened as
- * `#solo=<frame id | app>&theme=<light|dark>&controls=<json>` (used by check.mjs and for links).
- */
 export function readFrameConfig(): FrameConfig | null {
   if (window.name.startsWith(NAME_PREFIX)) return JSON.parse(window.name.slice(NAME_PREFIX.length));
   const params = new URLSearchParams(location.hash.slice(1));
@@ -52,7 +47,6 @@ function stringify(args: unknown[]) {
     .join(" ");
 }
 
-/** Forward console errors and warnings to the board, which flags the frame. */
 export function captureIssues(target: string) {
   const report = (level: "error" | "warning", message: string) =>
     post({ type: "proto:issue", target, level, message });

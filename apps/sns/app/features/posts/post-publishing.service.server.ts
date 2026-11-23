@@ -4,13 +4,6 @@ import type { Post } from "~/features/posts/post.types";
 import { accessTokenForAccount } from "~/features/x-accounts/x-provider.server";
 import { nowIso } from "~/lib/utils";
 
-/**
- * Terminal outcome of the shared X-posting step. `failed` and
- * `needs_confirmation` are both persisted before returning — never thrown — so
- * the caller can surface the reason from `post.failureReason`.
- * `needs_confirmation` marks an *uncertain* attempt (network/timeout) that an
- * operator must reconcile against X before retrying.
- */
 export type XPublishOutcome =
   | { status: "published"; post: Post }
   | { status: "failed"; post: Post }
@@ -43,14 +36,6 @@ async function requirePost(env: Env, postId: string): Promise<Post> {
   return post;
 }
 
-/**
- * The single place that calls the X API for a post. The post MUST already be
- * claimed into `posting` by the caller — the cron's `claimAndPublish` or the
- * CLI's `publishNow` — so cron and CLI can never both post the same row. This
- * uploads media, posts the tweet, persists the terminal status plus a
- * `post_attempts` row, and returns the reloaded post. An X-side failure is
- * persisted as `failed` / `needs_confirmation` and returned, never thrown.
- */
 export async function runXPublish(env: Env, postId: string): Promise<XPublishOutcome> {
   const claimed = await getPost(env.DB, postId);
   if (!claimed || claimed.status !== "posting") {
@@ -112,9 +97,6 @@ export async function runXPublish(env: Env, postId: string): Promise<XPublishOut
     const json = await response.json<{ data?: { id: string }; detail?: string }>();
     if (!response.ok || !json.data)
       throw new Error(json.detail ?? `X post failed (${response.status})`);
-    // Clear any prior failure_reason: `publishNow` retries `failed` /
-    // `needs_confirmation` posts, so a successful retry must not leave a stale
-    // reason that the dashboard would still render as a failure alert.
     await env.DB.prepare(
       "UPDATE posts SET status = 'published', published_x_post_id = ?, published_at = ?, updated_at = ?, failure_reason = NULL WHERE id = ? AND status = 'posting'",
     )

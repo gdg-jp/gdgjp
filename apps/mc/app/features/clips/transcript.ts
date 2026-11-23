@@ -1,12 +1,5 @@
 import type { Segment } from "./catalog";
 
-/**
- * Fractional character offset spoken at `ms`.
- *
- * Inside a segment the characters advance linearly with time; in the pause
- * between two segments the offset holds at the boundary. Returns a value in
- * [0, total chars].
- */
 export function charOffsetAt(segments: Segment[], ms: number): number {
   let offset = 0;
   for (const seg of segments) {
@@ -21,13 +14,6 @@ export function charOffsetAt(segments: Segment[], ms: number): number {
   return offset;
 }
 
-/**
- * Horizontal translation (px, ≤ 0) that keeps the spoken caret in view.
- *
- * The caret's anchor moves from the left edge to the right edge as playback
- * progresses, so the start of the text is flush left at 0 and the end is flush
- * right at the end — matching how the eye reads a seek bar.
- */
 export function marqueeOffset(params: {
   caretX: number;
   textWidth: number;
@@ -42,7 +28,6 @@ export function marqueeOffset(params: {
   return -Math.min(overflow, Math.max(0, ideal));
 }
 
-/** Time left, rounded up so it reads the full length at 0 and hits 0:00 only at the end. */
 export function formatRemaining(durationMs: number, positionMs: number): string {
   const left = Math.max(0, durationMs - positionMs);
   return formatTime(Math.ceil(left / 1000) * 1000);

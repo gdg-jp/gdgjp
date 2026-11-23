@@ -1,9 +1,3 @@
-/**
- * Forwards the browser's Cloudflare Realtime SFU calls with the app secret.
- * The browser addresses `/rtc/<stageId>/<sfu path>`; only the handful of
- * session/track operations a page needs are let through.
- */
-
 export const SFU_BASE = "https://rtc.live.cloudflare.com/v1";
 
 const ALLOWED: Array<{ method: string; path: RegExp }> = [

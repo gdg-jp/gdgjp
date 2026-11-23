@@ -76,7 +76,6 @@ export async function resolveReviewFlag(
   return (result.meta?.changes ?? 0) > 0;
 }
 
-/** Create the flag unless an open one of the same kind already exists for the target. */
 export async function ensureOpenReviewFlag(
   db: Db,
   flag: Parameters<typeof createReviewFlag>[1],

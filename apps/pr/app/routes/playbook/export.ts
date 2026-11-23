@@ -5,7 +5,6 @@ import { listProposals, markExported } from "~/features/learning/proposal.reposi
 import { constants } from "~/features/playbook/playbook";
 import type { Route } from "./+types/export";
 
-/** Accepted proposals not yet exported, as the bundle `feedback.mjs import` reads. */
 export async function loader({ request, context }: Route.LoaderArgs) {
   const env = context.cloudflare.env;
   const { chapterIds } = await requireOrganizer(env, request);

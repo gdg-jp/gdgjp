@@ -38,20 +38,16 @@ export function TaskListView() {
   const archiveFetcher = useFetcher();
   const [activeTab, setActiveTab] = useState<ViewTab>("table");
 
-  // Single lang state: controls both view-mode title and edit-mode input
   const initialLang = i18n.language === "en" ? "en" : "ja";
   const [displayLang, setDisplayLang] = useState<"ja" | "en">(initialLang);
 
-  // Inline edit state
   const [editMode, setEditMode] = useState(false);
   const [editTitleJa, setEditTitleJa] = useState(page.titleJa);
   const [editTitleEn, setEditTitleEn] = useState(page.titleEn);
 
-  // Share / archive state
   const [shareOpen, setShareOpen] = useState(false);
   const [archiveDialogOpen, setArchiveDialogOpen] = useState(false);
 
-  // Exit edit mode when save succeeds; revalidate to refresh page data
   useEffect(() => {
     if (settingsFetcher.data?.ok) {
       setEditMode(false);
@@ -148,7 +144,6 @@ export function TaskListView() {
 
   return (
     <div>
-      {/* Mini-header toolbar — mirrors wiki.$slug.tsx */}
       <TaskDetailToolbar
         slug={page.slug}
         pageId={page.id}
@@ -160,9 +155,7 @@ export function TaskListView() {
       />
 
       <div className="px-4 pt-6 pb-4 md:px-10">
-        {/* Header */}
         <div className="mb-6 flex flex-col gap-2 md:flex-row md:items-center md:justify-between md:gap-3">
-          {/* Left: title or title input */}
           {editMode ? (
             <input
               type="text"
@@ -177,9 +170,7 @@ export function TaskListView() {
             <h1 className="min-w-0 truncate text-2xl font-bold">{title}</h1>
           )}
 
-          {/* Right: JA|EN pill + visibility + Edit/Save/Cancel */}
           <div className="flex shrink-0 items-center gap-2">
-            {/* JA|EN — wiki-style pill */}
             <div className="flex gap-1 rounded-md border border-border bg-surface p-0.5">
               {(["ja", "en"] as const).map((l) => (
                 <button
@@ -197,7 +188,6 @@ export function TaskListView() {
               ))}
             </div>
 
-            {/* Edit / Save+Cancel */}
             {editMode ? (
               <>
                 <button
@@ -232,7 +222,6 @@ export function TaskListView() {
           </div>
         </div>
 
-        {/* View switcher */}
         <div className="flex items-center gap-2">
           <div className="flex gap-1">
             {tabs.map((tab) => (
@@ -254,7 +243,6 @@ export function TaskListView() {
         </div>
       </div>
 
-      {/* View content */}
       <Suspense fallback={<TableSkeleton rows={8} cols={6} />}>
         <Await
           resolve={taskData}

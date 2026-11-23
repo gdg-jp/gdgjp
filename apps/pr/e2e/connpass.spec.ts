@@ -2,7 +2,6 @@ import { readFileSync } from "node:fs";
 import { type APIRequestContext, type Page, expect, test } from "@playwright/test";
 import { createCampaign } from "./helpers";
 
-// connpass (Stage 04) against e2e/mock-services/connpass.ts.
 const skills = new URL("../../../skills/", import.meta.url);
 const brief = readFileSync(
   new URL("pr-playbook/examples/briefs/devfest-kansai-2026.json", skills),
@@ -91,7 +90,6 @@ test("a connpass page is rendered from slots, previewed, and sent on approval", 
   await expect(frame.getByText("開催概要")).toBeVisible();
   await page.getByRole("button", { name: "390 px" }).click();
 
-  // An image slot filled from the page makes a new version with the image in the HTML.
   await page.getByLabel(/タイムテーブル（timetable-image）/).fill("https://img.gdgs.jp/timetable");
   await page.getByRole("button", { name: "画像を入れて新しい版にする" }).click();
   await expect(page.getByText(/版 2 を保存しました/)).toBeVisible();
@@ -106,7 +104,6 @@ test("a connpass page is rendered from slots, previewed, and sent on approval", 
   expect(description).toContain("https://img.gdgs.jp/timetable");
   expect(description).not.toContain("border-radius");
 
-  // The job finishes on connpass → the hourly cron marks the connpass_update item done.
   await request.post("/dev/mock-services", { form: { finish: update?.id ?? "" } });
   await cron(request, "hourly");
   await page.goto(`/c/${slug}/settings`);
@@ -114,7 +111,6 @@ test("a connpass page is rendered from slots, previewed, and sent on approval", 
     page.getByRole("list", { name: "connpass のジョブ" }).getByText("succeeded").first(),
   ).toBeVisible();
 
-  // Over 1 MB is refused before anything is sent.
   await page.getByLabel("サムネイル").setInputFiles({
     name: "big.png",
     mimeType: "image/png",
@@ -123,7 +119,6 @@ test("a connpass page is rendered from slots, previewed, and sent on approval", 
   await page.getByRole("button", { name: "上げる" }).click();
   await expect(page.getByText("connpass の画像は 1 MB までです")).toBeVisible();
 
-  // A sub-event draft on connpass.
   await page.goto(`/c/${slug}/plan`);
   await page.getByLabel("サブイベントを作る").fill("学生エンジニア座談会");
   await page.getByRole("button", { name: "作る", exact: true }).click();
@@ -179,7 +174,6 @@ test("an approved connpass mail waits for its time, then goes out once", async (
     before,
   );
 
-  // Its time comes: one message, once.
   await page.goto(schedule);
   const itemId = await page
     .locator("li[data-item-id]")

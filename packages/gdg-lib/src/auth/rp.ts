@@ -20,8 +20,6 @@ import {
   type UserClaims,
 } from "./index";
 
-// ─── Config ────────────────────────────────────────────────────────────────────
-
 export interface RpAuthConfig {
   db: D1Database;
   appUrl: string;
@@ -31,47 +29,19 @@ export interface RpAuthConfig {
     url: string;
     clientId: string;
     clientSecret: string;
-    /**
-     * Transport for every IdP call, normally the `ACCOUNTS` service binding.
-     * The session is checked against the IdP on each authenticated request, so
-     * this must not leave Cloudflare's network.
-     */
     fetch: typeof fetch;
   };
 }
 
 export interface RpAuthInstance {
-  /**
-   * The signed-in user, checked against the IdP for this request: null when
-   * there is no session, when accounts.gdgs.jp now has another (or no) user
-   * signed in, or when the IdP session ended. Throws a 503 Response when the
-   * IdP cannot be asked (fail closed).
-   */
   getSessionUser(request: Request): Promise<AuthUser | null>;
   requireUser(request: Request): Promise<AuthUser>;
   handleAuthRequest(request: Request): Promise<Response>;
   handleSignOutRedirect(request: Request, options?: { returnTo?: string }): Promise<Response>;
-  /**
-   * The user's current claims from the same per-request IdP check as
-   * `getSessionUser`. Throws ClaimsUnavailableError("no_linked_account") when
-   * the session is not valid; callers redirect to /signin.
-   */
   getFreshClaims(request: Request): Promise<UserClaims>;
-  /**
-   * Returns a current OAuth access token for server-to-server calls to the IdP.
-   * The token remains server-side and is refreshed when necessary.
-   */
   getAccessToken(request: Request): Promise<string>;
-  /**
-   * Local-development and e2e sign-in without the IdP:
-   * `/dev/login?as=<name>&chapter=<id>:<slug>[:<role>]&admin=1&return_to=/path`.
-   * `chapter` may repeat (`chapter=none` for no membership). Answers 404
-   * unless the app runs on a loopback URL; dev sessions are ignored elsewhere.
-   */
   handleDevLogin(request: Request): Promise<Response>;
 }
-
-// ─── Factory ───────────────────────────────────────────────────────────────────
 
 export function initializeRpAuth(config: RpAuthConfig): RpAuthInstance {
   const verified = new WeakMap<Request, Promise<VerifiedSession | null>>();
@@ -113,11 +83,8 @@ export function initializeRpAuth(config: RpAuthConfig): RpAuthInstance {
   };
 }
 
-// ─── Discovery (cached per issuer URL) ─────────────────────────────────────────
-
 const issuerCache = new Map<string, Promise<oidc.Configuration>>();
 const OIDC_HTTP_TIMEOUT_S = 10;
-// The session check runs on every authenticated request; fail fast.
 const SESSION_CHECK_TIMEOUT_MS = 3_000;
 
 function getIssuerConfig(config: RpAuthConfig): Promise<oidc.Configuration> {
@@ -153,8 +120,6 @@ function getIssuerConfig(config: RpAuthConfig): Promise<oidc.Configuration> {
   return p;
 }
 
-// ─── Cookie names ──────────────────────────────────────────────────────────────
-
 function sessionCookieName(config: RpAuthConfig): string {
   return `${config.cookiePrefix}-session`;
 }
@@ -162,22 +127,14 @@ function txCookieName(config: RpAuthConfig): string {
   return `${config.cookiePrefix}-oidc-tx`;
 }
 
-// ─── Session payload ───────────────────────────────────────────────────────────
-
-/**
- * The RP cookie only names the login: identity and claims are asked of the
- * IdP on every request, so nothing here can go stale.
- */
 interface SessionPayload {
   version: 4;
   sessionId: string;
   userId: string;
   issuer: string;
   subject: string;
-  /** IdP session ID (`sid`) this login is bound to; compared with `gdg_sid`. */
   sid: string;
   expiresAt: number;
-  /** Present only on `/dev/login` sessions, which skip the IdP (loopback only). */
   dev?: DevClaims;
 }
 
@@ -213,14 +170,10 @@ interface TxPayload {
   exp: number;
 }
 
-const SESSION_MAX_AGE_S = 60 * 60 * 24 * 30; // 30d
-const TX_MAX_AGE_S = 60 * 10; // 10m
+const SESSION_MAX_AGE_S = 60 * 60 * 24 * 30;
+const TX_MAX_AGE_S = 60 * 10;
 const REFRESH_LEEWAY_MS = 30_000;
-// Marks the `state` of a sign-in that was restarted after a lost transaction
-// cookie, so a browser that never stores the cookie is not redirected forever.
 const RETRY_STATE_PREFIX = "retry.";
-
-// ─── Request handler ───────────────────────────────────────────────────────────
 
 async function handleAuthRequest(config: RpAuthConfig, request: Request): Promise<Response> {
   const url = new URL(request.url);
@@ -307,9 +260,6 @@ async function handleCallback(config: RpAuthConfig, request: Request, url: URL):
     console.error("oidc callback returned an id_token without a session ID (sid)");
     return new Response("Authentication failed", { status: 400 });
   }
-  // The IdP sets `gdg_sid` on the authorize response that led here. If the
-  // browser still does not present it, every request would look signed out
-  // and bounce through sign-in forever; stop with an explanation instead.
   if (readCookie(request, SSO_SESSION_COOKIE) !== sid) {
     return signInFailedPage(config, txCookieName(config), 409);
   }
@@ -339,7 +289,6 @@ async function handleCallback(config: RpAuthConfig, request: Request, url: URL):
   const sessionId = crypto.randomUUID();
   const sessionExpiresAt = Date.now() + SESSION_MAX_AGE_S * 1000;
   try {
-    // Bound server-side token storage without requiring a scheduled cleanup job.
     await config.db
       .prepare("DELETE FROM oidc_session WHERE expires_at <= ?")
       .bind(Date.now())
@@ -384,14 +333,6 @@ async function handleCallback(config: RpAuthConfig, request: Request, url: URL):
   return new Response(null, { status: 302, headers });
 }
 
-/**
- * The callback arrived without a usable transaction cookie: the 10-minute
- * window passed on the IdP login screen, or the flow started in one cookie jar
- * (e.g. a chat app's in-app browser) and finished in another (Safari). The
- * user usually now has an IdP session in this browser, so restarting sign-in
- * here completes without another prompt. The original return_to is lost with
- * the cookie, so the restart lands on the app root.
- */
 function handleLostTransaction(config: RpAuthConfig, url: URL): Response {
   const state = url.searchParams.get("state") ?? "";
   if (url.searchParams.has("error") || state.startsWith(RETRY_STATE_PREFIX)) {
@@ -468,8 +409,6 @@ async function handleMe(config: RpAuthConfig, request: Request): Promise<Respons
   });
 }
 
-// ─── Session verification ──────────────────────────────────────────────────────
-
 async function readSessionPayload(
   config: RpAuthConfig,
   request: Request,
@@ -480,11 +419,6 @@ async function readSessionPayload(
   return isCurrentSession(session, config) ? session : null;
 }
 
-/**
- * Accounts.gdgs.jp is the only source of truth for who is signed in: the RP
- * session must still be bound to the browser's current IdP session (`gdg_sid`),
- * and that session must still be alive. Claims come from the same answer.
- */
 async function verifySession(
   config: RpAuthConfig,
   request: Request,
@@ -501,7 +435,6 @@ async function verifySession(
 
   const claims = await checkIdpSession(config, payload);
   if (!claims) {
-    // The IdP session is gone; its tokens were revoked with it.
     await config.db.prepare("DELETE FROM oidc_session WHERE id = ?").bind(payload.sessionId).run();
     return null;
   }
@@ -544,7 +477,6 @@ async function checkIdpSession(
   return claims.sub === payload.subject ? claims : null;
 }
 
-/** Fail closed: an unreachable IdP must not turn a revoked login into access. */
 function idpUnavailable(): Response {
   return new Response("Sign-in service temporarily unavailable", {
     status: 503,
@@ -562,18 +494,9 @@ function toAuthUser({ payload, claims }: VerifiedSession): AuthUser {
   };
 }
 
-// ─── Local display profile ─────────────────────────────────────────────────────
-
-// Per-isolate record of the display profile last written for each user, so an
-// unchanged profile costs no D1 write.
 const syncedProfiles = new Map<string, string>();
 const MAX_SYNCED_PROFILES = 1_000;
 
-/**
- * The local `user` row is only an identity link plus a display cache for other
- * users' screens. Keep its name and image in step with the IdP; authorization
- * never reads it.
- */
 async function syncDisplayProfile(
   db: D1Database,
   userId: string,
@@ -592,15 +515,12 @@ async function syncDisplayProfile(
       .bind(name, image, Math.floor(Date.now() / 1000), userId, name, image)
       .run();
   } catch (err) {
-    // A stale display name must never block the request.
     console.warn("local profile sync failed", err);
     return;
   }
   if (syncedProfiles.size >= MAX_SYNCED_PROFILES) syncedProfiles.clear();
   syncedProfiles.set(userId, fingerprint);
 }
-
-// ─── Access tokens ─────────────────────────────────────────────────────────────
 
 async function fetchAccessToken(config: RpAuthConfig, session: SessionPayload): Promise<string> {
   let issuerConfig: oidc.Configuration;
@@ -677,7 +597,6 @@ async function refreshStoredTokens(
   try {
     refreshed = await oidc.refreshTokenGrant(issuerConfig, current.refreshToken);
   } catch (err) {
-    // Another isolate may have completed refresh-token rotation first.
     const winner = await readTokenSession(db, current.id);
     if (
       winner?.refreshToken &&
@@ -720,8 +639,6 @@ async function refreshStoredTokens(
     accessTokenExpiresAt: nextAccessExpiry,
   };
 }
-
-// ─── Dev sessions ──────────────────────────────────────────────────────────────
 
 async function handleDevLogin(config: RpAuthConfig, request: Request): Promise<Response> {
   if (!isLocalAppUrl(config.appUrl)) return new Response(null, { status: 404 });
@@ -766,7 +683,6 @@ async function handleDevLogin(config: RpAuthConfig, request: Request): Promise<R
   return new Response(null, { status: 302, headers });
 }
 
-/** `<id>:<slug>[:organizer|member]`, repeatable; `none` for no membership. */
 function parseDevChapters(values: string[]): UserChapter[] {
   if (values.length === 0) return [{ chapterId: 1, chapterSlug: "dev-chapter", role: "organizer" }];
   return values.flatMap((value) => {
@@ -800,10 +716,6 @@ async function sessionCookie(config: RpAuthConfig, session: SessionPayload): Pro
   });
 }
 
-// ─── User upsert ───────────────────────────────────────────────────────────────
-
-/** Resolve users by the stable OIDC identity. A verified email may link one
- * pre-OIDC row exactly once; it is never used as the ongoing identity key. */
 async function upsertUser(
   db: D1Database,
   issuer: string,
@@ -839,11 +751,6 @@ async function upsertUser(
 
   if (existingByEmail) {
     if (existingByEmail.oidc_issuer || existingByEmail.oidc_subject) {
-      // A local IdP database can be recreated independently from an RP's
-      // database, changing its generated user ID (the OIDC subject) while the
-      // verified account email and loopback issuer remain the same. Repair
-      // only that local-development case; non-loopback issuers retain the
-      // strict identity-conflict guard below.
       if (
         existingByEmail.oidc_issuer === issuer &&
         typeof existingByEmail.oidc_subject === "string" &&
@@ -891,12 +798,6 @@ async function upsertUser(
   return id;
 }
 
-// ─── /userinfo fetch ───────────────────────────────────────────────────────────
-
-/**
- * Fetches the IdP's /userinfo endpoint and requires its `sub` to match the
- * subject of the validated ID Token, as required by OpenID Connect Core.
- */
 async function fetchUserinfoClaims(
   issuerConfig: oidc.Configuration,
   accessToken: string,
@@ -905,8 +806,6 @@ async function fetchUserinfoClaims(
   const claims = await oidc.fetchUserInfo(issuerConfig, accessToken, expectedSubject);
   return parseClaims(claims as Record<string, unknown>);
 }
-
-// ─── Claims parsing ────────────────────────────────────────────────────────────
 
 function parseClaims(json: Record<string, unknown>): UserClaims {
   const namespacedChapters = json[CHAPTERS_CLAIM];
@@ -936,8 +835,6 @@ function parseClaims(json: Record<string, unknown>): UserClaims {
     chapters,
   };
 }
-
-// ─── Helpers ───────────────────────────────────────────────────────────────────
 
 function callbackUrl(config: RpAuthConfig): string {
   return `${trimTrailingSlash(config.appUrl)}/api/auth/callback/gdgjp`;
@@ -976,7 +873,6 @@ function isLoopbackIssuer(issuer: string): boolean {
 function safeReturnTo(value: string | null, appUrl: string): string {
   if (!value) return new URL("/", appUrl).toString();
   try {
-    // Only allow same-origin paths/URLs.
     const u = new URL(value, appUrl);
     if (u.origin === new URL(appUrl).origin) return u.toString();
   } catch {}

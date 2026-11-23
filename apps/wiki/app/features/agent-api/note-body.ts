@@ -17,7 +17,6 @@ export type NoteRequestBody = {
   replaceId?: string;
 };
 
-/** Validate the answer-note request body. Pure — no DB, no auth. */
 export function parseNoteBody(
   raw: unknown,
 ): { ok: true; body: NoteRequestBody } | { ok: false; error: string; status: number } {

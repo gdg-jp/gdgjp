@@ -41,7 +41,6 @@ describe("installSignedOutReload", () => {
     await settle();
     expect(reload).toHaveBeenCalledTimes(1);
 
-    // The same location never reloads twice (public pages may keep 401ing).
     await win.fetch("/api/images");
     await settle();
     expect(reload).toHaveBeenCalledTimes(1);

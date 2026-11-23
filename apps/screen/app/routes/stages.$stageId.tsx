@@ -71,7 +71,6 @@ function tabId(): string {
   }
 }
 
-/** Space bar push-to-talk, ignored while typing. */
 function usePushToTalk(enabled: boolean): [boolean, (held: boolean) => void] {
   const [held, setHeld] = useState(false);
   useEffect(() => {

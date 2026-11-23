@@ -1,10 +1,5 @@
-/** Cloudflare D1 allows at most 100 bound parameters per SQL statement. */
 export const D1_MAX_BOUND_PARAMETERS = 100;
 
-/**
- * Run `fetchChunk` over `values` in slices that stay within D1's bound-parameter
- * limit, concatenating the results. Empty input skips the callback.
- */
 export async function mapInChunks<T, R>(
   values: readonly T[],
   fetchChunk: (chunk: T[]) => Promise<R[]>,

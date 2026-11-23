@@ -6,7 +6,6 @@ const PROD_HOSTS = new Set([
 ]);
 const LOOPBACK = new Set(["127.0.0.1", "localhost", "[::1]"]);
 
-/** Discord webhooks only; loopback (a local capture server) only in development. */
 export function isWebhookUrl(raw: string, development: boolean): boolean {
   let url: URL;
   try {
@@ -22,7 +21,6 @@ export function isWebhookUrl(raw: string, development: boolean): boolean {
   );
 }
 
-/** What the settings page shows after saving: the host and the id's head, never the token. */
 export function maskWebhook(raw: string): string {
   try {
     const url = new URL(raw);
@@ -33,7 +31,6 @@ export function maskWebhook(raw: string): string {
   }
 }
 
-/** `{{name}}` placeholders from the Playbook's templates; unknown names become empty. */
 export function renderTemplate(template: string, vars: Record<string, string | null | undefined>) {
   return template
     .replace(/\{\{(\w+)\}\}/g, (_, name: string) => vars[name] ?? "")
@@ -43,7 +40,6 @@ export function renderTemplate(template: string, vars: Record<string, string | n
 
 const MAX_CONTENT = 2000;
 
-/** Nobody is pinged by a reminder: handles are text (`allowed_mentions.parse = []`). */
 export function discordBody(content: string) {
   const text = content.length > MAX_CONTENT ? `${content.slice(0, MAX_CONTENT - 1)}…` : content;
   return { content: text, allowed_mentions: { parse: [] as string[] } };

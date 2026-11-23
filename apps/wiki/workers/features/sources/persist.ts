@@ -8,7 +8,6 @@ import { extensionFor } from "./media-type";
 
 export interface PersistDocumentInput {
   sourceId: string;
-  /** The lease claimed by this queue delivery. */
   fetchAttemptId: string;
   path: string;
   title: string;
@@ -17,7 +16,6 @@ export interface PersistDocumentInput {
   cursor?: string | null;
   metadata?: string | null;
   assets?: readonly PersistAssetInput[];
-  /** Incremental sources retain prior assets while adding newly observed ones. */
   assetPolicy?: "replace" | "merge";
 }
 
@@ -36,15 +34,9 @@ export interface PersistDocumentResult {
   contentHash?: string;
   r2Key?: string;
   written?: boolean;
-  /** New document or new content (not just a re-placed or restored object). */
   contentChanged?: boolean;
 }
 
-/**
- * SQL condition shared by every fetch-attempt mutation. It intentionally also
- * requires `fetching`: an archive/pending transition revokes the lease even if
- * a legacy caller did not clear its identifier.
- */
 export function sourceFetchAttemptIsCurrent(sourceId: string, fetchAttemptId: string) {
   return sql`EXISTS (
     SELECT 1 FROM ${schema.sources}
@@ -62,7 +54,6 @@ export async function isSourceFetchAttemptCurrent(
   return Boolean(await currentLeasedSource(db, sourceId, fetchAttemptId));
 }
 
-/** The source row while the given fetch lease is current (else undefined). */
 async function currentLeasedSource(
   db: ReturnType<typeof getDb>,
   sourceId: string,
@@ -95,7 +86,6 @@ export async function sha256Hex(value: Uint8Array): Promise<string> {
   return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
 }
 
-/** v1 layout (immutable, one object per content hash). Read-only now; removed in Stage 07. */
 export function contentR2Key(
   sourceId: string,
   sourceDocumentId: string,
@@ -105,15 +95,6 @@ export function contentR2Key(
   return `raw/${sourceId}/${sourceDocumentId}/${contentHash}${extensionFor(mediaType)}`;
 }
 
-/**
- * Upsert a source_document. Same content hash → skip R2 write and skip captured_at
- * update (raw immutability). Different hash → write a new R2 object and point r2_key
- * at it; old objects are never deleted.
- *
- * `assets` describes images already stored by `resolveSourceAssets`. Default `replace`
- * keeps document assets exactly in sync; incremental sources opt into `merge` so new
- * entries do not erase historical attachments that remain referenced by appended text.
- */
 export async function persistSourceDocument(
   env: Env,
   input: PersistDocumentInput,
@@ -136,17 +117,12 @@ export async function persistSourceDocument(
     .get();
 
   const targetKey = rawObjectKey(source.spaceId, input.sourceId, input.path);
-  // Unchanged content is not rewritten — unless the object is not at its v2 key yet (v1
-  // layout or a space move) or the document was archived (archiving deletes the object).
   if (
     existing &&
     existing.contentHash === contentHash &&
     existing.r2Key === targetKey &&
     existing.status === "ready"
   ) {
-    // Content is unchanged, so nothing is written — but a path that was archived by
-    // reconciliation and has since reappeared has to come back, or an unchanged
-    // document could stay retired forever. Cursor / metadata may still advance.
     const patch: {
       status?: string;
       cursor?: string | null;
@@ -236,7 +212,6 @@ export async function persistSourceDocument(
               cursor: sql<string | null>`${input.cursor ?? null}`.as("cursor"),
               metadata: sql<string | null>`${input.metadata ?? null}`.as("metadata"),
               status: sql<string>`'ready'`.as("status"),
-              // New content: not integrated into pages yet.
               integratedHash: sql<string | null>`NULL`.as("integrated_hash"),
             })
             .from(schema.sources)

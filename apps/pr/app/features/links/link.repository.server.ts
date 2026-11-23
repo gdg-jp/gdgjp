@@ -46,7 +46,6 @@ export async function listLinks(db: D1Database, campaignId: number): Promise<Cam
   return results.map(toLink);
 }
 
-/** Links of active campaigns, the oldest-checked first (the hourly health check). */
 export async function linksToCheck(db: D1Database, limit = 50): Promise<CampaignLink[]> {
   const { results } = await db
     .prepare(

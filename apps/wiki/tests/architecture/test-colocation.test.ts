@@ -7,11 +7,8 @@ const WIKI_ROOT = fileURLToPath(new URL("../../", import.meta.url));
 const ROOTS = ["app", "workers"];
 
 const ALLOWLIST = new Set([
-  // exercises OperationPlan / PageDraft / SectionPatch / Clarification schemas together
   "workers/features/ingestion/model/provider-schema-compatibility.test.ts",
-  // exercises the whole observability/ module (8 files) as one surface
   "workers/features/ingestion/observability/observability.test.ts",
-  // exercises fetch-source + import/run together
   "workers/features/sources/lifecycle.test.ts",
 ]);
 
@@ -19,12 +16,10 @@ const isTestFile = (name: string): boolean => /\.test\.tsx?$/.test(name);
 const sourceBaseName = (name: string): string => name.replace(/\.tsx?$/, "");
 const testPrefix = (name: string): string => name.replace(/\.test\.tsx?$/, "");
 
-/** True when `candidate` (a sibling source basename) is the subject of a test whose prefix is `prefix`. */
 function subjectMatches(prefix: string, candidate: string): boolean {
   return prefix === candidate || prefix.startsWith(`${candidate}.`);
 }
 
-/** Longest sibling-source basename that is the test's subject, or undefined. */
 function resolveSubject(prefix: string, siblings: readonly string[]): string | undefined {
   return siblings
     .filter((name) => /\.tsx?$/.test(name) && !isTestFile(name))
@@ -78,21 +73,16 @@ describe("test colocation", () => {
 
   it("subjectMatches only accepts dot-bounded <subject> / <subject>.<aspect> names", () => {
     const cases: ReadonlyArray<{ prefix: string; candidate: string; match: boolean }> = [
-      // exact subject
       { prefix: "chunker.server", candidate: "chunker.server", match: true },
       { prefix: "acl-spans", candidate: "acl-spans", match: true },
       { prefix: "TipTapRenderer", candidate: "TipTapRenderer", match: true },
-      // dot-separated aspect
       { prefix: "sources.server.create", candidate: "sources.server", match: true },
       { prefix: "TipTapRenderer.toc", candidate: "TipTapRenderer", match: true },
       { prefix: "agent-notes.server.replace", candidate: "agent-notes.server", match: true },
-      // test named after a shorter subject than the actual file → must add the suffix
       { prefix: "foo", candidate: "foo.server", match: false },
       { prefix: "sources", candidate: "sources.server", match: false },
-      // hyphen is not an aspect separator
       { prefix: "foo-extra", candidate: "foo", match: false },
       { prefix: "google-chat-scopes", candidate: "google-chat", match: false },
-      // prefix without a boundary is not a match
       { prefix: "chunkerServer", candidate: "chunker", match: false },
       { prefix: "sources-shared", candidate: "sources", match: false },
     ];

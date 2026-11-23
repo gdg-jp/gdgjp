@@ -34,7 +34,6 @@ export async function addSnapshot(
     .run();
 }
 
-/** A CSV for the same period replaces the previous one (no double counting). */
 export async function replaceCsvSnapshot(
   db: D1Database,
   s: {
@@ -96,7 +95,6 @@ export async function listSnapshots(
   }));
 }
 
-/** The newest snapshot of a source, or null. */
 export async function latestSnapshot(
   db: D1Database,
   campaignId: number,

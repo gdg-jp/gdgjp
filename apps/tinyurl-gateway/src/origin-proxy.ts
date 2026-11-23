@@ -27,7 +27,6 @@ function forwardedHeaders(request: GatewayRequest, hostname: string): Headers {
       headers.set(name, value);
     }
   }
-  // Request an uncompressed representation so the proxy never forwards a stale encoding label.
   headers.set("accept-encoding", "identity");
   headers.set("x-forwarded-host", hostname);
   headers.set("x-forwarded-proto", "https");
@@ -65,7 +64,6 @@ export function proxyOriginResponse(request: GatewayRequest, response: Response)
   headers.delete("content-encoding");
   headers.delete("content-length");
   if (isPubliclyCacheable(request, response)) {
-    // Keep the origin's browser policy intact while caching only at Vercel's CDN.
     headers.set("Vercel-CDN-Cache-Control", VERCEL_CDN_CACHE_CONTROL);
   }
   return new Response(response.body, {

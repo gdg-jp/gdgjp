@@ -47,12 +47,6 @@ describe("buildColumns", () => {
     expect(columns).toEqual([{ trackId: "trk_shared", roleId: "reception" }]);
   });
 
-  /**
-   * docs/roster/03-demand-input.md "回帰として固定すべきテスト": a
-   * (track, role) pair with no demand anywhere must never appear as a
-   * column, or 6 roles x 4 tracks worth of empty columns make the matrix
-   * unreadable.
-   */
   it("never emits a column for a (track, role) pair with no demand", () => {
     const columns = buildColumns([], TRACKS, ROLES);
     expect(columns).toEqual([]);
@@ -133,14 +127,6 @@ describe("buildPhaseRows", () => {
     expect(cell).toMatchObject({ kind: "value", uniform: true });
   });
 
-  /**
-   * docs/roster/03-demand-input.md "回帰として固定すべきテスト": this is
-   * the exact scenario from the stage's manual E2E (step 5-6) — override
-   * one time slot away from the phase-wide value, then the phase-row cell
-   * must flag it as `uniform: false` (rendered as a `*` in the UI) so the
-   * owner doesn't silently clobber the per-slot override on their next
-   * phase-wide edit.
-   */
   it("reports uniform: false when exactly one slot in the phase was overridden individually", () => {
     const slots = [slot("slot_1", 0, "phase_1"), slot("slot_2", 1, "phase_1")];
     const demands = [

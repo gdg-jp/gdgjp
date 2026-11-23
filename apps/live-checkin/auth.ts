@@ -4,7 +4,6 @@ import { GDGAccounts } from "./gdg-provider";
 const CHAPTERS_CLAIM = "https://gdgs.jp/claims/chapters";
 const IS_ADMIN_CLAIM = "https://gdgs.jp/claims/is_admin";
 
-// checkin の利用を許可するチャプター
 export const ALLOWED_CHAPTER_SLUG = "gdg-kwansai";
 
 export type GdgChapter = {
@@ -23,7 +22,6 @@ function parseChapters(value: unknown): GdgChapter[] {
   );
 }
 
-// 所属チャプターに gdg-kwansai が含まれるか
 export function canUseQrScanner(chapters: GdgChapter[] | undefined): boolean {
   return !!chapters?.some((c) => c.chapterSlug === ALLOWED_CHAPTER_SLUG);
 }
@@ -35,7 +33,6 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       if (account) {
         token.accessToken = account.access_token;
       }
-      // profile は検証済みの ID トークンのクレーム。ログイン時だけ渡される
       if (profile) {
         token.chapters = parseChapters(profile[CHAPTERS_CLAIM]);
         token.isAdmin = profile[IS_ADMIN_CLAIM] === true;

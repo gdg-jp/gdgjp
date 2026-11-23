@@ -34,7 +34,6 @@ const HEALTH: Record<
   unknown: { tone: "neutral", label: "未確認" },
 };
 
-/** Accounts per chapter, the posting precheck, activation, reminders and link health. */
 export function DeliverySettings({ data, status, canManage, busy }: Props) {
   return (
     <>

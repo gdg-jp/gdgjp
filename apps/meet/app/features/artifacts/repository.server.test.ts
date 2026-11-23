@@ -93,7 +93,6 @@ describe("artifacts repository", () => {
        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     );
 
-    // 1. 未共有かつ試行エラー → 失敗・未完了
     insertArt.run(
       "art-unshared-err",
       "mtg-cal",
@@ -109,7 +108,6 @@ describe("artifacts repository", () => {
       "500 INTERNAL",
       1,
     );
-    // 2. 共有済みだが予定添付待ち（calendar_event_id あり・attached_at なし）かつ warning → 失敗・未完了
     insertArt.run(
       "art-unattached-warn",
       "mtg-cal",
@@ -125,7 +123,6 @@ describe("artifacts repository", () => {
       "一部招待者への Drive 共有をスキップしました (400)",
       0,
     );
-    // 3. 共有済み＋添付済み＋last_error あり → 警告あり（完了済み）
     insertArt.run(
       "art-completed-warn",
       "mtg-cal",
@@ -141,7 +138,6 @@ describe("artifacts repository", () => {
       "一部招待者への Drive 共有をスキップしました (400 invalidSharingRequest)",
       0,
     );
-    // 4. 共有済み＋attached_at NULL だが calendar_event_id なし＋last_error あり → 警告あり（完了済み）
     insertArt.run(
       "art-nocal-warn",
       "mtg-nocal",
@@ -157,7 +153,6 @@ describe("artifacts repository", () => {
       "一部招待者への Drive 共有をスキップしました (400)",
       0,
     );
-    // 5. 完全成功（attempts > 0 でも last_error NULL）→ どちらにも出ない
     insertArt.run(
       "art-clean",
       "mtg-nocal",

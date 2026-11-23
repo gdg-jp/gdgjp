@@ -1,7 +1,6 @@
 import type { ContactKind } from "./contact";
 import { organizationKey } from "./contact";
 
-/** Wiki category label → contact kind. */
 const KIND_BY_LABEL: Record<string, ContactKind> = {
   コミュニティ: "community",
   学校: "school",
@@ -21,7 +20,6 @@ export type ImportedContact = {
   organization: string;
 };
 
-/** Split 「A、B（x、y）／C」 on 、 , or ／ outside parentheses. */
 export function splitList(text: string): string[] {
   const out: string[] = [];
   let depth = 0;
@@ -41,7 +39,6 @@ export function splitList(text: string): string[] {
 const EMAIL = /[\w.+-]+@[\w-]+\.[\w.-]+/;
 const PHONE = /\d{2,4}-\d{2,4}-\d{3,4}/;
 
-/** Kind label, or the first of 「学校／ゼミ」-style combined labels, → contact kind. */
 function kindOf(label: string): ContactKind | undefined {
   const clean = label.replace(/<[^>]*>/g, "").trim();
   return (
@@ -51,7 +48,6 @@ function kindOf(label: string): ContactKind | undefined {
   );
 }
 
-/** Table cells of a `| a | b |` row, ACL span tags and Markdown links reduced to their text. */
 function cells(line: string): string[] {
   return line
     .replace(/^\|/, "")
@@ -65,7 +61,6 @@ function cells(line: string): string[] {
     );
 }
 
-/** `### [Name](link) — note` → Name */
 function personOf(heading: string): string {
   return heading
     .replace(/\[([^\]]*)\]\([^)]*\)/g, "$1")
@@ -76,21 +71,12 @@ function personOf(heading: string): string {
 
 const safe = (name: string) => !!name && !EMAIL.test(name) && !PHONE.test(name);
 
-/**
- * Parse the Wiki page 「イベント告知対象とコネクション保有者」. Under 「人別の告知対象」 each
- * `### <person>` has either a table (`| 告知対象 | 種別 | … |`) or `- <kind>: a、b、c` lines; a
- * `| 人 | 告知対象 | 種別 |` table lists several targets per person (`a / b`). 「担当未記載」
- * entries have no person. Emails and phone numbers are dropped even if someone pasted them there
- * (the page should not have them), and so are rows whose kind is not one we know.
- */
 export function parseOutreachPage(markdown: string): ImportedContact[] {
   const out: ImportedContact[] = [];
   let section = "";
   let person: string | null = null;
-  /** Column indexes of the current table, or null outside a table. */
   let table: { name: number; kind: number; person: number } | null = null;
   const push = (wikiPerson: string | null, kind: ContactKind, raw: string) => {
-    // 「名前。補足の文」: keep the name only.
     const name = raw.replace(/。.*$/, "").trim();
     if (safe(name)) out.push({ wikiPerson, kind, name, organization: organizationKey(name) });
   };
@@ -145,7 +131,6 @@ export function parseOutreachPage(markdown: string): ImportedContact[] {
   return out;
 }
 
-/** Organizations reached through more than one Wiki person (ask only once). */
 export function duplicateOrganizations(
   contacts: { organization: string; wikiPerson: string | null }[],
 ): Set<string> {

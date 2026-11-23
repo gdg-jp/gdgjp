@@ -5,24 +5,16 @@ import { Smoother } from "./smoother";
 
 type Props = {
   durationMs: number;
-  /** Position to show at `now` (performance.now()) when not being dragged. */
   getMs: (now: number) => number;
-  /** Live preview while dragging (null when the drag ends). */
   onScrub: (ms: number | null) => void;
-  /** Drag/keyboard released at `ms`. */
   onCommit: (ms: number) => void;
   active: boolean;
   label: string;
-  /** Show elapsed / total labels (floating bar). */
   showTimes?: boolean;
 };
 
 const KEY_STEP_MS = 5000;
 
-/**
- * Custom seek bar. Everything per-frame is written straight to the DOM from
- * the shared rAF loop; React only renders structure.
- */
 export function SeekBar({ durationMs, getMs, onScrub, onCommit, active, label, showTimes }: Props) {
   const trackRef = useRef<HTMLDivElement>(null);
   const rootRef = useRef<HTMLDivElement>(null);

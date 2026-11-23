@@ -41,13 +41,6 @@ function folderRow(overrides: Row = {}): Row {
   };
 }
 
-/**
- * Fake D1 covering only the statements updateImageForActor's dependencies
- * issue: getImage/getFolder (SELECT ... WHERE id = ?) and
- * updateImageAttributes (the single combined UPDATE). Tracks how many times
- * that UPDATE actually runs, so a rejected patch can be proven to have
- * written nothing at all — not even the fields that individually validated.
- */
 function makeDb(image: Row | null, folder: Row | null = null) {
   let current = image ? { ...image } : null;
   let updateCalls = 0;
@@ -155,9 +148,6 @@ describe("updateImageForActor", () => {
 
   it("rejects a folder from a different (but accessible) chapter and leaves the valid chapter change uncommitted", async () => {
     const original = imageRow({ chapter_id: 1, folder_id: null });
-    // The actor can access the folder (they belong to chapter 5, where it
-    // lives) — the rejection must come from the folder/target-chapter
-    // mismatch, not from a plain access-denied on the folder itself.
     const { db, updateCalls, snapshot } = makeDb(original, folderRow({ id: 42, chapter_id: 5 }));
     const actor = { user: user(), chapters: [chapter(1), chapter(2), chapter(5)] };
 

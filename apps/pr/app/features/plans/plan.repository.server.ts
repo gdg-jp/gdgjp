@@ -110,7 +110,6 @@ export async function markAdopted(
   ]);
 }
 
-/** Planned (untouched) items that came from an earlier plan: safe to replace on re-adoption. */
 export async function deleteUntouchedPlanItems(
   db: D1Database,
   campaignId: number,

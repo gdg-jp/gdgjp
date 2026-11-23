@@ -84,7 +84,6 @@ function MobileTaskStarButton({
   );
 }
 
-/** Mini-header toolbar for `/tasks/:slug` — desktop buttons + mobile "more" menu. */
 export function TaskDetailToolbar({
   slug,
   pageId,
@@ -106,7 +105,6 @@ export function TaskDetailToolbar({
   const [moreOpen, setMoreOpen] = useState(false);
   const moreRef = useRef<HTMLDivElement>(null);
 
-  // Close "more" dropdown on outside click
   useEffect(() => {
     if (!moreOpen) return;
     const handler = (e: MouseEvent) => {
@@ -118,7 +116,6 @@ export function TaskDetailToolbar({
 
   return (
     <div className="flex items-center justify-end gap-2 border-b border-border px-4 py-2 md:px-10">
-      {/* Desktop action buttons (md+) */}
       <div className="hidden items-center gap-1 md:flex">
         <Link to={`/tasks/${slug}/history`} className={btnBase}>
           <Icons name="History" size={14} />
@@ -154,7 +151,6 @@ export function TaskDetailToolbar({
         </Tooltip>
       </div>
 
-      {/* Mobile "more" dropdown (<md) */}
       <div ref={moreRef} className="relative md:hidden">
         <button
           type="button"

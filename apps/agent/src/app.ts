@@ -12,7 +12,6 @@ import type { InquiryDeps, Reply } from "./features/inquiry/inquiry";
 import { type Delivery, type PendingStore, d1PendingStore } from "./features/inquiry/pending";
 import { type WikiClient, wikiClient } from "./features/inquiry/wiki";
 
-/** Per-request dependency graph; built from bindings so tests can swap any part. */
 export type App = {
   env: Env;
   auth: AuthDeps;

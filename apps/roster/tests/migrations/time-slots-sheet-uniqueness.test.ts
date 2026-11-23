@@ -17,7 +17,6 @@ const readMigration = (name: string) =>
 describe("time slot sheet uniqueness migration", () => {
   let db: DatabaseSync;
   const migrate = () => {
-    // Match D1's transaction and permanently enabled foreign keys.
     db.exec("BEGIN");
     db.exec(readMigration("0009_time_slots_sheet_uniqueness.sql"));
     db.exec("COMMIT");
@@ -50,7 +49,6 @@ describe("time slot sheet uniqueness migration", () => {
   afterEach(() => db.close());
 
   it("preserves all rows and IDs with foreign keys enabled inside a transaction", () => {
-    // Include historically unscoped rows even when a default sheet exists.
     db.exec(`
       INSERT INTO time_slots VALUES ('legacy', 'event', 1, '10:00', '11:00', NULL, NULL);
       INSERT INTO demands VALUES ('event', 'legacy', 'track', 'guide', 2, 3, 0, 9, NULL);

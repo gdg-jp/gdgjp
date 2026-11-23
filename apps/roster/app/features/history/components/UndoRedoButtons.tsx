@@ -1,12 +1,5 @@
 import { Form, useNavigation } from "react-router";
 
-/**
- * The undo/redo operation row (docs/roster/08-history.md "Design" §6:
- * "ビューの操作列に undo / redo ボタンを置く"). `canUndo`/`canRedo` come from
- * the loader's `HistoryState` (cursor vs. the min/max seq present) — this
- * component renders the boundary, it doesn't compute it, so it can never
- * disagree with what the history panel below it shows.
- */
 export function UndoRedoButtons({ canUndo, canRedo }: { canUndo: boolean; canRedo: boolean }) {
   const navigation = useNavigation();
   const pendingIntent =

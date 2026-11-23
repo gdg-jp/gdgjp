@@ -28,8 +28,6 @@ describe("mulberry32", () => {
   });
 
   it("does not repeat its own generator instance's early sequence immediately", () => {
-    // Sanity check that this is actually a generator and not a constant —
-    // if this ever fails, the determinism tests above would be vacuous.
     const rng = mulberry32(7);
     const first = rng();
     const second = rng();
@@ -37,8 +35,6 @@ describe("mulberry32", () => {
   });
 
   it("matches known output for seed 1 (regression pin against the spec's exact bit ops)", () => {
-    // Pinned from a direct run of the verbatim index.md §5.4 implementation.
-    // If this ever changes, someone "cleaned up" the bitwise ops — revert it.
     const rng = mulberry32(1);
     const first = rng();
     const second = rng();

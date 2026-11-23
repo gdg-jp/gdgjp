@@ -80,7 +80,6 @@ describe("buildPersonTimeline", () => {
   it("emits an explicit break for a slot with no assignment, never a silent gap", () => {
     const assignments = [
       assignment("me", "s0", "trkA", "reception"),
-      // s1: nothing for "me"
       assignment("me", "s2", "trkA", "reception"),
     ];
     const items = buildPersonTimeline(SLOTS.slice(0, 3), assignments, "me");
@@ -115,10 +114,8 @@ describe("buildPersonTimeline", () => {
       assignment("me", "s0", "trkA", "reception"),
       assignment("alice", "s0", "trkA", "reception"),
       assignment("me", "s1", "trkA", "reception"),
-      assignment("bob", "s1", "trkA", "reception"), // alice left, bob arrived
+      assignment("bob", "s1", "trkA", "reception"),
       assignment("me", "s2", "trkA", "reception"),
-      // s2: nobody else — a slot within the range with zero companions
-      // must not erase bob/alice from the range-wide union.
     ];
     const items = buildPersonTimeline(SLOTS.slice(0, 3), assignments, "me");
     expect(items).toEqual([

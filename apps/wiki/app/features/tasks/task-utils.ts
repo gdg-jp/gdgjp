@@ -18,7 +18,6 @@ export function getDateRange(tasks: TaskWithDueDate[]): string[] {
   const start = parseUTC(dates[0]);
   const end = parseUTC(dates[dates.length - 1]);
 
-  // Extend range by 3 days on each side
   start.setUTCDate(start.getUTCDate() - 3);
   end.setUTCDate(end.getUTCDate() + 3);
 
@@ -36,7 +35,6 @@ export function formatDate(dateStr: string): string {
   return `${m}/${d}`;
 }
 
-/** Format YYYY-MM-DD → YY/MM/DD for compact display */
 export function formatDueDate(dateStr: string): string {
   const [y, m, d] = dateStr.split("-");
   return `${y.slice(2)}/${m}/${d}`;

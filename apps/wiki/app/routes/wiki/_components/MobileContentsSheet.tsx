@@ -15,7 +15,6 @@ type Tag = { tagSlug: string; labelJa: string; labelEn: string; color: string };
 type Source = { url: string; title: string };
 type Attachment = { r2Key: string; fileName: string; mimeType: string };
 
-/** Bottom-sheet table of contents / metadata for `/wiki/*` on mobile. */
 export function MobileContentsSheet({
   page,
   tocItems,
@@ -81,7 +80,6 @@ export function MobileContentsSheet({
         </div>
 
         <div className="space-y-5 px-4 py-3">
-          {/* TOC */}
           {tocItems.length > 0 && (
             <div>
               <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted/70">
@@ -111,7 +109,6 @@ export function MobileContentsSheet({
             </div>
           )}
 
-          {/* Tags */}
           {tags.length > 0 && (
             <div>
               <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted/70">
@@ -133,7 +130,6 @@ export function MobileContentsSheet({
             </div>
           )}
 
-          {/* Last edited */}
           {page.updatedAt && (
             <div>
               <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted/70">
@@ -146,14 +142,12 @@ export function MobileContentsSheet({
             </div>
           )}
 
-          {/* Translation status */}
           {(lang === "en" ? page.translationStatusEn : page.translationStatusJa) === "ai" && (
             <span className="inline-flex items-center rounded-full bg-[var(--gdg-warning-surface)] px-2 py-0.5 text-xs font-medium text-warning">
               {t("wiki.auto_translated")}
             </span>
           )}
 
-          {/* Sources (URLs, PDFs, and image attachments) */}
           {((sources && sources.length > 0) || (attachments && attachments.length > 0)) && (
             <div>
               <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-muted/70">

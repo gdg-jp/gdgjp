@@ -25,7 +25,6 @@ export async function stepListing(
   if (metaGet(ctx.sql, "listing_complete") === "1") return { phaseComplete: true };
 
   const token = requireAccessToken(ctx);
-  // fetch + R2 put; page cursors live in object-local SQLite meta.
   while (ctx.budget.canSpend(2)) {
     const spaceName = spaceNameOf(current.source);
     const params = new URLSearchParams({ pageSize: String(CHAT_PAGE_SIZE) });
@@ -109,8 +108,6 @@ export async function stepIndexing(
     const object = await ctx.env.BUCKET.get(page.r2_key);
     if (!object) throw new Error(`Missing Chat import page object: ${page.r2_key}`);
     const body = (await object.json()) as { messages?: ChatMessage[] };
-    // An incremental run only learns here whether anything is new; the open document is
-    // then re-fetched whole (regenerateOpenDocument), new messages included.
     if (current.run.sinceCursor) {
       if ((body.messages ?? []).length > 0) metaSet(ctx.sql, "has_new_messages", "1");
     } else {
@@ -127,11 +124,6 @@ export async function stepIndexing(
   return { phaseComplete: true };
 }
 
-/**
- * When the delta had new messages, index every message from the open document's first
- * week onward (before sender and attachment processing), so grouping packs the open
- * document (and any that follow it) whole.
- */
 async function regenerateOpenDocument(
   ctx: ChatImportTickContext,
   current: Current,

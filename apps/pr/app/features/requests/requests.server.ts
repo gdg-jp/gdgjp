@@ -24,7 +24,6 @@ export type RequestRow = {
 
 const OPEN = (i: ScheduleItem) => i.status !== "done" && i.status !== "skipped";
 
-/** The speaker request's text: the post draft's `speakerRequest`, or what a person wrote. */
 async function speakerText(env: Env, item: ScheduleItem) {
   const parent = item.derivedFromItemId ? await draftForItem(env.DB, item.derivedFromItemId) : null;
   const content = parent ? (await latestVersion(env.DB, parent.id))?.content : null;
@@ -33,7 +32,6 @@ async function speakerText(env: Env, item: ScheduleItem) {
   return request ?? item.note ?? "";
 }
 
-/** /c/:slug/approvals: what a person sends (Discord, by hand) besides approving drafts. */
 export async function requestRows(env: Env, access: CampaignAccess): Promise<RequestRow[]> {
   const names = Object.fromEntries(access.members.map((m) => [m.userId, m.name]));
   const items = (await listItems(env.DB, access.campaign.id)).filter(OPEN);

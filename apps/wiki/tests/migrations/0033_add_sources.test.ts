@@ -17,8 +17,6 @@ describe("0033_add_sources migration", () => {
   }
 
   function applySourceMediaAndKindMigrations(db: DatabaseSync) {
-    // This focused fixture starts at 0033; reproduce the source_documents part
-    // of 0034 without requiring its unrelated google_drive_tokens predecessor.
     db.exec('ALTER TABLE "source_documents" ADD COLUMN "metadata" TEXT;');
     db.exec(
       readFileSync(

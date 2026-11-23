@@ -4,10 +4,6 @@ import type { OstEvent } from "./event";
 import { getEventBySlug } from "./events.server";
 import { normalizeSlug } from "./slug";
 
-/**
- * Gate an event admin surface (`/:slug/screen|tables|edit`): signed in, has a
- * chapter, and is a member of the chapter that owns this event.
- */
 export async function requireEventAccess(
   env: Env,
   request: Request,

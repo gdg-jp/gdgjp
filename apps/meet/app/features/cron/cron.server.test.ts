@@ -428,7 +428,6 @@ describe("runMeetCron", () => {
       subscription: {
         name: "subscriptions/sub-cron",
         state: "ACTIVE",
-        // 残 1 日（2 日未満）→ TTL 延長対象
         expireTime: "2026-11-20T12:00:00.000Z",
         updatedAt: "2026-11-14T00:00:00.000Z",
         lastError: null,
@@ -481,13 +480,11 @@ describe("runMeetCron", () => {
       if (url.endsWith("/conferenceRecords/conf-1/recordings")) {
         return Response.json({
           recordings: [
-            // 既に保存済み → 再投入しない
             {
               name: "conferenceRecords/conf-1/recordings/rec-old",
               state: "FILE_GENERATED",
               driveDestination: { file: "already-saved-rec" },
             },
-            // 取りこぼし → process_artifact 投入
             {
               name: "conferenceRecords/conf-1/recordings/rec-missed",
               state: "FILE_GENERATED",
@@ -510,7 +507,6 @@ describe("runMeetCron", () => {
       if (url.endsWith("/conferenceRecords/conf-1/smartNotes")) {
         return Response.json({
           smartNotes: [
-            // transcript と同じ document ID → 重複投入しない
             {
               name: "conferenceRecords/conf-1/smartNotes/sn-missed",
               state: "FILE_GENERATED",

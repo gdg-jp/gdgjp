@@ -13,7 +13,6 @@ export function cliFolderErrorResponse(code: FolderServiceErrorCode): Response {
   return Response.json({ error: code }, { status: STATUS_BY_CODE[code] });
 }
 
-/** Preserves the cookie-session routes' text-body convention (see image-errors.server.ts). */
 export function dashboardFolderErrorResponse(code: FolderServiceErrorCode): Response {
   switch (code) {
     case "invalid_name":

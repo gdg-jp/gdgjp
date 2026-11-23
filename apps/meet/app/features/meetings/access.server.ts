@@ -11,7 +11,6 @@ export type MeetingViewAccess = {
   invitees: MeetingInviteeRecord[];
 };
 
-/** 会議詳細の閲覧権限を判定する（管理者・作成者・正規化メール一致の招待者）。 */
 export function canViewMeeting(
   user: Pick<AuthUser, "id" | "email" | "isAdmin">,
   meeting: Pick<MeetingRecord, "createdByUserId">,
@@ -23,7 +22,6 @@ export function canViewMeeting(
   return invitees.some((inv) => inv.emailNormalized === normalized);
 }
 
-/** 会議の編集・再同期・取り消しを行える役割（管理者または正規化メール一致の `cohost`）か判定する。 */
 export function hasMeetingEditRole(
   user: Pick<AuthUser, "email" | "isAdmin">,
   invitees: readonly Pick<MeetingInviteeRecord, "emailNormalized" | "role">[],
@@ -33,11 +31,6 @@ export function hasMeetingEditRole(
   return invitees.some((inv) => inv.emailNormalized === normalized && inv.role === "cohost");
 }
 
-/**
- * 会議の編集・再同期・取り消し権限を判定する。
- * - `meeting.status === "active"` であること（`canceled` / `failed` / `creating` は不可）
- * - チャプター所属は問わず、GDG Accounts 管理者または正規化メール一致の `cohost` であれば許可
- */
 export function canEditMeeting(
   user: Pick<AuthUser, "email" | "isAdmin">,
   meeting: Pick<MeetingRecord, "status">,
@@ -47,10 +40,6 @@ export function canEditMeeting(
   return hasMeetingEditRole(user, invitees);
 }
 
-/**
- * 招待者一覧をブラウザへ返却する形式へ変換する。
- * 会議の閲覧権限がある全員に対し、チャプター由来を含むすべての招待者の名前・メールアドレス・画像 URL を返す。
- */
 export function toPublicInviteeList(
   invitees: readonly MeetingInviteeRecord[],
   avatarByEmail?: ReadonlyMap<string, string>,
@@ -79,11 +68,6 @@ type AccessDeps = {
   requireUserFn?: (env: Env, request: Request) => Promise<AuthUser>;
 };
 
-/**
- * 会議詳細ページのアクセス検証を行う。
- * - サインインは必須だがチャプター所属は不要
- * - 会議が存在しない、または閲覧権限がない場合は存在を秘匿するため 404 を返す
- */
 export async function requireMeetingViewAccess(
   env: Env,
   request: Request,
@@ -110,12 +94,6 @@ export async function requireMeetingViewAccess(
   };
 }
 
-/**
- * 会議の編集・再同期・取り消しアクセス検証を行う。
- * - 会議が存在しない、または無関係な第三者は 404
- * - 閲覧可能だが `cohost` でも管理者でもない一般参加者は 403
- * - `status !== "active"`（`canceled` / `failed` 等）の会議は 409
- */
 export async function requireMeetingEditAccess(
   env: Env,
   request: Request,

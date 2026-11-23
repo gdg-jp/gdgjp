@@ -1,15 +1,3 @@
-/**
- * The deck layout: everything the editor saves and the controller draws.
- *
- * A deck is one JSON document. Boards are the root screen and every folder;
- * each board has pages of `cols × rows` slots. Keys sit in slots by index
- * (row-major). Navigation (pages, folders) happens on the phone only; the
- * Durable Object only ever sees "key X was pressed" and resolves it here.
- *
- * `parseLayout` is the single gate for anything coming from a client: it
- * rebuilds the document field by field and drops whatever it does not know.
- */
-
 import { type ObsAction, parseAction } from "~/features/obs/actions";
 
 export const ROOT_BOARD = "root";
@@ -21,16 +9,13 @@ export const MAX_STEPS = 50;
 export const MAX_WAIT_MS = 60_000;
 export const MAX_TITLE = 40;
 export const MAX_HOLD_MS = 5000;
-/** Saved JSON larger than this is refused (D1 rows stay small). */
 export const MAX_LAYOUT_BYTES = 512 * 1024;
 
 export const KEY_COLORS = ["neutral", "blue", "red", "green", "yellow", "slate", "black"] as const;
 export type KeyColor = (typeof KEY_COLORS)[number];
 
 export type KeyLook = {
-  /** design-system icon name (`Icons`), or null. */
   icon: string | null;
-  /** Uploaded image id (deck-scoped), drawn instead of the icon. */
   image: string | null;
   color: KeyColor;
 };
@@ -42,7 +27,6 @@ export type Step = { type: "obs"; action: ObsAction } | { type: "wait"; ms: numb
 export type Behavior =
   | { type: "action"; action: ObsAction }
   | { type: "multi"; steps: Step[] }
-  /** Runs `a`, then `b` on the next press, and so on (state kept by the room). */
   | { type: "multiSwitch"; a: Step[]; b: Step[] }
   | { type: "folder"; board: string }
   | { type: "back" }
@@ -52,7 +36,6 @@ export type Key = {
   id: string;
   title: string;
   look: KeyLook;
-  /** Look while the key's state is "on" (scene live, muted, recording…); null = highlight only. */
   lookOn: KeyLook | null;
   confirm: Confirm;
   behavior: Behavior;
@@ -190,7 +173,6 @@ function parseKey(value: unknown, boardIds: Set<string>, seen: Set<string>): Key
   };
 }
 
-/** Validates and normalizes a client-supplied layout; null when it is unusable. */
 export function parseLayout(value: unknown): DeckLayout | null {
   if (!isRecord(value) || !isRecord(value.boards)) return null;
   const cols = clampInt(value.cols, 1, MAX_COLS, 5);
@@ -231,7 +213,6 @@ export function parseLayout(value: unknown): DeckLayout | null {
   return { cols, rows, boards };
 }
 
-/** Finds a key anywhere in the deck. */
 export function findKey(layout: DeckLayout, keyId: string): Key | null {
   for (const board of Object.values(layout.boards)) {
     for (const page of board.pages) {
@@ -243,7 +224,6 @@ export function findKey(layout: DeckLayout, keyId: string): Key | null {
   return null;
 }
 
-/** Every uploaded image id the layout still uses. */
 export function imageIds(layout: DeckLayout): Set<string> {
   const ids = new Set<string>();
   for (const board of Object.values(layout.boards)) {

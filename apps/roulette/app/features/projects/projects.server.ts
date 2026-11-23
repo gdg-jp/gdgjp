@@ -1,15 +1,6 @@
 import type { Mode, Prize } from "~/features/prizes/prize";
 import type { Project, ProjectSummary } from "./project";
 
-/**
- * D1 access for projects and their prize settings. Auth tables (`user`,
- * `oidc_session`) are owned by gdg-lib; spins live in draw.server.ts.
- *
- * The mode is not stored as such. `project.method` holds how odds are counted
- * — 'fixed' (custom) or 'box' (standard) — and a 'box' project is evil when
- * any of its prizes is excluded. 'equal' is no longer offered.
- */
-
 type StoredMethod = "fixed" | "box" | "equal";
 
 type ProjectRow = {
@@ -113,7 +104,6 @@ export type CreateProjectInput = {
   createdBy: string | null;
 };
 
-/** Create a project that starts closed, in the standard mode, with a single losing slot. */
 export async function createProject(
   db: D1Database,
   input: CreateProjectInput,
@@ -148,11 +138,6 @@ export async function setOpen(db: D1Database, slug: string, open: boolean) {
     .run();
 }
 
-/**
- * Replace the prize settings. Prizes keep their id (and so what they have
- * won); new ids are inserted, missing ones deleted. Fails as a whole when a
- * concurrent spin pushed `won` past a lowered stock (the prize CHECK).
- */
 export async function saveSettings(
   db: D1Database,
   project: Project,
@@ -215,7 +200,6 @@ export async function saveSettings(
   return { ok: true };
 }
 
-/** Clear every spin and its log: counters back to 0 and devices may spin again. Settings stay. */
 export async function resetDraws(db: D1Database, slug: string) {
   await db.batch([
     db.prepare("DELETE FROM draw WHERE project_slug = ?").bind(slug),

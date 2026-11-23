@@ -21,8 +21,6 @@ describe("buildSlots", () => {
   });
 
   it("drops a trailing partial slot instead of overrunning `end` (docs/roster/02-domain-schema.md regression)", () => {
-    // 09:00-10:40 at 30-min steps: 09:00,09:30,10:00 fit; 10:30-11:00 would
-    // exceed 10:40, so it must not appear.
     const slots = buildSlots({ start: "09:00", end: "10:40", stepMin: 30 });
     expect(slots.map((s) => s.end)).toEqual(["09:30", "10:00", "10:30"]);
     expect(slots.every((s) => toMin(s.end) <= toMin("10:40"))).toBe(true);
@@ -43,7 +41,6 @@ describe("buildSlots", () => {
   it("leaves phaseId null for a gap between phases", () => {
     const slots = buildSlots({ start: "09:00", end: "12:00", stepMin: 60 }, [
       { id: "p1", from: "09:00", to: "10:00" },
-      // gap: nothing covers 10:00-11:00
       { id: "p2", from: "11:00", to: "12:00" },
     ]);
     expect(slots.map((s) => s.phaseId)).toEqual(["p1", null, "p2"]);

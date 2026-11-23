@@ -103,9 +103,7 @@ function parseSourceKinds(raw: string): InviteeSourceKind[] {
     if (Array.isArray(parsed)) {
       return parsed.filter((item): item is InviteeSourceKind => typeof item === "string");
     }
-  } catch {
-    // 壊れた JSON があっても安全側（空配列）へ倒す。
-  }
+  } catch {}
   return [];
 }
 
@@ -134,7 +132,6 @@ export function mapInviteSourceRow(row: MeetingInviteSourceRow): MeetingInviteSo
   };
 }
 
-/** `meeting_invite_sources` への INSERT ステートメント一覧を生成する。 */
 export function buildInsertInviteSourceStatements(
   db: D1Database,
   meetingId: string,
@@ -160,7 +157,6 @@ export function buildInsertInviteSourceStatements(
   );
 }
 
-/** `meeting_invitees` への INSERT ステートメント一覧を生成する。 */
 export function buildInsertInviteeStatements(
   db: D1Database,
   meetingId: string,

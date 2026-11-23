@@ -24,11 +24,6 @@ export type PublicApplyData = {
   roles: { id: string; name: string }[];
 };
 
-/**
- * Builds the public registration schedule for one already-authorized event.
- * Applications, skills, availability, and party RSVP stay event-owned; only
- * the selectable roles and slots are composed from each live roster sheet.
- */
 export async function getPublicApplyData(
   db: D1Database,
   eventId: string,

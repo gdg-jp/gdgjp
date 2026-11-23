@@ -1,12 +1,5 @@
 import type { Brief } from "~/features/briefs/brief";
 
-/**
- * `blocked_by` conditions. An item may not be drafted until every condition holds.
- *   session:<id>:confirmed   the brief's session is confirmed or public (ANNOUNCE-AFTER-CONFIRMED)
- *   item:<id>:done           another schedule item is done
- *   date:<iso>               now is at or after the instant
- * Unknown conditions never resolve: a typo must block, not silently release.
- */
 export type BlockContext = {
   brief: Brief | null;
   itemStatus: (id: number) => string | undefined;

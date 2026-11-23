@@ -7,7 +7,6 @@ export default defineConfig({
   testDir: "./e2e",
   testMatch: "**/*.spec.ts",
   globalSetup: "./e2e/global-setup.ts",
-  // Every spec shares the single McRoom Durable Object.
   fullyParallel: false,
   workers: 1,
   forbidOnly: !!process.env.CI,
@@ -23,7 +22,6 @@ export default defineConfig({
       name: "chromium",
       use: {
         ...devices["Desktop Chrome"],
-        // OBS never blocks autoplay; neither should the player under test.
         launchOptions: { args: ["--autoplay-policy=no-user-gesture-required"] },
       },
     },

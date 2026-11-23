@@ -13,12 +13,6 @@ import { generateSlug } from "~/features/pages/slug";
 import { DEFAULT_SPACE_ID } from "~/features/spaces/shared";
 import { getDb } from "~/lib/db.server";
 
-/**
- * Shared internals for the Google Docs import pipeline. Public entry points are
- * split by "reason to read": `preview.server.ts` (dry-run diff),
- * `apply.server.ts` (synchronous batch import), `job.server.ts` (queued job).
- */
-
 export const ROOT_NODE_ID = "__document_root__";
 export const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
 export const D1_MAX_VALUE_BYTES = 2_000_000;
@@ -99,7 +93,6 @@ export function persistedContentDiagnostics(
 }
 
 export function logImport(event: string, fields: Record<string, unknown>) {
-  // Do not log document content, Google access tokens, or Google image URLs.
   console.log(JSON.stringify({ component: "google-document-import", event, ...fields }));
 }
 
@@ -150,8 +143,6 @@ function extensionFor(contentType: string | null): string {
 }
 
 function removeImagePlaceholder(markdown: string, objectId: string): string {
-  // object IDs originate from the Docs API. Removing the entire image token is
-  // preferable to leaving a broken attachment URL in the imported document.
   const escapedObjectId = objectId.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   return markdown.replace(
     new RegExp(`!\\[(?:\\\\.|[^\\]])*\\]\\(attachment:${escapedObjectId}\\)`, "g"),
@@ -175,8 +166,6 @@ export async function persistImages(
     });
     if (!response.ok) {
       if (response.status === 404) {
-        // Docs content URIs are short-lived and individual embedded images can
-        // disappear. A missing image must never discard the surrounding text.
         content = removeImagePlaceholder(content, image.objectId);
         logImport("image_download_skipped", {
           ...diagnostics,

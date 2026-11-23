@@ -49,7 +49,6 @@ const toTarget = (r: Row): DispatchTarget => ({
 const SELECT = `SELECT t.*, t.actor_snapshot, a.campaign_id, a.kind, a.chapter_id, a.external_id, a.label, a.role
   FROM dispatch_targets t JOIN campaign_accounts a ON a.id = t.account_id`;
 
-/** One target per account of that kind (X for posts, connpass groups for mails); kept if present. */
 export async function ensureTargets(
   db: D1Database,
   campaignId: number,
@@ -65,7 +64,6 @@ export async function ensureTargets(
     .run();
 }
 
-/** Approved mail targets whose item's time has come (the minute cron sends them). */
 export async function dueMailTargets(db: D1Database, now: number, limit = 20) {
   const { results } = await db
     .prepare(
@@ -99,7 +97,6 @@ export async function getTarget(db: D1Database, id: number): Promise<DispatchTar
   return row ? toTarget(row) : null;
 }
 
-/** Compare-and-set; false when another request moved the target first. */
 export async function moveTarget(
   db: D1Database,
   id: number,
@@ -146,7 +143,6 @@ export async function actorSnapshotFor(db: D1Database, id: number): Promise<stri
   return row?.actor_snapshot ?? null;
 }
 
-/** Scheduled sns posts to follow (hourly), with the approver's claims snapshot. */
 export async function scheduledTargets(db: D1Database, limit = 100) {
   const { results } = await db
     .prepare(

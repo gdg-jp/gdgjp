@@ -16,7 +16,6 @@ function postRow(over: Row = {}): Row {
     chapter_id: 1,
     x_account_id: "acc-1",
     text: "hello",
-    // Deliberately in the future — `publishNow` must ignore `scheduledAt`.
     scheduled_at: "2999-01-01T00:00:00.000Z",
     condition: "scheduled",
     status: "scheduled",
@@ -34,7 +33,6 @@ function postRow(over: Row = {}): Row {
   };
 }
 
-/** `posts`/`post_media` fake covering only the statements `publishNow` runs. */
 function makeDb(seed: Row | null, mediaCount = 0) {
   const post = seed ? { ...seed } : null;
   let claimAttempted = false;

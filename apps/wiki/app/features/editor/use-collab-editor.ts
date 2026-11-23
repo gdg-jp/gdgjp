@@ -28,7 +28,6 @@ export interface CollabPeer {
 
 interface UseCollabEditorOptions {
   slug: string;
-  /** Space of the page; collab rooms are per (space, slug). */
   spaceSlug: string;
   initialContentJa: string;
   initialContentEn: string;
@@ -74,7 +73,6 @@ export function useCollabEditor({
   const pendingContentJaRef = useRef<string | null>(null);
   const pendingContentEnRef = useRef<string | null>(null);
 
-  // Update awareness when active language changes
   const setActiveLang = useCallback((lang: "ja" | "en") => {
     activeLangRef.current = lang;
     if (awarenessRef.current) {
@@ -93,14 +91,12 @@ export function useCollabEditor({
     const textJa = ydoc.getText("contentJa");
     const textEn = ydoc.getText("contentEn");
 
-    // Observe Y.Text changes and update React state
     const observerJa = () => {
       if (!mountedRef.current) return;
       const value = textJa.toString();
       isRemoteUpdate.current = true;
       setContentJaState((prev) => (prev === value ? prev : value));
       isRemoteUpdate.current = false;
-      // Relative cursor positions must be re-resolved whenever document text changes.
       awarenessHandler();
     };
     const observerEn = () => {
@@ -109,13 +105,11 @@ export function useCollabEditor({
       isRemoteUpdate.current = true;
       setContentEnState((prev) => (prev === value ? prev : value));
       isRemoteUpdate.current = false;
-      // Relative cursor positions must be re-resolved whenever document text changes.
       awarenessHandler();
     };
     textJa.observe(observerJa);
     textEn.observe(observerEn);
 
-    // Observe awareness changes — update peers list AND remote cursor store
     const awarenessHandler = () => {
       if (!mountedRef.current) return;
       const states = awareness.getStates();
@@ -175,7 +169,6 @@ export function useCollabEditor({
     };
     awareness.on("change", awarenessHandler);
 
-    // Subscribe to local cursor changes from CM6 editors → broadcast via awareness
     const unsubJa = subscribeLocalCursor("editor-ja", (pos) => {
       const current = (awareness.getLocalState()?.cursor as CursorAwarenessState | undefined) ?? {};
       awareness.setLocalStateField("cursor", {
@@ -191,7 +184,6 @@ export function useCollabEditor({
       });
     });
 
-    // Send outgoing Y.Doc updates to server (registered once, not per-connect)
     const sendUpdate = (update: Uint8Array, origin: unknown) => {
       if (origin === "remote") return;
       const ws = wsRef.current;
@@ -203,7 +195,6 @@ export function useCollabEditor({
     };
     ydoc.on("update", sendUpdate);
 
-    // Send local awareness updates to server so remote peers receive them
     const sendAwarenessUpdate = (
       { added, updated }: { added: number[]; updated: number[]; removed: number[] },
       origin: unknown,
@@ -244,8 +235,6 @@ export function useCollabEditor({
         setConnected(true);
         reconnectAttempt.current = 0;
 
-        // Server sends initial sync state on connect.
-        // Set awareness local state
         awareness.setLocalState({
           user: { id: user.id, name: user.name, image: user.image },
           activeLang: activeLangRef.current,
@@ -298,7 +287,6 @@ export function useCollabEditor({
           wsRef.current = null;
         }
 
-        // Reconnect with exponential backoff
         const delay = Math.min(1000 * 2 ** reconnectAttempt.current, 30_000);
         reconnectAttempt.current++;
         reconnectTimer.current = setTimeout(connect, delay);
@@ -334,7 +322,6 @@ export function useCollabEditor({
     };
   }, [slug, spaceSlug, user.id, user.name, user.image]);
 
-  // Editor → CRDT: apply string diff when content changes from local edits
   const setContentJa = useCallback((value: string) => {
     if (isRemoteUpdate.current) return;
     if (!hasReceivedInitialSyncRef.current) {

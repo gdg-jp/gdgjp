@@ -7,7 +7,6 @@ import { listPlans } from "~/features/plans/plan.repository.server";
 import { updateItem } from "~/features/schedule/item.repository.server";
 import type { MessageAction } from "./message";
 
-/** Run one button. Returns the action with its new status and a short result for the thread. */
 export async function runAction(
   env: Env,
   campaign: Campaign,

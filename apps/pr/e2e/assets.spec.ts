@@ -2,8 +2,6 @@ import { readFileSync } from "node:fs";
 import { type APIRequestContext, type Page, expect, test } from "@playwright/test";
 import { createCampaign } from "./helpers";
 
-// Images and live posts (Stage 06), and the design kit: rendered by the local Playwright server
-// (e2e/render-server.ts), published through e2e/mock-services/img.ts, handed to connpass.
 const skills = new URL("../../../skills/", import.meta.url);
 const brief = readFileSync(
   new URL("pr-playbook/examples/briefs/devfest-kansai-2026.json", skills),
@@ -75,7 +73,6 @@ test("a connpass thumbnail (template mode) is rendered, checked, approved, publi
   await page.getByRole("button", { name: "画像を作る" }).click();
   await expect(page.getByText("画像を頼みました")).toBeVisible();
 
-  // Too long a title: rendered, MUST fails, one retry job is queued.
   const long = structuredClone(templateOutput);
   long.layoutVars.titleScale = 1.2;
   long.slots.subcopy = "異分野と越境の AI カンファレンス、関西最大級のデベロッパーイベント";
@@ -126,7 +123,6 @@ test("the design kit: directions from the agent's HTML, one adopted, then a sess
   const slug = `e2e-kit-${Date.now()}`;
   await startWithBrief(page, slug);
 
-  // The home page nudges: no kit yet.
   await page.goto("/");
   await expect(
     page.getByText("イベントのデザインキット（色と顔）がまだありません").first(),
@@ -166,10 +162,8 @@ test("the design kit: directions from the agent's HTML, one adopted, then a sess
   await page.getByRole("button", { name: "これにする" }).first().click();
   await expect(page.getByText("この案をキットにしました")).toBeVisible();
   await expect(page.getByRole("button", { name: "キットを作り直す" })).toBeVisible();
-  // Adopting also made the usable thumbnail.
   await expect(page.getByRole("link", { name: /connpass のサムネイル（顔） #\d+/ })).toBeVisible();
 
-  // A derivative follows the kit.
   await page.getByRole("combobox", { name: "種類" }).click();
   await page.getByRole("option", { name: "セッション紹介（横）" }).click();
   await page.getByRole("button", { name: "画像を作る" }).click();
@@ -186,7 +180,6 @@ test("the design kit: directions from the agent's HTML, one adopted, then a sess
   await page.getByRole("button", { name: "承認して配る" }).click();
   await expect(page.getByText(/img.gdgs.jp に上げました/)).toBeVisible();
 
-  // Asking for a revision queues a job that carries the previous version.
   await page.getByLabel("直してほしいこと").fill("題をもう少し大きく");
   await page.getByRole("button", { name: "直しを頼む" }).click();
   await expect(page.getByText("秘書に直しを頼みました")).toBeVisible();
@@ -212,11 +205,9 @@ test("live posts are generated from the timetable, in time order, with cards", a
     .getByRole("listitem")
     .filter({ hasText: "開始" });
   await expect(starts).toHaveCount(sessions.length);
-  // Regenerating changes nothing that exists (no duplicates).
   await page.getByRole("button", { name: "タイムテーブルから作る" }).click();
   await expect(page.getByText(/新規 0、更新/)).toBeVisible();
   await expect(starts).toHaveCount(sessions.length);
-  // A live post is a normal X draft with the event hashtag.
   await starts.first().getByRole("link").click();
   await expect(page.getByText("#DevFestKansai").first()).toBeVisible();
 });

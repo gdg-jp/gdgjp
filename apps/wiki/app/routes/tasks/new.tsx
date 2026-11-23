@@ -8,28 +8,16 @@ import { requireUser } from "~/features/auth/utils.server";
 import { generateSlug } from "~/features/pages/slug";
 import { getDb } from "~/lib/db.server";
 
-// ---------------------------------------------------------------------------
-// Meta
-// ---------------------------------------------------------------------------
-
 import { Icons } from "@gdgjp/design-system";
 import { pageInSpace } from "~/features/pages/page-space.server";
 import { DEFAULT_SPACE_ID } from "~/features/spaces/shared";
 export const meta: MetaFunction = () => [{ title: "New Task List — GDG Japan Wiki" }];
-
-// ---------------------------------------------------------------------------
-// Loader
-// ---------------------------------------------------------------------------
 
 export async function loader({ request, context }: LoaderFunctionArgs) {
   const { env } = context.cloudflare;
   await requireUser(request, env);
   return null;
 }
-
-// ---------------------------------------------------------------------------
-// Action
-// ---------------------------------------------------------------------------
 
 export async function action({ request, context }: ActionFunctionArgs) {
   const { env } = context.cloudflare;
@@ -43,7 +31,6 @@ export async function action({ request, context }: ActionFunctionArgs) {
     return data({ error: "Title is required" }, { status: 400 });
   }
 
-  // Generate unique slug
   const baseSlug = generateSlug(titleJa || titleEn, titleEn);
   let slug = baseSlug;
   const existing = await db
@@ -57,7 +44,6 @@ export async function action({ request, context }: ActionFunctionArgs) {
 
   const pageId = nanoid();
 
-  // Create page and task_lists metadata atomically
   await db.batch([
     db.insert(schema.pages).values({
       id: pageId,
@@ -83,10 +69,6 @@ export async function action({ request, context }: ActionFunctionArgs) {
   return redirect(`/tasks/${slug}`);
 }
 
-// ---------------------------------------------------------------------------
-// Route component
-// ---------------------------------------------------------------------------
-
 export default function NewTaskList() {
   const actionData = useActionData<typeof action>();
   const { t } = useTranslation();
@@ -105,7 +87,6 @@ export default function NewTaskList() {
       <h1 className="mb-6 text-2xl font-bold">{t("tasks.new_title")}</h1>
 
       <Form method="post" className="space-y-6">
-        {/* Language tabs */}
         <div className="flex gap-2 border-b border-border">
           <button
             type="button"
@@ -131,7 +112,6 @@ export default function NewTaskList() {
           </button>
         </div>
 
-        {/* Title fields */}
         <div>
           <label htmlFor="titleJa" className={activeLang === "ja" ? "" : "hidden"}>
             <span className="mb-1 block text-sm font-medium text-muted">{t("tasks.title_ja")}</span>

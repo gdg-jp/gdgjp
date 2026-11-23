@@ -3,10 +3,6 @@ import { isAgentService, resolveAgentReader } from "~/features/agent-api/agent-r
 import { enqueueAnswer, validateBundle } from "~/features/jobs/answer.server";
 import { getDb } from "~/lib/db.server";
 
-/**
- * POST /api/agent/jobs/answer { question, spaces, bundle } — agent Worker only
- * (X-Agent-Service-Token), on behalf of the reader in Authorization / X-Agent-Principal.
- */
 export async function action({ request, context }: ActionFunctionArgs) {
   const { env } = context.cloudflare;
   if (!isAgentService(request, env)) return Response.json({ error: "forbidden" }, { status: 403 });

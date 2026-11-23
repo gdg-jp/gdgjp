@@ -22,7 +22,6 @@ export type CaseResult = {
   refusalOk: boolean | null;
   unanswered: boolean | null;
   latencyMs: number | null;
-  /** Cited page bodies the judge compares against (url → content). */
   evidence: Record<string, string>;
   judge?: { verdict: "faithful" | "unfaithful"; evidence: string[] };
 };
@@ -32,7 +31,6 @@ function includesAny(text: string, terms: readonly string[]): string[] {
   return terms.filter((term) => term && lower.includes(term.toLowerCase()));
 }
 
-/** Search-side checks: hit@5 and leaked forbidden terms in any returned snippet or title. */
 export function scoreSearch(c: EvalCase, hits: readonly SearchHit[]) {
   const top5 = hits.slice(0, 5).map((hit) => hit.slug);
   const hit5 =
@@ -44,10 +42,6 @@ export function scoreSearch(c: EvalCase, hits: readonly SearchHit[]) {
   return { hit5, searchLeaks };
 }
 
-/**
- * Answer-side checks. A leak is a forbidden term in the answer or a citation quote. A
- * refusal case passes only if it is unanswered AND cites nothing outside its expected pages.
- */
 export function scoreAnswer(c: EvalCase, answer: AnswerOutput) {
   const text = [answer.answer, ...answer.citations.map((citation) => citation.quote ?? "")].join(
     "\n",
@@ -84,7 +78,6 @@ export type Metrics = {
   leaks: number;
   answerContains: number | null;
   refusalAccuracy: number | null;
-  /** Unanswered among cases whose answer is in the space (not refusal cases). */
   unansweredRate: number | null;
   latencyP50Ms: number | null;
   latencyP95Ms: number | null;
@@ -113,7 +106,6 @@ export function summarize(results: readonly CaseResult[], cases: readonly EvalCa
   };
 }
 
-/** Human-readable diff against the previous run: metric deltas, newly failing ids, leaks. */
 export function diffReport(
   current: { metrics: Metrics; results: CaseResult[] },
   previous?: { metrics: Metrics; results: CaseResult[] },

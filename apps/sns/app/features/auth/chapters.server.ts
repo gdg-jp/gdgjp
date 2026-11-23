@@ -20,8 +20,6 @@ export async function listAccessibleChapters(
       chapters.push({ chapterId, chapterSlug: `chapter-${chapterId}`, role: "contributor" });
     }
   }
-  // A super-admin keeps every chapter they are a member of; everyone else only
-  // reaches sns as an organizer or a contributor of the chapter.
   return chapters.filter(
     (chapter) =>
       isSuperAdmin || chapter.role === "organizer" || contributorIds.has(chapter.chapterId),

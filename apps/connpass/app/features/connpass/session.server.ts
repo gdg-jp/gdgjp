@@ -22,11 +22,6 @@ export async function clearStorageState(env: Env): Promise<void> {
   await env.SESSION_KV.delete(SESSION_CHECKED_KEY);
 }
 
-/**
- * Timestamp (epoch ms) of the last successful connpass auth verification. Lets a
- * reused warm browser session skip the dashboard round-trip when it was checked
- * recently. Plain number, no TTL — matches the storageState entry.
- */
 export async function loadSessionCheckedAt(env: Env): Promise<number | null> {
   const raw = await env.SESSION_KV.get(SESSION_CHECKED_KEY);
   const n = raw ? Number(raw) : Number.NaN;

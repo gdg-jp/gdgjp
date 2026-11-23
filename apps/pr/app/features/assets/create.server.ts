@@ -7,7 +7,6 @@ import { assetSkin, renderAsset, templateSize } from "./render.server";
 export type NewAsset = {
   campaignId: number;
   templateId: string;
-  /** Design mode: the agent's (or a person's) HTML. Template mode when absent. */
   html?: string | null;
   purpose?: Asset["purpose"];
   notes?: AssetNotes;
@@ -22,7 +21,6 @@ export type NewAsset = {
   derivedFromAssetId?: number | null;
 };
 
-/** Insert an asset, render and check it; older pending images for the same purpose are superseded. */
 export async function createAndRender(env: Env, input: NewAsset) {
   const size = templateSize(input.templateId);
   if (!size) throw new Error(`no image template ${input.templateId}`);

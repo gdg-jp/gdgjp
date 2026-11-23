@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 import type { Segment } from "~/features/prizes/odds";
 import { type LandingPlan, planLanding } from "./staging";
 
-// The pointer meets slices in falling index order: 3 → 2 → 1 → 0 → 5 → 4 → 3.
 const slice = (prizeId: string, rank: number | null): Segment => ({
   prizeId,
   label: prizeId,
@@ -24,7 +23,6 @@ const pixel = { prizeId: "pixel", tier: "jackpot", rank: 1 } as const;
 const sticker = { prizeId: "sticker", tier: "win", rank: 2 } as const;
 const lose = { prizeId: "lose", tier: "lose", rank: null } as const;
 
-/** A small seeded generator, so the share checks are repeatable. */
 function seeded(seed: number) {
   let state = seed;
   return () => {
@@ -65,18 +63,15 @@ describe("planLanding", () => {
   });
 
   it("stops short on the nearest lesser prize when there is no ハズレ", () => {
-    // Met in order 3 → 2 → 1 → 0: 2 等, 3 等, 2 等, 1 等.
     const ranked = [slice("first", 1), slice("second", 2), slice("third", 3), slice("second", 2)];
     const second = { prizeId: "second", tier: "win", rank: 2 } as const;
     for (let seed = 0; seed < 50; seed += 1) {
-      // Slice 1 has 3 等 right before it; slice 3 would have to jump over 1 等 and 2 等.
       const plan = planLanding(ranked, second, seeded(seed), { variant: "renda" });
       expect(plan).toMatchObject({ index: 1, variant: "renda", fakeStop: { index: 2 } });
     }
     const first = { prizeId: "first", tier: "jackpot", rank: 1 } as const;
     const jackpot = planLanding(ranked, first, seeded(1), { variant: "renda" });
     expect(jackpot).toMatchObject({ index: 0, fakeStop: { index: 1 } });
-    // Nothing ranks below 3 等, so it crawls in instead.
     const third = { prizeId: "third", tier: "win", rank: 3 } as const;
     const lowest = planLanding(ranked, third, seeded(1), { variant: "renda" });
     expect(lowest).toMatchObject({ index: 2, variant: "crawl", fakeStop: null });

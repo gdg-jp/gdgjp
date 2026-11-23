@@ -89,7 +89,6 @@ describe("onboarding action", () => {
 
     expect(requestMembership).toHaveBeenCalledTimes(2);
     expect(sendJoinRequestSubmitted).toHaveBeenCalledTimes(2);
-    // data() wraps the payload
     const payload =
       result && typeof result === "object" && "data" in result
         ? (result as { data: unknown }).data

@@ -352,9 +352,7 @@ describe("shareArtifactJob", () => {
         return Response.json({
           permissions: [
             { id: "p-owner", type: "user", role: "owner", emailAddress: HOST_EMAIL },
-            // ドットなし異表記で既に共有済み → a.b@gmail.com への重複 createPermission を呼ばない
             { id: "p-dot", type: "user", role: "reader", emailAddress: "ab@gmail.com" },
-            // 手動共有済みの外部アカウント → 決して変更・削除しない
             { id: "p-manual", type: "user", role: "writer", emailAddress: "manual@example.com" },
           ],
         });
@@ -403,7 +401,6 @@ describe("shareArtifactJob", () => {
     const parsedPatchUrl = new URL(calendarPatchUrl);
     expect(parsedPatchUrl.searchParams.get("supportsAttachments")).toBe("true");
     expect(parsedPatchUrl.searchParams.get("sendUpdates")).toBe("none");
-    // attachments 以外の項目（attendees やゲスト可視性 3 項目など）を変更しないことを厳密に固定する。
     expect(Object.keys(calendarPatchBody ?? {})).toEqual(["attachments"]);
     expect(calendarPatchBody).toEqual({
       attachments: [
@@ -537,7 +534,6 @@ describe("shareArtifactJob", () => {
     expect(getArtifact()?.lastError).toContain("400");
     expect(getArtifact()?.lastError).not.toContain("guest@example.com");
 
-    // 403 sharingRateLimitExceeded は恒久エラー扱いせず再試行のため例外を再スローする。
     const rateLimitFixture = await createEnvFixture();
     const fetchRateLimit = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input);
@@ -607,7 +603,6 @@ describe("shareArtifactJob", () => {
         return Response.json({ access_token: "ya29.share", expires_in: 3600 });
       }
       if (url.includes("/permissions") && method === "GET") {
-        // ab@gmail.com は既に共有済み
         return Response.json({
           permissions: [{ id: "p-ab", type: "user", role: "reader", emailAddress: "ab@gmail.com" }],
         });
@@ -642,7 +637,6 @@ describe("shareArtifactJob", () => {
       now: () => new Date("2026-11-20T03:00:00.000Z"),
     });
 
-    // ab@gmail.com（既存権限）と another@example.com（共有成功）は削除され、guest@example.com のみ残る
     expect(getShareFailures()).toEqual([
       {
         artifact_id: "art-1",

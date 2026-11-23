@@ -27,10 +27,6 @@ const requestHandler = createRequestHandler(
 
 type In<K extends keyof ConnpassPrService> = Parameters<ConnpassPrService[K]>[0];
 
-/**
- * pr.gdgs.jp's service binding (`entrypoint = "PrService"`). Each call authorizes its actor with
- * the same group rules as the Bearer API and writes through the same jobs.
- */
 export class PrService extends WorkerEntrypoint<Env> implements ConnpassPrService {
   checkGroup(input: In<"checkGroup">) {
     return prCheckGroup(this.env, input);
@@ -51,13 +47,11 @@ export class PrService extends WorkerEntrypoint<Env> implements ConnpassPrServic
     return prSendMessage(this.env, this.ctx, input);
   }
   async sendGroupMessage(_input: In<"sendGroupMessage">) {
-    // No connpass job sends to a group's members yet (send_event_message reaches one event).
     return { ok: false as const, code: "not_supported" };
   }
   createSubEvent(input: In<"createSubEvent">) {
     return prCreateSubEvent(this.env, this.ctx, input);
   }
-  /** Validated, then `not_supported`: no platform's method is chosen yet (Stage 05 pre-checks). */
   async createListing(input: In<"createListing">) {
     if (!(LISTING_PLATFORMS as readonly string[]).includes(input.platform))
       return { ok: false as const, code: "invalid_platform" };

@@ -15,7 +15,6 @@ import { loadViewerContext } from "~/features/spaces/viewer.server";
 import { getDb } from "~/lib/db.server";
 import { matchSnippet } from "./keyword-snippet";
 
-/** "AI" search mode result: AI Search page hits (no generated answer; the Worker calls no LLM). */
 export type AiRagResult = {
   answer: string;
   ragAvailable: boolean;
@@ -29,7 +28,6 @@ export type AiRagResult = {
     relevanceScore: number;
     matchedChunks: Array<{ text: string; sectionHeading: string | null }>;
     wikiPath: string;
-    /** Parent chain (root first), for the breadcrumb under the title. */
     ancestors: Breadcrumb[];
     spaceName: string;
   }>;
@@ -37,12 +35,10 @@ export type AiRagResult = {
 
 export type Breadcrumb = { titleJa: string; titleEn: string };
 
-/** Parents only (root first), never the page itself. */
 export function parentCrumbs(chain: WikiAncestor[] | undefined): Breadcrumb[] {
   return (chain ?? []).slice(0, -1).map(({ titleJa, titleEn }) => ({ titleJa, titleEn }));
 }
 
-/** Names of the spaces a listing may contain, so results from other spaces say where they are. */
 async function spaceNamesById(db: ReturnType<typeof getDb>, viewer: { access: SpaceAccessLike }) {
   const rows = await listAccessibleSpaces(db, viewer.access as never);
   return new Map(rows.map((space) => [space.id, { slug: space.slug, name: space.name }]));
@@ -54,12 +50,10 @@ function escapeLike(value: string): string {
   return value.replace(/[\\%_]/g, (c) => `\\${c}`);
 }
 
-/** Strip FTS5 special operators to prevent query injection */
 function sanitizeFtsQuery(raw: string): string {
   return raw.replace(/[*"():^{}~<>|]/g, "").trim();
 }
 
-/** Data assembly behind the `/search` loader (keyword FTS + streamed AI RAG). */
 export async function loadWikiSearch(request: Request, env: Env, spaceSlug?: string) {
   const url = new URL(request.url);
   const q = url.searchParams.get("q")?.trim() ?? "";
@@ -70,13 +64,10 @@ export async function loadWikiSearch(request: Request, env: Env, spaceSlug?: str
   const db = getDb(env);
 
   const viewer = await loadViewerContext(request, env, identity);
-  // `/s/:space/search` searches one space; `/search` every reachable space.
   const scopedId = spaceSlug
     ? (await requireSpace(request, env, spaceSlug, "viewer", identity)).space.id
     : null;
-  // The empty state says when the reader's own setting hid agent pages from the results.
   const hideAgentPages = viewer.hideAgentPages;
-  // `/search` lists pages from every reachable space: each result then names its space.
   const scoped = Boolean(spaceSlug);
   const spaceNames = scoped ? null : await spaceNamesById(db, viewer);
   const spaceNameOf = (spaceId: string) => (scoped ? "" : (spaceNames?.get(spaceId)?.name ?? ""));
@@ -112,8 +103,6 @@ export async function loadWikiSearch(request: Request, env: Env, spaceSlug?: str
       .all();
   }
 
-  // "AI" mode — Cloudflare AI Search over the spaces the reader can reach (Stage 03). No
-  // answer is generated here: the Worker never calls an LLM; agents answer in Discord.
   if (mode === "ai" && q) {
     const spaceIds = (scopedId ? [scopedId] : viewer.visibleSpaceIds).slice(0, MAX_SEARCH_SPACES);
     const ragResult: Promise<AiRagResult> = searchForReader(env, db, identity, {
@@ -155,7 +144,6 @@ export async function loadWikiSearch(request: Request, env: Env, spaceSlug?: str
 
   const allTags = await allTagsPromise;
 
-  // Case A: tag only (no text query)
   if (!q && tag) {
     const pages = await db
       .select({
@@ -212,12 +200,9 @@ export async function loadWikiSearch(request: Request, env: Env, spaceSlug?: str
     };
   }
 
-  // Case B: no query at all
   if (!q && !tag)
     return { hideAgentPages, scoped, q: "", tag: "", mode, allTags, results: [], ragResult: null };
 
-  // Case B/C: text query (with or without tag). Every word must match somewhere in the
-  // page ("DevFest Kansai 2026 会場費" is four terms, not one phrase).
   const sanitized = sanitizeFtsQuery(q);
   const terms = sanitized.split(/\s+/).filter(Boolean);
   if (!sanitized || terms.length === 0)
@@ -237,8 +222,6 @@ export async function loadWikiSearch(request: Request, env: Env, spaceSlug?: str
   const summaryHasAllTerms = sql`CASE WHEN (${allTermsIn(schema.pages.summaryJa)})
     OR (${allTermsIn(schema.pages.summaryEn)}) THEN 0 ELSE 1 END`;
 
-  // Filters go into the same query as the match, before the limit: cutting the FTS hits to
-  // 50 first let pages in other spaces (or hidden ones) crowd out the reader's own.
   const tagFilter = tag
     ? sql`${schema.pages.id} IN (SELECT page_id FROM page_tags WHERE tag_slug = ${tag})`
     : undefined;
@@ -255,9 +238,6 @@ export async function loadWikiSearch(request: Request, env: Env, spaceSlug?: str
     contentEn: schema.pages.contentEn,
   };
 
-  // Title matches first, then summary matches, then pages that only mention the terms in
-  // their body; newest first within a tier. (The trigram FTS index never covered bodies and
-  // cannot express "all words anywhere", so plain LIKE does the work over the reader's pages.)
   const rows = await db
     .select(columns)
     .from(schema.pages)
@@ -267,8 +247,6 @@ export async function loadWikiSearch(request: Request, env: Env, spaceSlug?: str
     .all();
   const orderedPages = rows.map(({ contentJa, contentEn, ...page }) => ({
     ...page,
-    // The place the first term appears, so the card shows why it matched.
-    // From the body only: the summary is already on the card.
     matchSnippet: matchSnippet([contentJa, contentEn], terms),
   }));
 

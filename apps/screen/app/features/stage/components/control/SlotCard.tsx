@@ -5,7 +5,6 @@ import { TrackVideo } from "~/features/rtc/components/TrackVideo";
 import { useLevel } from "~/features/rtc/use-level";
 import type { Peer, Slot } from "../../protocol";
 
-/** One output slot: exactly what that slot's OBS sources show. */
 export function SlotCard({
   slot,
   peer,

@@ -6,9 +6,6 @@ import { getAccessIdentity, requireUser } from "~/features/auth/utils.server";
 import { getEffectivePagePermissions } from "~/features/pages/access.server";
 import { getDb } from "~/lib/db.server";
 
-// ---------------------------------------------------------------------------
-// GET — list teams for a task list
-// ---------------------------------------------------------------------------
 export async function loader({ request, params, context }: LoaderFunctionArgs) {
   const { env } = context.cloudflare;
   const user = await requireUser(request, env);
@@ -42,9 +39,6 @@ export async function loader({ request, params, context }: LoaderFunctionArgs) {
   return Response.json({ teams });
 }
 
-// ---------------------------------------------------------------------------
-// POST — create/update/delete teams
-// ---------------------------------------------------------------------------
 export async function action({ request, params, context }: ActionFunctionArgs) {
   const { env } = context.cloudflare;
   const user = await requireUser(request, env);
@@ -54,7 +48,6 @@ export async function action({ request, params, context }: ActionFunctionArgs) {
   const { taskListId } = params;
   if (!taskListId) return Response.json({ error: "Missing taskListId" }, { status: 400 });
 
-  // Only list author, leads, admins can manage teams
   const listPage = await db
     .select({
       id: schema.pages.id,

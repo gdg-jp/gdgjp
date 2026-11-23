@@ -21,7 +21,6 @@ const OPEN = ["planned", "drafting", "in_review", "needs_approval"];
 const MAX_CAMPAIGNS = 40;
 const SOON = 3 * 86_400;
 
-/** What waits on people in one campaign, what the assistant proposes, today and what is running. */
 export async function campaignNotices(
   env: Env,
   campaign: Campaign,
@@ -201,7 +200,7 @@ export async function campaignNotices(
   const failedTypes = new Set<string>();
   for (const job of jobs) {
     if (failedTypes.has(job.type)) continue;
-    failedTypes.add(job.type); // only the newest job of each type counts
+    failedTypes.add(job.type);
     if (job.status !== "failed" || (job.finishedAt ?? 0) < now - SOON) continue;
     add({
       key: `job:${job.id}`,
@@ -272,12 +271,10 @@ export async function campaignNotices(
   );
 }
 
-/** Every live campaign of the sidebar's chapter, plus the chapter's Playbook proposals. */
 export async function chapterNotices(
   env: Env,
   viewer: Viewer & { chapterId: number },
 ): Promise<Notice[]> {
-  // The events still being worked on, newest first; a chapter never has dozens live at once.
   const campaigns = (await listCampaignsForChapters(env.DB, [viewer.chapterId]))
     .filter((c) => c.status !== "closed")
     .sort((a, b) => b.updatedAt - a.updatedAt)

@@ -39,23 +39,19 @@ export default function Controller({ loaderData }: Route.ComponentProps) {
 function TrackChannels() {
   const confirm = useConfirm();
   const [tab, setTab] = useState(tracks[0] ?? "");
-  // Each tab remembers its own window scroll position.
   const scroll = useRef<Record<string, number>>({});
 
   useLayoutEffect(() => {
     try {
       const saved = sessionStorage.getItem(TAB_KEY);
       if (saved && tracks.includes(saved)) setTab(saved);
-    } catch {
-      // ignore
-    }
+    } catch {}
   }, []);
 
   useLayoutEffect(() => {
     window.scrollTo({ top: scroll.current[tab] ?? 0, behavior: "instant" });
   }, [tab]);
 
-  // Switching tracks switches which streaming PC this screen controls.
   const changeTab = async (next: string) => {
     if (next === tab) return;
     const ok = await confirm({
@@ -67,21 +63,11 @@ function TrackChannels() {
     setTab(next);
     try {
       sessionStorage.setItem(TAB_KEY, next);
-    } catch {
-      // ignore
-    }
+    } catch {}
   };
 
-  // The selected track is also the channel: track A's controller only ever
-  // talks to track A's player. Re-keying drops the previous channel entirely.
   return (
-    <Tabs
-      value={tab}
-      onValueChange={changeTab}
-      // Arrow keys only move focus; switching (and its confirmation) needs Enter/click.
-      activationMode="manual"
-      className="mc-app"
-    >
+    <Tabs value={tab} onValueChange={changeTab} activationMode="manual" className="mc-app">
       <ControllerProvider key={tab} track={tab}>
         <ClipEditorProvider>
           <ControllerScreen />

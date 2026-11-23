@@ -130,7 +130,6 @@ export default function AssigneeCell({
             style={{ position: "absolute", top: pos.top, left: pos.left, minWidth: pos.width }}
             className="z-[9999] overflow-hidden rounded-md border border-border bg-surface shadow-lg"
           >
-            {/* Search input */}
             <div className="border-b border-border px-2 py-1.5">
               <input
                 ref={searchInputRef}
@@ -152,7 +151,6 @@ export default function AssigneeCell({
               />
             </div>
             <div className="py-1">
-              {/* Clear option */}
               <button
                 type="button"
                 onClick={(e) => {
@@ -165,7 +163,6 @@ export default function AssigneeCell({
                 <span>—</span>
               </button>
 
-              {/* Registered members */}
               {filteredMembers.map((m) => {
                 const isSelected = m.id === assigneeId;
                 return (
@@ -196,7 +193,6 @@ export default function AssigneeCell({
                 );
               })}
 
-              {/* "Use as assignee" synthetic row */}
               {showUseAs && (
                 <button
                   type="button"
@@ -216,7 +212,6 @@ export default function AssigneeCell({
         )
       : null;
 
-  // Trigger label
   let triggerContent: React.ReactNode;
   if (assignedMember) {
     triggerContent = (

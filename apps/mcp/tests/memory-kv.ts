@@ -1,4 +1,3 @@
-/** In-memory KVNamespace with the subset workers-oauth-provider uses (get / put / delete / list). */
 export function memoryKv(): KVNamespace {
   const store = new Map<string, { value: string; metadata?: unknown }>();
   const kv = {

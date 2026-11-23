@@ -6,7 +6,6 @@ import * as z from 'zod/v4';
 import { checkDesign, htmlSourceSchema, loadHarness, readResource, resolveContext, searchDesign } from './core.mjs';
 
 const root = fileURLToPath(new URL('.', import.meta.url));
-// A process serves one immutable snapshot. Restart after accepted authority changes.
 const harness = loadHarness(root);
 const server = new McpServer({ name: 'design-harness-starter', version: '0.1.0' }, {
   instructions: 'Read harness://design/design.entry. Resolve a scenario before implementation. Check generated HTML; mechanical success leaves contextual review open. Restart after authority changes.',

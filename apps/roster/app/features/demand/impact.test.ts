@@ -27,19 +27,11 @@ describe("demandLossOnSlotChange", () => {
     expect(result).toEqual({ lostCount: 0, lostSlotIds: [] });
   });
 
-  /**
-   * docs/roster/03-demand-input.md "回帰として固定すべきテスト": lostCount
-   * must match the number of demand rows that actually disappear — an
-   * undercount here would let an owner confirm a step-size change and
-   * silently lose demand data they were told was safe.
-   */
   it("counts every demand row hanging off a slot whose key disappears", () => {
     const existing = [
       { id: "slot_1", start: "09:00", end: "10:00" },
       { id: "slot_2", start: "10:00", end: "11:00" },
     ];
-    // Changing step size from 60 to 30 min regenerates the grid with a
-    // different set of (start, end) keys entirely.
     const next = [
       { start: "09:00", end: "09:30" },
       { start: "09:30", end: "10:00" },
@@ -161,18 +153,9 @@ describe("demandLossByStepMinOption", () => {
     expect(Object.keys(result).sort()).toEqual(["15", "30"]);
   });
 
-  /**
-   * This is the exact gap the stage doc's manual E2E step 10 and
-   * completion condition #7 describe: the real "イベント設定" step-size
-   * select must be able to warn *before* its own submit goes through, not
-   * only via a separate, disconnected preview. This function is what makes
-   * that possible without a server round trip at submit time.
-   */
   it("reports lostCount per candidate option, matching demandLossOnSlotChange for that option", () => {
     const demands = [demand("slot_1"), demand("slot_2")];
     const result = demandLossByStepMinOption(event, [], existingSlots, demands, [15, 30, 60]);
-    // 60 -> 30/15 min regenerates the grid with entirely different
-    // (start, end) keys, so both existing slots' demand is lost either way.
     expect(result[30]).toBe(2);
     expect(result[15]).toBe(2);
   });

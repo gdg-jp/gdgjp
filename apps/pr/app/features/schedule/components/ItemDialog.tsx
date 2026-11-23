@@ -47,7 +47,6 @@ function Choice({
   );
 }
 
-/** Add or edit one schedule item. */
 export function ItemDialog({
   open,
   onOpenChange,

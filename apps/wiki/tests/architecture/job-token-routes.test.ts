@@ -3,10 +3,6 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
-/**
- * Answer-job tokens (Stage 05) read the wiki as one asker for 10 minutes. They are accepted
- * only by the two read routes the runner's MCP tools call; never by /sync or any writer.
- */
 const WIKI_ROOT = fileURLToPath(new URL("../../", import.meta.url));
 function files(dir: string): string[] {
   return readdirSync(join(WIKI_ROOT, dir), { withFileTypes: true }).flatMap((entry) =>

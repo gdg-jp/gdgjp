@@ -2,7 +2,6 @@ import { getAsset } from "~/features/assets/asset.repository.server";
 import { requireCampaignAccess } from "~/features/campaigns/access.server";
 import type { Route } from "./+types/image";
 
-/** The rendered PNG from R2, for campaign members only. */
 export async function loader({ request, context, params }: Route.LoaderArgs) {
   const env = context.cloudflare.env;
   const access = await requireCampaignAccess(env, request, params.slug);

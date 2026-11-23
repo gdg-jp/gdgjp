@@ -11,10 +11,8 @@ import {
   upsertGoogleSubscription,
 } from "./subscription.repository.server";
 
-/** 残りがこれ未満になった購読は延長する。 */
 export const SUBSCRIPTION_RENEW_THRESHOLD_MS = 2 * 24 * 60 * 60 * 1000;
 
-/** 本番で購読する Workspace Events の 4 イベント型。 */
 export const WORKSPACE_EVENT_TYPES = [
   "google.workspace.meet.conference.v2.ended",
   "google.workspace.meet.recording.v2.fileGenerated",
@@ -37,7 +35,6 @@ export function matchesDesiredSubscription(
   );
 }
 
-/** 延長（patch）が「購読が期限切れ・削除済み」で失敗したとみなせるか。 */
 export function isExpiredOrMissingSubscriptionError(error: GoogleApiError): boolean {
   return (
     error.httpStatus === 400 ||
@@ -48,7 +45,6 @@ export function isExpiredOrMissingSubscriptionError(error: GoogleApiError): bool
   );
 }
 
-/** 取得（get）で購読が見つからなかったか。 */
 export function isSubscriptionNotFoundError(error: unknown): boolean {
   return (
     error instanceof GoogleApiError &&
@@ -60,7 +56,6 @@ export function isAlreadyExistsError(error: GoogleApiError): boolean {
   return error.httpStatus === 409 || error.apiStatus === "ALREADY_EXISTS";
 }
 
-/** 有効期限が不明、または残り `SUBSCRIPTION_RENEW_THRESHOLD_MS` 未満なら true。 */
 export function needsRenewal(expireTime: string | undefined, now: Date): boolean {
   const expireMs = expireTime ? Date.parse(expireTime) : Number.NaN;
   return !Number.isFinite(expireMs) || expireMs < now.getTime() + SUBSCRIPTION_RENEW_THRESHOLD_MS;
@@ -128,7 +123,6 @@ export async function extendAndSaveSubscription(
   return upsertGoogleSubscription(db, toSubscriptionRecord(extended, nowIso, fallbackExpireTime));
 }
 
-/** SUSPENDED の購読を `reactivate` で ACTIVE に戻して保存する（有効期限は変わらない）。 */
 export async function reactivateAndSaveSubscription(
   db: D1Database,
   accessToken: string,

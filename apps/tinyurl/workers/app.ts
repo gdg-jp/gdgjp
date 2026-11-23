@@ -44,7 +44,6 @@ function isApexRedirect(request: Request, env: Env): { slug: string; hostname: s
   return null;
 }
 
-/** pr.gdgs.jp's service binding (`entrypoint = "PrService"`). Each call authorizes its actor. */
 export class PrService extends WorkerEntrypoint<Env> implements TinyurlPrService {
   ensureCampaign(input: Parameters<TinyurlPrService["ensureCampaign"]>[0]) {
     return prEnsureCampaign(this.env, input);

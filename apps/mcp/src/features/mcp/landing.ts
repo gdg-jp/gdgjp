@@ -2,7 +2,6 @@ import type { Env } from "../../env";
 import { escapeHtml, htmlPage } from "../oauth/consent-page";
 import { mcpResource } from "../oauth/server";
 
-/** `GET /` — what this is and how to connect a client. */
 export function landingPage(env: Pick<Env, "APP_URL">): Response {
   const url = escapeHtml(mcpResource(env));
   return htmlPage(

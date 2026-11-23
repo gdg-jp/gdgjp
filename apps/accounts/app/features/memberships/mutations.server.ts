@@ -31,8 +31,6 @@ export async function requestMembership(
     const looksLikeConstraint =
       msg.includes("UNIQUE") || msg.includes("CONSTRAINT") || code === "SQLITE_CONSTRAINT";
     if (looksLikeConstraint) {
-      // Confirm it's the (user_id, chapter_id) PK collision rather than a FK or
-      // CHECK failure (e.g., chapter deleted between the pre-check and INSERT).
       const dup = await db
         .prepare("SELECT 1 AS ok FROM memberships WHERE user_id = ? AND chapter_id = ?")
         .bind(userId, chapterId)
@@ -46,11 +44,6 @@ export async function requestMembership(
 
 export type InviteJoinResult = "joined" | "already_member";
 
-/**
- * Joins a chapter through an organizer-issued invite: no approval step. A
- * pending request is promoted to active; an existing active membership keeps
- * its role (an organizer opening their own link is not demoted).
- */
 export async function joinMembershipViaInvite(
   db: D1Database,
   userId: string,
@@ -132,7 +125,6 @@ export async function removeMembership(
 
 export type ProtectedMembershipMutationResult = "updated" | "last_active_organizer" | "not_found";
 
-/** Demotes an active organizer only when another active organizer remains. */
 export async function demoteMembershipUnlessLastOrganizer(
   db: D1Database,
   userId: string,
@@ -159,7 +151,6 @@ export async function demoteMembershipUnlessLastOrganizer(
   return changes > 0 ? "updated" : "last_active_organizer";
 }
 
-/** Removes a membership only when doing so keeps an active organizer in the chapter. */
 export async function removeMembershipUnlessLastOrganizer(
   db: D1Database,
   userId: string,
@@ -188,14 +179,6 @@ export async function removeMembershipUnlessLastOrganizer(
 
 export type SelfLeaveResult = "deleted" | "last_active_organizer" | "not_found";
 
-/**
- * Atomic self-leave: deletes the user's membership only when removing it
- * would not leave the chapter without any active organizer.
- * - "deleted": the row was removed.
- * - "last_active_organizer": the row exists and the caller is the last active
- *   organizer; the DELETE was a no-op.
- * - "not_found": no membership row for (userId, chapterId) exists.
- */
 export async function removeOwnMembershipUnlessLastOrganizer(
   db: D1Database,
   userId: string,

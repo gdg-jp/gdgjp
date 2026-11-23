@@ -1,7 +1,5 @@
-/** Where applications stand against the brief's goal curve (the weekly meeting's first slide). */
 export type GoalPoint = { date: string; applications: number };
 
-/** Linear interpolation of the goal curve at a date (before the first point: 0 → first). */
 export function goalAt(curve: GoalPoint[], date: string): number | null {
   const points = [...curve].sort((a, b) => a.date.localeCompare(b.date));
   if (!points.length) return null;

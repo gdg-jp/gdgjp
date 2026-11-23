@@ -14,32 +14,24 @@ describe("selectEvictions", () => {
   });
 
   it("evicts exactly the oldest N seqs to settle back at the limit", () => {
-    // 51 entries (seq 1..51), cursor at the newest (51) — must evict seq 1.
     const seqs = seqRange(RETENTION_LIMIT + 1);
     expect(selectEvictions(seqs, RETENTION_LIMIT + 1, RETENTION_LIMIT)).toEqual([1]);
   });
 
   it("evicts oldest-first regardless of the input array's order", () => {
-    // 53 seqs total (1..5 plus 6..53), shuffled — oldest 3 (1,2,3) must go.
     const seqs = [...seqRange(RETENTION_LIMIT - 2, 6), 5, 1, 3, 4, 2];
     const evictions = selectEvictions(seqs, 53, RETENTION_LIMIT);
-    expect(evictions).toEqual([1, 2, 3]); // 53 - 50 = 3 to evict, oldest first
+    expect(evictions).toEqual([1, 2, 3]);
   });
 
   it("never evicts the seq the cursor points at, even if it is among the oldest", () => {
-    // 51 entries, but the cursor is (unusually) parked on the oldest one.
     const seqs = seqRange(RETENTION_LIMIT + 1);
     const evictions = selectEvictions(seqs, 1, RETENTION_LIMIT);
     expect(evictions).not.toContain(1);
-    // Next-oldest (2) is evicted instead so the count still settles at the limit.
     expect(evictions).toEqual([2]);
   });
 
   it("protects the cursor even when it is the only entry, leaving the table over cap", () => {
-    // Contrived limit (0) to isolate the protection mechanism itself: with a
-    // single seq that is also the cursor, there is nothing else in the
-    // evictable pool to reach for — eviction must come back empty rather
-    // than ever touching the cursor's row.
     expect(selectEvictions([1], 1, 0)).toEqual([]);
   });
 

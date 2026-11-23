@@ -103,10 +103,6 @@ export async function createDraft(
   return id;
 }
 
-/**
- * Append a version (never UPDATE content) and move the draft to `status`. The schedule item
- * follows when `itemStatus` is given.
- */
 export async function appendVersion(
   db: D1Database,
   draftId: number,
@@ -321,7 +317,6 @@ export async function updateDraftPeople(
     .run();
 }
 
-/** The image a person attached for delivery (sent to sns with the post). */
 export async function setDispatchMedia(db: D1Database, draftId: number, url: string | null) {
   await db
     .prepare("UPDATE drafts SET dispatch_media_url = ?, updated_at = unixepoch() WHERE id = ?")

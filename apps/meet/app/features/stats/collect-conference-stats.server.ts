@@ -89,10 +89,6 @@ function mapMeetParticipantKind(participant: MeetParticipant): {
   return { kind: "anonymous", googleUser: null, displayName: null };
 }
 
-/**
- * `collect_conference_stats` ジョブ本体。
- * 完了済み（`collected` / `skipped` / `expired`）レコードには一切 Meet API を呼ばず終了する。
- */
 export async function collectConferenceStatsJob(
   env: Env,
   input: CollectConferenceStatsInput,

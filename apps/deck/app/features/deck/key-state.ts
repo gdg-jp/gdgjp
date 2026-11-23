@@ -2,7 +2,6 @@ import { actionIsOn, actionVolumeDb } from "~/features/obs/actions";
 import type { ObsState } from "~/features/obs/state";
 import type { Key } from "./model";
 
-/** Whether a key shows as "on" right now; null when it has no state. */
 export function keyIsOn(
   key: Key,
   obs: ObsState,
@@ -28,7 +27,6 @@ export function formatDb(db: number): string {
   return db <= -100 ? "-∞ dB" : `${db.toFixed(1)} dB`;
 }
 
-/** Small live text under the title: output timers and volume levels. */
 export function keyBadge(key: Key, obs: ObsState, now: number): string | null {
   const b = key.behavior;
   if (b.type !== "action" || !obs.connected) return null;

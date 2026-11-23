@@ -3,7 +3,6 @@ import * as schema from "~/db/schema";
 import { getCliOrRunnerIdentity } from "~/features/agent-api/runner-identity.server";
 import { getDb } from "~/lib/db.server";
 
-/** GET /api/cli/wiki/chat-senders — resourceName → displayName map for gdg wiki raw. */
 export async function loader({ request, context }: LoaderFunctionArgs) {
   const { env } = context.cloudflare;
   const identity = await getCliOrRunnerIdentity(request, env);

@@ -28,7 +28,6 @@ describe("collectDocuments", () => {
     const result = documents(document);
 
     expect(result).toHaveLength(1);
-    // The /google-docs workspace adapter would return "会場メモ梅田で開催した。" here.
     expect(result[0]?.path).toBe("index");
     expect(result[0]?.markdown).toContain("# 会場メモ");
   });
@@ -55,8 +54,6 @@ describe("collectDocuments", () => {
       ],
     } as GoogleDocsDocument);
 
-    // The document title stays out of the path so renaming the Doc keeps paths stable,
-    // and duplicate sibling titles are disambiguated to protect (source_id, path).
     expect(result.map((doc) => doc.path)).toEqual(["議事録", "議事録/第 1 回", "議事録 (2)"]);
   });
 

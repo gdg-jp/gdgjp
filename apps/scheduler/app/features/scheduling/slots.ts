@@ -26,7 +26,6 @@ export function minutesToTime(m: number): string {
   return `${String(h).padStart(2, "0")}:${String(mm).padStart(2, "0")}`;
 }
 
-// Yields every meeting start that fully fits within [start, end).
 export function generateSlotTimes(start: string, end: string, lengthMin: number): string[] {
   const s = timeToMinutes(start);
   const e = timeToMinutes(end);
@@ -40,17 +39,12 @@ export function generateSlotTimes(start: string, end: string, lengthMin: number)
 export type TimeRange = { start: string; end: string };
 export type DayRanges = { ranges: TimeRange[] };
 
-// 00:00..23:45 in 15-minute steps. 15 min matches the smallest meeting length,
-// so every option is a valid start/end for any supported MEETING_LENGTH_OPTIONS.
 export const TIME_OPTIONS: string[] = (() => {
   const out: string[] = [];
   for (let m = 0; m < 24 * 60; m += 15) out.push(minutesToTime(m));
   return out;
 })();
 
-// Groups each day's slots into contiguous ranges. Slots are contiguous when the
-// gap between consecutive starts is exactly lengthMin (no missing slot in
-// between). A range's end is the last slot's start + lengthMin.
 export function deriveDayRanges(
   slots: { dayOfWeek: number; startTime: string }[],
   lengthMin: number,

@@ -8,8 +8,6 @@ export async function loadSignin({ request, context }: RouteRequestArgs) {
   const t = await i18n.getFixedT(request);
   const url = new URL(request.url);
   const returnTo = safeReturnTo(url.searchParams.get("return_to")) ?? "/dashboard";
-  // Resume an OAuth authorization request when the provider sent the user here.
-  // A normal, first-party sign-in still jumps straight to return_to.
   const session = await getSessionUser(env, request);
   if (session) throw redirect(signedInDestination(url.searchParams));
   return { title: t("meta.signin"), returnTo };

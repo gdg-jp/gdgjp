@@ -20,10 +20,6 @@ function e2ePersistence(command: string) {
   return undefined;
 }
 
-/**
- * The Playbook is bundled from the gdg-jp/skills submodule. A build without it would ship
- * a pr app with no rules, so fail instead of falling back to an empty playbook.
- */
 function playbookVersion(): string {
   try {
     return execFileSync("git", ["-C", `${repoRoot}/skills`, "rev-parse", "--short", "HEAD"], {
@@ -36,10 +32,6 @@ function playbookVersion(): string {
   }
 }
 
-/**
- * `pnpm dev` (and e2e) talk to local stand-ins for sns and tinyurl's PrService. Set
- * PR_REAL_SERVICES=1 to resolve SNS / TINYURL / CONNPASS through the dev registry to real dev servers.
- */
 const mockServices = (command: string) =>
   command === "serve" && !process.env.PR_REAL_SERVICES
     ? [
@@ -66,8 +58,6 @@ export default defineConfig(({ command }) => ({
     reactRouter(),
     tailwindcss(),
   ],
-  // `@gdgjp/gdg-lib` is consumed as source; dedupe React so hydration sees one
-  // copy (same block as ost/roster/mc/screen/roulette).
   resolve: { tsconfigPaths: true, dedupe: ["react", "react-dom", "react-router"] },
   // Pre-bundle the linked UI package before requests arrive (same as accounts).
   // Discovering its dependencies on the first page load re-optimizes and

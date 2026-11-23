@@ -1,6 +1,3 @@
-// Augments the wrangler-generated Env with secrets, and registers the
-// AppLoadContext shape consumed by react-router.
-
 declare module "react-router" {
   interface AppLoadContext {
     cloudflare: {
@@ -13,7 +10,6 @@ declare module "react-router" {
 declare global {
   interface Env {
     GOOGLE_CLIENT_SECRET: string;
-    /** AES-GCM key for separately linked Google Workspace refresh tokens. */
     GOOGLE_WORKSPACE_ENCRYPTION_KEY: string;
     TINYURL_CLIENT_SECRET: string;
     WIKI_CLIENT_SECRET: string;
@@ -33,9 +29,7 @@ declare global {
     MEET_CLIENT_SECRET: string;
     RESEND_API_KEY?: string;
     EMAIL_FROM?: string;
-    /** Better Auth encryption/signing secret. Set with wrangler secret put. */
     BETTER_AUTH_SECRET: string;
-    /** Enables isolated test-only setup for the local E2E environment. */
     E2E_TEST_MODE?: string;
   }
 }

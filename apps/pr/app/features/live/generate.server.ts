@@ -15,7 +15,6 @@ import { type LivePost, livePostsFromTimetable } from "./live-posts-from-timetab
 
 const LOCKED = ["dispatching", "scheduled", "done", "skipped"];
 
-/** The draft content of a live post (pr-x-post's shape), so the usual review and dispatch apply. */
 export function liveDraftContent(post: LivePost) {
   return {
     channel: "x",
@@ -39,10 +38,6 @@ export function liveDraftContent(post: LivePost) {
   };
 }
 
-/**
- * Timetable → live_post items and drafts (no LLM). Regenerating after a timetable change moves
- * and rewrites what has not gone out yet, and never touches scheduled or done posts.
- */
 export async function generateLivePosts(
   env: Env,
   access: CampaignAccess,

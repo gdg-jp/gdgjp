@@ -31,9 +31,7 @@ export function ItemRow({
   pending: string[];
   people: Record<string, string>;
   onEdit: (item: ScheduleItem) => void;
-  /** When set, a checkbox submits this item's id with that form (draftable posts only). */
   selectForm?: string;
-  /** The item's draft, when it has one. */
   draftHref?: string;
 }) {
   const blocked = pending.length > 0;

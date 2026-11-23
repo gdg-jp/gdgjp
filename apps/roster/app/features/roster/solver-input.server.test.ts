@@ -141,8 +141,6 @@ describe("buildSolverInput", () => {
   });
 
   it("is deterministic: two calls against unchanged data produce identically-ordered output", async () => {
-    // Insert out of any "natural" order so a naive un-ordered SELECT would
-    // be exposed by this test.
     await seedApplication(testDb, "app_z");
     await seedApplication(testDb, "app_a");
     await seedApplication(testDb, "app_m");

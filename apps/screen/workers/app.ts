@@ -18,12 +18,6 @@ const requestHandler = createRequestHandler(
 
 const PEER_ID_RE = /^[A-Za-z0-9_-]{8,64}$/;
 
-/**
- * Who is calling, from one of:
- *   - `invite:<stageId>` speaker (the invite link is the stage id)
- *   - `output:<token>`  OBS Browser Source
- *   - session cookie    operator (chapter member)
- */
 async function authorize(
   env: Env,
   request: Request,

@@ -11,7 +11,6 @@ import { type DeckRow, getDeck, isDeckId } from "./decks.server";
 
 export type DeckAccess = { user: AuthUser; chapters: UserChapter[]; deck: DeckRow };
 
-/** A signed-in member of the chapter that owns the deck; 404 otherwise (no existence leak). */
 export async function requireDeck(
   env: Env,
   request: Request,
@@ -25,11 +24,6 @@ export async function requireDeck(
   return { user, chapters, deck };
 }
 
-/**
- * Non-throwing gate for the controller WebSocket upgrade. A signed session is
- * mandatory; if the IdP is briefly unreachable, an already signed-in member
- * may still reconnect mid-event (the page load itself checked membership).
- */
 export async function canUseDeck(
   env: Env,
   request: Request,

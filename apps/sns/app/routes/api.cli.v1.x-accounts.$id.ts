@@ -11,8 +11,6 @@ import { getXAccount } from "~/features/x-accounts/x-account.repository.server";
 import { XAccountError, revokeXAccount } from "~/features/x-accounts/x-account.service.server";
 import type { Route } from "./+types/api.cli.v1.x-accounts.$id";
 
-// Action-only route: a GET/HEAD never reaches `action`, so answer it here with
-// the same JSON 405 the HTTP boundary promises.
 export function loader(_args: Route.LoaderArgs) {
   return cliMethodNotAllowed();
 }
@@ -22,7 +20,6 @@ export async function action(args: Route.ActionArgs) {
   const env = args.context.cloudflare.env;
   const id = args.params.id ?? "";
 
-  // Authorize against the account's own chapter, never a caller-supplied one.
   const account = await getXAccount(env.DB, id);
   if (!account) return cliError("not_found", 404);
 

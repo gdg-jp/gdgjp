@@ -1,12 +1,3 @@
-/**
- * OBS actions a key can run: the Elgato "OBS Studio" plugin's set, plus
- * hotkeys by name and raw obs-websocket requests.
- *
- * Scenes and sources are referenced by name with the UUID kept alongside
- * (`Ref`): a duplicated deck keeps working on another OBS by name, and a
- * rename on the same OBS is still found by UUID (the editor then warns).
- */
-
 import type { ObsState } from "./state";
 
 export type Ref = { name: string; uuid: string | null };
@@ -46,7 +37,6 @@ export type ObsAction =
   | { op: "transition"; name: string; durationMs: number | null }
   | { op: "media"; input: Ref; media: MediaOp }
   | { op: "mute"; input: Ref; mode: MuteMode }
-  /** `step` nudges by `db`; `slider` opens a slider on the phone; `set` jumps to `db`. */
   | { op: "volume"; input: Ref; mode: "step" | "set" | "slider"; db: number }
   | { op: "hotkey"; name: string }
   | { op: "raw"; requestType: string; requestData: string };
@@ -117,7 +107,6 @@ function db(value: unknown, fallback: number): number {
   return Math.round(Math.min(26, Math.max(-100, n)) * 10) / 10;
 }
 
-/** Validates one client-supplied action; null drops it. */
 export function parseAction(value: unknown): ObsAction | null {
   if (!isRecord(value)) return null;
   switch (value.op) {
@@ -205,7 +194,6 @@ export function parseAction(value: unknown): ObsAction | null {
   }
 }
 
-/** Default action for a newly picked op in the editor. */
 export function defaultAction(op: ActionOp): ObsAction {
   const empty: Ref = { name: "", uuid: null };
   switch (op) {
@@ -246,17 +234,13 @@ export function defaultAction(op: ActionOp): ObsAction {
   }
 }
 
-/** Starting/stopping the stream or the recording: the editor defaults these to hold-to-confirm. */
 export function isDangerous(action: ObsAction): boolean {
   return (action.op === "stream" || action.op === "record") && action.mode !== "on";
 }
 
-/** Push-to-talk / push-to-mute keys act on press and on release. */
 export function isMomentary(action: ObsAction): boolean {
   return action.op === "mute" && (action.mode === "pushToMute" || action.mode === "pushToTalk");
 }
-
-// ─── resolving refs against the live OBS ──────────────────────────────────
 
 export type Resolved = { name: string; renamed: boolean } | null;
 
@@ -273,12 +257,10 @@ export function resolveInput(r: Ref, state: ObsState): Resolved {
   return hit ? { name: hit[0], renamed: true } : null;
 }
 
-/** A scene or an input (filters and screenshots take either). */
 export function resolveSource(r: Ref, state: ObsState): Resolved {
   return resolveScene(r, state) ?? resolveInput(r, state);
 }
 
-/** Refs an action uses that the current OBS does not have (by name or UUID), for editor warnings. */
 export function missingRefs(action: ObsAction, state: ObsState): string[] {
   const out: string[] = [];
   const check = (r: Ref | null, resolve: (r: Ref, s: ObsState) => Resolved, label: string) => {
@@ -310,12 +292,6 @@ export function missingRefs(action: ObsAction, state: ObsState): string[] {
   return out;
 }
 
-// ─── key state ────────────────────────────────────────────────────────────
-
-/**
- * Whether the action's key shows as "on": the live scene, a running output,
- * a muted input, a visible source… null for actions without a state.
- */
 export function actionIsOn(action: ObsAction, state: ObsState): boolean | null {
   if (!state.connected) return null;
   switch (action.op) {
@@ -368,7 +344,6 @@ export function actionIsOn(action: ObsAction, state: ObsState): boolean | null {
   }
 }
 
-/** Current dB of a volume key's input (for the label and slider). */
 export function actionVolumeDb(action: ObsAction, state: ObsState): number | null {
   if (action.op !== "volume" && action.op !== "mute") return null;
   const input = resolveInput(action.input, state);

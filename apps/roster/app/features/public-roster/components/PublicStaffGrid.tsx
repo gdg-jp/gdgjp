@@ -7,19 +7,6 @@ export type PublicStaffGridSlot = { id: string; start: string; end: string };
 export type PublicStaffGridColumn = { id: string; name: string };
 type TrackInfo = { name: string; color: string };
 
-/**
- * The public default view (docs/roster/09-share-public-views.md "Design"
- * §2a): vertical = time, horizontal = staff — visually the same shape as
- * Stage 07's owner-only `~/features/roster/components/StaffGrid`, but with
- * no experience-level column header (ADR-005), no availability violation
- * styling (public data has no `availability` at all — that field never
- * leaves `roster.server.ts`), and no click handler (read-only). Reuses
- * `roster/grid.ts#groupAssignmentsByApplication` for the per-application
- * per-slot lookup rather than re-deriving it — the same pure function
- * `StaffGrid` itself is built on top of (`buildStaffColumns`), and the same
- * `.data-grid*` layout classes, so the public page and the owner page are
- * the same table with less in it.
- */
 export function PublicStaffGrid({
   timeSlots,
   columns,
@@ -33,8 +20,6 @@ export function PublicStaffGrid({
   assignments: Assignments;
   trackById: ReadonlyMap<string, TrackInfo>;
   roleNameById: ReadonlyMap<string, string>;
-  /** Application ids matching the name search — same contract as the
-   * owner-side `StaffGrid`: the column header lights up. */
   matchedIds?: ReadonlySet<string>;
 }) {
   const byApp = useMemo(() => groupAssignmentsByApplication(assignments), [assignments]);

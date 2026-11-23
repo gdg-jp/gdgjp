@@ -9,11 +9,6 @@ interface NavItemProps {
   isActive: boolean;
 }
 
-/**
- * Canonical sidebar nav link — `prefetch="intent"`, collapse-aware. Shared by
- * `Sidebar` and `AdminNavSection`; lives in its own module so those two don't
- * form an import cycle through it.
- */
 export function NavItem({ to, icon, label, isCollapsed, isActive }: NavItemProps) {
   return (
     <SidebarMenuItem>

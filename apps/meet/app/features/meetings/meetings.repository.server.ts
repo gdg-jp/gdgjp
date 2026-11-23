@@ -38,7 +38,6 @@ export type InsertCreatingMeetingInput = {
   invitees: readonly ResolvedInvitee[];
 };
 
-/** `meetings`（`creating`）・`meeting_invite_sources`・`meeting_invitees` を D1 batch で一括保存する。 */
 export async function insertCreatingMeeting(
   db: D1Database,
   input: InsertCreatingMeetingInput,
@@ -76,7 +75,6 @@ export async function insertCreatingMeeting(
   await db.batch(statements);
 }
 
-/** `spaces.create` 完了直後にスペース情報を記録し、後続失敗時も参照を失わないようにする。 */
 export async function updateMeetingSpace(
   db: D1Database,
   meetingId: string,
@@ -90,7 +88,6 @@ export async function updateMeetingSpace(
     .run();
 }
 
-/** スペース作成・Calendar 予定作成が完了した会議を `active` へ遷移する。 */
 export async function markMeetingActive(
   db: D1Database,
   meetingId: string,
@@ -122,7 +119,6 @@ export async function markMeetingActive(
     .run();
 }
 
-/** 作成フロー失敗時に `failed`・`last_error`・取得済みスペース情報を記録する。 */
 export async function markMeetingFailed(
   db: D1Database,
   meetingId: string,
@@ -153,7 +149,6 @@ export async function markMeetingFailed(
     .run();
 }
 
-/** メンバー同期ジョブ等のエラー・警告を `last_error` へ記録またはクリアする。 */
 export async function updateMeetingLastError(
   db: D1Database,
   meetingId: string,
@@ -166,7 +161,6 @@ export async function updateMeetingLastError(
     .run();
 }
 
-/** 会議の基本情報（タイトル・説明・日時・タイムゾーン・アクセス種別・自動記録設定）を更新する。 */
 export async function updateMeetingDetails(
   db: D1Database,
   meetingId: string,
@@ -209,7 +203,6 @@ export async function updateMeetingDetails(
     .run();
 }
 
-/** 編集時の招待元（`meeting_invite_sources`）と招待者（`meeting_invitees`）を D1 batch で差し替える。 */
 export async function replaceMeetingInviteSourcesAndInvitees(
   db: D1Database,
   meetingId: string,
@@ -229,7 +222,6 @@ export async function replaceMeetingInviteSourcesAndInvitees(
   await db.batch(statements);
 }
 
-/** チャプター再同期時の招待者スナップショット（`meeting_invitees`）と `meetings.updated_at` を D1 batch で差し替える。 */
 export async function replaceMeetingInvitees(
   db: D1Database,
   meetingId: string,
@@ -244,7 +236,6 @@ export async function replaceMeetingInvitees(
   await db.batch(statements);
 }
 
-/** 取り消し完了時に `status = 'canceled'` と `canceled_at` を記録する。 */
 export async function markMeetingCanceled(
   db: D1Database,
   meetingId: string,
@@ -269,7 +260,6 @@ export async function getMeetingById(
   return row ? mapMeetingRow(row) : null;
 }
 
-/** Meet スペース名（`spaces/<id>`）から管理対象の会議を検索する。 */
 export async function getMeetingBySpaceName(
   db: D1Database,
   spaceName: string,
@@ -281,7 +271,6 @@ export async function getMeetingBySpaceName(
   return row ? mapMeetingRow(row) : null;
 }
 
-/** 過去一定期間内に開始済み・終了直後の `active` な会議（スペース設定済み）を取得する（毎時 cron の取りこぼし補完用）。 */
 export async function listRecentActiveMeetingsWithSpace(
   db: D1Database,
   params: { sinceEndAtIso: string; nowIso: string },
@@ -316,7 +305,6 @@ export async function listMeetingInvitees(
   return (result.results ?? []).map(mapInviteeRow);
 }
 
-/** Meet スペースのメンバー名末尾から取得した `google_user`（`users/<id>` または `null`）を保存する。 */
 export async function updateMeetingInviteeGoogleUsers(
   db: D1Database,
   meetingId: string,
@@ -349,10 +337,6 @@ export async function listMeetingInviteSources(
   return (result.results ?? []).map(mapInviteSourceRow);
 }
 
-/**
- * 指定ユーザーが閲覧可能な会議一覧を取得する。
- * 管理者は全件、それ以外は作成者または正規化メール一致の招待者である会議のみ返す。
- */
 export async function listVisibleMeetings(
   db: D1Database,
   params: { userId: string; emailNormalized: string; isAdmin: boolean },

@@ -19,10 +19,6 @@ import { action, loader } from "./pages";
 
 const mockContext = { cloudflare: { env: {} as Env } } as Parameters<typeof loader>[0]["context"];
 
-// ---------------------------------------------------------------------------
-// Fluent DB mock helper
-// ---------------------------------------------------------------------------
-
 function fluentDb(result: unknown): ReturnType<typeof getDb> {
   function make(): unknown {
     return new Proxy(
@@ -42,10 +38,6 @@ function fluentDb(result: unknown): ReturnType<typeof getDb> {
   }
   return make() as ReturnType<typeof getDb>;
 }
-
-// ---------------------------------------------------------------------------
-// loader tests
-// ---------------------------------------------------------------------------
 
 describe("admin.pages loader", () => {
   it("returns hierarchical pages list with computed depth, wikiPath, and childCount", async () => {
@@ -113,10 +105,6 @@ describe("admin.pages loader", () => {
     ]);
   });
 });
-
-// ---------------------------------------------------------------------------
-// action tests
-// ---------------------------------------------------------------------------
 
 describe("admin.pages action", () => {
   it("calls batch delete for deletePage intent", async () => {

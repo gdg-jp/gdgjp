@@ -79,7 +79,6 @@ export async function insertReference(
     .run();
 }
 
-/** Newest first: the person's judgement is the latest one. */
 export async function listReferences(
   db: D1Database,
   chapterId: number,
@@ -113,10 +112,6 @@ export async function deleteReference(
   return (result.meta.changes ?? 0) > 0;
 }
 
-/**
- * Which references an asset job sees: the matching kind first (newest), then the face and the
- * other kinds so the family is visible. `limit` is constants.design.referenceImagesPerJob.
- */
 export function pickReferences(
   all: DesignReference[],
   kind: ReferenceKind | "kit",

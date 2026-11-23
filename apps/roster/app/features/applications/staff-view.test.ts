@@ -60,7 +60,6 @@ describe("buildStaffRows", () => {
           availability({ timeSlotId: "slot_2", value: "o" }),
           availability({ timeSlotId: "slot_3", value: "d" }),
           availability({ timeSlotId: "slot_4", value: "x" }),
-          // A stale row for a slot the event no longer has — must not count.
           availability({ timeSlotId: "slot_stale", value: "o" }),
         ],
       },

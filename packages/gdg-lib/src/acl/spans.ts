@@ -1,15 +1,3 @@
-/**
- * Span-level ACL tags for page bodies.
- *
- * Span ACLs depend on the LLM self-reporting correctly, so they are NOT a
- * security boundary. The effective boundaries remain (a) raw pull via
- * canAccessSource and (b) page-level visibility / page_access. `<acl>` only
- * hides specific sentences inside an otherwise-visible page.
- *
- * Visibility values form a partial order under set inclusion — never compare
- * them as a total confidentiality scale.
- */
-
 import type { AclSpan } from "./types";
 export type { AclSpan } from "./types";
 
@@ -51,7 +39,6 @@ function parseAttrs(raw: string): Attrs {
   return { src, level, error: null };
 }
 
-/** Ranges covered by fenced code blocks (``` ... ```). */
 function codeFenceRanges(markdown: string): Array<{ start: number; end: number }> {
   const ranges: Array<{ start: number; end: number }> = [];
   let i = 0;
@@ -91,10 +78,6 @@ type ParseResult =
   | { ok: true; spans: AclSpan[] }
   | { ok: false; error: "acl_malformed"; spans: AclSpan[] };
 
-/**
- * Internal walk used by both parse (best-effort) and validate (strict).
- * When `strict` is true, the first malformation aborts with acl_malformed.
- */
 function walkAclSpans(markdown: string, strict: boolean): ParseResult {
   const fences = codeFenceRanges(markdown);
   const spans: AclSpan[] = [];
@@ -134,7 +117,6 @@ function walkAclSpans(markdown: string, strict: boolean): ParseResult {
       continue;
     }
 
-    // Find matching close, skipping fenced regions; reject nesting.
     let depth = 1;
     let cursor = tagEnd;
     let closeIdx = -1;
@@ -155,7 +137,6 @@ function walkAclSpans(markdown: string, strict: boolean): ParseResult {
       }
       if (markdown.slice(cursor).match(/^<acl\b/i)) {
         if (strict) return { ok: false, error: "acl_malformed", spans };
-        // Non-strict: abandon this open and resume after it.
         closeIdx = -2;
         break;
       }
@@ -184,7 +165,6 @@ function walkAclSpans(markdown: string, strict: boolean): ParseResult {
             .split(/\s+/)
             .filter((id) => id.length > 0);
 
-    // Consume the newline after a block close so redaction collapses to one line.
     if (block && markdown[closeEnd] === "\n") closeEnd += 1;
 
     spans.push({
@@ -218,17 +198,11 @@ export function aclSpanSourceIds(markdown: string): string[] {
   return [...ids];
 }
 
-/**
- * Remove residual `<acl>` / `</acl>` markers that the non-strict parser skipped
- * (nested / unclosed / attribute errors). Output paths must never emit `<acl`.
- * Cannot recover a well-bounded body for unclosed tags — only the markers go.
- */
 export function scrubResidualAclMarkup(markdown: string): string {
   if (!/<\/?acl\b/i.test(markdown)) return markdown;
   return markdown.replace(/<\/?acl\b[^>]*>/gi, "").replace(/\n{3,}/g, "\n\n");
 }
 
-/** Remove ACL tags but keep the inner body text. */
 export function stripAclSpans(markdown: string): string {
   const spans = parseAclSpans(markdown);
   if (spans.length === 0) return scrubResidualAclMarkup(markdown);
@@ -237,7 +211,6 @@ export function stripAclSpans(markdown: string): string {
   for (const span of spans) {
     out += markdown.slice(cursor, span.start);
     if (span.block) {
-      // Preserve surrounding line structure: body sits on its own lines.
       const needsLead = out.length > 0 && !out.endsWith("\n");
       out += `${needsLead ? "\n" : ""}${span.body}`;
       if (!out.endsWith("\n")) out += "\n";
@@ -250,7 +223,6 @@ export function stripAclSpans(markdown: string): string {
   return scrubResidualAclMarkup(out);
 }
 
-/** Remove ACL spans entirely (tags and body). */
 export function removeAclSpans(markdown: string): string {
   const spans = parseAclSpans(markdown);
   if (spans.length === 0) return scrubResidualAclMarkup(markdown);
@@ -311,7 +283,6 @@ export function validateAclSpans(markdown: string): { ok: true } | { ok: false; 
   return { ok: true };
 }
 
-/** True when title/summary/tag text illegally contains an ACL tag. */
 export function metadataContainsAclTag(value: string): boolean {
   return /<\/?acl\b/i.test(value);
 }

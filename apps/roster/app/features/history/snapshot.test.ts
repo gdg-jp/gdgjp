@@ -37,9 +37,6 @@ describe("toSnapshot / fromSnapshot", () => {
   });
 
   it("does not confuse trackId and roleId on round trip", () => {
-    // A regression a naive positional-array encoding could introduce
-    // silently; keying by { a, s, t, r, l } object fields instead of a
-    // tuple is what prevents it.
     const original = new Map([
       [
         assignmentKey("app_1", "slot_0"),

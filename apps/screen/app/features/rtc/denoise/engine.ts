@@ -1,13 +1,8 @@
 import workletUrl from "./denoise.worklet.ts?worker&url";
 import type { FromWorklet, ToWorklet, WorkletOptions } from "./worklet-messages";
 
-/**
- * Where the DeepFilterNet3 assets are served from. scripts/dfn/fetch.mjs puts
- * them in public/ at build time; bump together with its RELEASE.
- */
 export const DFN_BASE = "/dfn/v1";
 const WASM_URL = `${DFN_BASE}/df_bg.wasm`;
-/** DeepFilterNet3_onnx.tar.gz, renamed so no server marks it Content-Encoding: gzip. */
 const MODEL_URL = `${DFN_BASE}/model.bin`;
 
 const READY_TIMEOUT_MS = 15_000;
@@ -26,7 +21,6 @@ function isMobile(): boolean {
   return /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
 }
 
-/** Desktop browsers with AudioWorklet and wasm SIMD (the build needs simd128). */
 export function denoiseSupported(): boolean {
   if (typeof window === "undefined" || isMobile()) return false;
   if (typeof AudioWorkletNode === "undefined" || typeof WebAssembly === "undefined") return false;
@@ -45,11 +39,6 @@ async function fetchOk(url: string): Promise<Response> {
   return res;
 }
 
-/**
- * Downloads and compiles the wasm and model once per page (the files are
- * immutable, so the HTTP cache usually answers). Starts from the lobby so
- * they are ready by the time the speaker joins; a failure can be retried.
- */
 export function loadDenoiseAssets(): Promise<Assets> {
   if (!assets) {
     assets = Promise.all([
@@ -67,11 +56,6 @@ export function loadDenoiseAssets(): Promise<Assets> {
 
 export type PipelineEvent = { type: "overload" } | { type: "failed"; message: string };
 
-/**
- * mic → DeepFilterNet3 worklet → MediaStreamTrack, in a 48 kHz AudioContext
- * of its own. The output track never changes, so only switching between it
- * and the raw mic needs `replaceTrack`.
- */
 export class DenoisePipeline {
   readonly track: MediaStreamTrack;
   private source: MediaStreamAudioSourceNode | null = null;
@@ -135,7 +119,6 @@ export class DenoisePipeline {
     }
   }
 
-  /** Feeds a mic in (or nothing, which idles the worklet). Throws if the browser refuses. */
   setInput(track: MediaStreamTrack | null) {
     if (track === this.input) return;
     this.source?.disconnect();

@@ -61,11 +61,6 @@ function asOwner() {
   });
 }
 
-/**
- * A small but non-trivial fixture: 2 slots, 1 track, 1 demanded role
- * (min 1 / ideal 1), 2 applicants — one available `x` for slot_1 (used by
- * the warn-and-allow test below), one available `o` everywhere.
- */
 async function seedFixture(db: TestD1Database) {
   const now = new Date().toISOString();
   await db
@@ -273,13 +268,6 @@ describe("e.$id.roster action — generate", () => {
     asOwner();
   });
 
-  /**
-   * docs/roster/07-roster-manual-edit.md "回帰として固定すべきテスト":
-   * "同じシードで2回生成するとassignmentsテーブルの内容が完全一致する" —
-   * exercised through the REAL route action (buildSolverInput -> solve ->
-   * writeAssignments), not just buildSolverInput's own unit test, so this
-   * pins the whole chain the reviewer is asked to check.
-   */
   it("regenerating with the same seed writes byte-identical assignment rows", async () => {
     const first = await callAction(
       buildRequest({ intent: "generate", seed: "42" }),
@@ -306,13 +294,10 @@ describe("e.$id.roster action — generate", () => {
     const firstCount = (await readAssignmentRows(testDb)).length;
     expect(firstCount).toBeGreaterThan(0);
 
-    // A different seed can produce a different (possibly smaller) placement
-    // set — the row count after must reflect ONLY the new run, never the
-    // old run's leftovers unioned in.
     await callAction(buildRequest({ intent: "generate", seed: "999" }), "evt_1", asD1(testDb));
     const rows = await readAssignmentRows(testDb);
     const seen = new Set(rows.map((r) => `${r.application_id}|${r.time_slot_id}`));
-    expect(seen.size).toBe(rows.length); // no duplicate (app, slot) pairs survived
+    expect(seen.size).toBe(rows.length);
   });
 
   it("persists a changed seed to the selected roster sheet", async () => {
@@ -409,11 +394,6 @@ describe("e.$id.roster action — manual edit (warn-and-allow)", () => {
     asOwner();
   });
 
-  /**
-   * docs/roster/07-roster-manual-edit.md "回帰として固定すべきテスト":
-   * "手動編集で稼働×の枠に配置でき、警告が出る" — the asymmetry with
-   * auto-generation is deliberate; this must NOT be rejected.
-   */
   it("allows assigning a staff member to a slot they marked unavailable ('x')", async () => {
     const result = await callAction(
       buildRequest({
@@ -473,8 +453,6 @@ describe("e.$id.roster action — manual edit (warn-and-allow)", () => {
       "evt_1",
       asD1(testDb),
     );
-    // Re-assign the same (app, slot) — simulates picking a different
-    // candidate cell for the same staff member's same time slot.
     await callAction(
       buildRequest({
         intent: "assign",
@@ -867,11 +845,6 @@ describe("e.$id.roster loader — report consistency", () => {
     asOwner();
   });
 
-  /**
-   * docs/roster/07-roster-manual-edit.md "制約": "evaluate を再実装しない" —
-   * the loader's `report` must be exactly what evaluate() computes from the
-   * SAME input/assignments it ships to the client, never a separate tally.
-   */
   it("after a manual edit, the loader's report equals evaluate() run independently on the reconstructed input/assignments", async () => {
     await callAction(
       buildRequest({
@@ -903,10 +876,6 @@ describe("e.$id.roster loader — report consistency", () => {
     expect(result.report).toEqual(evaluate(reconstructedInput, reconstructedAssignments));
   });
 
-  /**
-   * docs/roster/08-history.md "Design" §6 — the loader must expose the same
-   * `HistoryState` the history panel/undo-redo buttons render from.
-   */
   it("exposes history state (cursor + revisions) after a generation", async () => {
     await callAction(buildRequest({ intent: "generate", seed: "1" }), "evt_1", asD1(testDb));
 
@@ -932,13 +901,6 @@ describe("e.$id.roster action — undo / redo / restore (Stage 08)", () => {
     asOwner();
   });
 
-  /**
-   * docs/roster/08-history.md "Design" §2/§5: undo/redo just move the cursor
-   * and re-expand a snapshot into `assignments` — this exercises that
-   * through the REAL route action (generate -> edit -> undo -> redo), the
-   * same "don't just unit-test history.server.ts in isolation" spirit as
-   * the Stage 07 generate/manual-edit tests above.
-   */
   it("undo restores the pre-edit assignments; redo brings the edit back", async () => {
     await callAction(buildRequest({ intent: "generate", seed: "1" }), "evt_1", asD1(testDb));
     const afterGenerate = await readAssignmentRows(testDb);
@@ -1005,11 +967,6 @@ describe("e.$id.roster action — undo / redo / restore (Stage 08)", () => {
     expect(await readAssignmentRows(testDb)).toEqual(before);
   });
 
-  /**
-   * A `seq` that was valid when the page loaded can go stale by the time the
-   * request lands (e.g. retention evicted it) — this must return a friendly
-   * error, not throw/500, and must not touch `assignments`.
-   */
   it("rejects a restore for a seq that no longer exists, without touching assignments", async () => {
     await callAction(buildRequest({ intent: "generate", seed: "1" }), "evt_1", asD1(testDb));
     const before = await readAssignmentRows(testDb);

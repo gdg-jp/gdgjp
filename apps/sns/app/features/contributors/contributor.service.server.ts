@@ -14,7 +14,6 @@ export async function listChapterContributors(
   return listContributors(deps.db, chapterId);
 }
 
-/** Bounded contributor page for the CLI list endpoint. */
 export async function listChapterContributorsPage(
   deps: ContributorDependencies,
   options: { chapterId: number; limit: number; offset: number },

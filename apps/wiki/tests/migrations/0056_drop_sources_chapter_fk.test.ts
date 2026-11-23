@@ -2,11 +2,6 @@ import { readFileSync } from "node:fs";
 import { DatabaseSync } from "node:sqlite";
 import { describe, expect, it } from "vitest";
 
-/**
- * /sources resolves chapter options from Accounts, not the local `chapters` table.
- * 0056 drops the sources.chapter_id FK so chapter-organizer / chapter-member inserts
- * succeed for Accounts ids that are missing locally.
- */
 describe("0056_drop_sources_chapter_fk migration", () => {
   function openPostVisibilityDb() {
     const db = new DatabaseSync(":memory:");

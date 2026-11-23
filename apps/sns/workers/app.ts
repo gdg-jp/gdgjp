@@ -20,7 +20,6 @@ const requestHandler = createRequestHandler(
   import.meta.env?.MODE ?? "production",
 );
 
-/** pr.gdgs.jp's service binding (`entrypoint = "PrService"`). Each call authorizes its actor. */
 export class PrService extends WorkerEntrypoint<Env> implements SnsPrService {
   listXAccounts(input: Parameters<SnsPrService["listXAccounts"]>[0]) {
     return prListXAccounts(this.env, input);

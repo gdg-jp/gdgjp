@@ -1,6 +1,3 @@
-/** Pure vote helpers. The Durable Object tallies in SQL; this mirrors it for
- * tests and any client-side aggregation. */
-
 export function tallyVotes(rows: { topicId: string }[]): Record<string, number> {
   const out: Record<string, number> = {};
   for (const r of rows) out[r.topicId] = (out[r.topicId] ?? 0) + 1;

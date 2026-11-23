@@ -66,11 +66,6 @@ export type RevokeXAccountRow = {
   now: string;
 };
 
-/**
- * Soft-revoke: sets `revoked_at`/`updated_at` and never deletes the row, because
- * `posts.x_account_id` keeps a foreign key to it. Returns the number of matched
- * rows so the caller can reject a mismatched confirmation.
- */
 export async function revokeXAccountRow(
   db: D1Database,
   record: RevokeXAccountRow,
@@ -122,11 +117,6 @@ type OAuthTransactionRow = {
   expires_at: string;
 };
 
-/**
- * Reads the pending `provider = 'x'` transaction and deletes it in the same
- * step, so a replayed callback can never reuse it — matching the original
- * inline SELECT-then-DELETE.
- */
 export async function takeOAuthTransaction(
   db: D1Database,
   state: string,
@@ -163,11 +153,6 @@ export type UpsertXAccountRecord = {
   now: string;
 };
 
-/**
- * Inserts the freshly authorized account, or — when this chapter already has a
- * row for the same X user — refreshes its profile/tokens and clears any prior
- * `revoked_at`, so reconnecting a revoked account reactivates the same row.
- */
 export async function upsertXAccount(db: D1Database, record: UpsertXAccountRecord): Promise<void> {
   await db
     .prepare(

@@ -8,10 +8,6 @@ import { type ViewerContext, loadViewerContext } from "./viewer.server";
 
 type Db = ReturnType<typeof getDb>;
 
-/**
- * Spaces for the app shell and the one it shows: the URL's, else the last visited,
- * else gdg-jp, else the first reachable one.
- */
 export async function resolveShellSpaces(
   db: Db,
   viewer: ViewerContext,
@@ -33,10 +29,6 @@ export async function resolveShellSpaces(
   return { spaces, currentSpace };
 }
 
-/**
- * Scope of the home dashboard. `/s/:space` shows that space; `/` sends a signed-in user to
- * their last space (gdg-jp by default) and shows anonymous visitors gdg-jp's public pages.
- */
 export async function resolveHomeScope(
   request: Request,
   env: Env,

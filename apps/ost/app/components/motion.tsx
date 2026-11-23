@@ -2,11 +2,6 @@ import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { useId, useMemo } from "react";
 import { transitions } from "~/components/motion-presets";
 
-/**
- * An integer that pops when it changes (e.g. a vote tally). Renders a single
- * text node — no duplicated/overlaid copies — so `getByText` matching and
- * screen readers see exactly the current value.
- */
 export function AnimatedCount({
   value,
   className,
@@ -38,11 +33,6 @@ const CONFETTI_COLORS = [
   "var(--color-gdg-green)",
 ];
 
-/**
- * One-shot celebratory burst for the participant "送信しました" screen. Pure
- * transform/opacity, no dependency, no idle loop. Renders nothing when the
- * viewer prefers reduced motion.
- */
 export function ConfettiBurst({ count = 18 }: { count?: number }) {
   const reduceMotion = useReducedMotion();
   const id = useId();
@@ -87,11 +77,6 @@ export function ConfettiBurst({ count = 18 }: { count?: number }) {
   );
 }
 
-/**
- * The live/reconnecting pill shared by the projector routes. The dot colour
- * eases between states and the label crossfades — only on change, never a
- * continuous pulse.
- */
 export function ConnectionPill({ connected }: { connected: boolean }) {
   const reduceMotion = useReducedMotion();
   return (

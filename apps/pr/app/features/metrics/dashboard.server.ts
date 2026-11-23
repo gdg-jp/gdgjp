@@ -12,7 +12,6 @@ import { listSnapshots } from "./snapshot.repository.server";
 
 const day = (epoch: number) => new Date((epoch + 9 * 3600) * 1000).toISOString().slice(0, 10);
 
-/** Everything /c/:slug/metrics shows, from snapshots and the campaign's own tables. */
 export async function dashboard(env: Env, access: CampaignAccess) {
   const id = access.campaign.id;
   const brief = (await latestBrief(env.DB, id))?.brief ?? null;
@@ -26,7 +25,6 @@ export async function dashboard(env: Env, access: CampaignAccess) {
     listDrafts(env.DB, id),
     listLinks(env.DB, id),
   ]);
-  // One point per day: the day's last snapshot.
   const byDay = new Map<string, number>();
   for (const s of stats) byDay.set(day(s.capturedAt), Number(s.payload.applications ?? 0));
   const series = [...byDay.entries()].map(([date, applications]) => ({ date, applications }));

@@ -64,12 +64,6 @@ function isAlreadyAttached(
   });
 }
 
-/**
- * `share_artifact` ジョブ本体（`MEET_JOBS` コンシューマの `max_concurrency = 1` で直列実行）。
- * 1. Drive 既存権限を正規化メールで突合し、未共有の招待者だけへ 1 件ずつ `reader` 共有（通知メールなし）
- * 2. Calendar 予定の既存 `attachments` を保持したまま末尾に追記して `sendUpdates=none` で `patchEvent`
- *    （`attachments` 以外のフィールドは一切変更しない）
- */
 export async function shareArtifactJob(
   env: Env,
   artifactId: string,
@@ -90,7 +84,6 @@ export async function shareArtifactJob(
   try {
     const accessToken = await getGoogleAccessToken(env, fetchFn);
 
-    // 1. Drive 閲覧権限の付与（既存権限は変更・削除しない）
     const existingPermissions = await listPermissions(accessToken, artifact.driveFileId, fetchFn);
     const sharedNormalizedEmails = new Set<string>();
     for (const perm of existingPermissions) {
@@ -153,7 +146,6 @@ export async function shareArtifactJob(
             apiMessage: maskEmailsInText(error.apiMessage),
           });
 
-          // 1 人の恒久エラーで他の招待者への共有を止めない。個人メールは last_error に含めない。
           const statusLabel = error.apiStatus
             ? `${error.httpStatus} ${error.apiStatus}`
             : String(error.httpStatus);
@@ -177,7 +169,6 @@ export async function shareArtifactJob(
       permanentWarnings.length > 0 ? permanentWarnings.join(" / ").slice(0, 400) : null;
     await markArtifactShared(env.DB, artifact.id, now().toISOString(), warningSummary);
 
-    // 2. Calendar 予定への添付（既存 attachments を保持し、attachments 以外は変更しない）
     if (meeting.calendarEventId && artifact.attachedAt === null) {
       const event = await getEvent(
         accessToken,
@@ -190,7 +181,6 @@ export async function shareArtifactJob(
           ...currentAttachments,
           {
             fileUrl: artifact.webViewLink,
-            // Drive の実ファイル名は Meet 生成時のまま保持し、Calendar 上の表示名のみ種別ごとの短い名称にする。
             title: getCalendarAttachmentTitle(artifact.kind),
             mimeType: artifact.mimeType,
           },

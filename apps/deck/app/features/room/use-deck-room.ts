@@ -17,20 +17,16 @@ export type DeckRoomState = {
 export type DeckRoomConnection = {
   room: DeckRoomState | null;
   status: SocketStatus;
-  /** Close code when the server refused us for good (deleted…). */
   rejected: number | null;
-  /** Server clock minus local clock, for output timers. */
   clockOffset: number;
   send: (msg: ControllerMessage) => boolean;
 };
 
-/** Build the deck socket URL (same origin; ws/wss follows the page). */
 export function socketUrl(params: Record<string, string>): string {
   const proto = window.location.protocol === "https:" ? "wss:" : "ws:";
   return `${proto}//${window.location.host}/ws?${new URLSearchParams(params)}`;
 }
 
-/** One id per tab, so the room can tell controllers apart. */
 export function tabId(): string {
   const key = "deck-tab-id";
   try {
@@ -87,7 +83,6 @@ export function reduceRoom(
   }
 }
 
-/** Live view of a deck over an endlessly reconnecting socket. */
 export function useDeckRoom(deckId: string): DeckRoomConnection {
   const [room, setRoom] = useState<DeckRoomState | null>(null);
   const [status, setStatus] = useState<SocketStatus>("connecting");

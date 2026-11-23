@@ -5,8 +5,6 @@ import (
 	"time"
 )
 
-// GeminiBackend is the fallback when the Codex quota is out: the Gemini CLI on its own
-// login, editing files in dir only (`--yolo` auto-approves edits inside the sandbox).
 type GeminiBackend struct{ Model string }
 
 func (b *GeminiBackend) Name() string { return "gemini" }

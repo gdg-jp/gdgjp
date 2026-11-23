@@ -22,24 +22,17 @@ export type PushSpec = {
   key: PushKey;
   kind: "audio" | "video";
   track: MediaStreamTrack | null;
-  /** Single-stream cap; ignored when `layers` is set (each layer has its own). */
   maxBitrate?: number;
-  /** Publish these simulcast layers instead of one stream. */
   layers?: Layer[];
   degradation?: RTCDegradationPreference;
 };
 
-/** How a pull picks a simulcast layer (Realtime SFU `simulcast` object). */
 export type LayerPick = {
   preferredRid: Rid;
   priorityOrdering: "none" | "asciibetical";
   ridNotAvailable: "none" | "asciibetical";
 };
 
-/**
- * `simulcast` must only be set when the publisher really sends layers. A
- * ref's layer is fixed for its (session, track): it is not part of the key.
- */
 export type RemoteRef = { sessionId: string; trackName: string; simulcast?: LayerPick };
 
 export type PulledTrack = RemoteRef & { mid: string; track: MediaStreamTrack };
@@ -62,7 +55,6 @@ type TracksResponse = {
 
 export const ICE_SERVERS: RTCIceServer[] = [{ urls: "stun:stun.cloudflare.com:3478" }];
 
-/** How long ICE may stay "disconnected" before we give up and rebuild. */
 const DISCONNECTED_GRACE_MS = 5000;
 
 export function remoteKey(ref: RemoteRef): string {
@@ -81,7 +73,6 @@ export class SfuConnection {
 
   constructor(
     private readonly stageId: string,
-    /** "invite:<token>" / "output:<token>"; null = session cookie (operator). */
     private readonly auth: string | null,
     private readonly onFailed: () => void,
   ) {
@@ -143,11 +134,6 @@ export class SfuConnection {
     return res.sessionId;
   }
 
-  /**
-   * Publish one transceiver per spec. A spec may start without a track
-   * (camera off, not sharing yet); `replace()` attaches it later without any
-   * renegotiation, so toggling devices never touches the SFU.
-   */
   push(specs: PushSpec[]): Promise<void> {
     return this.serial(async () => {
       const sid = this.requireSession();
@@ -179,10 +165,6 @@ export class SfuConnection {
     });
   }
 
-  /**
-   * Whether the negotiated sender kept more than one encoding: browsers
-   * without simulcast, or an answer refusing it, collapse it to one.
-   */
   simulcasting(key: PushKey): boolean {
     try {
       return (this.senders.get(key)?.getParameters().encodings?.length ?? 0) > 1;
@@ -196,7 +178,6 @@ export class SfuConnection {
     if (sender && sender.track !== track) await sender.replaceTrack(track);
   }
 
-  /** Pull remote tracks; entries the SFU refused come back as missing. */
   pull(refs: RemoteRef[]): Promise<PulledTrack[]> {
     if (refs.length === 0) return Promise.resolve([]);
     return this.serial(async () => {
@@ -227,7 +208,6 @@ export class SfuConnection {
     });
   }
 
-  /** Stop receiving the given mids. */
   unpull(mids: string[]): Promise<void> {
     if (mids.length === 0) return Promise.resolve();
     return this.serial(async () => {
@@ -273,7 +253,5 @@ async function tuneSender(sender: RTCRtpSender, spec: PushSpec) {
     }
     if (spec.degradation) params.degradationPreference = spec.degradation;
     await sender.setParameters(params);
-  } catch {
-    // Older browsers reject some fields; defaults are still fine.
-  }
+  } catch {}
 }

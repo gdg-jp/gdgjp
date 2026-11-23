@@ -8,9 +8,6 @@ import { wikiPagePath } from "~/features/pages/wiki-page-path";
 import { useCurrentSpace } from "~/features/spaces/components/current-space";
 import { INDENT_WIDTH, getLocalizedTitle } from "./build-tree";
 
-// ---------------------------------------------------------------------------
-// SortableTreeItem — used when canReorder=true
-// ---------------------------------------------------------------------------
 import { Icons } from "@gdgjp/design-system";
 export function SortableTreeItem({
   node,
@@ -124,9 +121,6 @@ export function SortableTreeItem({
   );
 }
 
-// ---------------------------------------------------------------------------
-// TreeNode — used when canReorder=false (original behavior)
-// ---------------------------------------------------------------------------
 interface TreeNodeProps {
   node: PageNode;
   currentSlug?: string;

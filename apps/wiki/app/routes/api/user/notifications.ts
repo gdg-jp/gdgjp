@@ -21,8 +21,6 @@ export async function loader({ request, context }: LoaderFunctionArgs) {
       createdAt: schema.notifications.createdAt,
     })
     .from(schema.notifications)
-    // Read notifications fall off after 30 days, unread ones after 60: a two-month-old
-    // "processing failed" with nothing to open is noise, not a task.
     .where(
       and(
         eq(schema.notifications.userId, user.id),

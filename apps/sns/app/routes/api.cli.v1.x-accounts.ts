@@ -24,8 +24,6 @@ export async function loader(args: Route.LoaderArgs) {
   return cliJson({ accounts });
 }
 
-// This collection only supports GET; a write verb never reaches a handler
-// otherwise, so answer it with the promised JSON 405.
 export function action(_args: Route.ActionArgs) {
   return cliMethodNotAllowed();
 }

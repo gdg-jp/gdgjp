@@ -7,7 +7,6 @@ type Mock = {
   mockFinish?(jobId: string): Promise<boolean>;
 };
 
-/** e2e: what the local sns / tinyurl stand-ins received (e2e/mock-services). 404 elsewhere. */
 export async function loader({ request, context }: Route.LoaderArgs) {
   const env = context.cloudflare.env;
   if (!isLocalDev(env, request)) throw new Response(null, { status: 404 });
@@ -21,7 +20,6 @@ export async function loader({ request, context }: Route.LoaderArgs) {
   });
 }
 
-/** e2e: mark a mock sns post published (`publish=<postId>`) or a connpass job done (`finish=`). */
 export async function action({ request, context }: Route.ActionArgs) {
   const env = context.cloudflare.env;
   if (!isLocalDev(env, request)) throw new Response(null, { status: 404 });

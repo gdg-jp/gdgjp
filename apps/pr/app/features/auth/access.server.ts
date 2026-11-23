@@ -14,10 +14,6 @@ export function buildSignInRedirect(request: Request): Response {
   return redirect(`/signin?return_to=${encodeURIComponent(target)}`);
 }
 
-/**
- * Any signed-in page: require a session + at least one chapter membership. `chapter` is the one
- * picked in the sidebar (cookie), falling back to the first membership.
- */
 export async function requireUserWithChapter(
   env: Env,
   request: Request,
@@ -26,8 +22,6 @@ export async function requireUserWithChapter(
   try {
     user = await getAuth(env).requireUser(request);
   } catch (e) {
-    // 401 means signed out (or signed in as someone else at Accounts); a 503
-    // from an unreachable IdP must surface instead of looping through sign-in.
     if (e instanceof Response && e.status === 401) throw buildSignInRedirect(request);
     throw e;
   }

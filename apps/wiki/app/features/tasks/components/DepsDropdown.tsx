@@ -99,7 +99,6 @@ export default function DepsDropdown({
     ? options.filter((o) => `#${o.number}`.includes(q) || o.title.toLowerCase().includes(q))
     : options;
 
-  // Checked items first, then unchecked
   const sorted = [
     ...visibleOptions.filter((o) => value.includes(o.id)),
     ...visibleOptions.filter((o) => !value.includes(o.id)),

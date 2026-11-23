@@ -1,9 +1,3 @@
-/**
- * Parses the JSON model dump connpass embeds on every `/event/<id>/edit/` page load:
- * `model: new Models.Event({...}, {parse: true})`. This is a far more reliable data
- * source than scraping individual DOM fields — confirmed present in every
- * `event-edit*.html` fixture (see fixtures/html/README.md).
- */
 export type ConnpassEventModel = {
   id: number;
   title: string;
@@ -52,10 +46,6 @@ export type ConnpassEventModel = {
 
 const MODEL_PREFIX = "new Models.Event(";
 
-/**
- * Brace-matching extraction (not a single regex) because the model JSON itself
- * contains nested `}` inside `participation_types` objects.
- */
 export function parseEventModel(html: string): ConnpassEventModel | null {
   const start = html.indexOf(MODEL_PREFIX);
   if (start === -1) return null;
@@ -102,11 +92,6 @@ export function parseEventModel(html: string): ConnpassEventModel | null {
 
 export function mapEventStatus(raw: string): "draft" | "published" | "canceled" {
   if (raw === "draft") return "draft";
-  // "public" = currently accepting registration; "ended" = published event
-  // whose end_datetime has passed (subevent-published.html). Both map to the
-  // OpenAPI enum's single "published" value, which doesn't distinguish past/future.
   if (raw === "public" || raw === "ended") return "published";
-  // No fixture captures the cancelled literal; connpass's own naming convention
-  // ("中止" = cancel) makes "cancel"/"cancelled" the likeliest values here.
   return "canceled";
 }

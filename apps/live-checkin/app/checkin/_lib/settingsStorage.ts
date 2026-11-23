@@ -1,9 +1,8 @@
 const STORAGE_KEY = "checkin:settings";
-const TTL_MS = 24 * 60 * 60 * 1000; // 1日
+const TTL_MS = 24 * 60 * 60 * 1000;
 
 export type StoredSettings = { groupId: string; eventId: string };
 
-// 保存から1日以内の設定のみ返す（期限切れ・不正値は破棄）
 export function loadSettings(): StoredSettings | null {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);

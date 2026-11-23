@@ -1,5 +1,3 @@
-// ---------- Tags ----------
-
 export async function setLinkTags(db: D1Database, linkId: string, tagIds: number[]): Promise<void> {
   const stmts: D1PreparedStatement[] = [
     db.prepare("DELETE FROM link_tags WHERE link_id = ?").bind(linkId),
@@ -14,10 +12,6 @@ export async function setLinkTags(db: D1Database, linkId: string, tagIds: number
   await db.batch(stmts);
 }
 
-/**
- * `createTag` can fail on a name that already exists for this owner (or is a
- * shared chapter/global tag) — this resolves the id it collided with.
- */
 export async function findExistingTagId(
   db: D1Database,
   name: string,

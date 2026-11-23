@@ -14,9 +14,6 @@ export default defineConfig(({ command }) => ({
       ? { ssr: { optimizeDeps: { include: ["@gdgjp/design-system"] } } }
       : undefined,
   plugins: [
-    // Builds the Worker for workerd. The previous cloudflareDevProxy setup emitted a
-    // Node-style SSR bundle whose `createRequire(import.meta.url)` shim (for CJS deps such
-    // as use-sync-external-store) throws on Workers, where import.meta.url is undefined.
     cloudflare({
       configPath: process.env.CLOUDFLARE_VITE_WRANGLER_CONFIG_PATH,
       viteEnvironment: { name: "ssr" },

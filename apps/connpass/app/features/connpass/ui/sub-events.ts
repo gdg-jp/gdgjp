@@ -85,9 +85,6 @@ export async function scrapeSubEventRows(page: Page): Promise<ScrapedSubEvent[]>
 
   return rows.map((row) => ({
     id: row.id,
-    // The row's own link target varies (public URL when published, preview
-    // URL when draft — event-edit_サブイベント追加後.htm), so construct the
-    // canonical public/edit URLs instead of trusting it.
     url: `https://connpass.com/event/${row.id}/`,
     editUrl: eventEditUrl(row.id),
     status: mapListStatus(row.status),
@@ -104,7 +101,6 @@ export async function scrapeSubEvents(
   return scrapeSubEventRows(page);
 }
 
-/** subevent-published.html / subevent-published_イベントを中止するをクリック.html */
 export async function cancelSubEvent(page: Page, subEventId: string | number): Promise<void> {
   await page.goto(eventEditUrl(subEventId), { waitUntil: "domcontentloaded" });
   await page.locator(selectors.subEvent.cancelTrigger).first().click();

@@ -47,7 +47,6 @@ export async function enqueueGoogleDocumentImport(
   )
     .bind(jobId, documentId, user.id)
     .run();
-  // Retain the authorization check above even when no provenance exists yet.
   void existingImport;
   await env.GOOGLE_DOCUMENT_IMPORT_QUEUE.send({ type: "google_document_import", jobId });
   return { jobId };
@@ -68,7 +67,6 @@ export async function getGoogleDocumentImportJob(
   return job;
 }
 
-/** Processes one queue job. Pages are made visible before their images are downloaded. */
 export async function processGoogleDocumentImport(env: Env, jobId: string): Promise<void> {
   const db = getDb(env);
   const job = await db
@@ -102,8 +100,6 @@ export async function processGoogleDocumentImport(env: Env, jobId: string): Prom
     let completedImages = 0;
     let warnings = 0;
 
-    // Allocate all target pages before rendering any node so cross-tab links do
-    // not depend on queue traversal order.
     for (const node of source.nodes) {
       const current = existingBySource.get(node.sourceNodeId);
       const pageId = current?.pageId ?? nanoid();
@@ -120,7 +116,6 @@ export async function processGoogleDocumentImport(env: Env, jobId: string): Prom
       }
       pageIdBySource.set(node.sourceNodeId, pageId);
     }
-    // Legacy single-tab heading/bookmark links omit tabId. They target the root page.
     slugBySource.set("", slugBySource.get(ROOT_NODE_ID) as string);
 
     for (const node of source.nodes) {
@@ -131,8 +126,6 @@ export async function processGoogleDocumentImport(env: Env, jobId: string): Prom
         throw new Error("Google Document tab parent is missing");
       const slug = slugBySource.get(node.sourceNodeId) as string;
 
-      // Persist a skeleton first. This is intentionally a small transaction so
-      // the sidebar can reveal root/tabs while later nodes and images arrive.
       const statements: D1PreparedStatement[] = [];
       if (current) {
         statements.push(

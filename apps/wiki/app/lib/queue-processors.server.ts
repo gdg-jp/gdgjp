@@ -14,7 +14,6 @@ const TRANSLATION_DISPATCH_LIMIT = 200;
 const TRANSLATION_MAX_ATTEMPTS = 5;
 const TRANSLATION_CACHE_TTL_SECONDS = 30 * 24 * 60 * 60;
 
-/** Wrangler vars are strings; only the literal `"true"` enables auto-translation. */
 export function isAutoTranslateEnabled(env: { AUTO_TRANSLATE: string }): boolean {
   return String(env.AUTO_TRANSLATE) === "true";
 }
@@ -110,7 +109,6 @@ function createWorkersAiTranslator(env: Env, modelId: string) {
             id: env.TRANSLATION_AI_GATEWAY_ID,
             cacheKey: `wiki-translation:${cacheKey}`,
             cacheTtl: TRANSLATION_CACHE_TTL_SECONDS,
-            // Restricted Wiki prose must not be retained in persistent Gateway request logs.
             collectLog: false,
           },
         },
@@ -148,8 +146,6 @@ async function releaseTranslationJob(
 export async function processTranslationMessage(env: Env, body: { pageId: string }): Promise<void> {
   if (!isAutoTranslateEnabled(env)) {
     console.log("[translation] skipped (AUTO_TRANSLATE != true)", body.pageId);
-    // A message can already be in Queue when the kill switch changes. Preserve it as pending
-    // instead of acknowledging it in the forever-undispatchable `queued` state.
     await env.DB.prepare(
       "UPDATE translation_jobs SET status = 'pending' WHERE page_id = ? AND status = 'queued'",
     )
@@ -248,7 +244,6 @@ export async function processTranslationMessage(env: Env, body: { pageId: string
       .bind(translated.stats.cacheHits, translated.stats.cacheMisses, body.pageId, sourceHash)
       .run();
 
-    // The English body changed: refresh the page's knowledge mirror.
     const translatedPage = await env.DB.prepare("SELECT space_id FROM pages WHERE id = ?")
       .bind(body.pageId)
       .first<{ space_id: string }>();
@@ -270,7 +265,6 @@ export async function processTranslationMessage(env: Env, body: { pageId: string
   }
 }
 
-/** Dispatches one coalesced job per page; unprocessed work remains durable in D1. */
 export async function enqueuePendingTranslations(env: Env): Promise<number> {
   if (!isAutoTranslateEnabled(env)) return 0;
   const rows = await env.DB.prepare(

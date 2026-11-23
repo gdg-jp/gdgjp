@@ -11,18 +11,14 @@ import (
 	"time"
 )
 
-// answerTimeout stays inside the job's 90 s deadline (the agent Worker degrades after it).
 const answerTimeout = 75 * time.Second
 
-// Bundle is what the agent Worker prepared for one question: redacted page bodies and raw
-// snippets only, plus a job token that reads the wiki AS THE ASKER for 10 minutes.
 type Bundle struct {
 	Files    map[string]string `json:"files"`
 	JobToken string            `json:"jobToken"`
 	Spaces   []string          `json:"spaces"`
 }
 
-// AnswerResult is the JSON the agent must print (prompts/answer.schema.json).
 type AnswerResult struct {
 	Answer    string `json:"answer"`
 	Citations []struct {
@@ -35,8 +31,6 @@ type AnswerResult struct {
 	DurationMs int64           `json:"durationMs"`
 }
 
-// AnswerBackend can run a read-only session with the wiki MCP tools and a schema-checked
-// final message. Backends without it answer from the bundle alone.
 type AnswerBackend interface {
 	Answer(ctx context.Context, dir, prompt, schemaPath, outPath string, mcp *MCPConfig, timeout time.Duration) (string, error)
 }
@@ -134,7 +128,6 @@ func parseAnswer(raw []byte) (AnswerResult, error) {
 	return result, nil
 }
 
-// allowedURLs: every `url:` front matter value in the bundle, plus URLs the MCP tools returned.
 func allowedURLs(files map[string]string, urlLog string) map[string]bool {
 	allowed := map[string]bool{}
 	for _, content := range files {
@@ -157,7 +150,6 @@ func allowedURLs(files map[string]string, urlLog string) map[string]bool {
 	return allowed
 }
 
-// dropUnknownCitations removes citations of URLs the agent never saw (hallucinated links).
 func dropUnknownCitations(result AnswerResult, allowed map[string]bool) AnswerResult {
 	kept := result.Citations[:0]
 	for _, citation := range result.Citations {

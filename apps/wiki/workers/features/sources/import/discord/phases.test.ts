@@ -100,7 +100,6 @@ describe("Discord incremental listing", () => {
     expect(await stepListing(context(sql), current("100"))).toEqual({ phaseComplete: true });
 
     expect(listChannelMessages.mock.calls[0]?.[2]).toMatchObject({ after: "100" });
-    // Monday 2026-09-07 00:00 JST, minus one millisecond, as a snowflake.
     const after = BigInt(listChannelMessages.mock.calls[1]?.[2]?.after as string);
     expect(Number((after >> 22n) + 1420070400000n)).toBe(Date.parse("2026-09-06T15:00:00Z") - 1);
     expect(

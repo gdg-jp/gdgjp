@@ -19,9 +19,6 @@ import { type FlatNode, type PageNode, flattenTree } from "~/features/pages/tree
 import { applyDragResult, getProjection } from "./build-tree";
 import { SortableTreeItem } from "./row";
 
-// ---------------------------------------------------------------------------
-// DraggablePageTree — rendered when canReorder=true
-// ---------------------------------------------------------------------------
 export function DraggablePageTree({
   pages,
   currentSlug,
@@ -38,7 +35,6 @@ export function DraggablePageTree({
   const { t } = useTranslation();
   const fetcher = useFetcher();
   const [flatNodes, setFlatNodes] = useState<FlatNode[]>(() => flattenTree(pages));
-  // Loader revalidation (new page, move, another space) replaces `pages`; follow it.
   useEffect(() => {
     setFlatNodes(flattenTree(pages));
   }, [pages]);
@@ -48,9 +44,7 @@ export function DraggablePageTree({
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }));
 
-  // Build visible list: first hide descendants of collapsed nodes, then hide descendants of active during drag
   const sortableItems = useMemo(() => {
-    // Step 1: apply collapsed-folder filter
     const visible: FlatNode[] = [];
     let skipBelowDepth: number | null = null;
     for (const node of flatNodes) {
@@ -59,7 +53,6 @@ export function DraggablePageTree({
       visible.push(node);
       if (!expandedIds.has(node.id) && node.children.length > 0) skipBelowDepth = node.depth;
     }
-    // Step 2: during drag, also hide descendants of the active item
     if (!activeId) return visible;
     const activeIndex = visible.findIndex((n) => n.id === activeId);
     if (activeIndex === -1) return visible;
@@ -102,7 +95,6 @@ export function DraggablePageTree({
 
     const { parentId: newParentId, insertAfterId, depth } = projected;
     const currentNode = flatNodes.find((n) => n.id === active.id);
-    // Skip if nothing changed
     if (currentNode && currentNode.parentId === newParentId && active.id === over.id) {
       resetState();
       return;

@@ -1,14 +1,5 @@
 import { resolveRosterSheetId } from "./tracks.server";
 
-/**
- * D1 access for the `roles` master and each sheet's `roster_sheet_roles`
- * selection (docs/roster/index.md §3 "役割マスタ", ADR-007 / ADR-011). The
- * six seeded roles (`event_id IS NULL`) are shared by every event and have no
- * write path; an event's own roles (`event_id = <eventId>`) are created,
- * renamed, and deleted here. Every read takes the event id so another
- * event's custom role never reaches a picker, a form, or an id allow-list.
- */
-
 export type Role = { id: string; name: string; sortOrder: number; custom: boolean };
 
 type RoleRow = { id: string; name: string; sort_order: number; event_id: string | null };
@@ -19,7 +10,6 @@ export function toRole(r: RoleRow): Role {
   return { id: r.id, name: r.name, sortOrder: r.sort_order, custom: r.event_id !== null };
 }
 
-/** The seeded roles plus this event's own, sorted for display (seeded ones first). */
 export async function listRoles(db: D1Database, eventId: string): Promise<Role[]> {
   const { results } = await db
     .prepare(
@@ -46,7 +36,6 @@ export async function listEventRoleIds(
   return (results ?? []).map((r) => r.role_id);
 }
 
-/** Replaces one sheet's role selection wholesale without changing event_roles. */
 export async function setEventRoles(
   db: D1Database,
   eventId: string,
@@ -68,13 +57,6 @@ export async function setEventRoles(
   await db.batch(statements);
 }
 
-/**
- * Creates an event-owned role after every seeded and existing event role,
- * and selects it on `rosterSheetId` in the same batch so the owner can
- * enter demand for it right away. Other sheets' selections are untouched.
- * The caller validates the name (`role-name.ts`); a concurrent exact
- * duplicate still fails on the `roles_event_name` UNIQUE index.
- */
 export async function createEventRole(
   db: D1Database,
   eventId: string,
@@ -104,7 +86,6 @@ export async function createEventRole(
   return toRole(row);
 }
 
-/** Renames one of the event's own roles. Seeded roles never match `event_id = ?`. */
 export async function renameEventRole(
   db: D1Database,
   eventId: string,
@@ -120,11 +101,6 @@ export async function renameEventRole(
 
 export type DeleteEventRoleResult = "deleted" | "in-use" | "not-found";
 
-/**
- * The event owns the role and no live sheet still needs it: no `ideal > 0`
- * demand and no assignment. Archived sheets don't count — their rows are
- * deleted along with the role. Binds `roleId, eventId` three times.
- */
 const DELETABLE_GUARD = `EXISTS (SELECT 1 FROM roles WHERE id = ? AND event_id = ?)
   AND NOT EXISTS (
     SELECT 1 FROM demands d JOIN roster_sheets s ON s.id = d.roster_sheet_id
@@ -135,14 +111,6 @@ const DELETABLE_GUARD = `EXISTS (SELECT 1 FROM roles WHERE id = ? AND event_id =
     WHERE a.role_id = ? AND a.event_id = ? AND s.deleted_at IS NULL
   )`;
 
-/**
- * Deletes one of the event's own roles together with every row that
- * references it (FKs on `roles(id)` have no ON DELETE action). Each
- * statement repeats `DELETABLE_GUARD`, so a demand or assignment written
- * between the owner's click and this batch makes the whole batch a no-op
- * instead of silently deleting it; the final `roles` DELETE's change count
- * reports which way it went.
- */
 export async function deleteEventRole(
   db: D1Database,
   eventId: string,

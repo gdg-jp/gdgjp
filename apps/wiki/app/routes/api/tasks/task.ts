@@ -45,9 +45,6 @@ export async function action({ request, params, context }: ActionFunctionArgs) {
     return Response.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  // -------------------------------------------------------------------------
-  // PATCH — update a task
-  // -------------------------------------------------------------------------
   if (request.method === "PATCH") {
     const body = await request.json();
     const {
@@ -87,9 +84,7 @@ export async function action({ request, params, context }: ActionFunctionArgs) {
     }
     if (teamId !== undefined) updates.teamId = teamId;
 
-    // Validate and check dependencies before any writes
     if (dependencies !== undefined) {
-      // Ensure all depIds belong to the same taskListId
       if (dependencies.length > 0) {
         const depTasks = await db
           .select({ id: schema.tasks.id })
@@ -107,23 +102,20 @@ export async function action({ request, params, context }: ActionFunctionArgs) {
         }
       }
 
-      // Cycle detection: BFS from each dependency to ensure taskId isn't reachable
       const allDeps = await db.select().from(schema.taskDependencies).all();
       const graph = new Map<string, string[]>();
       for (const d of allDeps) {
-        if (d.taskId === taskId) continue; // skip current task's old deps
+        if (d.taskId === taskId) continue;
         const list = graph.get(d.taskId) || [];
         list.push(d.dependsOnTaskId);
         graph.set(d.taskId, list);
       }
-      // Add proposed dependencies
       for (const depId of dependencies) {
         const list = graph.get(taskId) || [];
         list.push(depId);
         graph.set(taskId, list);
       }
 
-      // Check for cycles using BFS from taskId
       const visited = new Set<string>();
       const queue = [...dependencies];
       let hasCycle = false;
@@ -145,7 +137,6 @@ export async function action({ request, params, context }: ActionFunctionArgs) {
       }
     }
 
-    // Atomic write: update task and rewrite dependencies together
     const updateQuery = db.update(schema.tasks).set(updates).where(eq(schema.tasks.id, taskId));
     if (dependencies !== undefined) {
       const deleteQuery = db
@@ -169,9 +160,6 @@ export async function action({ request, params, context }: ActionFunctionArgs) {
     return Response.json({ ok: true });
   }
 
-  // -------------------------------------------------------------------------
-  // DELETE — delete a task
-  // -------------------------------------------------------------------------
   if (request.method === "DELETE") {
     await db.delete(schema.tasks).where(eq(schema.tasks.id, taskId));
     return Response.json({ ok: true });

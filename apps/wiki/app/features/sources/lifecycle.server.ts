@@ -22,7 +22,6 @@ export type DeleteArchivedSourceResult =
   | { ok: false; error: "not_archived"; status: 409 }
   | { ok: false; error: "delete_failed"; status: 503 };
 
-/** Restore retained source documents without scheduling a new fetch. */
 export async function unarchiveSource(env: Env, sourceId: string): Promise<UnarchiveSourceResult> {
   const restored = await getDb(env)
     .update(schema.sources)
@@ -34,11 +33,6 @@ export async function unarchiveSource(env: Env, sourceId: string): Promise<Unarc
   return restored ? { ok: true } : { ok: false, error: "not_archived", status: 409 };
 }
 
-/**
- * Permanently remove an archived source and every raw object stored beneath its
- * dedicated R2 prefix. R2 is cleaned first so a storage failure leaves the source
- * visible and retryable rather than orphaning raw material.
- */
 export async function deleteArchivedSource(
   env: Env,
   sourceId: string,
@@ -75,7 +69,6 @@ export async function deleteArchivedSource(
   return deleted ? { ok: true } : { ok: false, error: "not_archived", status: 409 };
 }
 
-/** Revoke any in-flight lease, move the source to pending, and enqueue its replacement fetch. */
 export async function enqueueSourceRefresh(
   env: Env,
   sourceId: string,
@@ -202,8 +195,6 @@ export async function updateSourceVisibility(
     })
     .where(eq(schema.sources.id, sourceId));
 
-  // Search filters on the `audience` stored with each raw object; re-tag them now or the
-  // old audience keeps matching readers after a narrowing change.
   await env.SOURCE_FETCH_QUEUE.send({ type: "source_audience_rewrite", sourceId });
 
   return { ok: true, visibility: selection.visibility, chapterId: selection.chapterId };

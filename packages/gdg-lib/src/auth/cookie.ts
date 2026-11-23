@@ -1,6 +1,3 @@
-// Signed-cookie helpers shared by the IdP login session and the RP session.
-// Uses HMAC-SHA256 over a JSON payload; payload is opaque base64url.
-
 const ALG = { name: "HMAC", hash: "SHA-256" } as const;
 const encoder = new TextEncoder();
 const decoder = new TextDecoder();

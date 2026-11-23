@@ -2,18 +2,6 @@ import { getDefaultRosterSheet, getRosterSheet } from "../roster-sheets/roster-s
 import { reconcileSlotKeys } from "./reconcile";
 import { type PhaseWindow, buildSlots } from "./slots";
 
-/**
- * D1 access for `phases` and `time_slots` (docs/roster/02-domain-schema.md
- * "Design" §1, §3, §4). Tracks / roles / event_roles are a separate table
- * cluster with no idx-contiguity concern — see `./tracks.server`.
- *
- * `regenerateTimeSlots` is the one function every phase/schedule-settings
- * mutation ends in: it recomputes the full slot grid from `buildSlots` and
- * writes it back via `reconcileSlotKeys`'s keep/remove/insert diff, so a
- * time slot referenced by a later stage's `demands`/`availabilities` row
- * survives as long as its (start, end) key doesn't change.
- */
-
 export type Phase = {
   id: string;
   eventId: string;
@@ -141,7 +129,6 @@ export async function createPhase(
   return toPhase(row);
 }
 
-/** Time slots referencing this phase fall back to phase_id = NULL (ON DELETE SET NULL). */
 export async function deletePhase(
   db: D1Database,
   id: string,

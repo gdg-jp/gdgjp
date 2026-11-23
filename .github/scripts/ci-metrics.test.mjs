@@ -230,8 +230,6 @@ writeFileSync(mark(name + "-done"), "");
   );
   assert.equal(new Set(registries).size, 3);
   assert.ok(registries.every((path) => !existsSync(path)));
-  // Release the active job only after the parent has observed the failure.
-  // Process startup order is not guaranteed on a loaded machine.
   const originalError = console.error;
   let failed;
   console.error = (...args) => {
@@ -254,7 +252,6 @@ writeFileSync(mark(name + "-done"), "");
 });
 
 test("Go CI retains formatting, every vet analyzer, host builds and all six release targets", (t) => {
-  // The fake go/gofmt/pnpm are shebang scripts found through a ":"-joined PATH.
   if (process.platform === "win32") return t.skip("POSIX-only fixture (shebang executables)");
   const cwd = mkdtempSync(join(tmpdir(), "gdg-ci-go-"));
   t.after(() => rmSync(cwd, { recursive: true, force: true }));

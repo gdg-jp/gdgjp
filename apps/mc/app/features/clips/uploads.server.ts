@@ -80,11 +80,6 @@ export async function deleteUploaded(db: D1Database, id: string): Promise<void> 
   await db.prepare("DELETE FROM uploaded_clip WHERE id = ?").bind(id).run();
 }
 
-/**
- * Every room caches the uploaded list (players preload from it, commands are
- * validated against it); tell them all to re-read it. A room that misses this
- * still catches up the next time any socket connects to it.
- */
 export async function notifyRooms(env: Env): Promise<void> {
   await Promise.allSettled(tracks.map((t) => env.MC_ROOM.getByName(roomName(t)).refreshCatalog(t)));
 }
@@ -99,7 +94,6 @@ const PROMPT = `この日本語の音声で実際に話されている内容を�
 - 「え、」「あの」などのつなぎ言葉は、はっきり発音されている場合だけ残す
 - 出力は本文のみ。前置き・説明・引用符・改行は付けない`;
 
-/** Spoken text of an audio file, via Gemini. Throws on any failure. */
 export async function transcribe(
   apiKey: string,
   audio: ArrayBuffer,

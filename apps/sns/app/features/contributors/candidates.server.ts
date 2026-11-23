@@ -9,7 +9,6 @@ type UserRow = {
   image: string | null;
 };
 
-/** Returns Accounts users who can be added as contributors. */
 export async function searchContributorCandidates(request: Request, env: Env) {
   const access = await requireSnsAccess(env, request);
   if (

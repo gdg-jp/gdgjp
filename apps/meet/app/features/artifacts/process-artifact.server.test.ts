@@ -329,7 +329,6 @@ describe("processArtifactJob", () => {
       if (url.startsWith("https://www.googleapis.com/drive/v3/files?")) {
         return Response.json({
           files: [
-            // 別会議のチャット記録（名前も作成時刻も異なる）
             {
               id: "chat-other-meeting",
               name: "abc-defg-hij (2026-11-12 19:00 GMT+9) - チャットの記録",
@@ -337,7 +336,6 @@ describe("processArtifactJob", () => {
               webViewLink: "https://drive.google.com/file/d/chat-other-meeting/view",
               createdTime: "2026-11-12T11:05:00.100Z",
             },
-            // 名前は前方一致するが作成時刻が 5 分離れている無関係ファイル
             {
               id: "chat-too-far",
               name: "abc-defg-hij (2026-11-19 19:00 GMT+9) - メモ",
@@ -345,7 +343,6 @@ describe("processArtifactJob", () => {
               webViewLink: "https://drive.google.com/file/d/chat-too-far/view",
               createdTime: "2026-11-19T11:10:00.000Z",
             },
-            // 今回の録画の 0.05 秒後に作られた本物のチャット記録
             {
               id: "chat-current-meeting",
               name: "abc-defg-hij (2026-11-19 19:00 GMT+9) - チャットの記録",

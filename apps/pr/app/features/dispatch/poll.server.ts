@@ -4,10 +4,6 @@ import { logDispatch } from "./log.server";
 import { rollupItemStatus } from "./target";
 import { listTargets, moveTarget, scheduledTargets } from "./target.repository.server";
 
-/**
- * Hourly: follow each scheduled sns post as the person who approved it. A missing snapshot or
- * a refusal is logged and skipped; it never stops the sweep.
- */
 export async function pollScheduledPosts(env: Env): Promise<{ checked: number; changed: number }> {
   let changed = 0;
   const targets = await scheduledTargets(env.DB);

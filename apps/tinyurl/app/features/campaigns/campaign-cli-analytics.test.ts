@@ -21,11 +21,11 @@ describe("parseIsoInstant", () => {
     "0",
     "",
     "not-a-date",
-    "2026-01-15", // date only, no time — not an instant
-    "2026-01-15T12:30:00", // missing Z / offset
-    "2026-01-15T12:30:00+09:00", // non-Z offset, out of scope for this contract
-    "2026-02-30T00:00:00Z", // calendar rollover: JS Date would silently normalize this to Mar 2
-    "2026-13-01T00:00:00Z", // invalid month
+    "2026-01-15",
+    "2026-01-15T12:30:00",
+    "2026-01-15T12:30:00+09:00",
+    "2026-02-30T00:00:00Z",
+    "2026-13-01T00:00:00Z",
   ])("rejects a non-instant or invalid calendar string: %s", (value) => {
     expect(parseIsoInstant(value)).toBeNull();
   });
@@ -100,7 +100,6 @@ function chapter(chapterId: number): UserChapter {
 
 type Row = Record<string, unknown>;
 
-/** A minimal D1 stand-in covering an empty-links campaign with an imported participant snapshot. */
 function fakeAnalyticsDb(): D1Database {
   const campaignRow: Row = {
     id: 5,

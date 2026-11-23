@@ -28,7 +28,6 @@ interface ArchivedContentProps {
   lang: "ja" | "en";
 }
 
-// Module-level cache — survives component unmounts (popover close/reopen)
 let cachedArchived: ArchivedData | null = null;
 
 export default function ArchivedContent({ open, onClose, lang }: ArchivedContentProps) {
@@ -47,7 +46,6 @@ export default function ArchivedContent({ open, onClose, lang }: ArchivedContent
     if (open) loadArchived();
   }, [open, loadArchived]);
 
-  // Reload list after a successful action
   useEffect(() => {
     if (actionFetcher.data?.ok) loadArchived();
   }, [actionFetcher.data, loadArchived]);
@@ -66,7 +64,6 @@ export default function ArchivedContent({ open, onClose, lang }: ArchivedContent
 
   return (
     <>
-      {/* Header */}
       <div className="flex items-center justify-between border-b border-border px-5 py-4">
         <h2 className="text-base font-semibold text-foreground">{t("archived.title")}</h2>
         <button
@@ -79,7 +76,6 @@ export default function ArchivedContent({ open, onClose, lang }: ArchivedContent
         </button>
       </div>
 
-      {/* List */}
       <div className="max-h-80 overflow-y-auto px-5 py-3">
         {isFirstLoad ? (
           <ListSkeleton rows={4} />
@@ -142,7 +138,6 @@ export default function ArchivedContent({ open, onClose, lang }: ArchivedContent
         )}
       </div>
 
-      {/* View all footer */}
       <div className="border-t border-border px-5 py-3">
         <Link
           to="/archived"

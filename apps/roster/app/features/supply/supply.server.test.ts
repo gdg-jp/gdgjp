@@ -247,12 +247,6 @@ describe("getSupplyDemandForEvent (real SQLite, migrated schema)", () => {
     await seedEventAndSlot(testDb);
   });
 
-  /**
-   * The stage's money test, exercised end-to-end through real D1 rows: two
-   * `exp`-level (not `lead`) applicants fully cover headcount, but the slot
-   * still needs to surface a lead shortage (docs/roster/05-staff-supply-
-   * demand.md "回帰として固定すべきテスト").
-   */
   it("surfaces a lead shortage when headcount is met but nobody is lead-level", async () => {
     await seedDemand(testDb, { min: 2, leadMin: 1 });
     await seedApplicant(testDb, "app_1", { level: "exp" });
@@ -291,8 +285,6 @@ describe("getSupplyDemandForEvent (real SQLite, migrated schema)", () => {
     await seedApplicant(testDb, "app_1", { level: "lead" });
 
     const details = await listApplicantDetailsForEvent(db, EVENT_ID);
-    // Mutate the passed-in array's data to prove it's actually used, not
-    // silently re-fetched: an app not in D1 at all must still show up.
     details.push({
       application: {
         id: "phantom",

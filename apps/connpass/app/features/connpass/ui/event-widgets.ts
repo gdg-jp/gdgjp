@@ -133,7 +133,6 @@ export async function clickScopedSave(page: Page, scopeSelector: string): Promis
   }
 }
 
-/** jQuery UI date/time pickers stay above the edit form until explicitly dismissed. */
 export async function closeDateTimePickers(page: Page, inputSelector: string): Promise<void> {
   await page
     .locator(inputSelector)

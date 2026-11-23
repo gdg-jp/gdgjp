@@ -17,7 +17,6 @@ describe("receiveRates", () => {
       { trackIdentifier: "mic", bytesReceived: 9000, timestamp: 3000 },
     ]);
     expect(rates.get("cam")).toEqual({ kbps: 1000, size: "320x180" });
-    // No earlier sample yet.
     expect(rates.get("mic")).toEqual({ kbps: 0, size: null });
   });
 });

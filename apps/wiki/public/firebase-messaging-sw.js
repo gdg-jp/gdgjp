@@ -1,12 +1,6 @@
-/* eslint-disable no-undef */
-// Firebase Messaging Service Worker — handles background push notifications.
-// Uses compat SDK via importScripts (service workers can't use ES modules universally).
-
 importScripts("https://www.gstatic.com/firebasejs/11.8.1/firebase-app-compat.js");
 importScripts("https://www.gstatic.com/firebasejs/11.8.1/firebase-messaging-compat.js");
 
-// The service worker reads config from the query string set during registration.
-// This avoids hardcoding project-specific values.
 const url = new URL(self.location.href);
 const config = {
   apiKey: url.searchParams.get("apiKey"),

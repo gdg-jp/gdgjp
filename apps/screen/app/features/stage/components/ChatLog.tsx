@@ -8,7 +8,6 @@ function time(at: number): string {
   return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
 }
 
-/** Chat + cue history, newest at the bottom, with a one-line composer. */
 export function ChatLog({
   messages,
   selfId,
@@ -22,7 +21,6 @@ export function ChatLog({
   onSend: (text: string) => boolean;
   sendLabel: string;
   placeholder?: string;
-  /** Recipient label for operator views ("→ 山田"). */
   nameOf?: (id: string) => string | undefined;
 }) {
   const [text, setText] = useState("");

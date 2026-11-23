@@ -30,9 +30,6 @@ export default defineConfig({
     },
     {
       command: process.env.CI ? `node ../../scripts/run-e2e-dev.mjs ${PORT}` : "pnpm dev",
-      // Warm the Cloudflare dev proxy before parallel tests hit it. Static
-      // assets bypass its lazy initialization and allow duplicate local runtimes.
-      // Anonymous session inspection needs neither an Accounts client nor D1.
       url: HEALTH_URL,
       gracefulShutdown: { signal: "SIGTERM", timeout: 5_000 },
       reuseExistingServer: !process.env.CI,

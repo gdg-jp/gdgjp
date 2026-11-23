@@ -69,13 +69,12 @@ describe("answer jobs", () => {
       spaces: [],
       bundle: { "question.md": "q", "hits/01-team-venue.md": "body" },
     });
-    expect(await leaseAnswerBundle(env, db, jobId)).toBeNull(); // not leased yet
+    expect(await leaseAnswerBundle(env, db, jobId)).toBeNull();
     sqlite.prepare("UPDATE agent_jobs SET status = 'leased' WHERE id = ?").run(jobId);
     const first = await leaseAnswerBundle(env, db, jobId);
     const second = await leaseAnswerBundle(env, db, jobId);
     expect(second?.files["hits/01-team-venue.md"]).toBe("body");
 
-    // Only the newest token reads, and only as the guild.
     expect(
       await resolveAgentReader(request(first?.jobToken ?? ""), env, db, { allowJobToken: true }),
     ).toBeNull();
@@ -88,7 +87,6 @@ describe("answer jobs", () => {
       extraPrincipals: [{ type: "discord_guild", id: "123456789" }],
     });
     expect(reader?.identity.user).toBeNull();
-    // Routes that do not opt in (everything but search / page) refuse job tokens.
     expect(await resolveAgentReader(request(second?.jobToken ?? ""), env, db)).toBeNull();
 
     expect(await expireAnswer(env, db, jobId)).toBe(true);
@@ -139,7 +137,6 @@ describe("answer jobs", () => {
     );
     expect(reader).toMatchObject({ via: "eval", identity: { chapters: [{ role: "organizer" }] } });
     if (!reader) throw new Error("no reader");
-    // gdg-jp is public, but an eval reader never reaches it.
     const { jobId } = await enqueueAnswer(env, db, reader, {
       question: "q",
       spaces: [],
@@ -153,7 +150,6 @@ describe("answer jobs", () => {
     };
     expect(row.priority).toBe(-20);
     expect(JSON.parse(row.payload).spaces).toEqual(["e2e-eval"]);
-    // Its job token is confined the same way.
     sqlite.prepare("UPDATE agent_jobs SET status = 'leased' WHERE id = ?").run(jobId);
     const bundle = await leaseAnswerBundle(env, db, jobId);
     const viaToken = await resolveAgentReader(request(bundle?.jobToken ?? ""), env, db, {
@@ -163,7 +159,6 @@ describe("answer jobs", () => {
     expect(
       await resolveAgentReader(request(SERVICE, { "x-agent-eval-as": "admin" }), env, db),
     ).toBeNull();
-    // Without the service token the header means nothing.
     expect(
       await resolveAgentReader(request("jt_nope", { "x-agent-eval-as": "guest" }), env, db),
     ).toBeNull();

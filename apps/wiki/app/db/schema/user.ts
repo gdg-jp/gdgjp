@@ -1,11 +1,6 @@
 import { sql } from "drizzle-orm";
 import { integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
 
-// ---------------------------------------------------------------------------
-// user — identity link + display cache maintained by the gdg-lib RP factory
-// (name/image follow the IdP). Admin status is not stored here; authorization
-// uses the live claims.
-// ---------------------------------------------------------------------------
 export const user = sqliteTable("user", {
   id: text("id").primaryKey(),
   email: text("email").notNull().unique(),
@@ -15,8 +10,6 @@ export const user = sqliteTable("user", {
   updatedAt: integer("updated_at", { mode: "timestamp" }).notNull().default(sql`(unixepoch())`),
 });
 
-// Wiki-specific user fields split out of `user` when migrating off better-auth
-// so the user shape stays uniform across all RPs.
 export const userPreferences = sqliteTable("user_preferences", {
   userId: text("user_id")
     .primaryKey()
@@ -25,6 +18,5 @@ export const userPreferences = sqliteTable("user_preferences", {
   preferredContentLanguage: text("preferred_content_language").notNull().default("ja"),
   discordId: text("discord_id").unique(),
   lastSpaceId: text("last_space_id"),
-  // Hide origin=agent pages from the tree, catalog and search (display only, not a permission).
   hideAgentPages: integer("hide_agent_pages", { mode: "boolean" }).notNull().default(false),
 });

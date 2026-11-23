@@ -31,7 +31,6 @@ export async function loader({ request, context, params }: LoaderFunctionArgs) {
       translateEnabled: space.translateEnabled,
     },
     members,
-    // Only shared spaces take extra members (Stage 01 §2-b); Discord / Chat come from /setup.
     canAddMembers: ALLOWED_PRINCIPALS[space.kind].length > 0,
   };
 }

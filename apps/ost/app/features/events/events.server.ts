@@ -1,10 +1,5 @@
 import type { OstEvent } from "./event";
 
-/**
- * D1 access for the OST event registry. Auth tables (`user`, `oidc_session`)
- * are owned by gdg-lib; this module only touches `events`.
- */
-
 type EventRow = {
   slug: string;
   title: string;
@@ -57,7 +52,6 @@ export async function createEvent(
       .bind(input.slug, input.title, input.chapterId, input.chapterSlug, input.createdBy)
       .run();
   } catch (err) {
-    // Lost the race against a concurrent insert on the same slug.
     if (err instanceof Error && /UNIQUE|PRIMARY KEY|constraint/i.test(err.message)) {
       return { ok: false, reason: "slug_taken" };
     }

@@ -10,10 +10,6 @@ const descendantsCte = `
   )
 `;
 
-/**
- * Archives a page and every descendant in its page tree. The knowledge index drops
- * archived pages on its next sync (app/features/knowledge/sync.server.ts).
- */
 export async function archivePageAndDescendants(env: Env, _db: Db, pageId: string): Promise<void> {
   await env.DB.prepare(
     `${descendantsCte}

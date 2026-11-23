@@ -24,7 +24,6 @@ export type GoogleConnectionRow = {
   last_error: string | null;
 };
 
-/** 画面表示用の安全な接続サマリー（暗号文・nonce は含まない）。 */
 export type GoogleConnectionSummary =
   | { status: "unconnected" }
   | {
@@ -146,7 +145,6 @@ export async function markGoogleConnectionDisconnected(
     .run();
 }
 
-/** 鍵バージョンが古い接続行を現在の鍵バージョンで再暗号化して保存する。 */
 export async function reencryptGoogleConnectionIfStale(
   env: GoogleEncryptionEnv,
   db: D1Database,

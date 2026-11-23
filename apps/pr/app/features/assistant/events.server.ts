@@ -25,7 +25,6 @@ const open = (label: string, path: string): MessageAction => ({
   status: "proposed",
 });
 
-/** The assistant speaks on its own, once per key (a repeat is ignored). */
 export async function postEvent(
   db: D1Database,
   campaignId: number,
@@ -43,10 +42,6 @@ export async function postEvent(
   return id !== null;
 }
 
-/**
- * After a job finishes, tell the thread what is ready (or what failed). A result whose MUST
- * failures queued an automatic fix waits for the fix.
- */
 export async function announceJob(env: Env, job: Job, outcome: CompleteOutcome): Promise<void> {
   if (job.type === "assist" && outcome.status !== "failed") return;
   const campaign = await getCampaignById(env.DB, job.campaignId);

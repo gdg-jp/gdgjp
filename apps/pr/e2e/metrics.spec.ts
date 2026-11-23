@@ -3,7 +3,6 @@ import { type APIRequestContext, expect, test } from "@playwright/test";
 import { CAPTURE_URL } from "./capture-server";
 import { createCampaign } from "./helpers";
 
-// Metrics, ads CSV, flights and the weekly analysis (Stage 07).
 const skills = new URL("../../../skills/", import.meta.url);
 const brief = readFileSync(
   new URL("pr-playbook/examples/briefs/devfest-kansai-2026.json", skills),
@@ -47,7 +46,6 @@ test("metrics are collected, ads CSVs imported with an overrun alert, and the an
   await page.getByRole("button", { name: "有効化" }).click();
   await expect(page.getByText(/有効化しました/)).toBeVisible();
 
-  // Hourly collection → the dashboard.
   await cron(request, "hourly");
   await page.goto(`/c/${slug}/metrics`);
   await expect(page.getByLabel("申込の状況").getByText("312 件")).toBeVisible();
@@ -55,7 +53,6 @@ test("metrics are collected, ads CSVs imported with an overrun alert, and the an
     page.getByRole("table", { name: "チャネル別" }).getByText("X（投稿）"),
   ).toBeVisible();
 
-  // A flight, then an X ads CSV that overruns it: actual written, one alert.
   await page.goto(`/c/${slug}/budget`);
   await page.getByLabel("媒体").fill("x_ads");
   await page.getByLabel("名前").fill("X 告知");
@@ -76,7 +73,6 @@ test("metrics are collected, ads CSVs imported with an overrun alert, and the an
     page.getByText(/2 行を取り込みました（費用 12,000 円、X 告知 の実績に反映）/),
   ).toBeVisible();
   await expect(page.getByText(/予算超過/)).toBeVisible();
-  // The same period again replaces, and the alert is not sent twice.
   await page.goto(`/c/${slug}/metrics/import`);
   await page
     .getByLabel("CSV ファイル")
@@ -94,7 +90,6 @@ test("metrics are collected, ads CSVs imported with an overrun alert, and the an
   await page.goto(`/c/${slug}/metrics`);
   await expect(page.getByRole("table", { name: "広告" }).getByText("12,000 円")).toBeVisible();
 
-  // The weekly analysis: a report draft whose proposals a person applies.
   await page.getByRole("button", { name: "分析する" }).click();
   await expect(page.getByText(/分析のジョブを積みました/)).toBeVisible();
   const next = await request.get("/api/runner/jobs/next?types=analyze&wait=0", {

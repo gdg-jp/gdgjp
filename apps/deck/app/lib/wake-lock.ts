@@ -2,7 +2,6 @@ import { useEffect } from "react";
 
 type WakeLockSentinelLike = { release: () => Promise<void> };
 
-/** Keeps the screen on while the page is visible (re-acquired when it comes back). */
 export function useWakeLock(enabled = true) {
   useEffect(() => {
     if (!enabled || typeof navigator === "undefined" || !("wakeLock" in navigator)) return;
@@ -21,9 +20,7 @@ export function useWakeLock(enabled = true) {
           if (cancelled) void s.release();
           else sentinel = s;
         })
-        .catch(() => {
-          // denied (battery saver, iframe…): nothing to do
-        });
+        .catch(() => {});
     };
     acquire();
     document.addEventListener("visibilitychange", acquire);

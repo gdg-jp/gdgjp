@@ -12,9 +12,7 @@ export type SfuStatus = "connecting" | "connected" | "reconnecting";
 export type SfuSnapshot = {
   sessionId: string | null;
   status: SfuStatus;
-  /** remoteKey(ref) → live track. */
   remote: ReadonlyMap<string, MediaStreamTrack>;
-  /** Published slots the SFU took as simulcast in this session. */
   layered: readonly PushKey[];
 };
 
@@ -22,16 +20,10 @@ export type PublishSlot = Omit<PushSpec, "track">;
 
 const RETRY_PULL_MS = 2000;
 
-/** Backoff between rebuilds: 0.5s, 1s, 2s, then every 4s. */
 export function rebuildDelay(attempt: number): number {
   return Math.min(4000, 500 * 2 ** Math.max(0, attempt));
 }
 
-/**
- * Keeps one SFU session alive for a page: publishes its fixed set of slots,
- * keeps the pulled tracks equal to what the page wants, and rebuilds
- * everything (new session, republish, re-pull) whenever ICE fails.
- */
 export class SfuManager {
   private conn: SfuConnection | null = null;
   private local = new Map<PushKey, MediaStreamTrack | null>();
@@ -82,13 +74,11 @@ export class SfuManager {
     this.conn = null;
   }
 
-  /** Attach (or detach with null) the local track of a published slot. */
   setLocal(key: PushKey, track: MediaStreamTrack | null) {
     this.local.set(key, track);
     void this.conn?.replace(key, track).catch(() => undefined);
   }
 
-  /** Declare the full set of remote tracks this page should receive. */
   want(refs: RemoteRef[]) {
     const next = new Map(refs.map((r) => [remoteKey(r), r]));
     const same =
@@ -134,8 +124,6 @@ export class SfuManager {
         );
       }
       if (generation !== this.generation) return;
-      // Pull-only pages have no ICE until the first pull; report the session
-      // anyway so publishers become pullable as soon as possible.
       const layered = this.publish.filter((s) => conn.simulcasting(s.key)).map((s) => s.key);
       this.emit({ sessionId, layered });
       await this.sync();
@@ -181,7 +169,6 @@ export class SfuManager {
         if (pulled.length < missing.length) this.scheduleRetry();
       }
     } catch {
-      // A failed negotiation leaves the PeerConnection in an unknown state.
       this.fail(generation);
     } finally {
       this.syncing = false;

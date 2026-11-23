@@ -63,10 +63,6 @@ func newLoginCommand(credentials store.CredentialStore) *cobra.Command {
 	return command
 }
 
-// shouldUseDeviceLogin decides between the device-code and local-browser
-// login flows. --device always wins; otherwise --browser forces the
-// browser flow, and absent both flags the decision follows whether the
-// current session looks headless.
 func shouldUseDeviceLogin(device, browser, headless bool) bool {
 	return device || (!browser && headless)
 }

@@ -9,23 +9,18 @@ import SettingsModal from "./_components/SettingsModal";
 import { loadSettings, saveSettings } from "./_lib/settingsStorage";
 import validateCheckInURL from "./_lib/validateCheckInURL";
 
-// auth.ts の ALLOWED_CHAPTER_SLUG と同じ値（auth.ts はサーバー専用のため複製）
 const ALLOWED_CHAPTER_SLUG = "gdg-kwansai";
 
 export default function CheckInPage() {
-  // セッション情報とAPIトークンの取得
   const { data: session, status } = useSession();
   const apiToken = session?.accessToken || "";
   const router = useRouter();
 
-  // アクセストークンが無い（未ログイン）場合はトップページへリダイレクト
   useEffect(() => {
     if (status === "loading") return;
     if (!apiToken) router.replace("/");
   }, [status, apiToken, router]);
 
-  // 認証状態が確定するまで（リダイレクト中を含む）はスピナーを表示
-  // カメラ初期化が ref に依存するため、本体は別コンポーネントに分離してマウントを遅らせる
   if (status === "loading" || !apiToken) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center gap-3 bg-zinc-100 text-zinc-600">
@@ -38,7 +33,6 @@ export default function CheckInPage() {
   return <CheckInScanner apiToken={apiToken} />;
 }
 
-// checkedIn=false 時の reason を画面表示用メッセージに変換
 function describeFailureReason(reason: CheckInResponse["reason"]): string {
   switch (reason) {
     case "failed":
@@ -50,7 +44,6 @@ function describeFailureReason(reason: CheckInResponse["reason"]): string {
   }
 }
 
-// HTTPエラー時のステータス・エラーコードを画面表示用メッセージに変換
 function describeHttpError(status: number, error: unknown): string {
   if (status === 401) return "認証エラー：ログインし直してください";
   if (status === 403) return "権限エラー：受付の権限がありません";
@@ -60,18 +53,12 @@ function describeHttpError(status: number, error: unknown): string {
 }
 
 function CheckInScanner({ apiToken }: { apiToken: string }) {
-  // 設定情報
-  const [groupId, setGroupId] = useState<string>("gdgkwansai"); // 一旦 gdgkwansai で固定
+  const [groupId, setGroupId] = useState<string>("gdgkwansai");
   const [eventId, setEventId] = useState<string>("");
   const [showSettings, setShowSettings] = useState<boolean>(false);
-  // localStorage の復元が終わるまでモーダルを出さない（ちらつき防止）
   const [settingsLoaded, setSettingsLoaded] = useState<boolean>(false);
-  // 未設定の間は設定モーダルを強制表示（閉じられない）
   const isConfigured = groupId !== "" && eventId !== "";
 
-  // 保存済みの設定を復元（1日以内のもののみ）
-  // SSR との hydration 不一致を避けるため、マウント後に外部ストレージから読み込む
-  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     const saved = loadSettings();
     if (saved) {
@@ -80,9 +67,7 @@ function CheckInScanner({ apiToken }: { apiToken: string }) {
     }
     setSettingsLoaded(true);
   }, []);
-  /* eslint-enable react-hooks/set-state-in-effect */
 
-  // 直近イベント一覧（chapterId が取得できたタイミングで取得）
   const { data: session } = useSession();
   const chapterId = session?.user?.chapters?.find(
     (c) => c.chapterSlug === ALLOWED_CHAPTER_SLUG,
@@ -91,7 +76,6 @@ function CheckInScanner({ apiToken }: { apiToken: string }) {
   const [eventsStatus, setEventsStatus] = useState<"loading" | "ready" | "error">("loading");
   const [eventsReloadKey, setEventsReloadKey] = useState<number>(0);
 
-  /* eslint-disable react-hooks/set-state-in-effect */
   // biome-ignore lint/correctness/useExhaustiveDependencies: eventsReloadKey is a manual reload trigger
   useEffect(() => {
     if (chapterId === undefined) return;
@@ -116,9 +100,7 @@ function CheckInScanner({ apiToken }: { apiToken: string }) {
       cancelled = true;
     };
   }, [chapterId, eventsReloadKey]);
-  /* eslint-enable react-hooks/set-state-in-effect */
 
-  // カメラ & スキャン状態
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const [cameraFacing, setCameraFacing] = useState<"user" | "environment">("environment");
@@ -128,13 +110,11 @@ function CheckInScanner({ apiToken }: { apiToken: string }) {
   const [statusMessage, setStatusMessage] = useState<string>("");
   const [promoCode, setPromoCode] = useState<string | null>(null);
 
-  // 集計
   const [checkedInCount, setCheckedInCount] = useState<number>(0);
   const [totalExpected, setTotalExpected] = useState<number>(0);
 
   const audioCtxRef = useRef<AudioContext | null>(null);
 
-  // Web Audio APIによる効果音再生関数（高音・中音・低音）
   const playSound = (type: "success" | "duplicate" | "error") => {
     try {
       const AudioCtx =
@@ -151,13 +131,10 @@ function CheckInScanner({ apiToken }: { apiToken: string }) {
       gain.connect(audioCtx.destination);
 
       if (type === "success") {
-        // 高音「ポン」
         osc.frequency.setValueAtTime(880, audioCtx.currentTime);
       } else if (type === "duplicate") {
-        // 中音「ピー」
         osc.frequency.setValueAtTime(440, audioCtx.currentTime);
       } else {
-        // 低音「ブー」
         osc.frequency.setValueAtTime(220, audioCtx.currentTime);
       }
 
@@ -169,7 +146,6 @@ function CheckInScanner({ apiToken }: { apiToken: string }) {
     }
   };
 
-  // Wake Lock (スリープ防止)
   useEffect(() => {
     let wakeLock: WakeLockSentinel | null = null;
     const requestWakeLock = async () => {
@@ -189,12 +165,9 @@ function CheckInScanner({ apiToken }: { apiToken: string }) {
     };
   }, []);
 
-  // APIへのチェックインリクエスト処理
   // biome-ignore lint/correctness/useExhaustiveDependencies: playSound only touches refs and is intentionally excluded
   const processCheckIn = useCallback(
     async (qrText: string) => {
-      // QRテキストから participantId や URL パラメータを抽出 (例: URL末尾やQueryパラメータ)
-
       if (!apiToken) {
         console.error("アクセストークンがまだ準備できていません。");
         setScanStatus("error");
@@ -205,14 +178,12 @@ function CheckInScanner({ apiToken }: { apiToken: string }) {
 
       const { isValid } = validateCheckInURL(qrText, eventId);
       if (!isValid) {
-        // 正規表現にマッチしない（対象外のQRコード）場合はここで弾いて処理を中断
         setScanStatus("error");
         setStatusMessage("対象外のQRコードです");
         playSound("error");
         return;
       }
 
-      // APIリクエスト送信 (connpass.gdgs.jp)
       try {
         const res = await fetch("/api/checkin", {
           method: "POST",
@@ -236,7 +207,6 @@ function CheckInScanner({ apiToken }: { apiToken: string }) {
         const data: CheckInResponse = await res.json();
 
         if (data.checkedIn) {
-          // 成功処理
           setCheckedInCount((prev) => prev + 1);
           setScanStatus("success");
           setStatusMessage("受付完了！");
@@ -245,7 +215,6 @@ function CheckInScanner({ apiToken }: { apiToken: string }) {
           setPromoCode(code);
           playSound("success");
         } else if (data.reason === "already_checked_in") {
-          // 別端末などで受付済み
           setScanStatus("duplicate");
           setStatusMessage("既に受付済みです");
           playSound("duplicate");
@@ -256,7 +225,6 @@ function CheckInScanner({ apiToken }: { apiToken: string }) {
           playSound("error");
         }
       } catch (err) {
-        // fetch 自体の失敗（オフライン等）や想定外のレスポンス形式
         console.error("Check-in Network Error:", err);
         setScanStatus("error");
         setStatusMessage(
@@ -270,27 +238,22 @@ function CheckInScanner({ apiToken }: { apiToken: string }) {
     [apiToken, eventId],
   );
 
-  // 最新のコールバックを ref で保持（カメラ effect を再実行させないため）
   const isProcessingRef = useRef(false);
   const promoCodeRef = useRef<string | null>(null);
   const onDetectRef = useRef<(data: string) => void>(() => {});
 
-  // QR読み取り検出ハンドラ
   const handleCodeDetected = useCallback(
     (data: string) => {
       if (isProcessingRef.current) return;
       isProcessingRef.current = true;
-      // 検知直後に処理中へ遷移（スキャンは isProcessingRef で停止）
       setScanStatus("processing");
       setStatusMessage("処理中...");
 
-      // 結果表示は自動で消さず、「次に進む」ボタン（handleNext）でスキャンを再開する
       void processCheckIn(data);
     },
     [processCheckIn],
   );
 
-  // 「次に進む」: 結果表示を閉じて次の読み取り待機へ復帰
   const handleNext = useCallback(() => {
     setScanStatus("idle");
     setStatusMessage("");
@@ -303,7 +266,6 @@ function CheckInScanner({ apiToken }: { apiToken: string }) {
     onDetectRef.current = handleCodeDetected;
   }, [handleCodeDetected]);
 
-  // アンマウント時に AudioContext を解放
   useEffect(
     () => () => {
       audioCtxRef.current?.close().catch(() => {});
@@ -311,15 +273,14 @@ function CheckInScanner({ apiToken }: { apiToken: string }) {
     [],
   );
 
-  // カメラ初期化 & QRスキャンループ（cameraFacing 変更時のみ再実行）
   useEffect(() => {
     let cancelled = false;
     let rafId = 0;
     let stream: MediaStream | null = null;
     let lastScan = 0;
 
-    const SCAN_INTERVAL_MS = 100; // 約10fpsに間引き
-    const MAX_WIDTH = 640; // 解析用Canvasの最大幅
+    const SCAN_INTERVAL_MS = 100;
+    const MAX_WIDTH = 640;
 
     const videoEl = videoRef.current;
     const canvas = canvasRef.current;
@@ -342,7 +303,6 @@ function CheckInScanner({ apiToken }: { apiToken: string }) {
       const scale = Math.min(1, MAX_WIDTH / video.videoWidth);
       const w = Math.round(video.videoWidth * scale);
       const h = Math.round(video.videoHeight * scale);
-      // 代入すると canvas がリセットされるため、変化時のみ更新
       if (canvas.width !== w) canvas.width = w;
       if (canvas.height !== h) canvas.height = h;
 
@@ -365,7 +325,6 @@ function CheckInScanner({ apiToken }: { apiToken: string }) {
           },
         });
         if (cancelled) {
-          // 取得中にアンマウントされた場合はすぐ解放
           for (const track of s.getTracks()) track.stop();
           return;
         }
@@ -374,7 +333,6 @@ function CheckInScanner({ apiToken }: { apiToken: string }) {
         if (video) {
           video.srcObject = s;
           await video.play().catch((err) => {
-            // play()のプロミス拒否（AbortError）を安全にキャッチ
             if (err.name !== "AbortError") {
               throw err;
             }
@@ -396,16 +354,13 @@ function CheckInScanner({ apiToken }: { apiToken: string }) {
     };
   }, [cameraFacing]);
 
-  // カメラ切り替え
   const toggleCamera = () => {
     setCameraFacing((prev) => (prev === "environment" ? "user" : "environment"));
   };
 
-  // 進捗率計算
   const progressPercentage =
     totalExpected > 0 ? Math.min(100, Math.round((checkedInCount / totalExpected) * 100)) : 0;
 
-  // ステータス背景色設定
   const getStatusOverlayStyle = () => {
     switch (scanStatus) {
       case "processing":
@@ -423,7 +378,6 @@ function CheckInScanner({ apiToken }: { apiToken: string }) {
 
   return (
     <div className="min-h-screen bg-zinc-100 text-zinc-800 p-4 max-w-2xl w-full mx-auto flex flex-col justify-between font-sans">
-      {/* ヘッダー */}
       <header className="flex items-center justify-between mb-4 pb-2 border-b border-zinc-200">
         <div>
           <h1 className="text-xl font-bold text-zinc-900 tracking-tight">
@@ -445,9 +399,7 @@ function CheckInScanner({ apiToken }: { apiToken: string }) {
         </div>
       </header>
 
-      {/* カメラビューポート / メインエリア */}
       <main className="relative flex-1 rounded-md overflow-hidden bg-black border border-zinc-300 min-h-105 flex items-center justify-center mb-4 shadow-sm">
-        {/* ビデオストリーム & 処理用Canvas */}
         <video
           ref={videoRef}
           className="absolute inset-0 w-full h-full object-cover"
@@ -456,7 +408,6 @@ function CheckInScanner({ apiToken }: { apiToken: string }) {
         />
         <canvas ref={canvasRef} className="hidden" />
 
-        {/* 状態オーバーレイ / フィードバック表示 */}
         <div
           className={`absolute inset-0 transition-all duration-200 flex flex-col items-center justify-center p-6 text-center ${getStatusOverlayStyle()}`}
         >
@@ -497,7 +448,6 @@ function CheckInScanner({ apiToken }: { apiToken: string }) {
           )}
         </div>
 
-        {/* カメラ切替ボタン */}
         <button
           type="button"
           onClick={toggleCamera}
@@ -508,7 +458,6 @@ function CheckInScanner({ apiToken }: { apiToken: string }) {
         </button>
       </main>
 
-      {/* ステータス・操作カード */}
       <footer className="bg-white border border-zinc-300 rounded-md p-4 flex flex-col gap-3 shadow-sm">
         <div className="flex justify-between items-center text-sm">
           <div className="flex items-center gap-1.5">
@@ -530,7 +479,6 @@ function CheckInScanner({ apiToken }: { apiToken: string }) {
           </div>
         </div>
 
-        {/* 進捗バー */}
         <div className="w-full bg-zinc-100 h-2.5 rounded-full overflow-hidden border border-zinc-200">
           <div
             className="bg-red-600 h-full transition-all duration-300"
@@ -538,7 +486,6 @@ function CheckInScanner({ apiToken }: { apiToken: string }) {
           />
         </div>
 
-        {/* 管理リンク */}
         <div className="pt-1 border-t border-zinc-100 mt-1 flex justify-between items-center text-xs">
           <a
             href={eventId ? `https://connpass.com/event/${eventId}/` : "#"}

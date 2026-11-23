@@ -14,11 +14,6 @@ interface JwtApi {
   getJwks: () => Promise<{ keys: JsonWebKey[] }>;
 }
 
-/**
- * Completes logout for ID tokens issued before first-party clients started
- * receiving a session ID (`sid`) claim. The provider cannot revoke the IdP
- * session from those tokens and otherwise turns the request into a 500.
- */
 export async function handleLegacyEndSession(
   db: D1Database,
   request: Request,
@@ -28,7 +23,6 @@ export async function handleLegacyEndSession(
   const token = url.searchParams.get("id_token_hint");
   const claims = token ? readJwtClaims(token) : null;
 
-  // Tokens carrying sid are handled (and fully verified) by Better Auth.
   if (!claims || typeof claims.sid === "string") return null;
   const clientId = typeof claims.aud === "string" ? claims.aud : null;
   const returnTo = url.searchParams.get("post_logout_redirect_uri");

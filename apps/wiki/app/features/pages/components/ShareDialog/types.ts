@@ -57,7 +57,6 @@ export interface ShareDialogProps {
   onClose: () => void;
   pageId: string;
   pageTitle: string;
-  /** Kept optional while callers move to the new page-access response. */
   currentVisibility?: string;
   canManageAccess?: boolean;
   canChangeVisibility?: boolean;

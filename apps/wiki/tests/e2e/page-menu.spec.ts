@@ -153,7 +153,6 @@ test("duplicates a subtree, moves it using search, and archives it with restorat
     .getByRole("alertdialog")
     .getByRole("button", { name: "Archive", exact: true })
     .click();
-  // Archiving returns to the space home.
   await expect(authorPage).toHaveURL(/\/s\/gdg-jp$/);
   expect((await authorPage.request.get(movedPath)).status()).toBe(404);
   await authorPage.goto("/archived");

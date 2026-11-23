@@ -5,7 +5,6 @@ import type { Route } from "./+types/jobs-next";
 
 const POLL_MS = 2000;
 
-/** GET /api/runner/jobs/next?types=plan,post&wait=25 — lease one job, or 204 after waiting. */
 export async function loader({ request, context }: Route.LoaderArgs) {
   const { env } = context.cloudflare;
   await requireRunner(request, env);
@@ -18,7 +17,6 @@ export async function loader({ request, context }: Route.LoaderArgs) {
   do {
     const job = await leaseNextJob(env.DB, { types, host: runnerHost(request) });
     if (job) {
-      // `spaceId` keeps the wiki runner client's Job shape.
       return Response.json({
         id: job.id,
         type: job.type,

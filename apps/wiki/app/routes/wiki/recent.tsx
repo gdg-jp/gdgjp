@@ -15,10 +15,6 @@ import { timeAgo } from "~/lib/time";
 
 export const meta: MetaFunction = () => [{ title: "Recent — GDG Japan Wiki" }];
 
-// ---------------------------------------------------------------------------
-// Loader
-// ---------------------------------------------------------------------------
-
 export async function loader({ request, context }: LoaderFunctionArgs) {
   const { env } = context.cloudflare;
   const user = await requireUser(request, env);
@@ -26,7 +22,6 @@ export async function loader({ request, context }: LoaderFunctionArgs) {
   const db = getDb(env);
 
   const viewer = await loadViewerContext(request, env, identity);
-  // Recent pages across every space the viewer can reach.
   const visFilter = and(
     pagesInSpaces(viewer.visibleSpaceIds),
     buildVisibilityFilter(user, identity.chapters),
@@ -70,7 +65,6 @@ export async function loader({ request, context }: LoaderFunctionArgs) {
       .limit(12)
       .all(),
   ]).then(async ([recentUpdated, recentViewed]) => {
-    // Batch-fetch tags for all pages in both lists
     type PageTag = {
       pageId: string;
       tagSlug: string;
@@ -108,7 +102,6 @@ export async function loader({ request, context }: LoaderFunctionArgs) {
       getWikiPageUrls(env, allIds),
       getWikiAncestry(env, allIds),
     ]);
-    // Parents (root first) so same-named pages under different events stay apart.
     const parents = (id: string) =>
       (chains.get(id) ?? []).slice(0, -1).map(({ titleJa, titleEn }) => ({ titleJa, titleEn }));
     return {
@@ -129,10 +122,6 @@ export async function loader({ request, context }: LoaderFunctionArgs) {
 
   return { recentData };
 }
-
-// ---------------------------------------------------------------------------
-// Component
-// ---------------------------------------------------------------------------
 
 type PageCard = {
   id: string;

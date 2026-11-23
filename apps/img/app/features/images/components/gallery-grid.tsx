@@ -13,7 +13,6 @@ export function GalleryGrid({
   showChapterBadge = false,
 }: {
   items: GalleryItem[];
-  /** Only worth showing when the viewer belongs to more than one chapter. */
   showChapterBadge?: boolean;
 }) {
   if (items.length === 0) {

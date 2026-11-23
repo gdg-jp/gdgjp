@@ -17,7 +17,6 @@ export type PartialLocalePagePayload = {
     visibility: string;
     generalRole: string;
     chapterId: string | null;
-    /** When true, UPDATE also writes visibility / general_role / chapter_id. */
     updateSharing?: boolean;
   };
 };
@@ -43,12 +42,6 @@ export type RequestedSyncSharing = {
   access: readonly SyncAccessEntry[];
 };
 
-/**
- * Existing-page sync must not collapse Wiki-app sharing back to the AGENTS.md
- * create defaults (`restricted` / `viewer` / no grants). Agents often rewrite
- * front matter from the template while updating body content. Non-default
- * visibility changes are treated as intentional and kept.
- */
 export function resolveExistingPageSharing(
   stored: StoredSyncSharing,
   requested: RequestedSyncSharing,
@@ -100,12 +93,10 @@ export function resolveExistingPageSharing(
   return { sharing, sharingChanged, preserved: wouldCollapseWikiSharing };
 }
 
-/** Reject sync upserts against human-authored pages. */
 export function humanOriginSyncError(origin: string | undefined): "human_origin" | null {
   return origin === "human" ? "human_origin" : null;
 }
 
-/** Reject agent pages parented under human-authored pages. */
 export function humanParentSyncError(parentOrigin: string | undefined): "human_parent" | null {
   return parentOrigin === "human" ? "human_parent" : null;
 }
@@ -187,9 +178,6 @@ export function buildNewPageLocaleValues(page: PartialLocalePagePayload): {
   };
 }
 
-/** Zod refine helper: source requires title and (url OR sourceId OR existing id).
- * Existing `id` covers snapshot round-trips where the server emitted a
- * page_sources row with an empty url and null sourceId. */
 export function sourceHasReference(source: {
   title: string;
   url?: string;

@@ -11,7 +11,6 @@ function requiredEnv(env, name) {
   return value;
 }
 
-/** Synchronize the complete desired command set without exposing credentials or response bodies. */
 export async function syncDiscordCommands({
   env = process.env,
   fetchImpl = fetch,

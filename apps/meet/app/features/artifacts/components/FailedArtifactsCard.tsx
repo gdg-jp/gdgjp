@@ -96,7 +96,6 @@ function ArtifactRetryItem({
   );
 }
 
-/** 管理画面（`/admin/google`）に表示する失敗・未完了および警告あり（完了済み）生成ファイルジョブ一覧。 */
 export function FailedArtifactsCard({
   artifacts,
   warningArtifacts = [],

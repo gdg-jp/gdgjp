@@ -15,7 +15,6 @@ type CompletePayload = {
 };
 
 const KNOWN_MEDIA_QUERY_CHUNK_SIZE = 50;
-// The GitHub workflow can run for 15 minutes, and its runner setup happens after this claim.
 const GOOGLE_PHOTOS_IMPORT_LEASE_MS = 20 * 60_000;
 
 function isValidBlurhash(value: string | null): value is string {

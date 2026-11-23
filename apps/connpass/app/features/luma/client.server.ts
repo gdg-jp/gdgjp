@@ -80,10 +80,6 @@ export type LumaClient = {
   post<T>(path: string, body: Record<string, string>): Promise<T>;
 };
 
-/**
- * Calls api.luma.com as the bot. The session key lives in KV; a missing key or a
- * 401 (expired session) triggers one password sign-in and a single retry.
- */
 export function lumaClient(env: Env): LumaClient {
   let sessionKey: Promise<string> | null = null;
   const current = () => {

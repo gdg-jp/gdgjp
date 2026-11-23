@@ -12,7 +12,6 @@ function readAcked(): string[] {
   }
 }
 
-/** The newest cue the speaker has not dismissed yet (older cues are superseded). */
 export function latestOpenCue(messages: Message[], acked: ReadonlySet<string>): Message | null {
   for (let i = messages.length - 1; i >= 0; i--) {
     const m = messages[i];
@@ -22,7 +21,6 @@ export function latestOpenCue(messages: Message[], acked: ReadonlySet<string>): 
   return null;
 }
 
-/** Dismissed cue ids survive reloads, so a reconnect never re-shows old cues. */
 export function useOpenCue(messages: Message[]) {
   const [acked, setAcked] = useState<Set<string>>(() => new Set());
   useEffect(() => setAcked(new Set(readAcked())), []);
@@ -32,9 +30,7 @@ export function useOpenCue(messages: Message[]) {
       const next = new Set(prev).add(id);
       try {
         localStorage.setItem(ACK_KEY, JSON.stringify([...next].slice(-200)));
-      } catch {
-        // private mode
-      }
+      } catch {}
       return next;
     });
   }, []);

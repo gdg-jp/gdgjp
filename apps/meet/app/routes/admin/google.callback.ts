@@ -4,7 +4,6 @@ import { completeGoogleOauthCallback } from "~/features/google/oauth.server";
 import { resetGoogleAccessTokenCache } from "~/features/google/token.server";
 import type { Route } from "./+types/google.callback";
 
-/** Google OAuth 認可コールバックを検証し、共有ホストアカウント接続を保存する。 */
 export async function loader({ request, context }: Route.LoaderArgs) {
   const env = context.cloudflare.env;
   const user = await requireAdmin(env, request);

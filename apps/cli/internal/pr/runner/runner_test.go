@@ -16,7 +16,6 @@ import (
 	wikirunner "github.com/gdg-jp/gdgjp/cli/internal/wiki/runner"
 )
 
-// fakeBackend is a read-only agent that answers with a fixed JSON object.
 type fakeBackend struct {
 	output    string
 	gotPrompt string
@@ -156,7 +155,6 @@ func TestParseOutputRejectsNonObjects(t *testing.T) {
 	}
 }
 
-// imageBackend also attaches images (as codex does).
 type imageBackend struct {
 	fakeBackend
 	gotImages []string
@@ -179,7 +177,6 @@ func TestRunnerWritesImagesAndAttachesThem(t *testing.T) {
 			"JOB.md": "# job",
 			"skills/pr-assist/references/output.schema.json": `{"type":"object"}`,
 		},
-		// "PNG!" in base64
 		BinaryFiles: map[string]string{"sources/1/src-1-1.png": "UE5HIQ=="},
 		Images:      []string{"sources/1/src-1-1.png", "missing.png"},
 		Prompt:      "read", Skill: "pr-assist", Kind: "assist", TimeoutSeconds: 30,

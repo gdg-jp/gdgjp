@@ -1,15 +1,5 @@
-// Client-only: reloads the page when an in-page API call reveals that the
-// accounts.gdgs.jp session ended (signed out, switched account, revoked).
-//
-// Navigations already redirect through sign-in on the server. Raw `fetch`
-// calls cannot follow that redirect, and some APIs answer 401 for their own
-// reasons (an unconnected integration), so a 401 alone is not proof. Ask the
-// RP's `/api/auth/me` instead, and reload only when it says nobody is signed
-// in: the reloaded page then goes through the normal sign-in redirect.
-
 const RELOADED_KEY = "gdg-signed-out-reload";
 
-/** Install once from the app root (in an effect); returns an uninstaller. */
 export function installSignedOutReload(): () => void {
   if (typeof window === "undefined") return () => {};
   const original = window.fetch.bind(window);
@@ -43,15 +33,11 @@ async function reloadIfSignedOut(originalFetch: typeof fetch): Promise<void> {
   } catch {
     return;
   }
-  // A public page whose API keeps answering 401 to signed-out visitors must
-  // not reload forever: reload once per location.
   const here = window.location.href;
   try {
     if (window.sessionStorage.getItem(RELOADED_KEY) === here) return;
     window.sessionStorage.setItem(RELOADED_KEY, here);
-  } catch {
-    // Storage unavailable: still reload once for this page instance.
-  }
+  } catch {}
   window.location.reload();
 }
 

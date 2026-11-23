@@ -125,8 +125,6 @@ export async function respondToEvent(env: Env, request: Request, eventId: string
           editTokenHash: null,
         }));
     } else {
-      // Anonymous restore: original cookie is unrecoverable, so the new
-      // participant gets an orphan edit-token hash that no client holds.
       const editTokenHash = await hashToken(randomToken());
       participant = await createParticipant(env.DB, {
         eventId,

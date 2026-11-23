@@ -3,7 +3,6 @@ import { type APIRequestContext, type Page, expect, test } from "@playwright/tes
 import { CAPTURE_URL } from "./capture-server";
 import { createCampaign } from "./helpers";
 
-// Delivery (Stage 03) against e2e/mock-services (sns / tinyurl) and the capture server (Discord).
 const skills = new URL("../../../skills/", import.meta.url);
 const brief = readFileSync(
   new URL("pr-playbook/examples/briefs/devfest-kansai-2026.json", skills),
@@ -41,7 +40,6 @@ async function signIn(page: Page, as: string, chapter: string) {
   await page.goto(`/dev/login?as=${as}&chapter=${chapter}&return_to=/`);
 }
 
-/** JST wall time `minutes` from now, for a datetime-local input. */
 function jstLocal(minutes: number) {
   const d = new Date(Date.now() + minutes * 60_000 + 9 * 3600_000);
   return d.toISOString().slice(0, 16);
@@ -55,7 +53,6 @@ test("an approved X post is scheduled once per account, each by its own chapter,
   const slug = `e2e-dist-${Date.now()}`;
   const hook = `kwansai-${Date.now()}`;
 
-  // Host chapter: webhook, campaign, brief, co-host.
   await signIn(page, "lead", "1:gdg-kwansai:organizer");
   await page.goto("/settings");
   await page.getByLabel("webhook URL").fill(`${CAPTURE_URL}/hook/${hook}`);
@@ -73,7 +70,6 @@ test("an approved X post is scheduled once per account, each by its own chapter,
   await page.getByLabel("チャプター名").fill("gdgoc-osaka");
   await page.getByRole("button", { name: "共催に追加" }).click();
 
-  // Accounts: each chapter adds its own X account (from sns), then the host activates.
   await page.goto(`/c/${slug}/settings`);
   await page.getByRole("button", { name: "追加", exact: true }).first().click();
   await expect(page.getByText("@chapter1 を配信先に追加しました")).toBeVisible();
@@ -91,7 +87,6 @@ test("an approved X post is scheduled once per account, each by its own chapter,
     tiny.tinyurl.campaigns.some(([code]) => code === slug.slice(0, 32).replace(/-+$/, "")),
   ).toBe(true);
 
-  // An X post 30 minutes from now: its staff reminder (−60 min) is already due.
   await page.goto(`/c/${slug}/settings`);
   await page.getByLabel("スタッフへの依頼を時刻どおりに自動で Discord に送る").check();
   await page.getByRole("button", { name: "保存", exact: true }).nth(1).click();
@@ -104,7 +99,6 @@ test("an approved X post is scheduled once per account, each by its own chapter,
   await page.getByRole("button", { name: "選んだ投稿の下書きを runner に頼む" }).click();
   await expect(page.getByText(/件の下書きを runner に頼みました/)).toBeVisible();
 
-  // The runner's post, with a link to a dead page (for the health check).
   const post = { ...xOutput.posts[0] };
   post.attachment = {
     kind: "ogp",
@@ -121,14 +115,11 @@ test("an approved X post is scheduled once per account, each by its own chapter,
     },
   });
 
-  // Review request on Discord (minute cron), never pinging anyone.
   await cron(request, "minute");
   const afterReview = (await messages(request)).filter((m) => m.hook === hook);
   expect(afterReview.some((m) => m.content.includes("レビューをお願いします"))).toBe(true);
-  // The staff reminder went out automatically.
   expect(afterReview.some((m) => m.content.includes("いいね"))).toBe(true);
 
-  // Removing the OGP image blocks the approval (OGP-ON-SHORTLINK).
   await page.goto(`/c/${slug}/drafts`);
   await page.getByRole("link", { name: "開催決定" }).click();
   await page.waitForURL(/\/drafts\/\d+$/);
@@ -145,14 +136,12 @@ test("an approved X post is scheduled once per account, each by its own chapter,
   await expect(page.getByText("承認済み", { exact: true })).toBeVisible();
   await expect(page.getByText(/短縮リンク: https:\/\/gdgs.jp\//)).toBeVisible();
 
-  // The host lead cannot approve the co-host's account.
   const osakaRow = page
     .getByRole("list", { name: "配信先" })
     .getByRole("listitem")
     .filter({ hasText: "@chapter2" });
   await expect(osakaRow.getByText("そのチャプターのメンバーが承認します")).toBeVisible();
 
-  // Two approvals of the host account at once still make one sns post.
   const hostTarget = await page
     .getByRole("list", { name: "配信先" })
     .getByRole("listitem")
@@ -173,7 +162,6 @@ test("an approved X post is scheduled once per account, each by its own chapter,
   expect(hostPosts[0]?.text).toContain("https://gdgs.jp/");
   expect(hostPosts[0]?.text).not.toContain("{{shortlink}}");
 
-  // The co-host organizer approves their own account; sns sees their claims.
   await signIn(page, "osaka", "2:gdgoc-osaka:organizer");
   await page.goto(draftUrl);
   await page.getByRole("button", { name: "@chapter2 で予約" }).click();
@@ -182,13 +170,11 @@ test("an approved X post is scheduled once per account, each by its own chapter,
   const osakaPost = state.sns.posts.filter((p) => p.chapterId === 2).at(-1);
   expect(osakaPost?.actor).toBe("dev-user-osaka");
 
-  // sns publishes the host post → the hourly cron marks it done.
   await request.post("/dev/mock-services", { form: { publish: hostPosts[0]?.id ?? "" } });
   await cron(request, "hourly");
   await page.reload();
   await expect(page.getByRole("list", { name: "配信先" }).getByText("投稿済み")).toBeVisible();
 
-  // The dead destination: red after two hourly checks, and one Discord alert.
   await cron(request, "hourly");
   const alerts = (await messages(request)).filter(
     (m) => m.hook === hook && m.content.includes("リンク切れ") && m.content.includes(slug),

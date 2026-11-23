@@ -21,12 +21,6 @@ export type SelfRegistrationResult =
   | { ok: true; applicationId: string }
   | { ok: false; reason: "duplicate_email" | "duplicate_user" };
 
-/**
- * Saves the whole public self-registration form as one D1 transaction. The
- * final guard sees the current set of live slots inside the same batch, so a
- * sheet/slot added after form validation rolls back the profile and skills
- * along with availability.
- */
 export async function saveSelfRegistration(
   db: D1Database,
   input: SelfRegistrationInput,

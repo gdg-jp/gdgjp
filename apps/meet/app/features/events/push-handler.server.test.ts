@@ -214,7 +214,6 @@ describe("processPubsubEnvelope", () => {
       },
     };
 
-    // 1 回目: conference.ended 未着でも conferenceRecords.get から会議を特定しジョブ投入する。
     const res1 = await processPubsubEnvelope(env, envelope, { fetchFn: fetchMock });
     expect(res1).toEqual({ status: 204, action: "enqueued" });
     expect(conferenceRecords.get("conferenceRecords/conf-1")?.meeting_id).toBe("mtg-1");
@@ -227,7 +226,6 @@ describe("processPubsubEnvelope", () => {
       resourceName: "conferenceRecords/conf-1/recordings/rec-1",
     });
 
-    // 2 回目（重複配信）: processed_events により即 204 でスキップされ、ジョブは増えない。
     const res2 = await processPubsubEnvelope(env, envelope, { fetchFn: fetchMock });
     expect(res2).toEqual({ status: 204, action: "duplicate" });
     expect(queueSend).toHaveBeenCalledTimes(1);
@@ -317,7 +315,6 @@ describe("processPubsubEnvelope", () => {
     expect(res1).toEqual({ status: 500, action: "error" });
     expect(processedEvents.size).toBe(0);
 
-    // Pub/Sub からの再送時は重複扱いにならず正常に enqueue される。
     const res2 = await processPubsubEnvelope(env, envelope, { fetchFn: fetchMock });
     expect(res2).toEqual({ status: 204, action: "enqueued" });
     expect(queueSend).toHaveBeenCalledTimes(2);

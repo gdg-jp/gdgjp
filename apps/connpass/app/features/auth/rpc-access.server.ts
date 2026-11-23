@@ -7,11 +7,6 @@ import {
   resolveGroupSlug,
 } from "./authorize.server";
 
-/**
- * The service-binding twin of the Bearer routes' group check: pr passes the actor, and the same
- * canReadGroup / canWriteGroup decide (an allowlisted group of the actor's chapter; write needs
- * an organizer of it, or a super admin).
- */
 export async function groupForPrActor(
   db: D1Database,
   actor: PrActor,

@@ -28,9 +28,6 @@ function countLevel(
   return n;
 }
 
-/** Would moving `mover`'s seat to `recipient` still satisfy `demand`'s
- * leadMin/newMax? (docs/roster/06-solver.md Design §4 step ⑤: "移した結果
- * leadMin を割る、または newMax を超える場合は移さない".) */
 function canReceive(
   state: EngineState,
   recipient: SolverApplication,
@@ -43,7 +40,7 @@ function canReceive(
   currentNewCount: number,
 ): boolean {
   if (recipient.id === mover.id) return false;
-  if (getAvailability(recipient, slot.id) !== "o") return false; // "d" is never used to receive a moved shift
+  if (getAvailability(recipient, slot.id) !== "o") return false;
   if (hardViolations(state.input, recipient, slot, trackId, roleId, state.assignments).length > 0)
     return false;
 
@@ -59,20 +56,6 @@ function canReceive(
   return true;
 }
 
-/**
- * §5.5 / docs/roster/06-solver.md Design §4 step ⑤ — evens out load without
- * chasing an exact solution. Each pass moves exactly ONE unlocked assignment
- * from the currently-heaviest staff member to an equally-or-less-loaded,
- * "o"-available staff member, and the whole search stops the moment the
- * spread is small enough or a pass can't move anything ("1パスで1件も移せな
- * ければ打ち切る" — this is read literally: a pass attempts exactly one move,
- * and a failed attempt ends the search, it does not retry with a different
- * mover or a different one of their assignments).
- *
- * `state` is read directly (loads, current assignments, skills); every
- * mutation goes through `movers.place` / `movers.unplace` so `EngineState`'s
- * four bookkeeping maps never drift out of sync with each other.
- */
 export function localSearch(state: EngineState, costCtx: CostContext, movers: Movers): void {
   const pool = state.input.applications.filter((app) => !app.withdrawn);
   if (pool.length === 0) return;
@@ -130,7 +113,7 @@ export function localSearch(state: EngineState, costCtx: CostContext, movers: Mo
       }
     }
 
-    if (!best) return; // nothing valid to move to this pass — stop per spec
+    if (!best) return;
 
     movers.unplace(mover.id, slotIdx);
     movers.place(best.id, slotIdx, current.trackId, current.roleId, false);

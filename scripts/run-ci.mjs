@@ -55,14 +55,10 @@ const fullSteps = [
     name === "job-lifecycle" ? `${command} --mutation-proof` : command,
   ]),
   [
-    // Shared builds and semantic checks already passed in typecheck+build.
     "prepare:e2e:ui",
     "pnpm exec turbo test:consumer build:storybook:test --filter=@gdgjp/design-system --output-logs=errors-only",
   ],
-  // Rebuilds build/storybook with the harness revision stamp, so it must not
-  // overlap the browser suites that serve that directory.
   ["design-harness:scenarios", "node scripts/check-design-harness.mjs scenarios"],
-  // Keep the shared-Accounts chain moving whenever its server is free.
   ...classifyChanges([], { forceAll: true }).e2e.map((app) => [
     `e2e:@gdgjp/${app}`,
     app === "design-system"
@@ -162,7 +158,6 @@ function expandUiGitlink(files) {
     console.warn("ci:warn UI commit history unavailable; validating the whole UI");
     return files;
   }
-  // Compare the two committed gitlinks, never the submodule's unstaged changes.
   return [
     ...files.filter((file) => file !== UI_DIRECTORY),
     ...changes.stdout
@@ -173,9 +168,6 @@ function expandUiGitlink(files) {
 }
 
 export function changedFiles() {
-  // A pre-commit hook must inspect the index, not the whole working tree. A
-  // developer may have unrelated edits in progress while committing only a
-  // subset of files; `git status` would make those edits run extra CI steps.
   const result = spawn("git", ["diff", "--cached", "--name-only", "-z", "--no-renames"], {
     cwd: process.cwd(),
     stdio: ["ignore", "pipe", "ignore"],
@@ -312,8 +304,6 @@ export function changedSteps(mode, files) {
       .map((file) => workspaces.get(splitWorkspaceFile(file)[0]))
       .filter((workspace) => workspace !== undefined),
   );
-  // Full UI validation is one Turbo graph: independent checks/builds overlap,
-  // and browser tests wait for the library consumer and Storybook artifacts.
   if (mode === "full") buildWorkspaces.delete("@gdgjp/design-system");
   const steps = [];
   if (
@@ -364,7 +354,6 @@ export function changedSteps(mode, files) {
       (file) => !file.startsWith(`${UI_DIRECTORY}/`) && biomeFilePattern.test(file),
     )
   ) {
-    // Biome owns staged-file selection, including deleted and ignored files.
     steps.push([
       "lint",
       "pnpm exec biome check --staged --files-ignore-unknown=true --no-errors-on-unmatched --reporter=github",
@@ -401,7 +390,6 @@ export function changedSteps(mode, files) {
   }
 
   if (relevantFiles.some((file) => isDesignSourceFile(file))) {
-    // Existing app code predates the harness; only touched files must pass.
     steps.push(["design-harness:source", "node scripts/check-design-harness.mjs source --staged"]);
   }
 
@@ -409,16 +397,12 @@ export function changedSteps(mode, files) {
     (workspace) => mode !== "full" || workspace !== "@gdgjp/design-system" || uiUnitTestsOnly,
   );
   if (typecheckWorkspaces.length > 0 && buildWorkspaces.size > 0) {
-    // A single graph builds shared dependencies once, even without a cache.
-    // Qualified tasks avoid building workspaces that only changed tests.
     const tasks = [
       ...typecheckWorkspaces.map((workspace) => `${workspace}#typecheck`),
       ...[...buildWorkspaces].map((workspace) => `${workspace}#build`),
     ];
     steps.push([
       "typecheck+build",
-      // Native compilers already use their own thread pools. Limit this graph
-      // without capping persistent dev servers or unrelated Turbo tasks.
       `pnpm exec turbo ${tasks.map(shellQuote).join(" ")} --concurrency=6 --output-logs=errors-only`,
       tasks.every((task) => task.startsWith("@gdgjp/design-system#")) ? uiRuntime : runtime,
     ]);
@@ -499,7 +483,6 @@ export function changedSteps(mode, files) {
     (file) => isNodeFile(file) && !file.includes("/e2e/"),
   );
   if (relevantFiles.includes("packages/gdg-lib/scripts/build-acl.mjs")) {
-    // Vitest cannot infer the child-process dependency in this regression test.
     const files = unitTestsByWorkspace.get("@gdgjp/gdg-lib");
     if (!files.includes("scripts/build-acl.test.ts")) files.push("scripts/build-acl.test.ts");
   }
@@ -521,8 +504,6 @@ export function changedSteps(mode, files) {
       continue;
     }
     if (!workspacesWithTests.has(workspace)) continue;
-    // Staged paths select checks; Vitest resolves their imports against the
-    // current working tree, like the other local checks.
     steps.push([
       `test:${workspace}`,
       `pnpm --filter ${workspace} exec vitest related --run --reporter=minimal --pool=threads --maxWorkers=2 ${workspaceNodeFiles.map(shellQuote).join(" ")}`,
@@ -537,8 +518,6 @@ export function changedSteps(mode, files) {
 
   if (mode === "full") {
     if (changedWorkspaces.has("@gdgjp/design-system") && !uiUnitTestsOnly) {
-      // A preparation step: it runs before, never beside, the browser suites.
-      // Its Playwright config also serves the library consumer build.
       steps.push([
         "design-harness:scenarios",
         "pnpm exec turbo test:consumer --filter=@gdgjp/design-system --output-logs=errors-only && node scripts/check-design-harness.mjs scenarios",
@@ -547,7 +526,6 @@ export function changedSteps(mode, files) {
       steps.push([
         "e2e:ui",
         "pnpm exec turbo typecheck test test:e2e:browser --filter=@gdgjp/design-system --output-logs=errors-only",
-        // A cached browser result must never come from a stale dev server.
         {
           ...uiRuntime,
           GDG_UI_E2E_FILES: JSON.stringify(
@@ -589,8 +567,6 @@ export function changedSteps(mode, files) {
     for (const [workspace, e2eFiles] of e2eWorkspaces) {
       if (workspace === "@gdgjp/design-system" && !relevantFiles.some(isE2EHarnessInput)) continue;
       const directory = [...workspaces].find(([, name]) => name === workspace)?.[0];
-      // A frontend edit does not create a browser suite. Only schedule apps
-      // with a configured runner, rather than collecting their unit tests.
       if (!directory || !existsSync(`${directory}/playwright.config.ts`)) continue;
       const e2eArguments = e2eFiles ? ` ${e2eFiles.map(shellQuote).join(" ")}` : "";
       const command = `node scripts/run-isolated-e2e.mjs --workspace ${workspace} -- --reporter=dot,json${e2eArguments}`;
@@ -633,10 +609,8 @@ export async function runConcurrentSteps(steps, options = {}, concurrency = 4) {
   const held = new Set();
   const results = new Map();
   let failed = false;
-  // These suites all own the same Accounts server, vars file and database.
   const resource = ([name]) =>
     /^e2e:@gdgjp\/(?:accounts|tinyurl|img|scheduler|sns)$/.test(name) ? "accounts" : name;
-  // The UI graph rewrites dist/. Consumers must not read it during that build.
   const resources = (step) =>
     step[0] === "e2e:ui"
       ? ["go", ...[...uiAppDirectories].map((app) => resource([`e2e:@gdgjp/${app}`]))]
@@ -667,8 +641,6 @@ export function runStep(
   [name, command, environment = {}],
   { noCache = false, cacheDirectory } = {},
 ) {
-  // These full-CI phases follow the common build. Only prune their dependencies
-  // when caching is disabled: normal cache keys must retain transitive inputs.
   if (noCache && ["test", "prepare:e2e:ui"].includes(name)) {
     command = command.replaceAll("pnpm exec turbo ", "pnpm exec turbo --only ");
   }
@@ -871,8 +843,6 @@ export async function run(args = process.argv.slice(2)) {
             });
         }
       }
-      // The staged UI graph uses its own full browser pool; don't also compile
-      // Go while it runs. Full CI uses the separately prepared two-worker suite.
       if (backgroundGo && steps.some(([name]) => name === "e2e:ui")) await backgroundGo;
       if (!process.exitCode) {
         metrics.push(

@@ -14,11 +14,6 @@ type Row = {
   created_at: string;
 };
 
-/**
- * Minimal `sns_contributors` fake: composite key `(chapter_id, user_email)` with
- * the column's `COLLATE NOCASE` comparison, so `ON CONFLICT ... DO NOTHING` and
- * the `WHERE user_email = ?` lookups behave like D1.
- */
 function makeDb(seed: Row[] = []) {
   const rows: Row[] = seed.map((row) => ({ ...row }));
   const sameKey = (a: Row, chapterId: number, email: string) =>
@@ -116,7 +111,6 @@ describe("addContributor", () => {
     ).resolves.toBeUndefined();
 
     expect(rows).toHaveLength(1);
-    // The existing row is left untouched — granted_by is not overwritten.
     expect(rows[0]).toMatchObject({
       user_email: "Foo@Example.com",
       granted_by_user_id: "granter-1",

@@ -3,8 +3,8 @@ import type { Segment } from "./catalog";
 import { charOffsetAt, formatRemaining, formatTime, marqueeOffset } from "./transcript";
 
 const segments: Segment[] = [
-  { s: 200, e: 1200, t: "皆さん、" }, // 4 chars
-  { s: 1500, e: 2500, t: "ようこそ。" }, // 5 chars
+  { s: 200, e: 1200, t: "皆さん、" },
+  { s: 1500, e: 2500, t: "ようこそ。" },
 ];
 
 describe("charOffsetAt", () => {

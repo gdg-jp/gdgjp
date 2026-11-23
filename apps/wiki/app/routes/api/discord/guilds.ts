@@ -8,10 +8,6 @@ import {
 import { getDiscordOauthTokenRow } from "~/features/discord/token.server";
 import { getDb } from "~/lib/db.server";
 
-/**
- * List Discord guilds the signed-in user belongs to, annotated with whether the
- * wiki bot is installed (required before channel listing / history import).
- */
 export async function loader({ request, context }: LoaderFunctionArgs) {
   const { env } = context.cloudflare;
   const user = await requireUser(request, env);

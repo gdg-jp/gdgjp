@@ -32,13 +32,6 @@ function fail<T>(error: FolderServiceErrorCode): FolderServiceResult<T> {
   return { ok: false, error };
 }
 
-/**
- * Lists folders across the actor's chapter memberships, optionally narrowed
- * to one chapter and paginated (mirrors listImagesForActor's chapterId/
- * limit/cursor contract). Callers that want "every folder, no paging" (the
- * dashboard folder bar) simply don't pass limit/cursor and rely on the
- * generous default page size in the repository layer.
- */
 export async function listFoldersForActor(
   env: Env,
   actor: Actor,
@@ -72,11 +65,6 @@ export async function getFolderForActor(
   return ok(folder);
 }
 
-/**
- * Creates a folder in the given chapter (or the actor's sole chapter when
- * omitted). Requires membership in that chapter unless the actor is a super
- * admin.
- */
 export async function createFolderForActor(
   env: Env,
   actor: Actor,
@@ -120,7 +108,6 @@ export async function renameFolderForActor(
   return ok(result.folder);
 }
 
-/** Images in the folder are not deleted; they fall back to unfiled. */
 export async function deleteFolderForActor(
   env: Env,
   actor: Actor,

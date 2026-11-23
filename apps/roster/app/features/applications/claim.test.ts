@@ -25,12 +25,6 @@ describe("resolveApplication", () => {
     expect(resolveApplication(existing, viewer)).toEqual({ kind: "claimable", id: "app_proxy" });
   });
 
-  /**
-   * docs/roster/04-applications.md "回帰として固定すべきテスト": userId
-   * match must win over email match. Regressing this would let someone
-   * whose accounts email changed re-claim by matching a stale email on a
-   * *different* row instead of their own already-linked one.
-   */
   it("prioritizes a userId match over an email match on a different row", () => {
     const existing: ExistingApplication[] = [
       { id: "app_by_email", userId: null, email: "viewer@example.com" },
@@ -39,12 +33,6 @@ describe("resolveApplication", () => {
     expect(resolveApplication(existing, viewer)).toEqual({ kind: "own", id: "app_by_user" });
   });
 
-  /**
-   * docs/roster/04-applications.md "回帰として固定すべきテスト": a row
-   * whose user_id is already set to someone else must never become
-   * claimable by this viewer, even when its email happens to match.
-   * Regressing this would let one person hijack another's registration.
-   */
   it("never treats an already-claimed row as claimable, even with a matching email", () => {
     const existing: ExistingApplication[] = [
       { id: "app_claimed", userId: "user_2", email: "viewer@example.com" },

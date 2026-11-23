@@ -2,11 +2,6 @@ import type { EventListing, ListingPlatform } from "@gdgjp/gdg-lib";
 
 export const LISTING_PLATFORMS: readonly ListingPlatform[] = ["luma", "techplay", "findy", "bevy"];
 
-/**
- * How each platform is written. Every one is `undecided` until its pre-check in
- * docs/plans/pr/06-luma-techplay-findy.md §1 picks one method (official API, internal API or
- * Browser Run); no method is implemented before that, so createListing answers not_supported.
- */
 export const LISTING_METHODS: Record<ListingPlatform, "undecided"> = {
   luma: "undecided",
   techplay: "undecided",
@@ -17,7 +12,6 @@ export const LISTING_METHODS: Record<ListingPlatform, "undecided"> = {
 const ISO = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2}(\.\d+)?)?(Z|[+-]\d{2}:\d{2})$/;
 const HTML = /<\s*[a-z][^>]*>/i;
 
-/** Platform-neutral checks before any job: required fields, pointer URL, no HTML. */
 export function validateListing(
   raw: unknown,
 ): { ok: true; listing: EventListing } | { ok: false; error: string } {

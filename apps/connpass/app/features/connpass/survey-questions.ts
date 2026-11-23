@@ -2,7 +2,6 @@ import type { SurveyQuestion } from "./ui/survey";
 
 const ANSWER_TYPES = new Set(["free_text", "checkbox", "radio", "dropdown"]);
 
-/** The questions a PUT /survey (or pr's upsertSurvey) may send; null when any is malformed. */
 export function parseSurveyQuestions(value: unknown): SurveyQuestion[] | null {
   if (!Array.isArray(value)) return null;
   const questions: SurveyQuestion[] = [];

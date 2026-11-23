@@ -7,7 +7,6 @@ export default defineConfig({
   testDir: "./e2e",
   testMatch: "**/*.spec.ts",
   globalSetup: "./e2e/global-setup.ts",
-  // Specs share the dev D1, the deck Durable Objects and one fake obs-websocket server.
   fullyParallel: false,
   workers: 1,
   forbidOnly: !!process.env.CI,

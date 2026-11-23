@@ -1,8 +1,3 @@
-/**
- * Draft review flow (overview §2-10): generating → in_review → needs_approval → approved, with
- * request-changes back to drafting. A reviewer who is also an approver may approve straight from
- * in_review (a one-person team), but nothing skips in_review.
- */
 export type DraftStatus =
   | "generating"
   | "drafting"
@@ -41,12 +36,10 @@ export function nextStatus(
   }
 }
 
-/** After a human edit, the draft goes back to review (an approved draft must be re-approved). */
 export function statusAfterEdit(current: DraftStatus): DraftStatus {
   return current === "rejected" || current === "superseded" ? current : "in_review";
 }
 
-/** Schedule item status that mirrors a draft status. */
 export function itemStatusFor(
   status: DraftStatus,
 ): "drafting" | "in_review" | "needs_approval" | "approved" | "planned" {

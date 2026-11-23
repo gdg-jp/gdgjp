@@ -1,23 +1,9 @@
 #!/usr/bin/env node
-// Builds the MC clip catalogue from the local (gitignored) source folders:
-//
-//   音声/<track>/*.wav, 音声/*.wav  — TTS output, the source of truth for timing
-//   原稿/*.md                      — the script the TTS read, the source of text
-//
-// For every WAV it encodes public/audio/<id>.mp3 and aligns the script's phrases
-// (split at 、。！？) onto the pauses ffmpeg's silencedetect finds, then writes
-// app/features/clips/clips.json. Re-run after adding audio:
-//
-//   pnpm --filter @gdgjp/mc clips
-//
-// Text that diverges from the audio can be corrected in scripts/overrides.json
-// ({ "<clip id>": "<full spoken text>" }); overrides win over the manuscript.
 
 import { execFileSync } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { basename, dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-// Shared with the upload form; Node runs the .ts directly (type stripping).
 import { align, fixNotation, splitPhrases } from "../app/features/clips/align.ts";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
@@ -29,7 +15,6 @@ const overridesPath = join(root, "scripts", "overrides.json");
 
 const TRACKS = ["A", "B", "C", "D"];
 const LOOP_DEFAULT = new Set(["A-01"]);
-// Root-level WAVs map onto 原稿/common.md's 【予備-N】 sections by name.
 const COMMON = [
   { file: "登壇準備中", n: 1 },
   { file: "オンライン接続確認", n: 2 },
@@ -49,7 +34,6 @@ function cleanLine(line) {
 
 function cleanTitle(raw) {
   let title = cleanLine(raw).replace(/^【[^】]*】|^\[[^\]]*\]/, "");
-  // Drop trailing production notes such as "（①再開前＋②呼び込み）" or "(…なし)".
   for (;;) {
     const next = title.replace(/\s*[（(][^（()）]*[)）]\s*$/, "");
     if (next === title) break;
@@ -58,7 +42,6 @@ function cleanTitle(raw) {
   return title.replace(/\s+/g, " ").trim();
 }
 
-/** Split a manuscript into { key → { title, text } } sections. */
 function parseSections(md, markerRe) {
   const sections = new Map();
   let current = null;
@@ -136,7 +119,6 @@ function encodeMp3(wav, id) {
   ]);
 }
 
-/** Every WAV paired with its manuscript section (shared with transcribe.mjs). */
 export function listJobs() {
   const jobs = [];
   const common = parseSections(
@@ -162,7 +144,6 @@ export function listJobs() {
       .sort();
     for (const name of wavs) {
       const file = basename(name, ".wav");
-      // "04_1050" → A-04, "B-03" / "c-03" → B-03 / C-03.
       const num = file.match(/^(?:[a-z]-)?(\d+)/i)?.[1];
       if (!num) {
         console.warn(`skip ${track}/${name}: no clip number`);

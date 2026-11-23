@@ -11,12 +11,10 @@ function appSource(name: string): string {
 
 describe("conversation source surface exclusions", () => {
   it("filters conversation sources at database query time in all three surfaces", () => {
-    // The `/sources` loader query moved to the feature layer in Stage 06.
     const page = appSource("features/sources/sources-page.server.ts");
     const json = routeSource("api/sources/list.ts");
     const manifest = routeSource("api/cli/sources.ts");
 
-    // Both queries also carry the space filter: `.where(and(eq(spaceId…), ne(kind…)))`.
     expect(page).toMatch(/\.where\(and\([^;]*ne\(schema\.sources\.kind, "conversation"\)\)\)/);
     expect(json).toMatch(/\.where\(and\([^;]*ne\(schema\.sources\.kind, "conversation"\)\)\)/);
     expect(manifest).toMatch(/ne\(schema\.sources\.kind, "conversation"\)/);

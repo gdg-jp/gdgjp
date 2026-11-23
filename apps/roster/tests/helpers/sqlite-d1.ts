@@ -1,23 +1,6 @@
 import { readFileSync } from "node:fs";
 import { DatabaseSync, type StatementSync } from "node:sqlite";
 
-/**
- * A real SQLite database (Node's built-in `node:sqlite`, already used the
- * same way in `wiki/workers/features/sources/test-db.ts`) wrapped just
- * enough to satisfy the slice of the `D1Database` surface this app's
- * `*.server.ts` modules call: `prepare().bind().first()/all()/run()` and
- * `batch()`.
- *
- * roster has no ORM (docs/roster/adr.md ADR-001) and no real D1 binding
- * wired into vitest (see `app/features/events/events.server.test.ts`'s doc
- * comment), so a hand-mocked `D1Database` would only prove the code calls
- * `.prepare()` — never that the SQL text is correct. Running it against a
- * real SQLite engine, migrated from the actual `migrations/*.sql` files,
- * catches what a mock can't: UNIQUE/CHECK/FK constraint behavior, which is
- * exactly what Stage 04's two-UNIQUE-index dedup design
- * (docs/roster/index.md §4) depends on.
- */
-
 function countPlaceholders(sql: string): number {
   return (sql.replace(/'(?:[^']|'')*'|"(?:[^"]|"")*"|--[^\n]*/g, "").match(/\?/g) ?? []).length;
 }
@@ -67,13 +50,6 @@ export type TestD1Database = {
   ): Promise<Array<{ success: true; meta: { changes: number } }>>;
 };
 
-/**
- * Applies `migrationFiles` (absolute paths, in order) to a fresh in-memory
- * database and returns a handle usable anywhere a `D1Database` is expected
- * — cast at the call site with `asD1()`, since this only implements the
- * methods `app/features/**\/*.server.ts` actually calls, not the full
- * Cloudflare `D1Database` interface (no `.dump()`, `.exec()`, etc.).
- */
 export function createTestD1(migrationFiles: readonly string[]): TestD1Database {
   const raw = new DatabaseSync(":memory:");
   raw.exec("PRAGMA foreign_keys = ON;");

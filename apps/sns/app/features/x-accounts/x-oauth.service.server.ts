@@ -5,7 +5,6 @@ import {
 } from "./x-account.repository.server";
 import type { XOAuthDependencies } from "./x-account.types";
 
-/** Ten minutes, matching the original inline `x/connect` transaction lifetime. */
 const TRANSACTION_TTL_MS = 10 * 60_000;
 
 export class XOAuthError extends Error {
@@ -18,14 +17,9 @@ export class XOAuthError extends Error {
 export type BeginXConnectParams = {
   userId: string;
   chapterId: number;
-  /** Already passed through `safeReturnTo` by the caller. */
   returnTo: string;
 };
 
-/**
- * Persists a pending `provider = 'x'` OAuth transaction and returns the X
- * authorization URL to redirect the browser to.
- */
 export async function beginXConnect(
   deps: XOAuthDependencies,
   params: BeginXConnectParams,
@@ -51,12 +45,6 @@ export type CompleteXConnectParams = {
   chapterId: number;
 };
 
-/**
- * Consumes the pending transaction, exchanges the authorization code, and
- * upserts the resulting X account for the chapter. Returns where the caller
- * should redirect. Throws {@link XOAuthError} with the same messages the inline
- * callback used for a missing response or an invalid/expired transaction.
- */
 export async function completeXConnect(
   deps: XOAuthDependencies,
   params: CompleteXConnectParams,

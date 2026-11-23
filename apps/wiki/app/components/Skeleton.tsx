@@ -26,7 +26,6 @@ export function ListSkeleton({ rows = 4 }: { rows?: number }) {
 export function ArticleSkeleton() {
   return (
     <div className="space-y-6">
-      {/* Paragraph blocks */}
       <div className="space-y-2">
         <UiSkeleton className="h-4 w-full" />
         <UiSkeleton className="h-4 w-5/6" />
@@ -36,7 +35,6 @@ export function ArticleSkeleton() {
         <UiSkeleton className="h-4 w-full" />
         <UiSkeleton className="h-4 w-3/4" />
       </div>
-      {/* Subheading + block */}
       <UiSkeleton className="h-6 w-1/3" />
       <div className="space-y-2">
         <UiSkeleton className="h-4 w-full" />
@@ -50,9 +48,7 @@ export function ArticleSkeleton() {
 export function ArticleWithTitleSkeleton() {
   return (
     <div className="space-y-6">
-      {/* Title placeholder */}
       <UiSkeleton className="h-8 w-2/3" />
-      {/* Paragraph blocks */}
       <div className="space-y-2">
         <UiSkeleton className="h-4 w-full" />
         <UiSkeleton className="h-4 w-5/6" />
@@ -62,7 +58,6 @@ export function ArticleWithTitleSkeleton() {
         <UiSkeleton className="h-4 w-full" />
         <UiSkeleton className="h-4 w-3/4" />
       </div>
-      {/* Subheading + block */}
       <UiSkeleton className="h-6 w-1/3" />
       <div className="space-y-2">
         <UiSkeleton className="h-4 w-full" />

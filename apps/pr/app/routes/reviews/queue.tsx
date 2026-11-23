@@ -12,7 +12,6 @@ export function meta() {
   return [{ title: "レビューと承認 — GDG PR" }];
 }
 
-/** /c/:slug/reviews (in_review) and /c/:slug/approvals (needs_approval) share this screen. */
 export async function loader({ request, context, params }: Route.LoaderArgs) {
   const env = context.cloudflare.env;
   const access = await requireCampaignAccess(env, request, params.slug);

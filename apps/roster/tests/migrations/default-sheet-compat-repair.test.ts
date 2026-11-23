@@ -71,7 +71,6 @@ describe("default sheet compatibility repair", () => {
     for (const name of beforeExpansion) migrate(db, name);
     insertEvent(db, "existing");
     migrate(db, "0007_roster_sheets_expand.sql");
-    // Simulate older workers still writing after 0007 but before 0008 exists.
     insertEvent(db, "gap");
     insertEvent(db, "deleted");
     for (const id of ["existing", "gap", "deleted"]) insertLegacyRows(db, id);
@@ -123,7 +122,6 @@ describe("default sheet compatibility repair", () => {
     ).toEqual(edited);
     db.exec("UPDATE events SET revision_cursor=5 WHERE id='existing'");
     db.exec("UPDATE roster_sheets SET revision_cursor=-1 WHERE id='default:existing'");
-    // History coalescing repeats the same cursor to release its -1 claim.
     db.exec("UPDATE events SET revision_cursor=5 WHERE id='existing'");
     expect(
       db.prepare("SELECT revision_cursor FROM roster_sheets WHERE id='default:existing'").get(),
@@ -151,7 +149,6 @@ describe("default sheet compatibility repair", () => {
         )
         .all(),
     ).toEqual([{ role_id: "guide" }, { role_id: "reception" }]);
-    // Legacy writers can still change one field without reverting unchanged fields.
     db.exec("UPDATE events SET date='2026-12-01', start_time='09:00', seed=1 WHERE id='existing'");
     expect(
       db.prepare(`SELECT ${fields} FROM roster_sheets WHERE id='default:existing'`).get(),

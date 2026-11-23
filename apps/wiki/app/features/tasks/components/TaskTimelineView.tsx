@@ -31,7 +31,6 @@ export default function TaskTimelineView({ tasks, members, onTaskClick }: TaskTi
 
   const dates = useMemo(() => getDateRange(tasks), [tasks]);
 
-  // Group tasks by assignee
   const assigneeGroups = useMemo(() => {
     const groups = new Map<string | null, Task[]>();
     for (const task of tasks) {
@@ -131,7 +130,6 @@ export default function TaskTimelineView({ tasks, members, onTaskClick }: TaskTi
         </div>
       )}
 
-      {/* Tasks without due dates */}
       {tasksWithoutDates.length > 0 && (
         <div>
           <h3 className="mb-2 text-sm font-medium text-muted">{t("tasks.no_due_date")}</h3>

@@ -290,11 +290,6 @@ export async function action({ request, context, params }: Route.ActionArgs) {
     case "renameRole":
     case "deleteRole":
       return handleRoleIntent(db, event.id, sheet.id, intent, form);
-    // `saveDemand` / `copyDemand` back `~/features/demand/components/DemandDrawer`
-    // (docs/roster/03-demand-input.md "Design" §4). Both share the same
-    // value fields; `copyDemand` additionally fans the value out to the
-    // checked `copyTrackId` (same row, other track) and `copyRowKey` (other
-    // phase, same track) targets — see the drawer's module doc for details.
     case "saveDemand":
     case "copyDemand": {
       const mode = String(form.get("mode") ?? "") as MatrixMode;
@@ -303,13 +298,6 @@ export async function action({ request, context, params }: Route.ActionArgs) {
       const roleId = String(form.get("roleId") ?? "");
       if (!rowKey || !trackId || !roleId) return { error: "需要の対象が不正です。" };
 
-      // Scope trackId (and, for a copy, every copyTrackId) to this event's
-      // own tracks — `demands.track_id` only has a bare FK to `tracks(id)`,
-      // not one scoped by event_id, so an unchecked id could otherwise
-      // write a row whose denormalized event_id disagrees with its
-      // track_id's real event. roleId must be a seeded role or one of this
-      // event's own (`listRoles` is event-scoped, ADR-011) — another event's
-      // custom role id is rejected here like a foreign track id.
       const [eventTracks, knownRoleIds] = await Promise.all([
         listTracks(db, event.id, sheet.id),
         listRoles(db, event.id).then((rs) => new Set(rs.map((r) => r.id))),

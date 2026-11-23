@@ -1,8 +1,3 @@
-/**
- * The wiki, over the WIKI service binding. The agent Worker only decides WHO it calls as
- * (a linked user's token, or its service token + one guild / chat-space principal); every
- * permission decision and every redaction happens in the wiki.
- */
 export type Reader =
   | { kind: "user"; token: string }
   | { kind: "principal"; type: "discord_guild" | "chat_space"; id: string }
@@ -28,7 +23,6 @@ export type SearchResult = {
   truncatedSpaces: boolean;
   pages: SearchPage[];
   raw: SearchRaw[];
-  /** Matching pages this reader may not see (the wiki counts them, never names them). */
   excludedPages?: number;
 };
 export type PageRead = { space: string; slug: string; title: string; url: string; content: string };

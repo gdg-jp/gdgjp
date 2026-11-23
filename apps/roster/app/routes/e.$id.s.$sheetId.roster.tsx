@@ -40,23 +40,6 @@ import { type Assignments, type SolverInput, assignmentKey } from "~/features/so
 import { getDb } from "~/lib/db.server";
 import type { Route } from "./+types/e.$id.s.$sheetId.roster";
 
-/**
- * `/e/:id/s/:sheetId/roster` (docs/roster/07-roster-manual-edit.md, docs/roster/
- * 08-history.md): the shift table. "自動生成" runs the Stage 06 solver inside
- * this action (ADR-004) and writes through `roster.server.ts#writeAssignments`
- * — the ONLY write path. `assign`/`unassign` funnel through the same
- * function via `roster.server.ts#writeManualEdit`, now with a `revision`
- * argument so Stage 08's history records every generate/edit automatically
- * (see `roster.server.ts`'s module doc). `undo`/`redo`/`restore` (Stage 08)
- * move `events.revision_cursor` instead — never passing a `revision`
- * argument, which is what keeps them from creating new history entries.
- *
- * `evaluate()`/`hardViolations()`/`suggestFor()` are called here (via
- * `grid.ts`) and, for the live drawers, directly in the browser (ADR-004),
- * so shipping the assembled `SolverInput` down as loader data keeps the
- * drawers' numbers byte-identical to `evaluate()`'s, with no extra round trip.
- */
-
 async function requireRosterAccess(
   env: Env,
   request: Request,
@@ -291,12 +274,6 @@ export default function RosterPage({ loaderData, actionData }: Route.ComponentPr
   const cellError =
     actionIntent === "assign" || actionIntent === "unassign" ? actionError : undefined;
 
-  // docs/roster/08-history.md "Design" §5: a restore/undo/redo that dropped
-  // stale snapshot entries (a withdrawn applicant, a regenerated schedule)
-  // must say so, not silently return fewer assignments than expected.
-  // Narrows on `actionData.intent` (a literal discriminant unique to each
-  // `ok: true` variant) rather than a structural `"droppedCount" in ...`
-  // check, which TS can't fully narrow across a 6-member union.
   const droppedCount =
     actionData &&
     "ok" in actionData &&

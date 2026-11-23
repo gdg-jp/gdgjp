@@ -12,7 +12,6 @@ import {
   uniqueAnswerOptions,
 } from "~/features/campaigns/connpass-csv";
 
-/** Browser-only boundary: the raw CSV never runs through the Worker action. */
 export async function analyzeConnpassParticipantsFile(
   file: File,
   campaignChannels: CampaignChannelOption[],

@@ -303,7 +303,6 @@ describe("OIDC RP sign-in", () => {
     expect(calls[0]).toEqual(
       expect.objectContaining({ args: ["https://issuer.example", "subject-1"] }),
     );
-    // The local row no longer snapshots is_admin.
     expect(calls.some((call) => call.sql.includes("is_admin"))).toBe(false);
 
     const cookie = response.headers.getSetCookie()[0].split(";")[0];

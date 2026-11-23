@@ -36,7 +36,6 @@ export type ImportKindDriver<P extends string = string> = ImportKindDriverBase<P
     | {
         needsAccessToken: true;
         requiredScopes: readonly string[];
-        /** Actionable terminal error when the stored OAuth grant is insufficient. */
         authorizationErrorMessage: string;
       }
     | {
@@ -54,7 +53,6 @@ const drivers = new Map<SourceImportKind, ImportKindDriver>([
   ["google-drive", driveImportDriver],
 ]);
 
-/** Lets a driver module register itself without coupling the generic tick to its API client. */
 export function registerSourceImportDriver(driver: ImportKindDriver): void {
   drivers.set(driver.kind, driver);
 }
@@ -128,8 +126,6 @@ export async function advanceSourceImportTick(ctx: SourceImportTickContext): Pro
     const next = driver.phases[index + 1];
     if (!next) {
       await driver.complete(ctx, current);
-      // Every driver ends here: hand new / changed documents to the runner. A failure is
-      // logged only — the hourly sweep (enqueuePendingSynthesis) re-queues them.
       await scheduleKnowledgeSync(ctx.env, current.source.spaceId);
       try {
         await enqueueSynthesizeForSource(current.db, current.source.id);

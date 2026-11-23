@@ -4,10 +4,8 @@ import { archiveMissingDocuments } from "./archive";
 
 const testDb = createSourcesTestDb();
 const { sqlite, setAfterExecute } = testDb;
-// The proxy-driver test database stands in for the D1 one archive.ts is typed against.
 const db = testDb.db as unknown as Parameters<typeof archiveMissingDocuments>[0];
 
-/** D1 rejects a statement that binds more than this many parameters. */
 const D1_MAX_BOUND_PARAMETERS = 100;
 
 function seed(paths: string[]) {

@@ -1,5 +1,3 @@
-// Small Web-standard helpers shared by features (no Node Buffer on Workers).
-
 export function base64UrlEncode(bytes: Uint8Array | ArrayBuffer): string {
   const view = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes);
   let binary = "";

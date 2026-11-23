@@ -106,8 +106,6 @@ describe("enqueuePendingSynthesis", () => {
 
 describe("integrateNow", () => {
   it("queues the space's unintegrated documents, not an empty job", async () => {
-    // c-2: after a needs_review run, "今すぐ統合" queued an empty payload that "succeeded"
-    // in 12 s without integrating anything.
     const { db, sqlite } = createSpacesTestDb();
     sqlite.exec(`
       INSERT INTO sources (id, kind, url, title, added_by, status, visibility)

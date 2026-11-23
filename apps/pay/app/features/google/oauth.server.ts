@@ -4,7 +4,6 @@ import { decryptSecret, encryptSecret } from "~/lib/crypto.server";
 // drive.file (non-sensitive) lets the connected admin's app-created files and
 // anything they explicitly grant via Picker be read/written without Google's
 // restricted-scope verification. spreadsheets is required to write claim values.
-// userinfo.email is required to call GOOGLE_USERINFO_URL below.
 const GOOGLE_OAUTH_SCOPES = [
   "https://www.googleapis.com/auth/drive.file",
   "https://www.googleapis.com/auth/spreadsheets",

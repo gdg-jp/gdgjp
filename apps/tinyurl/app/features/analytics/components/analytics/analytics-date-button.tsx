@@ -64,8 +64,6 @@ export function AnalyticsDateButton({
   const isDesktop = useMediaQuery("(min-width: 640px)");
   const [open, setOpen] = useState(false);
 
-  // Show the pending preset/range during navigation so the trigger label updates
-  // instantly on click, not after the loader finishes.
   const display = useMemo(() => {
     if (navigation.state !== "idle" && navigation.location) {
       const pendingParams = new URLSearchParams(navigation.location.search);

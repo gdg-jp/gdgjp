@@ -3,12 +3,6 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
-/**
- * Two-layer ACL (knowledge platform v2): a request first proves it can reach the SPACE,
- * then the unchanged inner ACL decides inside it. A module that runs the inner ACL without
- * a space guard would let a page or source in a private space leak to anyone the inner ACL
- * happens to admit (e.g. a `member`-visibility page in a chapter space).
- */
 const WIKI_ROOT = fileURLToPath(new URL("../../", import.meta.url));
 
 function sourceFiles(relRoot: string): string[] {
@@ -33,7 +27,6 @@ const INNER_ACL =
 const SPACE_GUARD =
   /\b(requireSpace|requireSpaceForIdentity|requirePageSpace|requireSourceSpace|resolveSpaceAccess|pagesInSpaces|loadViewerContext)\(/;
 
-/** Modules that implement the inner ACL itself, or that only ever act on gdg-jp. */
 const EXEMPT: Record<string, string> = {
   "app/features/pages/access.server.ts": "inner ACL implementation",
   "app/features/pages/acl-spans.server.ts": "inner ACL implementation",

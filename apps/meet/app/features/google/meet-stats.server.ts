@@ -45,16 +45,11 @@ export type MeetTranscriptEntriesPage = {
   nextPageToken?: string;
 };
 
-/**
- * `spaces/<s>/members/<id>` の末尾 `<id>` がすべて数字のときのみ `"users/" + id` を返す。
- * 32 桁 hex ハッシュ等の場合は `null` を返す（`00a-poc-findings.md` §8）。
- */
 export function memberUserId(memberName: string): string | null {
   const match = /\/members\/(\d+)$/.exec(memberName.trim());
   return match ? `users/${match[1]}` : null;
 }
 
-/** `conferenceRecords/<cr>/participants` を `pageSize=250` で全ページ取得する。 */
 export async function listParticipants(
   accessToken: string,
   conferenceRecordName: string,
@@ -104,10 +99,6 @@ export async function listParticipantSessions(
   );
 }
 
-/**
- * `transcripts/<t>/entries` を `pageSize=100` で 1 ページ分だけ取得する。
- * ジョブ側で API 呼び出し予算を制御しながらページングするために単一ページで返す。
- */
 export async function listTranscriptEntries(
   accessToken: string,
   transcriptName: string,

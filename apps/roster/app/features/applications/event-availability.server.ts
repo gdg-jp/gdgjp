@@ -12,7 +12,6 @@ async function requireApplicationEvent(db: D1Database, applicationId: string): P
   return application.event_id;
 }
 
-/** Callers authorize the application; archived sheets are excluded from form data. */
 export async function listEventAvailabilityForApplication(
   db: D1Database,
   applicationId: string,
@@ -32,12 +31,6 @@ export async function listEventAvailabilityForApplication(
   return (results ?? []).map(toAvailability);
 }
 
-/**
- * Replaces the complete grid across live sheets, preserving archived-sheet rows.
- * The submitted IDs must exactly match all current live slots. A guard in the
- * same D1 transaction rejects stale/incomplete/foreign grids before deletion.
- * JSON input keeps the number of bound parameters constant for large grids.
- */
 export async function setEventAvailability(
   db: D1Database,
   applicationId: string,
@@ -56,12 +49,6 @@ export async function setEventAvailability(
   await db.batch(statements);
 }
 
-/**
- * Creates the guarded replacement statements so callers can combine profile,
- * skills, and availability writes into one D1 batch. `expectedUserId` binds
- * the guard to a self-registration identity and prevents a changed/claimed
- * application from receiving the submitted grid.
- */
 export function buildEventAvailabilityStatements(
   db: D1Database,
   eventId: string,

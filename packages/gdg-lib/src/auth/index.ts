@@ -22,9 +22,6 @@ export type UserClaims = {
   emailVerified: boolean;
   isAdmin: boolean;
   chapter: UserChapter | null;
-  /** All active memberships. The singular `chapter` field is the "primary"
-   * (organizer beats member, then oldest approved). New consumers should
-   * prefer `chapters`; legacy consumers continue to read `chapter`. */
   chapters: UserChapter[];
 };
 

@@ -4,8 +4,6 @@ const getMock = vi.fn();
 const setMock = vi.fn();
 
 vi.mock("~/features/spaces/access.server", async (importOriginal) => {
-  // The outer (space) layer has its own tests in features/spaces; here every caller is
-  // an owner of the default space so these tests keep exercising the inner ACL.
   const original = await importOriginal<typeof import("~/features/spaces/access.server")>();
   const space = {
     id: "gdg-jp",

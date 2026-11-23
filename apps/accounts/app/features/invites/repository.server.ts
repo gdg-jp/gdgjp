@@ -104,7 +104,6 @@ export async function getInviteById(db: D1Database, id: string): Promise<Invite 
   return toInviteSummary(row, chapters.get(row.id) ?? []);
 }
 
-/** Usable (unrevoked, unexpired) invites touching any of the given chapters, newest first. */
 export async function listActiveInvitesForChapters(
   db: D1Database,
   chapterIds: number[],

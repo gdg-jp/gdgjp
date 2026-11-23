@@ -81,9 +81,6 @@ describe("canAccessSource", () => {
   });
 
   it("preserves pre-migration access for backfilled rows, for users with some chapter", () => {
-    // Fail-closed `member` (chapters.length > 0, see below) is a deliberate departure from
-    // pre-migration behavior for signed-in users with no chapter at all — excluded here on
-    // purpose, not an oversight. Equivalence still holds for everyone else.
     const cases = [
       { user: ADMIN, chapterIds: [] as string[], chapters: [] as const },
       { user: OWNER, chapterIds: [], chapters: [] },
@@ -106,9 +103,6 @@ describe("canAccessSource", () => {
   });
 
   it("denies member-visibility sources to a signed-in user with no chapter membership", () => {
-    // Pre-migration, a chapter_id-IS-NULL source was visible to every signed-in user
-    // unconditionally. `member` is fail-closed instead: it means "belongs to at least one
-    // chapter," not "is signed in." This intentionally breaks equivalence for outsiders.
     expect(canAccessSource(source({ visibility: "member" }), OUTSIDER, [])).toBe(false);
     expect(canAccessSource(source({ visibility: "member" }), OUTSIDER, [OSAKA])).toBe(true);
   });
@@ -188,7 +182,6 @@ describe("updateSourceVisibility", () => {
       },
     );
     expect(result).toEqual({ ok: true, visibility: "member", chapterId: null });
-    // Search metadata is re-tagged for the new audience.
     expect(send).toHaveBeenCalledWith({ type: "source_audience_rewrite", sourceId: "src-1" });
     expect(updateMock).toHaveBeenCalledWith({
       visibility: "member",

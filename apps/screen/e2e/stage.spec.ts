@@ -1,11 +1,5 @@
 import { type Browser, type Page, expect, test } from "@playwright/test";
 
-/**
- * End-to-end through the real Cloudflare Realtime SFU: a speaker with fake
- * camera/mic joins, the operator puts them on slot A, and the OBS camera
- * output starts receiving frames. Needs REALTIME_APP_ID/TOKEN in .dev.vars.
- */
-
 async function operatorPage(browser: Browser): Promise<Page> {
   const context = await browser.newContext({
     locale: "ja-JP",
@@ -59,7 +53,6 @@ test("speaker goes on air through an OBS output", async ({ browser }) => {
   });
   await op.keyboard.press("Escape");
 
-  // Speaker: lobby → room.
   const speakerContext = await browser.newContext({
     locale: "ja-JP",
     permissions: ["camera", "microphone"],
@@ -68,19 +61,15 @@ test("speaker goes on air through an OBS output", async ({ browser }) => {
   const speakerLog: string[] = [];
   speaker.on("console", (m) => speakerLog.push(`${m.type()}: ${m.text()}`));
   speaker.on("pageerror", (e) => speakerLog.push(`pageerror: ${e.message}`));
-  // The invite link is the stage id itself.
   expect(new URL(invite).pathname).toBe(`/${stageId}/`);
   await speaker.goto(invite);
-  // Join stays pressable; without a name it explains why instead of joining.
   await speaker.getByRole("button", { name: "参加" }).click();
   await expect(speaker.getByRole("alert")).toHaveText("お名前を入力してください");
   await speaker.getByRole("textbox", { name: "お名前" }).fill("E2E Speaker");
   await expect(speaker.getByRole("alert")).toHaveCount(0);
-  // Device menus sit next to the toggles.
   await speaker.getByRole("button", { name: "カメラの設定" }).click();
   await expect(speaker.getByRole("menuitemradio").first()).toBeVisible();
   await speaker.keyboard.press("Escape");
-  // Switching back to the OS-default mic sticks (it used to stay unselected).
   const micMenu = speaker.getByRole("button", { name: "マイクの設定" });
   const pick = async (label: string) => {
     await micMenu.click();
@@ -96,25 +85,20 @@ test("speaker goes on air through an OBS output", async ({ browser }) => {
   await speaker.getByRole("button", { name: "参加" }).click();
   await expect(speaker.locator(".sc-chip[data-tone='ok']")).toBeVisible({ timeout: 20_000 });
 
-  // The operator camera starts off (every speaker would pull it); turned on,
-  // it shows up on the speaker's side with the operator's name.
   await op.getByRole("button", { name: "カメラをオン" }).click();
 
-  // The operator's display name is editable and reaches the speaker live.
   await op.locator(".sc-op-name").click();
   await op.getByRole("textbox", { name: "登壇者に表示される名前" }).fill("配信ヤマダ");
   await op.getByRole("button", { name: "保存" }).click();
   await expect(op.locator(".sc-op-name")).toContainText("配信ヤマダ");
   await expect(speaker.locator(".sc-tile figcaption", { hasText: "配信ヤマダ" })).toBeVisible();
 
-  // Operator sees the speaker and assigns slot A.
   await expect(op.locator(".sc-person-name", { hasText: "E2E Speaker" })).toBeVisible({
     timeout: 15_000,
   });
   await op.getByRole("radio", { name: "A に出力" }).click();
   await expect(speaker.locator(".sc-slot-badge")).toHaveText("A");
 
-  // OBS camera output receives frames and is visible.
   const outContext = await browser.newContext();
   const out = await outContext.newPage();
   await out.goto(`${cameraUrl}&debug=1`);
@@ -139,7 +123,6 @@ test("speaker goes on air through an OBS output", async ({ browser }) => {
     });
   await expect(out.locator(".sc-out-frame")).toHaveCSS("opacity", "1");
 
-  // OBS mic output gets a live audio track.
   const outMic = await outContext.newPage();
   await outMic.goto(micUrl);
   await expect
@@ -154,7 +137,6 @@ test("speaker goes on air through an OBS output", async ({ browser }) => {
     )
     .toBe("live");
 
-  // Operator monitor shows the speaker's camera in slot A.
   await expect
     .poll(
       () =>
@@ -167,15 +149,11 @@ test("speaker goes on air through an OBS output", async ({ browser }) => {
     )
     .toBeGreaterThan(0);
 
-  // Simulcast: OBS climbs to the full layer while the control room's small
-  // camera tile stays on the quarter layer.
   await expect.poll(() => videoWidth(out, "video"), { timeout: 30_000 }).toBe(1280);
   await expect
     .poll(() => videoWidth(op, ".sc-slot .sc-slot-tile video"), { timeout: 30_000 })
     .toBe(320);
 
-  // A reload mid-talk returns to slot A without touching anything, and the
-  // OBS output picks up the new SFU session.
   await speaker.reload();
   await expect(speaker.locator(".sc-slot-badge")).toHaveText("A", { timeout: 20_000 });
   await expect(speaker.locator(".sc-chip[data-tone='ok']")).toBeVisible({ timeout: 20_000 });
@@ -196,7 +174,6 @@ test("speaker goes on air through an OBS output", async ({ browser }) => {
     });
   await expect(out.locator(".sc-out-frame")).toHaveCSS("opacity", "1");
 
-  // Screen sharing reaches the OBS screen output.
   const screenUrl = cameraUrl.replace("/A/camera", "/A/screen");
   const outScreen = await outContext.newPage();
   await outScreen.goto(screenUrl);
@@ -206,7 +183,6 @@ test("speaker goes on air through an OBS output", async ({ browser }) => {
       timeout: 30_000,
     })
     .toBeGreaterThan(0);
-  // The control room's screen tile pulls the half layer.
   await expect
     .poll(
       async () => {
@@ -218,7 +194,6 @@ test("speaker goes on air through an OBS output", async ({ browser }) => {
     )
     .toBe(true);
 
-  // ON AIR turns the speaker's indicator red; a cue appears large.
   await op.getByRole("button", { name: "ON AIR" }).click();
   await expect(speaker.locator(".sc-chip[data-tone='onair']")).toBeVisible();
   await op.getByRole("button", { name: "残り 5 分" }).click();
@@ -226,11 +201,9 @@ test("speaker goes on air through an OBS output", async ({ browser }) => {
   await speaker.getByRole("button", { name: "OK" }).click();
   await expect(speaker.getByRole("alert")).toHaveCount(0);
 
-  // Unassigning hides the OBS output at once.
   await op.getByRole("button", { name: "A の割り当てを解除" }).click();
   await expect(out.locator(".sc-out-frame")).toHaveCSS("opacity", "0");
 
-  // Clean up.
   await op.getByRole("button", { name: "メニュー" }).click();
   await op.getByRole("menuitem", { name: "削除" }).click();
   await op.getByRole("button", { name: "削除" }).click();
@@ -251,13 +224,11 @@ test("a stage takes a custom id that is also its invite link", async ({ browser 
   await op.getByRole("button", { name: "作成" }).click();
   await op.waitForURL(new RegExp(`/stages/${id}$`));
 
-  // Speakers reach the stage at /<id>/.
   const speaker = await browser.newPage();
   await speaker.goto(`/${id}/`);
   await expect(speaker.getByRole("heading", { name: "e2e custom id" })).toBeVisible();
   await speaker.close();
 
-  // A taken id is refused rather than swapped for another.
   await op.goto("/");
   await open();
   await op.getByRole("button", { name: "作成" }).click();

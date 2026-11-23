@@ -135,7 +135,6 @@ describe("evaluate", () => {
       roleId: ROLE,
       amount: 1,
     });
-    // "over" is a violation, never counted as a shortage.
     expect(report.shortages).toEqual([]);
   });
 
@@ -164,11 +163,10 @@ describe("evaluate", () => {
     const assignments: Assignments = new Map([
       [assignmentKey("a1", "slot-0"), { trackId: TRACK, roleId: ROLE, locked: false }],
       [assignmentKey("a2", "slot-0"), { trackId: TRACK, roleId: ROLE, locked: false }],
-      [assignmentKey("a3", "slot-0"), { trackId: TRACK, roleId: ROLE, locked: false }], // over ideal(2) -> capped at 2
+      [assignmentKey("a3", "slot-0"), { trackId: TRACK, roleId: ROLE, locked: false }],
       [assignmentKey("a1", "slot-1"), { trackId: TRACK, roleId: ROLE, locked: false }],
     ]);
     const report = evaluate(input, assignments);
-    // slot-0: min(3, 2) = 2; slot-1: min(1, 1) = 1 -> filled = 3, demandIdeal = 3
     expect(report.metrics.filled).toBe(3);
     expect(report.metrics.demandIdeal).toBe(3);
     expect(report.metrics.idealRate).toBeCloseTo(1, 10);
@@ -206,7 +204,7 @@ describe("evaluate", () => {
     ]);
     const report = evaluate(input, assignments);
     expect(report.metrics.loadMax).toBe(2);
-    expect(report.metrics.loadMin).toBe(0); // "idle" (not withdrawn) pulls the min down
+    expect(report.metrics.loadMin).toBe(0);
     expect(report.metrics.loadStdev).toBeGreaterThan(0);
   });
 
@@ -241,7 +239,6 @@ describe("evaluate", () => {
       [assignmentKey("a1", "slot-2"), { trackId: TRACK, roleId: ROLE, locked: false }],
     ]);
     const report = evaluate(input, assignments);
-    // streak of 3 > maxConsecutive(2) -> overwork counts this 1 staff member.
     expect(report.metrics.overwork).toBe(1);
   });
 
@@ -259,7 +256,6 @@ describe("evaluate", () => {
     const assignments: Assignments = new Map([
       [assignmentKey("a1", "slot-0"), { trackId: TRACK, roleId: ROLE, locked: false }],
       [assignmentKey("a1", "slot-1"), { trackId: TRACK, roleId: ROLE, locked: false }],
-      // gap at slot-2
       [assignmentKey("a1", "slot-3"), { trackId: TRACK, roleId: ROLE, locked: false }],
     ]);
     const report = evaluate(input, assignments);

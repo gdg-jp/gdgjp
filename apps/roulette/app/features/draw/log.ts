@@ -1,11 +1,9 @@
 import { rankLabel } from "~/features/prizes/odds";
 
-/** One spin in the admin draw log. Never carries the device id. */
 export type DrawLogEntry = {
   number: number;
   name: string;
   rank: number | null;
-  /** Unix seconds. */
   createdAt: number;
 };
 
@@ -20,7 +18,6 @@ const dateTimeFormat = new Intl.DateTimeFormat("sv-SE", {
   hourCycle: "h23",
 });
 
-/** "2026-10-30 14:32:05" in Japan time. */
 export function formatDrawDateTime(unixSeconds: number) {
   return dateTimeFormat.format(new Date(unixSeconds * 1000));
 }

@@ -44,8 +44,6 @@ export default function DesignScreen({ loaderData, actionData }: DesignScreenPro
     assignmentCounts,
   } = loaderData;
   const selectedRoles = roles.filter((r) => eventRoleIds.includes(r.id));
-  // Role-card errors render inside that card, next to the submitted form; the
-  // page-top banner would be out of view after a submit near the card's bottom.
   const error = actionData && "error" in actionData ? actionData : undefined;
   const roleError = error?.section === "roles" ? error.error : undefined;
   const pageError = error?.section === "roles" ? undefined : error?.error;

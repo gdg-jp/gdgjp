@@ -5,7 +5,6 @@ import type { PostCondition } from "./post.types";
 
 export const MAX_TAG_HANDLES = 10;
 
-/** A post whose bytes are already on their way to X can no longer be edited. */
 export function isEditableStatus(status: PostStatus): boolean {
   return status !== "published" && status !== "posting";
 }
@@ -22,12 +21,6 @@ export function isValidCondition(value: string): value is PostCondition {
   return value === "scheduled" || value === "photo_required";
 }
 
-/**
- * The draft status is a pure function of its condition and how many images are
- * currently attached: a photo-required post with no image waits, everything
- * else is schedulable. Callers must not apply this to a `published`/`posting`
- * post — see {@link isEditableStatus}.
- */
 export function recomputeDraftStatus(
   condition: PostCondition,
   mediaCount: number,
@@ -49,11 +42,6 @@ export function validateNewMedia(
   return null;
 }
 
-/**
- * Accepts either pre-split handles (CLI) or a single raw field holding several
- * whitespace/comma-separated handles (the dashboard's tag dialog), and caps the
- * result the same way the dashboard action always has.
- */
 export function normalizeTagHandles(handles: string[]): string[] {
   return handles
     .flatMap((value) => value.split(/[\s,]+/))

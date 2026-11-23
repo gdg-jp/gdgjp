@@ -1,15 +1,3 @@
-/**
- * Server-side TipTap JSON → Markdown converter.
- *
- * Pure JSON traversal — no DOM required, runs in Cloudflare Workers.
- * Used at legacy-data boundaries to convert historical TipTap JSON to Markdown.
- * Page content is canonically stored as Markdown.
- */
-
-// ---------------------------------------------------------------------------
-// TipTap document node types (minimal subset we need to handle)
-// ---------------------------------------------------------------------------
-
 export interface TipTapMark {
   type: string;
   attrs?: Record<string, unknown>;
@@ -28,10 +16,6 @@ export interface TipTapDoc {
   content?: TipTapNode[];
 }
 
-// ---------------------------------------------------------------------------
-// Converter
-// ---------------------------------------------------------------------------
-
 export function tiptapToMarkdown(doc: TipTapDoc | TipTapNode | string): string {
   if (typeof doc === "string") {
     try {
@@ -45,7 +29,6 @@ export function tiptapToMarkdown(doc: TipTapDoc | TipTapNode | string): string {
   return convertNode(doc).trim();
 }
 
-/** Returns true only for a TipTap/ProseMirror node, never arbitrary JSON text. */
 export function isTipTapNode(value: unknown): value is TipTapNode {
   if (!value || typeof value !== "object" || Array.isArray(value)) return false;
   const node = value as Record<string, unknown>;
@@ -92,7 +75,6 @@ function convertNode(
         if (child.type === "paragraph") {
           lines.push(`${prefix} ${convertInline(child.content ?? [])}`);
         } else if (child.type === "bulletList" || child.type === "orderedList") {
-          // Nested list — indent by 2 spaces
           const nested = convertNode(child);
           const indented = nested
             .split("\n")
@@ -153,7 +135,6 @@ function convertNode(
       return lines.join("\n");
     }
 
-    // Pass-through for tableRow — handled by table
     case "tableRow":
       return (node.content ?? []).map((n) => convertNode(n)).join(" | ");
 
@@ -162,7 +143,6 @@ function convertNode(
       return (node.content ?? []).map((n) => convertNode(n)).join(" ");
 
     default:
-      // Unknown node — recurse into children
       if (node.content) {
         return node.content.map((n) => convertNode(n)).join("");
       }
@@ -189,7 +169,6 @@ function convertInlineNode(node: TipTapNode): string {
       (a, b) => (MARK_PRIORITY[a.type] ?? 99) - (MARK_PRIORITY[b.type] ?? 99),
     );
 
-    // Apply marks in deterministic order
     for (const mark of marks) {
       switch (mark.type) {
         case "bold":
@@ -219,16 +198,11 @@ function convertInlineNode(node: TipTapNode): string {
   if (node.type === "hardBreak") return "\n";
   if (node.type === "image") return convertNode(node);
 
-  // Inline content with nested nodes
   if (node.content) {
     return convertInline(node.content);
   }
   return node.text ?? "";
 }
-
-// ---------------------------------------------------------------------------
-// Patch application: merge section patches into existing markdown
-// ---------------------------------------------------------------------------
 
 export interface SectionPatch {
   headingMatch: string | null;
@@ -237,14 +211,8 @@ export interface SectionPatch {
   content: string;
 }
 
-/**
- * Applies section patches to existing markdown content.
- * Splits existing markdown into sections by heading, then inserts patch
- * content at the appropriate locations.
- */
 export function applyPatchesToMarkdown(existingMarkdown: string, patches: SectionPatch[]): string {
   if (!existingMarkdown.trim()) {
-    // No existing content — just render patches as sections
     return patches
       .map((p) => {
         const heading = p.newHeading ?? p.headingMatch ?? "New Section";
@@ -253,7 +221,6 @@ export function applyPatchesToMarkdown(existingMarkdown: string, patches: Sectio
       .join("\n\n");
   }
 
-  // Split existing markdown into sections by heading (## or #)
   const lines = existingMarkdown.split("\n");
   const sections: { heading: string | null; lines: string[] }[] = [];
   let current: { heading: string | null; lines: string[] } = { heading: null, lines: [] };
@@ -278,14 +245,12 @@ export function applyPatchesToMarkdown(existingMarkdown: string, patches: Sectio
   }
   sections.push(current);
 
-  // Apply each patch
   for (const patch of patches) {
     const patchBlock = patch.newHeading
       ? `\n\n## ${patch.newHeading}\n\n${patch.content}`
       : `\n${patch.content}`;
 
     if (patch.headingMatch === null) {
-      // null headingMatch → append/prepend to entire document
       if (patch.operation === "prepend") {
         sections[0].lines.unshift(patchBlock);
       } else {
@@ -294,20 +259,17 @@ export function applyPatchesToMarkdown(existingMarkdown: string, patches: Sectio
       continue;
     }
 
-    // Find matching section by heading text
     const idx = sections.findIndex(
       (s) => s.heading !== null && s.heading.trim() === patch.headingMatch?.trim(),
     );
 
     if (idx !== -1) {
       if (patch.operation === "prepend") {
-        // Insert after heading line
         sections[idx].lines.splice(1, 0, patchBlock);
       } else {
         sections[idx].lines.push(patchBlock);
       }
     } else {
-      // Heading not found — append as new section at the end
       const heading = patch.newHeading ?? patch.headingMatch;
       sections.push({ heading, lines: [`## ${heading}`, "", patch.content] });
     }

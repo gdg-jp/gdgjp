@@ -84,7 +84,6 @@ export async function action({ request, context, params }: Route.ActionArgs) {
   const env = context.cloudflare.env;
   const form = await request.formData();
   const intent = String(form.get("intent") ?? "save");
-  // Adding your own chapter's account is open to editors; the rest needs manage.
   const need = intent === "add-x" || intent === "add-handle" ? "edit" : "manage";
   const access = await requireCampaignAccess(env, request, params.slug, need);
   const delivery = await deliverySettingsAction(env, access, intent, form);

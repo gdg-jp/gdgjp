@@ -26,10 +26,6 @@ import { i18nextServer } from "./i18n.server";
 
 import appStylesHref from "./app.css?url";
 
-/**
- * Locale/theme only change via dedicated cookie APIs. Skip revalidating root
- * on every in-app GET so leaf navigations aren't blocked by an extra loader.
- */
 export const shouldRevalidate: ShouldRevalidateFunction = ({
   formAction,
   formMethod,
@@ -63,8 +59,6 @@ export const links: LinksFunction = () => [
 
 export async function loader({ request, context }: LoaderFunctionArgs) {
   const { env } = context.cloudflare;
-  // Prefer the persisted ui_lang cookie so SSR language matches the user's
-  // saved preference, falling back to Accept-Language detection.
   const cookieHeader = request.headers.get("Cookie") ?? "";
   const cookieLang = cookieHeader
     .split(";")
@@ -118,7 +112,6 @@ function useDocumentLocale(): SupportedLng {
   return fallbackLocale;
 }
 
-/** The document is shared by normal routes and route error boundaries. */
 export function Layout({ children }: { children: ReactNode }) {
   const locale = useDocumentLocale();
 
@@ -152,7 +145,6 @@ export function ErrorBoundary() {
 
   return (
     <main id="gdg-main" className="flex min-h-screen items-center justify-center px-4">
-      {/* Error screens have no route meta: name the tab here. */}
       <title>{`${is404 ? t("error.404_title") : t("error.500_title")} — GDG Japan Wiki`}</title>
       <Stack align="center" className="max-w-md text-center">
         <Icons name={iconName} className="w-16 h-16 text-link" strokeWidth={1.5} />
@@ -170,7 +162,6 @@ export function ErrorBoundary() {
 }
 
 export default function App() {
-  // Leave a page whose accounts.gdgs.jp session ended (see gdg-lib).
   useEffect(() => installSignedOutReload(), []);
   const { firebaseConfig } = useLoaderData<typeof loader>();
 

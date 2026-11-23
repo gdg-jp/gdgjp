@@ -77,10 +77,6 @@ export async function deletePostMediaById(db: D1Database, id: string): Promise<v
   await db.prepare("DELETE FROM post_media WHERE id = ?").bind(id).run();
 }
 
-/**
- * Reorders (and re-labels) several media rows in one D1 batch so the
- * `UNIQUE (post_id, sort_order)` positions can never be left half-updated.
- */
 export async function batchUpdateMediaMetadata(
   db: D1Database,
   edits: MediaMetadataEdit[],

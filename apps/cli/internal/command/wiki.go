@@ -17,9 +17,6 @@ import (
 
 const defaultWikiRemote = "gdg-wiki::https://wiki.gdgs.jp/api/cli/wiki"
 
-// gitRunner is deliberately small so the command layer can be tested without
-// a real Git installation. The gdg-wiki transport itself is implemented by
-// git-remote-gdg-wiki, not by these commands.
 type gitRunner func(context.Context, string, ...string) (string, error)
 
 type wikiService struct {
@@ -28,8 +25,7 @@ type wikiService struct {
 	installHelper func(string) (string, error)
 	credentials   store.CredentialStore
 	newClient     func() *wiki.Client
-	// readSources is verify-acl's --read-sources (the job's sources); required.
-	readSources []string
+	readSources   []string
 }
 
 type cloneOptions struct {
@@ -315,13 +311,6 @@ func (s *wikiService) withToken(ctx context.Context, fn func(string) error) erro
 	return err
 }
 
-// loadTaggingCredentialStore preserves wiki's existing
-// "load credentials (run gdg login): %w" wrapper for every Load failure (not
-// only store.ErrNotFound) now that the retry flow is shared via
-// cliutil.WithToken. The tag is deliberately not Unwrap-able to
-// store.ErrNotFound, so cliutil.WithToken's own ErrNotFound short-circuit
-// (which returns its own generic NotLoggedInError) never fires here; wiki's
-// wrapper is restored afterwards from the tagged error instead.
 type loadTaggingCredentialStore struct {
 	store.CredentialStore
 }
@@ -358,8 +347,6 @@ func (s *wikiService) syncRaw(ctx context.Context, root string) error {
 	})
 }
 
-// runVerifyACL executes the dry-run gate. Infrastructure failures return a
-// warning and ok=true (fail open). ACL findings return ok=false with no error.
 func (s *wikiService) runVerifyACL(cmd *cobra.Command) (ok bool, err error) {
 	root, err := s.findRoot()
 	if err != nil {
@@ -401,6 +388,5 @@ func (s *wikiService) verifyACL(cmd *cobra.Command) error {
 	if ok {
 		return nil
 	}
-	// Cobra maps returned errors to exit 1 — the only fail-closed path.
 	return errors.New("ACL validation failed")
 }

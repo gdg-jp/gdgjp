@@ -6,7 +6,6 @@ import { applyTranslation } from "~/features/jobs/translate.server";
 import { scheduleKnowledgeSync } from "~/features/knowledge/sync.server";
 import { getDb } from "~/lib/db.server";
 
-/** POST /api/runner/pages/:id/translation { titleEn, contentEn, sourceHash } */
 export async function action({ request, context, params }: ActionFunctionArgs) {
   const { env, ctx } = context.cloudflare;
   requireRunner(request, env);

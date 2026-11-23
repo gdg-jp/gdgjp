@@ -55,18 +55,12 @@ export async function listContacts(db: D1Database, chapterIds: number[]): Promis
   return results.map(toContact);
 }
 
-/**
- * Replace a chapter's Wiki-sourced rows with the page's current contents: upsert by
- * (organization, wiki person), delete rows the page no longer lists. Manual rows stay.
- * Operations columns (owner, notes, outcomes) survive a re-import.
- */
 export async function syncWikiContacts(
   db: D1Database,
   chapterId: number,
   wikiPath: string,
   imported: ImportedContact[],
 ): Promise<{ upserted: number; removed: number }> {
-  // Milliseconds: the sync marker. Rows not touched by this import are stale.
   const now = Date.now();
   const unique = new Map(imported.map((c) => [`${c.organization}\u0000${c.wikiPerson ?? ""}`, c]));
   const statements = [...unique.values()].map((c) =>

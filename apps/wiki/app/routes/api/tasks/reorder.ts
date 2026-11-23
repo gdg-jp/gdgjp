@@ -5,9 +5,6 @@ import { getAccessIdentity, requireUser } from "~/features/auth/utils.server";
 import { getEffectivePagePermissions } from "~/features/pages/access.server";
 import { getDb } from "~/lib/db.server";
 
-// ---------------------------------------------------------------------------
-// POST — reorder tasks within a task list
-// ---------------------------------------------------------------------------
 export async function action({ request, params, context }: ActionFunctionArgs) {
   const { env } = context.cloudflare;
   const user = await requireUser(request, env);
@@ -17,7 +14,6 @@ export async function action({ request, params, context }: ActionFunctionArgs) {
   const { taskListId } = params;
   if (!taskListId) return Response.json({ error: "Missing taskListId" }, { status: 400 });
 
-  // Only the task list's page author or an admin may reorder.
   const page = await db
     .select({
       id: schema.pages.id,
@@ -42,9 +38,6 @@ export async function action({ request, params, context }: ActionFunctionArgs) {
   }
   if (orderedIds.length === 0) return Response.json({ ok: true });
 
-  // Verify every supplied id actually belongs to this task list — without
-  // this check, a caller who can manage one list could pass ids from any
-  // other list and reshuffle them.
   const belonging = await db
     .select({ id: schema.tasks.id })
     .from(schema.tasks)
@@ -55,7 +48,6 @@ export async function action({ request, params, context }: ActionFunctionArgs) {
     return Response.json({ error: "task ids do not match this task list" }, { status: 400 });
   }
 
-  // Batch-update sort_order based on array index
   const updates = orderedIds.map((id, index) =>
     db
       .update(schema.tasks)

@@ -32,7 +32,6 @@ export function Layout({ children }: { children: ReactNode }) {
 }
 
 export default function App() {
-  // Leave a page whose accounts.gdgs.jp session ended (see gdg-lib).
   useEffect(() => installSignedOutReload(), []);
   const navigation = useNavigation();
   const isNavigating = navigation.state === "loading";

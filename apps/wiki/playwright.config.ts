@@ -37,8 +37,6 @@ export default defineConfig({
       name: "chromium",
       use: {
         ...devices["Desktop Chrome"],
-        // Tests must not depend on the internet: third-party assets (analytics, sibling-app
-        // icons) fail fast instead of holding the page's load event on a slow network.
         launchOptions: {
           args: ["--host-resolver-rules=MAP * ~NOTFOUND, EXCLUDE localhost, EXCLUDE 127.0.0.1"],
         },
@@ -47,15 +45,10 @@ export default defineConfig({
   ],
   webServer: {
     command: process.env.CI ? `node ../../scripts/run-e2e-dev.mjs ${PORT}` : "pnpm dev",
-    // A static asset: readiness must not depend on the database, which globalSetup
-    // migrates only after the server is up.
     url: `http://localhost:${PORT}/og-image.png`,
     env: webServerEnvironment,
     gracefulShutdown: { signal: "SIGTERM", timeout: 5_000 },
     reuseExistingServer: false,
-    // The wiki dev server (vite + cloudflare plugin + workerd) cold-starts
-    // slower than playwright's default 60s when CI is also pulling deps;
-    // give it more headroom rather than masking timeouts as test failures.
     timeout: 180_000,
   },
 });

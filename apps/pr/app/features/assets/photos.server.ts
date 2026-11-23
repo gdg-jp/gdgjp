@@ -1,6 +1,5 @@
 import type { Brief } from "~/features/briefs/brief";
 
-/** R2 key of a campaign's design file: `photos/<speakerId>.<ext>` or `logo.<ext>`. */
 export const photoKey = (campaignId: number, ref: string) => `design/${campaignId}/${ref}`;
 
 const MAX_BYTES = 2_500_000;
@@ -14,7 +13,6 @@ async function fetchImage(url: string): Promise<{ bytes: ArrayBuffer; type: stri
   try {
     const u = new URL(url);
     if (u.protocol !== "https:") return null;
-    // img.gdgs.jp serves the original; a webp variant is cheaper for Codex and the renderer.
     if (u.hostname === "img.gdgs.jp" && !u.searchParams.has("f")) u.searchParams.set("f", "webp");
     const response = await fetch(u, {
       headers: { accept: "image/*" },
@@ -31,11 +29,6 @@ async function fetchImage(url: string): Promise<{ bytes: ArrayBuffer; type: stri
   }
 }
 
-/**
- * The speakers' photos (brief.speakers[].imageUrl) and the event's logo (brief.skin.logoUrl),
- * fetched once into R2 so the bundle and the Worker's renderer use the same bytes. Returns the
- * `assets/…` references that exist.
- */
 export async function ensureDesignFiles(
   env: Env,
   campaignId: number,
@@ -55,7 +48,6 @@ export async function ensureDesignFiles(
   const logoUrl = (brief.skin as { logoUrl?: string } | undefined)?.logoUrl;
   if (logoUrl) wanted.push({ id: "logo", url: logoUrl, ref: (ext) => `logo.${ext}` });
   for (const item of wanted.slice(0, 12)) {
-    // Already fetched? The key carries the extension, so look for any of them.
     let found: { ref: string; bytes: ArrayBuffer } | null = null;
     for (const ext of Object.values(TYPES)) {
       const ref = item.ref(ext);

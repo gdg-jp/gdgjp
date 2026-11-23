@@ -13,10 +13,8 @@ import (
 	"time"
 )
 
-// ErrLeaseLost means the server no longer considers this runner the job's owner.
 var ErrLeaseLost = errors.New("job lease lost")
 
-// API is the /api/runner/* client. Every call carries RUNNER_TOKEN and the runner's host.
 type API struct {
 	BaseURL    string
 	Token      string
@@ -158,7 +156,6 @@ func (a *API) Heartbeat(ctx context.Context, version, backend, runningJobID stri
 	return err
 }
 
-// Next leases one job of the given types, long-polling up to wait. nil means none queued.
 func (a *API) Next(ctx context.Context, types []string, wait time.Duration) (*Job, error) {
 	path := "/api/runner/jobs/next?types=" + url.QueryEscape(strings.Join(types, ",")) +
 		fmt.Sprintf("&wait=%d", int(wait.Seconds()))

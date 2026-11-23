@@ -5,7 +5,6 @@ import type { CurrentSourceImport, SourceImportTickContext } from "../run";
 export const CHAT_PAGE_SIZE = 100;
 export const CHAT_TIMEOUT_MS = 30_000;
 export const MAX_ATTACHMENT_BYTES = 10 * 1024 * 1024;
-/** Unconfigured senders flushed to D1 per subrequest batch. */
 export const SENDERS_FLUSH_BATCH_SIZE = 20;
 
 export type ChatImportPhase =
@@ -74,9 +73,6 @@ export function indexMessage(sql: SqlStorage, message: ChatMessage, fallbackName
         message.sender.name,
       );
     }
-    // Kept unpruned on purpose: stepSenders reads with LIMIT MAX_SENDER_SAMPLES, so
-    // trimming here would cost a subquery per message to bound a table that is already
-    // smaller than week_messages and wiped with it at the start of every run.
     const sampleText = (message.text ?? message.argumentText ?? "").trim();
     if (sampleText) {
       sql.exec(

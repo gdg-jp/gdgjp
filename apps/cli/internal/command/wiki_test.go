@@ -218,7 +218,6 @@ func TestWikiVerifyACLFailOpenOnInfrastructureError(t *testing.T) {
 		t.Fatalf("unexpected git: %s", joined)
 		return "", nil
 	})
-	// Closed listener → connection refused (infrastructure fail-open).
 	service.newClient = func() *wiki.Client {
 		return wiki.NewClientAt("http://127.0.0.1:0")
 	}

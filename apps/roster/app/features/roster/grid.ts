@@ -18,16 +18,6 @@ import {
   parseDemandKey,
 } from "~/features/solver/types";
 
-/**
- * Pure grid-assembly logic shared by the 3 views on `/e/:id/roster`
- * (docs/roster/07-roster-manual-edit.md "Design" §3). No D1, no React — the
- * route loader hands this file plain `SolverInput`/`Assignments`/`Report`
- * data (already fetched/computed), and every component ( `StaffGrid` /
- * `RoleGrid` / `DemandCoverageGrid`) builds its rows/columns/merges through
- * these functions rather than re-deriving grouping logic inline, so the 3
- * views can never silently disagree about who is assigned where.
- */
-
 export type GridColumn = { trackId: string; roleId: string };
 
 export function gridColumnKey(trackId: string, roleId: string): string {
@@ -37,9 +27,6 @@ export function gridColumnKey(trackId: string, roleId: string): string {
 type SortableTrack = { id: string; sortOrder: number };
 type SortableRole = { id: string; sortOrder: number };
 
-/** Every (track, role) pair with at least one `ideal > 0` demand cell,
- * ordered by track then role sort order — shared by `RoleGrid` and
- * `DemandCoverageGrid` (docs/roster/07-roster-manual-edit.md Design §3b/c). */
 export function buildGridColumns(
   demands: ReadonlyMap<string, Demand>,
   tracks: readonly SortableTrack[],
@@ -67,10 +54,6 @@ export function buildGridColumns(
   });
 }
 
-/** demandKey -> sorted applicationIds currently assigned there. Sorted (not
- * insertion order) so two callers building the same cell always see the
- * same member order, and so `sameMembers` below can compare by simple array
- * equality. */
 export function groupAssignmentsByCell(assignments: Assignments): Map<string, string[]> {
   const byCell = new Map<string, string[]>();
   for (const [key, value] of assignments) {
@@ -84,7 +67,6 @@ export function groupAssignmentsByCell(assignments: Assignments): Map<string, st
   return byCell;
 }
 
-/** applicationId -> (slotId -> that person's assignment) — what `StaffGrid` reads one column at a time. */
 export function groupAssignmentsByApplication(
   assignments: Assignments,
 ): Map<string, Map<string, { trackId: string; roleId: string }>> {
@@ -112,20 +94,6 @@ export type RoleGridCell =
   | { kind: "start"; span: number; memberIds: string[]; demand: Demand | null }
   | { kind: "continued" };
 
-/**
- * One column's vertical merge groups for the role-view (docs/roster/07-
- * roster-manual-edit.md "Design" §3b: "顔ぶれと需要が変わらない限り縦に結合し
- * ...顔ぶれか需要が変われば縦結合が切れる"). Returns one entry per slot
- * (`slots.length` long, in the same order): the first slot of a run is
- * `"start"` with `span` = how many following rows to merge under it
- * (render as `rowSpan={span}`); every other slot in that run is
- * `"continued"` (render nothing — an HTML rowSpan already covers it).
- *
- * A run breaks the moment EITHER the assigned member set OR the demand
- * values change between consecutive slots — checking only one of the two
- * would show a stale headcount target or hide an actual staffing change as
- * if the slots were identical.
- */
 export function buildRoleGridColumn(
   slots: readonly SolverSlot[],
   trackId: string,
@@ -157,19 +125,12 @@ export function buildRoleGridColumn(
   return cells;
 }
 
-/** The single source of `ViolationKind` display wording — shared by
- * `ShortageReport` and `DemandCoverageGrid` so the same violation never
- * reads as two different phrases depending on which view shows it. */
 export const VIOLATION_LABELS: Record<ViolationKind, string> = {
   newcomerOver: "初参加者が上限超過",
   soloNewcomer: "初参加者だけの枠",
   over: "理想超過",
 };
 
-/** Per-(slot,track,role) view of `Report`'s shortages/violations — the
- * `DemandCoverageGrid`'s single source of "is this cell a problem", built by
- * reshaping `evaluate()`'s own output rather than re-judging shortages here
- * (docs/roster/07-roster-manual-edit.md "制約": "evaluate を再実装しない"). */
 export type CellReport = {
   headcountShort: number;
   leadShort: number;
@@ -198,9 +159,6 @@ export function indexReportByCell(report: Report): Map<string, CellReport> {
   return byCell;
 }
 
-/** One (track, role) option `CellDrawer` offers for a staff member's given
- * time slot — the demand cell's current fill numbers plus `hardViolations`'
- * warning strings for placing THIS applicant there. */
 export type StaffCellCandidate = {
   trackId: string;
   roleId: string;
@@ -211,22 +169,6 @@ export type StaffCellCandidate = {
   warnings: string[];
 };
 
-/**
- * Every (track, role) with demand at `slotId`, annotated for `CellDrawer`
- * (docs/roster/07-roster-manual-edit.md "Design" §5a). Calls `hardViolations`
- * — never re-implements the hard-constraint check — against a COPY of
- * `assignments` with this applicant's own current entry at `slotId` removed
- * first: they're being offered a chance to move to a different cell in the
- * same slot, and without this the "1人2箇所は不可" warning would misfire on
- * every candidate merely because they already occupy some OTHER cell in
- * this exact slot (the one `CellDrawer`'s "外す" button already handles).
- *
- * An `applicationId` absent from `input.applications` (the withdrawn-but-
- * still-assigned edge case, docs/roster/07-roster-manual-edit.md's
- * `solver-input.server.ts` filters withdrawn people out entirely) falls
- * back to a synthetic withdrawn stand-in so `hardViolations` still reports
- * an honest (if unhelpful) warning instead of throwing.
- */
 export function buildStaffCellCandidates(
   input: SolverInput,
   assignments: Assignments,
@@ -275,20 +217,6 @@ export function buildStaffCellCandidates(
   });
 }
 
-/**
- * `suggestFor`, extended for `DemandCellDrawer`'s bulk-range selection
- * (docs/roster/07-roster-manual-edit.md "Design" §3b/§5b: a merged
- * role-view cell places the chosen candidate into every slot in the range
- * at once). Categorization/pref ordering come from `slotIds[0]` (a merged
- * range is guaranteed to share the same lineup, but a non-member's
- * AVAILABILITY can still differ slot to slot — this is a deliberate
- * simplification, not a determinism concern, since it only affects what's
- * shown before a click, not what `writeAssignments` persists after one).
- * Warnings are the UNION of `hardViolations` across every slot in the
- * range, so a mid-range conflict is never hidden. Candidates who are
- * already a member of this exact cell are dropped — they're already listed
- * as a current occupant with their own "外す" control.
- */
 export function suggestForRange(
   input: SolverInput,
   assignments: Assignments,
@@ -321,13 +249,6 @@ export function suggestForRange(
     });
 }
 
-/** One `StaffGrid` column — a display-ready staff member (docs/roster/07-
- * roster-manual-edit.md "Design" §3a). Experience level lives here (the
- * column header) and nowhere else — `StaffGrid` never receives it per cell.
- *
- * `skills` is ordered first-choice first (see `buildStaffColumns`), so
- * `skills[0]` is the role this person actually asked for — that is what the
- * narrow column header shows, with the rest collapsed into a "+N". */
 export type StaffGridColumn = {
   applicationId: string;
   name: string;
@@ -336,14 +257,6 @@ export type StaffGridColumn = {
   availability: Record<string, Availability>;
 };
 
-/**
- * Builds `StaffGrid`'s columns from the route's already-fetched display
- * `applications` (id/name/withdrawn) and the `SolverInput` already built for
- * `evaluate()` — no second D1 read. A withdrawn applicant is included only
- * if they still have a residual assignment (an edge case: withdrawing after
- * generation doesn't retroactively clear their rows) so a leftover
- * violation stays visible instead of silently disappearing from the grid.
- */
 export function buildStaffColumns(
   applications: readonly { id: string; name: string; withdrawn: boolean }[],
   input: SolverInput,
@@ -363,11 +276,6 @@ export function buildStaffColumns(
         applicationId: a.id,
         name: a.name,
         withdrawn: a.withdrawn,
-        // Sorted by pref (first choice first), tie-broken by role name so the
-        // order never depends on `skills`' object key order. `StaffGrid`'s
-        // header shows only `skills[0]` — the column is too narrow for the
-        // full list — so which entry lands first is a display decision, not
-        // an incidental one.
         skills: Object.entries(solverApp?.skills ?? {})
           .map(([roleId, s]) => ({
             roleName: roleNameById.get(roleId) ?? roleId,

@@ -22,22 +22,13 @@ import { getWikiCanonicalSlugPath } from "~/features/pages/wiki-page-path.server
 import { requireSpace } from "~/features/spaces/access.server";
 import { getDb } from "~/lib/db.server";
 
-// ---------------------------------------------------------------------------
-// Revalidation
-// ---------------------------------------------------------------------------
-
 export function shouldRevalidate({
   actionResult,
   defaultShouldRevalidate,
 }: ShouldRevalidateFunctionArgs) {
-  // Don't revalidate after a successful save/autosave — loader data hasn't changed
   if (actionResult && (actionResult as { ok?: boolean }).ok) return false;
   return defaultShouldRevalidate;
 }
-
-// ---------------------------------------------------------------------------
-// Meta
-// ---------------------------------------------------------------------------
 
 export const meta: MetaFunction<typeof loader> = ({ data }) => [
   {
@@ -47,14 +38,9 @@ export const meta: MetaFunction<typeof loader> = ({ data }) => [
   },
 ];
 
-// ---------------------------------------------------------------------------
-// Loader
-// ---------------------------------------------------------------------------
-
 export async function loader({ request, context, params }: LoaderFunctionArgs) {
   const { env } = context.cloudflare;
   const user = await requireUser(request, env);
-  // Editing needs the editor role in the space before the inner page permission check.
   const { space, identity } = await requireSpace(request, env, params.space, "editor");
   const db = getDb(env);
 
@@ -118,14 +104,9 @@ export async function loader({ request, context, params }: LoaderFunctionArgs) {
   };
 }
 
-// ---------------------------------------------------------------------------
-// Action
-// ---------------------------------------------------------------------------
-
 export async function action({ request, context, params }: ActionFunctionArgs) {
   const { env } = context.cloudflare;
   const user = await requireUser(request, env);
-  // Editing needs the editor role in the space before the inner page permission check.
   const { space, identity } = await requireSpace(request, env, params.space, "editor");
   const db = getDb(env);
 
@@ -239,7 +220,6 @@ export async function action({ request, context, params }: ActionFunctionArgs) {
   }
 
   const statements = [
-    // Snapshot current content before overwriting
     env.DB.prepare(
       `INSERT INTO page_versions (id, page_id, content_ja, content_en, title_ja, title_en, edited_by, saved_at)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
@@ -254,7 +234,6 @@ export async function action({ request, context, params }: ActionFunctionArgs) {
       now,
     ),
 
-    // Update page
     env.DB.prepare(
       `UPDATE pages SET title_ja = ?, title_en = ?, content_ja = ?, content_en = ?,
         translation_status_en = ?, acl_source_ids = ?, last_edited_by = ?, updated_at = unixepoch()
@@ -270,7 +249,6 @@ export async function action({ request, context, params }: ActionFunctionArgs) {
       page.id,
     ),
 
-    // Prune old versions — keep last 10
     env.DB.prepare(
       `DELETE FROM page_versions WHERE page_id = ? AND id NOT IN (
          SELECT id FROM page_versions WHERE page_id = ? ORDER BY saved_at DESC LIMIT 10
@@ -287,13 +265,8 @@ export async function action({ request, context, params }: ActionFunctionArgs) {
     return Response.json({ ok: true, savedAt });
   }
 
-  // intent === "save"
   return Response.json({ ok: true, savedAt });
 }
-
-// ---------------------------------------------------------------------------
-// Route component
-// ---------------------------------------------------------------------------
 
 export default function EditPage() {
   const { page, currentUser } = useLoaderData<typeof loader>();

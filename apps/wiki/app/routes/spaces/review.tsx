@@ -13,8 +13,6 @@ export async function loader({ request, context, params }: LoaderFunctionArgs) {
   const { env } = context.cloudflare;
   const { space } = await requireSpace(request, env, params.space, "editor");
   const flags = await listOpenReviewFlags(getDb(env), space.id);
-  // Payloads can quote restricted source text; this list shows kind and target only.
-  // Kind-specific detail views (Stage 04) re-run the inner ACL before showing payloads.
   return {
     space: { slug: space.slug, name: space.name },
     flags: flags.map((flag) => ({

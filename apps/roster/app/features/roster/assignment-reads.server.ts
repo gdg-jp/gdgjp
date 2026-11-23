@@ -27,7 +27,6 @@ function toAssignment(r: AssignmentRow): AssignmentRecord {
   };
 }
 
-/** Reads one sheet's assignments, ordered for grid consumers. */
 export async function readAssignments(
   db: D1Database,
   eventId: string,
@@ -57,7 +56,6 @@ export async function readAssignments(
   return (results ?? []).map(toAssignment);
 }
 
-/** `readAssignments`, reshaped into the solver's own `Assignments` Map. */
 export async function readAssignmentsMap(
   db: D1Database,
   eventId: string,

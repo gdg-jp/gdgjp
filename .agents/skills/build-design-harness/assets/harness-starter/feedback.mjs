@@ -29,7 +29,6 @@ export function atomicWrite(root, path, content) {
 }
 
 export function updateFeedback(root, action, args) {
-  // ponytail: serialize local maintenance; use repository review for distributed writers.
   const lock = resolve(root, '.feedback.lock');
   const fd = openSync(lock, 'wx');
   try {
@@ -80,7 +79,6 @@ export function updateFeedback(root, action, args) {
       rules: [...harness.catalog.rules, proposal.rule],
       adoptions: [...harness.catalog.adoptions, adoption],
     });
-    // Rule and receipt share one atomic write; a failed write cannot record a false adoption.
     atomicWrite(root, 'design/catalog.json', json(updated));
     return { status: 'applied', receipt: adoption, nextAction: 'Regenerate, check drift, restart MCP, and verify a fresh task.' };
   } finally { closeSync(fd); rmSync(lock); }

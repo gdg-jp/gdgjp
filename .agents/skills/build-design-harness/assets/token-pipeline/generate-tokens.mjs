@@ -10,7 +10,6 @@ export function renderTokens(tokens) {
   assert(entries.length, 'Tokens must not be empty');
   for (const [name, value] of entries) {
     assert(/^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/.test(name), `Invalid token name: ${name}`);
-    // ponytail: hex and px/rem only; extend the schema/generator for other token types.
     assert(typeof value === 'string' && /^(?:#[\da-fA-F]{3}|#[\da-fA-F]{6}|(?:0|[1-9]\d*)(?:\.\d+)?(?:px|rem))$/.test(value),
       `Unsupported token value for ${name}`);
   }

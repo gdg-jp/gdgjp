@@ -20,7 +20,7 @@ describe("silencesFromPcm", () => {
       [true, 1],
       [false, 0.5],
       [true, 1],
-      [false, 0.05], // too short to count
+      [false, 0.05],
       [true, 0.5],
       [false, 0.4],
     ]);

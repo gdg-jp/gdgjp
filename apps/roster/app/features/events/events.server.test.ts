@@ -64,15 +64,6 @@ describe("toEvent", () => {
   });
 });
 
-/**
- * docs/roster/02-domain-schema.md "回帰として固定すべきテスト": every read
- * of `events` must filter `deleted_at IS NULL`, or a soft-deleted event
- * would resurface in the list / design page. There's no real D1 wired into
- * this workspace's vitest config (see `scheduler/app/lib/db.test.ts` for the
- * same pure-mapper-only convention), so this pins it at the SQL-text level
- * instead: every `SELECT ... FROM events` in this file must include the
- * filter.
- */
 describe("deleted_at filtering", () => {
   it("every SELECT FROM events includes `deleted_at IS NULL`", () => {
     const source = readFileSync(new URL("./events.server.ts", import.meta.url), "utf8");
@@ -84,12 +75,6 @@ describe("deleted_at filtering", () => {
   });
 });
 
-/**
- * docs/roster/04-applications.md "Design" §5: `/apply/:applyToken` resolves
- * an event by `apply_token` alone, never by id. Real-SQLite (not just the
- * mapper) because getting this lookup wrong either 404s a live registration
- * link or — far worse — would need to leak the event id into the URL.
- */
 describe("getEventByApplyToken (real SQLite)", () => {
   const MIGRATIONS = [
     fileURLToPath(new URL("../../../migrations/0002_domain.sql", import.meta.url)),
@@ -132,13 +117,6 @@ describe("getEventByApplyToken (real SQLite)", () => {
   });
 });
 
-/**
- * docs/roster/09-share-public-views.md "Design" §2: `/r/:viewToken` resolves
- * an event by `view_token` alone — same precedent and same real-SQLite
- * justification as `getEventByApplyToken` above, but this is the one public
- * route with zero authentication at all, so getting the lookup wrong is an
- * even more direct data-exposure risk than the apply-token case.
- */
 describe("getEventByViewToken (real SQLite)", () => {
   const MIGRATIONS = [
     fileURLToPath(new URL("../../../migrations/0002_domain.sql", import.meta.url)),

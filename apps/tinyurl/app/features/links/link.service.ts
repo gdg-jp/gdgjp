@@ -35,7 +35,6 @@ export type LinkServiceDependencies = {
 export type LinkServiceActor = {
   user: AuthUser;
   chapters: UserChapter[];
-  /** Dashboard selection or the CLI's explicitly requested chapter. */
   selectedChapterId: number | null;
 };
 
@@ -420,8 +419,6 @@ export async function updateLinkWithExtras(
   let replacementShares: ValidatedShare[] | undefined;
   let commentBody: string | undefined;
 
-  // Validate before changing the link itself so an invalid replacement does
-  // not leave a partially-applied PATCH behind.
   if (patch.shares !== undefined) {
     const shareValidation = validateShares(patch.shares);
     if (!shareValidation.ok) return shareValidation;
@@ -532,8 +529,6 @@ export async function updateLinkWithExtras(
     });
   }
 
-  // PATCH shares has replacement semantics: when present, this complete list
-  // atomically becomes the link's permission set. Omitting it preserves shares.
   if (replacementShares !== undefined) {
     await replaceLinkPermissions(deps.db, id, replacementShares);
   }

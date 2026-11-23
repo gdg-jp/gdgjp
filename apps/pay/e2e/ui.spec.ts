@@ -9,12 +9,10 @@ test.beforeEach(async ({ page }) => {
   );
 });
 
-// This verifies rendering/interaction with fixture loader data, not authenticated backend workflows.
 async function screen(page: Page, name: string, theme: string, state = "default") {
   await page.goto("/__ui-harness");
   await page.evaluate(
     async ({ name, theme, state }) => {
-      // React Router route modules require the dev HMR preamble in this fixture document.
       const refreshModule = "/@id/__x00__virtual:react-router/hmr-runtime";
       const refresh = await import(/* @vite-ignore */ refreshModule);
       refresh.default.injectIntoGlobalHook(window);

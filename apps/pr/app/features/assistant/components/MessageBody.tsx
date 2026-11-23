@@ -1,6 +1,5 @@
 import { Fragment } from "react";
 
-/** Plain text with line breaks kept and URLs as links. Nothing is rendered as HTML. */
 export function MessageBody({ text }: { text: string }) {
   const parts = text.split(/(https?:\/\/[^\s<>"'「」（）()、。]+)/g);
   return (

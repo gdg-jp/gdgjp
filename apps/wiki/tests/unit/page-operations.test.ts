@@ -55,7 +55,6 @@ describe("page tree operations", () => {
       ),
     );
     sqlite.exec("PRAGMA foreign_keys = ON");
-    // schema.sql carries no rows; seed the migrated default space every page belongs to.
     sqlite.exec(
       "INSERT INTO spaces (id, slug, name, kind) VALUES ('gdg-jp', 'gdg-jp', 'GDG Japan', 'shared')",
     );

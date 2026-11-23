@@ -67,10 +67,6 @@ export default function LayoutEditor({ loaderData }: Route.ComponentProps) {
 
   const world = useMemo(() => (desks.length > 0 ? boundingBox(desks) : DEFAULT_WORLD), [desks]);
   const liveT = useMemo(() => fitTransform(world, viewport), [world, viewport]);
-  // While a desk is being dragged/resized/rotated, the transform is frozen at
-  // its pre-gesture value — otherwise every in-flight size/rotation change
-  // reshapes the bounding box, which rescales and re-centers every desk
-  // (including the one under the pointer) mid-gesture.
   const [frozenT, setFrozenT] = useState<Transform | null>(null);
   const t = frozenT ?? liveT;
 
@@ -129,7 +125,6 @@ export default function LayoutEditor({ loaderData }: Route.ComponentProps) {
     );
   }
 
-  // Resize / rotate via raw pointer math (Motion drag only handles position).
   function startHandle(e: React.PointerEvent, desk: Desk, mode: "resize" | "rotate") {
     e.preventDefault();
     e.stopPropagation();
@@ -141,8 +136,6 @@ export default function LayoutEditor({ loaderData }: Route.ComponentProps) {
     const start = { ...desk };
     const startX = e.clientX;
     const startY = e.clientY;
-    // Pointer coords arrive in viewport space; the canvas transform is
-    // relative to the wrapper's own box, so subtract its offset first.
     const toLocal = (ev: { clientX: number; clientY: number }) => ({
       x: ev.clientX - rect.left,
       y: ev.clientY - rect.top,
@@ -151,8 +144,6 @@ export default function LayoutEditor({ loaderData }: Route.ComponentProps) {
       x: (start.x + start.width / 2) * tr.scale + tr.offsetX,
       y: (start.y + start.height / 2) * tr.scale + tr.offsetY,
     };
-    // Rotate relative to the angle at grab time, so the handle doesn't jump
-    // to an absolute angle and stays under the cursor.
     const startAngle = angleFromCenter(center, toLocal(e));
     const latest = { ...start };
 

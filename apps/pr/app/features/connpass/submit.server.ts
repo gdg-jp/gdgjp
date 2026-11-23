@@ -6,7 +6,6 @@ import { type ConnpassJobKind, recordConnpassJob } from "./job-ledger.server";
 
 export type ConnpassEvent = { groupSlug: string; eventId: string };
 
-/** The campaign's connpass event; pr never creates one (a person does, then enters its id). */
 export function connpassEventOf(campaign: Campaign): ConnpassEvent | null {
   return campaign.connpassGroupSlug && campaign.connpassEventId
     ? { groupSlug: campaign.connpassGroupSlug, eventId: campaign.connpassEventId }
@@ -15,7 +14,6 @@ export function connpassEventOf(campaign: Campaign): ConnpassEvent | null {
 
 export const NO_EVENT = "設定で connpass のグループとイベント ID を入れてください";
 
-/** Submit one connpass job as `actor`, keep it in the ledger and the dispatch log. */
 export async function submitConnpass(
   env: Env,
   input: {

@@ -159,9 +159,6 @@ func TestSnsPostsPublishSuccess(t *testing.T) {
 	}
 }
 
-// TestSnsPostsPublishBadGateway is the pinned regression: a 502 from the X API
-// must print the persisted post (with its failureReason) to stdout and then
-// exit non-zero — never a silent exit 0 with no output.
 func TestSnsPostsPublishBadGateway(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusBadGateway)
@@ -310,8 +307,6 @@ func TestSnsContributorsAdd(t *testing.T) {
 	}
 }
 
-// TestSnsContributorsRemove pins the deliberately query-param-based shape: no
-// positional id, DELETE with chapterId + userEmail query parameters.
 func TestSnsContributorsRemove(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodDelete || r.URL.Path != "/api/cli/v1/contributors" {
@@ -336,8 +331,6 @@ func TestSnsContributorsRemove(t *testing.T) {
 	}
 }
 
-// TestSnsPostsGetRetriesOnceOn401 pins the 401-refresh-retry-once path
-// (cliutil.WithToken) for the sns command tree.
 func TestSnsPostsGetRetriesOnceOn401(t *testing.T) {
 	var tokensSeen []string
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

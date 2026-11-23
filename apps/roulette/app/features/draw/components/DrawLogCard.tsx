@@ -13,7 +13,6 @@ import { rankLabel } from "~/features/prizes/odds";
 import type { DrawLogEntry } from "../log";
 import { drawNumberLabel, formatDrawTime } from "../result";
 
-// The prize comes before the time: on a phone the table scrolls, and these two show first.
 const columns: DataTableColumn<DrawLogEntry>[] = [
   { id: "number", header: "抽選番号", cell: (entry) => drawNumberLabel(entry.number) },
   {
@@ -31,18 +30,12 @@ const columns: DataTableColumn<DrawLogEntry>[] = [
   { id: "time", header: "日時", cell: (entry) => formatDrawTime(entry.createdAt) },
 ];
 
-/**
- * The latest spins, for checking a visitor's result screen at the prize desk.
- * Every spin is in the CSV.
- */
 export function DrawLogCard({
   entries,
   total,
   csvUrl,
 }: {
-  /** Latest first. */
   entries: DrawLogEntry[];
-  /** Every spin so far, including the ones not in `entries`. */
   total: number;
   csvUrl: string;
 }) {

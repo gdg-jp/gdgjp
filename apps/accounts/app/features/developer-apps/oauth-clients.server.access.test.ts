@@ -97,7 +97,6 @@ function testEnv(options?: {
             String(statement),
         ),
       );
-      // D1 statements are opaque, so assertions use prepare calls recorded below.
       return statements.map(() => ({ meta: { changes: 1 } }));
     },
   };
@@ -127,7 +126,6 @@ beforeEach(() => {
   authMocks.requireUser.mockResolvedValue(user);
 });
 
-/** Mirrors oauth-clients.server.ts's private sha256Base64Url, used only to assert its output. */
 async function sha256Base64Url(value: string): Promise<string> {
   const digest = new Uint8Array(
     await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value)),

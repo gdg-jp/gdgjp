@@ -9,12 +9,7 @@ import {
 } from "@codemirror/view";
 import { getCursors, setLocalCursor, subscribe } from "./remote-cursors-store";
 
-// A no-op effect used solely to trigger a CM6 view update when remote cursors change.
 const remoteCursorEffect = StateEffect.define<null>();
-
-// ---------------------------------------------------------------------------
-// Cursor widget rendered as a Decoration.widget
-// ---------------------------------------------------------------------------
 
 class CursorWidget extends WidgetType {
   constructor(
@@ -42,15 +37,6 @@ class CursorWidget extends WidgetType {
   }
 }
 
-// ---------------------------------------------------------------------------
-// ViewPlugin: subscribes to store and rebuilds decorations
-// ---------------------------------------------------------------------------
-
-/**
- * CM6 extension that renders remote peer cursors as colored vertical lines
- * with name labels. Only shows cursors whose `activeLang` matches this editor's
- * language (derived from `editorId`).
- */
 export function remoteCursorsExtension(editorId: string): Extension {
   const lang = editorId.replace("editor-", "") as "ja" | "en";
 
@@ -62,7 +48,6 @@ export function remoteCursorsExtension(editorId: string): Extension {
       constructor(private view: EditorView) {
         this.decorations = this.buildDecorations();
         this.unsubscribe = subscribe(editorId, () => {
-          // Dispatch a no-op transaction to trigger update()
           this.view.dispatch({ effects: remoteCursorEffect.of(null) });
         });
       }
@@ -87,7 +72,6 @@ export function remoteCursorsExtension(editorId: string): Extension {
           widgets.push({ pos, widget: new CursorWidget(c.color, c.userName) });
         }
 
-        // Sort by position for RangeSet
         widgets.sort((a, b) => a.pos - b.pos);
 
         return Decoration.set(
@@ -103,14 +87,6 @@ export function remoteCursorsExtension(editorId: string): Extension {
   );
 }
 
-// ---------------------------------------------------------------------------
-// Local cursor reporter: CM6 → store → React → awareness
-// ---------------------------------------------------------------------------
-
-/**
- * CM6 extension that reports the local cursor position to the module-level
- * store whenever the selection changes.
- */
 export function localCursorReporter(editorId: string): Extension {
   return EditorView.updateListener.of((update: ViewUpdate) => {
     if (update.selectionSet) {

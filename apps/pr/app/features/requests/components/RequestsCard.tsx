@@ -18,7 +18,6 @@ function copy(text: string) {
   void navigator.clipboard?.writeText(text);
 }
 
-/** Staff reminders to send, speaker requests to copy and send by hand, outreach replies. */
 export function RequestsCard({ rows, busy }: { rows: RequestRow[]; busy: boolean }) {
   return (
     <Card>

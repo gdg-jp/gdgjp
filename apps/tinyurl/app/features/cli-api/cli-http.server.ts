@@ -9,7 +9,6 @@
 
 export const CLI_NO_STORE = { "Cache-Control": "no-store" };
 
-/** Generous for the small, fixed-shape JSON bodies these routes accept. */
 export const MAX_CLI_JSON_BODY_BYTES = 16 * 1024;
 
 export function cliJson<T>(body: T, init: { status?: number } = {}): Response {
@@ -26,13 +25,6 @@ export function cliMethodNotAllowed(): Response {
 
 export type CliJsonBodyResult<T> = { ok: true; value: T } | { ok: false; response: Response };
 
-/**
- * Reads and parses a JSON request body, enforcing the documented HTTP
- * boundary: rejects non-`application/json` content types, rejects bodies
- * that declare (via `Content-Length`) or turn out to exceed
- * `MAX_CLI_JSON_BODY_BYTES`, and rejects malformed JSON — all with the
- * shared `{ error }` envelope.
- */
 export async function parseCliJsonBody<T>(request: Request): Promise<CliJsonBodyResult<T>> {
   const contentType = request.headers.get("content-type") ?? "";
   if (!contentType.toLowerCase().startsWith("application/json")) {

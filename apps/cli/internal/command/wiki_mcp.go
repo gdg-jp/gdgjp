@@ -9,8 +9,6 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// newWikiMCPCommand is `gdg wiki mcp`, the stdio MCP server the runner starts for Codex
-// during an `answer` job. The token is the job's (asker-scoped, 10 minutes), from the env.
 func newWikiMCPCommand() *cobra.Command {
 	var spaces, urlLog string
 	command := &cobra.Command{

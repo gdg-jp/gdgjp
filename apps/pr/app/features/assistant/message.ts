@@ -1,5 +1,3 @@
-/** One thread per campaign: what people say to the assistant, and what it says back or on its own. */
-
 export type Attachment = { id: string; name: string; type: string; size: number };
 
 export const ACTION_TYPES = [
@@ -14,7 +12,6 @@ export type ActionType = (typeof ACTION_TYPES)[number];
 
 export type ActionStatus = "proposed" | "done" | "failed" | "dismissed";
 
-/** A button under a message. The Worker validates every field before it is shown or run. */
 export type MessageAction = {
   type: ActionType;
   label: string;
@@ -50,7 +47,6 @@ export type Message = {
   createdAt: number;
 };
 
-/** Open questions: the assistant asked, and nobody has written since. */
 export function openQuestions(
   messages: Message[],
 ): { messageId: number; questions: string[] } | null {
@@ -59,7 +55,6 @@ export function openQuestions(
   return { messageId: last.id, questions: last.questions };
 }
 
-/** URLs in what a person wrote, in order, without duplicates or trailing punctuation. */
 export function urlsIn(text: string): string[] {
   const out: string[] = [];
   for (const match of text.matchAll(/https?:\/\/[^\s<>"'「」（）()、。]+/g)) {

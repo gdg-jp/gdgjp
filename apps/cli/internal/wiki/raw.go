@@ -13,8 +13,6 @@ import (
 	"strings"
 )
 
-// rawLocalPath resolves a manifest path under the clone root and rejects
-// anything that would escape raw/.
 func rawLocalPath(root, manifestPath string) (string, error) {
 	clean := filepath.ToSlash(filepath.Clean("/" + strings.TrimPrefix(manifestPath, "/")))
 	clean = strings.TrimPrefix(clean, "/")
@@ -142,8 +140,6 @@ func syncAgentsMD(root string, agents []byte) error {
 			state.AgentsHash = serverHash
 			return WriteState(root, state)
 		case state.AgentsHash == "" || currentHash != state.AgentsHash:
-			// The clone predates AGENTS.md hash tracking or has local edits.
-			// Preserve it until it matches the canonical server copy again.
 			return nil
 		}
 	} else if !os.IsNotExist(readErr) {
@@ -156,11 +152,6 @@ func syncAgentsMD(root string, agents []byte) error {
 	return WriteState(root, state)
 }
 
-// PullRaw synchronizes raw/** from the Wiki API. AGENTS.md is Git-tracked.
-// Chat Markdown sender placeholders are resolved locally after hash verification.
-// Files whose rendered digest still matches are skipped. Ingested hashes are
-// kept only when the server content hash is unchanged. The returned
-// manifest is the exact snapshot used for local reconciliation.
 func PullRaw(ctx context.Context, root string, client *Client, token string) (SourcesManifest, error) {
 	cfg, err := ReadConfig(root)
 	if err != nil {
@@ -244,8 +235,6 @@ func PullRaw(ctx context.Context, root string, client *Client, token string) (So
 	return manifest, nil
 }
 
-// rawWanted applies the clone's raw filter: NoRaw downloads nothing, RawSources only those
-// sources' documents. The manifest itself is always kept (it is the ACL metadata).
 func rawWanted(cfg Config, doc SourcesManifestEntry) bool {
 	if cfg.NoRaw {
 		return false
@@ -299,7 +288,6 @@ func shouldSkipRawPull(state State, sendersHash string, doc SourcesManifestEntry
 	if rendered, ok := state.Rendered[doc.DocumentID]; ok {
 		return localDigest == rendered
 	}
-	// Pre-Rendered clones: fall back to the server content hash.
 	return localDigest == doc.ContentHash
 }
 
@@ -315,12 +303,6 @@ func previousManifestHash(state State, documentID string) (string, bool) {
 	return "", false
 }
 
-// reconcileIngested updates local ingest completion after a raw pull.
-// Unchanged content hashes stay ingested. Hash changes stay recorded as the
-// prior hash so the next ingest queue marks them "changed". New documents are
-// omitted. If a document id rotates but source + relative path and hash stay
-// the same, the ingested record moves to the new id. Orphan ids are kept so a
-// later reappearance with the same hash is not treated as new.
 func reconcileIngested(state State, manifest SourcesManifest) map[string]string {
 	alive := make(map[string]struct{})
 	hashByIdentity := map[string]string{}
@@ -416,7 +398,6 @@ func pruneRendered(state State, manifest SourcesManifest) {
 	}
 }
 
-// Matches Chat week-Markdown sender headings written as placeholders by the Worker.
 var chatSenderHeadingRE = regexp.MustCompile(
 	`(?m)^### \[([^\]]+)\] Unknown user \((users/[A-Za-z0-9_-]+)\)$`,
 )

@@ -1,7 +1,6 @@
 import { type RouteConfig, index, layout, route } from "@react-router/dev/routes";
 
 export default [
-  // Every signed-in page: the shell loads the user and the sidebar's chapter.
   layout("routes/shell.tsx", { id: "shell" }, [
     index("routes/notifications/list.tsx"),
     route("events", "routes/campaigns/home.tsx"),

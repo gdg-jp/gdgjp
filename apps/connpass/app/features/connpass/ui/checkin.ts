@@ -4,11 +4,6 @@ export type CheckinUrl = { url: string; eventId: string };
 
 const CHECKIN_PATH = /^\/event\/(\d+)\/qr_checkin\/\d+\/\d+\/?$/;
 
-/**
- * Accept only connpass reception QR URLs
- * (`https://connpass.com/event/<eventId>/qr_checkin/<n>/<n>/`) so the bot never
- * navigates to an arbitrary caller-supplied address.
- */
 export function parseCheckinUrl(raw: unknown): CheckinUrl | null {
   if (typeof raw !== "string") return null;
   let url: URL;
@@ -28,7 +23,6 @@ export function parseCheckinUrl(raw: unknown): CheckinUrl | null {
 export type CheckinReason = "already_checked_in" | "failed";
 export type CheckinResult = {
   checkedIn: boolean;
-  /** connpass username of the participant, when the result page exposes it. */
   userId: string | null;
   reason: CheckinReason | null;
 };
@@ -39,18 +33,15 @@ const CHECKIN_SUCCESS =
   /受付(が|を)?(完了|しました)|出席(登録|に)|チェックイン(が|を)?(完了|しました)/;
 const CHECKIN_FAILURE = /(無効|見つかりません|権限|エラー|失敗|できません)/;
 const USER_LINK = /href="(?:https:\/\/connpass\.com)?\/user\/([^/"?#]+)\/?"/;
-/** The attendee row ("参加者 <link>"); the logged-in bot's own link sits in the page header. */
 const ATTENDEE_LINK =
   /参加者[\s\S]{0,400}?href="(?:https:\/\/connpass\.com)?\/user\/([^/"?#]+)\/?"/;
 
-/** Drop site chrome so the logged-in bot's own profile link is never mistaken for the attendee. */
 function mainContent(html: string): string {
   return html
     .replace(/<(header|nav|footer)\b[\s\S]*?<\/\1>/gi, "")
     .replace(/<(script|style)\b[\s\S]*?<\/\1>/gi, "");
 }
 
-/** Classify the page connpass returns for a reception QR URL (shared by fetch and browser paths). */
 export function parseCheckinPage(html: string): CheckinResult {
   const main = mainContent(html);
   const text = main
@@ -65,11 +56,6 @@ export function parseCheckinPage(html: string): CheckinResult {
   return { checkedIn: false, userId, reason: "failed" };
 }
 
-/**
- * Open the reception QR URL as the bot (a co-admin of the event), which is all
- * connpass needs to mark the participant as attended. Images, fonts, media and CSS
- * are aborted since only the result text is read.
- */
 export async function checkInWithQrUrl(page: Page, checkinUrl: string): Promise<CheckinResult> {
   await page.route("**/*", (route) =>
     ["image", "font", "media", "stylesheet"].includes(route.request().resourceType())

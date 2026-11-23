@@ -15,7 +15,6 @@ export async function loader({ request, context }: LoaderFunctionArgs) {
   const db = getDb(env);
 
   const viewer = await loadViewerContext(request, env, identity);
-  // Recent pages across every space the viewer can reach.
   const visFilter = and(
     pagesInSpaces(viewer.visibleSpaceIds),
     buildVisibilityFilter(user, identity.chapters),

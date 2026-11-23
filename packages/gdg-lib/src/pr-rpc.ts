@@ -1,16 +1,9 @@
-// Contracts for pr.gdgs.jp → sns / tinyurl / connpass service-binding RPC (WorkerEntrypoint
-// `PrService` in each app). Types only. Each callee authorizes `actor` with its own existing
-// permission rules; pr never decides another app's permissions.
 import type { AuthUser, UserChapter } from "./auth";
 
-/** The person the call is made for (their live claims at approval, or a stored snapshot in cron). */
 export type PrActor = { user: AuthUser; chapters: UserChapter[] };
 
-/** RPC methods never throw across the binding: failures are values. */
 export type PrRpcFailure = { ok: false; code: string; message?: string };
 export type PrRpcResult<T> = ({ ok: true } & T) | PrRpcFailure;
-
-// ── sns ────────────────────────────────────────────────────────────────────────
 
 export type SnsXAccountSummary = { id: string; username: string; displayName: string };
 
@@ -19,7 +12,6 @@ export type SnsCreateScheduledPostInput = {
   chapterId: number;
   xAccountId: string;
   text: string;
-  /** ISO instant. */
   scheduledAt: string;
   condition: "scheduled" | "photo_required";
   tagHandles?: string[];
@@ -63,8 +55,6 @@ export interface SnsPrService {
   >;
 }
 
-// ── tinyurl ────────────────────────────────────────────────────────────────────
-
 export type TinyurlLinkSummary = { id: string; slug: string; shortUrl: string };
 
 export interface TinyurlPrService {
@@ -102,9 +92,6 @@ export interface TinyurlPrService {
   }): Promise<PrRpcResult<{ analytics: unknown }>>;
 }
 
-// ── connpass ───────────────────────────────────────────────────────────────────
-
-/** connpass app's job, as /api/jobs/:id returns it (request redacted). */
 export type ConnpassJobSummary = {
   id: string;
   type: string;
@@ -125,7 +112,6 @@ export type ConnpassSurveyQuestion = {
 };
 
 export interface ConnpassPrService extends ConnpassListingService {
-  /** Whether the actor may write the group (organizer of its chapter), without a job. */
   checkGroup(input: { actor: PrActor; groupSlug: string }): Promise<
     PrRpcResult<{ write: boolean; chapterId: string | null }>
   >;
@@ -149,7 +135,6 @@ export interface ConnpassPrService extends ConnpassListingService {
   sendMessage(
     input: ConnpassEventTarget & { subject: string; body: string },
   ): Promise<PrRpcResult<{ job: ConnpassJobSummary }>>;
-  /** Mail to the group's members (not an event's participants). Not supported yet: `not_supported`. */
   sendGroupMessage(input: {
     actor: PrActor;
     groupSlug: string;
@@ -166,27 +151,19 @@ export interface ConnpassPrService extends ConnpassListingService {
   listParticipants(input: ConnpassEventTarget): Promise<PrRpcResult<{ participants: unknown }>>;
 }
 
-// ── listings (Luma / TECH PLAY / Findy Conference / Bevy, through the connpass app) ──
-
 export type ListingPlatform = "luma" | "techplay" | "findy" | "bevy";
 
-/** One event's facts in platform-neutral form; each platform maps the fields it has. */
 export type EventListing = {
-  /** mirror: registration on that platform / pointer: send people to connpass. */
   mode: "mirror" | "pointer";
   title: string;
   subtitle?: string;
-  /** The page's 3-line summary. */
   summary: string;
-  /** Markdown or plain text. HTML is never sent to a platform. */
   description: string;
-  /** ISO instants. */
   startAt: string;
   endAt: string;
   venue: { name: string; address?: string; online?: boolean };
   capacity?: number;
   feeYen?: number;
-  /** Required when mode = pointer. */
   registrationUrl?: string;
   imageUrl?: string;
   organizer: { name: string; contactEmail?: string };
@@ -197,7 +174,6 @@ export type EventListing = {
 export type ListingTarget = { actor: PrActor; platform: ListingPlatform; targetId: string };
 
 export interface ConnpassListingService {
-  /** Creates (or, for Findy, submits) a listing as a job. `not_supported` until the platform's method is chosen. */
   createListing(
     input: ListingTarget & { listing: EventListing; dryRun?: boolean },
   ): Promise<PrRpcResult<{ job: ConnpassJobSummary }>>;

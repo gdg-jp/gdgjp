@@ -33,7 +33,6 @@ function getSubscriptionBadge(subscription: GoogleSubscriptionRecord | null): {
   return { tone: "neutral", label: subscription.state };
 }
 
-/** 管理画面（`/admin/google`）に表示する Workspace Events 購読状態と手動更新カード。 */
 export function SubscriptionStatusCard({
   subscription,
   connectionStatus,

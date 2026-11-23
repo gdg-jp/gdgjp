@@ -3,17 +3,6 @@ import { type ExistingApplication, resolveApplication } from "./claim";
 import { type SkillInput, setApplicationSkills } from "./skills.server";
 import type { ApplicationRecord, PartyStatus, UpdatedBy } from "./types";
 
-/**
- * D1 access for the `applications` table (docs/roster/index.md §4,
- * docs/roster/04-applications.md "Design" §1). Follows the repo's
- * `*Row` -> `to*()` -> column-list -> `RETURNING` convention
- * (`~/features/events/events.server`, `~/features/schedule/schedule.server`).
- *
- * `application_skills` / `availabilities` are a separate table cluster with
- * their own delete-all-then-insert lifecycle — see `./skills.server` and
- * `./availability.server`.
- */
-
 type ApplicationRow = {
   id: string;
   event_id: string;
@@ -49,13 +38,6 @@ export function toApplication(r: ApplicationRow): ApplicationRecord {
   };
 }
 
-/**
- * D1/SQLite reports a composite-UNIQUE violation as
- * `UNIQUE constraint failed: applications.event_id, applications.<column>`
- * (verified against this app's actual migration in
- * `applications.server.test.ts`) — matching on `applications.<column>`
- * distinguishes which of the two indexes (ADR-008) tripped.
- */
 export function applicationUniqueViolationReason(
   err: unknown,
 ): "duplicate_email" | "duplicate_user" | null {
@@ -65,15 +47,6 @@ export function applicationUniqueViolationReason(
   return null;
 }
 
-/**
- * `applications.email` is a dedup/claim identity key (ADR-008), and neither
- * `accounts.gdgs.jp` nor an owner typing a proxy-add address guarantees
- * stable casing — the `(event_id, email)` UNIQUE index and `claim.ts`'s
- * equality check are both plain string comparisons with no `COLLATE
- * NOCASE`. Every email that reaches D1 or a claim decision goes through
- * this first, so "Person@Example.com" and "person@example.com" are always
- * the same row instead of silently becoming two.
- */
 function normalizeEmail(email: string): string {
   return email.trim().toLowerCase();
 }
@@ -102,7 +75,6 @@ export async function getApplicationByEventAndEmail(
   return row ? toApplication(row) : null;
 }
 
-/** Non-withdrawn applications for an event — the entry point Stage 05's staff list will build on. */
 export async function listApplicationsForEvent(
   db: D1Database,
   eventId: string,
@@ -116,12 +88,6 @@ export async function listApplicationsForEvent(
 
 type CandidateRow = { id: string; user_id: string | null; email: string };
 
-/**
- * Every application row for `eventId` that could plausibly be `viewer`'s —
- * matched by `user_id` or by `email` — for `claim.ts#resolveApplication` to
- * pick from. Never returns other fields, so a caller can't accidentally leak
- * a stranger's name/contact through this path.
- */
 async function findApplicationCandidates(
   db: D1Database,
   eventId: string,
@@ -136,7 +102,6 @@ async function findApplicationCandidates(
   return (results ?? []).map((r) => ({ id: r.id, userId: r.user_id, email: r.email }));
 }
 
-/** Idempotent: only claims a row that is still unclaimed (`user_id IS NULL`). */
 export async function claimApplication(
   db: D1Database,
   id: string,
@@ -153,24 +118,11 @@ export async function claimApplication(
 
 export type ResolvedApplication = { kind: "own"; application: ApplicationRecord } | { kind: "new" };
 
-/**
- * Resolves which application row belongs to `viewer` for this event,
- * auto-claiming a matching unclaimed proxy registration in the process
- * (ADR-008, docs/roster/04-applications.md "Design" §3 "引き取り"). Both
- * `/apply/:token`'s loader (to render the claimed data) and its action (to
- * decide create-vs-update) call this instead of trusting a client-submitted
- * application id — see docs/roster/04-applications.md "Design" §4.
- */
 export async function resolveOwnApplication(
   db: D1Database,
   eventId: string,
   viewer: { userId: string; email: string },
 ): Promise<ResolvedApplication> {
-  // Normalize once and reuse everywhere below: findApplicationCandidates
-  // already normalizes its own query, but claim.ts#resolveApplication does a
-  // plain `===` against the candidates' (already-normalized, since every
-  // write goes through normalizeEmail too) email — passing the raw-case
-  // viewer through would silently fail that comparison.
   const normalizedViewer = { userId: viewer.userId, email: normalizeEmail(viewer.email) };
 
   const resolution = resolveApplication(
@@ -185,8 +137,6 @@ export async function resolveOwnApplication(
     return application ? { kind: "own", application } : { kind: "new" };
   }
 
-  // kind === "claimable": claim, but fall back to a fresh resolve if someone
-  // else's concurrent claim raced ours between the read above and this write.
   const claimed = await claimApplication(db, resolution.id, normalizedViewer.userId);
   if (claimed) return { kind: "own", application: claimed };
 
@@ -259,12 +209,6 @@ export type UpdateApplicationInput = {
   updatedBy: UpdatedBy;
 };
 
-/**
- * Overwrites the editable fields wholesale — "最後に書いた側が勝つ"
- * (ADR-008): there is no merge, and no separate storage of the owner's vs.
- * the self-reported values. `email`/`userId` are never touched here; they're
- * the identity key `resolveOwnApplication`/proxy-add resolve against.
- */
 export async function updateApplication(
   db: D1Database,
   id: string,
@@ -292,7 +236,6 @@ export async function updateApplication(
   return row ? toApplication(row) : null;
 }
 
-/** Sets `withdrawn = 1` without touching any other field — withdrawal is never a physical delete. */
 export async function withdrawApplication(
   db: D1Database,
   id: string,
@@ -308,24 +251,6 @@ export async function withdrawApplication(
   return row ? toApplication(row) : null;
 }
 
-/**
- * The owner-correction write bundle `/e/:id/staff`'s staff-list drawer uses
- * (docs/roster/05-staff-supply-demand.md "Design" §2: level/availability/
- * role corrections, always `updatedBy: "owner"`). Bundles three existing
- * writes — this table plus `./skills.server#setApplicationSkills` and
- * `./availability.server#setAvailability` — behind one call so the route's
- * action doesn't re-implement the fan-out.
- *
- * `withdrawn: false` on every call mirrors `/apply/:token`'s own "save
- * reactivates" convention (a withdrawn applicant's registration becomes
- * active again the moment its content is saved) — a dedicated `withdraw`
- * intent is the only path that sets `withdrawn: true`, exactly as
- * `apply.$token.tsx`'s action splits "save" from "withdraw".
- *
- * `existing` is passed in (not re-fetched) because every caller already has
- * it from the permission check it had to do first (`getApplicationById` +
- * `canEditApplication`).
- */
 export async function correctApplication(
   db: D1Database,
   existing: Pick<ApplicationRecord, "id" | "name" | "contact" | "party" | "note">,

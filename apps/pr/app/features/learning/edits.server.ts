@@ -1,10 +1,6 @@
 import type { CheckResult } from "@skills/pr-playbook/scripts/checks/index.mjs";
 import { diffLeaves, ruleHints } from "./edits";
 
-/**
- * Mechanically, inside the save: one row per changed string leaf, with the rules whose result
- * changed. No LLM. The retro job groups these by kind and field.
- */
 export async function recordEdits(
   db: D1Database,
   input: {
@@ -57,11 +53,9 @@ export type EditGroup = {
   count: number;
   ruleHints: string[];
   examples: { before: string | null; after: string | null }[];
-  /** Other campaigns of the same chapter had the same change (detected without an LLM). */
   recurring: boolean;
 };
 
-/** Field paths without array indexes, so "/posts/0/text" and "/posts/1/text" group together. */
 const groupField = (field: string) => field.replace(/\/\d+(?=\/|$)/g, "/*");
 
 export async function editGroups(

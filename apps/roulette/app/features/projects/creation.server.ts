@@ -7,7 +7,6 @@ export type CreateErrors = { name?: string; slug?: string; chapter?: string };
 
 export const MAX_PROJECT_NAME = 80;
 
-/** Create a project from the list page's dialog, then open its admin page. */
 export async function createProjectFromForm(env: Env, request: Request) {
   const { user, chapters } = await requireUserWithChapter(env, request);
   const form = await request.formData();

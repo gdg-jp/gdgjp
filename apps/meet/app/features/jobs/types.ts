@@ -1,8 +1,5 @@
 export type ArtifactJobKind = "recording" | "transcript" | "smartNote";
 
-/**
- * `MEET_JOBS` Queue メッセージの契約型。
- */
 export type MeetJobMessage =
   | {
       type: "sync_members";
@@ -45,7 +42,6 @@ function isArtifactJobKind(value: unknown): value is ArtifactJobKind {
   return value === "recording" || value === "transcript" || value === "smartNote";
 }
 
-/** 受信した Queue メッセージ本文が既知の `MeetJobMessage` か判定する。 */
 export function isMeetJobMessage(value: unknown): value is MeetJobMessage {
   if (!value || typeof value !== "object") return false;
   const obj = value as Record<string, unknown>;

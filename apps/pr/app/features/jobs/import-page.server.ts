@@ -17,7 +17,6 @@ import type { FixTarget, Job } from "./shared";
 
 type Yomiyasu = { status: "pass" | "fail" | "unevaluated"; detail?: string } | null;
 
-/** The connpass page: one draft per campaign (a new page job adds a version). */
 async function pageDraft(db: D1Database, job: Job): Promise<number> {
   const payload = job.payload as { draftId?: number };
   if (payload.draftId) return payload.draftId;
@@ -35,7 +34,6 @@ async function pageDraft(db: D1Database, job: Job): Promise<number> {
   );
 }
 
-/** A connpass mail belongs to its connpass_mail schedule item. */
 async function mailDraft(db: D1Database, job: Job): Promise<number | null> {
   const itemId = (job.payload as { scheduleItemId?: number }).scheduleItemId;
   const item = itemId ? await getItem(db, job.campaignId, itemId) : null;
@@ -53,10 +51,6 @@ async function mailDraft(db: D1Database, job: Job): Promise<number | null> {
   );
 }
 
-/**
- * `page` jobs (and their fixes): the page's HTML is rebuilt from the slots here, so the agent's
- * own `html`, if any, never reaches connpass. A MUST failure gets the usual single fix.
- */
 export async function importPage(
   db: D1Database,
   job: Job,

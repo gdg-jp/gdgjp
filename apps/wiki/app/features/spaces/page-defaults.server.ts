@@ -6,18 +6,6 @@ import type { SpaceRow } from "./access.server";
 
 type Db = ReturnType<typeof getDb>;
 
-/**
- * Default sharing for a page created inside a space, expressed with the existing page
- * grants (the inner ACL is not extended):
- *
- * - chapter space → a `chapter` grant (editor) for the space's chapter. Chapter grants
- *   follow live Accounts claims, so "only members of this chapter can read and edit" holds
- *   as membership changes.
- * - shared space (not gdg-jp) → one grant per `user` / `chapter_role:<id>:member` member,
- *   copied at creation. Later membership changes do not rewrite existing pages; the share
- *   dialog stays the place to adjust them.
- * - personal space and gdg-jp → no grants (author-only `restricted`, as in v1).
- */
 export async function applySpacePageDefaults(
   db: Db,
   space: Pick<SpaceRow, "id" | "kind" | "chapterId" | "name">,

@@ -23,7 +23,6 @@ const TONE: Record<string, "success" | "danger" | "warning"> = {
   failed: "danger",
 };
 
-/** Thumbnail upload (1 MB), publishing (confirmed), and the connpass jobs pr submitted. */
 export function ConnpassSettingsCard({ configured, jobs, canManage, busy }: Props) {
   return (
     <Card>

@@ -59,7 +59,6 @@ async function makeDb() {
   return db;
 }
 
-/** One slot + track on `sheetId`, so demands/assignments can reference them. */
 async function addSlotAndTrack(db: D1Database, sheetId: string) {
   await db
     .prepare(
@@ -184,7 +183,6 @@ describe("event-owned roles", () => {
       cloak.id,
       ta.id,
     ]);
-    // "guide" is the fixture's legacy event_roles row, mirrored onto the default sheet by 0008.
     expect(await listEventRoleIds(db, "evt")).toEqual(["guide", cloak.id, ta.id].sort());
     expect(await listEventRoleIds(db, "evt", "sheet:other")).toEqual(["guide"]);
   });

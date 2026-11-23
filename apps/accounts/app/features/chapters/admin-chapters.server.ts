@@ -14,7 +14,6 @@ import { i18n } from "~/lib/i18n/i18n.server";
 import type { RouteRequestArgs } from "~/lib/route-args";
 export async function loadAdminChapters(args: RouteRequestArgs) {
   const env = args.context.cloudflare.env;
-  // listChaptersWithCountsCached doesn't depend on the user; fan it out with auth.
   const [t, userResult, chapters] = await Promise.all([
     i18n.getFixedT(args.request),
     requireUser(env, args.request).then(

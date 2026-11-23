@@ -1,5 +1,3 @@
-// Local stand-in for gdgjp-sns's PrService (vite.config.ts auxiliaryWorkers, dev only).
-// Same contract and the same rule as sns: organizers of the chapter or super admins may post.
 import { WorkerEntrypoint } from "cloudflare:workers";
 import type { PrActor, SnsCreateScheduledPostInput, SnsPostSummary } from "@gdgjp/gdg-lib";
 
@@ -8,7 +6,6 @@ const posts = new Map<
   SnsPostSummary & { chapterId: number; text: string; xAccountId: string; actor: string }
 >();
 let calls = 0;
-// Ids stay unique across dev-server restarts (pr keeps them in D1).
 const RUN = Date.now().toString(36);
 
 const canPost = (actor: PrActor, chapterId: number) =>
@@ -67,7 +64,6 @@ export class PrService extends WorkerEntrypoint {
       post: { id, status, scheduledAt, publishedXPostId, failureReason },
     };
   }
-  // Test hooks (reached through pr's /dev/mock-services).
   mockState() {
     return { calls, posts: [...posts.values()] };
   }

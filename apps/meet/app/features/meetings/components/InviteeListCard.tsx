@@ -33,7 +33,6 @@ function resolveInviteeSubLabel(invitee: PublicInvitee): string {
   return invitee.isChapterDerived ? "チャプター所属メンバー" : "個別メール招待";
 }
 
-/** 会議詳細画面の招待者一覧カード（閲覧権限がある全員に招待者全員の名前とメールアドレスを表示する）。 */
 export function InviteeListCard({ invitees }: InviteeListCardProps) {
   const cohostCount = invitees.filter((inv) => inv.role === "cohost").length;
   const participantCount = invitees.length - cohostCount;

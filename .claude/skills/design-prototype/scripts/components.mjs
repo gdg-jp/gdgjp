@@ -1,8 +1,4 @@
 #!/usr/bin/env node
-// Lists the public components of @gdgjp/design-system with their exact export names, grouped by
-// the categories in DESIGN.md "## Components", and the story file that shows real usage.
-//
-//   node components.mjs
 import { existsSync } from "node:fs";
 import { readFile, readdir } from "node:fs/promises";
 import { join } from "node:path";
@@ -77,7 +73,6 @@ for (const dir of dirs) {
   const source = files.find((file) => file === `${dir}.tsx`);
   const paths = [
     story && `story: src/components/${dir}/${story}`,
-    // The source shows default layout (direction, gaps, borders) that stories rarely vary.
     source && `source: src/components/${dir}/${source}`,
   ].filter(Boolean);
   const line = `- ${dir}: ${(await componentExports(dir)).join(", ")}${paths

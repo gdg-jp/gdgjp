@@ -1,15 +1,5 @@
 type LegendTrack = { name: string };
 
-/**
- * The text key above a shift grid (`StaffGrid`, `RoleGrid`, and Stage 09's
- * `PublicStaffGrid`). Cells print track names directly, keeping the grid's
- * color palette quiet.
- *
- * `showAvailabilityStates` is off for the public view on purpose: `o`/`d`/`x`
- * availability never leaves the owner side (ADR-005 / Stage 09's
- * `PublicRosterData` has no `availability` field), so a public legend
- * explaining △ and 違反 would describe styling that page can never render.
- */
 export function GridLegend({
   tracks,
   showAvailabilityStates = false,

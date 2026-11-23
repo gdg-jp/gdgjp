@@ -1,10 +1,5 @@
 import { nowSeconds } from "../../lib";
 
-/**
- * Where the reply goes: edit the deferred Discord response, edit the bot's placeholder reply to
- * an @mention (messages arrive from the Gateway listener on the OCI VM), or post into a Chat
- * thread.
- */
 export type Delivery =
   | { platform: "discord"; applicationId: string; interactionToken: string; ephemeral: boolean }
   | { platform: "discord-message"; channelId: string; messageId: string }
@@ -16,13 +11,10 @@ export type PendingAnswer = {
   jobId: string;
   delivery: Delivery;
   question: string;
-  /** Top search hits, for the degraded reply when the runner does not answer. */
   hits: DegradedHit[];
   spaces: string[];
   excludedSpaces: string[];
-  /** Matching pages hidden from this reader by the wiki's ACL. */
   excludedPages?: number;
-  /** Public replies offer "answer with my permissions". */
   publicReply: boolean;
   platform: "discord" | "google-chat";
   chatUserId: string;
@@ -36,7 +28,6 @@ export type PendingAnswer = {
 export type PendingStore = {
   insert(row: PendingAnswer): Promise<void>;
   get(jobId: string): Promise<PendingAnswer | null>;
-  /** pending → answered/degraded exactly once; false when someone else got there first. */
   settle(jobId: string, status: "answered" | "degraded"): Promise<boolean>;
   overdue(now: number): Promise<PendingAnswer[]>;
   countPending(): Promise<number>;

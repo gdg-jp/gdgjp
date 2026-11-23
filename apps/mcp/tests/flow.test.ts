@@ -18,7 +18,6 @@ function base64Url(bytes: ArrayBuffer | Uint8Array): string {
     .replace(/=+$/, "");
 }
 
-/** A tiny cookie jar: the consent and upstream helpers bind each step to the browser. */
 class Browser {
   private cookies = new Map<string, string>();
   remember(response: Response) {
@@ -50,7 +49,6 @@ const ctx = {
 
 function call(path: string, init: RequestInit = {}) {
   const headers = new Headers(init.headers);
-  // Node's Request does not add Host; the Workers runtime always does.
   headers.set("host", new URL(APP).host);
   const request = new Request(`${APP}${path}`, { ...init, headers });
   return worker.fetch(request as Parameters<typeof worker.fetch>[0], env, ctx);
@@ -138,7 +136,6 @@ async function registerClient(): Promise<string> {
   return ((await response.json()) as { client_id: string }).client_id;
 }
 
-/** Runs the whole browser leg and returns the MCP client's token response. */
 async function authorize(ticked: string[]) {
   const clientId = await registerClient();
   const browser = new Browser();
@@ -277,7 +274,6 @@ describe("authorization through GDG Japan Accounts", () => {
   it("issues a token bound to the Accounts session and calls the wiki as the user", async () => {
     const { tokens } = await authorize(["wiki:read", "wiki:write"]);
     expect(tokens.scope.split(" ").sort()).toEqual(["wiki:read", "wiki:write"]);
-    // Stays inside the upstream access token's lifetime.
     expect(tokens.expires_in).toBeLessThanOrEqual(3600 - 60);
 
     const list = await rpcResult(await mcp(tokens.access_token, "tools/list"));

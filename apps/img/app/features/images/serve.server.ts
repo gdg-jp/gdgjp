@@ -38,9 +38,6 @@ export async function serveImage(env: Env, ctx: ExecutionContext, request: Reque
     return notModified(headers);
   }
 
-  // Device detection can include User-Agent in Vary, which would fragment the
-  // CDN cache almost per-client. deliverImage therefore uses a synthetic Cache
-  // API key containing the fully resolved variant, source version and format.
   return deliverImage({
     env,
     ctx: ctx,

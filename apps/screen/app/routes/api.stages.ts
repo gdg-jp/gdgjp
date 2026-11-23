@@ -17,7 +17,6 @@ export function loader() {
   return redirect("/");
 }
 
-/** Stage mutations from the stage list and the control room (operators only). */
 export async function action({ request, context }: Route.ActionArgs) {
   const env = context.cloudflare.env;
   const { user } = await requireUserWithChapter(env, request);
@@ -27,7 +26,6 @@ export async function action({ request, context }: Route.ActionArgs) {
   if (intent === "create") {
     const name = cleanName(form.get("name"));
     if (!name) return data({ ok: false as const, error: "name" }, { status: 400 });
-    // The id is also the speaker invite link, so it is never swapped silently.
     const id = normalizeStageId(form.get("id"));
     if (!isStageId(id)) return data({ ok: false as const, error: "id" }, { status: 400 });
     const stage = await createStage(env.DB, {
@@ -55,8 +53,6 @@ export async function action({ request, context }: Route.ActionArgs) {
   }
   if (intent === "rotate-output") {
     await rotateOutputToken(env.DB, stage.id);
-    // Old OBS URLs stop at once. (The invite link is the stage id itself and
-    // cannot be reissued.)
     await room.revoke("output");
     return { ok: true as const };
   }

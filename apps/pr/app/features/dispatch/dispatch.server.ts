@@ -26,10 +26,6 @@ async function deliverable(env: Env, draft: Draft) {
 const fallbackUrl = async (env: Env, campaignId: number) =>
   (await latestBrief(env.DB, campaignId))?.brief.event.connpassUrl ?? null;
 
-/**
- * Before a draft is approved: refuse an OGP post without its image, and create the short
- * link now (as the approver) so a tinyurl failure stops the approval instead of the post.
- */
 export async function prepareDraftApproval(
   env: Env,
   access: CampaignAccess,
@@ -53,7 +49,6 @@ export async function prepareDraftApproval(
   return { ok: true };
 }
 
-/** After approval: one dispatch target per X account, each waiting for its chapter's approval. */
 export async function afterDraftApproval(env: Env, campaign: Campaign, draft: Draft) {
   if (!draft.scheduleItemId || !isDispatchKind(draft.kind)) return;
   await ensureTargets(env.DB, campaign.id, draft.scheduleItemId, targetAccountKind(draft.kind));
@@ -70,11 +65,6 @@ export async function rollup(env: Env, itemId: number) {
     );
 }
 
-/**
- * The account's chapter approves its target, and the post is scheduled on sns as that person.
- * Pressing twice, or two people at once, schedules one post: pending → approved and
- * approved → dispatching are both compare-and-set.
- */
 export async function approveTarget(
   env: Env,
   access: CampaignAccess,
@@ -102,7 +92,6 @@ export async function approveTarget(
     error: null,
   });
   if (!approved) return { ok: true, message: "この配信先はもう処理されています" };
-  // A mail goes out at its time (Tips 10), never on approval: the minute cron sends it.
   if (draft.kind === "connpass_mail")
     return {
       ok: true,
@@ -173,7 +162,6 @@ async function dispatchTarget(
   return { ok: true, message: `${target.account.label} に予約しました` };
 }
 
-/** `{{shortlink}}` → the item's short link, on a copy (the draft version is never rewritten). */
 async function textForDelivery(
   env: Env,
   actor: PrActor,
@@ -227,7 +215,6 @@ async function attachImage(
   });
 }
 
-/** Nobody in that chapter can approve: the target becomes a request item for them. */
 export async function skipTarget(
   env: Env,
   access: CampaignAccess,

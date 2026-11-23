@@ -69,8 +69,6 @@ export default function CampaignDetail({ loaderData, actionData }: Route.Compone
   const location = useLocation();
   const navigation = useNavigation();
   const navigatingWithinCampaign = navigation.location?.pathname === location.pathname;
-  // The loader already contains every channel's D1 link tree. During a scoped AE reload,
-  // use the destination URL with that cached tree so link controls update immediately.
   const scopeSearchParams = navigatingWithinCampaign
     ? new URLSearchParams(navigation.location?.search)
     : searchParams;

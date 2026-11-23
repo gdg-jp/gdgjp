@@ -167,9 +167,7 @@ export default function GoogleDocumentImportDialog({
       let current: unknown = [];
       try {
         current = JSON.parse(localStorage.getItem(storageKey) ?? "[]") as unknown;
-      } catch {
-        // A stale/corrupted browser value must not make an accepted import look failed.
-      }
+      } catch {}
       const jobs = Array.isArray(current)
         ? current.filter((value): value is string => typeof value === "string")
         : [];

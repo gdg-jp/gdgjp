@@ -46,7 +46,6 @@ export function isDeckId(value: unknown): value is string {
   return typeof value === "string" && DECK_ID_RE.test(value);
 }
 
-/** URL-safe random token (base64url, 24 bytes). */
 export function randomToken(): string {
   const bytes = crypto.getRandomValues(new Uint8Array(24));
   return btoa(String.fromCharCode(...bytes))
@@ -114,7 +113,6 @@ export type SaveResult =
   | { ok: true; version: number }
   | { ok: false; error: "conflict" | "too-large" };
 
-/** Saves the whole layout if nobody saved since `baseVersion`. */
 export async function saveLayout(
   db: D1Database,
   id: string,
@@ -136,7 +134,6 @@ export async function saveLayout(
   return { ok: true, version: baseVersion + 1 };
 }
 
-/** Renames without bumping the layout version (an open editor's draft stays saveable). */
 export async function renameDeck(db: D1Database, id: string, name: string): Promise<void> {
   await db
     .prepare("UPDATE deck SET name = ?, updated_at = unixepoch() WHERE id = ?")
@@ -144,7 +141,6 @@ export async function renameDeck(db: D1Database, id: string, name: string): Prom
     .run();
 }
 
-/** New dock token; the old dock URL stops working. */
 export async function rotateDockToken(db: D1Database, id: string): Promise<string> {
   const token = randomToken();
   await db

@@ -129,7 +129,6 @@ function insertStatement(
     );
 }
 
-/** Insert an item and the items the Playbook derives from it. Returns the parent id. */
 export async function createItem(
   db: D1Database,
   campaignId: number,
@@ -160,7 +159,6 @@ export async function createItem(
   return id;
 }
 
-/** Insert an item that is itself derived (from a plan), without deriving further. */
 export async function createDerivedItem(
   db: D1Database,
   campaignId: number,
@@ -216,10 +214,6 @@ const COLUMNS: Record<keyof ItemPatch, string> = {
   variant: "variant",
 };
 
-/**
- * Update an item. When its time moves, derived items move with it, keeping their own
- * offset_minutes (a derived item edited by hand keeps its offset, not its old time).
- */
 export async function updateItem(
   db: D1Database,
   campaignId: number,
@@ -255,7 +249,6 @@ export async function updateItem(
   await db.batch(statements);
 }
 
-/** Compare-and-set on status, so a double click or an overlapping cron cannot run a step twice. */
 export async function transitionItem(
   db: D1Database,
   id: number,
@@ -279,7 +272,6 @@ export async function deleteItem(db: D1Database, campaignId: number, id: number)
     .run();
 }
 
-/** Items assigned to or reviewed by a user, across campaigns, open only. */
 export async function listItemsForUser(
   db: D1Database,
   userId: string,
@@ -301,7 +293,6 @@ export async function listItemsForUser(
   }));
 }
 
-/** Items of open campaigns whose time has come, for the minute cron (one SQL filter each). */
 export async function dueItems(
   db: D1Database,
   where: string,

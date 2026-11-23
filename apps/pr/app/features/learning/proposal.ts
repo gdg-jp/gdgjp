@@ -45,7 +45,6 @@ export const STATUS_LABELS: Record<ProposalStatus, string> = {
   applied: "適用済み",
 };
 
-/** A sortable, unique id (time + randomness), so proposals list in creation order. */
 export function proposalId(now = Date.now()): string {
   const rand = Array.from(crypto.getRandomValues(new Uint8Array(8)), (b) =>
     b.toString(16).padStart(2, "0"),
@@ -53,7 +52,6 @@ export function proposalId(now = Date.now()): string {
   return `p${now.toString(36)}${rand}`;
 }
 
-/** The export bundle feedback.mjs imports (one file per accepted proposal on disk). */
 export function exportBundle(proposals: Proposal[], digests: { rules: string; constants: string }) {
   return {
     format: "pr-playbook-proposals/1",

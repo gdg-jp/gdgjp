@@ -3,7 +3,6 @@ import { useTranslation } from "react-i18next";
 import { REGISTRATIONS } from "~/features/sources/kinds";
 import type { StagedSource } from "~/features/sources/staged-candidates";
 
-/** Editable list of not-yet-imported staged sources for the sources panel. */
 export function StagedCandidateList({
   candidates,
   candidateErrors,

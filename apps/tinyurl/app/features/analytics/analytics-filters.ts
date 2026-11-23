@@ -103,8 +103,6 @@ export const FILTER_DIMENSIONS: readonly TopBlob[] = [
 
 export type DimensionFilters = Partial<Record<TopBlob, readonly string[]>>;
 
-// Validators per dimension. Reject anything that wouldn't survive `quote()` safely
-// even though quote() is already escape-safe — defense in depth + sane URL params.
 const VALIDATORS: Record<TopBlob, RegExp> = {
   slug: /^[A-Za-z0-9_-]{1,64}$/,
   country: /^[A-Z]{2}$/,

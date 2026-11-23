@@ -29,13 +29,13 @@ describe("editing", () => {
   it("moves, resizes and removes folders", () => {
     let layout = emptyLayout(3, 2);
     const a = newKey({ type: "back" });
-    layout = setKey(layout, ROOT_BOARD, 0, 5, a); // row 1, col 2
+    layout = setKey(layout, ROOT_BOARD, 0, 5, a);
     layout = moveKey(layout, ROOT_BOARD, 0, 5, 0);
     expect(layout.boards.root?.pages[0]?.keys["0"]?.id).toBe(a.id);
-    layout = moveKey(layout, ROOT_BOARD, 0, 0, 4); // row 1, col 1
+    layout = moveKey(layout, ROOT_BOARD, 0, 0, 4);
     expect(droppedByResize(layout, 1, 2)).toBe(1);
     const grown = resize(layout, 4, 2);
-    expect(grown.boards.root?.pages[0]?.keys["5"]?.id).toBe(a.id); // still row 1, col 1
+    expect(grown.boards.root?.pages[0]?.keys["5"]?.id).toBe(a.id);
 
     const folder = addFolder(layout, "Scenes");
     if (!folder) throw new Error("no folder");

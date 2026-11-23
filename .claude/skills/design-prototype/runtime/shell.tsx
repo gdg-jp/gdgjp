@@ -42,7 +42,6 @@ interface FrameStatus {
 
 declare global {
   interface Window {
-    /** Read by scripts/check.mjs. */
     __proto?: {
       frames: {
         id: string;
@@ -78,7 +77,6 @@ function writeHash(view: View, frame: string | null) {
   history.replaceState(null, "", `#${params}`);
 }
 
-/** The whole page as a document an iframe can load, so every frame gets its own viewport. */
 function useFrameDocument() {
   return useMemo(() => {
     const css = document.getElementById("proto-css")?.textContent ?? "";
@@ -143,7 +141,6 @@ function FrameView({
   style?: CSSProperties;
 }) {
   const ref = useRef<HTMLIFrameElement>(null);
-  // The name is fixed at mount so a theme change does not reload the frame and lose its state.
   const [name] = useState(() => frameName(config));
   useEffect(() => {
     ref.current?.contentWindow?.postMessage({ type: "proto:theme", theme: config.theme }, "*");
@@ -370,7 +367,6 @@ function describeStep(step: FlowStep, prototype: Prototype) {
   return `${control?.label ?? step.control}を「${option?.label ?? step.value}」に切り替える`;
 }
 
-/** The main flows, listed for reviewers so they know what to try. */
 function Scenarios({ prototype }: { prototype: Prototype }) {
   if (!prototype.flows?.length) return null;
   return (
@@ -388,7 +384,6 @@ function Scenarios({ prototype }: { prototype: Prototype }) {
               <h2 className="m-0 font-semibold text-sm">{flow.name}</h2>
               <ol className="m-0 list-decimal pl-5 text-muted text-sm">
                 {flow.steps.map((step, index) => (
-                  // Steps have no identity besides their position.
                   // biome-ignore lint/suspicious/noArrayIndexKey: static list
                   <li key={index}>{describeStep(step, prototype)}</li>
                 ))}
@@ -477,7 +472,6 @@ function Spec({ html }: { html: string }) {
   return (
     <article
       className="proto-spec mx-auto max-w-[880px] px-4 py-8 md:px-8"
-      // spec.md is the author's own document, converted at build time.
       // biome-ignore lint/security/noDangerouslySetInnerHtml: build-time markdown
       dangerouslySetInnerHTML={{ __html: html }}
     />
@@ -499,7 +493,6 @@ export function Shell({ prototype }: { prototype: Prototype }) {
     matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light",
   );
   const [viewport, setViewport] = useState<Viewport>(prototype.viewport ?? "desktop");
-  // The interactive App loads on first visit, then stays mounted to keep its state across tabs.
   const [played, setPlayed] = useState(initial.view === "play");
   const status = useFrameStatus(prototype);
 

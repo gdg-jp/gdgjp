@@ -148,7 +148,6 @@ describe("WikiPageBody mobile contents button trigger", () => {
 
   it("handles rejected pageMeta gracefully without throwing unhandled rejection", async () => {
     const failingPageMeta = Promise.reject(new Error("D1 connection lost"));
-    // Catch rejection to avoid unhandled rejection in node runtime
     failingPageMeta.catch(() => {});
 
     const html = await renderToString(
@@ -162,7 +161,6 @@ describe("WikiPageBody mobile contents button trigger", () => {
         pageMeta={failingPageMeta}
       />,
     );
-    // Page body still renders content and doesn't crash
     expect(html).toContain('data-testid="md-preview"');
     expect(html).not.toContain("wiki.contents");
   });

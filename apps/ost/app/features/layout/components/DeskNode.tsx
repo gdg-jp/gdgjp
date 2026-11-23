@@ -2,11 +2,6 @@ import { motion, useDragControls, useMotionValue } from "motion/react";
 import type { Desk } from "~/features/board/protocol";
 import type { Transform } from "../geometry";
 
-/**
- * One desk on the canvas: Motion handles translation drag, raw pointer math
- * (in the parent, via `onHandleStart`) handles resize/rotate. Extracted into
- * its own component because each desk needs its own `useDragControls`.
- */
 export function DeskNode({
   desk,
   t,
@@ -34,9 +29,6 @@ export function DeskNode({
       dragListener={false}
       dragControls={controls}
       dragMomentum={false}
-      // Opacity-only entrance (a new desk fades in); scale-out on removal.
-      // Deliberately no transform on enter and no `layout` — the resize/rotate
-      // pointer math reads this node's box directly and must not see it scaled.
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0, scale: 0 }}
@@ -46,8 +38,6 @@ export function DeskNode({
         controls.start(e);
       }}
       onDragEnd={(_e, info) => {
-        // Reset the drag transform immediately so it doesn't fight the
-        // committed left/top once `onDragCommit` lands in state.
         x.set(0);
         y.set(0);
         onEndGesture();

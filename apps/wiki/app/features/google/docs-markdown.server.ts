@@ -23,12 +23,10 @@ export interface GoogleDocsMarkdownNode {
   title: string;
   markdown: string;
   images: GoogleDocsInlineImage[];
-  /** Non-fatal API limitations and unavailable non-image objects. */
   warnings: string[];
   children: GoogleDocsMarkdownNode[];
 }
 
-/** Resolves deferred Docs-internal link targets after Wiki slugs are allocated. */
 export function resolveGoogleDocsInternalLinks(
   markdown: string,
   slugsByTabId: ReadonlyMap<string, string>,

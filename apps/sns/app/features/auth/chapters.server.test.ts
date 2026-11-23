@@ -2,7 +2,6 @@ import type { UserChapter } from "@gdgjp/gdg-lib";
 import { describe, expect, it } from "vitest";
 import { listAccessibleChapters } from "./chapters.server";
 
-/** D1 fake that only answers `contributorChapterIds`'s single query. */
 function makeDb(contributorChapterIds: number[]) {
   return {
     prepare(_sql: string) {

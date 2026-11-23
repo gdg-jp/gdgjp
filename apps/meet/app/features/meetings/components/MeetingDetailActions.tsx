@@ -21,7 +21,6 @@ export type MeetingDetailActionsProps = {
   isCanceling: boolean;
 };
 
-/** 共同主催者（co-host）・管理者向けの編集・チャプター再同期・取り消し操作バー。 */
 export function MeetingDetailActions({
   meetingId,
   meetingTitle,

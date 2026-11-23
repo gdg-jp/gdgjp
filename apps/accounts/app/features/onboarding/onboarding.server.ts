@@ -88,7 +88,6 @@ export async function actOnOnboarding(args: RouteRequestArgs) {
       if (!result.ok && result.reason === "chapter_not_found") {
         return { error: t("errors.chapterNotFound") };
       }
-      // already_in_chapter: treat as success for idempotent multi-submit
       if (result.ok || result.reason === "already_in_chapter") {
         accepted.push(chapterId);
       }

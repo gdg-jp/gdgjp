@@ -9,14 +9,12 @@ function audioContext(): AudioContext | null {
   return sharedContext;
 }
 
-/** RMS level → 0..1 on a perceptual (dB) scale. */
 export function levelFromRms(rms: number): number {
   if (rms <= 0) return 0;
   const db = 20 * Math.log10(rms);
   return Math.min(1, Math.max(0, (db + 60) / 50));
 }
 
-/** Live 0..1 input level of an audio track, sampled ~12 times a second. */
 export function useLevel(track: MediaStreamTrack | null, active = true): number {
   const [level, setLevel] = useState(0);
   useEffect(() => {

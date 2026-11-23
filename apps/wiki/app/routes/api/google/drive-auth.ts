@@ -10,7 +10,6 @@ export async function loader({ request, context }: LoaderFunctionArgs) {
   const url = new URL(request.url);
   const returnTo = url.searchParams.get("returnTo") ?? "/ingest";
 
-  // Generate state for CSRF protection — encode returnTo path after the random nonce
   const stateBytes = new Uint8Array(16);
   crypto.getRandomValues(stateBytes);
   const nonce = Array.from(stateBytes)
@@ -22,7 +21,6 @@ export async function loader({ request, context }: LoaderFunctionArgs) {
 
   const authUrl = getGoogleDriveAuthUrl(env.GOOGLE_DOCS_CLIENT_ID, redirectUri, state);
 
-  // Store state in cookie for verification in callback
   throw redirect(authUrl, {
     headers: {
       "Set-Cookie": `gdrive_oauth_state=${state}; Path=/; HttpOnly; SameSite=Lax; Max-Age=600; Secure`,

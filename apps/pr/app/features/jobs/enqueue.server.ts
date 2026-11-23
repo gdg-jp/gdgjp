@@ -59,11 +59,6 @@ export async function enqueueCopy(
   });
 }
 
-/**
- * Queue post drafts for schedule items. Refuses items whose blocked_by conditions do not hold
- * (ANNOUNCE-AFTER-CONFIRMED) and kinds that are not posts. The drafts appear at once as
- * "generating" so the schedule shows work is in progress.
- */
 export async function enqueuePosts(
   db: D1Database,
   campaignId: number,
@@ -136,7 +131,6 @@ export async function enqueuePosts(
   return jobs;
 }
 
-/** A connpass page (one per campaign) or one connpass mail (for its schedule item). */
 export async function enqueuePage(
   db: D1Database,
   campaignId: number,
@@ -159,7 +153,6 @@ export async function enqueuePage(
   });
 }
 
-/** The schedule page's "ask the runner": posts in batches, each connpass mail on its own. */
 export async function enqueueDrafts(
   db: D1Database,
   campaignId: number,
@@ -169,7 +162,6 @@ export async function enqueueDrafts(
 ): Promise<string[]> {
   const items = (await listItems(db, campaignId)).filter((i) => itemIds.includes(i.id));
   const mails = items.filter((i) => i.kind === "connpass_mail");
-  // Listings are not runner work (listings/listing.server.ts makes them from the brief).
   const posts = items
     .filter((i) => i.kind !== "connpass_mail" && !LISTING_KINDS.includes(i.kind))
     .map((i) => i.id);
@@ -187,7 +179,6 @@ export async function enqueueDrafts(
   return jobs;
 }
 
-/** An image from a template: for a post's draft, a connpass page's image slot, or the campaign. */
 export async function enqueueAsset(
   db: D1Database,
   campaignId: number,

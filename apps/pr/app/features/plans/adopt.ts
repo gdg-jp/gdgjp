@@ -3,10 +3,6 @@ import type { ItemInput } from "~/features/schedule/item";
 import { isScheduleKind } from "~/features/schedule/kinds";
 import type { PlanBody, PlanItem } from "./plan";
 
-/**
- * Turn a plan's schedule into item inputs: parents first, each derived item attached to its
- * parent's ref. Unknown kinds and unreadable times are reported, not silently dropped.
- */
 export function planToItems(
   body: PlanBody,
   planVersion: number,

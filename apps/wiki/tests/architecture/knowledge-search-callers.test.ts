@@ -3,12 +3,6 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
-/**
- * `searchSpaces` trusts its `spaceIds` / `audienceKeys`. The only caller allowed is
- * `searchForReader`, which derives audiences from `readableAudienceKeys` and re-checks
- * every hit with the page ACL / canAccessSource. Anything else calling the port directly
- * could pass a wider audience set than the reader has.
- */
 const WIKI_ROOT = fileURLToPath(new URL("../../", import.meta.url));
 function files(dir: string): string[] {
   const out: string[] = [];

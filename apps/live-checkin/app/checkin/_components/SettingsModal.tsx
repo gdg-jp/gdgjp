@@ -12,7 +12,6 @@ type SettingsModalProps = {
   onReloadEvents: () => void;
   onSave: (values: { groupId: string; eventId: string }) => void;
   onClose: () => void;
-  // false の間は背景クリック・Esc・閉じる/キャンセルボタンで閉じられない
   closable: boolean;
 };
 
@@ -29,7 +28,6 @@ function formatStartAt(startAt: string): string {
   });
 }
 
-// 親側で `open` のときだけマウントすることで、開くたびに現在値から編集を開始する
 export default function SettingsModal({
   groupId,
   eventId,
@@ -43,10 +41,8 @@ export default function SettingsModal({
   const [draftGroupId, setDraftGroupId] = useState<string>(groupId);
   const [draftEventId, setDraftEventId] = useState<string>(eventId);
 
-  // 候補に無い（古い保存値など）eventId は未選択扱い
   const canSave = draftGroupId.trim() !== "" && events.some((ev) => ev.id === draftEventId);
 
-  // Escape キーで閉じる（closable のときのみ）
   useEffect(() => {
     if (!closable) return;
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -92,21 +88,9 @@ export default function SettingsModal({
           )}
         </div>
 
-        {/* 説明文（後で編集） */}
         <p className="mb-3 text-xs text-zinc-600">受付を行うイベントを以下から選択して下さい。</p>
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-3">
-          {/* <label className="flex flex-col gap-1 text-xs font-medium text-zinc-700">
-            グループID
-            <input
-              type="text"
-              value={draftGroupId}
-              onChange={(e) => setDraftGroupId(e.target.value)}
-              placeholder="例: gdgkwansai"
-              autoFocus
-              className="rounded border border-zinc-300 px-2 py-1.5 text-sm text-zinc-900"
-            />
-          </label> */}
           <fieldset className="flex flex-col gap-1.5">
             <legend className="mb-1 text-xs font-medium text-zinc-700">
               イベント（直近のものから順に表示）

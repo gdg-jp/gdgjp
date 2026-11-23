@@ -4,7 +4,6 @@ import type { getDb } from "~/lib/db.server";
 
 type WikiDb = ReturnType<typeof getDb>;
 
-/** Comments of a page as a reply tree, with reaction counts (page loader). */
 export async function loadPageComments(
   db: WikiDb,
   pageId: string,

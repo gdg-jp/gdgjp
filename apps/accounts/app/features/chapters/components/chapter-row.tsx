@@ -152,7 +152,6 @@ export function ChapterAction({
       </div>
     );
   }
-  // active-member
   return (
     <LeaveButton
       chapterId={chapter.id}

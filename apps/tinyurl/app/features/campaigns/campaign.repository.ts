@@ -97,8 +97,6 @@ function isUniqueConstraintError(error: unknown): boolean {
   return message.includes("UNIQUE") || message.includes("unique constraint");
 }
 
-// ---------- Campaigns ----------
-
 export async function listCampaignsForChapterWithCounts(
   db: D1Database,
   chapterId: number,
@@ -333,8 +331,6 @@ export async function deleteCampaign(db: D1Database, id: number): Promise<boolea
   return (result.meta.changes ?? 0) > 0;
 }
 
-// ---------- Channels ----------
-
 export async function listCampaignChannels(
   db: D1Database,
   campaignId: number,
@@ -449,8 +445,6 @@ export async function deleteCampaignChannel(db: D1Database, id: number): Promise
   const result = await db.prepare("DELETE FROM campaign_channels WHERE id = ?").bind(id).run();
   return (result.meta.changes ?? 0) > 0;
 }
-
-// ---------- Sources ----------
 
 export async function listCampaignChannelSources(
   db: D1Database,
@@ -582,8 +576,6 @@ export async function deleteCampaignChannelSource(db: D1Database, id: number): P
   return (result.meta.changes ?? 0) > 0;
 }
 
-// ---------- Aggregate reads ----------
-
 export async function listCampaignChannelsWithLinks(
   db: D1Database,
   campaignId: number,
@@ -627,11 +619,8 @@ export async function getCampaignWithChannelLinks(
   return { ...campaign, channels };
 }
 
-// ---------- CLI cursor pagination ----------
-
 export type CursorPage<T> = { items: T[]; nextCursor: string | null };
 
-/** Parses an opaque id cursor. Returns undefined for a malformed token, distinct from "no cursor" (null). */
 export function parseIdCursor(cursor: string): number | undefined {
   const value = Number(cursor);
   return Number.isInteger(value) && value > 0 ? value : undefined;

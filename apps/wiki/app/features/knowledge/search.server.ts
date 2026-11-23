@@ -24,12 +24,6 @@ export class KnowledgeSearchUnavailableError extends Error {
 /** AI Search's namespace search takes 1–10 instances. */
 export const MAX_SEARCH_SPACES = 10;
 
-/**
- * Search the knowledge index of some spaces. This function does NOT decide permissions:
- * callers pass the spaces the reader may reach (resolveSpaceAccess) and the audiences they
- * may read (readableAudienceKeys), and post-filter page hits with the page ACL
- * (tests/architecture/knowledge-search-callers.test.ts). `"all"` audiences = admin.
- */
 export async function searchSpaces(
   env: Env,
   input: {
@@ -86,7 +80,6 @@ export async function searchSpaces(
     const parsed = parseItemKey(chunk.item.key);
     const meta = chunk.item.metadata ?? {};
     const audience = String(meta.audience ?? "");
-    // Defence in depth: never return an item the filter should have excluded.
     if (!parsed || !layers.includes(parsed.layer)) continue;
     if (input.audienceKeys !== "all" && audience !== PAGE_AUDIENCE) {
       if (!input.audienceKeys.includes(audience)) continue;

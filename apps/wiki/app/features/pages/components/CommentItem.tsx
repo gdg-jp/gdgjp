@@ -96,9 +96,7 @@ export default function CommentItem({
   if (!isDeleted) {
     try {
       parsedDoc = JSON.parse(comment.contentJson) as TipTapDoc;
-    } catch {
-      /* ignore */
-    }
+    } catch {}
   }
 
   return (
@@ -108,7 +106,6 @@ export default function CommentItem({
       </div>
 
       <div className="min-w-0 flex-1">
-        {/* Header */}
         <div className="mb-1 flex items-baseline gap-2">
           <span className="text-sm font-medium text-foreground">{comment.authorName}</span>
           <span className="text-xs text-muted">
@@ -116,7 +113,6 @@ export default function CommentItem({
           </span>
         </div>
 
-        {/* Content */}
         {isDeleted ? (
           <p className="text-sm italic text-muted">{t("wiki.comment.deleted")}</p>
         ) : parsedDoc ? (
@@ -127,7 +123,6 @@ export default function CommentItem({
           <p className="text-sm text-foreground">{comment.contentJson}</p>
         )}
 
-        {/* Bottom bar */}
         {!isDeleted && (
           <div className="mt-2 flex flex-wrap items-center gap-3">
             <EmojiReactionBar
@@ -160,7 +155,6 @@ export default function CommentItem({
           </div>
         )}
 
-        {/* Inline reply editor */}
         {showReplyEditor && (
           <div className="mt-3">
             <CommentEditor
@@ -171,7 +165,6 @@ export default function CommentItem({
           </div>
         )}
 
-        {/* Replies (depth=1, no reply button on children) */}
         {depth === 0 && comment.replies.length > 0 && (
           <div className="mt-4 space-y-4 border-l-2 border-border pl-4">
             {comment.replies.map((reply) => (

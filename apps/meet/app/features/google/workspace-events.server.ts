@@ -102,10 +102,6 @@ export async function getSubscription(
   });
 }
 
-/**
- * 購読一覧を取得する。Workspace Events API 仕様上 `filter` は必須
- * （例: `event_types:"google.workspace.meet.conference.v2.ended"`）。
- */
 export async function listSubscriptions(
   accessToken: string,
   filter: string,

@@ -44,7 +44,6 @@ function mockContext(db: D1Database) {
   >[0]["context"];
 }
 
-/** Builds the full `Route.LoaderArgs`/`Route.ActionArgs` shape react-router 7 requires. */
 function routeArgs(request: Request, token: string, db: D1Database) {
   return {
     request,
@@ -83,14 +82,6 @@ function addSlotBeforeNextBatch(db: TestD1Database): D1Database {
   return asD1(racingDb);
 }
 
-/**
- * Seeds an `open` event with roles and slots across two live sheets, one
- * archived sheet, and a second isolated event. It also creates two
- * applications: one belonging to `SELF` (matched by user_id) and one
- * belonging to a different person entirely ("other"), each with its own
- * skills and availability. Every PII-leakage assertion in this file checks
- * that the "other" strings never appear in what the public route returns.
- */
 async function seedEventWithTwoApplicants(testDb: TestD1Database, overrides?: { status?: string }) {
   const now = new Date().toISOString();
   await testDb
@@ -235,12 +226,6 @@ describe("apply.$token loader", () => {
     expect(serialized).not.toContain(SELF.email);
   });
 
-  /**
-   * The highest-consequence regression class for this stage
-   * (docs/roster/04-applications.md "回帰として固定すべきテスト"): the
-   * public loader must return only the viewer's own application, never
-   * another applicant's name/email/contact/skills/availability.
-   */
   it("returns only the viewer's own application — never another applicant's PII", async () => {
     vi.mocked(getOptionalUser).mockResolvedValue(SELF);
     const request = new Request("http://localhost/apply/tok1");
@@ -263,9 +248,6 @@ describe("apply.$token loader", () => {
       ],
     });
 
-    // result.own.skills above already exact-matches [{roleId: "reception", ...}]
-    // (not "guide", the other applicant's role) — this is the string-level
-    // cross-check for name/email/contact, which toEqual can't express as cleanly.
     const serialized = JSON.stringify(result);
     expect(serialized).not.toContain(OTHER_EMAIL);
     expect(serialized).not.toContain(OTHER_NAME);
@@ -355,7 +337,6 @@ describe("apply.$token action", () => {
       avail_slot_1: "o",
       avail_slot_2: "x",
       avail_workshop_slot: "d",
-      // An event-two slot cannot enter this token's apply write.
       avail_other_event_slot: "o",
     });
     const result = await callAction(request, "tok1", asD1(testDb));
@@ -399,7 +380,6 @@ describe("apply.$token action", () => {
         role_reception: "on",
         avail_slot_1: "o",
         avail_slot_2: "x",
-        // The active workshop_slot value is deliberately omitted.
       }),
       "tok1",
       asD1(testDb),

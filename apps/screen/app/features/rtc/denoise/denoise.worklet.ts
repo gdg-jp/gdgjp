@@ -1,11 +1,3 @@
-/**
- * AudioWorklet processor running DeepFilterNet3 (libDF built to wasm, see
- * scripts/dfn/build.sh) on a mono 48 kHz mic. Bundled on its own through
- * Vite's `?worker&url`, so the glue and polyfill ride along.
- *
- * The main thread compiles the wasm and fetches the model, then hands both
- * over in `processorOptions`; nothing here touches the network.
- */
 import "./worklet-polyfill";
 import {
   df_create,
@@ -23,7 +15,6 @@ declare const AudioWorkletProcessor: {
 };
 declare function registerProcessor(name: string, ctor: unknown): void;
 
-/** Frames between load reports (about 2 s at a 10 ms hop). */
 const REPORT_EVERY = 200;
 
 class DenoiseProcessor extends AudioWorkletProcessor {
@@ -64,7 +55,6 @@ class DenoiseProcessor extends AudioWorkletProcessor {
     const input = inputs[0]?.[0];
     const out = outputs[0]?.[0];
     if (!out) return true;
-    // Disconnected (noise suppression off): no input, nothing to spend CPU on.
     if (!input || !this.reframer) {
       out.fill(0);
       return true;

@@ -1,11 +1,3 @@
-/**
- * Connpass UI selectors derived from fixtures/html/*.html
- * Sources:
- * - login.html (https://connpass.com/login/)
- * - group-home.html / event-create-dialog.html (https://yunineko.connpass.com/)
- * - event-edit.html / event-publish.html (https://connpass.com/event/403552/edit/)
- */
-
 export const selectors = {
   login: {
     username: 'input[name="username"]',
@@ -13,13 +5,11 @@ export const selectors = {
     submit: 'button.btn_login[type="submit"], button[type="submit"]:has-text("ログインする")',
   },
   groupHome: {
-    /** Group admin create button on series page */
     createEventButton: "span.GroupEventCreate",
     eventsTab: 'a[href$="/event/"]',
     emptyEvents: ".no_data_area",
   },
   createDialog: {
-    /** Visible group create popup (from #GroupEventCreateTemplate) */
     root: ".popup:visible, .popup_wrapper:visible, #GroupEventCreateTemplate ~ .popup",
     titleInput: '.popup:visible input[name="title"], input[name="title"]:visible',
     submit: "button.EventCreateSubmit:visible",
@@ -52,14 +42,12 @@ export const selectors = {
     endTime: 'input[name="end_time"]',
     placeName: '#FieldPlace input[name="name"], .place_edit_area input[name="name"]',
     placeAddress: '#FieldPlace input[name="address"], .place_edit_area input[name="address"]',
-    /** イベント編集_会場設定済み.html — rendered venue table (read path) */
     placeVenueName: "#FieldPlace table tr.spot > td",
     placeVenueAddress: "#FieldPlace table tr.place > td",
     reservedTrigger: "#EventPublishReservation .FormEditable",
     reservedRoot: "#EventPublishReservation",
     reservedDate: 'input[name="reserved_date"]',
     reservedTime: 'input[name="reserved_time"]',
-    /** event-edit_主催者をクリック.html */
     ownerText: "#FieldOwnerText",
     ownerTextInput: '#FieldOwnerText input[name="owner_text"]',
     checkinCode: "#FieldCheckinCode",
@@ -68,10 +56,8 @@ export const selectors = {
     hashtagInput: '#FieldHashtag input[name="hashtag"]',
     speakerTitle: "#FieldPresenterTitle",
     speakerTitleInput: '#FieldPresenterTitle input[name="presenter_title"]',
-    /** event-edit_参加者への情報をクリック.htm */
     participantOnlyInfo: "#FieldParticipantOnlyInfo",
     participantOnlyInfoInput: '#FieldParticipantOnlyInfo textarea[name="participant_only_info"]',
-    /** event-edit.html — inside the #FieldEventType edit panel's paid-options area */
     cancelPolicyInput: 'textarea[name="cancel_policy"]',
     eventType: {
       root: "#FieldEventType",
@@ -89,7 +75,6 @@ export const selectors = {
     confirm: "button.PopupSubmit",
   },
   groupEvents: {
-    /** Event cards on https://<group>.connpass.com/event/ (group-events.html) */
     card: "div.group_event_list.vevent",
     titleLink: "p.event_title a.url.summary, p.event_title a",
     status: "span.label_status_event",
@@ -102,7 +87,6 @@ export const selectors = {
     empty: ".no_data_area",
   },
   subEvent: {
-    /** event-edit_サブイベントを作成するをクリック.html */
     createButton: "#SubeventCreateButton",
     createTitleInput: '.popup:visible input[name="title"], input[name="title"]:visible',
     createSubmit: "button.EventCreateSubmit:visible",
@@ -110,12 +94,10 @@ export const selectors = {
     table: ".SubeventEditArea table",
     row: ".SubeventEditArea table tbody tr",
     emptyRowText: "サブイベントは作成されていません",
-    /** subevent-published.html — published-event edit page */
     cancelTrigger: ".CancelEvent",
     cancelConfirm: "button.btn_action[type=submit]",
   },
   survey: {
-    /** event-edit_アンケートを作成・編集する_アンケートを新規作成をクリック.html */
     editQuestionForm: "#EditQuestionForm",
     questionArea: "#EditQuestionForm .QuestionArea",
     questionBlock: ".question_edit_area",
@@ -129,7 +111,6 @@ export const selectors = {
     hasSurveyEmptyText: "アンケートは追加されていません",
   },
   conference: {
-    /** event-edit_カンファレンス情報を編集するをクリック.html */
     editLink: 'a[href$="/conference_edit/"]',
     isActive: "#is_active",
     lpUrl: "#lp_url",
@@ -153,7 +134,6 @@ export const requiredFixtures = [
   "group-events.html",
 ] as const;
 
-/** Placeholder copy shown before the user fills optional fields. */
 export const emptyPlaceholders = [
   "(サブタイトルを入力するにはクリック：50文字以内)",
   "(イベントの説明文を編集するにはクリック)",

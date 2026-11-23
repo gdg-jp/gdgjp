@@ -5,7 +5,6 @@ import { type Venue, chooseReader } from "../inquiry/reader";
 import { sendFeedbackScore } from "../telemetry/langfuse";
 import { chatAccessToken } from "./gchat-auth";
 
-/** Classic Google Chat app event (HTTP endpoint). */
 type ChatEvent = {
   type: "MESSAGE" | "ADDED_TO_SPACE" | "REMOVED_FROM_SPACE" | "CARD_CLICKED";
   space?: { name: string; type?: string; spaceType?: string };
@@ -145,7 +144,6 @@ async function cardClicked(
   if (fn === "reanswer" && jobId) {
     const row = await app.pending.get(jobId);
     if (!row) return text("元の質問が見つかりませんでした。");
-    // Chat has no ephemeral replies: answer with the asker's permissions in a DM.
     ctx.waitUntil(
       (async () => {
         const dm = await findDirectMessage(app, userId);

@@ -1,12 +1,5 @@
 import type { Metrics } from "~/features/solver/types";
 
-/**
- * The 5 always-visible metrics above the grid views
- * (docs/roster/07-roster-manual-edit.md "Design" §4). Rendered from
- * `evaluate()`'s own `Metrics` — never a separate tally — so what this row
- * shows and what `ShortageReport` lists below it can never disagree
- * (docs/roster/07-roster-manual-edit.md "制約": "evaluate を再実装しない").
- */
 export function MetricsRow({ metrics }: { metrics: Metrics }) {
   const pct = (v: number) => `${Math.round(v * 100)}%`;
   const tiles = [

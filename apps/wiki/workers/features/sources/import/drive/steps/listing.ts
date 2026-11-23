@@ -9,7 +9,6 @@ import {
   requireToken,
 } from "../drive-import-shared";
 
-/** Bounds on one folder source; past them the rest is left out (and logged), not failed. */
 export const MAX_FOLDER_SOURCE_FILES = 2000;
 export const MAX_FOLDER_SOURCE_FOLDERS = 500;
 
@@ -25,7 +24,6 @@ export function folderChildrenUrl(folderId: string, pageToken?: string | null): 
     q: `'${folderId}' in parents and trashed = false`,
     fields: "nextPageToken,files(id,name,mimeType,shortcutDetails(targetId,targetMimeType))",
     pageSize: "1000",
-    // Stable order keeps the `(2)` suffixes of same-named siblings stable across refreshes.
     orderBy: "folder,name_natural,createdTime",
     // Without both flags Drive lists nothing inside a shared drive, where this org keeps content.
     supportsAllDrives: "true",
@@ -39,7 +37,6 @@ function count(sql: SqlStorage, table: "drive_files" | "drive_folders"): number 
   return sql.exec<{ n: number }>(`SELECT COUNT(*) AS n FROM ${table}`).one().n;
 }
 
-/** `base`, `base (2)`, … — the first one not yet taken in `column` of `table`. */
 function uniquePath(
   sql: SqlStorage,
   table: "drive_files" | "drive_folders",
@@ -89,8 +86,6 @@ function recordItem(
     sql.exec("INSERT INTO drive_folders (folder_id, path) VALUES (?, ?)", item.id, path);
     return;
   }
-  // A shortcut counts as the file it points to. Shortcuts to folders are not followed: they can
-  // point back at an ancestor, and the folder they name is a source of its own if it matters.
   const target =
     item.mimeType === SHORTCUT_MIME
       ? { id: item.shortcutDetails?.targetId, mimeType: item.shortcutDetails?.targetMimeType }
@@ -113,11 +108,6 @@ function recordItem(
   );
 }
 
-/**
- * Folder sources only: walk the folder tree breadth-first, one Drive `files.list` page per
- * subrequest, recording every importable file with the path it will live under. Resumable —
- * the page token and the queue are object-local, and re-reading a page is idempotent.
- */
 export async function stepListing(ctx: SourceImportTickContext, current: CurrentSourceImport) {
   if (metaGet(ctx.sql, "drive_mime_type") !== FOLDER_MIME) return { phaseComplete: true };
   if (metaGet(ctx.sql, "drive_listed") === "1") return { phaseComplete: true };

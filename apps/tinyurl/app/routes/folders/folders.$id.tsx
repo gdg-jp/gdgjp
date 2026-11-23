@@ -76,9 +76,7 @@ export default function FolderDetail({ loaderData }: Route.ComponentProps) {
     try {
       const preferences = readDisplayPreferences(window.localStorage);
       setDisplayPreferences({ ...preferences, properties: [...preferences.properties] });
-    } catch {
-      // Invalid or unavailable storage falls back to the built-in display defaults.
-    }
+    } catch {}
   }, []);
 
   const displayedLinks = displayPreferences.showArchived

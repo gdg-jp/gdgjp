@@ -3,7 +3,6 @@ import { requireUserWithChapter } from "~/features/auth/access.server";
 import { chapterCookie } from "~/features/auth/current-chapter";
 import type { Route } from "./+types/chapter";
 
-/** POST /chapter — the sidebar's chapter switcher. Lands on the events of the new chapter. */
 export async function action({ request, context }: Route.ActionArgs) {
   const env = context.cloudflare.env;
   const { chapters } = await requireUserWithChapter(env, request);

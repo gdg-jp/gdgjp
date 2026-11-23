@@ -10,13 +10,6 @@ import type { Route } from "./+types/oauth.google-workspace.callback";
 
 const DEFAULT_RETURN_TO = "/dashboard";
 
-/**
- * returnTo is either a relative path or one of safeReturnTo's trusted
- * absolute `https://*.gdgs.jp` sibling-app URLs (validated when the flow
- * started, or defaulted here). Preserve an absolute origin rather than
- * discarding it — otherwise a sibling app's "Connect Google Workspace" link
- * would silently land the user back on accounts.gdgs.jp instead of itself.
- */
 function withWorkspaceStatus(returnTo: string, params: Record<string, string>): string {
   const isAbsolute = /^https:\/\//i.test(returnTo);
   const url = isAbsolute ? new URL(returnTo) : new URL(returnTo, "https://placeholder.invalid");
@@ -46,8 +39,6 @@ export async function loader({ request, context }: Route.LoaderArgs) {
 
   const consumed = await consumeWorkspaceOauthState(env.DB, state, user.id);
   if (!consumed.ok) {
-    // Reject replay, expiry, and cross-session presentation identically: none
-    // of these should leak which case occurred to the caller.
     throw errorRedirect(DEFAULT_RETURN_TO, "state_invalid");
   }
 

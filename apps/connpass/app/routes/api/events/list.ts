@@ -28,9 +28,6 @@ export async function loader({ request, context, params }: LoaderFunctionArgs) {
 
   try {
     const scraped = await listGroupEventsInBrowser(env, group.groupSlug);
-    // EventSummary declares startAt/endAt as required, non-nullable strings; the
-    // public group event list only ever shows published/canceled events, which
-    // always carry dates, so the `?? ""` fallback should never actually trigger.
     const events: EventSummary[] = scraped.map((event) => ({
       ...event,
       startAt: event.startAt ?? "",

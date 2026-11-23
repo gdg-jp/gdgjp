@@ -1,26 +1,19 @@
-/** 会議のステータス。 */
 export type MeetingStatus = "creating" | "active" | "failed" | "canceled";
 
-/** Meet スペースのアクセス種別。 */
 export type MeetingAccessType = "RESTRICTED" | "TRUSTED" | "OPEN";
 
-/** 会議における招待者の役割。 */
 export type InviteeRole = "cohost" | "participant";
 
-/** 招待元の種別（再同期の元データとして D1 に保存）。 */
 export type InviteSourceKind =
   | "host_chapter_organizers"
   | "chapter_organizers"
   | "chapter_all"
   | "email";
 
-/** 解決済み招待者の由来種別（作成者自身を含む）。 */
 export type InviteeSourceKind = "creator" | InviteSourceKind;
 
-/** 既定のタイムゾーン。 */
 export const DEFAULT_TIME_ZONE = "Asia/Tokyo";
 
-/** フォームで選択しやすい主なタイムゾーン一覧。 */
 export const TIME_ZONE_OPTIONS: ReadonlyArray<{ value: string; label: string }> = [
   { value: "Asia/Tokyo", label: "Asia/Tokyo（日本標準時 JST）" },
   { value: "UTC", label: "UTC（協定世界時）" },
@@ -62,14 +55,12 @@ export const MEETING_ACCESS_TYPE_OPTIONS: ReadonlyArray<{
   },
 ];
 
-/** 会議スペースの自動記録（Auto Artifacts）設定。 */
 export type MeetingAutoArtifacts = {
   autoTranscription: boolean;
   autoSmartNotes: boolean;
   autoRecording: boolean;
 };
 
-/** 新規作成時の自動記録設定の既定値（録画のみ GWS 容量節約のため既定オフ）。 */
 export const DEFAULT_MEETING_AUTO_ARTIFACTS: Readonly<MeetingAutoArtifacts> = {
   autoTranscription: true,
   autoSmartNotes: true,
@@ -165,10 +156,6 @@ export type MeetingListItem = {
   myRole: InviteeRole | null;
 };
 
-/**
- * ブラウザへ返却する招待者情報。
- * 会議の閲覧権限がある全員に対して、チャプター由来を含むすべての招待者の名前とメールアドレスを返す。
- */
 export type PublicInvitee = {
   displayName: string | null;
   email: string;
@@ -178,10 +165,6 @@ export type PublicInvitee = {
   isChapterDerived: boolean;
 };
 
-/**
- * 作成前の招待者数プレビュー（人数のみ）。
- * ブラウザへチャプターメンバーの氏名・メールアドレスは返さない。
- */
 export type InviteePreviewCounts = {
   creatorCount: number;
   hostChapterCount: number;
@@ -236,10 +219,6 @@ function getZonedParts(
   };
 }
 
-/**
- * 指定タイムゾーンのローカル日時（`YYYY-MM-DD`, `HH:MM`）を UTC ISO 8601 文字列へ変換する。
- * 不正な日付・時刻・タイムゾーンの場合は `null` を返す。
- */
 export function localDateTimeToUtcIso(
   dateStr: string,
   timeStr: string,
@@ -260,7 +239,6 @@ export function localDateTimeToUtcIso(
     return null;
   }
 
-  // 2/31 などの存在しないカレンダー日付を検出する。
   const check = new Date(Date.UTC(year, month - 1, day));
   if (
     check.getUTCFullYear() !== year ||
@@ -273,7 +251,6 @@ export function localDateTimeToUtcIso(
   const wallAsUtc = Date.UTC(year, month - 1, day, hour, minute, 0, 0);
   let candidateUtc = wallAsUtc;
 
-  // 夏時間境界を含め 2 回反復してタイムゾーンオフセットを収束させる。
   for (let i = 0; i < 2; i++) {
     const zoned = getZonedParts(candidateUtc, timeZone);
     const zonedAsUtc = Date.UTC(
@@ -295,7 +272,6 @@ function pad2(n: number): string {
   return String(n).padStart(2, "0");
 }
 
-/** UTC ISO 8601 文字列を指定タイムゾーンのフォーム入力用ローカル日付（`YYYY-MM-DD`）・時刻（`HH:MM`）へ変換する。 */
 export function utcIsoToLocalDateTime(
   iso: string,
   timeZone: string,
@@ -312,7 +288,6 @@ export function utcIsoToLocalDateTime(
   };
 }
 
-/** 作成フォームの初期値となる日付・開始時刻・終了時刻（次の正時から 1 時間）を返す。 */
 export function getDefaultMeetingSchedule(
   now = new Date(),
   timeZone = DEFAULT_TIME_ZONE,
@@ -322,7 +297,6 @@ export function getDefaultMeetingSchedule(
   const startParts = getZonedParts(nextHourUtc, tz);
   const endParts = getZonedParts(nextHourUtc + 3_600_000, tz);
 
-  // 23:00 → 00:00 のように日付をまたぐ場合は 22:00〜23:00 に丸め、同日フォームでそのまま送信できるようにする。
   if (
     startParts.year !== endParts.year ||
     startParts.month !== endParts.month ||
@@ -342,7 +316,6 @@ export function getDefaultMeetingSchedule(
   };
 }
 
-/** 会議の開始・終了時刻を指定タイムゾーンの日本語表記へ整形する。 */
 export function formatMeetingDateTimeRange(
   startAtIso: string,
   endAtIso: string,
@@ -375,7 +348,6 @@ export function formatMeetingDateTimeRange(
   return `${startDate} ${timeFmt.format(start)}〜${endDate} ${timeFmt.format(end)}`;
 }
 
-/** 会議一覧を「今後の会議（終了前・昇順）」と「過去の会議（終了済み・降順）」へ分ける。 */
 export function splitMeetingsByTime<T extends { startAt: string; endAt: string }>(
   meetings: readonly T[],
   nowIso = new Date().toISOString(),

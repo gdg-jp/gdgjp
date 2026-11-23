@@ -18,7 +18,6 @@ export const ruleSchema = z.discriminatedUnion('kind', [
   z.strictObject({ ...commonRule, kind: z.literal('manual') }),
   z.strictObject({
     ...commonRule, kind: z.literal('required-attribute'),
-    // ponytail: tag selectors only; add an explicit detector for more complex policy.
     selector: z.string().regex(/^[a-z][a-z0-9-]*$/),
     attribute: z.string().regex(/^[a-z][a-z0-9-]*$/),
     allowEmpty: z.boolean(), values: z.array(text).min(1).optional(),
@@ -66,7 +65,6 @@ export function validateCatalog(value) {
   }
   for (const adoption of catalog.adoptions) {
     assert.equal(adoption.decision.status, 'accepted', 'Adoption must have an accepted decision');
-    // Historical receipts survive later reviewed retirement of the adopted rule.
   }
   return catalog;
 }
@@ -77,7 +75,7 @@ export function loadHarness(root) {
   const catalog = validateCatalog(JSON.parse(rawCatalog));
   const rawTokens = read('design/tokens.json');
   const tokens = JSON.parse(rawTokens);
-  renderTokens(tokens); // Validate with the exact source-to-theme implementation.
+  renderTokens(tokens);
   const skillNames = [...new Set(catalog.documents.flatMap(doc => doc.skills))].sort();
   const skills = skillNames.map(name => {
     const path = `.agents/skills/${name}/SKILL.md`;

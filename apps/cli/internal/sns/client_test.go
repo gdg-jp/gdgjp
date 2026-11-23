@@ -50,9 +50,6 @@ func TestGetPostErrorNonJSONFallback(t *testing.T) {
 	}
 }
 
-// TestPublishPostBadGatewayCarriesBody pins the publish contract: a 502 is not
-// an error from PublishPost — it returns the persisted post body plus the 502
-// status so the command can print the post and then exit non-zero.
 func TestPublishPostBadGatewayCarriesBody(t *testing.T) {
 	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {

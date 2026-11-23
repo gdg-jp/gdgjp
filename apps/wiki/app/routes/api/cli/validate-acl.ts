@@ -44,11 +44,6 @@ const Body = z.object({
 
 type Finding = { slug: string; error: string; sourceId?: string };
 
-/**
- * POST /api/cli/wiki/validate-acl
- * Dry-run ACL checks used by `gdg wiki verify-acl` and Cursor ingest hooks.
- * Never writes to D1.
- */
 export async function action({ request, context }: ActionFunctionArgs) {
   if (request.method !== "POST") return new Response(null, { status: 405 });
   const { env } = context.cloudflare;
@@ -65,7 +60,6 @@ export async function action({ request, context }: ActionFunctionArgs) {
 
   const { lang, pages, readSourceIds } = parsed.data;
   const db = getDb(env);
-  // `?space=<slug>` — spans may only cite sources of this space (default gdg-jp).
   const spaceSlug = new URL(request.url).searchParams.get("space") ?? DEFAULT_SPACE_SLUG;
   let spaceId: string;
   try {

@@ -34,7 +34,6 @@ export async function stepGrouping(
   ctx: ChatImportTickContext,
   current: Current,
 ): Promise<StepOutcome> {
-  // Pack the indexed weeks into documents (`chat-periods.ts`), one R2 object each.
   if (metaGet(ctx.sql, "weeks_flushed") !== "1") {
     const weekPaths = ctx.sql
       .exec<{ week_path: string }>(
@@ -51,7 +50,6 @@ export async function stepGrouping(
         )
         .toArray()
         .map((row) => JSON.parse(row.message_json) as ChatMessage);
-    // Sender names and thread parents change no line count, so the defaults measure it.
     const measure = (messages: ChatMessage[]) =>
       markdownLineCount(
         normalizeChatMessages(messages, { singleDocument: true })[0]?.markdown ?? "",
@@ -67,7 +65,6 @@ export async function stepGrouping(
       await ctx.env.BUCKET.put(r2Key, JSON.stringify({ messages }), {
         httpMetadata: { contentType: "application/json" },
       });
-      // week_documents.week_path is the document's first week (its path).
       ctx.sql.exec(
         `INSERT INTO week_documents (week_path, r2_key, sort_index) VALUES (?, ?, ?)
          ON CONFLICT(week_path) DO UPDATE SET r2_key = excluded.r2_key, sort_index = excluded.sort_index`,
@@ -124,8 +121,6 @@ export async function stepFinalizing(
   let weeksDone = Number(metaGet(ctx.sql, "weeks_done") ?? "0");
   const incremental = Boolean(current.run.sinceCursor);
   const persistCost = incremental ? PERSIST_MERGE_SUBREQUESTS : PERSIST_REPLACE_SUBREQUESTS;
-  // R2 get week + persist. Sender samples are flushed in stepSenders; Markdown
-  // always uses placeholders (BOT names from DO senders only).
   const weekUnitCost = 1 + persistCost;
 
   const senderNames = new Map(
@@ -233,9 +228,6 @@ export async function stepFinalizing(
   }
 
   if (weeksDone < weeks.length) return { phaseComplete: false };
-  // The generic tick calls complete immediately after this step. Reserve its
-  // archive/source/run writes (and incremental retained-path read) so a final
-  // document persist cannot push the tick over the subrequest budget.
   const completeCost = ARCHIVE_MISSING_SUBREQUESTS + 2 + (incremental ? 1 : 0);
   return { phaseComplete: ctx.budget.canSpend(completeCost) };
 }
@@ -260,7 +252,6 @@ export async function completeImport(ctx: ChatImportTickContext, current: Curren
         ),
       )
       .all();
-    // The open document was rebuilt from its first week; drop it if no document starts there now.
     const replaced = metaGet(ctx.sql, "open_path");
     retainedPaths = [
       ...new Set([

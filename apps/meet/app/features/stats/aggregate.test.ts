@@ -10,11 +10,8 @@ describe("mergeSessionIntervalsSeconds", () => {
   it("重なり合う・連続するセッション区間を統合して二重計上しない", () => {
     const total = mergeSessionIntervalsSeconds([
       { startTime: "2026-11-19T10:00:00.000Z", endTime: "2026-11-19T10:10:00.000Z" },
-      // 10:05〜10:15 は前の区間と 5 分重複 → 統合して 10:00〜10:15 (900 秒)
       { startTime: "2026-11-19T10:05:00.000Z", endTime: "2026-11-19T10:15:00.000Z" },
-      // 10:20〜10:21 (60 秒)
       { startTime: "2026-11-19T10:20:00.000Z", endTime: "2026-11-19T10:21:00.000Z" },
-      // endTime 欠損や 0 秒は無視
       { startTime: "2026-11-19T10:30:00.000Z", endTime: null },
       { startTime: "2026-11-19T10:30:00.000Z", endTime: "2026-11-19T10:30:00.000Z" },
     ]);
@@ -26,7 +23,6 @@ describe("computePeakConcurrent", () => {
   it("同時刻の同着（end == start）は退室を先に数え、重複して増えない", () => {
     const peak = computePeakConcurrent([
       { startTime: "2026-11-19T10:00:00.000Z", endTime: "2026-11-19T10:10:00.000Z" },
-      // 10:10:00 ちょうどに入室 → 先の退室が先に処理されるためピークは 1 のまま
       { startTime: "2026-11-19T10:10:00.000Z", endTime: "2026-11-19T10:20:00.000Z" },
     ]);
     expect(peak).toBe(1);
@@ -70,10 +66,7 @@ describe("aggregateConferenceStats", () => {
 
     expect(result.participantCount).toBe(2);
     expect(result.inviteeAttendedCount).toBe(1);
-    // ホスト除外。u1 は 10:10-10:20 に 2 端末で同時接続しているが 1 人と数える。
-    // u2 は u1 と重ならないため、ピークは 1
     expect(result.peakConcurrent).toBe(1);
-    // u1: 30分 (1800秒) + u2: 10分 (600秒) = 2400秒（ホストの 3600 秒は除外）
     expect(result.totalAttendanceSeconds).toBe(2400);
     expect(result.participants).toEqual([
       { name: "conferenceRecords/cr-1/participants/host", sessionCount: 1, totalSeconds: 3600 },

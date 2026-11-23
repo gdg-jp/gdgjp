@@ -4,7 +4,6 @@ import { buildPublicRosterData } from "~/features/public-roster/public-roster.se
 import { getDb } from "~/lib/db.server";
 import type { Route } from "./+types/r.$token.s.$sheetId";
 
-/** Public view of one event-owned sheet, authorized by the same event token as `/r/:token`. */
 export function meta({ data }: Route.MetaArgs) {
   const event = data?.published ? data.data.event : data?.event;
   return [
@@ -23,7 +22,6 @@ export async function loader({ context, params }: Route.LoaderArgs) {
   const event = await getEventByViewToken(db, token);
   if (!event) throw new Response(null, { status: 404 });
 
-  // The builder scopes sheet lookup to this event and gates private/deleted sheets before reads.
   return buildPublicRosterData(db, event, sheetId);
 }
 

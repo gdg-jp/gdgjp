@@ -1,11 +1,6 @@
 import { type Browser, type Page, expect, test } from "@playwright/test";
 import { FakeObs } from "./fake-obs";
 
-/**
- * Phone → DeckRoom → OBS dock → obs-websocket, end to end against a fake
- * obs-websocket server (e2e/fake-obs.ts) instead of a real OBS.
- */
-
 const OBS_PORT = 4467;
 const OBS_PASSWORD = "e2e-secret";
 
@@ -32,8 +27,6 @@ async function signedIn(browser: Browser, options: { mobile?: boolean } = {}): P
 }
 
 async function createDeck(page: Page, name: string): Promise<string> {
-  // The server-rendered button ignores clicks until React hydrates, and the test then waits out
-  // its whole timeout for a dialog that never opens. Click again until it does.
   const nameField = page.getByRole("textbox", { name: "名前" });
   await expect(async () => {
     if (!(await nameField.isVisible())) {
@@ -200,7 +193,6 @@ async function setup(browser: Browser) {
   const dock = await openDock(browser, deckId, await dockUrl(editor));
   const phone = await signedIn(browser, { mobile: true });
   await phone.goto(`/d/${deckId}`);
-  // Keys are enabled once the dock and OBS are both connected.
   await expect(phone.getByRole("button", { name: "休憩" })).not.toHaveAttribute("data-disabled");
   return { editor, dock, phone, deckId };
 }
@@ -231,7 +223,6 @@ test("stream needs a hold; a tap does nothing", async ({ browser }) => {
   await phone.waitForTimeout(1100);
   await phone.mouse.up();
   await expect.poll(() => obs.sent("ToggleStream").length).toBe(1);
-  // The key itself shows the live state and the stream timer.
   await expect(key).toContainText(/\d{2}:\d{2}/);
   await expect(key).toHaveAttribute("aria-pressed", "true");
 });
@@ -298,9 +289,7 @@ test("an edit reaches an open phone without a reload", async ({ browser }) => {
 test("on a phone the keys fill a portrait screen without a header", async ({ browser }) => {
   const { phone } = await setup(browser);
   await expect(phone.locator(".dk-controller-head")).toBeHidden();
-  // Nothing is wrong, so no status overlay either.
   await expect(phone.locator(".dk-float .dk-chip")).toHaveCount(0);
-  // The 4 × 2 deck reflows to 2 columns × 4 rows in portrait.
   const grid = phone.locator(".dk-controller-main .dk-grid");
   const tracks = await grid.evaluate((el) => {
     const style = getComputedStyle(el);

@@ -105,7 +105,6 @@ export async function action({ request, context, params }: Route.ActionArgs) {
       const direction = await getAsset(env.DB, access.campaign.id, id);
       const ok = direction ? await adoptKit(env.DB, access.campaign.id, id, access.user.id) : false;
       if (!ok || !direction) return { ok: false as const, message: "この案はもう選べません" };
-      // The face itself, as an image a person can approve and send to connpass.
       if (direction.html)
         await createAndRender(env, {
           campaignId: access.campaign.id,

@@ -138,7 +138,6 @@ function Bubble({ message, base }: { message: Message; base: string }) {
   );
 }
 
-/** The event's conversation with the assistant, newest at the bottom. */
 export function Thread({
   messages,
   base,

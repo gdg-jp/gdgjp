@@ -95,7 +95,6 @@ export default function Controller({ loaderData }: Route.ComponentProps) {
   const obs = room?.obs;
   const now = useNow(!!(obs?.streaming || obs?.recording), clockOffset);
 
-  // Errors for keys this phone pressed in the last 10 s show as a toast.
   useEffect(() => {
     if (!room) return;
     for (const entry of room.log) {
@@ -113,7 +112,6 @@ export default function Controller({ loaderData }: Route.ComponentProps) {
   const pageIndex = Math.min(nav.page[board?.id ?? ROOT_BOARD] ?? 0, pageCount - 1);
   const page = board?.pages[pageIndex];
 
-  // A folder deleted by an editor: fall back to the root.
   useEffect(() => {
     if (layout && !layout.boards[boardId]) setNav({ stack: [ROOT_BOARD], page: {} });
   }, [layout, boardId]);
@@ -153,13 +151,11 @@ export default function Controller({ loaderData }: Route.ComponentProps) {
   }
 
   const disabled = !online || !room?.dockOnline || !room.obs.connected;
-  // Folders get a "back" key by default; offer one on the phone only if it was removed.
   const needsBack =
     nav.stack.length > 1 &&
     !Object.values(page?.keys ?? {}).some((k) => k.behavior.type === "back");
   const cols = layout?.cols ?? 1;
   const rows = layout?.rows ?? 1;
-  // Phones reflow the keys in reading order to the screen's orientation (see app.css).
   const gridVars = {
     "--dk-cols": cols,
     "--dk-rows": rows,
@@ -196,7 +192,6 @@ export default function Controller({ loaderData }: Route.ComponentProps) {
         <StatusChips room={room} online={online} />
       </header>
 
-      {/* Phones hide the header: only problems and a missing way back are shown, over the keys. */}
       <div className="dk-float">
         {needsBack && (
           <IconButton
@@ -310,7 +305,6 @@ function VolumeDialog({
 
   const shown = value ?? Math.max(VOLUME_MIN_DB, live ?? VOLUME_MIN_DB);
 
-  // Throttle while dragging; always send the final value.
   const push = (db: number) => {
     clearTimeout(pending.current);
     const wait = SLIDER_SEND_MS - (Date.now() - lastSent.current);

@@ -4,11 +4,6 @@ import type { Post } from "~/features/posts/post.types";
 import { nowIso } from "~/lib/utils";
 import { runXPublish } from "./post-publishing.service.server";
 
-/**
- * `x_failed` carries a persisted post whose `status` is `failed` or
- * `needs_confirmation` (with `failureReason` set); the route returns it with a
- * 502 so a script can read why. `conflict` never touched X.
- */
 export type PublishNowResult =
   | { outcome: "published"; post: Post }
   | { outcome: "x_failed"; post: Post }
@@ -18,17 +13,6 @@ export type PublishNowResult =
       code: "already_published" | "already_posting" | "missing_required_media";
     };
 
-/**
- * Operator-triggered "publish to X now". Unlike the cron's `claimAndPublish`,
- * it ignores a future `scheduledAt` and also accepts `needs_confirmation` as a
- * retry source — but only ever through this explicit call. The cron's claim set
- * still omits `needs_confirmation`, so the two paths cannot race and cron never
- * reclaims an uncertain post on its own.
- *
- * `published`/`posting` are refused with a conflict, as is a `photo_required`
- * post with no attached media. Everything else is atomically claimed and handed
- * to the one shared X-posting step.
- */
 export async function publishNow(
   env: Env,
   postId: string,
@@ -50,7 +34,6 @@ export async function publishNow(
     .bind(nowIso(), postId)
     .run();
   if (claim.meta.changes !== 1) {
-    // Lost the race — the minute cron (or another caller) claimed it first.
     const current = await getPost(env.DB, postId);
     return current?.status === "published"
       ? { outcome: "conflict", code: "already_published" }

@@ -12,11 +12,6 @@ export type AgentWorkspaceContext = {
   chapterIds: string[];
 };
 
-/**
- * Build a permission-scoped workspace for this request's Bearer token.
- * MountedWorkspace holds provenance traces and the store closes over one actor —
- * never reuse across requests.
- */
 export async function resolveAgentWorkspace(
   request: Request,
   env: Env,
@@ -46,12 +41,6 @@ export function agentUnauthorized(): Response {
   return Response.json({ error: "invalid_token" }, { status: 401 });
 }
 
-/**
- * Map workspace Error messages to stable HTTP codes without leaking internals.
- *
- * Restricted pages and missing pages share `not_found` — never 403. A 403 would
- * turn the API into an existence oracle for pages the caller cannot view.
- */
 export function mapWorkspaceError(error: unknown): Response {
   const message = error instanceof Error ? error.message : "";
   if (
@@ -82,7 +71,6 @@ export function mapWorkspaceError(error: unknown): Response {
   return Response.json({ error: "internal_error" }, { status: 500 });
 }
 
-/** Return adapter `data` plus `truncated`; omit provenance `manifest`. */
 export function workspaceDataResponse<T extends object>(result: WorkspaceResult<T>): Response {
   return Response.json({ ...result.data, truncated: result.truncated });
 }

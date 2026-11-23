@@ -3,13 +3,6 @@ import type { Tier } from "~/features/prizes/prize";
 import { reducedMotion } from "../feedback";
 import { PachiText } from "./PachiText";
 
-/**
- * Result effects. Their size scales with the tier: the jackpot gets a flash,
- * cannons of confetti and rays; other prizes a confetti burst; a loss only the
- * stamp.
- */
-
-/** The label over the wheel: pachinko lettering for a prize, a quiet pill for a loss. */
 export function Stamp({ tier, nearMiss }: { tier: Tier; nearMiss?: boolean }) {
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -62,7 +55,6 @@ const rayClass: Record<Exclude<RayTone, "rainbow">, string> = {
 };
 const rainbowRays = ["fill-gdg-red", "fill-gdg-yellow", "fill-gdg-green", "fill-gdg-blue"];
 
-/** Rays turning behind the wheel: slowly after a win, fast through a chance. */
 export function Sunburst({ tone, fast }: { tone: RayTone; fast?: boolean }) {
   const ref = useRef<SVGSVGElement>(null);
   useEffect(() => {
@@ -107,7 +99,6 @@ const flashClass = {
   push: "bg-(--gdg-white)",
 } as const;
 
-/** A flash over the whole page: yellow for the jackpot, blue for a prize, white for PUSH. */
 export function Flash({ tone, runKey }: { tone: keyof typeof flashClass; runKey: number }) {
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -127,8 +118,6 @@ export function Flash({ tone, runKey }: { tone: keyof typeof flashClass; runKey:
     />
   );
 }
-
-// ---- confetti ----
 
 type Piece = {
   x: number;
@@ -176,7 +165,6 @@ function spawn(tier: "jackpot" | "win", width: number, height: number) {
   });
   const pieces: Piece[] = [];
   if (tier === "jackpot") {
-    // Cannons from both bottom corners, then a shower from the top.
     for (const side of [0, 1]) {
       for (let i = 0; i < 95; i += 1) {
         const angle = ((45 + random() * 35) * Math.PI) / 180;

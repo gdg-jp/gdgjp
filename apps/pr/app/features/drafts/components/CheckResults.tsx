@@ -4,7 +4,6 @@ import type { CheckResult } from "@skills/pr-playbook/scripts/checks/index.mjs";
 const TONE = { pass: "success", fail: "danger", unevaluated: "neutral" } as const;
 const LABEL = { pass: "OK", fail: "NG", unevaluated: "未評価" } as const;
 
-/** Playbook check results. `review` rules (unevaluated, "人が判断する") are a checklist for the reviewer. */
 export function CheckResults({ results }: { results: CheckResult[] }) {
   const sorted = [...results].sort((a, b) => order(a) - order(b));
   const failsMust = results.filter((r) => r.status === "fail" && r.strength === "MUST").length;

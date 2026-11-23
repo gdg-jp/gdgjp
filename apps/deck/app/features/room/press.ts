@@ -8,17 +8,11 @@ export type Run = {
   steps: Step[];
   phase: Phase;
   value?: number;
-  /** Multi-action switch positions after this press. */
   switches: Record<string, boolean>;
 };
 
 export type PressResult = { ok: true; run: Run } | { ok: false; error: string };
 
-/**
- * Resolves a controller's press against the saved layout: which steps the dock
- * runs. Navigation keys (folders, pages) never reach here; the phone handles
- * them. Release events only matter for push-to-talk / push-to-mute keys.
- */
 export function resolvePress(
   layout: DeckLayout,
   switches: Record<string, boolean>,

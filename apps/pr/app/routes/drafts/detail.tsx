@@ -98,7 +98,6 @@ type Content = {
   skin?: unknown;
 };
 
-/** The editable part of a version: a connpass page's HTML and skin are the Worker's. */
 const editable = (content: Content | null) => {
   if (!content?.html) return content;
   const { html: _h, skin: _s, renderWarnings: _w, ...slots } = content;

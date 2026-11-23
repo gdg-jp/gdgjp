@@ -13,10 +13,6 @@ import { SUBREQUEST_BUDGET_LIMIT, SubrequestBudget } from "./features/sources/su
 
 const RUN_ID_KEY = "runId";
 
-/**
- * One instance per source (`idFromName(sourceId)`).
- * Continuations are alarm self-chains — no queue ops after start().
- */
 export class SourceImportDurableObject extends DurableObject<Env> {
   constructor(ctx: DurableObjectState, env: Env) {
     super(ctx, env);
@@ -25,7 +21,6 @@ export class SourceImportDurableObject extends DurableObject<Env> {
     });
   }
 
-  /** Serialize the D1 claim and object-storage reset for this source. */
   async start(request: SourceImportClaimRequest): Promise<boolean> {
     return this.ctx.blockConcurrencyWhile(async () => {
       const claimed = await claimSourceImport(this.env, request);

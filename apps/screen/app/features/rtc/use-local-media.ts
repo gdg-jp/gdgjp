@@ -22,7 +22,6 @@ type Prefs = {
   micOn?: boolean;
   speakerOn?: boolean;
   camOn?: boolean;
-  /** Operators' camera choice, kept apart so a speaker's "on" never carries over. */
   opCamOn?: boolean;
 };
 
@@ -37,9 +36,7 @@ function readPrefs(): Prefs {
 function writePrefs(patch: Prefs) {
   try {
     localStorage.setItem(PREFS_KEY, JSON.stringify({ ...readPrefs(), ...patch }));
-  } catch {
-    // private mode
-  }
+  } catch {}
 }
 
 export type LocalMedia = {
@@ -47,7 +44,6 @@ export type LocalMedia = {
   camera: MediaStreamTrack | null;
   screen: ScreenCapture | null;
   micOn: boolean;
-  /** Incoming audio (operators / speakers) plays; off mutes it locally. */
   speakerOn: boolean;
   camOn: boolean;
   micId: string;
@@ -55,18 +51,15 @@ export type LocalMedia = {
   speakerId: string;
   devices: DeviceLists;
   problem: { mic: PermissionProblem | null; camera: PermissionProblem | null };
-  /** Set when the browser's own "stop sharing" ended the capture. */
   screenEndedByBrowser: boolean;
   toggleMic: () => void;
   toggleSpeaker: () => void;
   toggleCam: () => void;
   setMicEnabled: (on: boolean) => void;
-  /** The browser's own noise suppression on the mic (off while DeepFilterNet3 runs). */
   setBrowserNoiseSuppression: (on: boolean) => void;
   selectMic: (id: string) => void;
   selectCam: (id: string) => void;
   selectSpeaker: (id: string) => void;
-  /** Call straight from a click handler. Resolves false if the user cancelled. */
   shareScreen: () => Promise<boolean>;
   stopScreen: () => void;
   retry: () => void;
@@ -74,14 +67,6 @@ export type LocalMedia = {
 
 const EMPTY_DEVICES: DeviceLists = { mics: [], cameras: [], speakers: [] };
 
-/**
- * The page's own mic, camera and screen capture. The mic stays open while
- * muted (muting only disables the track) so unmuting is instant; turning the
- * camera off releases it so the camera light goes out.
- *
- * Operators start with the camera off: every speaker pulls it, so an unused
- * operator camera is SFU egress times the number of speakers.
- */
 export function useLocalMedia(
   enabled = true,
   role: "speaker" | "operator" = "speaker",
@@ -107,7 +92,6 @@ export function useLocalMedia(
   const reopenedFor = useRef<boolean | null>(null);
   const loaded = useRef(false);
 
-  // Restore remembered choices once on the client.
   useEffect(() => {
     if (loaded.current) return;
     loaded.current = true;
@@ -136,7 +120,6 @@ export function useLocalMedia(
     return () => navigator.mediaDevices?.removeEventListener("devicechange", refreshDevices);
   }, [enabled, refreshDevices]);
 
-  // Mic: open for the chosen device; reopen on change.
   // biome-ignore lint/correctness/useExhaustiveDependencies: attempt and nsReopen force a reopen
   useEffect(() => {
     if (!enabled) return;
@@ -185,7 +168,6 @@ export function useLocalMedia(
     };
   }, [mic, browserNs]);
 
-  // Camera: only open while on.
   // biome-ignore lint/correctness/useExhaustiveDependencies: attempt forces a retry
   useEffect(() => {
     if (!enabled || !camOn) return;

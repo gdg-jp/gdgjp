@@ -9,14 +9,6 @@ import { searchForReader } from "~/features/knowledge/viewer-search.server";
 import { listAccessibleSpaces, resolveSpaceAccess } from "~/features/spaces/access.server";
 import { getDb } from "~/lib/db.server";
 
-/**
- * GET /api/agent/knowledge-search?q=…&space=gdg-jp,team&layers=page,acl,raw&limit=10
- *
- * Knowledge search for agent readers (Stage 05): a user token, the agent Worker as a guild /
- * Chat-space principal, or an answer job's token (runner MCP). The
- * caller's reachable spaces and readable audiences are computed HERE from its identity;
- * the request can only narrow them (space / layers), never widen them.
- */
 export async function loader({ request, context }: LoaderFunctionArgs) {
   const { env } = context.cloudflare;
   const db = getDb(env);
@@ -60,8 +52,6 @@ export async function loader({ request, context }: LoaderFunctionArgs) {
       query,
       spaces: spaces.slice(0, MAX_SEARCH_SPACES).map((space) => space.slug),
       truncatedSpaces: spaces.length > MAX_SEARCH_SPACES,
-      // Matches this reader may not see (ACL): a count only, so the reply can say to try
-      // again with the asker's own permissions.
       excludedPages,
       pages: pages.map((page) => ({
         space: spaceSlug.get(page.spaceId),

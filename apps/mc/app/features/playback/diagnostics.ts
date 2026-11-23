@@ -1,7 +1,6 @@
 import type { LogEntry } from "./protocol";
 import type { RoomView } from "./use-controller-room";
 
-/** Problems that can keep sound from reaching the stream, worst first. */
 export type Issue =
   | "self-offline"
   | "no-player"
@@ -27,7 +26,6 @@ export const issueText: Record<Issue, string> = {
   "media-error": "配信PCで再生エラーが発生しました",
 };
 
-/** Issues that mean "pressing ▶ will not make sound" — shown as a strip. */
 export const blockingIssues = new Set<Issue>([
   "self-offline",
   "no-player",
@@ -46,8 +44,6 @@ export function issuesOf(room: RoomView): Issue[] {
   if (d) {
     if (d.autoplay === "blocked") issues.push("autoplay-blocked");
     if (d.preload.failed.length > 0) issues.push("preload-failed");
-    // A just-registered clip still plays (from the network) before it is in
-    // memory, so this is a notice rather than a blocking issue.
     else if (d.preload.loaded < d.preload.total) issues.push("preloading");
     if (d.muted || d.volume === 0) issues.push("muted");
     if (d.stalled) issues.push("stalled");

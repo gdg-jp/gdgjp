@@ -12,10 +12,6 @@ interface NotificationOpts {
   refUrl?: string;
 }
 
-/**
- * Insert an in-app notification AND send a best-effort push notification.
- * If `ctx` is provided, push is dispatched via `waitUntil` to avoid blocking.
- */
 export async function createNotification(
   env: Env,
   db: DrizzleD1Database<typeof schema>,

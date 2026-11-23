@@ -59,8 +59,6 @@ func TestVerifyACLRequiresAReadSet(t *testing.T) {
 	}
 }
 
-// A synthesize job that adds events/x/program/examples (all new) failed verify-acl with
-// "new parent has not been created", although the push itself creates the whole tree.
 func TestBuildValidateACLPagesAcceptsNewPagesUnderNewParents(t *testing.T) {
 	root := t.TempDir()
 	write := func(rel, slug, parent string) {

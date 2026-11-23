@@ -36,9 +36,7 @@ function parseTipTapContent(content: string): TipTapDoc | null {
     if (parsed.type === "doc" && Array.isArray(parsed.content)) {
       return parsed as TipTapDoc;
     }
-  } catch {
-    // Markdown content is rendered by Marked below.
-  }
+  } catch {}
 
   return null;
 }

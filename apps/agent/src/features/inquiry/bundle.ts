@@ -2,11 +2,6 @@ import type { PageRead, SearchResult } from "./wiki";
 
 export const MAX_BUNDLE_PAGES = 8;
 
-/**
- * The answer bundle the runner sees. Page bodies are ONLY the wiki's `/api/agent/page`
- * output (already redacted for the reader); raw hits contribute only the search snippet
- * (`hit.text`), never a document — there is no raw-read API for agents.
- */
 export function buildBundle(input: {
   question: string;
   search: SearchResult;
@@ -36,7 +31,6 @@ function safe(value: string): string {
   return value.replace(/[^A-Za-z0-9_-]+/g, "_").slice(0, 60);
 }
 
-/** Every URL the runner may cite: pages and raw hits that are in the bundle. */
 export function bundleUrls(search: SearchResult, pages: readonly PageRead[]): string[] {
   return [
     ...new Set([

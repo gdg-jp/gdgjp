@@ -4,7 +4,6 @@ import { sha256Hex } from "./persist";
 const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
 
 export interface ResolvedSourceAsset {
-  /** Clone-relative path, identical to the R2 key so the raw tree mirrors the bucket. */
   path: string;
   r2Key: string;
   mimeType: string;
@@ -17,16 +16,6 @@ export interface ResolveAssetsResult {
   assets: ResolvedSourceAsset[];
 }
 
-/**
- * Download the inline images a Google Doc references, store them under
- * `raw/<sourceId>/assets/`, and rewrite the converter's `attachment:<objectId>`
- * placeholders to the stored path.
- *
- * Keys are content-addressed (`<objectId>-<contentHash>.<ext>`) rather than
- * randomly named on purpose: a random id would change the rewritten markdown on
- * every refresh, which would change the document's content_hash and defeat the
- * "same content → skip the write" rule that keeps raw immutable.
- */
 export async function resolveSourceAssets(
   env: Env,
   input: {
@@ -45,8 +34,6 @@ export async function resolveSourceAssets(
     });
 
     if (response.status === 404) {
-      // Docs content URIs are short-lived and individual embeds can vanish.
-      // A missing image must never discard the surrounding text.
       markdown = removeImagePlaceholder(markdown, image.objectId);
       console.warn("[sources] inline image unavailable", image.objectId);
       continue;

@@ -3,10 +3,6 @@ import { MAX_UPLOAD_BYTES, audioMimeType, newUploadId } from "~/features/clips/c
 import { audioKey, transcribe } from "~/features/clips/uploads.server";
 import type { Route } from "./+types/api.clips.upload";
 
-/**
- * Step 1 of adding a clip: store the audio and return its spoken text. The
- * clip is not in the catalogue until it is registered (POST /api/clips).
- */
 export async function action({ request, context }: Route.ActionArgs) {
   const env = context.cloudflare.env;
   if (request.method !== "POST") return new Response(null, { status: 405 });

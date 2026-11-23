@@ -1,4 +1,3 @@
-// app/api/events/route.ts
 import { withAuth } from "@/lib/middleware/auth";
 import { type NextRequest, NextResponse } from "next/server";
 
@@ -7,7 +6,6 @@ const MAX_EVENTS = 3;
 const JST_OFFSET_MS = 9 * 60 * 60 * 1000;
 const DAY_MS = 24 * 60 * 60 * 1000;
 
-// 今日 0:00 (JST) のタイムスタンプ
 function startOfTodayJst(): number {
   const jstNow = Date.now() + JST_OFFSET_MS;
   return Math.floor(jstNow / DAY_MS) * DAY_MS - JST_OFFSET_MS;

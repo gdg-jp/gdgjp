@@ -7,8 +7,6 @@ import (
 	"path/filepath"
 )
 
-// consolidate tidies one space from pages alone: merges duplicates, fixes links, updates
-// index pages. No raw is pulled and no new topic pages are made.
 func (r *Runner) consolidate(ctx context.Context, job *Job) Result {
 	jc, err := r.api.Context(ctx, job.ID)
 	if err != nil {

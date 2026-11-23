@@ -1,6 +1,3 @@
-// Package cliutil holds helpers shared by every gdg CLI command package: the
-// load-credentials/call/refresh-on-401/retry-once flow, and the canonical
-// indented JSON writer.
 package cliutil
 
 import (
@@ -12,38 +9,23 @@ import (
 	"github.com/gdg-jp/gdgjp/cli/internal/store"
 )
 
-// StatusError is implemented by each package-local HTTPError type via an
-// HTTPStatus method (a new method name, since a struct can't have both a
-// field and a method literally named StatusCode).
 type StatusError interface {
 	error
 	HTTPStatus() int
 }
 
-// NotLoggedInError is returned by WithToken when no credentials are stored.
 type NotLoggedInError struct{}
 
 func (NotLoggedInError) Error() string { return "not logged in; run gdg login" }
 
-// refreshAccessToken is a var, not oauth.Refresh called directly, so tests in
-// this package can stub the network call (mirrors oauth's own issuer seam).
 var refreshAccessToken = oauth.Refresh
 
-// SetRefreshForTesting overrides the refresh-token exchange used by
-// WithToken and returns a func that restores the previous value. It is
-// exported (unlike refreshAccessToken itself) so command-package tests,
-// which can't reach this package's private var, can exercise the
-// 401-refresh-retry-once path end-to-end without a real network call.
 func SetRefreshForTesting(fn func(ctx context.Context, refreshToken string) (store.Credentials, error)) func() {
 	previous := refreshAccessToken
 	refreshAccessToken = fn
 	return func() { refreshAccessToken = previous }
 }
 
-// WithToken loads stored credentials and calls fn with the access token. If
-// fn fails with a 401 (per StatusError.HTTPStatus), it refreshes the access
-// token via oauth.Refresh, saves the refreshed credentials, and calls fn
-// exactly once more with the new access token.
 func WithToken[T any](
 	ctx context.Context,
 	credentials store.CredentialStore,

@@ -47,7 +47,6 @@ export default [
   route("auth/signout", "routes/auth.signout.ts"),
   route("device", "routes/oauth/device.tsx", { id: "routes/device" }),
   route("api/auth/*", "routes/api.auth.$.ts"),
-  // Compatibility routes keep in-flight requests working across the provider cutover.
   route("authorize", "routes/authorize.tsx"),
   route("oauth/token", "routes/oauth.compat.ts"),
   route("userinfo", "routes/userinfo.compat.ts"),

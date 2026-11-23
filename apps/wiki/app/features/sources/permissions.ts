@@ -4,11 +4,6 @@ import { isSourceVisibility, sourceVisibilityNeedsChapter } from "~/features/sou
 
 export type Membership = { chapterId: string | number; role: string };
 
-/**
- * Pre-Stage-9 chapter-only assignment check. `canAssignSourceVisibility` replaced it for
- * sources; its only remaining caller is `agent-notes.server.ts`'s access-floor check, which
- * predates the visibility model and was out of scope for this stage.
- */
 export function canAssignChapter(
   chapterId: string | null | undefined,
   user: AuthUser,
@@ -33,12 +28,6 @@ export function canAssignSourceVisibility(
   return chapters.some((chapter) => String(chapter.chapterId) === chapterId);
 }
 
-/**
- * Resolve visibility and optional chapter from a submitted form/JSON payload.
- *
- * A source readable by every member has to be chosen deliberately rather than
- * fallen into by omitting a field.
- */
 export function parseSourceVisibilitySelection(
   rawVisibility: unknown,
   rawChapter: unknown,

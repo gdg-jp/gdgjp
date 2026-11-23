@@ -48,21 +48,12 @@ type ApplyFormProps = {
   own: ApplyFormOwn | null;
   defaultName: string;
   error?: string;
-  /** Grouped sheets are the preferred input; `timeSlots` remains for the current route. */
   rosterSheets?: readonly ApplyFormRosterSheet[];
   timeSlots?: AvailabilityGridSlot[];
 };
 
 type SkillState = { selected: boolean; level: Level; pref: Pref };
 
-/**
- * The self-registration / self-edit form on `/apply/:token`
- * (docs/roster/04-applications.md "Design" §2). `own` is `null` for a
- * first-time registration and populated for an edit — same fields either
- * way, since the route always resolves to one of "create" or "update" and
- * never shows a form for someone else's application (the loader only ever
- * passes the viewer's own data, see `apply.$token.tsx`).
- */
 export function applyAvailabilityBulkChange(
   current: Readonly<Record<string, AvailabilityValue>>,
   timeSlots: readonly AvailabilityGridSlot[],

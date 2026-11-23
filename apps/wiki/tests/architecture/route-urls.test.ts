@@ -2,17 +2,6 @@ import type { RouteConfigEntry } from "@react-router/dev/routes";
 import { describe, expect, it } from "vitest";
 import routes from "../../app/routes";
 
-/**
- * Freezes the full set of URLs that `app/routes.ts` exposes. The Stage 04
- * routes-tree refactor only rewrites the *file* argument of each
- * `route()` / `index()` / `layout()` call — never the URL argument. This
- * snapshot is the guardrail: a diff here means a URL moved, which would 404
- * external links, bookmarks, and the `gdg` CLI's `/api/cli/wiki/*` calls.
- *
- * Take the snapshot BEFORE moving any files. Regenerating it after a broken
- * move would bake the broken URL in.
- */
-
 function joinPath(parent: string, raw: string): string {
   if (raw.startsWith("/")) return raw;
   return `${parent.replace(/\/$/, "")}/${raw}`;

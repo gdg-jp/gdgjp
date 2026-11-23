@@ -66,7 +66,6 @@ export default function Home({ loaderData, actionData }: Route.ComponentProps) {
   const { user, accountsUrl, host, chapters, projects } = loaderData;
   const [creating, setCreating] = useState(false);
   const navigation = useNavigation();
-  // The dialog stays open on errors: only a successful create redirects away.
   const errors = actionData?.errors ?? {};
   const hydrated = useHydrated();
   const createButton = (

@@ -2,20 +2,14 @@ import { sql } from "drizzle-orm";
 import { index, integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
 import { spaces } from "./spaces";
 
-// ---------------------------------------------------------------------------
-// agent_jobs — queue between the Worker (producer) and the OCI runner (consumer).
-// Write only through app/features/jobs/.
-// ---------------------------------------------------------------------------
 export const agentJobs = sqliteTable(
   "agent_jobs",
   {
     id: text("id").primaryKey(),
-    // "synthesize" | "answer" | "consolidate" | "translate"
     type: text("type").notNull(),
     spaceId: text("space_id")
       .notNull()
       .references(() => spaces.id, { onDelete: "cascade" }),
-    // "queued" | "leased" | "succeeded" | "failed" | "needs_review" | "expired"
     status: text("status").notNull().default("queued"),
     priority: integer("priority").notNull().default(0),
     payload: text("payload").notNull().default("{}"),
@@ -36,7 +30,6 @@ export const agentJobs = sqliteTable(
   ],
 );
 
-// One row per runner host (Stage 04): liveness for /admin/runner and degraded answers.
 export const runnerStatus = sqliteTable("runner_status", {
   host: text("host").primaryKey(),
   version: text("version").notNull().default(""),
@@ -46,7 +39,6 @@ export const runnerStatus = sqliteTable("runner_status", {
   alertedAt: integer("alerted_at", { mode: "timestamp" }),
 });
 
-// Stage 05: asker-scoped tokens for an answer job's MCP reads (hash only, 10-minute TTL).
 export const jobTokens = sqliteTable(
   "job_tokens",
   {

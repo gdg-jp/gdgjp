@@ -4,8 +4,6 @@ import { join } from "node:path";
 import { type APIRequestContext, expect, test } from "@playwright/test";
 import { createCampaign } from "./helpers";
 
-// The learning loop (Stage 08): edits recorded mechanically, the retro's proposals decided by a
-// person, exported, and written back with feedback.mjs.
 const skills = new URL("../../../skills/", import.meta.url);
 const brief = readFileSync(
   new URL("pr-playbook/examples/briefs/devfest-kansai-2026.json", skills),
@@ -23,7 +21,6 @@ const runnerToken = () =>
   )?.[1] ?? "";
 const headers = () => ({ authorization: `Bearer ${runnerToken()}`, "x-runner-host": "e2e-runner" });
 
-/** Lease this campaign's next job of a type (jobs left queued by earlier runs are failed and skipped). */
 async function runJob(request: APIRequestContext, type: string, output: unknown, campaign: string) {
   for (let i = 0; i < 20; i++) {
     const next = await request.get(`/api/runner/jobs/next?types=${type}&wait=0`, {
@@ -60,7 +57,6 @@ test("edits feed the retro; accepted proposals are exported and written back", a
   await page.getByRole("button", { name: "JSON を読み込む" }).click();
   await expect(page.getByText("版 1 を保存しました")).toBeVisible();
 
-  // A person edits the runner's copy: the change is recorded mechanically.
   await page.goto(`/c/${slug}/plan`);
   await page.getByRole("button", { name: "コピーを作る" }).click();
   await expect(page.getByText("コピーのジョブを積みました")).toBeVisible();
@@ -73,7 +69,6 @@ test("edits feed the retro; accepted proposals are exported and written back", a
   await page.getByRole("button", { name: "新しい版として保存" }).click();
   await expect(page.getByText("版 2 を保存しました")).toBeVisible();
 
-  // KPT notes, then the retro.
   await page.goto(`/c/${slug}/settings`);
   await page
     .getByLabel("振り返りメモ（KPT）")
@@ -94,7 +89,6 @@ test("edits feed the retro; accepted proposals are exported and written back", a
   await page.getByRole("link", { name: "振り返り" }).click();
   await expect(page.getByLabel("Wiki に貼る更新")).toContainText("大阪大学");
 
-  // A person decides; the accepted constant is exported and written back into a Playbook copy.
   await page.goto("/playbook/proposals?status=proposed");
   await page.getByRole("link", { name: "折りたたみ位置の観察値" }).first().click();
   await page.getByLabel("理由").fill("DevFest 2026 で観察した");
@@ -125,7 +119,6 @@ test("edits feed the retro; accepted proposals are exported and written back", a
     JSON.parse(readFileSync(join(dir, "constants.json"), "utf8")).x.foldThreshold,
   ).toMatchObject({ weighted: 280, provisional: false });
 
-  // A Tips from a person goes into the same list.
   await page.goto("/playbook/proposals");
   await page.getByLabel("Tips を追加").fill(`告知の 1 行目は日時（${slug}）`);
   await page.getByRole("button", { name: "提案に足す" }).click();

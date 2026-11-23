@@ -12,10 +12,6 @@ import type {
   UserChapter,
 } from "./types";
 
-/**
- * Returns the user's membership in a specific chapter, or null.
- * With the multi-chapter schema this is the canonical single-membership lookup.
- */
 export async function getMembership(
   db: D1Database,
   userId: string,
@@ -33,10 +29,6 @@ export async function getMembership(
   return row ? toMembershipWithChapter(row) : null;
 }
 
-/**
- * All memberships for a user, sorted: active before pending,
- * organizer before member, then oldest approved/created first.
- */
 export async function listMembershipsForUser(
   db: D1Database,
   userId: string,
@@ -58,10 +50,6 @@ export async function listMembershipsForUser(
   return results.map(toMembershipWithChapter);
 }
 
-/**
- * Picks a "primary" active chapter for JWT claims (organizer beats member,
- * then oldest approved first). Returns null if the user has no active membership.
- */
 export async function getChapterByUserId(
   db: D1Database,
   userId: string,
@@ -129,10 +117,6 @@ export async function listMembersForChapter(
   return results.map(toMembership);
 }
 
-/**
- * Cross-chapter list of pending requests, joined with chapter and requester info.
- * Used by the super-admin /admin/requests page.
- */
 export async function listAllPendingRequests(db: D1Database): Promise<PendingRequestWithChapter[]> {
   const { results } = await db
     .prepare(

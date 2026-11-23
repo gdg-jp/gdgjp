@@ -20,9 +20,6 @@ func newTinyurlCommand(credentials store.CredentialStore) *cobra.Command {
 	return command
 }
 
-// addTinyurlPageFlags registers the API's common --limit/--cursor pagination
-// flags on a list command; every tinyurl list command carries them and
-// prints the server's nextCursor rather than auto-paging.
 func addTinyurlPageFlags(cmd *cobra.Command) {
 	cmd.Flags().Int("limit", 0, "Maximum number of results")
 	cmd.Flags().String("cursor", "", "Pagination cursor from a previous nextCursor")
@@ -41,8 +38,6 @@ func tinyurlPage(cmd *cobra.Command) tinyurl.Page {
 	return page
 }
 
-// printJSON is the shared success path: indented JSON, 1:1 with the server's
-// response body.
 func printJSON(cmd *cobra.Command, value any) error {
 	return cliutil.PrintJSON(cmd.OutOrStdout(), value)
 }

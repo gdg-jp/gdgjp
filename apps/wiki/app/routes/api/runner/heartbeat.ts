@@ -3,7 +3,6 @@ import { readJson, requireRunner, runnerHost } from "~/features/jobs/runner-rout
 import { recordRunnerHeartbeat } from "~/features/jobs/runner.server";
 import { getDb } from "~/lib/db.server";
 
-/** POST /api/runner/heartbeat — runner liveness (shown on /admin/runner). */
 export async function action({ request, context }: ActionFunctionArgs) {
   const { env } = context.cloudflare;
   requireRunner(request, env);

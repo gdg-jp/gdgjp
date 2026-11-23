@@ -4,7 +4,6 @@ export interface DriveToken {
   accessToken: string;
   refreshToken: string | null;
   expiresAt: Date;
-  /** Space-delimited scopes returned by the token endpoint, when present. */
   grantedScopes: string | null;
 }
 
@@ -30,16 +29,11 @@ export const REQUIRED_GOOGLE_CHAT_SCOPES = [
 export const GOOGLE_DRIVE_REAUTH_MESSAGE =
   "Google Drive access is missing required scopes. Disconnect and reconnect Google from /sources to grant the required access.";
 
-/** True when every required Chat scope appears in a space-delimited grant string. */
 export function hasRequiredGoogleChatScopes(grantedScopes: string | null | undefined): boolean {
   if (!grantedScopes) return false;
   const granted = new Set(grantedScopes.split(/\s+/).filter(Boolean));
   return REQUIRED_GOOGLE_CHAT_SCOPES.every((scope) => granted.has(scope));
 }
-
-// ---------------------------------------------------------------------------
-// OAuth URL generation
-// ---------------------------------------------------------------------------
 
 export function getGoogleDriveAuthUrl(
   clientId: string,
@@ -57,10 +51,6 @@ export function getGoogleDriveAuthUrl(
   });
   return `https://accounts.google.com/o/oauth2/v2/auth?${params}`;
 }
-
-// ---------------------------------------------------------------------------
-// Token exchange
-// ---------------------------------------------------------------------------
 
 interface TokenResponse {
   access_token: string;
@@ -107,10 +97,6 @@ export async function exchangeCodeForToken(
     grantedScopes: data.scope?.trim() || null,
   };
 }
-
-// ---------------------------------------------------------------------------
-// Token refresh
-// ---------------------------------------------------------------------------
 
 export async function refreshAccessToken(
   refreshToken: string,

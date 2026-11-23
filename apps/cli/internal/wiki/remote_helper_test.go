@@ -237,8 +237,6 @@ func TestRemoteHelperPushBatchesChangedPagesAndNewHierarchy(t *testing.T) {
 
 	var request SyncRequest
 	syncCalls := 0
-	// Pushed by ref name, as the runner does (`git push origin HEAD:main`): new page IDs must
-	// come from the commit, or every space's new `log` page would get the same ID.
 	helper.Stdin = strings.NewReader("push HEAD:refs/heads/main\n\n")
 	helper.Stdout = new(bytes.Buffer)
 	helper.Sync = func(_ context.Context, _ string, value SyncRequest) (SyncResult, error) {
@@ -276,8 +274,6 @@ func TestNewPageIDDiffersBySpace(t *testing.T) {
 }
 
 func TestRemoteHelperPushReportsConflictWithoutChangingWorktree(t *testing.T) {
-	// A remote-helper error line is deliberately a protocol-level push failure;
-	// the helper only reads commits and leaves the caller's checkout untouched.
 	repository := t.TempDir()
 	git(t, repository, "init", "-q")
 	gitDir := filepath.Join(repository, ".git")

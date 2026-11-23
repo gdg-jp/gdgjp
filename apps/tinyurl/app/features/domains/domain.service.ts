@@ -79,8 +79,6 @@ export async function syncDomain(
     try {
       state = await deps.provider.check(domain.hostname);
     } catch (error) {
-      // A previous attempt can fail before the Vercel domain is created. Once
-      // provisioning configuration is fixed, retrying should create it.
       if (!(error instanceof DomainProviderHttpError) || error.status !== 404) throw error;
       state = await deps.provider.create(domain.hostname);
     }

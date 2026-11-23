@@ -2,37 +2,24 @@ import { sql } from "drizzle-orm";
 import { integer, sqliteTable, text, unique } from "drizzle-orm/sqlite-core";
 import { user } from "./user";
 
-// ---------------------------------------------------------------------------
-// sources / source_documents / source_assets — raw layer (LLM Wiki pattern)
-// ---------------------------------------------------------------------------
 export const sources = sqliteTable("sources", {
   id: text("id").primaryKey(),
-  // SourceKind — see app/features/sources/kinds.ts (the only place that branches on it)
   kind: text("kind").notNull(),
-  // Tenant (knowledge platform v2). No FK in SQL (added with ADD COLUMN); app writes real ids.
   spaceId: text("space_id").notNull().default("gdg-jp"),
   externalId: text("external_id"),
   url: text("url").notNull(),
   title: text("title").notNull(),
-  // Opaque Accounts chapter id — not an FK. Local `chapters` is unsynced; /sources
-  // resolves labels from the Accounts directory / IdP memberships instead.
   chapterId: text("chapter_id"),
-  // "private" | "member" | "organizer" | "chapter-member" | "chapter-organizer"
   visibility: text("visibility").notNull().default("member"),
   addedBy: text("added_by")
     .notNull()
     .references(() => user.id),
-  // "pending" | "fetching" | "ready" | "error" | "archived"
   status: text("status").notNull().default("pending"),
-  // "manual" | "hourly" | "daily" | "weekly"
   refreshPolicy: text("refresh_policy").notNull().default("manual"),
-  /** Ownership token for the pending refresh request or active fetch attempt. */
   fetchAttemptId: text("fetch_attempt_id"),
   lastFetchedAt: integer("last_fetched_at", { mode: "timestamp" }),
   errorMessage: text("error_message"),
-  /** Kind-specific JSON settings (discord-guild: channel selection). */
   config: text("config"),
-  /** When the runner last folded this source into pages (knowledge platform v2). */
   lastIntegratedAt: integer("last_integrated_at", { mode: "timestamp" }),
   createdAt: integer("created_at", { mode: "timestamp" }).notNull().default(sql`(unixepoch())`),
   updatedAt: integer("updated_at", { mode: "timestamp" }).notNull().default(sql`(unixepoch())`),
@@ -52,11 +39,8 @@ export const sourceDocuments = sqliteTable(
     mediaType: text("media_type").notNull().default("text/markdown"),
     capturedAt: integer("captured_at", { mode: "timestamp" }).notNull(),
     cursor: text("cursor"),
-    /** JSON blob (e.g. extracted URLs). Nullable; Stage 3 reads this. */
     metadata: text("metadata"),
-    // "ready" | "error" | "archived"
     status: text("status").notNull().default("ready"),
-    /** content_hash the runner last integrated; differs from content_hash = pending. */
     integratedHash: text("integrated_hash"),
   },
   (t) => [unique("source_documents_source_id_path_unique").on(t.sourceId, t.path)],
@@ -74,7 +58,6 @@ export const sourceAssets = sqliteTable("source_assets", {
   contentHash: text("content_hash").notNull(),
 });
 
-/** Manually configured Google Chat resource-name → display-name mappings. */
 export const googleChatSenderProfiles = sqliteTable("google_chat_sender_profiles", {
   resourceName: text("resource_name").primaryKey(),
   displayName: text("display_name").notNull(),
@@ -82,7 +65,6 @@ export const googleChatSenderProfiles = sqliteTable("google_chat_sender_profiles
   updatedAt: integer("updated_at", { mode: "timestamp" }).notNull().default(sql`(unixepoch())`),
 });
 
-/** At most ten recent identification examples are retained per sender. */
 export const googleChatSenderSamples = sqliteTable(
   "google_chat_sender_samples",
   {
@@ -99,9 +81,6 @@ export const googleChatSenderSamples = sqliteTable(
   (t) => [unique().on(t.resourceName, t.sourceId, t.messageName)],
 );
 
-// ---------------------------------------------------------------------------
-// source_import_runs — Durable Object alarm-driven source import progress
-// ---------------------------------------------------------------------------
 export const sourceImportRuns = sqliteTable("source_import_runs", {
   id: text("id").primaryKey(),
   sourceId: text("source_id")
@@ -109,13 +88,8 @@ export const sourceImportRuns = sqliteTable("source_import_runs", {
     .unique()
     .references(() => sources.id, { onDelete: "cascade" }),
   fetchAttemptId: text("fetch_attempt_id").notNull(),
-  // Driver identity, rather than a source kind: Docs/Sheets/Slides share the
-  // Google Drive driver and therefore do not require a migration per MIME type.
   kind: text("kind").notNull(),
-  // Only the source-document cursor must exist before a Durable Object starts.
   sinceCursor: text("since_cursor"),
-  // JSON summary is flushed when phases change. Per-step cursors live in the
-  // object-local SQLite meta table and do not consume subrequest budget.
   phase: text("phase").notNull().default("start"),
   progress: text("progress").notNull().default("{}"),
   consecutiveFailures: integer("consecutive_failures").notNull().default(0),

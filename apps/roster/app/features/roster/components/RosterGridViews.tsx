@@ -11,21 +11,6 @@ type SlotView = { id: string; idx: number; start: string; end: string };
 type TrackView = { id: string; name: string; color: string; sortOrder: number };
 type RoleView = { id: string; name: string; sortOrder: number };
 
-/**
- * The view switcher on `/e/:id/roster` — the segmented control, the name
- * search, and whichever of the three grids is active
- * (docs/roster/07-roster-manual-edit.md "Design" §3).
- *
- * Split out of the route so `e.$id.roster.tsx` stays under the 400-line cap
- * (`tests/architecture/file-size.test.ts`) and, more usefully, so `view` and
- * the search query live next to the grids they drive instead of alongside the
- * loader/action. The route keeps everything that talks to the server; this
- * keeps everything that is purely "what is on screen right now".
- *
- * `toolbarRight` is a slot rather than a prop bundle because the only thing
- * that goes there is Stage 08's undo/redo pair, which is history's concern,
- * not this component's.
- */
 export function RosterGridViews({
   timeSlots,
   tracks,
@@ -58,17 +43,10 @@ export function RosterGridViews({
   const [view, setView] = useState<RosterView>("staff");
   const [search, setSearch] = useState("");
 
-  // Display lookup keeps every application, so a name still resolves for
-  // someone the grid wouldn't list on its own.
   const nameById = useMemo(
     () => new Map(Object.entries(applicationNameById)),
     [applicationNameById],
   );
-  // Matching, though, runs over `staffColumns` — the exact set `StaffGrid`
-  // renders (`buildStaffColumns` drops anyone withdrawn AND unassigned), and
-  // a superset of the assigned people `RoleGrid` names. Matching over every
-  // application instead would report "1名が一致" for a withdrawn, unassigned
-  // person while nothing on screen highlighted or scrolled.
   const matchedIds = useMemo(
     () =>
       matchStaffIds(
@@ -91,9 +69,6 @@ export function RosterGridViews({
           </div>
           {toolbarRight}
         </div>
-        {/* Only the two views that render names. The coverage view is counts
-         * per (track × role) — a search box there could never match anything.
-         * `key={view}` is load-bearing; see GridSearch's doc comment. */}
         {view !== "coverage" ? (
           <GridSearch
             key={view}

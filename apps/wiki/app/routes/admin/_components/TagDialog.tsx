@@ -40,7 +40,6 @@ export function TagDialog({ mode, tag, open, onOpenChange }: TagDialogProps) {
   const pendingSubmissionRef = useRef(false);
   const prevActionDataRef = useRef(actionData);
 
-  // Reset error and submission state when dialog closes
   useEffect(() => {
     if (!open) {
       setCurrentError(null);
@@ -49,7 +48,6 @@ export function TagDialog({ mode, tag, open, onOpenChange }: TagDialogProps) {
     }
   }, [open]);
 
-  // Reset error visibility and submission state when mode or tag changes
   const activeSlug = tag?.slug;
   const prevTargetRef = useRef({ mode, slug: activeSlug });
   useEffect(() => {
@@ -61,7 +59,6 @@ export function TagDialog({ mode, tag, open, onOpenChange }: TagDialogProps) {
     }
   }, [mode, activeSlug]);
 
-  // Handle action result ONLY if this open dialog initiated the pending submission
   useEffect(() => {
     if (actionData !== prevActionDataRef.current) {
       prevActionDataRef.current = actionData;
@@ -81,7 +78,6 @@ export function TagDialog({ mode, tag, open, onOpenChange }: TagDialogProps) {
     }
   }, [actionData, open, onOpenChange]);
 
-  // Handle navigation idle in case actionData didn't change referentially
   useEffect(() => {
     if (open && pendingSubmissionRef.current && navigation.state === "idle") {
       pendingSubmissionRef.current = false;

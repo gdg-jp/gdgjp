@@ -13,7 +13,6 @@ function fetchWithTimeout(url: string, init: RequestInit, timeoutMs: number): Pr
   return fetch(url, { ...init, signal: controller.signal }).finally(() => clearTimeout(id));
 }
 
-/** Log only structured identifiers/statuses; message bodies must never enter worker logs. */
 export function warnGoogleChat(event: string, details: Record<string, string | number>): void {
   console.warn(
     JSON.stringify({
@@ -25,10 +24,6 @@ export function warnGoogleChat(event: string, details: Record<string, string | n
   );
 }
 
-/**
- * Capture Google API error metadata without logging a successful response, which can
- * contain Chat content. `details` identifies invalid request fields for 400 errors.
- */
 export async function logGoogleChatMessagesListError(
   response: Response,
   input: { spaceName: string; filter: string | null; hasPageToken: boolean },
@@ -45,9 +40,7 @@ export async function logGoogleChatMessagesListError(
         details: error.details,
       };
     }
-  } catch {
-    // Some Google proxy errors do not have a JSON body; status metadata remains useful.
-  }
+  } catch {}
 
   console.error(
     JSON.stringify({
@@ -66,9 +59,6 @@ export async function logGoogleChatMessagesListError(
   );
 }
 
-/**
- * Fetch the root message text for a single reply thread (incremental context only).
- */
 export async function fetchThreadParentText(
   spaceName: string,
   accessToken: string,
@@ -91,11 +81,6 @@ export async function fetchThreadParentText(
   return parentText;
 }
 
-/**
- * Fetch root messages for reply threads whose parent is outside the cursor window.
- * These are context-only: callers seed normalization with this map but never add the
- * fetched parent messages to the source-document content or cursor calculation.
- */
 export async function fetchMissingReplyThreadParents(
   spaceName: string,
   accessToken: string,

@@ -6,7 +6,6 @@ export async function loader({ request, context, params }: LoaderFunctionArgs) {
   await requireUser(request, env);
   const key = params["*"] ?? "";
 
-  // Security: only allow keys starting with wiki/ or ingestion/
   if (!key.startsWith("wiki/") && !key.startsWith("ingestion/")) {
     return new Response("Not Found", { status: 404 });
   }

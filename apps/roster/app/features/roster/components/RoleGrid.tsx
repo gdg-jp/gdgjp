@@ -7,31 +7,6 @@ export type RoleGridSlot = { id: string; idx: number; start: string; end: string
 type TrackInfo = { id: string; name: string; color: string; sortOrder: number };
 type RoleInfo = { id: string; name: string; sortOrder: number };
 
-/**
- * The role-view on `/e/:id/roster`: vertical = time, horizontal =
- * (track × role) (docs/roster/07-roster-manual-edit.md "Design" §3b).
- * Reading a column answers "who is on reception at Track A from when to
- * when". Consecutive slots with the same lineup AND the same demand merge
- * into one spanning cell via `grid.ts#buildRoleGridColumn` — clicking a
- * merged cell selects the WHOLE range for `onSelectCell` (the caller opens
- * `DemandCellDrawer` and, on "add", places the chosen candidate into every
- * slot in the range at once — "一括で配置する", never one slot at a time).
- *
- * `readOnly` (docs/roster/09-share-public-views.md "Design" §2b) is Stage
- * 09's public role view reusing this exact component rather than forking it:
- * cells render as plain non-interactive containers (no `onSelectCell` call,
- * no hover affordance) and the per-cell `count/ideal` badge is hidden
- * outright, because the public caller has no real demand numbers to show —
- * it only knows "who is actually here", synthesized into a `demands`-shaped
- * map purely to reuse `buildGridColumns`/`buildRoleGridColumn`'s column
- * derivation and merge-by-membership logic (`app/routes/r.$token.tsx`).
- * Everything else (the merge algorithm, the member list, layout) is
- * identical between the two callers.
- *
- * Merged cells are the one place in the grid system that top-aligns
- * (`.data-grid-cell-top`): a lineup spanning four slots has to start at the
- * hour it starts at, not float in the middle of its own block.
- */
 export function RoleGrid({
   timeSlots,
   tracks,
@@ -51,9 +26,6 @@ export function RoleGrid({
   nameById: ReadonlyMap<string, string>;
   onSelectCell?: (trackId: string, roleId: string, slotIds: string[]) => void;
   readOnly?: boolean;
-  /** Application ids matching the name search (`GridSearch`) — every
-   * occurrence of the name in a cell's lineup is marked, since the whole
-   * point of this view is "where is this person, and when". */
   matchedIds?: ReadonlySet<string>;
 }) {
   const columns = useMemo(() => buildGridColumns(demands, tracks, roles), [demands, tracks, roles]);
@@ -125,11 +97,6 @@ export function RoleGrid({
                   const className = `data-grid-cell data-grid-cell-top${
                     empty ? " data-grid-cell-empty" : ""
                   }`;
-                  // "需要なし" is a fact about the CELL, so it belongs on the
-                  // count line and has to survive even when people are
-                  // assigned there — a manual edit can place staff into a
-                  // zero-demand slot, and this view is where that shows up.
-                  // Only the redundant "空き" underneath it is suppressed.
                   const body = (
                     <>
                       {readOnly ? null : (
@@ -157,11 +124,6 @@ export function RoleGrid({
                     </>
                   );
                   return (
-                    // No `align-top` here: app.css's unlayered
-                    // `.data-grid td { vertical-align: middle }` outranks the
-                    // utilities layer, so it would be dead. `.data-grid-cell-top`
-                    // on the cell itself is what actually top-aligns a merged
-                    // range's lineup.
                     <td key={colKey} rowSpan={cell.span}>
                       {readOnly ? (
                         <div aria-label={ariaLabel} className={className}>

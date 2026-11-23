@@ -2,7 +2,6 @@ import { readFileSync } from "node:fs";
 import { type Page, expect, test } from "@playwright/test";
 import { createCampaign } from "./helpers";
 
-// Listings (Stage 05): mapped from the brief, approved, then through the connpass app or by hand.
 const brief = readFileSync(
   new URL("../../../skills/pr-playbook/examples/briefs/devfest-kansai-2026.json", import.meta.url),
   "utf8",
@@ -48,7 +47,6 @@ test("listings are mapped from the brief; Findy goes once; Luma goes through the
   await page.getByRole("button", { name: "選んだ投稿の下書きを runner に頼む" }).click();
   await expect(page.getByText(/掲載文 3 件/)).toBeVisible();
 
-  // Findy: no automation yet → the text to paste, then "listed by hand".
   await approveListing(page, slug, "Findy 申請");
   await expect(page.getByText(/手で掲載し「手で掲載した」を押してください/)).toBeVisible();
   await expect(page.getByText("Findy Conference の掲載内容")).toBeVisible();
@@ -57,11 +55,9 @@ test("listings are mapped from the brief; Findy goes once; Luma goes through the
   await page.getByRole("button", { name: "手で掲載した" }).click();
   await expect(page.getByText("掲載済みにしました")).toBeVisible();
 
-  // A second Findy submission in the same campaign is refused.
   await approveListing(page, slug, "Findy 申請（2 回目）");
   await expect(page.getByText(/もう送っています/)).toBeVisible();
 
-  // Luma with a target: a create_listing job on the connpass app.
   await approveListing(page, slug, "Luma 掲載");
   await expect(page.getByText(/掲載のジョブを積みました/)).toBeVisible();
   const jobs = (await (await request.get("/dev/mock-services")).json()).connpass.jobs as {

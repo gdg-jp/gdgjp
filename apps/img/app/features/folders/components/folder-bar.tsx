@@ -28,7 +28,6 @@ export type FolderSummary = {
   imageCount: number;
 };
 
-/** "all" = every visible image, "unfiled" = no folder, number = one folder's id. */
 export type FolderSelection = "all" | "unfiled" | number;
 
 export function FolderBar({

@@ -15,18 +15,12 @@ export const meta: MetaFunction = () => [{ title: "ページが見つかりま�
 export function loader({ request, params }: LoaderFunctionArgs) {
   const segments = (params["*"] ?? "").split("/").filter(Boolean);
 
-  // Legacy flat `/<slug>` URLs move under the default space. A path that already names a
-  // space, an API or a resource is a real 404: re-rooting it only produced
-  // `/s/gdg-jp/wiki/s/gdg-jp/…`, which nobody can read.
   const url = new URL(request.url);
-  // `/s/<space>/settings|recent|starred|archived` are natural guesses for screens that live
-  // elsewhere: send them there instead of a 404.
   if (segments[0] === "s" && segments.length === 3) {
     const [, space, screen] = segments;
     if (screen === "settings") throw redirect(`/spaces/${encodeURIComponent(space)}/settings`, 301);
     if (["recent", "starred", "archived"].includes(screen)) throw redirect(`/${screen}`, 301);
   }
-  // `/s/<space>/admin/…`: the admin screens are global.
   if (segments[0] === "s" && segments[2] === "admin") {
     throw redirect(`/${segments.slice(2).join("/")}${url.search}`, 301);
   }

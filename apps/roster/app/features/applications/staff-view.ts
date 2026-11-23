@@ -2,25 +2,12 @@ import type { StaffDrawerDetail } from "./components/StaffDrawer";
 import type { StaffRoleTag, StaffRow } from "./components/StaffTable";
 import type { ApplicationRecord, ApplicationSkillRecord, AvailabilityRecord } from "./types";
 
-/**
- * Pure view-model assembly for `/e/:id/staff`'s staff list (docs/roster/05-
- * staff-supply-demand.md "Design" §2). No D1 — the route's loader gathers
- * the raw rows (reusing `~/features/supply/supply.server`'s
- * `listApplicantDetailsForEvent`, whose `ApplicantDetail` shape matches
- * `StaffDetailInput` below structurally, so this module never imports from
- * `~/features/supply` — see docs/roster/05-staff-supply-demand.md "Design"
- * §5 on why the dependency must not run that direction) and this module
- * turns them into `StaffTable`'s `StaffRow`s / `StaffDrawer`'s
- * `StaffDrawerDetail`.
- */
-
 export type StaffDetailInput = {
   application: ApplicationRecord;
   skills: readonly ApplicationSkillRecord[];
   availability: readonly AvailabilityRecord[];
 };
 
-/** Hides skills for roles no longer present on a live sheet without mutating source rows. */
 export function filterStaffSkillsToRoles(
   details: readonly StaffDetailInput[],
   liveRoleIds: readonly string[],
@@ -32,13 +19,6 @@ export function filterStaffSkillsToRoles(
   }));
 }
 
-/**
- * One row per application for the table (docs/roster/05-staff-supply-
- * demand.md "Design" §2's column list). `availableCount`/`softAvailableCount`
- * only count entries for `timeSlotIds` — a stale availability row for a
- * time slot the event no longer has (e.g. after a grid regeneration) is
- * silently excluded rather than inflating either count.
- */
 export function buildStaffRows(
   details: readonly StaffDetailInput[],
   roles: readonly { id: string; name: string }[],
@@ -77,7 +57,6 @@ export function buildStaffRows(
   });
 }
 
-/** The owner-correction drawer's editable snapshot of one application. */
 export function toStaffDrawerDetail(detail: StaffDetailInput): StaffDrawerDetail {
   return {
     applicationId: detail.application.id,

@@ -1,4 +1,3 @@
-// Guides, Skill instructions and output schemas, bundled as text for runner job bundles.
 const guideFiles = import.meta.glob<string>("../../../../../skills/pr-playbook/guides/*.md", {
   eager: true,
   query: "?raw",
@@ -49,7 +48,6 @@ const renderScriptFiles = import.meta.glob<string>(
     import: "default",
   },
 );
-// Read by the retro job only (it must not re-propose what decisions.md rejected).
 const rootDocFiles = import.meta.glob<string>(
   [
     "../../../../../skills/pr-playbook/decisions.md",
@@ -72,7 +70,6 @@ const browserScriptFiles = import.meta.glob<string>(
     import: "default",
   },
 );
-// The gdg-design stickers: the design vocabulary the agent's HTML references as assets/stickers/<file>.
 const stickerFiles = import.meta.glob<string>(
   "../../../../../skills/gdg-design/assets/stickers/*.svg",
   {
@@ -96,15 +93,12 @@ const strip = (files: Record<string, string>) =>
     Object.entries(files).map(([path, text]) => [path.slice(PREFIX.length), text]),
   );
 
-/** "pr-playbook/guides/x.md" → text */
 export const guides = strip(guideFiles);
 export const examples = strip(exampleFiles);
 export const templates = strip(templateFiles);
-/** "pr-x-post" → SKILL.md */
 export const skills = Object.fromEntries(
   Object.entries(strip(skillFiles)).map(([path, text]) => [path.split("/")[0] as string, text]),
 );
-/** "pr-x-post" → output schema */
 export const outputSchemas: Record<string, unknown> = Object.fromEntries(
   Object.entries(strip(schemaFiles)).map(([path, text]) => [
     path.split("/")[0] as string,
@@ -112,15 +106,12 @@ export const outputSchemas: Record<string, unknown> = Object.fromEntries(
   ]),
 );
 
-/** "pr-x-post" → example output (raw JSON text); "pr-asset/references/example-template-output.json" style extras in exampleOutputFiles. */
 export const exampleOutputs: Record<string, string> = Object.fromEntries(
   Object.entries(strip(exampleOutputFiles))
     .filter(([path]) => path.endsWith("/example-output.json"))
     .map(([path, text]) => [path.split("/")[0] as string, text]),
 );
-/** Every "pr-x/references/example-*output.json" by its skills-relative path. */
 export const exampleOutputFilesByPath: Record<string, string> = strip(exampleOutputFiles);
-/** "pr-playbook/scripts/checks/x.mjs" → source; the runner bundle ships them so the agent can self-check. */
 export const checkScripts = Object.fromEntries(
   Object.entries({ ...strip(checkScriptFiles), ...strip(renderScriptFiles) }).filter(
     ([path]) => !path.endsWith(".test.mjs"),
@@ -128,14 +119,12 @@ export const checkScripts = Object.fromEntries(
 );
 
 const SECTIONS = "pr-playbook/templates/connpass-page/sections/";
-/** connpass section id → template source, for the Worker's renderer. */
 export const connpassSectionTemplates: Record<string, string> = Object.fromEntries(
   Object.entries(templates)
     .filter(([path]) => path.startsWith(SECTIONS) && path.endsWith(".html"))
     .map(([path, text]) => [path.slice(SECTIONS.length, -".html".length), text]),
 );
 
-/** Files a Skill asks for with `<!-- reads: a, b -->`, as playbook-relative paths. */
 export function skillReads(skill: string): string[] {
   const text = skills[skill] ?? "";
   return [...text.matchAll(/<!--\s*reads:\s*([^>]+?)\s*-->/g)].flatMap((m) =>
@@ -143,7 +132,6 @@ export function skillReads(skill: string): string[] {
   );
 }
 
-/** Playbook file by playbook-relative path ("guides/x.md", "examples/…"). */
 export function playbookFile(path: string): string | undefined {
   return (
     guides[`pr-playbook/${path}`] ??
@@ -154,7 +142,6 @@ export function playbookFile(path: string): string | undefined {
 }
 
 const IMAGES = "pr-playbook/templates/images/";
-/** What image-html.mjs needs in the Worker: per-template HTML and slot contracts, CSS, the check script, the logo. */
 export const imageTemplates = {
   html: Object.fromEntries(
     Object.entries(templates)
@@ -172,12 +159,10 @@ export const imageTemplates = {
 };
 
 const STICKERS = "gdg-design/assets/stickers/";
-/** Design mode's assets: "<file>.svg" → SVG text; the kits and the HTML examples as playbook paths. */
 export const designAssets = {
   stickers: Object.fromEntries(
     Object.entries(strip(stickerFiles)).map(([p, text]) => [p.slice(STICKERS.length), text]),
   ) as Record<string, string>,
-  /** "pr-playbook/examples/design/…" → text */
   examples: Object.fromEntries(
     Object.entries(examples).filter(([p]) => p.startsWith("pr-playbook/examples/design/")),
   ) as Record<string, string>,

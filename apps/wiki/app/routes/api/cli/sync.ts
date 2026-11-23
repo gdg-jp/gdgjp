@@ -28,12 +28,6 @@ import { requireSpaceForIdentity } from "~/features/spaces/access.server";
 import { DEFAULT_SPACE_SLUG } from "~/features/spaces/shared";
 import { getDb } from "~/lib/db.server";
 
-/** POST /api/cli/wiki/sync
- * Atomically applies page upserts/archives.  Every existing operation must
- * carry the revision received from snapshot; a stale request returns 409 and
- * applies nothing.  Attachments listed without an id are allocated here, then
- * uploaded with PUT /api/cli/wiki/attachments/:attachmentId.
- */
 export async function action({ request, context }: ActionFunctionArgs) {
   if (request.method !== "POST") return new Response(null, { status: 405 });
   const { env } = context.cloudflare;
@@ -53,7 +47,6 @@ export async function action({ request, context }: ActionFunctionArgs) {
   if (new Set(suppliedIds).size !== suppliedIds.length)
     return Response.json({ error: "duplicate_page_id" }, { status: 400 });
   const db = getDb(env);
-  // `?space=<slug>` (default gdg-jp, so v1 clones keep working). Pushing needs editor.
   const spaceSlug = new URL(request.url).searchParams.get("space") ?? DEFAULT_SPACE_SLUG;
   let space: Awaited<ReturnType<typeof requireSpaceForIdentity>>["space"];
   try {
@@ -78,9 +71,6 @@ export async function action({ request, context }: ActionFunctionArgs) {
       { error: "agents_md_conflict", contentHash: currentAgents?.contentHash },
       { status: 409 },
     );
-  // CLI identity uses the OIDC `sub` as `user.id`, but wiki rows are keyed by
-  // the local user primary key (linked via email / oidc_subject). Resolve that
-  // key before writing `wiki_agent_instructions.updated_by` (FK-enforced).
   let agentsUpdatedBy: string | null = null;
   if (agentsUpdate) {
     const byEmail = identity.user.email
@@ -109,14 +99,10 @@ export async function action({ request, context }: ActionFunctionArgs) {
   const existing = await mapInChunks(existingIds, (chunk) =>
     db.select().from(schema.pages).where(inArray(schema.pages.id, chunk)).all(),
   );
-  // A page id from another space is treated as unknown — never updated through this space.
   if (existing.some((page) => page.spaceId !== space.id))
     return Response.json({ error: "page_not_in_space" }, { status: 404 });
   const byId = new Map(existing.map((page) => [page.id, page]));
 
-  // Agent pages are written only by the runner (knowledge platform v2 §8-6): people ask
-  // the agent instead of editing. The runner, in turn, never overwrites a human page — its
-  // proposal goes to the space's review queue and the rest of the push still applies.
   if (!identity.isRunner && operations.length > 0) {
     return Response.json({ error: "agent_pages_runner_only" }, { status: 403 });
   }
@@ -294,7 +280,6 @@ export async function action({ request, context }: ActionFunctionArgs) {
       );
     }
 
-    // Partial-locale sync must union both locales — never drop the other side's ids.
     const aclSourceIdsJson = computeAclSourceIdsJson(
       contentJa ?? current?.contentJa ?? "",
       contentEn ?? current?.contentEn ?? "",

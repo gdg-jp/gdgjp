@@ -16,12 +16,6 @@ const DAY = 24 * 60 * 60;
 export const FRESHNESS_SAMPLE_SIZE = 20;
 const INSERT_ROWS = 15;
 
-/**
- * Nightly (Stage 06): record the last day's latencies.
- * - freshness: raw document captured → its knowledge item uploaded (our side of AI Search).
- * - integration: earliest captured document of a synthesize job → job finished.
- * - answer: answer job created → finished; answer_expired: 1 per expired answer, 0 per finished.
- */
 export async function sampleFreshness(db: Db, now = new Date()): Promise<number> {
   const since = new Date(now.getTime() - DAY * 1000);
   const samples: Sample[] = [];
@@ -52,7 +46,7 @@ export async function sampleFreshness(db: Db, now = new Date()): Promise<number>
     const updated = new Map(items.map((item) => [item.key, item.updatedAt]));
     for (const doc of docs) {
       const at = updated.get(rawItemKey(doc.id));
-      if (!at || !doc.capturedAt || at < doc.capturedAt) continue; // not indexed yet
+      if (!at || !doc.capturedAt || at < doc.capturedAt) continue;
       samples.push({
         kind: "freshness",
         spaceId: doc.spaceId,
@@ -140,7 +134,6 @@ export function percentile(sorted: readonly number[], p: number): number | null 
   return sorted[Math.max(0, index)] ?? null;
 }
 
-/** p50 / p95 per kind over the last `days` days (/admin/stats). */
 export async function summarizeLatency(
   db: Db,
   days = 7,

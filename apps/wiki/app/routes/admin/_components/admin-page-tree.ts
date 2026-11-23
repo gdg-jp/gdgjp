@@ -23,10 +23,6 @@ export interface AdminPageNode extends AdminPageRow {
   childCount: number;
 }
 
-/**
- * Builds a flat list of admin page rows arranged in depth-first tree order,
- * with hierarchical wikiPath, depth, and childCount calculated.
- */
 export function buildAdminPageTree(rows: AdminPageRow[]): AdminPageNode[] {
   const sortedRows = [...rows].sort((a, b) => a.sortOrder - b.sortOrder);
   const rowMap = new Map<string, AdminPageRow>();

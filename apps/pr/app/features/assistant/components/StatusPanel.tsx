@@ -87,7 +87,6 @@ function SourceRow({ source }: { source: Source }) {
   );
 }
 
-/** The right column of an event page: where things stand and what to do next. */
 export function StatusPanel({
   state,
   notices,

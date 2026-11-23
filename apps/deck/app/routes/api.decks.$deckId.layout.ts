@@ -5,11 +5,6 @@ import { pruneImages } from "~/features/deck/images.server";
 import { imageIds, parseLayout } from "~/features/deck/model";
 import type { Route } from "./+types/api.decks.$deckId.layout";
 
-/**
- * Saves the whole layout (JSON body `{ version, layout }`). A save based on an
- * older version than the stored one is refused with 409 so two editors never
- * silently overwrite each other.
- */
 export async function action({ request, params, context }: Route.ActionArgs) {
   const env = context.cloudflare.env;
   const { deck } = await requireDeck(env, request, params.deckId);

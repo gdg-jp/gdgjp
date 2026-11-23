@@ -19,8 +19,6 @@ function sources(directory: string): string[] {
 }
 
 function imports(file: string) {
-  // Only parse declarations: scanning chart/form bodies adds work unrelated to
-  // dependency directions, especially when all workspace tests run together.
   const declarations = [...readFileSync(file, "utf8").matchAll(/^import\b[^;]*;/gm)]
     .map((match) => match[0])
     .join("\n");

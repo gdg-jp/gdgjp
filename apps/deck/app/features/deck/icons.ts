@@ -1,9 +1,5 @@
 import type { IconName } from "@gdgjp/design-system";
 
-/**
- * Icons offered for keys. `Icons` throws on unknown names, so keys only ever
- * draw names from this list (a saved name that is not here draws no icon).
- */
 export const KEY_ICONS = [
   "Radio",
   "RadioTower",

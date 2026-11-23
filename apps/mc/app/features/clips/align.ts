@@ -1,11 +1,6 @@
-// Transcript timing shared by the offline clip builder (scripts/build-clips.mjs,
-// which imports this file directly under Node's type stripping) and the
-// in-browser upload form. Keep it dependency-free and erasable-syntax only.
-
 export type Silence = { start: number; end: number };
 export type TimedSegment = { s: number; e: number; t: string };
 
-/** TTS reads these names in katakana; restore the written form. */
 const NOTATION_FIXES: [string, string][] = [
   ["公式ハッシュタグはデブフェスト関西", "公式ハッシュタグは#DevFestKansai"],
   ["デブフェスト関西をつけて", "#DevFestKansaiをつけて"],
@@ -24,7 +19,6 @@ export function fixNotation(text: string): string {
 
 export function splitPhrases(text: string): string[] {
   const phrases = text.match(/[^、。！？!?]+[、。！？!?」』）)]*|[、。！？!?]+/g) ?? [];
-  // Fold punctuation-only fragments into the previous phrase.
   const out: string[] = [];
   for (const p of phrases) {
     if (out.length > 0 && /^[、。！？!?」』）)]+$/.test(p)) out[out.length - 1] += p;
@@ -33,11 +27,6 @@ export function splitPhrases(text: string): string[] {
   return out.map((p) => p.trim()).filter(Boolean);
 }
 
-/**
- * Pauses in mono PCM, matching ffmpeg's `silencedetect=noise=-40dB:d=0.12`
- * closely enough for alignment: 10 ms windows whose peak stays under -40 dBFS
- * for at least `minSec`. Times are in seconds.
- */
 export function silencesFromPcm(
   samples: Float32Array,
   sampleRate: number,
@@ -69,12 +58,6 @@ export function silencesFromPcm(
 
 export type AlignStats = { cps: number; matched: number; unusedPauses: number };
 
-/**
- * Place phrase boundaries on pauses. Each boundary is either matched to one
- * interior silence (monotonic, at most once) or left floating and later
- * interpolated by character count. Classic edit-distance style DP.
- * `duration` and silences are in seconds; segments come out in milliseconds.
- */
 export function align(
   phrases: string[],
   silences: Silence[],
@@ -161,10 +144,8 @@ export function align(
     else i--;
   }
 
-  // Boundary k sits between phrase k and k+1: [endOfPhrase, startOfNext].
   const bounds: ([number, number] | null)[] = matched.map((s) => (s ? [s.start, s.end] : null));
   const charsThrough = (k: number) => lengths.slice(0, k + 1).reduce((x, y) => x + y, 0);
-  // Interpolate floating boundaries between their matched neighbours by chars.
   const anchors = [
     { idx: -1, t: speechStart, chars: 0 },
     ...bounds.flatMap((b, k) =>
@@ -198,7 +179,6 @@ export function align(
   };
 }
 
-/** Lines typed in the editor → timed segments over the audio's pauses. */
 export function segmentsFromLines(
   lines: string[],
   silences: Silence[],

@@ -1,11 +1,3 @@
-/**
- * A small obs-websocket v5 server for e2e tests: Hello/Identify with the
- * SHA-256 challenge, the requests the dock reads and runs, request batches,
- * and the events those requests would make OBS emit.
- *
- *   node --experimental-strip-types e2e/fake-obs.ts [port] [password]
- */
-
 import { createHash, randomBytes } from "node:crypto";
 import { type WebSocket, WebSocketServer } from "ws";
 
@@ -62,7 +54,6 @@ const b64sha = (s: string) => createHash("sha256").update(s).digest("base64");
 
 export class FakeObs {
   state = initialState();
-  /** Every request a client sent, in order (batches flattened). */
   requests: { requestType: string; requestData?: Data }[] = [];
   readonly port: number;
   private readonly password: string;
@@ -86,7 +77,6 @@ export class FakeObs {
     return new Promise((resolve) => this.wss.close(() => resolve()));
   }
 
-  /** Requests of one type the clients sent (newest last). */
   sent(requestType: string) {
     return this.requests.filter((r) => r.requestType === requestType);
   }

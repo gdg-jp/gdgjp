@@ -266,7 +266,6 @@ describe("forceRelogin", () => {
     const env = makeEnv();
     await env.SESSION_KV.put(CHECKED_KEY, String(Date.now()));
     const browser = makeBrowser({ sessionId: "R" });
-    // A free session exists — forceRelogin must not reuse it.
     pw.sessions.mockResolvedValue([{ sessionId: "free", startTime: 1 }]);
     pw.launch.mockResolvedValue(browser);
     login.isLoggedIn.mockResolvedValue(true);

@@ -13,19 +13,15 @@ export function buildSignInRedirect(request: Request): Response {
   return redirect(`/signin?return_to=${encodeURIComponent(target)}`);
 }
 
-/** Require a signed-in GDG Accounts user without requiring chapter membership. */
 export async function requireUser(env: Env, request: Request): Promise<AuthUser> {
   try {
     return await getAuth(env).requireUser(request);
   } catch (e) {
-    // 401 means signed out (or signed in as someone else at Accounts); a 503
-    // from an unreachable IdP must surface instead of looping through sign-in.
     if (e instanceof Response && e.status === 401) throw buildSignInRedirect(request);
     throw e;
   }
 }
 
-/** Require a signed-in user with at least one active chapter membership. */
 export async function requireUserWithChapter(
   env: Env,
   request: Request,
@@ -46,7 +42,6 @@ export async function getOptionalUser(env: Env, request: Request): Promise<AuthU
   return getAuth(env).getSessionUser(request);
 }
 
-/** GDG Accounts 管理者（isAdmin）であることを要求する。非管理者は 403 で拒否する。 */
 export async function requireAdmin(env: Env, request: Request): Promise<AuthUser> {
   const user = await requireUser(env, request);
   if (!user.isAdmin) {

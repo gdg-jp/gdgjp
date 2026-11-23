@@ -11,7 +11,6 @@ vi.mock("~/features/google/drive-oauth.server", () => ({
 import { refreshAccessToken } from "~/features/google/drive-oauth.server";
 import { TOKEN_REFRESH_MARGIN_MS, getGoogleDriveTokenRow } from "./drive-token.server";
 
-/** Just enough of Drizzle's select / update chains for one token row. */
 function fakeDb(expiresAt: Date) {
   const update = vi.fn(() => ({ set: () => ({ where: async () => undefined }) }));
   const db = {

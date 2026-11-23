@@ -6,7 +6,6 @@ import { primaryIntent, showsPause } from "../intent";
 import { useOpenEditor } from "./ClipEditor";
 import { useController } from "./controller-context";
 
-/** Standby clips, reachable from every tab. Progress fills the chip itself. */
 export function CommonShelf() {
   const { catalog } = useCatalog();
   const openEditor = useOpenEditor();

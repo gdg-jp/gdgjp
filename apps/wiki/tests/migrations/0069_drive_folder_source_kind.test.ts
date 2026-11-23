@@ -4,7 +4,6 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 const MIGRATIONS = new URL("../../migrations/", import.meta.url);
 
-/** Apply every migration before 0069 in order, as wrangler does on a fresh database. */
 function databaseBefore0069(): DatabaseSync {
   const db = new DatabaseSync(":memory:");
   const files = readdirSync(MIGRATIONS)

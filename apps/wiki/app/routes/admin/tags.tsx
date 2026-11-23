@@ -11,10 +11,6 @@ import { TagDialog } from "./_components/TagDialog";
 import type { TagRow } from "./_components/TagDialog";
 import { TagTable } from "./_components/TagTable";
 
-// ---------------------------------------------------------------------------
-// Loader
-// ---------------------------------------------------------------------------
-
 export async function loader({ request, context }: LoaderFunctionArgs) {
   const { env } = context.cloudflare;
   await requireAdmin(request, env);
@@ -22,10 +18,6 @@ export async function loader({ request, context }: LoaderFunctionArgs) {
   const tags = db.select().from(schema.tags).orderBy(desc(schema.tags.pageCount)).all();
   return { tags };
 }
-
-// ---------------------------------------------------------------------------
-// Action
-// ---------------------------------------------------------------------------
 
 export async function action({ request, context }: ActionFunctionArgs) {
   const { env } = context.cloudflare;
@@ -90,10 +82,6 @@ export async function action({ request, context }: ActionFunctionArgs) {
 
   return {};
 }
-
-// ---------------------------------------------------------------------------
-// UI
-// ---------------------------------------------------------------------------
 
 export default function AdminTags() {
   const { tags } = useLoaderData<typeof loader>();

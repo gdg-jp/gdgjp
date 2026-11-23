@@ -68,7 +68,6 @@ export function buildUserSubscriptionFilter(targetResource: string): string {
   return `event_types:"google.workspace.meet.conference.v2.ended" AND target_resource="${targetResource}"`;
 }
 
-/** 失敗内容を、D1 に記録済みの最新の購読行（無ければ `fallback`）の `last_error` に残す。 */
 async function recordSubscriptionFailure(
   db: D1Database,
   fallback: GoogleSubscriptionRecord | null,
@@ -84,11 +83,6 @@ async function recordSubscriptionFailure(
   });
 }
 
-/**
- * D1 に記録済みの購読の実際の状態を `subscriptions.get` で確かめ、必要なら再有効化・延長する。
- * `suspended` ライフサイクル通知は通知先の権限エラーなどで届かないことがあるため、毎回 Google 側の状態を見る。
- * Google 側で見つからない・削除済み・延長が期限切れで失敗した場合は null を返し、呼び出し元で作り直す。
- */
 async function reviveExistingSubscription(
   db: D1Database,
   accessToken: string,
@@ -178,7 +172,6 @@ async function createOrAdoptSubscription(
       throw error;
     }
 
-    // 同一ユーザー対象の購読が既に存在する場合（00a §7-2）、一覧から見つけて採用または再作成する。
     const existingList = await listSubscriptions(
       accessToken,
       buildUserSubscriptionFilter(targetResource),
@@ -228,10 +221,6 @@ async function createOrAdoptSubscription(
   }
 }
 
-/**
- * 共有ホストアカウントに対する Workspace Events 購読（`id = 1`）を維持・再有効化・延長・再作成する。
- * D1 に購読があれば毎回 `subscriptions.get` で実際の状態を確かめる（`reviveExistingSubscription`）。
- */
 export async function ensureSubscription(
   env: Env,
   deps: SubscriptionDeps = {},
@@ -264,7 +253,6 @@ export async function ensureSubscription(
         fetchFn,
       });
       if (revived) return { ok: true, ...revived };
-      // Google 側で見つからない・期限切れの場合は新規作成へフォールバックする。
     } catch (error) {
       await recordSubscriptionFailure(env.DB, existing, nowIso, error);
       throw error;
@@ -287,7 +275,6 @@ export async function ensureSubscription(
   }
 }
 
-/** `expirationReminder` ライフサイクル通知受信時に即座に TTL を延長して D1 を更新する。 */
 export async function handleExpirationReminder(
   env: Env,
   subscriptionName: string | null,
@@ -313,7 +300,6 @@ export async function handleExpirationReminder(
   );
 }
 
-/** `expired` ライフサイクル通知受信時に購読を作り直す。 */
 export async function handleSubscriptionExpired(
   env: Env,
   deps: Pick<SubscriptionDeps, "fetchFn" | "now"> = {},
@@ -321,7 +307,6 @@ export async function handleSubscriptionExpired(
   return ensureSubscription(env, { ...deps, forceRecreate: true });
 }
 
-/** `suspended` ライフサイクル通知受信時に SUSPENDED 状態を記録したうえで `reactivateSubscription` を試みる。 */
 export async function handleSubscriptionSuspended(
   env: Env,
   subscriptionName: string | null,

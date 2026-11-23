@@ -20,11 +20,6 @@ export function meta() {
   return [{ title: "mc player" }, { name: "robots", content: "noindex" }];
 }
 
-/**
- * The OBS Browser Source. Renders nothing visible unless the browser blocks
- * autoplay, in which case a single icon asks for the one click that unlocks it
- * (OBS itself never blocks; this is for testing in a normal browser).
- */
 export default function Play() {
   const [params] = useSearchParams();
   const token = params.get("t") ?? "";
@@ -41,8 +36,6 @@ export default function Play() {
       if (backlog.length > 50) backlog.shift();
     };
 
-    // Only this track's channel can ask for clips, so only those are preloaded.
-    // Uploaded clips arrive from the room right after connecting.
     const engine = new PlayerEngine(buildCatalog().forTrack(track), log);
     engineRef.current = engine;
     let lastReport = 0;
@@ -57,7 +50,6 @@ export default function Play() {
       },
       onStatus: () => {},
       onOpen: () => {
-        // Tell the room the truth first, then anything that happened offline.
         report();
         for (const entry of backlog.splice(0)) post({ type: "log", entry });
       },

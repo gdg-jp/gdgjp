@@ -35,15 +35,6 @@ import ZipImportDialog from "~/features/zip-import/components/ZipImportDialog";
 import { useMediaQuery } from "~/hooks/useMediaQuery";
 import { getDb } from "~/lib/db.server";
 
-// ---------------------------------------------------------------------------
-// Revalidation
-// ---------------------------------------------------------------------------
-
-/**
- * The published page tree is expensive and stable across in-app GET navigations.
- * Keep the cached tree so leaf routes aren't blocked by a full D1 tree scan.
- * Still refresh after mutations and same-URL revalidate() (import polling, etc.).
- */
 export function shouldRevalidate({
   currentUrl,
   nextUrl,
@@ -52,7 +43,6 @@ export function shouldRevalidate({
 }: ShouldRevalidateFunctionArgs) {
   if (formMethod && formMethod.toUpperCase() !== "GET") return true;
   if (currentUrl.href === nextUrl.href) return defaultShouldRevalidate;
-  // The tree belongs to one space: reload it when navigation crosses spaces.
   if (spaceSlugOf(currentUrl.pathname) !== spaceSlugOf(nextUrl.pathname)) return true;
   return false;
 }
@@ -61,10 +51,6 @@ function spaceSlugOf(pathname: string): string | null {
   const match = /^\/s\/([^/]+)/.exec(pathname);
   return match?.[1] ?? null;
 }
-
-// ---------------------------------------------------------------------------
-// Loader
-// ---------------------------------------------------------------------------
 
 export async function loader({ request, context, params }: LoaderFunctionArgs) {
   const { env } = context.cloudflare;
@@ -75,7 +61,6 @@ export async function loader({ request, context, params }: LoaderFunctionArgs) {
   const { spaces, currentSpace } = await resolveShellSpaces(db, viewer, params.space);
 
   const visFilter = buildVisibilityFilter(user, identity.chapters);
-  // Stream the sidebar tree so the shell + leaf route can commit without waiting on it.
   const pageTree = db
     .select({
       id: schema.pages.id,
@@ -119,15 +104,10 @@ export async function loader({ request, context, params }: LoaderFunctionArgs) {
   };
 }
 
-// ---------------------------------------------------------------------------
-// Layout component
-// ---------------------------------------------------------------------------
-
 export default function AppLayout() {
   const { user, pageTree, unreadNotificationCount, spaces, currentSpace, hideAgentPages } =
     useLoaderData<typeof loader>();
   const params = useParams();
-  // Prefer :slug (edit/history/tasks); fall back to leaf of wiki splat path (/wiki/*).
   const currentSlug = params.slug ?? params["*"]?.split("/").filter(Boolean).at(-1);
   const { i18n, t } = useTranslation();
   const location = useLocation();
@@ -146,17 +126,13 @@ export default function AppLayout() {
     try {
       const persisted = localStorage.getItem("gdg-sidebar-open");
       if (persisted !== null) setDesktopOpen(persisted === "true");
-    } catch {
-      // Storage can be disabled by privacy settings; the in-memory default remains usable.
-    }
+    } catch {}
   }, []);
 
   useEffect(() => {
     try {
       localStorage.setItem("gdg-sidebar-open", String(desktopOpen));
-    } catch {
-      // Persistence is optional; never let unavailable storage break the shell.
-    }
+    } catch {}
   }, [desktopOpen]);
 
   useEffect(() => {
@@ -221,7 +197,6 @@ export default function AppLayout() {
     };
   }, [revalidator]);
 
-  // Popover/dialog state — only one can be open at a time
   const [activePanel, setActivePanel] = useState<"recent" | "starred" | "archived" | null>(null);
   const recentButtonRef = useRef<HTMLButtonElement>(null);
   const starredButtonRef = useRef<HTMLButtonElement>(null);
@@ -238,14 +213,12 @@ export default function AppLayout() {
     navigate(`${location.pathname}${query ? `?${query}` : ""}`, { replace: true });
   }, [location.pathname, location.search, navigate]);
 
-  // Close mobile drawer and all panels on route change
   // biome-ignore lint/correctness/useExhaustiveDependencies: intentional trigger on pathname change
   useEffect(() => {
     setMobileOpen(false);
     setActivePanel(null);
   }, [location.pathname]);
 
-  // Close panels when switching between mobile/desktop to avoid glitches
   // biome-ignore lint/correctness/useExhaustiveDependencies: intentional trigger on isMobile change
   useEffect(() => {
     setActivePanel(null);
@@ -303,7 +276,6 @@ export default function AppLayout() {
             </Await>
           </Suspense>
 
-          {/* Main content */}
           <div className="flex min-w-0 flex-1 flex-col">
             <main id="wiki-main" tabIndex={-1} className="flex-1">
               <Outlet />
@@ -318,7 +290,6 @@ export default function AppLayout() {
           />
         )}
         {user && <ZipImportDialog open={zipImportOpen} onOpenChange={setZipImportOpen} />}
-        {/* Signed-in only panels */}
         {user &&
           (isMobile ? (
             <SidebarDialog open={activePanel === "recent"} onClose={() => setActivePanel(null)}>
@@ -341,7 +312,6 @@ export default function AppLayout() {
               />
             </SidebarPopover>
           ))}
-        {/* Starred panel */}
         {user &&
           (isMobile ? (
             <SidebarDialog open={activePanel === "starred"} onClose={() => setActivePanel(null)}>
@@ -364,7 +334,6 @@ export default function AppLayout() {
               />
             </SidebarPopover>
           ))}
-        {/* Archived panel */}
         {user &&
           (isMobile ? (
             <SidebarDialog open={activePanel === "archived"} onClose={() => setActivePanel(null)}>

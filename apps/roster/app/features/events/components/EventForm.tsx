@@ -3,13 +3,6 @@ import type { UserChapter } from "~/features/auth/chapter.server";
 
 const STEP_OPTIONS = [15, 30, 60] as const;
 
-/**
- * `/events/new`'s creation form (docs/roster/02-domain-schema.md "Design"
- * §6). Chapter is only shown as a picker when the user belongs to more than
- * one — matching `ost/app/routes/home.tsx`'s creation form, which is this
- * app's closest UI precedent (ADR-001: no local UI-primitive layer, plain
- * Tailwind on top of gdg-lib's color tokens).
- */
 export function EventForm({
   chapters,
   error,

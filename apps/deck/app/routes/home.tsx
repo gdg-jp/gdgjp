@@ -82,7 +82,6 @@ export default function Home({ loaderData }: Route.ComponentProps) {
   const revalidator = useRevalidator();
   const multiChapter = chapters.length > 1;
 
-  // Live dock / OBS status while the list is on screen.
   useEffect(() => {
     const timer = setInterval(() => {
       if (document.visibilityState === "visible" && revalidator.state === "idle") {

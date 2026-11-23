@@ -77,14 +77,6 @@ export type UpdateMeetingDeps = {
   enqueueArtifactReshareFn?: (env: Env, meetingId: string) => Promise<void>;
 };
 
-/**
- * 既存の `active` な会議を更新する。
- * - `accessType` 変更時のみ `spaces.patch` を呼ぶ
- * - 招待元に変更がある場合のみ `fetchChapterMembers` + `resolveInvitees` を再実行する
- * - `calendar.patchEvent`（`sendUpdates=all`・ゲスト可視性 3 項目維持）で予定を更新する
- * - 招待者に差分があれば `sync_members` ジョブ投入と生成ファイル再共有フックを呼ぶ
- * - 招待者を外しても Drive 共有権限削除 API は呼ばない
- */
 export async function updateMeeting(
   env: Env,
   actor: MeetActor,
@@ -268,10 +260,6 @@ export async function updateMeeting(
   return { ok: true, meetingId: meeting.id, inviteesChanged, ...diff };
 }
 
-/**
- * 保存済みの `meeting_invite_sources` を使って最新チャプターメンバーから招待者を再解決し、
- * 差分がある場合のみ D1・Google カレンダー予定・Meet メンバー同期・生成ファイル再共有を更新する。
- */
 export async function resyncMeetingInvitees(
   env: Env,
   actor: MeetActor,

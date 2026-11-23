@@ -18,7 +18,6 @@ import { useLevel } from "~/features/rtc/use-level";
 import type { LocalMedia } from "~/features/rtc/use-local-media";
 import { CamControl, MicControl, ShareToggle, SpeakerControl, SwitchShare } from "./MediaControls";
 
-/** Device check before entering the room (Q16/Q23). */
 export function Lobby({
   stageName,
   media,
@@ -36,7 +35,6 @@ export function Lobby({
   const level = useLevel(media.mic, media.micOn);
   const [tabAudio, setTabAudio] = useState(true);
   useEffect(() => setTabAudio(canShareTabAudio(navigator.userAgent)), []);
-  // Join is always pressable; a missing name is explained right at the field.
   const [nameError, setNameError] = useState(false);
   const nameRef = useRef<HTMLInputElement>(null);
   const submit = (e: FormEvent) => {

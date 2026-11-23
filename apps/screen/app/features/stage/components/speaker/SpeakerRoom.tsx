@@ -41,7 +41,6 @@ import { LangToggle } from "./LangToggle";
 import { CamControl, MicControl, MicToggle, ShareToggle, SpeakerControl } from "./MediaControls";
 import { MiniWindowPortal, useMiniWindow } from "./MiniWindow";
 
-/** After this long without a working connection the yellow bar turns red. */
 const OFFLINE_AFTER_MS = 30_000;
 
 function operatorRefs(operators: Peer[]): RemoteRef[] {
@@ -123,13 +122,11 @@ export function SpeakerRoom({
   const onAir = !!view?.onAir && !!view.slot;
   const remaining = useRemaining(view?.timer, room.clockOffset);
 
-  // ─── cues & notifications ────────────────────────────────────────────
   const messages = view?.messages ?? [];
   const { cue, ack } = useOpenCue(messages);
   const pip = useMiniWindow();
   useCueAlerts(cue, pip.isOpen);
 
-  // ─── screen share (+ mini window in the same click) ─────────────────
   const share = () => {
     void media.shareScreen();
     if (pip.supported && !pip.isOpen) {
@@ -346,10 +343,6 @@ export function SpeakerRoom({
   );
 }
 
-/**
- * Without a mini window the speaker may be looking at slides: surface new
- * cues through a system notification and a blinking tab title.
- */
 function useCueAlerts(cue: Message | null, pipOpen: boolean) {
   const lastId = useRef<string | null>(null);
   useEffect(() => {

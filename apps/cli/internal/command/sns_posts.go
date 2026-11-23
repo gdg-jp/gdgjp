@@ -54,10 +54,6 @@ func newSnsPostsListCommand(credentials store.CredentialStore) *cobra.Command {
 	return command
 }
 
-// postBody builds the create/update payload from the shared post flags. On
-// create, chapterId/xAccountId/text/scheduledAt/condition are always
-// included; on update every field is optional and only changed flags are
-// sent.
 func postBody(cmd *cobra.Command, create bool) map[string]any {
 	body := map[string]any{}
 	if create {
@@ -87,7 +83,6 @@ func postBody(cmd *cobra.Command, create bool) map[string]any {
 	return body
 }
 
-// addSnsPostFieldFlags registers the post fields shared by create and update.
 func addSnsPostFieldFlags(cmd *cobra.Command) {
 	cmd.Flags().String("x-account-id", "", "X account id to post from (see: gdg sns x-accounts list)")
 	cmd.Flags().String("text", "", "Post text")

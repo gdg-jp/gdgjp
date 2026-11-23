@@ -4,9 +4,6 @@ import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
 const APP_DIRECTORY = fileURLToPath(new URL("../../app/", import.meta.url));
-// `components/` and `routes/` are wholly UI. Under `features/` only the
-// `*/components/` subtrees are UI — feature `*.server.ts` (email HTML, colour
-// parsing) legitimately carries colour literals and must not be scanned.
 const UI_DIRECTORIES = ["components", "routes"];
 const FEATURE_COMPONENTS_ROOT = "features";
 const UI_ROOT_FILES = ["root.tsx"];

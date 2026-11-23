@@ -103,7 +103,6 @@ export default function TeamManager({ teams, taskListId, onRefresh }: TeamManage
   return (
     <div className="space-y-2">
       {error && <p className="text-xs text-danger">{error}</p>}
-      {/* Existing teams */}
       {teams.map((team) => {
         return editingId === team.id ? (
           <div key={team.id} className="space-y-2 rounded-md border border-link px-3 py-2">
@@ -166,7 +165,6 @@ export default function TeamManager({ teams, taskListId, onRefresh }: TeamManage
         );
       })}
 
-      {/* New team form */}
       <div className="space-y-2 border-t border-border pt-3">
         <p className="text-xs font-semibold text-muted">{t("tasks.new_team")}</p>
         <input

@@ -9,18 +9,10 @@ import { getEffectivePagePermissions } from "~/features/pages/access.server";
 import TeamManager from "~/features/tasks/components/TeamManager";
 import { getDb } from "~/lib/db.server";
 
-// ---------------------------------------------------------------------------
-// Meta
-// ---------------------------------------------------------------------------
-
 import { Icons } from "@gdgjp/design-system";
 import { pageInSpace } from "~/features/pages/page-space.server";
 import { DEFAULT_SPACE_ID } from "~/features/spaces/shared";
 export const meta: MetaFunction = () => [{ title: "Task List Settings — GDG Japan Wiki" }];
-
-// ---------------------------------------------------------------------------
-// Loader
-// ---------------------------------------------------------------------------
 
 export async function loader({ request, params, context }: LoaderFunctionArgs) {
   const { env } = context.cloudflare;
@@ -51,10 +43,6 @@ export async function loader({ request, params, context }: LoaderFunctionArgs) {
 
   return { page, teams };
 }
-
-// ---------------------------------------------------------------------------
-// Action — update title. General access is managed exclusively by ShareDialog.
-// ---------------------------------------------------------------------------
 
 export async function action({ request, params, context }: ActionFunctionArgs) {
   const { env } = context.cloudflare;
@@ -88,10 +76,6 @@ export async function action({ request, params, context }: ActionFunctionArgs) {
   return redirect(`/tasks/${slug}`);
 }
 
-// ---------------------------------------------------------------------------
-// Route component
-// ---------------------------------------------------------------------------
-
 export default function TaskListSettings() {
   const { page, teams } = useLoaderData<typeof loader>();
   const { t } = useTranslation();
@@ -112,7 +96,6 @@ export default function TaskListSettings() {
 
       <h1 className="mb-6 text-2xl font-bold">{t("tasks.settings")}</h1>
 
-      {/* Title form */}
       <Form method="post" className="mb-8 space-y-4">
         <div>
           <label htmlFor="settings-titleJa" className="mb-1 block text-sm font-medium text-muted">
@@ -148,7 +131,6 @@ export default function TaskListSettings() {
         </button>
       </Form>
 
-      {/* Team manager */}
       <TeamManager teams={teams} taskListId={page.id} onRefresh={() => revalidator.revalidate()} />
     </div>
   );

@@ -4,10 +4,6 @@ import type { RouteRequestArgs } from "~/lib/route-args";
 type AccessTokenRow = { userId: string };
 type UserRow = { id: string; name: string; email: string; image: string | null };
 
-/**
- * Returns Accounts users for the SNS contributor picker. A current SNS OAuth
- * token is required so the Accounts directory is never exposed anonymously.
- */
 export async function searchAccountUsers({ request, context }: RouteRequestArgs) {
   const token = bearerToken(request);
   if (!token) return unauthorized();

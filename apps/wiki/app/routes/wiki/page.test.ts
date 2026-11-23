@@ -9,8 +9,6 @@ vi.mock("~/lib/db.server", () => ({
   getDb: vi.fn(),
 }));
 
-// Outer layer: the default space resolves for every caller; identity comes from the
-// mocked getAccessIdentity so each case still controls the inner ACL inputs.
 vi.mock("~/features/spaces/access.server", async () => {
   const { getAccessIdentity } = await import("~/features/auth/utils.server");
   return {
@@ -33,7 +31,6 @@ vi.mock("~/features/pages/access.server", () => ({
 
 vi.mock("~/features/pages/wiki-page-path.server", () => ({
   getWikiCanonicalSlugPath: vi.fn(),
-  // No ancestry rows: the loader falls back to getWikiCanonicalSlugPath, which these tests drive.
   getWikiAncestry: vi.fn(async () => new Map()),
 }));
 

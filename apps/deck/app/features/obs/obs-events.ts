@@ -1,9 +1,3 @@
-/**
- * Pure state bookkeeping for the dock: building an ObsState from a full read
- * of OBS, and patching it from obs-websocket events. Structural events (scenes,
- * inputs, items, filters added/removed/renamed) ask for a full re-read instead.
- */
-
 import type { BatchResult } from "./obs-client";
 import { type ObsInput, type ObsState, emptyObsState } from "./state";
 
@@ -35,9 +29,7 @@ const STRUCTURAL = new Set([
 
 export type EventEffect = {
   state: ObsState;
-  /** Something structural changed: re-read everything. */
   refresh: boolean;
-  /** Re-read this media input's playback state. */
   media: string | null;
 };
 
@@ -141,9 +133,6 @@ export function applyEvent(state: ObsState, type: string, d: Data, now: number):
   }
 }
 
-// ─── full read ────────────────────────────────────────────────────────────
-
-/** First batch: everything that does not depend on the scene / input lists. */
 export const BASE_REQUESTS = [
   { requestType: "GetVersion" },
   { requestType: "GetStreamStatus" },
@@ -171,7 +160,6 @@ function indexResults(results: BatchResult[]): Record<string, Data | undefined> 
 
 export type BaseRead = {
   state: ObsState;
-  /** Second batch: per-scene items, per-input audio/media, per-source filters. */
   detailRequests: { requestType: string; requestData: Data }[];
 };
 
@@ -247,7 +235,6 @@ export function readBase(results: BatchResult[], now: number): BaseRead {
   return { state, detailRequests };
 }
 
-/** Folds the second batch's answers (same order as `detailRequests`) into the state. */
 export function readDetails(
   base: ObsState,
   requests: BaseRead["detailRequests"],

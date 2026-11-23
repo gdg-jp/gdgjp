@@ -6,7 +6,6 @@ import { getDefaultRosterSheet } from "~/features/roster-sheets/roster-sheets.se
 import { getDb } from "~/lib/db.server";
 import type { Route } from "./+types/e.$id.design";
 
-/** Legacy event design URL: keep its access check and send owners to the default sheet. */
 export async function loader({ request, context, params }: Route.LoaderArgs) {
   const env = context.cloudflare.env;
   const { chapters } = await requireUserWithChapter(env, request);

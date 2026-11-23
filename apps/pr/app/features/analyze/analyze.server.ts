@@ -32,7 +32,6 @@ export async function enqueueAnalyze(db: D1Database, campaignId: number, userId:
   });
 }
 
-/** Weekly (Monday 02:00 JST): one analyze job per active campaign. */
 export async function enqueueWeeklyAnalyses(env: Env) {
   const { results } = await env.DB.prepare("SELECT id FROM campaigns WHERE status = 'active'").all<{
     id: number;
@@ -49,7 +48,6 @@ export async function enqueueWeeklyAnalyses(env: Env) {
   return { queued };
 }
 
-/** The analyze bundle: the numbers the dashboard shows, flights, plan, the next 14 days, the team. */
 export async function analyzeFiles(
   env: Env,
   campaign: Campaign,
@@ -96,7 +94,6 @@ export async function analyzeFiles(
   );
 }
 
-/** Saved as a `report` draft; a reallocation outside the Playbook's X : IG range is flagged. */
 export async function importReport(
   env: Env,
   job: Job,
@@ -141,7 +138,6 @@ export async function importReport(
   };
 }
 
-/** A person applies one proposal; nothing is applied automatically. */
 export async function applyProposal(
   env: Env,
   access: CampaignAccess,

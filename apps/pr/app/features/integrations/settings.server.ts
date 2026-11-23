@@ -10,7 +10,6 @@ import { activateCampaign } from "./activate.server";
 import { actorOf, callRpc, snsService } from "./bindings.server";
 import { checkPosting } from "./permission-check.server";
 
-/** The delivery half of /c/:slug/settings. */
 export async function deliverySettings(env: Env, access: CampaignAccess) {
   const { campaign } = access;
   const chapterIds = [campaign.chapterId, ...access.campaignChapters.map((c) => c.chapterId)];
@@ -19,7 +18,6 @@ export async function deliverySettings(env: Env, access: CampaignAccess) {
     ...access.campaignChapters.map((c) => [c.chapterId, c.chapterSlug]),
   ]);
   const accounts = await listAccounts(env.DB, campaign.id);
-  // The X accounts the viewer can add: sns's accounts of each campaign chapter they are in.
   const addable: { chapterId: number; chapterSlug: string; id: string; username: string }[] = [];
   for (const chapterId of new Set(chapterIds)) {
     if (!access.chapters.some((c) => c.chapterId === chapterId)) continue;

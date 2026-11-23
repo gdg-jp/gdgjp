@@ -10,13 +10,6 @@ import type { Actor, HistoryState, RestoreResult, RevisionKind, RevisionSummary 
 export { recordRevision } from "./record.server";
 export type { RecordRevisionInput } from "./record.server";
 
-/**
- * D1 access for sheet-scoped `revisions` and `roster_sheets.revision_cursor`
- * (docs/roster/index.md §4, docs/roster/08-history.md "Design" §3-5, ADR-006).
- * `roster.server.ts#writeAssignments` calls `recordRevision` for writes. The
- * restore path replaces only one sheet's assignment rows and cursor atomically.
- */
-
 type RevisionRow = {
   id: string;
   event_id: string;
@@ -56,7 +49,6 @@ async function getSheetCursor(
   return row?.revision_cursor ?? null;
 }
 
-/** Restores one sheet's assignment set without disturbing sibling sheets. */
 async function replaceSheetAssignments(
   db: D1Database,
   eventId: string,
@@ -165,28 +157,10 @@ async function getRevisionBySeq(
     .first<RevisionRow>();
 }
 
-/**
- * Restores `assignments` to revision `seq`'s snapshot and moves the cursor
- * there — never inserts a revision (docs/roster/08-history.md "Design" §5).
- * Filters out any snapshot entry whose application is gone or withdrawn, or
- * whose slot, track, or role no longer belongs to this sheet (a withdrawal or
- * schedule/configuration change since the snapshot — docs/roster/08-history.md
- * "Design" §5), reporting the dropped count instead of
- * throwing or letting a foreign-key violation reach the caller.
- *
- * Returns `null` — rather than throwing — when `seq` itself doesn't name a
- * revision for this event, so `tryRestoreRevision` (below) can distinguish
- * "this specific, expected condition" from any other unrelated failure
- * (a D1 error, a corrupt snapshot, ...) without a broad `catch` that would
- * risk mislabeling those as "not found" too.
- */
 export async function restoreRevision(
   db: D1Database,
   eventId: string,
   seq: number,
-  // Accepted per the stage doc's signature; unused today because a restore
-  // writes no row anywhere that would record who performed it — kept for the
-  // `kind: 'restore'` branch-recording use the stage doc reserves (Design §5).
   _actor: Actor,
   rosterSheetId?: string,
 ): Promise<RestoreResult | null> {
@@ -232,7 +206,6 @@ export async function restoreRevision(
     filtered.set(key, value);
   }
 
-  // Restore does not create history and must preserve every sibling sheet.
   await replaceSheetAssignments(db, eventId, sheetId, observedCursor, row, filtered);
 
   return { droppedCount };
@@ -240,7 +213,6 @@ export async function restoreRevision(
 
 export type RestoreOutcome = { found: true; droppedCount: number } | { found: false };
 
-/** Request-facing wrapper that maps a missing or evicted revision to `found: false`. */
 export async function tryRestoreRevision(
   db: D1Database,
   eventId: string,
@@ -253,9 +225,6 @@ export async function tryRestoreRevision(
   return { found: true, droppedCount: result.droppedCount };
 }
 
-/** Moves the cursor one step toward `seq 1` and restores that snapshot, or
- * returns `null` (no-op) when already at the oldest revision or there is no
- * history yet — the route's "← 元に戻す" action. */
 export async function undoRevision(
   db: D1Database,
   eventId: string,
@@ -275,7 +244,6 @@ export async function undoRevision(
   return restoreRevision(db, eventId, prev.seq, actor, sheetId);
 }
 
-/** The redo counterpart of `undoRevision` — the route's "やり直す →" action. */
 export async function redoRevision(
   db: D1Database,
   eventId: string,
@@ -295,10 +263,6 @@ export async function redoRevision(
   return restoreRevision(db, eventId, next.seq, actor, sheetId);
 }
 
-/** The history panel's + undo/redo buttons' entire data need (docs/roster/
- * 08-history.md "Design" §6): newest-seq-first, each row carrying its own
- * `evaluate()` metrics so revisions can be compared without re-running
- * anything. Deliberately excludes `snapshot` (never needed by the UI). */
 export async function getHistoryState(
   db: D1Database,
   eventId: string,

@@ -3,7 +3,6 @@ import { Link } from "react-router";
 import type { EventRecord } from "~/features/events/events.server";
 import { STATUS_LABELS } from "~/features/events/status";
 
-/** One event's summary row in the `/` list (docs/roster/02-domain-schema.md "Design" §6). */
 export function EventCard({ event }: { event: EventRecord }) {
   return (
     <li className="event-card">

@@ -11,7 +11,6 @@ const TONE: Record<string, "success" | "warning" | "danger" | "neutral"> = {
   skipped: "neutral",
 };
 
-/** Per-account delivery of an approved post: each target is approved by its own chapter. */
 export function DeliveryCard({ view, busy }: { view: DeliveryView; busy: boolean }) {
   return (
     <Card>

@@ -1,11 +1,3 @@
-/**
- * Knowledge-platform eval (Stage 06). Never runs against production spaces: every case must
- * target an `e2e-` space, and the wiki confines eval readers to those spaces as well.
- *
- *   AGENT_SERVICE_TOKEN=… pnpm --filter @gdgjp/agent eval -- --set ../../docs/eval/qa
- *
- * Exit 1 if any leak (a forbidden term in a search hit, an answer or a citation).
- */
 import { mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { buildBundle } from "../src/features/inquiry/bundle";
@@ -159,7 +151,7 @@ async function main() {
   const options = parseArgs(process.argv.slice(2));
   const token = process.env.AGENT_SERVICE_TOKEN;
   if (!token) throw new Error("AGENT_SERVICE_TOKEN is required");
-  const cases = loadCases(options.set); // throws before any request if a case leaves e2e spaces
+  const cases = loadCases(options.set);
   const results: CaseResult[] = [];
   for (const c of cases) {
     process.stderr.write(`${c.id} (${c.asker}) … `);

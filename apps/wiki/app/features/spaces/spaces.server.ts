@@ -37,7 +37,6 @@ async function insertSpace(
   return { ok: true, space };
 }
 
-/** One personal space per user (`u-<userId>`); the creator is its only member. */
 export async function createPersonalSpace(
   db: Db,
   user: { id: string; name: string },
@@ -56,10 +55,6 @@ export async function createPersonalSpace(
   );
 }
 
-/**
- * One space per chapter (`c-<chapterId>`), created by an organizer of that chapter (or an
- * admin). Membership is fixed: organizers own it, members edit it, nobody else is added.
- */
 export async function createChapterSpace(
   db: Db,
   identity: SpaceIdentity & { user: { id: string; isAdmin?: boolean } },
@@ -122,7 +117,6 @@ export type SpaceSettingsInput = {
   translateEnabled?: boolean;
 };
 
-/** Owners edit settings. Slug changes are allowed for shared spaces only. */
 export async function updateSpaceSettings(
   db: Db,
   space: SpaceRow & { kind: SpaceKind },

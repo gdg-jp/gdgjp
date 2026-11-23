@@ -14,19 +14,13 @@ const (
 	StateFileName  = "state.json"
 )
 
-// Config is deliberately local-only: .gdgwiki is ignored so a clone's locale
-// never becomes a Git change and is available to the remote helper.
 type Config struct {
-	Lang string `json:"lang"`
-	// Space is the wiki space slug this clone tracks (empty = gdg-jp, the v1 wiki).
-	Space string `json:"space,omitempty"`
-	// RawSources limits raw pulls to these source ids (the runner's job sources).
+	Lang       string   `json:"lang"`
+	Space      string   `json:"space,omitempty"`
 	RawSources []string `json:"rawSources,omitempty"`
-	// NoRaw keeps the source manifest (ACL metadata) but downloads no raw files.
-	NoRaw bool `json:"noRaw,omitempty"`
+	NoRaw      bool     `json:"noRaw,omitempty"`
 }
 
-// ValidSpaceSlug matches the server's space slug rule (lowercase, digits, hyphen).
 func ValidSpaceSlug(slug string) bool {
 	if slug == "" || len(slug) > 64 || slug[0] == '-' {
 		return false
@@ -39,7 +33,6 @@ func ValidSpaceSlug(slug string) bool {
 	return true
 }
 
-// CloneConfig is an alias used by the command layer.
 type CloneConfig = Config
 
 func ConfigDir(root string) string {
@@ -95,7 +88,6 @@ func WriteConfig(root string, config Config) error {
 	return os.WriteFile(ConfigPath(root), append(raw, '\n'), 0o644)
 }
 
-// WorkTreeRoot derives the work tree from Git's .git directory.
 func WorkTreeRoot(gitDir string) (string, error) {
 	if gitDir == "" {
 		return "", fmt.Errorf("empty Git directory")
@@ -111,9 +103,6 @@ func WorkTreeRoot(gitDir string) (string, error) {
 }
 
 func CloneGitignore() string {
-	// Keep local agent/runtime dirs out of git status. EnsureCursorHooks rewrites
-	// this file idempotently. .cursor/ stays ignored even though clones no longer
-	// receive project hooks — leftover agent-writable config must not appear in git.
 	return strings.Join([]string{
 		"raw/",
 		"AGENTS.original.md",
@@ -137,14 +126,10 @@ func WriteCloneGitignore(root string) error {
 	return os.WriteFile(path, want, 0o644)
 }
 
-// WriteCloneExcludes keeps generated local control files out of git status.
-// They must never become a commit because the remote helper intentionally
-// accepts pushes containing only pages/**.
 func WriteCloneExcludes(root string) error {
 	path := filepath.Join(root, ".git", "info", "exclude")
 	raw, err := os.ReadFile(path)
 	if os.IsNotExist(err) {
-		// Test doubles and callers before git init have no local exclude file.
 		return nil
 	}
 	if err != nil {

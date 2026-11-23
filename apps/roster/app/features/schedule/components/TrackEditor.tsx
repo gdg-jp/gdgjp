@@ -4,14 +4,6 @@ import type { Track } from "~/features/schedule/tracks.server";
 
 const DEFAULT_COLORS = ["#4285f4", "#ea4335", "#fbbc04", "#34a853", "#673ab7", "#00acc1"];
 
-/**
- * The "トラックの追加・並べ替え・削除" card on `/e/:id/design`
- * (docs/roster/index.md §3 "トラック"). Reordering is two adjacent-swap
- * buttons rather than drag-and-drop — no extra dependency, and the route
- * action recomputes the full sort_order list from the swap
- * (`tracks.server.ts#reorderTracks` takes the whole ordered id list, not a
- * single-step move).
- */
 export function TrackEditor({ tracks, sheetId }: { tracks: Track[]; sheetId: string }) {
   return (
     <div className="space-y-4">

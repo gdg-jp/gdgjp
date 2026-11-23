@@ -43,9 +43,7 @@ export function LinkActionDialog({
   let favicon: string | null = null;
   try {
     favicon = `https://www.google.com/s2/favicons?domain=${new URL(destinationUrl).hostname}&sz=64`;
-  } catch {
-    // The destination URL is validated when a link is created or edited.
-  }
+  } catch {}
 
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>

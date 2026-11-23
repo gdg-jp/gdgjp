@@ -36,7 +36,6 @@ export async function createEventDraft(
 }
 
 function splitDateTime(value: string): { date: string; time: string } {
-  // Accept "YYYY/MM/DD HH:mm", "YYYY-MM-DDTHH:mm", or already-split "YYYY/MM/DD"
   const normalized = value.trim().replace("T", " ").replace(/-/g, "/");
   const [date, time = "00:00"] = normalized.split(/\s+/);
   return { date, time: time.slice(0, 5) };
@@ -56,9 +55,6 @@ async function setCapacity(page: Page, capacity: number): Promise<void> {
     return;
   }
 
-  // Connpass only exposes event-level capacity for advertisement events. A
-  // participation event has capacity per participation type, so mapping is
-  // unambiguous only when it has exactly one type.
   await waitForBoundEvent(page, `${edit.eventType.root} .JoinOptions`, "click");
   if (!(await isVisible(page, `${edit.eventType.typesBody} input`))) {
     await openUntilVisible(page, edit.eventType.editTrigger, `${edit.eventType.typesBody} input`);

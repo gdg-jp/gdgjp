@@ -61,7 +61,6 @@ export default function Tags({ loaderData }: Route.ComponentProps) {
   const pageEnd = Math.min(pageStart + PAGE_SIZE, filtered.length);
   const visible = filtered.slice(pageStart, pageEnd);
 
-  // Keyboard shortcut: "C" opens create dialog
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       if (e.key !== "c" && e.key !== "C") return;

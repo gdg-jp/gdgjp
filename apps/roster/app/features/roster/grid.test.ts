@@ -89,12 +89,6 @@ describe("groupAssignmentsByApplication", () => {
 });
 
 describe("buildRoleGridColumn", () => {
-  /**
-   * docs/roster/07-roster-manual-edit.md "回帰として固定すべきテスト":
-   * "役割別ビューで顔ぶれか需要が変われば縦結合が切れる" — the actual case this
-   * pins is a lineup change with the SAME headcount (2 people both slots),
-   * which a naive "did the count change" check would wrongly merge.
-   */
   it("breaks the merge when the member lineup changes, even if headcount stays the same", () => {
     const assignments: Assignments = new Map([
       [assignmentKey("app_a", "s0"), { trackId: "trk_a", roleId: "roleX", locked: false }],
@@ -251,9 +245,6 @@ describe("buildStaffCellCandidates", () => {
     const assignments: Assignments = new Map([
       [assignmentKey("app_a", "s0"), { trackId: "trk_a", roleId: "roleX", locked: false }],
     ]);
-    // app_a is asking to move within the same slot — hardViolations must be
-    // checked against a copy with their own entry removed first, or every
-    // candidate (including their current one) would wrongly warn.
     const candidates = buildStaffCellCandidates(BASE_INPUT, assignments, "app_a", "s0");
     expect(candidates[0].warnings).toEqual([]);
   });
@@ -280,8 +271,6 @@ describe("suggestForRange", () => {
   });
 
   it("unions warnings across every slot in the range, not just the first", () => {
-    // app_a is "o" at s0 but "x" at s1 — a single-slot suggestFor("s0")
-    // would miss the s1 problem entirely.
     const suggestions = suggestForRange(BASE_INPUT, new Map(), ["s0", "s1"], "trk_a", "roleX");
     const appA = suggestions.find((s) => s.applicationId === "app_a");
     expect(appA?.warnings.some((w) => w.includes("稼働不可"))).toBe(true);

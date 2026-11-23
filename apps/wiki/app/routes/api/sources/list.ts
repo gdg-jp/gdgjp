@@ -12,7 +12,6 @@ export async function loader({ request, context }: LoaderFunctionArgs) {
   const user = await requireUser(request, env);
   const identity = await getAccessIdentity(request, env);
   const db = getDb(env);
-  // `?space=<slug>`; omitted means the default space (v1 clients).
   const spaceSlug = new URL(request.url).searchParams.get("space") ?? DEFAULT_SPACE_SLUG;
   const { space } = await requireSpaceForIdentity(db, identity, spaceSlug);
 

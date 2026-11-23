@@ -7,11 +7,6 @@ import { NON_REFRESHABLE_KINDS } from "~/features/sources/kinds";
 import { enqueueSourceRefresh } from "~/features/sources/sources.server";
 import { getDb } from "~/lib/db.server";
 
-/**
- * POST /api/admin/refresh-all-sources — refresh every source once so its documents move to
- * the v2 R2 layout (`spaces/<space>/raw/…`) with audience metadata. Progress is visible as
- * `SELECT count(*) FROM source_documents WHERE r2_key LIKE 'spaces/%'`.
- */
 export async function action({ request, context }: ActionFunctionArgs) {
   if (request.method !== "POST") return new Response("Method Not Allowed", { status: 405 });
   const { env } = context.cloudflare;

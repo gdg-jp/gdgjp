@@ -90,9 +90,7 @@ export type ImageListCursor = { createdAt: number; id: string };
 export type ImageViewer = { userId: string; chapterIds: number[] };
 
 export type ListImagesOptions = {
-  /** Narrows to one explicit chapter (still subject to the viewer's access). */
   chapterId?: number;
-  /** number = only that folder; null = only unfiled images; undefined = no folder filter. */
   folderId?: number | null;
   limit?: number;
   cursor?: ImageListCursor | null;
@@ -103,11 +101,6 @@ export type ListImagesResult = {
   nextCursor: string | null;
 };
 
-/**
- * Parses an opaque cursor token from a caller. Returns undefined when it is
- * malformed, distinct from the "no cursor" case (null), so callers can tell
- * "start from the beginning" apart from "this token is invalid".
- */
 export function parseImageListCursor(cursor: string): ImageListCursor | undefined {
   try {
     const value = JSON.parse(cursor) as { createdAt?: unknown; id?: unknown };
@@ -119,12 +112,6 @@ export function parseImageListCursor(cursor: string): ImageListCursor | undefine
   }
 }
 
-/**
- * Lists images the viewer can see: their own uploads, plus anything shared to
- * one of their chapters. Superadmin does NOT bypass this — a superadmin still
- * only browses their own + their chapters' images here; canAccessImage is the
- * per-image bypass used once an id is already known (e.g. /i/:id).
- */
 export async function listVisibleImages(
   db: D1Database,
   viewer: ImageViewer,
@@ -233,13 +220,6 @@ export type SetImageSlugResult =
   | { ok: true; image: ImageRow }
   | { ok: false; reason: "not_found" | "slug_taken" };
 
-/**
- * Sets or clears (slug === null) an image's custom slug. A slug-only change
- * intentionally does NOT bump updated_at — unlike updateImageBytes/setMobileImage
- * — so the public image ETag/cache in routes/$id.tsx (keyed on updated_at) is not
- * needlessly invalidated. Translates the partial UNIQUE index violation into a
- * typed `slug_taken` result.
- */
 export async function setImageSlug(
   db: D1Database,
   id: string,
@@ -259,11 +239,6 @@ export async function setImageSlug(
   }
 }
 
-/**
- * Assigns (or clears, folderId === null) an image's folder. Like setImageSlug,
- * does NOT bump updated_at — the public ETag should not change because of
- * where an image is filed.
- */
 export async function setImageFolder(
   db: D1Database,
   id: string,
@@ -277,12 +252,6 @@ export async function setImageFolder(
   return toImageRow(row);
 }
 
-/**
- * Re-attributes an image to a different chapter, clearing its folder in the
- * same statement — a folder belongs to exactly one chapter, so an image
- * moved to a new chapter cannot stay in its old chapter's folder. Does NOT
- * bump updated_at, matching setImageSlug/setImageFolder.
- */
 export async function setImageChapter(
   db: D1Database,
   id: string,
@@ -308,13 +277,6 @@ export type UpdateImageAttributesResult =
   | { ok: true; image: ImageRow }
   | { ok: false; reason: "not_found" | "slug_taken" };
 
-/**
- * Sets chapter_id, folder_id, and slug together in a single UPDATE statement
- * so the three can never partially commit — see updateImageForActor, which
- * validates every field (including cross-field constraints like the folder
- * belonging to the target chapter) before calling this. Like
- * setImageSlug/setImageFolder/setImageChapter, does NOT bump updated_at.
- */
 export async function updateImageAttributes(
   db: D1Database,
   id: string,

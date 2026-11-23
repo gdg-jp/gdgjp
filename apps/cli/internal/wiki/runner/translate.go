@@ -13,7 +13,6 @@ import (
 
 const translateTimeout = 15 * time.Minute
 
-// translate: one job = one whole page. source.md in, target.md out, POSTed as en only.
 func (r *Runner) translate(ctx context.Context, job *Job) Result {
 	var payload struct {
 		PageID     string `json:"pageId"`
@@ -49,19 +48,16 @@ func (r *Runner) translate(ctx context.Context, job *Job) Result {
 		return failed(errors.New("target.md is empty"), false)
 	}
 	if err = r.api.PostTranslation(ctx, page.ID, title, content, payload.SourceHash); err != nil {
-		return failed(err, false) // 409 stale_source / 400 acl_required: the nightly cron retries
+		return failed(err, false)
 	}
 	return Result{Status: "succeeded", Result: map[string]any{"pageId": page.ID}}
 }
 
-// renderSource writes the page with a minimal front matter; the title is a JSON string,
-// which is also valid YAML.
 func renderSource(title, content string) string {
 	encoded, _ := json.Marshal(title)
 	return "---\ntitle: " + string(encoded) + "\n---\n\n" + content
 }
 
-// parseTarget reads back `title:` from the front matter and the body after it.
 func parseTarget(raw string) (title, content string) {
 	raw = strings.TrimPrefix(raw, "\ufeff")
 	if !strings.HasPrefix(raw, "---\n") {

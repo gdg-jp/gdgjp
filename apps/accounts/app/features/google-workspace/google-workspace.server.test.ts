@@ -212,7 +212,6 @@ describe("workspace OAuth state", () => {
     const result = await consumeWorkspaceOauthState(db, state, "attacker");
     expect(result).toEqual({ ok: false, reason: "session_mismatch" });
 
-    // Single-use: even the rightful session can't retry after the mismatched attempt.
     const retry = await consumeWorkspaceOauthState(db, state, "user-1");
     expect(retry).toEqual({ ok: false, reason: "not_found" });
   });

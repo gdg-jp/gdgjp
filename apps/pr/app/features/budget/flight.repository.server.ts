@@ -93,7 +93,6 @@ export async function setActual(db: D1Database, id: number, actualYen: number) {
     .run();
 }
 
-/** Claim the one overrun alert per flight. */
 export async function claimOverrunAlert(db: D1Database, id: number): Promise<boolean> {
   const r = await db
     .prepare(
@@ -104,7 +103,6 @@ export async function claimOverrunAlert(db: D1Database, id: number): Promise<boo
   return (r.meta.changes ?? 0) > 0;
 }
 
-/** Plan adoption: flights from budgetAllocation.flights, replacing the previous plan's untouched ones. */
 export async function replacePlanFlights(
   db: D1Database,
   campaignId: number,

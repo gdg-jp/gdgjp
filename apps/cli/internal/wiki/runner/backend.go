@@ -9,8 +9,6 @@ import (
 	"time"
 )
 
-// Backend runs one coding-agent session in dir. The agent may only edit files there; the
-// runner owns every network write (push, API) so the agent can never skip verify-acl.
 type Backend interface {
 	Name() string
 	Run(ctx context.Context, dir, prompt string, timeout time.Duration) (string, error)
@@ -27,8 +25,6 @@ func NewBackend(name, model string) (Backend, error) {
 	}
 }
 
-// ChildEnv is the agent's environment: the runner's, minus RUNNER_* and GDG_* (the token
-// and the wiki URL). Built explicitly so a new variable can never leak by default.
 func ChildEnv(environ []string) []string {
 	out := make([]string, 0, len(environ))
 	for _, entry := range environ {
@@ -42,7 +38,6 @@ func ChildEnv(environ []string) []string {
 	return out
 }
 
-// runAgent runs an agent CLI with the stripped environment and a hard timeout.
 func runAgent(ctx context.Context, dir string, timeout time.Duration, name string, args ...string) (string, error) {
 	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()

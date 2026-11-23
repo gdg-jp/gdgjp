@@ -127,10 +127,6 @@ function resolveTargetEvent(
   }
 }
 
-/**
- * Pub/Sub Push のエンベロープ本体を処理する内部ハンドラ。
- * `/api/google/events`（JWT 検証済み）および開発専用の `/dev/simulate-event` から呼ばれる。
- */
 export async function processPubsubEnvelope(
   env: Env,
   envelope: unknown,
@@ -168,7 +164,6 @@ export async function processPubsubEnvelope(
   const fetchFn = deps.fetchFn ?? globalThis.fetch;
   const now = deps.now ?? (() => new Date());
 
-  // ライフサイクル通知（期限延長・再作成・一時停止）
   if (
     ceType === LIFECYCLE_EXPIRATION_REMINDER ||
     ceType === LIFECYCLE_EXPIRED ||
@@ -231,7 +226,6 @@ export async function processPubsubEnvelope(
           return { status: 204, action: "unmanaged_space" };
         }
         const meeting = await getMeetingBySpaceName(env.DB, remoteRecord.space);
-        // アプリ管理外スペースの通知は決して保存・共有しない。
         if (!meeting) {
           return { status: 204, action: "unmanaged_space" };
         }
@@ -270,7 +264,6 @@ export async function processPubsubEnvelope(
 
     return { status: 204, action: "recorded_conference" };
   } catch (error) {
-    // 6〜7 の処理失敗時は重複排除行を削除して 500 を返し、Pub/Sub の再送で再処理できるようにする。
     try {
       await deleteProcessedEvent(env.DB, dedupeKey);
     } catch (rollbackError) {
@@ -281,7 +274,6 @@ export async function processPubsubEnvelope(
   }
 }
 
-/** HTTP リクエスト本文文字列を安全にパースして `processPubsubEnvelope` へ渡す。 */
 export async function handleRawPubsubPushBody(
   env: Env,
   rawBody: string,

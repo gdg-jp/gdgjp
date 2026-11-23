@@ -2,10 +2,6 @@ import { createCookie } from "react-router";
 
 export const ONBOARDING_SKIP_COOKIE = "accounts_onboarding_skip";
 
-/**
- * Session-scoped skip so "later" does not force the wizard again until the
- * browser session ends. Next login with zero memberships re-prompts.
- */
 export const onboardingSkipCookie = createCookie(ONBOARDING_SKIP_COOKIE, {
   path: "/",
   sameSite: "lax",

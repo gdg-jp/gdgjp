@@ -3,12 +3,6 @@ import { useState } from "react";
 import { Link as RouterLink } from "react-router";
 import type { SheetVisibility } from "~/features/roster-sheets/types";
 
-/**
- * `/e/:id/share`'s single card (docs/roster/09-share-public-views.md
- * "Design" §1): one-click copy of `/r/:viewToken` and the default sheet's visibility,
- * mirroring `~/features/events/components/ApplyLinkCard`'s copy-button pattern.
- * Publication is managed from the event overview independently of recruitment.
- */
 export function ShareCard({
   viewUrl,
   visibility,

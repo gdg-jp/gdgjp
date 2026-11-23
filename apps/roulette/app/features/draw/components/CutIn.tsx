@@ -3,12 +3,6 @@ import { reducedMotion } from "../feedback";
 import type { CutInLevel } from "../staging";
 import { PachiText } from "./PachiText";
 
-/**
- * The CHANCE cut-in: a dark band with glowing edges slashes across the wheel
- * and the word slams in from the right, then both leave. Its color is the
- * level (blue, red, gold, rainbow). Fixed to the viewport, lined up with
- * `anchor`, so shaking the wheel does not shake it.
- */
 export function CutIn({
   level,
   runKey,

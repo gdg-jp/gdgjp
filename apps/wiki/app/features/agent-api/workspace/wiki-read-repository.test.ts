@@ -2,7 +2,6 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { createSpacesTestDb } from "~/features/spaces/test-db";
 import { createD1WikiWorkspaceStore } from "./wiki-read-repository";
 
-// Longer than D1's 50-byte LIKE pattern limit once wrapped in %…% (18 characters × 3 bytes).
 const LONG_TITLE = "イベント告知対象とコネクション保有者";
 
 let fixture: ReturnType<typeof createSpacesTestDb>;

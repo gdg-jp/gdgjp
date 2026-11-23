@@ -3,17 +3,6 @@ import * as schema from "../../../../app/db/schema";
 import { documentFirstWeek } from "../chat-periods";
 import { type CurrentSourceImport, type SourceImportTickContext, metaGet, metaSet } from "./run";
 
-/**
- * The open document of an incremental Discord / Chat refresh: the newest stored document
- * (the one holding the run's `sinceCursor`). New messages land in it until it is full, so
- * a refresh that found new messages re-fetches everything from its first week and packs
- * the documents again from there (`chat-periods.ts`). Earlier documents are full and
- * never change.
- *
- * Cached in meta: `open_week` (its first week) and `open_path` (its stored path, which
- * `completeImport` archives if the repacked documents no longer start there).
- * Returns null when the budget cannot pay for the D1 read yet.
- */
 export async function resolveOpenDocument(
   ctx: SourceImportTickContext,
   current: CurrentSourceImport,

@@ -9,10 +9,6 @@ export class WikiReadError extends Error {
   }
 }
 
-/**
- * Reads the Wiki AS the signed-in user (their GDG Accounts access token), through the WIKI
- * service binding. Only /api/agent/search and /api/agent/cat: pr never writes to the Wiki.
- */
 export function wikiReader(env: Env, token: string) {
   const call = async <T>(path: string): Promise<T> => {
     const response = await env.WIKI.fetch(`${env.WIKI_URL}${path}`, {
@@ -30,7 +26,6 @@ export function wikiReader(env: Env, token: string) {
       const matches = result.matches ?? [];
       return (matches.find((m) => m.title === title) ?? matches[0])?.path ?? null;
     },
-    /** Whole page body, following cursors. */
     async readPage(path: string): Promise<string> {
       let content = "";
       let cursor: string | null = null;

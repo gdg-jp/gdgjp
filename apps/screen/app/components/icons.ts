@@ -1,8 +1,3 @@
-/**
- * The app's icon set. Video-call controls need glyphs the design-system Icons
- * catalog does not ship (camera, video, monitor share, headphones, PiP, …), so
- * this is the one place that reaches lucide directly.
- */
 export {
   ArrowLeft,
   AudioLines,

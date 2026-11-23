@@ -1,7 +1,6 @@
 import type { ConsentDescription } from "@cloudflare/workers-oauth-provider";
 import { MCP_SCOPES, SCOPE_LABELS, WIKI_READ, defaultTicked } from "./scopes";
 
-/** Every string a client registered (name, redirect host, scopes) is attacker-chosen. */
 export function escapeHtml(value: string): string {
   return value.replace(/[&<>"']/g, (char) => `&#${char.charCodeAt(0)};`);
 }
@@ -39,7 +38,6 @@ export function htmlPage(title: string, body: string, status = 200, headers?: He
   );
 }
 
-/** The MCP consent page: who is asking, where the access goes, and which scopes. */
 export function consentPage(details: ConsentDescription, handle: string): string {
   const name = escapeHtml(details.clientName);
   const origin = details.clientDomain

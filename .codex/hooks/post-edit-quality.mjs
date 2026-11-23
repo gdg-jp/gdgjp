@@ -6,9 +6,7 @@ function run(command, args) {
       cwd: process.cwd(),
       stdio: "ignore",
     });
-  } catch {
-    // Post-edit checks are deliberately best-effort. Pre-commit CI reports failures.
-  }
+  } catch {}
 }
 
 function changedFiles() {

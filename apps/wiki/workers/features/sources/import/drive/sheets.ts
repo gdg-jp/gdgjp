@@ -10,7 +10,6 @@ export interface SheetMarkdownResult {
   cellsIncluded: number;
 }
 
-/** Quote a sheet name for the Sheets values API's A1 range syntax. */
 export function sheetRange(title: string): string {
   return `'${title.replaceAll("'", "''")}'`;
 }
@@ -26,7 +25,6 @@ function byteLength(value: string): number {
   return new TextEncoder().encode(value).byteLength;
 }
 
-/** Convert one Sheets API value range to a bounded Markdown table. */
 export function sheetValuesToMarkdown(
   title: string,
   values: readonly (readonly unknown[])[],

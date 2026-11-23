@@ -1,13 +1,5 @@
 import type { ApplicationSkillRecord, Level, Pref } from "./types";
 
-/**
- * D1 access for `application_skills` (docs/roster/index.md §4). A role the
- * applicant can't take has no row at all — there is no "unable" `pref`
- * value (docs/roster/04-applications.md "Design" §1) — so the write path is
- * delete-all-then-insert, the same wholesale-replace shape
- * `~/features/schedule/roles.server#setEventRoles` uses for a sheet's roles.
- */
-
 type ApplicationSkillRow = {
   application_id: string;
   role_id: string;
@@ -61,7 +53,6 @@ export function applicationSkillReplacementStatements(
   return statements;
 }
 
-/** Replaces live-role skills while retaining rows for roles on archived sheets. */
 export function applicationLiveSkillReplacementStatements(
   db: D1Database,
   applicationId: string,
@@ -87,7 +78,6 @@ export function applicationLiveSkillReplacementStatements(
   return statements;
 }
 
-/** Replaces the application's whole skill set — never a partial merge. */
 export async function setApplicationSkills(
   db: D1Database,
   applicationId: string,

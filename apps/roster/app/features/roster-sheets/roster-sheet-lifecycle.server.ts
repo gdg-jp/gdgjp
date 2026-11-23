@@ -17,7 +17,6 @@ function compactLiveRosterSheetOrder(db: D1Database, eventId: string, now: strin
     .bind(eventId, now, eventId);
 }
 
-/** Reorders every live sheet for an event, keeping its legacy/default sheet first. */
 export async function reorderRosterSheets(
   db: D1Database,
   eventId: string,
@@ -53,7 +52,6 @@ export async function reorderRosterSheets(
   return listRosterSheets(db, eventId);
 }
 
-/** Soft-deletes a non-default sheet without changing its child or history rows. */
 export async function archiveRosterSheet(
   db: D1Database,
   eventId: string,

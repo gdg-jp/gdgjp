@@ -1,6 +1,5 @@
 import type { Brief } from "~/features/briefs/brief";
 
-/** Where a campaign is: what the progress bar shows and what the assistant reads first. */
 export const PHASES = ["prepare", "plan", "promote", "event", "retro"] as const;
 export type Phase = (typeof PHASES)[number];
 export const PHASE_LABELS: Record<Phase, string> = {
@@ -11,7 +10,6 @@ export const PHASE_LABELS: Record<Phase, string> = {
   retro: "振り返り",
 };
 
-/** What a brief still lacks before a plan makes sense. */
 export function briefGaps(brief: Brief | null): string[] {
   if (!brief) return ["イベントの情報"];
   const gaps: string[] = [];

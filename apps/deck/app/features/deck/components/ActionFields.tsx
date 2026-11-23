@@ -46,7 +46,6 @@ const MUTE_LABELS: Record<MuteMode, string> = {
   pushToTalk: "押している間だけ話す",
 };
 
-/** Text input with suggestions from the live OBS. */
 function NameField({
   label,
   value,
@@ -144,7 +143,6 @@ function ToggleField({
   );
 }
 
-/** Op picker + the fields of one OBS action. */
 export function ActionFields({
   action,
   obs,

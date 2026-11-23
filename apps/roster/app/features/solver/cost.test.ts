@@ -105,20 +105,16 @@ describe("candidateCost", () => {
   });
 
   it("ignores continuity entirely at idx 0 (no previous slot to compare against)", () => {
-    // Even if somehow an assignment existed keyed at a "before slot 0" slot,
-    // idx 0 must never look backward.
     expect(candidateCost(ctx(), app(), SLOT0, TRACK_ID, ROLE_ID)).toBe(0);
   });
 
   it("costs +4 when this placement would create a streak of maxConsecutive - 1", () => {
-    // maxConsecutive = 4: slots 0,1 already held -> placing at slot 2 makes a streak of 3.
     const assignments: Assignments = new Map([
       [assignmentKey("app-1", "slot-0"), { trackId: "x", roleId: "y", locked: false }],
       [assignmentKey("app-1", "slot-1"), { trackId: "x", roleId: "y", locked: false }],
     ]);
     const c = ctx({ assignments });
     const slot2 = { id: "slot-2", idx: 2 };
-    // continuity vs "x"/"y" track differs from TRACK_ID -> +1.2, plus streak-of-3 -> +4
     expect(candidateCost(c, app(), slot2, TRACK_ID, ROLE_ID)).toBeCloseTo(1.2 + 4, 10);
   });
 
@@ -130,20 +126,16 @@ describe("candidateCost", () => {
     ]);
     const c = ctx({ assignments });
     const slot3 = { id: "slot-3", idx: 3 };
-    // continuity same track/role -> -3.5, plus streak-of-4 (== maxConsecutive) -> +12
     expect(candidateCost(c, app(), slot3, TRACK_ID, ROLE_ID)).toBeCloseTo(-3.5 + 12, 10);
   });
 
   it("a gap in the streak resets the count — a non-contiguous prior slot doesn't count", () => {
     const assignments: Assignments = new Map([
       [assignmentKey("app-1", "slot-0"), { trackId: TRACK_ID, roleId: ROLE_ID, locked: false }],
-      // slot-1 deliberately has no assignment for app-1 — the streak breaks here.
       [assignmentKey("app-1", "slot-2"), { trackId: TRACK_ID, roleId: ROLE_ID, locked: false }],
     ]);
     const c = ctx({ assignments });
     const slot3 = { id: "slot-3", idx: 3 };
-    // streak ending at slot3 = slot2 + slot3(hypothetical) = 2, not 4.
-    // continuity same track/role as slot2 -> -3.5, no streak penalty.
     expect(candidateCost(c, app(), slot3, TRACK_ID, ROLE_ID)).toBeCloseTo(-3.5, 10);
   });
 

@@ -3,11 +3,6 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
-/**
- * The runner token is a full-clearance, all-space credential. It is accepted only by the
- * /api/runner/* routes and the CLI routes the runner's clone / push / verify needs. Adding
- * it anywhere else (editor, sources, agent APIs…) must be a deliberate change to this list.
- */
 const WIKI_ROOT = fileURLToPath(new URL("../../", import.meta.url));
 function files(dir: string): string[] {
   const out: string[] = [];

@@ -33,16 +33,6 @@ function capped<T>(items: readonly T[]): { shown: T[]; restCount: number } {
   return { shown: items.slice(0, MAX_ITEMS), restCount: Math.max(0, items.length - MAX_ITEMS) };
 }
 
-/**
- * The 3-column shortage/violation breakdown below `MetricsRow`
- * (docs/roster/07-roster-manual-edit.md "Design" §4, §5.8 in index.md):
- * headcount shortage, lead (experience) shortage, and skill-mix violations
- * (`newcomerOver` / `soloNewcomer` — `over` is excluded here, it's an
- * "ideal exceeded" note from manual edits, not one of the 3 recruiting-
- * relevant columns the stage doc lists). Deliberately never renders
- * "解なし" — the whole point of this report is to say WHAT is short
- * instead (index.md §5.8).
- */
 export function ShortageReport({ report, ...maps }: { report: Report } & NameMaps) {
   const headcount = report.shortages.filter((s): s is Shortage => s.kind === "headcount");
   const lead = report.shortages.filter((s): s is Shortage => s.kind === "lead");

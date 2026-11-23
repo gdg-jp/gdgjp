@@ -1,16 +1,10 @@
 #!/usr/bin/env node
-// Bundles <dir>/prototype.tsx with @gdgjp/design-system into one self-contained HTML file.
-//
-//   node build.mjs <dir> [--out <file>] [--fonts] [--dev] [--no-typecheck] [--title <title>]
-//
-// Writes <dir>/index.html by default. <dir>/spec.md, when present, becomes the 仕様 tab.
 import { execFileSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import { mkdir, readFile, readdir, realpath, rm, stat, writeFile } from "node:fs/promises";
 import { basename, dirname, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
-// Vite and Tailwind register module hooks through an API Node now flags as deprecated.
 process.noDeprecation = true;
 
 const skillDir = resolve(dirname(fileURLToPath(import.meta.url)), "..");
@@ -34,7 +28,6 @@ function assertDesignSystem() {
     fail(`Design system dependencies are missing in ${dsModules}.\nRun: pnpm install`);
 }
 
-/** Imports an ESM package installed for the design system (the prototype dir has no node_modules). */
 async function importFromDesignSystem(name) {
   const pkgDir = await realpath(join(dsModules, name));
   const pkg = JSON.parse(await readFile(join(pkgDir, "package.json"), "utf8"));
@@ -77,15 +70,12 @@ async function typecheck(dir, buildDir) {
         "*": [`${dsModules}/@types/*`, `${dsModules}/*`],
       },
     },
-    // The runtime is checked too, so a design-system API change surfaces here and not as a
-    // blank page.
     files: [join(runtimeDir, "env.d.ts"), join(runtimeDir, "main.tsx"), ...files],
   };
   const configPath = join(buildDir, "tsconfig.json");
   await writeFile(configPath, JSON.stringify(tsconfig, null, 2));
   const tsc = join(await realpath(join(dsModules, "@typescript/native")), "bin/tsc");
   try {
-    // Run from the prototype dir so its own files are reported with plain relative paths.
     execFileSync(process.execPath, [tsc, "-p", configPath, "--pretty", "false"], {
       cwd: dir,
       encoding: "utf8",
@@ -93,8 +83,6 @@ async function typecheck(dir, buildDir) {
     });
   } catch (error) {
     const output = `${error.stdout ?? ""}${error.stderr ?? ""}`.trim();
-    // Report errors in the prototype itself; the design system is checked by its own CI.
-    // Continuation lines (indented) belong to the error above them.
     const own = [];
     let keep = false;
     for (const line of output.split("\n")) {
@@ -106,10 +94,6 @@ async function typecheck(dir, buildDir) {
   }
 }
 
-/**
- * Markdown turns a line break into a space, which reads as a stray gap in Japanese prose written
- * one sentence per line. Join such lines, leaving code blocks, lists, tables and headings alone.
- */
 export function joinJapaneseLines(markdown) {
   const lines = markdown.split("\n");
   const out = [];
@@ -168,7 +152,6 @@ export async function buildPrototype({
   const dir = await realpath(resolve(inputDir));
   const entry = join(dir, "prototype.tsx");
   if (!existsSync(entry)) fail(`Missing ${entry}`);
-  // check and release builds use separate work dirs, so they can run at the same time.
   const buildDir = join(dir, ".build", dev ? "check" : "release");
   await mkdir(buildDir, { recursive: true });
   const log = (message) => quiet || console.log(message);
@@ -179,7 +162,6 @@ export async function buildPrototype({
   }
 
   if (fonts) {
-    // Google Sans Italic adds ~2 MB and prototypes rarely set italics; browsers synthesize it.
     const source = await readFile(join(dsDir, "src/styles/fonts.css"), "utf8");
     const faces = (source.match(/@font-face\s*{[^}]*}/g) ?? [])
       .filter((face) => !/font-style:\s*italic/.test(face))
@@ -220,8 +202,6 @@ export async function buildPrototype({
     plugins: [
       tailwind(),
       {
-        // Bare imports from the prototype and runtime resolve from the design system's
-        // node_modules, so there is exactly one React and one copy of every dependency.
         name: "resolve-from-design-system",
         enforce: "pre",
         async resolveId(source, importer, options) {
@@ -251,7 +231,6 @@ export async function buildPrototype({
       rolldownOptions: {
         output: { codeSplitting: false },
         onwarn(warning, warn) {
-          // "use client" directives in dependencies are irrelevant to a client-only bundle.
           if (warning.code !== "MODULE_LEVEL_DIRECTIVE") warn(warning);
         },
       },

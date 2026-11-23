@@ -181,7 +181,6 @@ export async function listPendingConferenceStatsForCron(
   db: D1Database,
   params: {
     endedBeforeIso: string;
-    /** この時刻より前に終わったのに `collecting` のままの記録は、Queue の再試行切れで止まったとみなす。 */
     staleCollectingBeforeIso?: string;
     nowIso: string;
     maxAttempts?: number;

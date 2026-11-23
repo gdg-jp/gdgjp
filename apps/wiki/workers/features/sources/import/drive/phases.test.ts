@@ -64,7 +64,6 @@ it("skips only semantic failures from unofficial Sheet PDF exports", () => {
   const semantic = new InvalidPdfExportError("not a PDF");
   expect(isSkippablePdfExport("sheet-pdf", semantic)).toBe(true);
   expect(isSkippablePdfExport("file-pdf", semantic)).toBe(false);
-  // Too large to export: skip that PDF for a Slides deck as well, keeping its text.
   expect(isSkippablePdfExport("file-pdf", new PdfTooLargeError("too large"))).toBe(true);
   expect(isSkippablePdfExport("slides-md", new PdfTooLargeError("too large"))).toBe(false);
   expect(

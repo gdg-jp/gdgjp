@@ -2,7 +2,6 @@ import type { ActionFunctionArgs } from "react-router";
 import { requireUser } from "~/features/auth/utils.server";
 import { setHideAgentPages } from "~/features/spaces/viewer.server";
 
-/** POST hideAgentPages=true|false — display preference for agent-written pages. */
 export async function action({ request, context }: ActionFunctionArgs) {
   if (request.method !== "POST") return new Response("Method Not Allowed", { status: 405 });
   const { env } = context.cloudflare;

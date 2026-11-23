@@ -1,6 +1,5 @@
 import { type Segment, isTrack } from "./catalog";
 
-/** What the editor sends when registering or editing an uploaded clip. */
 export type ClipInput = {
   track: string | null;
   after: string | null;
@@ -13,7 +12,6 @@ export type NewClipInput = ClipInput & { id: string; file: string; durationMs: n
 export const UPLOAD_ID_RE = /^U-[0-9a-f]{10}$/;
 export const MAX_UPLOAD_BYTES = 50 * 1024 * 1024;
 export const MAX_DURATION_MS = 30 * 60 * 1000;
-/** What the browser can decode and Gemini can transcribe. */
 export const UPLOAD_ACCEPT = ".wav,.mp3,.ogg,.flac,.aac,audio/wav,audio/mpeg,audio/ogg,audio/flac";
 
 export function newUploadId(): string {
@@ -21,7 +19,6 @@ export function newUploadId(): string {
   return `U-${[...bytes].map((b) => b.toString(16).padStart(2, "0")).join("")}`;
 }
 
-/** Gemini's names for what browsers report (or leave blank) as file types. */
 export function audioMimeType(type: string, name: string): string | null {
   const ext = name.toLowerCase().split(".").pop() ?? "";
   const t = type.toLowerCase();

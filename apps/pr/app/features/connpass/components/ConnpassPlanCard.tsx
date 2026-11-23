@@ -3,7 +3,6 @@ import { Form } from "react-router";
 
 type Props = { ideas: { segmentId: string; idea: string }[]; hasPlan: boolean; busy: boolean };
 
-/** The plan's connpass work: the page job, the survey, and sub-events from segment ideas. */
 export function ConnpassPlanCard({ ideas, hasPlan, busy }: Props) {
   return (
     <Card>

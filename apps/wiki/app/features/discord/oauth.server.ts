@@ -1,13 +1,7 @@
-/**
- * Discord user OAuth for the /sources guild picker (`identify` + `guilds`).
- * Channel history uses DISCORD_BOT_TOKEN, not these user tokens.
- */
-
 export const DISCORD_API = "https://discord.com/api/v10";
 export const DISCORD_OAUTH_SCOPES = "identify guilds";
 export const REQUIRED_DISCORD_OAUTH_SCOPES = ["identify", "guilds"] as const;
 
-/** View Channel | Read Message History — bot invite permissions for source import. */
 export const DISCORD_BOT_SOURCE_PERMISSIONS = String((1n << 10n) | (1n << 16n));
 
 export const DISCORD_REAUTH_MESSAGE =
@@ -57,10 +51,6 @@ export function getDiscordAuthUrl(clientId: string, redirectUri: string, state: 
   return `https://discord.com/api/oauth2/authorize?${params}`;
 }
 
-/**
- * Bot invite URL. When `guildId` is set the Discord UI pre-selects that server;
- * omit it for a general invite the admin can point at any server.
- */
 export function getDiscordBotInviteUrl(clientId: string, guildId?: string): string {
   const params = new URLSearchParams({
     client_id: clientId,

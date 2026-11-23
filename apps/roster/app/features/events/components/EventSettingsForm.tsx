@@ -5,28 +5,6 @@ import { STATUSES, STATUS_LABELS } from "~/features/events/status";
 export const STEP_OPTIONS = [15, 30, 60] as const;
 const MAX_CONSECUTIVE_OPTIONS = [3, 4, 5, 6] as const;
 
-/**
- * The "イベント設定" card on `/e/:id/design`
- * (docs/roster/02-domain-schema.md "Design" §6): step size, status, the
- * consecutive-slot cap, and the solo-newcomer rule. Not in the stage doc's
- * `Files to touch` list verbatim (it only names `EventCard.tsx` /
- * `EventForm.tsx`) — split out because EventCard is the list-page summary
- * and EventForm is the creation form, neither of which fits an in-place
- * settings-edit form; see the PR description for this deviation.
- *
- * Name / date / start / end aren't editable here — changing the step size
- * is the only lever exposed for schedule regeneration in this stage's UI
- * (the design doc's settings card lists exactly these four fields).
- *
- * `demandLossByStepMin` (docs/roster/03-demand-input.md "Design" §6, Stage
- * 03) is `~/features/demand/impact#demandLossByStepMinOption`'s output,
- * precomputed by the route from data it already loaded. Submitting a
- * `stepMin` that would lose demand rows is gated by a native `confirm()` —
- * this is the one real place the warning has to appear "保存前に", not a
- * separate preview elsewhere on the page. Defaults to `{}` so this
- * component still works standalone (e.g. in a future test) without a
- * caller that knows about the demand feature.
- */
 export function EventSettingsForm({
   event,
   demandLossByStepMin = {},

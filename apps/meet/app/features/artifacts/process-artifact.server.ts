@@ -43,10 +43,6 @@ function defaultMimeType(kind: ArtifactKind): string {
   return "text/plain";
 }
 
-/**
- * 録画と同じ親フォルダー内の `text/plain` ファイル群から、今回の録画に対応するチャット記録 1 件だけを特定する。
- * 同じスペースで別会議のファイルが同居するため、前方一致＋MIME 型＋作成時刻近接の 3 条件をすべて満たすものだけを選ぶ。
- */
 export function findMatchingChatLogFile(
   recordingFile: DriveFile,
   candidates: readonly DriveFile[],
@@ -119,11 +115,6 @@ async function resolveMeetArtifactFile(
   return { fileId, artifactKind: "notes" };
 }
 
-/**
- * `process_artifact` ジョブ本体。
- * Meet API から実体 Drive ファイル ID を取得して `artifacts` に upsert し、
- * 録画の場合は同フォルダーの該当チャット記録も特定したうえで未完了分を `share_artifact` へ投入する。
- */
 export async function processArtifactJob(
   env: Env,
   input: ProcessArtifactInput,

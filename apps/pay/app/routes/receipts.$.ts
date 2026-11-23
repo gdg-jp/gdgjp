@@ -13,7 +13,6 @@ export async function loader({ request, context, params }: Route.LoaderArgs) {
   const object = await env.RECEIPTS.get(key);
   if (!object) throw new Response("Not Found", { status: 404 });
 
-  // Key format: claims/{claimId}/...
   const match = key.match(/^claims\/(clm_[A-Z0-9]+)\//);
   if (!match) throw new Response("Forbidden", { status: 403 });
   const claim = await getClaim(env.DB, match[1]);
@@ -25,7 +24,6 @@ export async function loader({ request, context, params }: Route.LoaderArgs) {
     claim.user_id === user.id || claim.created_by === user.id || canViewAllClaims(actor, event);
   if (!allowed) throw new Response("Forbidden", { status: 403 });
 
-  // Ensure the object belongs to a known item for this claim.
   const items = await listClaimItems(env.DB, claim.id);
   if (!items.some((item) => item.receipt_r2_key === key)) {
     throw new Response("Forbidden", { status: 403 });

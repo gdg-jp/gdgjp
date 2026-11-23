@@ -16,7 +16,6 @@ type DnsJsonResponse = {
 export type DomainDnsObservation = {
   type: DnsRecordType;
   value: string;
-  /** Only address records have a public/private assessment. */
   public: boolean | null;
 };
 
@@ -27,10 +26,6 @@ export type DomainDetection = {
   hostname: string;
   mode: DomainMode;
   existingSite: boolean;
-  /**
-   * A separate hostname is required before origin-first can be activated. This
-   * is a suggested hostname, not proof that it has already been configured.
-   */
   suggestedUpstreamOrigin: string | null;
   dns: {
     status: DomainDnsStatus;
@@ -170,10 +165,7 @@ async function inspectHttps(
       }
       current = next;
     }
-  } catch {
-    // Network, TLS, timeout, and malformed redirect failures are deliberately
-    // reduced to a UI-safe status rather than exposing provider details.
-  }
+  } catch {}
   return {
     existingSite: false,
     mode: "short-only",
@@ -182,12 +174,6 @@ async function inspectHttps(
   };
 }
 
-/**
- * Inspects the current DNS and HTTPS endpoint before a custom domain is moved.
- * It performs no Node.js DNS calls, so it is safe to use in the Workers SSR
- * runtime. A positive website result recommends origin-first, but callers must
- * still provision the returned separate upstream hostname before activating it.
- */
 export async function detectCustomDomain(hostname: string): Promise<DomainDetection> {
   const normalized = normalizeHostname(hostname);
   if (!normalized) return emptyDetection(hostname, { status: "unsafe", observations: [] });

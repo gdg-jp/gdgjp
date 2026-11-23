@@ -8,10 +8,6 @@ export function displayedMarkdown(
   return primary.trim() ? primary : lang === "en" ? content.contentJa : content.contentEn;
 }
 
-/**
- * Agent-written pages repeat the title as a leading `# Heading`; the reader already shows the
- * title above the body, so that first heading is dropped when it says the same thing.
- */
 export function stripLeadingTitleHeading(markdown: string, title: string): string {
   const match = /^\s*#\s+(.+?)\s*#*\s*(?:\r?\n|$)/.exec(markdown);
   if (!match) return markdown;
@@ -22,10 +18,6 @@ export function stripLeadingTitleHeading(markdown: string, title: string): strin
 
 type SourceRef = { sourceId: string | null; url: string; title: string };
 
-/**
- * Agent pages cite their provenance inline as `(source: <id>)`. Known ids become a link to the
- * source (with its title as tooltip); unknown ids point at the page's source list.
- */
 export function linkInlineSourceRefs(
   markdown: string,
   refs: readonly SourceRef[],
@@ -43,12 +35,6 @@ export function linkInlineSourceRefs(
   );
 }
 
-/**
- * Agent-written pages link to other pages with runner-relative paths (`../../events/x`,
- * sometimes one `../` too many). The browser cannot resolve those against `/s/<space>/wiki/…`,
- * so every relative link is re-rooted: the segments after the `../` run are a path from the
- * wiki root. Absolute URLs, anchors, mailto and `/…` links are left alone.
- */
 export function resolveWikiRelativeLinks(markdown: string, spaceSlug: string): string {
   const prefix = `/s/${encodeURIComponent(spaceSlug)}/wiki/`;
   const rewrite = (href: string): string => {
@@ -88,11 +74,6 @@ function splitHref(href: string): [string, string] {
   return index === -1 ? [href, ""] : [href.slice(0, index), href.slice(index)];
 }
 
-/**
- * The body "copy page contents" puts on the clipboard (the menu adds the `# title` line):
- * the reader's Markdown with a repeated title heading dropped, runner-relative links made
- * absolute and inline source ids turned into links, so it pastes cleanly into a doc or chat.
- */
 export function copyableMarkdown(input: {
   content: { contentJa: string; contentEn: string; sourceRefs?: SourceRef[] };
   lang: "ja" | "en";
@@ -112,7 +93,6 @@ export function copyableMarkdown(input: {
   );
 }
 
-/** Preserve source Markdown, including code examples, while remapping local URLs. */
 export function rewriteCopiedLinks(markdown: string, links: Map<string, string>, origin: string) {
   const paths = new Map(
     [...links].map(([source, destination]) => [

@@ -3,12 +3,6 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
-/**
- * Ported from wiki/tests/architecture/file-size.test.ts (see
- * docs/roster/adr.md ADR-003). Non-test source under `app/` and `workers/`
- * stays at or below MAX_LINES. `ALLOWLIST` is shrink-only and starts empty —
- * roster has no files over the limit yet.
- */
 const ROSTER_ROOT = fileURLToPath(new URL("../../", import.meta.url));
 const ROOTS = ["app", "workers"];
 const MAX_LINES = 400;

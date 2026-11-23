@@ -276,7 +276,6 @@ describe("meetings/detail loader", () => {
     expect(JSON.stringify(guestData.conferenceStats)).not.toContain("Secret Participant Name");
     expect(fetchSpy).not.toHaveBeenCalled();
 
-    // cohost は取り消し済み会議であっても個人別行を取得できる
     const cohostReq = await createDevSessionRequest(env, "cohost");
     const cohostData = await loader({
       request: cohostReq,

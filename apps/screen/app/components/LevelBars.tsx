@@ -1,4 +1,3 @@
-/** Four-bar input level (▁▃▅▇). `level` is 0..1. */
 export function LevelBars({ level, className }: { level: number; className?: string }) {
   const lit = Math.round(level * 4 + 0.2);
   return (

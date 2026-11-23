@@ -56,7 +56,6 @@ test("only non-test app TSX is subject to source rules", () => {
   assert.equal(isDesignSourceFile("apps/deck/app/lib/format.ts"), false);
   assert.equal(isDesignSourceFile("apps/deck/e2e/fixture.tsx"), false);
   assert.equal(isDesignSourceFile("packages/design-system/src/Button.tsx"), false);
-  // An app that is not built with the design system is outside its rules.
   assert.equal(isDesignSourceFile("apps/live-checkin/app/checkin/page.tsx"), false);
 });
 

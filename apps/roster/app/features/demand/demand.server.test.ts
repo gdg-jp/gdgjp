@@ -104,11 +104,6 @@ describe("toDemand", () => {
   });
 });
 
-/**
- * docs/roster/03-demand-input.md "回帰として固定すべきテスト": `ideal = 0`
- * の行と行なしが同じ結果を返す — a missing row and a row that (somehow)
- * still has `ideal_count = 0` must be indistinguishable to every caller.
- */
 describe("demandOrNull", () => {
   it("returns null for a missing row", () => {
     expect(demandOrNull(null)).toBeNull();
@@ -227,14 +222,6 @@ describe("bulkUpsertDemands", () => {
   });
 });
 
-/**
- * There's no real D1 wired into this workspace's vitest config (see
- * `events.server.test.ts`'s identical note), so `listDemandsForEvent`'s
- * bulk-read filter is pinned at the SQL-text level. `getDemand`'s
- * single-row SELECT is exempt here because it collapses `ideal_count <= 0`
- * to `null` via `demandOrNull` instead (covered above) — either mechanism
- * satisfies "ideal = 0 の行と行なしが同じ結果を返す".
- */
 describe("ideal_count filtering", () => {
   it("listDemandsForEvent's SELECT includes `ideal_count > 0`", () => {
     const source = readFileSync(new URL("./demand.server.ts", import.meta.url), "utf8");

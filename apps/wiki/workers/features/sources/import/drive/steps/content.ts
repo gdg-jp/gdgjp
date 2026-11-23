@@ -22,7 +22,6 @@ import { sheetRange, sheetValuesToMarkdown } from "../sheets";
 async function contentSheetMarkdown(ctx: SourceImportTickContext, current: CurrentSourceImport) {
   const capacity = Math.min(10, Math.max(0, ctx.budget.remaining() - 1));
   if (capacity === 0) return false;
-  // One values:batchGet reads one spreadsheet, so a batch is the next file's pending sheets.
   const first = pendingUnits(ctx.sql, "sheet-md", 1)[0];
   if (!first) return true;
   const units = ctx.sql
@@ -140,7 +139,6 @@ async function contentSlidesMarkdown(
   if (!response.ok) {
     const body = await response.text();
     const error = new Error(`Google Drive text export failed (${response.status}): ${body}`);
-    // A deck whose text is over Drive's export cap is skipped, not fatal to the whole source.
     if (response.status === 403 && body.includes("exportSizeLimitExceeded")) {
       skipUnit(ctx, current, unit, error);
       return;
@@ -161,7 +159,6 @@ export async function stepContent(
     if (unit.unit_kind === "sheet-pdf" || unit.unit_kind === "file-pdf") {
       const result = await contentPdf(ctx, current, unit);
       if (result.deferredMs != null) {
-        // Stop hammering the unofficial export endpoint; wait before retrying.
         return { phaseComplete: false, continueAfterMs: result.deferredMs };
       }
     } else if (unit.unit_kind === "slides-md") {

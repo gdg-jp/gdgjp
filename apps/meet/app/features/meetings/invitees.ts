@@ -7,10 +7,8 @@ import type {
   InviteeSourceKind,
 } from "./meeting";
 
-/** Business Standard の Meet 参加者上限（docs/plans/meet/00a-poc-findings.md §6）。 */
 export const MAX_INVITEES = 150;
 
-/** Meet の共同主催者（co-host）上限（docs/plans/meet/00a-poc-findings.md §6）。 */
 export const MAX_COHOSTS = 25;
 
 const GOOGLE_GROUPS_DOMAIN = "googlegroups.com";
@@ -63,7 +61,6 @@ export type ResolveInviteesResult =
       emails: string[];
     };
 
-/** メールアドレスが Google グループ（`@googlegroups.com`）かどうかを判定する。 */
 export function isGoogleGroupEmail(raw: string): boolean {
   const trimmed = raw.trim().toLowerCase();
   const atIndex = trimmed.lastIndexOf("@");
@@ -71,10 +68,6 @@ export function isGoogleGroupEmail(raw: string): boolean {
   return trimmed.slice(atIndex + 1) === GOOGLE_GROUPS_DOMAIN;
 }
 
-/**
- * 改行・カンマ・セミコロン・空白区切りの個別メール入力をパースし、
- * 有効メール・形式不正・Google グループへ分類する。
- */
 export function parseEmailInputList(raw: string): {
   emails: string[];
   invalidEmails: string[];
@@ -112,14 +105,6 @@ type CandidateEntry = {
   sourceKind: InviteeSourceKind;
 };
 
-/**
- * 招待元（主催チャプター・他チャプター・個別メール）と作成者から最終招待者一覧を解決する純粋関数。
- * - 作成者は常に `cohost` として含める
- * - 共有ホストアカウント（`hostEmail`）は常に除外する
- * - `normalizeEmail` をキーに重複排除し、`cohost` を `participant` より優先する
- * - Google グループ（`@googlegroups.com`）および不正メールを拒否する
- * - 解決後の人数が `MAX_INVITEES` / `MAX_COHOSTS` を超えた場合はエラーを返す
- */
 export function resolveInvitees(input: ResolveInviteesInput): ResolveInviteesResult {
   const invalidEmails: string[] = [];
   const googleGroupEmails: string[] = [];
@@ -203,7 +188,6 @@ export function resolveInvitees(input: ResolveInviteesInput): ResolveInviteesRes
     }
   }
 
-  // 作成者は常に cohost として登録する。
   candidates.push({
     email: input.creator.email.trim(),
     displayName: input.creator.name,

@@ -1,6 +1,5 @@
 const SLUG_RE = /^[a-z0-9](?:[a-z0-9-]{1,38}[a-z0-9])$/;
 
-/** Path segments under /c/ that would read like an app page. */
 export const RESERVED_SLUGS = new Set([
   "new",
   "admin",
@@ -19,10 +18,6 @@ export function normalizeSlug(raw: string | null | undefined): string | null {
   return slug;
 }
 
-/**
- * A URL for an event named by a person: its ASCII words, or `event-<date>` when the name has
- * none (Japanese names). `taken` adds -2, -3… until the slug is free.
- */
 export function slugFromName(name: string, date: string, taken: (slug: string) => boolean): string {
   const words = name
     .normalize("NFKC")

@@ -1,4 +1,3 @@
-/** Shared abortable fetch for the Google Drive / Chat integration. */
 export function fetchWithTimeout(
   url: string,
   init: RequestInit,

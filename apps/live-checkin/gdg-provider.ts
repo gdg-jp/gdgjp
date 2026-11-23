@@ -1,6 +1,5 @@
 import type { OIDCConfig, OIDCUserConfig } from "next-auth/providers";
 
-// OIDC の UserInfo レスポンスの型定義
 interface GDGUserProfile {
   sub: string;
   name?: string;

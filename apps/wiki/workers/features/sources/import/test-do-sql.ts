@@ -1,10 +1,6 @@
 import { DatabaseSync } from "node:sqlite";
 import { ensureSourceImportDoSchema } from "./do-store";
 
-/**
- * SourceImportDurableObject storage for tests: a real SQLite behind the `SqlStorage` surface the
- * import steps use, with the DO schema applied.
- */
 export function memorySql(seed?: (database: DatabaseSync) => void): SqlStorage {
   const sqliteDb = new DatabaseSync(":memory:");
   const api = {
@@ -31,7 +27,6 @@ export function memorySql(seed?: (database: DatabaseSync) => void): SqlStorage {
           },
         };
       }
-      // Multi-statement schema bootstrap from ensureSourceImportDoSchema.
       if (query.includes("CREATE TABLE")) {
         sqliteDb.exec(query);
         return {

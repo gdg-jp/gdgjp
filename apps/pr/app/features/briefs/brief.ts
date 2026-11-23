@@ -1,7 +1,6 @@
 import briefSchema from "@skills/pr-playbook/references/brief.schema.json";
 import { validateSchema } from "@skills/pr-playbook/scripts/checks/index.mjs";
 
-/** Mirrors skills/pr-playbook/references/brief.schema.json (the source of truth). */
 export type SessionStatus = "tba" | "confirmed" | "public";
 export type SessionFlag = "no_recording" | "english" | "onsite_only" | "bring_pc";
 
@@ -61,7 +60,6 @@ export type Brief = {
     tone?: string;
     referenceAssetUrls?: string[];
     brandGuideUrl?: string;
-    /** The event's official logo image, when one exists (never imitated in type). */
     logoUrl?: string;
   };
   copyConstraints?: string[];
@@ -88,10 +86,6 @@ export type Brief = {
 export const BRIEF_SCHEMA = briefSchema;
 export const BRIEF_REQUIRED: readonly string[] = briefSchema.required;
 
-/**
- * Drop empty strings, nulls and empty objects so optional keys are simply absent. Arrays stay
- * (a session may legitimately have no speakers); empty entries inside them go.
- */
 export function compact<T>(value: T): T {
   if (Array.isArray(value)) return value.map(compact).filter((v) => !isEmpty(v)) as T;
   if (value && typeof value === "object") {
@@ -131,7 +125,6 @@ export function parseBrief(value: unknown): BriefParse {
   return extra.length ? { ok: false, errors: extra } : { ok: true, brief: typed };
 }
 
-/** A brief that passes the schema, for a campaign that has none yet. */
 export function emptyBrief(name: string, startAt: string | null, venue: string | null): Brief {
   return {
     event: {

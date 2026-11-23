@@ -18,9 +18,6 @@ import (
 	"strings"
 )
 
-// RemoteHelper implements the small, line-oriented Git remote-helper protocol
-// used by a gdg-wiki::<url> remote. Wiki remains the source of truth; generated
-// commits are a local cache that Git can use as merge bases and merge targets.
 type RemoteHelper struct {
 	Client   *Client
 	Token    string
@@ -34,9 +31,6 @@ type RemoteHelper struct {
 	Upload   func(context.Context, string, string, []byte, string) error
 }
 
-// RunRemoteHelper serves a single Git helper invocation. name and url are the
-// two arguments Git gives git-remote-gdg-wiki; url is intentionally not used
-// for storage because all server access goes through the existing Wiki API.
 func RunRemoteHelper(ctx context.Context, name, url string, client *Client, token string, stdin io.Reader, stdout, stderr io.Writer) error {
 	_ = url
 	h := &RemoteHelper{Client: client, Token: token, Remote: name, Stdin: stdin, Stdout: stdout, Stderr: stderr}
@@ -82,8 +76,6 @@ func (h *RemoteHelper) Run(ctx context.Context) error {
 	}
 
 	scanner := bufio.NewScanner(h.Stdin)
-	// Git's protocol lines are intentionally small, but permit a complete ref
-	// request without silently truncating it.
 	scanner.Buffer(make([]byte, 1024), 1<<20)
 	pendingFetch := false
 	var pendingPush []pushSpec
@@ -239,8 +231,6 @@ func (h *RemoteHelper) importSnapshot(ctx context.Context, snapshot Snapshot, pa
 	return commit, nil
 }
 
-// push translates the committed Git tree into the API's page-level optimistic
-// concurrency operations. It never checks out or changes the caller's tree.
 func (h *RemoteHelper) push(ctx context.Context, spec pushSpec) error {
 	if spec.dst != "refs/heads/main" || isGitDeleteSrc(spec.src) {
 		return errors.New("gdg-wiki accepts only updates to refs/heads/main")
@@ -300,13 +290,6 @@ func (h *RemoteHelper) push(ctx context.Context, spec pushSpec) error {
 			pending[key] = page
 		}
 	}
-	// Allocate IDs before building operations so new parent/child trees can be
-	// submitted in one server transaction. A Git push is one logical update;
-	// splitting it into page-sized requests allows an earlier page to remain
-	// committed when a later request fails.
-	// IDs derive from the pushed commit and the space, never the ref name: `git push origin
-	// HEAD:main` (the runner) passes "HEAD", which gave every space's new `log` page the same
-	// ID, and the second space to create one was refused with page_not_in_space.
 	commitID, err := h.gitOutput(ctx, "rev-parse", "--verify", spec.src+"^{commit}")
 	if err != nil {
 		return err
@@ -408,9 +391,6 @@ func newPageID(space, commit, rel string) string {
 	return hex.EncodeToString(digest[:16])
 }
 
-// preserveExistingSharing keeps Wiki-app sharing when local front matter looks
-// like the AGENTS.md create defaults. Agents often rewrite visibility to
-// restricted while updating body content; non-default visibility changes stay.
 func preserveExistingSharing(page *Page, previous Page) {
 	if page == nil || !looksLikeCreateDefaultSharing(*page) {
 		return

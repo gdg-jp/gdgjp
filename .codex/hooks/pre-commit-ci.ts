@@ -25,8 +25,6 @@ function isExecFileError(value: unknown): value is ExecFileError {
 }
 
 function usesRepositoryGitHook(command: string): boolean {
-  // Only defer simple commits. Bypass flags, git configuration overrides and
-  // shell compounds still need the agent-side check before execution.
   const tokens = command.match(/(?:[^\s"']+|"[^"]*"|'[^']*')+/g) ?? [];
   const bypassesHook = tokens
     .map((token) => token.replaceAll('"', "").replaceAll("'", ""))
@@ -78,9 +76,7 @@ function readHookInput(): void {
       const payload = isRecord(parsed) ? (parsed as HookPayload) : {};
       const candidate = payload.tool_input?.command ?? payload.toolInput?.command ?? "";
       command = typeof candidate === "string" ? candidate : "";
-    } catch {
-      // A malformed hook payload should never prevent a Codex command.
-    }
+    } catch {}
 
     if (!/\bgit\b[^;&|\n]*\bcommit\b/.test(command)) {
       process.exit(0);

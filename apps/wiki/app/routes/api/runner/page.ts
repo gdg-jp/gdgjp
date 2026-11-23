@@ -4,7 +4,6 @@ import * as schema from "~/db/schema";
 import { requireRunner } from "~/features/jobs/runner-routes.server";
 import { getDb } from "~/lib/db.server";
 
-/** GET /api/runner/pages/:id — the full (unredacted) Japanese page for a translate job. */
 export async function loader({ request, context, params }: LoaderFunctionArgs) {
   const { env } = context.cloudflare;
   requireRunner(request, env);

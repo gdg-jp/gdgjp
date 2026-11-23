@@ -325,11 +325,6 @@ describe("e.$id.staff loader", () => {
     expect(JSON.stringify(result)).not.toContain("foreign_app");
   });
 
-  /**
-   * docs/roster/05-staff-supply-demand.md "回帰として固定すべきテスト",
-   * exercised end-to-end through the loader: two `exp`-level applicants meet
-   * headcount but the slot still needs to surface a lead shortage.
-   */
   it("surfaces a lead shortage in grouped supply and summary, excluding withdrawn staff", async () => {
     await testDb
       .prepare(
@@ -478,7 +473,7 @@ describe("e.$id.staff action (proxy add)", () => {
       user_id: null,
       email: "proxy@example.com",
       name: "Proxy Person",
-      contact: "proxy@example.com", // fell back to the email since contact was blank
+      contact: "proxy@example.com",
       updated_by: "owner",
     });
   });
@@ -562,11 +557,6 @@ describe("e.$id.staff action (proxy add)", () => {
     expect(rows.results).toEqual([{ name: "Corrected Name" }]);
   });
 
-  /**
-   * ADR-008: proxy-add never overwrites a row's user_id. Editing an
-   * already-claimed application by email (owner correcting a self-reported
-   * value) must leave the link to that person's account intact.
-   */
   it("never touches user_id when upserting an already-claimed application", async () => {
     const now = new Date().toISOString();
     await testDb
@@ -666,10 +656,6 @@ describe("e.$id.staff action (owner correction)", () => {
     ).rejects.toMatchObject({ status: 404 });
   });
 
-  /**
-   * docs/roster/05-staff-supply-demand.md "回帰として固定すべきテスト":
-   * corrections land as updated_by = owner.
-   */
   it("corrects skill level and availability, setting updated_by to owner", async () => {
     const result = await callAction(
       buildRequest({

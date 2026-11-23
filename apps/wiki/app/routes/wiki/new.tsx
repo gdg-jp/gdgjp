@@ -20,22 +20,13 @@ import { getDb } from "~/lib/db.server";
 
 registerMdEditorJa();
 
-// ---------------------------------------------------------------------------
-// Meta
-// ---------------------------------------------------------------------------
-
 import { Icons } from "@gdgjp/design-system";
 import { scheduleKnowledgeSync } from "~/features/knowledge/sync.server";
 export const meta: MetaFunction = () => [{ title: "New Page — GDG Japan Wiki" }];
 
-// ---------------------------------------------------------------------------
-// Loader
-// ---------------------------------------------------------------------------
-
 export async function action({ request, context, params }: ActionFunctionArgs) {
   const { env } = context.cloudflare;
   const user = await requireUser(request, env);
-  // New pages belong to the current space; creating one needs the editor role there.
   const { space } = await requireSpace(request, env, params.space, "editor");
   const db = getDb(env);
 
@@ -45,7 +36,6 @@ export async function action({ request, context, params }: ActionFunctionArgs) {
   const contentJa = (formData.get("contentJa") as string) ?? "";
   const contentEn = (formData.get("contentEn") as string) ?? "";
 
-  // Generate unique slug
   const baseSlug = generateSlug(titleJa || titleEn, titleEn);
   let slug = baseSlug;
   const existing = await db
@@ -82,10 +72,6 @@ export async function action({ request, context, params }: ActionFunctionArgs) {
   return redirect(wikiPagePath([slug], space.slug), { headers: { "X-Wiki-Page-Id": pageId } });
 }
 
-// ---------------------------------------------------------------------------
-// Route component
-// ---------------------------------------------------------------------------
-
 export default function NewPage() {
   const { t } = useTranslation();
   const editorLanguage = mdEditorLanguage(useTranslation().i18n.language);
@@ -105,15 +91,10 @@ export default function NewPage() {
 
   return (
     <Form method="post" className="flex flex-col" style={{ height: "calc(100dvh - 3.5rem)" }}>
-      {/* Hidden content fields — always kept in sync */}
       <input type="hidden" name="contentJa" value={contentJa} />
       <input type="hidden" name="contentEn" value={contentEn} />
 
-      {/* ------------------------------------------------------------------ */}
-      {/* Mini-header                                                          */}
-      {/* ------------------------------------------------------------------ */}
       <div className="sticky top-14 z-10 grid grid-cols-2 items-center gap-x-2 gap-y-1 border-b border-border bg-surface px-3 py-2 shadow-sm sm:flex sm:flex-wrap sm:gap-2">
-        {/* Row 1 col 1 (mobile) / inline (desktop): back + title */}
         <div className="flex min-w-0 items-center gap-1 sm:flex-1">
           <Link
             to={homePath}
@@ -123,7 +104,6 @@ export default function NewPage() {
             <Icons name="ArrowLeft" size={18} />
           </Link>
 
-          {/* Title inputs — toggled by active language, both always in DOM */}
           <input
             name="titleJa"
             value={titleJa}
@@ -143,9 +123,7 @@ export default function NewPage() {
           />
         </div>
 
-        {/* Row 1 col 2 (mobile) / inline (desktop): lang switcher + actions */}
         <div className="flex shrink-0 items-center justify-end gap-2 sm:ml-auto">
-          {/* Language switcher */}
           <div className="flex shrink-0 overflow-hidden rounded-md border border-border">
             {(["ja", "en"] as const).map((lang) => (
               <button
@@ -173,9 +151,6 @@ export default function NewPage() {
         </div>
       </div>
 
-      {/* ------------------------------------------------------------------ */}
-      {/* Editor body — no padding, full size                                 */}
-      {/* ------------------------------------------------------------------ */}
       <div className={`min-h-0 flex-1 ${isJaActive ? "" : "hidden"}`}>
         <MdEditor
           modelValue={contentJa}

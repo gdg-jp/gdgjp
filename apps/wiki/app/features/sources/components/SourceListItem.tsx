@@ -27,7 +27,6 @@ export type SourceListItemSource = {
   errorMessage: string | null;
   lastFetchedAt: Date | string | null;
   lastIntegratedAt?: Date | string | null;
-  /** Ready documents whose current content is not in the pages yet. */
   pendingIntegration?: number;
   documents: Array<{
     id: string;
@@ -78,7 +77,6 @@ export default function SourceListItem({
     deleteFetcher.state !== "idle" ||
     visibilityFetcher.state !== "idle";
 
-  // Fetched material not integrated for a day means the runner is stuck or down.
   const integrationStale =
     (source.pendingIntegration ?? 0) > 0 &&
     !!source.lastFetchedAt &&

@@ -88,7 +88,6 @@ export default function Editor({ loaderData }: Route.ComponentProps) {
   const obs = room?.dockOnline ? room.obs : null;
   const name = room?.deck.name ?? deck.name;
 
-  // Someone else saved: adopt it when nothing is pending here, otherwise warn.
   useEffect(() => {
     if (!room || room.deck.version <= baseVersion) return;
     if (dirty) {

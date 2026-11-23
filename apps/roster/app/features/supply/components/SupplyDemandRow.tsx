@@ -1,14 +1,5 @@
 import { SHORTAGE_KIND_LABELS, type SlotSupplyDemand } from "~/features/supply/supply";
 
-/**
- * One time slot's supply-vs-demand row on `/e/:id/staff`'s supply-demand
- * view (docs/roster/05-staff-supply-demand.md "Design" §3). Need/available
- * are the slot-wide totals; the badges below them are the role-level
- * `head`/`lead` shortages, styled distinctly so the two kinds read as
- * visually different signals — red (harder blocker) for `head`, yellow
- * (softer) for `lead`, matching this app's existing severity convention
- * (`~/features/demand/components/DemandCell`'s `L≥`/`新≤` badges).
- */
 export function SupplyDemandRow({
   slot,
   label,

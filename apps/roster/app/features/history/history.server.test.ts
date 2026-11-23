@@ -256,7 +256,7 @@ describe("recordRevision", () => {
     const afterSecond = await listRevisionRows(testDb);
 
     expect(afterSecond).toHaveLength(1);
-    expect(afterSecond[0].id).toBe(afterFirst[0].id); // same row updated in place, not a new one
+    expect(afterSecond[0].id).toBe(afterFirst[0].id);
     expect(afterSecond[0].seq).toBe(1);
     expect(afterSecond[0].label).toBe("手動編集（続き）");
     expect(await getCursor(testDb)).toBe(1);
@@ -298,17 +298,16 @@ describe("recordRevision", () => {
     }
     const rows = await listRevisionRows(testDb);
     expect(rows).toHaveLength(50);
-    expect(rows[0].seq).toBe(2); // seq 1 was the oldest — evicted
+    expect(rows[0].seq).toBe(2);
     expect(rows[rows.length - 1].seq).toBe(51);
-    expect(await getCursor(testDb)).toBe(51); // the cursor's row (51) always survives
+    expect(await getCursor(testDb)).toBe(51);
   });
 
   it("truncates future revisions when a new edit is made after the cursor was rewound", async () => {
-    await record(testDb, { label: "gen1" }); // seq 1
-    await record(testDb, { label: "gen2" }); // seq 2
-    await record(testDb, { label: "gen3" }); // seq 3
+    await record(testDb, { label: "gen1" });
+    await record(testDb, { label: "gen2" });
+    await record(testDb, { label: "gen3" });
 
-    // Simulate "undo twice" by rewinding the cursor directly.
     await testDb
       .prepare("UPDATE roster_sheets SET revision_cursor = 1 WHERE id = 'default:' || ?")
       .bind(EVENT_ID)
@@ -322,22 +321,11 @@ describe("recordRevision", () => {
     expect(await getCursor(testDb)).toBe(2);
   });
 
-  /**
-   * Regression: the merge-into-head branch used to `return` immediately
-   * after its `UPDATE`, skipping the "discard the redo branch" truncation
-   * that only ran on the insert path. So rewinding to a revision that
-   * happens to be a mergeable `edit` head, then making a matching edit,
-   * merged the new content into that head's row but left any revisions
-   * PAST the (now-stale) redo branch alive and reachable via redo — exactly
-   * the multi-branch history docs/roster/08-history.md "制約" forbids.
-   */
   it("truncates future revisions even when the new edit merges into the rewound-to head", async () => {
-    await record(testDb, { label: "gen1" }); // seq 1
-    await record(testDb, { kind: "edit", groupKey: "u1", label: "edit2" }); // seq 2 (edit head)
-    await record(testDb, { label: "gen3" }); // seq 3 (generate — always a new row)
+    await record(testDb, { label: "gen1" });
+    await record(testDb, { kind: "edit", groupKey: "u1", label: "edit2" });
+    await record(testDb, { label: "gen3" });
 
-    // Rewind the cursor to seq 2, an "edit" head that a same-actor,
-    // same-window edit is eligible to merge into.
     await testDb
       .prepare("UPDATE roster_sheets SET revision_cursor = 2 WHERE id = 'default:' || ?")
       .bind(EVENT_ID)
@@ -346,8 +334,8 @@ describe("recordRevision", () => {
     await record(testDb, { kind: "edit", groupKey: "u1", label: "edit2 (merged)" });
 
     const rows = await listRevisionRows(testDb);
-    expect(rows.map((r) => r.seq)).toEqual([1, 2]); // seq 3 must be gone, not just unreachable
-    expect(rows.map((r) => r.label)).toEqual(["gen1", "edit2 (merged)"]); // merged in place, not a new row
+    expect(rows.map((r) => r.seq)).toEqual([1, 2]);
+    expect(rows.map((r) => r.label)).toEqual(["gen1", "edit2 (merged)"]);
     expect(await getCursor(testDb)).toBe(2);
   });
 
@@ -437,7 +425,7 @@ describe("restoreRevision", () => {
 
     expect(result).toEqual({ droppedCount: 0 });
     expect(await getCursor(testDb)).toBe(1);
-    expect(await listRevisionRows(testDb)).toHaveLength(rowsBefore.length); // no new row
+    expect(await listRevisionRows(testDb)).toHaveLength(rowsBefore.length);
     expect(await readAssignmentRows(testDb)).toEqual([
       { application_id: "app_1", time_slot_id: "slot_1", track_id: "trk_1", role_id: "reception" },
     ]);
@@ -464,10 +452,7 @@ describe("restoreRevision", () => {
     const snapshot: Assignments = new Map([
       [assignmentKey("app_1", "slot_1"), { trackId: "trk_1", roleId: "reception", locked: false }],
     ]);
-    await record(testDb, { assignments: snapshot, label: "自動生成" }); // seq 1
-    // A later edit changes the live table to something else, WITHOUT going
-    // through recordRevision (simulating drift is unnecessary — using the
-    // real hook via a second record() call is simpler and equally valid).
+    await record(testDb, { assignments: snapshot, label: "自動生成" });
     await record(testDb, {
       assignments: new Map([
         [assignmentKey("app_2", "slot_1"), { trackId: "trk_1", roleId: "guide", locked: false }],
@@ -475,7 +460,7 @@ describe("restoreRevision", () => {
       kind: "edit",
       groupKey: "u1",
       label: "手動編集",
-    }); // seq 2 (different groupKey window state, but kind differs from head so no merge)
+    });
 
     await restoreRevision(asD1(testDb), EVENT_ID, 1, OWNER);
     expect(await readAssignmentRows(testDb)).toEqual([
@@ -677,7 +662,7 @@ describe("undoRevision / redoRevision", () => {
 
     const atStart = await undoRevision(asD1(testDb), EVENT_ID, OWNER);
     expect(atStart).toBeNull();
-    expect(await getCursor(testDb)).toBe(1); // unchanged — no-op, not an error
+    expect(await getCursor(testDb)).toBe(1);
   });
 
   it("redo moves the cursor forward, and is disabled (null) at the newest", async () => {

@@ -1,10 +1,5 @@
 import type { Command, PlayerStatus } from "./protocol";
 
-/**
- * Which confirmation a command needs. The rule is uniform: anything that
- * stops, rewinds, skips, or replaces sound that is audible right now (a loop's
- * wait counts as audible) asks first; anything that only starts sound doesn't.
- */
 export type ConfirmKind = "pause" | "stopLoop" | "restart" | "switch" | "seek";
 
 export type Intent = { cmd: Command; confirm: ConfirmKind | null };
@@ -15,7 +10,6 @@ export function isAudible(status: PlayerStatus): boolean {
   return status === "playing" || status === "gap";
 }
 
-/** The ▶/⏸ button of a clip (card, chip, or the floating bar's current clip). */
 export function primaryIntent(clipId: string, cueMs: number, now: Now): Intent {
   if (now.clipId === clipId) {
     if (now.status === "playing") return { cmd: { kind: "pause" }, confirm: "pause" };
@@ -43,7 +37,6 @@ export function seekIntent(ms: number, now: Now): Intent {
   };
 }
 
-/** What the primary button shows for a clip. */
 export function showsPause(clipId: string, now: Now): boolean {
   return now.clipId === clipId && isAudible(now.status);
 }

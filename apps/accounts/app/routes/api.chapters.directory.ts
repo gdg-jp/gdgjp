@@ -4,10 +4,6 @@ import type { components } from "../../openapi/types.generated";
 
 type ChapterDirectory = components["schemas"]["ChapterDirectory"];
 
-/**
- * A deliberately small, cacheable directory used by relying-party share pickers.
- * Memberships remain private: this exposes only stable chapter metadata.
- */
 export async function loader({ context, request }: LoaderFunctionArgs) {
   const { env } = context.cloudflare;
   const query = new URL(request.url).searchParams.get("q")?.trim().toLocaleLowerCase() ?? "";

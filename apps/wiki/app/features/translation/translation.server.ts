@@ -183,7 +183,6 @@ function tokenizeInline(value: string, segments: TranslationSegment[]): RenderPa
   return parts;
 }
 
-/** Keeps Markdown syntax local and exposes only visible plain text to the translator. */
 function prepareMarkdownLine(
   line: string,
   segments: TranslationSegment[],
@@ -285,7 +284,6 @@ async function translatePrepared(
   return { text: prepared.render(translations), stats };
 }
 
-/** Provider-neutral page translation with durable segment-level reuse. */
 export async function translatePage(
   input: TranslatePageInput,
   options: {
@@ -294,8 +292,6 @@ export async function translatePage(
     store?: TranslationSegmentStore;
   },
 ): Promise<TranslatedPage & { stats: TranslationStats }> {
-  // Keep calls sequential: it avoids duplicate misses when title/summary/body share a segment and
-  // prevents a burst of concurrent requests from briefly overshooting the Gateway spend limit.
   const title = await translatePrepared(
     prepareMarkdownTranslation(input.titleJa),
     options.modelId,

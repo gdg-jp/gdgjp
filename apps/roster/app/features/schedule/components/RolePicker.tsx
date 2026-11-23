@@ -3,19 +3,6 @@ import { Form } from "react-router";
 import { ROLE_NAME_MAX_LENGTH, canCreateCustomRole } from "~/features/schedule/role-name";
 import type { Role } from "~/features/schedule/roles.server";
 
-/**
- * The "使う役割" card on `/e/:id/s/:sheetId/design` (docs/roster/index.md §3
- * "役割マスタ"). The checkbox form toggles this sheet's `roster_sheet_roles`
- * selection among the six seeded roles and the event's own roles. Below it,
- * the event's own roles (ADR-011) are created, renamed, and deleted; they
- * are shared by every sheet of the event and its apply form, and a newly
- * created one starts selected on this sheet. Forms can't nest, so the
- * management forms are siblings of the checkbox form. `error` is a failed
- * role action's message, shown here rather than at the top of the page.
- *
- * The create button is deliberately not labelled "役割を追加" — that is the
- * demand matrix's add-column button, which tests look up by name.
- */
 export function RolePicker({
   roles,
   selectedRoleIds,
@@ -119,7 +106,6 @@ export function RolePicker({
           </ul>
         )}
         {canCreateCustomRole(roles) ? (
-          // Keyed by the count so a successful create remounts the form and clears the input.
           <Form key={customRoles.length} method="post" className="flex flex-wrap items-end gap-3">
             <input type="hidden" name="intent" value="createRole" />
             <input type="hidden" name="sheetId" value={sheetId} />

@@ -22,7 +22,6 @@ export default function CommentEditor({
   const [discardDialogOpen, setDiscardDialogOpen] = useState(false);
   const [resetKey, setResetKey] = useState(0);
 
-  // Whether the editor has actual content (not just an empty ProseMirror doc)
   const isDirty = (() => {
     if (!contentJson) return false;
     try {
@@ -39,7 +38,6 @@ export default function CommentEditor({
     }
   })();
 
-  // Register beforeunload when dirty
   useEffect(() => {
     if (!isDirty) return;
     function handleBeforeUnload(e: BeforeUnloadEvent) {
@@ -62,7 +60,6 @@ export default function CommentEditor({
     onSubmit(contentJson);
   }
 
-  // Reset after successful submission (when isSubmitting returns to false after a cycle)
   const wasSubmittingRef = useRef(false);
   useEffect(() => {
     if (wasSubmittingRef.current && !isSubmitting) {

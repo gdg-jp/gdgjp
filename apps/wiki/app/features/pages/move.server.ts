@@ -10,7 +10,6 @@ export async function movePage(
     append = false,
   }: { pageId: string; newParentId: string | null; insertAfterId: string | null; append?: boolean },
 ) {
-  // Verify pageId exists and get its current parent + authorId for authz
   type PageRow = {
     id: string;
     parent_id: string | null;
@@ -30,14 +29,12 @@ export async function movePage(
     throw new Response("This page is maintained by the ingest toolchain", { status: 403 });
   }
 
-  // Only the page author or an admin may move a page.
   if (!user.isAdmin && page.author_id !== user.id) {
     throw new Response("Forbidden", { status: 403 });
   }
 
   const oldParentId = page.parent_id;
 
-  // Verify newParentId exists and isn't a descendant of pageId (circular check)
   if (newParentId) {
     type ParentRow = {
       id: string;
@@ -46,7 +43,6 @@ export async function movePage(
       status: string;
       page_type: string | null;
     };
-    // Page trees never cross spaces: a parent in another space is "not found".
     const parent = (await env.DB.prepare(
       "SELECT id, author_id, origin, status, page_type FROM pages WHERE id = ? AND space_id = ?",
     )
@@ -59,13 +55,10 @@ export async function movePage(
     if (page.origin === "agent" && parent.origin === "human") {
       throw Response.json({ error: "human_parent" }, { status: 400 });
     }
-    // The caller also needs author/admin rights on the destination parent so
-    // they can't slot pages into someone else's subtree.
     if (!user.isAdmin && parent.author_id !== user.id) {
       throw new Response("Forbidden", { status: 403 });
     }
 
-    // Walk up from newParentId to root to detect circular reference
     type AncestorRow = { parent_id: string | null };
     let checkId: string | null = newParentId;
     const visited = new Set<string>();
@@ -80,7 +73,6 @@ export async function movePage(
     }
   }
 
-  // Fetch current siblings at the new parent (excluding the moved page)
   type IdRow = { id: string };
   const siblingRows = newParentId
     ? ((await env.DB.prepare(
@@ -96,7 +88,6 @@ export async function movePage(
 
   const siblings = siblingRows.results.map((r) => r.id);
 
-  // Insert pageId after insertAfterId (or at start if null)
   let insertAt = append ? siblings.length : 0;
   if (insertAfterId) {
     const idx = siblings.indexOf(insertAfterId);
@@ -104,10 +95,8 @@ export async function movePage(
   }
   siblings.splice(insertAt, 0, pageId);
 
-  // Build batch statements
   const statements: D1PreparedStatement[] = [];
 
-  // Renumber new parent's children
   for (let i = 0; i < siblings.length; i++) {
     statements.push(
       env.DB.prepare("UPDATE pages SET sort_order = ?, updated_at = unixepoch() WHERE id = ?").bind(
@@ -117,7 +106,6 @@ export async function movePage(
     );
   }
 
-  // Update moved page's parent_id
   if (newParentId) {
     statements.push(
       env.DB.prepare(
@@ -132,7 +120,6 @@ export async function movePage(
     );
   }
 
-  // If parent changed, renumber old parent's remaining children
   if (oldParentId !== newParentId) {
     const oldSiblingRows = oldParentId
       ? ((await env.DB.prepare(

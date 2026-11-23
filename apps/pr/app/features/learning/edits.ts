@@ -9,7 +9,6 @@ export type LeafEdit = {
 
 const escapePointer = (key: string) => key.replace(/~/g, "~0").replace(/\//g, "~1");
 
-/** Scalar leaves (as text) of a JSON value by JSON Pointer. Worker-added keys are left out. */
 export function stringLeaves(
   value: unknown,
   skip: ReadonlySet<string> = new Set(),
@@ -31,7 +30,6 @@ export function stringLeaves(
   return out;
 }
 
-/** Levenshtein over code points (bounded: long texts are compared by length past 4000 chars). */
 export function charDistance(a: string, b: string): number {
   const x = [...a];
   const y = [...b];
@@ -51,7 +49,6 @@ export function charDistance(a: string, b: string): number {
   return prev[y.length] ?? 0;
 }
 
-/** One row per changed string leaf (added, removed or edited). */
 export function diffLeaves(
   before: unknown,
   after: unknown,
@@ -69,7 +66,6 @@ export function diffLeaves(
     });
 }
 
-/** Rules whose result changed between the two versions. */
 export function ruleHints(before: CheckResult[], after: CheckResult[]): string[] {
   const was = new Map(before.map((r) => [r.ruleId, r.status]));
   return after
@@ -78,7 +74,6 @@ export function ruleHints(before: CheckResult[], after: CheckResult[]): string[]
     .sort();
 }
 
-/** Emails and @handles must not reach examples or proposals (feedback.mjs refuses them too). */
 export function personalData(text: string): string[] {
   const found = new Set<string>();
   for (const m of text.matchAll(/[\w.+-]+@[\w-]+\.[\w.-]+/g)) found.add(m[0]);

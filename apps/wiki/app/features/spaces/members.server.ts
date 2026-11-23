@@ -38,7 +38,6 @@ export function validateMemberInput(
   };
 }
 
-/** Add or update a member. Rejects principals the space kind does not accept (§2-b). */
 export async function upsertSpaceMember(
   db: Db,
   space: SpaceRow,
@@ -68,7 +67,6 @@ export async function removeSpaceMember(
   if ((space.kind as SpaceKind) !== "shared") {
     return { ok: false, error: "principal_not_allowed", status: 400 };
   }
-  // Wildcards on gdg-jp reproduce the v1 population; they are not removable from the UI.
   if (principal.principalId === "*") return { ok: false, error: "invalid_principal", status: 400 };
   const owners = await db
     .select({ id: schema.spaceMembers.principalId, type: schema.spaceMembers.principalType })

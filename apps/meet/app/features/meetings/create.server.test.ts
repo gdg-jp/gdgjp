@@ -489,7 +489,6 @@ describe("createMeeting", () => {
       roles: ["organizer"],
     });
 
-    // Meet スペース作成 → Calendar 予定作成の順で呼ばれていること
     expect(calls).toHaveLength(2);
     expect(calls[0]).toEqual({
       url: "https://meet.googleapis.com/v2/spaces",
@@ -541,7 +540,6 @@ describe("createMeeting", () => {
     ]);
     expect(attendees.some((a) => a.email === HOST_EMAIL)).toBe(false);
 
-    // D1 が active になり、sync_members が Queue 投入されていること
     const saved = dbFixture.meetings.get("id-1");
     expect(saved).toMatchObject({
       status: "active",

@@ -30,9 +30,5 @@ export async function requireUserWithChapter(
     throw err;
   }
   if (!resolved.primary) throw redirect("/no-chapter");
-  // Post-migration there is no separate accountId — user.id is our stable
-  // internal identifier (a UUID minted at first sign-in). New image rows store
-  // the same value in both user_id and account_id; existing rows keep their
-  // historical account_id (Google sub) for backward-compat reads.
   return { user, chapter: resolved.primary, chapters: resolved.all, accountId: user.id };
 }

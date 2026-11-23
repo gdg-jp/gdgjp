@@ -7,7 +7,6 @@ export type DiscordChannelGroup = {
   channels: Array<{ id: string; name: string; type: number; parentId: string | null }>;
 };
 
-/** Category / channel checklist for a Discord server source. */
 export function DiscordChannelChecklist({
   groups,
   selectedChannelIds,

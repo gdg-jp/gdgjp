@@ -16,7 +16,6 @@ import {
   type DenoiseState,
 } from "../../protocol";
 
-/** Why the speaker's mic is not going through DeepFilterNet3 although it is on. */
 export const DENOISE_FALLBACK_LABEL: Record<Exclude<DenoiseState, "active" | "off">, string> = {
   loading: "ノイズ除去を準備中（ブラウザ標準で処理中）",
   unsupported: "このブラウザではノイズ除去が使えません（ブラウザ標準で処理中）",
@@ -33,10 +32,6 @@ export function denoiseFallback(
   return state;
 }
 
-/**
- * The operator's per-speaker DeepFilterNet3 switch and strength. The speaker
- * never sees it; their page applies changes live.
- */
 export function DenoiseControl({
   name,
   setting = DEFAULT_DENOISE,

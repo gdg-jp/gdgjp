@@ -9,8 +9,6 @@ import type { ScheduleItem } from "~/features/schedule/item";
 import { dueItems, getItem, transitionItem } from "~/features/schedule/item.repository.server";
 import { deliverablePost, jstLabel } from "./content";
 
-// Message text comes from the draft or constants.reminders.templates (the Playbook), never TS.
-
 const now = () => Math.floor(Date.now() / 1000);
 
 async function handleOf(env: Env, campaignId: number, userId: string | null) {
@@ -19,7 +17,6 @@ async function handleOf(env: Env, campaignId: number, userId: string | null) {
   return mention(member?.discordHandle);
 }
 
-/** The staff reminder's text: the post draft's `staffReminder`, or the Playbook's default. */
 export async function staffReminderText(env: Env, campaign: Campaign, item: ScheduleItem) {
   const parent = item.derivedFromItemId
     ? await getItem(env.DB, campaign.id, item.derivedFromItemId)
@@ -44,7 +41,6 @@ export async function staffReminderText(env: Env, campaign: Campaign, item: Sche
     : template("staff", vars);
 }
 
-/** Send one staff reminder now (cron with auto on, or a person pressing 送信). */
 export async function sendStaffReminder(
   env: Env,
   campaign: Campaign,
@@ -59,7 +55,6 @@ export async function sendStaffReminder(
     chapterId: campaign.chapterId,
     campaignId: campaign.id,
     itemId: item.id,
-    // A person pressing 送信 again after a failure is a new message.
     key: manual ? `staff:${item.id}:manual:${Date.now()}` : `staff:${item.id}:${item.dueAt}`,
     content: await staffReminderText(env, campaign, item),
     action: "discord_staff_reminder",
@@ -73,7 +68,6 @@ async function campaignOf(env: Env, cache: Map<number, Campaign | null>, id: num
   return cache.get(id) ?? null;
 }
 
-/** Every minute: staff reminders, Discord posts, review requests and request follow-ups. */
 export async function sweepReminders(env: Env) {
   const t = now();
   const cache = new Map<number, Campaign | null>();
@@ -144,7 +138,6 @@ export async function sweepReminders(env: Env) {
   return counts;
 }
 
-/** A draft that reached in_review: tell its reviewer (or the reviewers) once per version. */
 async function sweepReviewRequests(env: Env, cache: Map<number, Campaign | null>) {
   const { results } = await env.DB.prepare(
     `SELECT d.id, d.campaign_id, d.title, d.current_version, d.reviewer_user_id FROM drafts d

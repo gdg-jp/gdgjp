@@ -10,15 +10,12 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// newPrCommand is `gdg pr`, the pr.gdgs.jp tools. Today: the OCI runner.
 func newPrCommand() *cobra.Command {
 	command := &cobra.Command{Use: "pr", Short: "pr.gdgs.jp (event PR) tools"}
 	command.AddCommand(newPrRunnerCommand())
 	return command
 }
 
-// newPrRunnerCommand is `gdg pr runner`, the systemd service next to `gdg wiki runner` on the OCI
-// VM. Settings come from the environment (/etc/gdg/pr-runner.env); see infra/oci-runner/README.md.
 func newPrRunnerCommand() *cobra.Command {
 	var once, dryRun bool
 	command := &cobra.Command{

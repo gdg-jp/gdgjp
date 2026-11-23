@@ -123,7 +123,6 @@ describe("persistSourceDocument", () => {
 
     const hash = await sha256Hex(new TextEncoder().encode("# Hello"));
     expect(result).toMatchObject({ skipped: false, written: true, contentHash: hash });
-    // v2 layout: one object per document under its space, tagged for AI Search.
     expect(putMock).toHaveBeenCalledWith(
       rawObjectKey("gdg-jp", SOURCE_ID, "index"),
       expect.any(Uint8Array),

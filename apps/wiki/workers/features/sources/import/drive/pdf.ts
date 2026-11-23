@@ -7,10 +7,6 @@ export class InvalidPdfExportError extends Error {
   }
 }
 
-/**
- * The file is too large to keep as a PDF: Google refuses the export (`exportSizeLimitExceeded`,
- * Drive's export cap) or the body exceeds MAX_PDF_BYTES. The text of the file is still imported.
- */
 export class PdfTooLargeError extends InvalidPdfExportError {
   constructor(message: string) {
     super(message);

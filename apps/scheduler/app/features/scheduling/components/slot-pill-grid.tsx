@@ -39,7 +39,6 @@ function InteractiveGrid({
 }: Extract<SlotPillGridProps, { mode: "interactive" }>) {
   const ownKey = useMemo(() => [...ownSet].sort((a, b) => a - b).join(","), [ownSet]);
   const [selected, setSelected] = useState<Set<number>>(() => new Set(ownSet));
-  // Resync with server state after submit + redirect re-runs the loader.
   // biome-ignore lint/correctness/useExhaustiveDependencies: ownKey captures ownSet content
   useEffect(() => {
     setSelected(new Set(ownSet));

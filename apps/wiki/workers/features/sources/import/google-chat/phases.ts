@@ -10,11 +10,6 @@ import type { ChatImportPhase, ChatImportTickContext, Current } from "./shared";
 export { CHAT_PAGE_SIZE, SENDERS_FLUSH_BATCH_SIZE } from "./shared";
 export type { ChatImportPhase, StepOutcome } from "./shared";
 
-/**
- * Chat's existing phase workers are a driver too. Keeping them as a driver
- * removes the Queue/DO kind fork while preserving each phase's established
- * subrequest accounting during the extraction to import/chat/.
- */
 export const chatImportDriver: ImportKindDriver<Exclude<ChatImportPhase, "complete" | "error">> = {
   kind: "google-chat-space",
   phases: ["listing", "indexing", "senders", "attachments", "grouping", "finalizing"],

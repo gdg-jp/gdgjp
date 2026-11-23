@@ -1,12 +1,3 @@
-/**
- * The OBS custom dock's engine: one obs-websocket connection to the local OBS
- * and one socket to the deck's room on deck.gdgs.jp.
- *
- * - Keeps an ObsState (full read on connect and after structural changes,
- *   patched from events) and sends it to the room, throttled.
- * - Runs the steps the room sends, one run at a time, and reports the result.
- */
-
 import type { Step } from "~/features/deck/model";
 import { ObsClient, type ObsStatus } from "~/features/obs/obs-client";
 import { BASE_REQUESTS, applyEvent, readBase, readDetails } from "~/features/obs/obs-events";
@@ -104,7 +95,6 @@ export class DockEngine {
     this.obs.stop();
   }
 
-  /** Settings changed: reconnect to OBS. */
   reconnectObs() {
     this.obs.restart();
   }
@@ -118,8 +108,6 @@ export class DockEngine {
     this.update({ state });
     this.schedulePush();
   }
-
-  // ─── room ────────────────────────────────────────────────────────────────
 
   private onRoom(msg: ToDockMessage) {
     switch (msg.type) {
@@ -179,8 +167,6 @@ export class DockEngine {
     }
   }
 
-  // ─── OBS ─────────────────────────────────────────────────────────────────
-
   private onObsEvent(type: string, data: Record<string, unknown>) {
     const effect = applyEvent(this.snapshot.state, type, data, Date.now());
     if (effect.state !== this.snapshot.state) this.setState(effect.state);
@@ -206,12 +192,9 @@ export class DockEngine {
           },
         });
       }
-    } catch {
-      // gone or not a media input
-    }
+    } catch {}
   }
 
-  /** Re-reads everything from OBS (two request batches). */
   refresh(): Promise<void> {
     if (this.refreshing) return this.refreshing;
     this.refreshing = (async () => {
@@ -220,7 +203,6 @@ export class DockEngine {
         const details = await this.obs.batch(base.detailRequests);
         this.setState(readDetails(base.state, base.detailRequests, details));
       } catch {
-        // disconnected mid-read; the next Identified reads again
       } finally {
         this.refreshing = null;
       }

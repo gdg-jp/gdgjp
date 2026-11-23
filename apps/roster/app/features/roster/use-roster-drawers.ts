@@ -17,16 +17,6 @@ import {
 
 const AVAILABILITY_GLYPH = AVAILABILITY_LABELS;
 
-/**
- * `e.$id.roster.tsx`'s drawer state and derived data, split out purely to
- * keep the route file under the 400-line cap
- * (docs/roster/07-roster-manual-edit.md "制約"). Both drawers' candidate/
- * suggestion lists are computed here by calling straight into `grid.ts`
- * (which itself only calls `hardViolations`/`suggestFor` — never
- * re-implements them), against the SAME `input`/`assignments` the page's
- * `MetricsRow`/`ShortageReport` render from, so a drawer can never show a
- * number that disagrees with the page around it.
- */
 export function useRosterDrawers({
   input,
   assignments,
@@ -42,9 +32,6 @@ export function useRosterDrawers({
   slotLabelById: ReadonlyMap<string, string>;
   trackNameById: ReadonlyMap<string, string>;
   roleNameById: ReadonlyMap<string, string>;
-  /** A fresh truthy value on a successful assign/unassign — both drawers
-   * close (deselecting their cell) the moment this changes to one, the same
-   * "close on success, leave open on error" contract `StaffDrawer` uses. */
   closeOnSuccess: unknown;
 }) {
   const [staffSelection, setStaffSelection] = useState<CellDrawerSelection | null>(null);
@@ -65,7 +52,6 @@ export function useRosterDrawers({
     });
   }
 
-  /** Ignored when `slotIds`' first slot has no demand for this (track, role) — a `DemandCoverageGrid` "no demand" cell isn't editable. */
   function openDemandCell(trackId: string, roleId: string, slotIds: string[]): void {
     const firstSlotId = slotIds[0];
     if (!firstSlotId || !input.demands.has(demandKey(firstSlotId, trackId, roleId))) return;

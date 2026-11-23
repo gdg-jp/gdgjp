@@ -1,6 +1,5 @@
 type Point = { date: string; applications: number };
 
-/** Applications against the goal curve: two lines, labelled, readable in light and dark. */
 export function LineChart({ series, goal }: { series: Point[]; goal: Point[] }) {
   if (series.length === 0) return null;
   const width = 640;

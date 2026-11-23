@@ -119,8 +119,6 @@ func TestWithTokenNon401StatusErrorPassthrough(t *testing.T) {
 	}
 }
 
-// stubRefresh swaps the package's refresh seam for the duration of a test, so
-// tests never make a real network call to oauth.Refresh.
 func stubRefresh(t *testing.T, fn func(ctx context.Context, refreshToken string) (store.Credentials, error)) {
 	t.Helper()
 	previous := refreshAccessToken

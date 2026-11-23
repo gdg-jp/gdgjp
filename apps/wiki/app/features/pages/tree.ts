@@ -29,10 +29,6 @@ export type FlatRow = {
   sortOrder: number;
 };
 
-/**
- * Converts a flat list of page rows (with parentId) into a recursive tree.
- * Orphaned nodes (parentId pointing to a non-existent page) are placed at the root.
- */
 export function buildTree(rows: FlatRow[]): PageNode[] {
   const map = new Map<string, PageNode>();
   for (const row of rows) {
@@ -54,7 +50,7 @@ export function buildTree(rows: FlatRow[]): PageNode[] {
     if (row.parentId && map.has(row.parentId)) {
       map.get(row.parentId)?.children.push(node);
     } else {
-      node.parentId = null; // treat orphans as roots
+      node.parentId = null;
       roots.push(node);
     }
   }
@@ -64,11 +60,6 @@ export function buildTree(rows: FlatRow[]): PageNode[] {
 
 const DATED_SLUG = /^(\d{4}-\d{2}-\d{2})-/;
 
-/**
- * Reading order for the sidebar: at the root, pages with children (the namespaces) come
- * before single pages; wherever two or more siblings carry a date-prefixed slug (events),
- * those are newest first, ahead of undated siblings. Everything else keeps its sort order.
- */
 export function orderSiblings(nodes: PageNode[], root = false): void {
   const dated = nodes.filter((node) => DATED_SLUG.test(node.slug));
   if (dated.length >= 2) {
@@ -87,10 +78,6 @@ export function orderSiblings(nodes: PageNode[], root = false): void {
   for (const node of nodes) orderSiblings(node.children);
 }
 
-/**
- * Flattens a recursive PageNode tree into a flat list suitable for drag-and-drop.
- * The parentId in FlatNode reflects the actual tree structure (not raw DB value).
- */
 export function flattenTree(
   nodes: PageNode[],
   parentId: string | null = null,
@@ -115,11 +102,6 @@ export function flattenTree(
   return result;
 }
 
-/**
- * Returns the IDs of every ancestor required to reveal a page in the tree.
- * The matched page itself is deliberately excluded, so visiting a folder does
- * not automatically reveal its children.
- */
 export function getAncestorIdsForSlug(nodes: PageNode[], slug?: string): Set<string> {
   if (!slug) return new Set();
 
@@ -140,10 +122,6 @@ export function getAncestorIdsForSlug(nodes: PageNode[], slug?: string): Set<str
   return new Set();
 }
 
-/**
- * Walk an in-memory page tree and produce root→leaf slug segments per page id.
- * Used by the sidebar so hierarchical links need no extra DB round trip.
- */
 export function buildSlugPathById(nodes: PageNode[]): Map<string, string[]> {
   const paths = new Map<string, string[]>();
 

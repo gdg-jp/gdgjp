@@ -252,7 +252,6 @@ export async function listLinksInFolderAccessible(
   return results.map(toLink);
 }
 
-// Compatibility for existing callers while they move to FolderViewer-based access checks.
 export async function isFolderAvailableForLinkOwner(
   db: D1Database,
   input: { id: number; ownerUserId: string; ownerChapterId: number | null },
@@ -266,11 +265,6 @@ export async function isFolderAvailableForLinkOwner(
 
 export type FolderPage = { folders: FolderWithCounts[]; nextCursor: string | null };
 
-/**
- * Cursor pagination lives at the feature boundary so both transport adapters
- * share one bounded-list contract. Folder rows are stable-name ordered by the
- * underlying access repository.
- */
 export async function listAccessibleFoldersPage(
   db: D1Database,
   viewer: FolderViewer,

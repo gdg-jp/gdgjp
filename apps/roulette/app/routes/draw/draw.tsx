@@ -32,10 +32,6 @@ export function meta({ data }: Route.MetaArgs) {
   ];
 }
 
-/**
- * Public spin page. Sends the wheel layout, the prize names and this device's
- * past result — never stock, odds or what has been won.
- */
 export async function loader({ request, params, context }: Route.LoaderArgs) {
   const env = context.cloudflare.env;
   const slug = normalizeSlug(params.slug);
@@ -71,7 +67,6 @@ export async function action({ request, params, context }: Route.ActionArgs) {
   return spin(context.cloudflare.env.DB, slug, deviceId);
 }
 
-// The page animates the spin's result itself; reloading it would jump to the end.
 export function shouldRevalidate({
   formMethod,
   defaultShouldRevalidate,
@@ -91,18 +86,14 @@ const failure: Record<
 };
 
 const SOUND_KEY = "roulette-sound";
-/** The music stays down this long after a reveal, under the fanfare. */
 const FANFARE_MS = 2400;
 
-/** Sound effects and music, on by default and remembered per browser. */
 function useSound() {
   const [sound, setSound] = useState(true);
   useEffect(() => {
     try {
       if (localStorage.getItem(SOUND_KEY) === "off") setSound(false);
-    } catch {
-      // Storage can be unavailable (private mode); keep the default.
-    }
+    } catch {}
     return () => music.stop();
   }, []);
   useEffect(() => {
@@ -124,10 +115,7 @@ function useSound() {
     const next = !sound;
     try {
       localStorage.setItem(SOUND_KEY, next ? "on" : "off");
-    } catch {
-      // Not remembered this time.
-    }
-    // This click is a tap, so the music may start right away.
+    } catch {}
     setSoundOn(next);
     if (next) music.start();
     setSound(next);
@@ -166,7 +154,6 @@ export default function DrawPage({ loaderData }: Route.ComponentProps) {
     }
     wheel.abort();
     setError(failure[outcome.status]);
-    // Closed, sold out or gone: show the page as it is now.
     revalidator.revalidate();
   }, [fetcher.data]);
 
@@ -195,7 +182,6 @@ export default function DrawPage({ loaderData }: Route.ComponentProps) {
       <div className="mx-auto flex max-w-[960px] flex-col gap-4 px-4 pt-3 pb-10">
         <header className="flex items-start gap-3">
           <div className="min-w-0 flex-1">
-            {/* A div, not Text: Icons renders a div, which a <p> cannot contain. */}
             <div className="flex items-center gap-1 text-sm text-muted">
               <Icons name="LoaderPinwheel" size={14} aria-hidden="true" />
               GDG Roulette
@@ -217,7 +203,6 @@ export default function DrawPage({ loaderData }: Route.ComponentProps) {
           </IconButton>
         </header>
         <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_360px] md:items-start">
-          {/* Above the dimmed page during a staged finish; the cut-in and PUSH shake it. */}
           <div ref={wheel.stageRef} className={`relative ${staged ? "z-30" : ""}`}>
             <div
               className={`relative overflow-hidden transition-transform duration-700 ${staged ? "scale-105" : ""}`}

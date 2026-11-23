@@ -1,6 +1,5 @@
 import type { KnowledgeChunk, KnowledgeNamespace, KnowledgeSearchRequest } from "./binding";
 
-/** In-memory stand-in for the AI Search namespace binding (tests only). */
 export function createFakeKnowledge() {
   const instances = new Map<
     string,
@@ -8,7 +7,6 @@ export function createFakeKnowledge() {
   >();
   let nextId = 1;
   const searches: KnowledgeSearchRequest[] = [];
-  /** Chunks the next search returns (the fake does not rank text). */
   let nextChunks: KnowledgeChunk[] = [];
   const binding: KnowledgeNamespace = {
     get(id) {

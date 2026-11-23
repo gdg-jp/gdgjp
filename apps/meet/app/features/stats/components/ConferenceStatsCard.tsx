@@ -107,7 +107,6 @@ function ParticipantStatsTable({
   );
 }
 
-/** 会議詳細画面に表示する開催回別の参加状況・会議統計カード。 */
 export function ConferenceStatsCard({ stats, timeZone }: ConferenceStatsCardProps) {
   return (
     <Card>

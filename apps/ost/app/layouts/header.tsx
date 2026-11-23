@@ -2,10 +2,6 @@ import { GdgAccountMenu } from "@gdgjp/gdg-lib/ui";
 
 export type HeaderUser = { name: string; email: string; image: string | null };
 
-/**
- * Admin-surface header: title on the left, the shared GDG account menu
- * (avatar → name/email, manage account, sign out) pinned top-right.
- */
 export function Header({
   title,
   accountsUrl,

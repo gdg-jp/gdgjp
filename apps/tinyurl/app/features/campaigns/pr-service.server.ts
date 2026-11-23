@@ -11,10 +11,6 @@ import {
   listCampaignsForActor,
 } from "./campaign.service";
 
-/**
- * The calls pr.gdgs.jp makes through the PrService entrypoint (workers/app.ts). Every call goes
- * through the same *ForActor services the dashboard and CLI use, so permissions are tinyurl's.
- */
 const fail = (code: string, message?: string) => ({ ok: false as const, code, message });
 
 export async function prEnsureCampaign(

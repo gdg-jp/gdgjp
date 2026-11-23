@@ -2,11 +2,6 @@ import type { App } from "../../app";
 import { replyDiscordMessage } from "./deliver";
 import { type DiscordAsk, runAsk } from "./discord";
 
-/**
- * The MESSAGE_CREATE fields `gdg agent discord-gateway` forwards. Discord only fills
- * `content` for messages that mention the app and for DMs (no Message Content intent), which
- * are exactly the ones the listener forwards.
- */
 export type GatewayMessage = {
   id: string;
   channel_id: string;
@@ -21,7 +16,6 @@ export const PLACEHOLDER = "🔎 wiki を調べています…";
 export const MENTION_HELP =
   "質問をメンションと一緒に書いてください（例: @GDG Agent DevFest の会場は？）。/ask でも質問できます。";
 
-/** The question in a message, or null when the message is not for the bot. */
 export function mentionQuestion(message: GatewayMessage, botId: string): string | null {
   if (!message.author || message.author.bot || message.webhook_id) return null;
   const direct = !message.guild_id;
@@ -30,11 +24,6 @@ export function mentionQuestion(message: GatewayMessage, botId: string): string 
   return (message.content ?? "").replace(new RegExp(`<@!?${botId}>`, "g"), " ").trim();
 }
 
-/**
- * Answer an @mention (or a DM) the way /ask answers publicly: as the guild's principal in a
- * channel, as the linked asker in a DM. The reply starts as a placeholder that is edited in
- * place, like the deferred interaction response.
- */
 export async function handleDiscordMessage(
   app: App,
   message: GatewayMessage,

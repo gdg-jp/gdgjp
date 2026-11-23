@@ -13,11 +13,6 @@ import {
 import { type ImageActor, type ImageServiceResult, fail, ok } from "./result";
 import { deleteOriginal, putOriginal } from "./storage.server";
 
-/**
- * Replaces an existing image's bytes, reusing the same r2_key so the public
- * URL is stable. D1 persists first: if it fails, the existing public object
- * is left untouched rather than overwritten with content D1 never recorded.
- */
 export async function replaceImageForActor(
   env: Env,
   ctx: ExecutionContext,
@@ -65,7 +60,6 @@ export async function replaceImageForActor(
   return ok(updated);
 }
 
-/** Same D1-first ordering as replaceImageForActor, see its docstring. */
 export async function setMobileImageForActor(
   env: Env,
   ctx: ExecutionContext,
@@ -113,7 +107,6 @@ export async function setMobileImageForActor(
   return ok(updated);
 }
 
-/** Restores the previously persisted mobile-variant metadata after a failed R2 write. */
 async function revertMobileImage(db: D1Database, id: string, previous: ImageRow): Promise<void> {
   if (
     previous.mobileR2Key &&

@@ -12,7 +12,6 @@ describe("bundled playbook", () => {
   });
 
   it("only scopes rules to known draft kinds and plan", () => {
-    // A rule scoped to a kind the app does not know would silently never run.
     const known = new Set(["plan", ...DRAFT_KINDS.map((k) => `draft.${k}`)]);
     for (const rule of playbook.rules)
       for (const scope of rule.scope) expect(known, rule.id).toContain(scope);

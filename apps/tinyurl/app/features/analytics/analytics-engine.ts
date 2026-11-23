@@ -158,7 +158,6 @@ function windowClause(window: AnalyticsWindow, lookbackHours = 0): string {
     case "custom": {
       const start = isoDateOrThrow(window.startIso, "start");
       const end = isoDateOrThrow(window.endIso, "end");
-      // end is inclusive at the day level, so use < (end + 1 day)
       const lookback = lookbackHours > 0 ? ` - INTERVAL '${lookbackHours}' HOUR` : "";
       return `timestamp >= toDateTime('${start} 00:00:00')${lookback} AND timestamp < toDateTime('${end} 00:00:00') + INTERVAL '1' DAY`;
     }
@@ -198,10 +197,6 @@ function blobFiltersClause(filters: DimensionFilters | undefined): string {
   return parts.length === 0 ? "" : ` AND ${parts.join(" AND ")}`;
 }
 
-/**
- * blob12 is set to "1" for crawler and OGP-preview requests. Events written before this
- * field was introduced have an empty value and remain part of the normal click history.
- */
 function automatedClicksClause(includeAutomated: boolean | undefined): string {
   return includeAutomated ? "" : " AND blob12 != '1'";
 }
@@ -218,7 +213,6 @@ export type TimeBucket = {
 const TIME_BUCKET_RE =
   /^(\d{1,4})\s*(m|min|mins|minute|minutes|h|hr|hrs|hour|hours|d|day|days|w|week|weeks)$/i;
 
-/** Parses user-facing intervals such as 30m, 2h, or 1day without exposing SQL input. */
 export function parseTimeBucket(value: string | null | undefined): TimeBucket | null {
   const match = value?.trim().match(TIME_BUCKET_RE);
   if (!match) return null;

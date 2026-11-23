@@ -1,4 +1,3 @@
-/** Something the assistant reads: a public page, a shared Google file, or an uploaded file. */
 export type SourceImage = { id: string; type: string; size: number; src?: string };
 
 export type Source = {
@@ -22,7 +21,6 @@ export type GoogleTarget =
   | { kind: "file"; id: string }
   | { kind: "folder"; id: string };
 
-/** Google Docs / Slides / Sheets / Drive links, by the id in their URL. */
 export function googleTarget(raw: string): GoogleTarget | null {
   let url: URL;
   try {
@@ -48,7 +46,6 @@ export function googleTarget(raw: string): GoogleTarget | null {
   return null;
 }
 
-/** Where the text (and, for Docs, the images) of a Google file can be read without signing in. */
 export function googleExportUrl(target: GoogleTarget): string | null {
   switch (target.kind) {
     case "doc":
@@ -66,7 +63,6 @@ export function googleExportUrl(target: GoogleTarget): string | null {
 
 const BLOCK = /<\/(p|div|section|article|li|h[1-6]|tr|table|ul|ol|header|footer|br)>|<br\s*\/?>/gi;
 
-/** HTML to readable text: scripts, styles and markup go; block ends become line breaks. */
 export function htmlToText(html: string): string {
   return decodeEntities(
     html
@@ -105,10 +101,6 @@ export function titleOf(html: string): string {
   return decodeEntities((og ?? title ?? "").trim()).slice(0, 200);
 }
 
-/**
- * Images worth reading on a page: og:image first, then <img> in the body, absolute, without
- * icons, avatars, tracking pixels or SVG. Event pages put the timetable and speakers in images.
- */
 export function imagesIn(html: string, base: string, limit = 8): string[] {
   const out: string[] = [];
   const add = (raw: string | undefined) => {
@@ -133,7 +125,6 @@ export function imagesIn(html: string, base: string, limit = 8): string[] {
   return out.slice(0, limit);
 }
 
-/** The text from `from` up to the first `until` after it (both regexes), or "". */
 function between(html: string, from: RegExp, until: RegExp): string {
   const start = html.search(from);
   if (start < 0) return "";
@@ -142,11 +133,6 @@ function between(html: string, from: RegExp, until: RegExp): string {
   return end < 0 ? rest.slice(0, 200_000) : rest.slice(0, end + 1);
 }
 
-/**
- * The parts of a connpass event page that describe the event: title, dates, venue, the
- * participation table without its applicant list, and the description. The rest of the page
- * lists participants, which the assistant must not read.
- */
 export function connpassMain(html: string): string | null {
   const description = between(
     html,
@@ -173,7 +159,6 @@ export function connpassMain(html: string): string | null {
   ].join("\n");
 }
 
-/** Contact details never reach the assistant (or R2): emails and phone numbers are masked. */
 export function maskContacts(text: string): string {
   return text
     .replace(/[\w.+-]+@[\w-]+(\.[\w-]+)+/g, "［メール］")

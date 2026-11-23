@@ -14,7 +14,6 @@ import { RoleGrid } from "~/features/roster/components/RoleGrid";
 import { matchStaffIds } from "~/features/roster/search";
 import { type Assignments, type Demand, assignmentKey, demandKey } from "~/features/solver/types";
 
-/** Shared renderer for the compatibility event view and sheet-specific public views. */
 export function PublicRosterPage({ loaderData }: { loaderData: PublicRosterView }) {
   const tracks = loaderData.published ? loaderData.data.tracks : [];
   const roles = loaderData.published ? loaderData.data.roles : [];
@@ -41,8 +40,6 @@ export function PublicRosterPage({ loaderData }: { loaderData: PublicRosterView 
     return map;
   }, [rawAssignments]);
 
-  // The role grid needs a sortOrder on each track and role; derive it from
-  // array position because the public wire type carries neither value.
   const roleViewTracks = useMemo(() => tracks.map((t, i) => ({ ...t, sortOrder: i })), [tracks]);
   const roleViewRoles = useMemo(() => roles.map((r, i) => ({ ...r, sortOrder: i })), [roles]);
   const roleViewDemands = useMemo(() => {
@@ -61,7 +58,6 @@ export function PublicRosterPage({ loaderData }: { loaderData: PublicRosterView 
 
   const [view, setView] = useState<PublicView>("staff");
   const [search, setSearch] = useState("");
-  // Same matcher the owner grid uses, over the only names this page has.
   const matchedIds = useMemo(() => matchStaffIds(search, staff), [search, staff]);
 
   if (!loaderData.published) {
@@ -122,9 +118,6 @@ export function PublicRosterPage({ loaderData }: { loaderData: PublicRosterView 
             </button>
           ))}
         </div>
-        {/* Shown on every tab — all four render names, and finding your own
-         * shift on a phone is what this page is for. `key={view}` re-runs the
-         * scroll against the newly mounted tab; see GridSearch's doc comment. */}
         <GridSearch
           key={view}
           query={search}

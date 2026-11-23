@@ -23,14 +23,12 @@ export type CampaignHeader = {
 const STATUS = { draft: "準備中", active: "告知中", closed: "終了" } as const;
 const TONE = { draft: "neutral", active: "success", closed: "info" } as const;
 
-/** What people use every day: the thread, the schedule, the numbers. */
 export const CAMPAIGN_TABS = [
   { path: "", label: "秘書" },
   { path: "schedule", label: "予定表" },
   { path: "metrics", label: "数値" },
 ] as const;
 
-/** Everything else is one menu away. */
 export const CAMPAIGN_DETAILS = [
   { path: "brief", label: "brief（イベントの情報）" },
   { path: "plan", label: "計画" },

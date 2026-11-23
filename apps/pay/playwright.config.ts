@@ -10,7 +10,6 @@ export default defineConfig({
   reporter: process.env.CI ? "github" : "list",
   use: { baseURL: BASE_URL, trace: "retain-on-failure" },
   projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
-  // These fixture-rendering tests need only Vite modules, not a working Accounts session.
   webServer: {
     command: process.env.CI ? `node ../../scripts/run-e2e-dev.mjs ${PORT}` : "pnpm dev",
     url: `${BASE_URL}/e2e/ui-harness.tsx`,

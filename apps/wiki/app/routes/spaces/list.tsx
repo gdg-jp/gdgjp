@@ -24,7 +24,6 @@ async function chapterNames(env: Env): Promise<Map<string, string>> {
     const directory = await loadChapterDirectory(env);
     return new Map(directory.map((chapter) => [chapter.id, chapter.name]));
   } catch {
-    // The directory is cosmetic here; fall back to the chapter slug from claims.
     return new Map();
   }
 }
@@ -43,7 +42,6 @@ export async function loader({ request, context }: LoaderFunctionArgs) {
     .where(and(eq(schema.spaces.kind, "personal"), eq(schema.spaces.createdBy, user.id)))
     .get();
 
-  // Chapters this user organizes that do not have a space yet.
   const organized = identity.claimsAvailable
     ? identity.chapters.filter((chapter) => chapter.role === "organizer")
     : [];
@@ -57,7 +55,6 @@ export async function loader({ request, context }: LoaderFunctionArgs) {
     ).map((row) => row.chapterId),
   );
   const names = organized.length > 0 ? await chapterNames(env) : new Map<string, string>();
-  // A claim set can list the same chapter twice (two roles); one option per chapter.
   const seenChapters = new Set<string>();
   const chapterCandidates = organized
     .filter((chapter) => !existingChapterSpaces.has(chapter.chapterId))
@@ -114,7 +111,6 @@ export async function action({ request, context }: ActionFunctionArgs) {
     return { error: "unknown_intent" };
   }
   if (!result.ok) return { error: result.error };
-  // Creates the space's search instance (empty until pages or sources arrive).
   context.cloudflare.ctx.waitUntil(scheduleKnowledgeSync(env, result.space.id));
   return redirect(spacePath(result.space.slug));
 }

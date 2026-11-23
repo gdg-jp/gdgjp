@@ -41,14 +41,6 @@ function isRetryableGoogleError(error: GoogleApiError): boolean {
   return error.httpStatus === 429 || error.httpStatus >= 500 || error.httpStatus === 401;
 }
 
-/**
- * Meet スペースのメンバーを D1 の `meeting_invitees` と冪等に同期する。
- * - `meeting` 不在・`canceled`・`space_name` 空の場合は何もしない
- * - 役割まで一致している既存メンバーには書き込み API を呼ばない
- * - 役割が異なるメンバーは `members.delete` → `members.create` で置き換える
- * - 429 / 5xx / 401 / ネットワークエラー / `invalid_grant` は `meetings.last_error` を残して再スローし Queue 再試行に回す
- * - 特定メンバーの恒久的 4xx は他メンバーの同期を止めず警告を `meetings.last_error` に残して継続する
- */
 export async function syncMeetingMembers(
   env: Env,
   meetingId: string,
@@ -105,13 +97,11 @@ export async function syncMeetingMembers(
 
   const warnings: string[] = [];
 
-  // 追加および役割変更（delete → create）
   for (const [emailNorm, desired] of desiredByEmail) {
     const existing = existingByEmail.get(emailNorm);
     const meetRole: MeetMemberRole | undefined = desired.role === "cohost" ? "COHOST" : undefined;
 
     if (existing && existing.role === desired.role) {
-      // 役割まで一致しているメンバーには書き込み API を一切呼ばない。
       continue;
     }
 
@@ -143,9 +133,7 @@ export async function syncMeetingMembers(
           );
           throw error;
         }
-        // 既に存在する（409）場合は冪等成功として扱う。
         if (error.httpStatus === 409) continue;
-        // 恒久的 4xx は他メンバーの同期を止めない。個人メールアドレスは last_error に含めない。
         const statusLabel = error.apiStatus
           ? `${error.httpStatus} ${error.apiStatus}`
           : String(error.httpStatus);
@@ -157,7 +145,6 @@ export async function syncMeetingMembers(
     }
   }
 
-  // 不要になった既存メンバーの削除
   for (const [emailNorm, existing] of existingByEmail) {
     if (desiredByEmail.has(emailNorm)) continue;
     try {

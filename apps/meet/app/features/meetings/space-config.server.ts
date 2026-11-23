@@ -14,12 +14,10 @@ export type SpaceConfigPatch = {
   updateMask: string;
 };
 
-/** boolean 値を Meet API の `AutoGenerationType` へ変換する。 */
 export function toMeetAutoGeneration(enabled: boolean): MeetAutoGenerationType {
   return enabled ? "ON" : "OFF";
 }
 
-/** `spaces.create` 向けの `artifactConfig` オブジェクトを組み立てる。 */
 export function buildMeetArtifactConfig(artifacts: MeetingAutoArtifacts): MeetArtifactConfig {
   return {
     transcriptionConfig: {
@@ -34,7 +32,6 @@ export function buildMeetArtifactConfig(artifacts: MeetingAutoArtifacts): MeetAr
   };
 }
 
-/** 変更のあったスペース設定項目だけを抽出し、`spaces.patch` 用の `config` と `updateMask` を返す。 */
 export function buildSpaceConfigPatch(
   current: SpaceConfigurableSettings,
   next: SpaceConfigurableSettings,

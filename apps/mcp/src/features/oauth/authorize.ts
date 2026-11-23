@@ -24,11 +24,6 @@ function redirect(location: string, headers = new Headers()): Response {
   return new Response(null, { status: 302, headers });
 }
 
-/**
- * GET /authorize shows the consent page; POST /authorize records the decision and, on
- * approval, hands the browser to GDG Japan Accounts. Consent comes first so one client can
- * never ride on the Accounts session another client was approved with (confused deputy).
- */
 export async function handleAuthorize(request: Request, env: Env): Promise<Response> {
   const oauth = authorizationServer(env).getOAuthApi(env);
   try {
@@ -68,7 +63,6 @@ export async function handleAuthorize(request: Request, env: Env): Promise<Respo
   }
 }
 
-/** GET /callback — Accounts sent the browser back; finish the MCP client's authorization. */
 export async function handleCallback(
   request: Request,
   env: Env,
@@ -119,7 +113,6 @@ export async function handleCallback(
 
 function authorizationFailure(error: unknown): Response {
   if (error instanceof AuthorizationError) {
-    // A redirect is safe only once the library validated the client and its redirect URI.
     if (error.redirectTo) return redirect(error.redirectTo);
     return errorPage(error.description || "この接続リクエストは無効か、期限切れです。");
   }

@@ -10,7 +10,6 @@ export type CrossSheetConflict = {
   targetEndTime: string;
 };
 
-/** Cross-sheet collisions use strict interval overlap, so adjacent slots are valid. */
 export async function findCrossSheetConflicts(
   db: D1Database,
   eventId: string,
@@ -99,11 +98,6 @@ export async function fingerprint(value: unknown): Promise<string> {
   return [...digest].map((byte) => byte.toString(16).padStart(2, "0")).join("");
 }
 
-/**
- * Duplicate each unconfirmed sibling row to trigger the assignment primary key.
- * Signed conflict rows are excluded only when all displayed details still match.
- * One parameter-bounded statement is built for each proposed slot.
- */
 export function crossSheetConflictGuard(
   db: D1Database,
   eventId: string,

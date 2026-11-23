@@ -17,10 +17,6 @@ import { ScrollingText } from "./ScrollingText";
 import { SeekBar } from "./SeekBar";
 import { useController } from "./controller-context";
 
-/**
- * The floating now-playing bar. It rises in with the first clip and then
- * stays: there is no state in which the operator wants it gone.
- */
 export function NowPlayingBar() {
   const { now } = useController();
   const { catalog } = useCatalog();
@@ -165,7 +161,6 @@ function LoopControl({ clip }: { clip: Clip }) {
   );
 }
 
-/** Seconds until the next loop iteration, shown only while waiting. */
 function GapCountdown() {
   const { now, primaryRef } = useController();
   const ref = useRef<HTMLSpanElement>(null);

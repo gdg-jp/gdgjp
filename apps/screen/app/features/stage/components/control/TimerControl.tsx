@@ -4,7 +4,6 @@ import { Pause, Play, RotateCcw, Timer as TimerIcon } from "~/components/icons";
 import type { ClientMessage, Timer } from "../../protocol";
 import { formatRemaining, useRemaining } from "../../timer";
 
-/** Stage countdown shown to speakers. Editing the minutes takes effect on ↺. */
 export function TimerControl({
   timer,
   clockOffset,

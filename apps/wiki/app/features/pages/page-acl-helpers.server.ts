@@ -10,8 +10,6 @@ import {
 } from "~/features/pages/access.server";
 import type { getDb } from "~/lib/db.server";
 
-/** Shared helpers for the `/api/pages/:pageId/access` loader and action. */
-
 export type PageRecord = {
   id: string;
   spaceId: string;
@@ -41,7 +39,6 @@ export async function getChapterIds(
       unavailable: false,
     };
   } catch {
-    // A stale/failed IdP lookup must never accidentally retain Chapter access.
     return { chapters: [], unavailable: true };
   }
 }

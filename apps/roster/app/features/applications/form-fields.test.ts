@@ -7,7 +7,6 @@ describe("parseSkillsFromForm", () => {
     form.set("role_reception", "on");
     form.set("level_reception", "lead");
     form.set("pref_reception", "1");
-    // guide not checked — its level/pref inputs wouldn't even exist in the DOM.
     const skills = parseSkillsFromForm(form, ["reception", "guide"]);
     expect(skills).toEqual([{ roleId: "reception", level: "lead", pref: 1 }]);
   });

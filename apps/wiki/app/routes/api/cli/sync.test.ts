@@ -12,8 +12,6 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock("~/features/spaces/access.server", async (importOriginal) => {
-  // The outer (space) layer has its own tests in features/spaces; here every caller is
-  // an owner of the default space so these tests keep exercising the inner ACL.
   const original = await importOriginal<typeof import("~/features/spaces/access.server")>();
   const space = {
     id: "gdg-jp",
@@ -36,8 +34,6 @@ vi.mock("~/features/spaces/access.server", async (importOriginal) => {
   };
 });
 
-// Page writes through /sync are runner-only (agent pages); these cases run as the runner
-// unless a test switches `mocks.isRunner` off.
 vi.mock("~/features/agent-api/runner-identity.server", () => ({
   getCliOrRunnerIdentity: vi.fn().mockImplementation(async () => ({
     ...mocks.identity,
@@ -298,9 +294,7 @@ describe("Wiki CLI sync action", () => {
       [storedPage({ id: "page-1", visibility: "member", contentJa: "旧本文", contentEn: "Body" })],
       [],
       [],
-      // pageAclClearance
       [],
-      // validatePageAclForSync
       [],
     ];
     const base = page("page-1", "page", null);
@@ -431,7 +425,6 @@ describe("Wiki CLI sync action", () => {
       ],
       [],
       [],
-      // pageAclClearance source lookup — missing/unreadable → deny for non-admin
       [],
     ];
     const upsert = page("page-1", "page", null);
@@ -452,7 +445,6 @@ describe("Wiki CLI sync action", () => {
       [],
       [],
       [],
-      // validatePageAclForSync cited-source lookup
       [
         {
           id: "org-src",
@@ -497,9 +489,7 @@ describe("Wiki CLI sync action", () => {
       [storedPage({ id: "page-1", contentJa: "旧本文", contentEn: enSpan })],
       [],
       [],
-      // pageAclClearance
       [enSource],
-      // validatePageAclForSync span sources
       [enSource],
     ];
     const base = page("page-1", "page", null);
@@ -529,7 +519,6 @@ describe("Wiki CLI sync action", () => {
       kind: "upsert" as const,
       page: page(`client-${i}`, `page-${i}`, null),
     }));
-    // Two chunks (100 + 1) for pages, access, and attachments.
     mocks.allResults = [[], [], [], [], [], []];
     const { args, batch } = actionArgs(operations, {
       revisions: operations.map((operation) => ({ id: operation.page.id as string, revision: 1 })),

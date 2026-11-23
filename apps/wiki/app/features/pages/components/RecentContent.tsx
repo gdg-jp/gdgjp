@@ -26,7 +26,6 @@ interface RecentContentProps {
   lang: "ja" | "en";
 }
 
-// Module-level cache — survives component unmounts (popover close/reopen)
 let cachedRecent: RecentData | null = null;
 
 export default function RecentContent({ open, onClose, lang }: RecentContentProps) {
@@ -44,8 +43,6 @@ export default function RecentContent({ open, onClose, lang }: RecentContentProp
   }, [open, loadRecent]);
 
   const data = cachedRecent;
-  // Until the first load lands there is nothing to say yet: an empty list would read as
-  // "no pages" while the request is still in flight.
   const isFirstLoad = !data;
 
   const viewed = data?.recentViewed ?? [];
@@ -62,7 +59,6 @@ export default function RecentContent({ open, onClose, lang }: RecentContentProp
 
   return (
     <>
-      {/* Header */}
       <div className="flex items-center justify-between border-b border-border px-5 py-4">
         <h2 className="text-base font-semibold text-foreground">{t("recent.title")}</h2>
         <button
@@ -76,7 +72,6 @@ export default function RecentContent({ open, onClose, lang }: RecentContentProp
       </div>
 
       <div className="max-h-80 overflow-y-auto">
-        {/* Recently Viewed */}
         <div className="px-5 pt-3 pb-1">
           <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">
             {t("recent.recently_viewed")}
@@ -114,7 +109,6 @@ export default function RecentContent({ open, onClose, lang }: RecentContentProp
           )}
         </div>
 
-        {/* Recently Updated */}
         <div className="px-5 pt-2 pb-1">
           <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">
             {t("recent.recently_updated")}
@@ -153,7 +147,6 @@ export default function RecentContent({ open, onClose, lang }: RecentContentProp
         </div>
       </div>
 
-      {/* View all footer */}
       <div className="border-t border-border px-5 py-3">
         <Link
           to="/recent"

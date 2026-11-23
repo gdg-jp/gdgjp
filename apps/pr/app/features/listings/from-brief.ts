@@ -17,11 +17,6 @@ export const PLATFORM_LABELS: Record<ListingPlatform, string> = {
 
 export type ListingContent = { platform: ListingPlatform; listing: EventListing };
 
-/**
- * The same facts as connpass, mapped mechanically (no LLM): title from the adopted copy,
- * summary from the connpass page, everything else from the brief. Luma and Bevy point people to
- * connpass unless a person changes it; HTML is never put into a listing.
- */
 export function listingFromBrief(input: {
   platform: ListingPlatform;
   brief: Brief;
@@ -61,7 +56,6 @@ export function listingFromBrief(input: {
   return { platform: input.platform, listing: JSON.parse(JSON.stringify(listing)) };
 }
 
-/** Plain text a person pastes into the platform's form, field by field. */
 export function listingAsText(content: ListingContent): { label: string; value: string }[] {
   const l = content.listing;
   return [

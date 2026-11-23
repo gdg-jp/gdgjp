@@ -1,7 +1,3 @@
-/**
- * Discord message normalization for source import (pure helpers + no network).
- */
-
 import type { DiscordAttachment, DiscordMessage } from "../../../app/features/discord/api.server";
 import { authorDisplayName } from "../../../app/features/discord/api.server";
 import { periodTitle } from "./chat-periods";
@@ -11,7 +7,6 @@ export interface NormalizedDiscordWeek {
   path: string;
   title: string;
   markdown: string;
-  /** Latest message snowflake in this document (for incremental `after` cursor). */
   cursor: string | null;
   urls: string[];
   attachments: Array<{
@@ -69,11 +64,6 @@ function maxSnowflake(current: string | null, next: string): string {
   return compareSnowflake(next, current) > 0 ? next : current;
 }
 
-/**
- * Turn Discord channel messages into weekly Markdown documents, or with `singleDocument`
- * into one document spanning their weeks (see `chat-periods.ts`).
- * Pure: no network. Messages may arrive in any order.
- */
 export function normalizeDiscordMessages(
   messages: readonly DiscordMessage[],
   options?: { timeZone?: string; singleDocument?: boolean },
@@ -114,7 +104,6 @@ export function normalizeDiscordMessages(
       };
       byDocument.set(key, bucket);
     }
-    // Messages are sorted by time, so the last one seen is in the latest week.
     bucket.lastWeek = weekPath;
     bucket.messages.push(message);
     bucket.cursor = maxSnowflake(bucket.cursor, message.id);
@@ -179,9 +168,7 @@ export function mergeDocumentUrls(
           if (typeof url === "string") found.add(url);
         }
       }
-    } catch {
-      // ignore malformed metadata
-    }
+    } catch {}
   }
   for (const url of urls) found.add(url);
   if (found.size === 0) return null;

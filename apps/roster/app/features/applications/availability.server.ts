@@ -1,12 +1,5 @@
 import type { AvailabilityRecord, AvailabilityValue } from "./types";
 
-/**
- * D1 access for `availabilities` (docs/roster/index.md §4). Same wholesale
- * delete-all-then-insert shape as `./skills.server` — the apply form always
- * submits the full grid (every event time slot needs an entry, per
- * `./validate.ts`), so there is never a partial update to reconcile.
- */
-
 type AvailabilityRow = {
   application_id: string;
   time_slot_id: string;
@@ -43,7 +36,6 @@ export async function listAvailabilityForApplication(
 
 export type AvailabilityInput = { timeSlotId: string; value: AvailabilityValue };
 
-/** Replaces the application's whole availability grid — never a partial merge. */
 export async function setAvailability(
   db: D1Database,
   applicationId: string,
@@ -136,7 +128,6 @@ export async function setAvailability(
 
 type AvailabilityScope = { eventId: string; rosterSheetId: string };
 
-/** Resolve an application to its live event and either the requested sheet or legacy default. */
 async function resolveAvailabilityScope(
   db: D1Database,
   applicationId: string,

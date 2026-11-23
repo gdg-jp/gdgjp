@@ -6,14 +6,9 @@ import { claimNotification, sendDiscord } from "./discord.server";
 
 export type TemplateName = keyof typeof constants.reminders.templates;
 
-/** The Playbook's default text (constants.reminders.templates); never written in TS. */
 export const template = (name: TemplateName, vars: Record<string, string | null | undefined>) =>
   renderTemplate(constants.reminders.templates[name], vars);
 
-/**
- * Send to a chapter's Discord webhook once per `key`. Missing webhooks and failures are
- * logged once (without the URL): a claimed key is never retried, so nothing repeats every minute.
- */
 export async function notifyChapter(
   env: Env,
   input: {

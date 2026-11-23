@@ -7,7 +7,6 @@ import {
   workspaceDataResponse,
 } from "~/features/agent-api/workspace.server";
 
-/** GET /api/agent/ls — list a workspace directory for the Bearer token's actor. */
 export async function loader({ request, context }: LoaderFunctionArgs) {
   const { env } = context.cloudflare;
   const resolved = await resolveAgentWorkspace(request, env);

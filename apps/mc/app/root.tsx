@@ -25,14 +25,12 @@ function useTransparent(): boolean {
 }
 
 export function Layout({ children }: { children: ReactNode }) {
-  // The OBS player page must composite over the scene: no background at all.
   const transparent = useTransparent();
   return (
     <html
       lang="ja"
       className="dark"
       data-surface={transparent ? "transparent" : undefined}
-      // next-themes sets an inline color-scheme before hydration.
       suppressHydrationWarning
     >
       <head>
@@ -53,7 +51,6 @@ export function Layout({ children }: { children: ReactNode }) {
 }
 
 export default function App() {
-  // Leave a page whose accounts.gdgs.jp session ended (see gdg-lib).
   useEffect(() => installSignedOutReload(), []);
   // next-themes writes an inline `color-scheme: dark`, which would paint an
   // opaque canvas behind the OBS player; that page needs no theme anyway.

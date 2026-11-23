@@ -21,12 +21,7 @@ export const links: Route.LinksFunction = () => [
 
 export function Layout({ children }: { children: ReactNode }) {
   return (
-    <html
-      lang="ja"
-      className="dark"
-      // next-themes sets an inline color-scheme before hydration.
-      suppressHydrationWarning
-    >
+    <html lang="ja" className="dark" suppressHydrationWarning>
       <head>
         <meta charSet="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
@@ -48,7 +43,6 @@ export function Layout({ children }: { children: ReactNode }) {
 }
 
 export default function App() {
-  // Leave a page whose accounts.gdgs.jp session ended (see gdg-lib).
   useEffect(() => installSignedOutReload(), []);
   return (
     <ThemeProvider forcedTheme="dark" defaultTheme="dark" storageKey="deck-theme">

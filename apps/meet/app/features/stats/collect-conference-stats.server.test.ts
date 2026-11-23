@@ -399,7 +399,6 @@ describe("collectConferenceStatsJob", () => {
       throw new Error(`想定外の fetch: ${url}`);
     }) as unknown as typeof fetch;
 
-    // 1 回目（maxCalls=4: conferenceRecords.get + participants.list + 2 名分の sessions）
     await collectConferenceStatsJob(
       env,
       { conferenceRecord: "conferenceRecords/paged" },
@@ -415,7 +414,6 @@ describe("collectConferenceStatsJob", () => {
     expect(continuationMsg.cursor).toBe("conferenceRecords/paged/participants/p1");
     expect(queueSend.mock.calls[0]?.[1]).toEqual({ delaySeconds: 30 });
 
-    // 2 回目（残り 2 名分）
     await collectConferenceStatsJob(env, continuationMsg, {
       fetchFn: fetchMock,
       minIntervalMs: 0,

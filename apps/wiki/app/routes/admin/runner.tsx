@@ -9,7 +9,6 @@ import { getDb } from "~/lib/db.server";
 
 export const meta: MetaFunction = () => [{ title: "Runner — GDG Japan Wiki" }];
 
-/** /admin/runner — is the OCI runner alive, and what is waiting for it. */
 export async function loader({ request, context }: LoaderFunctionArgs) {
   const { env } = context.cloudflare;
   await requireAdmin(request, env);

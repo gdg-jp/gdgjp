@@ -11,14 +11,6 @@ function formatTime(iso: string): string {
   return new Date(iso).toLocaleString("ja-JP", { hour12: false });
 }
 
-/**
- * The history panel below the shift table (docs/roster/08-history.md
- * "Design" §6): newest-first, each row's own `evaluate()` metrics so two
- * generations can be compared without re-running anything, the current
- * cursor marked, and a "戻す" button on every OTHER row. Renders exclusively
- * from `HistoryState` (the loader's `getHistoryState`) — never re-derives a
- * metric itself, mirroring `MetricsRow`/`ShortageReport`'s own rule.
- */
 export function HistoryPanel({
   cursor,
   revisions,

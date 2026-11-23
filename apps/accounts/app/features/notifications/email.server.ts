@@ -297,7 +297,6 @@ export function sendMemberLeft(
   return fireAndForget(deps, dispatch(deps, args.organizerEmails, rendered));
 }
 
-// Exposed for unit testing the renderers without a network call.
 export const __renderers = {
   requestSubmitted: renderRequestSubmitted,
   requestApproved: renderRequestApproved,

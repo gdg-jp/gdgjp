@@ -1,21 +1,12 @@
 import type { Group, Topic } from "~/features/board/protocol";
 
-/** An assignable thing: a standalone topic or a merged group of topics. */
 export type Unit = {
   kind: "topic" | "group";
-  /** topic id (kind "topic") or group id (kind "group"). */
   id: string;
-  /** Earliest member submission time — the FCFS tie-breaker. */
   createdAt: number;
-  /** Member topic ids (one for a standalone topic). */
   memberIds: string[];
 };
 
-/**
- * Collapse topics + groups into assignable units. Grouped topics fold into one
- * unit per group; ungrouped topics each become their own unit. Groups with no
- * members are dropped.
- */
 export function buildUnits(topics: Topic[], groups: Group[]): Unit[] {
   const membersByGroup = new Map<string, Topic[]>();
   const standalone: Topic[] = [];
@@ -46,7 +37,6 @@ export function buildUnits(topics: Topic[], groups: Group[]): Unit[] {
   return units;
 }
 
-/** A unit's score is the SUM of its member topics' vote counts. */
 export function scoreUnit(unit: Unit, voteCounts: Record<string, number>): number {
   let total = 0;
   for (const id of unit.memberIds) total += voteCounts[id] ?? 0;

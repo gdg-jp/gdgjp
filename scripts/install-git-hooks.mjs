@@ -9,6 +9,4 @@ try {
     cwd: repositoryRoot,
     stdio: "inherit",
   });
-} catch {
-  // Package installation can happen outside a Git checkout.
-}
+} catch {}

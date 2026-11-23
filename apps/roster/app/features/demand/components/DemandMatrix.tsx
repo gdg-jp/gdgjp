@@ -14,18 +14,10 @@ import type { Demand } from "../types";
 import { DemandCell } from "./DemandCell";
 import { DemandDrawer } from "./DemandDrawer";
 
-/** The empty-cell default the drawer opens with — all zero, the only value shape that means "no demand" (validate.ts). */
 const NO_DEMAND = { min: 0, ideal: 0, leadMin: 0, newMax: 0 };
 
 type Selection = { rowKey: string; rowLabel: string; trackId: string; roleId: string };
 
-/**
- * The demand matrix card on `/e/:id/design`
- * (docs/roster/03-demand-input.md "Design" §4). `roles` here must already
- * be filtered to the event's selected roles (`event_roles`) — the caller
- * (the route) does that filtering, matching the "役割を追加" affordance's
- * "イベントで選択済みの役割" scope (§3).
- */
 export function DemandMatrix({
   phases,
   timeSlots,
@@ -43,10 +35,6 @@ export function DemandMatrix({
 }) {
   const [mode, setMode] = useState<MatrixMode>("phase");
   const [selection, setSelection] = useState<Selection | null>(null);
-  // Columns opened via "役割を追加" with no saved value yet — purely
-  // client-side. The moment a real value is saved for one, buildColumns
-  // picks it up from `demands` directly and this entry becomes redundant
-  // (harmless duplicate, deduped below).
   const [pendingColumns, setPendingColumns] = useState<DemandColumn[]>([]);
 
   const columns = useMemo(() => {
@@ -239,7 +227,6 @@ function AddColumnForm({
   );
 }
 
-/** Groups consecutive same-track columns under one spanning header cell — safe because `buildColumns` sorts by track then role. */
 function TrackHeaderRow({
   columns,
   trackName,

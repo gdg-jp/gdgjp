@@ -72,8 +72,6 @@ export async function loader(args: PageRequestArgs) {
   const ownerIds = [...new Set(allLinks.map((l) => l.ownerUserId))];
   const linkIds = allLinks.map((l) => l.id);
 
-  // Analytics Engine is an external HTTP API and is consistently slower than D1.
-  // Start it immediately, but stream the result so it never blocks the route transition.
   const clicks = clicksByLinkId(env, linkIds)
     .then((clickMap) => {
       const counts: Record<string, number> = {};

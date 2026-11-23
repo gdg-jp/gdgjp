@@ -1,15 +1,9 @@
-/**
- * Follows a moving target exactly while it moves continuously (playback), but
- * glides with a critically damped spring across discontinuities (a seek, a
- * cancelled scrub, a resync after reconnect).
- */
 export class Smoother {
   value: number | null = null;
   private velocity = 0;
   private springing = false;
 
   constructor(
-    /** Jumps larger than this (target units) glide instead of snapping. */
     private readonly jump: number,
     private readonly omega = 16,
   ) {}
@@ -28,7 +22,6 @@ export class Smoother {
       return target;
     }
     const dt = Math.min(dtMs, 64) / 1000;
-    // Critically damped spring: x'' = -ω²(x - target) - 2ωx'
     const accel = this.omega * this.omega * diff - 2 * this.omega * this.velocity;
     this.velocity += accel * dt;
     this.value += this.velocity * dt;

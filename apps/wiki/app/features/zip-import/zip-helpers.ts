@@ -1,5 +1,3 @@
-/** Pure path / text helpers for ZIP wiki import. No I/O. */
-
 export class ZipImportError extends Error {}
 
 export const IMAGE_TYPES: Record<string, string> = {

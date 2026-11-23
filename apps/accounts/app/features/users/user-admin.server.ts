@@ -64,10 +64,6 @@ type CountRow = { total: number };
 const DEFAULT_PAGE_SIZE = 25;
 const MAX_PAGE_SIZE = 100;
 
-/**
- * Lists accounts for the administrator UI. Counts are aggregated in SQL so the
- * caller does not need to make per-user queries.
- */
 export async function listManagedUsers(
   db: D1Database,
   input: ListManagedUsersInput = {},
@@ -115,10 +111,6 @@ export async function listManagedUsers(
   };
 }
 
-/**
- * Changes a user's administrator flag. The conditional update preserves the
- * invariant that at least one administrator remains, including under concurrent requests.
- */
 export async function setUserAdmin(
   db: D1Database,
   input: { actorId: string; targetId: string; isAdmin: boolean },
@@ -137,8 +129,6 @@ export async function setUserAdmin(
          )`,
       )
       .bind(isAdmin, input.targetId, isAdmin, input.targetId),
-    // Each delete is guarded by the resulting flag. If the protected update
-    // fails (for example, because this is the last admin), no credentials are revoked.
     db
       .prepare(
         `DELETE FROM "oauthAccessToken"
@@ -172,10 +162,6 @@ export async function setUserAdmin(
   return { status: "last_admin" };
 }
 
-/**
- * Invalidates every first-party session and issued OAuth token for a user.
- * The batch is atomic: it never leaves a user with only a partially revoked credential set.
- */
 export async function revokeUserSessions(
   db: D1Database,
   input: { actorId: string; targetId: string },
@@ -196,11 +182,6 @@ export async function revokeUserSessions(
   return { status: "revoked" };
 }
 
-/**
- * Synchronizes a user's active memberships. Selected chapters are activated
- * before unselected memberships are removed so the membership-delete trigger
- * never disables the user's developer clients during an update.
- */
 export async function setUserChapters(
   db: D1Database,
   input: { targetId: string; chapterIds: number[] },

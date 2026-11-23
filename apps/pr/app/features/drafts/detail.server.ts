@@ -19,7 +19,6 @@ const opt = (v: FormDataEntryValue | null) => {
   return s && s !== "__none__" ? s : null;
 };
 
-/** Every form on the draft page posts here, discriminated by `intent`. */
 export async function draftAction(
   env: Env,
   access: CampaignAccess,
@@ -139,7 +138,6 @@ export async function draftAction(
   return { ok: false, errors: ["不明な操作です"] };
 }
 
-/** Edit the post body only; the fold split follows the text. */
 async function editPostText(
   env: Env,
   access: CampaignAccess,

@@ -23,7 +23,6 @@ export type GoogleWorkspaceLogoProps = {
   className?: string;
 };
 
-/** Google Workspace 公式ロゴを装飾アイコンとして表示する（`alt=""`・`aria-hidden="true"`）。 */
 export function GoogleWorkspaceLogo({ brand, size = 18, className }: GoogleWorkspaceLogoProps) {
   const classes = className
     ? `${SIZE_CLASS[size]} shrink-0 object-contain ${className}`

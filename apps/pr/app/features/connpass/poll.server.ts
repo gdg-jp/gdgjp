@@ -4,7 +4,6 @@ import { callRpc, connpassService, parseActor } from "~/features/integrations/bi
 import { transitionItem } from "~/features/schedule/item.repository.server";
 import { openConnpassJobs, setConnpassJobStatus } from "./job-ledger.server";
 
-/** Hourly: follow connpass jobs pr submitted, as their submitter; finish their item or target. */
 export async function pollConnpassJobs(env: Env): Promise<{ checked: number; finished: number }> {
   let finished = 0;
   const open = await openConnpassJobs(env.DB);

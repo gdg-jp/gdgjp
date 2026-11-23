@@ -16,15 +16,6 @@ import {
   type Pref,
 } from "~/features/applications/types";
 
-/**
- * One role in the "担当できる役割" fieldset (docs/roster/04-applications.md
- * "Design" §2): a checkbox, and — only once checked — its level/pref
- * selects. Hiding them until checked is the "選択済みの役割にのみ追加で問う"
- * input-load rule from the stage doc; it also means an unchecked role's
- * `name="level_<id>"`/`name="pref_<id>"` inputs don't exist in the DOM at
- * all, so the server route only has to read the roles the applicant
- * actually checked.
- */
 export function RoleSkillRow({
   role,
   selected,

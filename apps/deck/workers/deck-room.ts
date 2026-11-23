@@ -25,7 +25,6 @@ type Attachment = { role: Role; peerId: string; name: string };
 
 type Stored = { deck: DeckInfo; layout: DeckLayout };
 
-/** Headers the Worker sets after authenticating the socket (never trusted from clients). */
 export const ROOM_HEADERS = {
   role: "x-deck-role",
   peerId: "x-deck-peer",
@@ -33,16 +32,6 @@ export const ROOM_HEADERS = {
   deck: "x-deck-info",
 } as const;
 
-/**
- * One deck's live hub (`env.DECK.getByName(deckId)`): the OBS dock, every
- * controller, the last OBS snapshot, multi-action switch positions and the
- * operation log.
- *
- * - Sockets are hibernatable; per-socket identity lives in the attachment.
- * - The saved layout is cached here and re-read from D1 whenever a socket
- *   arrives with a newer version, or the Worker says it changed.
- * - At most one dock: a new one replaces the old.
- */
 export class DeckRoom extends DurableObject<Env> {
   constructor(ctx: DurableObjectState, env: Env) {
     super(ctx, env);
@@ -76,9 +65,6 @@ export class DeckRoom extends DurableObject<Env> {
     return stored;
   }
 
-  // ─── RPC (from the Worker) ───────────────────────────────────────────────
-
-  /** The layout or name was saved: re-read it and push it to every controller. */
   async layoutChanged(deckId: string): Promise<void> {
     const stored = await this.reload(deckId);
     if (!stored) return;
@@ -97,14 +83,11 @@ export class DeckRoom extends DurableObject<Env> {
     };
   }
 
-  /** Drop the dock after its token was reissued. */
   async revokeDock(): Promise<void> {
     for (const ws of this.ctx.getWebSockets("dock")) {
       try {
         ws.close(CLOSE_REVOKED, "revoked");
-      } catch {
-        // already closed
-      }
+      } catch {}
     }
   }
 
@@ -112,17 +95,13 @@ export class DeckRoom extends DurableObject<Env> {
     for (const ws of this.ctx.getWebSockets()) {
       try {
         ws.close(CLOSE_DELETED, "deleted");
-      } catch {
-        // already closed
-      }
+      } catch {}
     }
     this.ctx.storage.kv.delete("deck");
     this.ctx.storage.kv.delete("obs");
     this.ctx.storage.kv.delete("switches");
     this.ctx.storage.kv.delete("log");
   }
-
-  // ─── transport ───────────────────────────────────────────────────────────
 
   async fetch(request: Request): Promise<Response> {
     if (request.headers.get("Upgrade")?.toLowerCase() !== "websocket") {
@@ -152,9 +131,7 @@ export class DeckRoom extends DurableObject<Env> {
       for (const old of this.dockSockets()) {
         try {
           old.close(CLOSE_REPLACED, "replaced");
-        } catch {
-          // already closed
-        }
+        } catch {}
       }
     }
 
@@ -222,7 +199,6 @@ export class DeckRoom extends DurableObject<Env> {
       return;
     }
     const { run } = result;
-    // Slider drags and key releases are not worth a log line each.
     const quiet = msg.type === "volume" || run.phase === "up";
     const dock = this.dockSockets()[0];
     if (!dock) {
@@ -285,9 +261,7 @@ export class DeckRoom extends DurableObject<Env> {
     this.onGone(ws);
     try {
       ws.close(code === 1005 || code === 1006 ? 1000 : code, "bye");
-    } catch {
-      // already closed
-    }
+    } catch {}
   }
 
   async webSocketError(ws: WebSocket): Promise<void> {
@@ -304,8 +278,6 @@ export class DeckRoom extends DurableObject<Env> {
     }
     this.toControllers({ type: "dock", online: false });
   }
-
-  // ─── log ─────────────────────────────────────────────────────────────────
 
   private appendLog(input: Omit<LogEntry, "id" | "at">): string {
     const entry: LogEntry = { id: crypto.randomUUID(), at: Date.now(), ...input };
@@ -326,8 +298,6 @@ export class DeckRoom extends DurableObject<Env> {
     this.toAll({ type: "log", entry });
   }
 
-  // ─── sending ─────────────────────────────────────────────────────────────
-
   private dockSockets(): WebSocket[] {
     return this.ctx
       .getWebSockets("dock")
@@ -337,9 +307,7 @@ export class DeckRoom extends DurableObject<Env> {
   private send(ws: WebSocket, msg: ToControllerMessage | ToDockMessage) {
     try {
       ws.send(JSON.stringify(msg));
-    } catch {
-      // closing; webSocketClose cleans up
-    }
+    } catch {}
   }
 
   private toControllers(msg: ToControllerMessage) {
@@ -347,9 +315,7 @@ export class DeckRoom extends DurableObject<Env> {
     for (const ws of this.ctx.getWebSockets("controller")) {
       try {
         ws.send(text);
-      } catch {
-        // closing
-      }
+      } catch {}
     }
   }
 

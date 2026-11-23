@@ -32,7 +32,6 @@ export function buildCalendarAttendees(invitees: readonly ResolvedInvitee[]): Ca
 
 export { toSafeErrorSummary };
 
-/** `DirectoryError` を画面向けの日本語メッセージへ変換する。 */
 export function formatDirectoryError(error: DirectoryError): string {
   if (error.code === "forbidden") {
     return "チャプターメンバーの取得には、いずれかのチャプターへの所属が必要です。チャプターに所属している共同主催者に操作を依頼してください。";
@@ -40,7 +39,6 @@ export function formatDirectoryError(error: DirectoryError): string {
   return "チャプターメンバーの取得に失敗しました。時間をおいて再度お試しください。";
 }
 
-/** `resolveInvitees` の失敗結果を画面向けの日本語メッセージへ変換する。 */
 export function formatResolveInviteesError(
   resolved: Extract<ResolveInviteesResult, { ok: false }>,
 ): string {
@@ -59,10 +57,6 @@ export function formatResolveInviteesError(
   return "招待者の解決に失敗しました。入力内容を確認してください。";
 }
 
-/**
- * 招待元一覧から必要なチャプター ID とロールを集約し、必ず `features/directory` の
- * `fetchChapterMembers` 経由でアクティブメンバーを取得する。
- */
 export async function fetchMembersForSources(
   env: Env,
   actor: MeetActor,
@@ -96,7 +90,6 @@ function canonicalizeSource(
   return `${source.kind}|${source.chapterId ?? ""}|${emailPart}|${source.role}`;
 }
 
-/** 招待元（`meeting_invite_sources`）の定義に変更があるか判定する。 */
 export function haveInviteSourcesChanged(
   existingSources: readonly Pick<InviteSourceInput, "kind" | "chapterId" | "email" | "role">[],
   nextSources: readonly Pick<InviteSourceInput, "kind" | "chapterId" | "email" | "role">[],
@@ -113,7 +106,6 @@ function canonicalizeInvitee(
   return `${invitee.emailNormalized}|${invitee.email}|${invitee.displayName ?? ""}|${invitee.role}`;
 }
 
-/** 解決済み招待者一覧に実質的な差分（追加・削除・役割変更・表示名変更）があるか判定する。 */
 export function haveInviteesChanged(
   existingInvitees: readonly Pick<
     MeetingInviteeRecord,
@@ -135,7 +127,6 @@ export type InviteeDiffSummary = {
   inviteeRemoved: boolean;
 };
 
-/** 招待者更新前後の差分を調べ、共同主催者の追加・昇格および既存招待者の削除の有無を返す。 */
 export function summarizeInviteeDiff(
   existingInvitees: readonly Pick<MeetingInviteeRecord, "emailNormalized" | "role">[],
   nextInvitees: readonly Pick<ResolvedInvitee, "emailNormalized" | "role">[],
@@ -165,7 +156,6 @@ export function summarizeInviteeDiff(
   return { cohostAdded, inviteeRemoved };
 }
 
-/** 既存の招待者スナップショットまたはチャプターメンバーから作成者の表示名を復元する。 */
 export function resolveCreatorDisplayName(
   meeting: Pick<MeetingRecord, "createdByEmail">,
   existingInvitees: readonly MeetingInviteeRecord[],
@@ -179,7 +169,6 @@ export function resolveCreatorDisplayName(
   return meeting.createdByEmail;
 }
 
-/** 編集画面用の招待者数プレビューを解決し、**人数のみ**を返す。 */
 export async function previewEditMeetingInvitees(
   env: Env,
   actor: MeetActor,

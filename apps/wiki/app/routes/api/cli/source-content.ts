@@ -13,7 +13,6 @@ import { canAccessSource } from "~/features/sources/sources.server";
 import { requirePageSpace, requireSourceSpace } from "~/features/spaces/access.server";
 import { getDb } from "~/lib/db.server";
 
-/** GET /api/cli/wiki/sources/:documentId/content */
 export async function loader({ request, context, params }: LoaderFunctionArgs) {
   const { env } = context.cloudflare;
   const identity = await getCliOrRunnerIdentity(request, env);

@@ -51,9 +51,7 @@ export async function copyText(text: string): Promise<void> {
     try {
       await navigator.clipboard.writeText(text);
       return;
-    } catch {
-      // Clipboard access can be unavailable in embedded or insecure contexts.
-    }
+    } catch {}
   }
 
   const textarea = document.createElement("textarea");

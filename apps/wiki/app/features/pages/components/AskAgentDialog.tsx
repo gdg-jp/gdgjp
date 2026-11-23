@@ -11,10 +11,6 @@ import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useFetcher } from "react-router";
 
-/**
- * Agent pages are read-only for people; this is how they get changed. The request is added
- * to the space's next synthesize job and the requester is notified when it was handled.
- */
 export function AskAgentDialog({
   open,
   onOpenChange,

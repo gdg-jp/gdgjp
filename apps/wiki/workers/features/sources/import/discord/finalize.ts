@@ -16,7 +16,6 @@ import {
 } from "../run";
 import { type Current, type DiscordImportTickContext, type StepOutcome, log } from "./shared";
 
-/** Pack the indexed weeks into documents (`chat-periods.ts`), one R2 object each. */
 export async function stepGrouping(
   ctx: DiscordImportTickContext,
   current: Current,
@@ -50,7 +49,6 @@ export async function stepGrouping(
     await ctx.env.BUCKET.put(r2Key, JSON.stringify({ messages }), {
       httpMetadata: { contentType: "application/json" },
     });
-    // week_documents.week_path is the document's first week (its path).
     ctx.sql.exec(
       `INSERT INTO week_documents (week_path, r2_key, sort_index) VALUES (?, ?, ?)
        ON CONFLICT(week_path) DO UPDATE SET r2_key = excluded.r2_key, sort_index = excluded.sort_index`,
@@ -181,7 +179,6 @@ export async function completeImport(
         ),
       )
       .all();
-    // The open document was rebuilt from its first week; drop it if no document starts there now.
     const replaced = metaGet(ctx.sql, "open_path");
     retainedPaths = [
       ...new Set([

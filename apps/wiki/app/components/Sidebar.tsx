@@ -25,7 +25,6 @@ interface SidebarProps {
   onArchivedClick?: () => void;
   archivedButtonRef?: React.RefObject<HTMLButtonElement | null>;
   onImportZip?: () => void;
-  /** When set, replaces the page tree (used as Suspense fallback). */
   treeFallback?: React.ReactNode;
   spaces?: readonly SpaceSummary[];
   hideAgentPages?: boolean;
@@ -68,7 +67,6 @@ export default function Sidebar({
           {(isAuthenticated || spaces.length > 1) && (
             <SpaceSwitcher spaces={spaces} isCollapsed={isCollapsed} />
           )}
-          {/* Nav items */}
           <nav aria-label={t("nav.navigation")} className="px-2 pb-1 pt-3">
             <SidebarMenu>
               <NavItem
@@ -183,14 +181,11 @@ export default function Sidebar({
             </SidebarMenu>
           </nav>
 
-          {/* Divider */}
           <div className="mx-2 my-1 border-t border-border" />
 
-          {/* Page tree */}
           <div className="min-h-0 flex-1">
             {treeFallback ?? (
               <PageTree
-                // Tree state (expansion, drag items) belongs to one space.
                 key={currentSpace.id}
                 pages={pages}
                 currentSlug={currentSlug}
@@ -202,9 +197,6 @@ export default function Sidebar({
             )}
           </div>
 
-          {/* Footer — raw sources live outside the page tree, so they get their own entry.
-              Settings stays in the Navbar user menu; duplicating it here would give the
-              same destination two competing entry points. */}
           {isAuthenticated && (
             <nav
               aria-label={t("sources.nav_label")}

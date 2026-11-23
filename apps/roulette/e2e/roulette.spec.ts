@@ -33,7 +33,6 @@ test("an organizer sets up prizes and visitors win them one spin per device", as
   await signIn(page);
   await createProject(page, slug);
 
-  // One jackpot at 100%; once it is gone only the losing slot is left.
   await page.getByRole("radio", { name: "カスタムモード" }).click();
   await page.getByRole("button", { name: "景品を追加" }).click();
   await page.getByLabel("景品名（1 行目）").fill("Google Pixel 10");
@@ -44,7 +43,6 @@ test("an organizer sets up prizes and visitors win them one spin per device", as
   await page.getByRole("button", { name: "変更を保存" }).click();
   await expect(page.getByText("変更を保存しました")).toBeVisible();
 
-  // Closed until the organizer opens it.
   const early = await browser.newPage();
   await early.goto(`/${slug}`);
   await expect(early.getByText("いまは抽選を受け付けていません")).toBeVisible();
@@ -62,7 +60,6 @@ test("an organizer sets up prizes and visitors win them one spin per device", as
     first.page.getByRole("heading", { name: "Google Pixel 10", level: 2 }),
   ).toBeVisible();
   await expect(first.page.getByText("No. 001")).toBeVisible();
-  // Visitors see what can be won, never how many are left.
   await expect(first.page.getByText("1 等 · Google Pixel 10")).toBeVisible();
   await expect(first.page.getByText(/残り/)).toHaveCount(0);
 
@@ -80,7 +77,6 @@ test("an organizer sets up prizes and visitors win them one spin per device", as
   await expect(page.getByText("2 回", { exact: true })).toBeVisible();
   await expect(page.getByText("0 個", { exact: true })).toBeVisible();
 
-  // The log lists every spin, latest first, and downloads as CSV.
   const log = page.getByRole("table", { name: "抽選ログ" });
   await expect(log.getByRole("row").nth(1)).toContainText("No. 002");
   await expect(log.getByRole("row").nth(1)).toContainText("ハズレ");
@@ -95,7 +91,6 @@ test("an organizer sets up prizes and visitors win them one spin per device", as
     /^\uFEFF"No.","日時","等級","景品"\r\n"1","[\d-]+ [\d:]+","1 等","Google Pixel 10"\r\n"2",/,
   );
 
-  // Reset clears the counters and lets devices spin again.
   await page.getByRole("button", { name: "その他の操作" }).click();
   await page.getByRole("menuitem", { name: "抽選結果をリセット" }).click();
   await page.getByRole("button", { name: "リセットする" }).click();
@@ -122,7 +117,6 @@ test("the evil mode shows an excluded prize but never draws it", async ({ page, 
   await page.getByRole("switch", { name: "抽選を受け付ける" }).click();
   await expect(page.getByText("抽選の受付を始めました")).toBeVisible();
 
-  // The Pixel is the only prize with stock, yet the losing slot comes out.
   const visitor = await spinAsVisitor(browser, slug);
   await expect(visitor.page.getByText("1 等 · Google Pixel 10")).toBeVisible();
   await expect(visitor.page.getByText(/ざんねん…|おしい…！/)).toBeVisible({
@@ -130,7 +124,6 @@ test("the evil mode shows an excluded prize but never draws it", async ({ page, 
   });
   await visitor.context.close();
 
-  // Reloading keeps the mode, derived from the excluded prize.
   await page.reload();
   await expect(page.getByRole("radio", { name: "悪徳モード" })).toBeChecked();
   await expect(page.getByLabel("出さない（1 行目）")).toBeChecked();

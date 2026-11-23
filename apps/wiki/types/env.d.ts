@@ -1,29 +1,17 @@
-// Augments the wrangler-generated `Env` with secrets and the AppLoadContext
-// shape used by react-router. `wrangler types` only types vars + bindings;
-// secrets (set via `wrangler secret put`) must be declared by hand.
-
 declare global {
   interface Env {
-    // Secrets (set via `wrangler secret put`)
-    // HMAC key for the openid-client RP factory's signed session + OIDC
-    // transaction cookies. Generate with `openssl rand -base64 48`.
     RP_SESSION_SECRET: string;
-    // OAuth client secret issued by the accounts IdP for this RP.
     IDP_CLIENT_SECRET: string;
     GEMINI_API_KEY: string;
     GOOGLE_DOCS_CLIENT_ID: string;
     GOOGLE_DOCS_CLIENT_SECRET: string;
-    /** Browser-restricted key used only by Google Picker. */
     GOOGLE_PICKER_API_KEY: string;
-    /** Google Cloud project number used as Picker's Drive App ID. */
     GOOGLE_CLOUD_PROJECT_NUMBER: string;
     RESEND_API_KEY: string;
     WIKI_DISCORD_SECRET: string;
     FCM_SERVICE_ACCOUNT_JSON: string;
     DISCORD_BOT_TOKEN: string;
-    /** Discord application / OAuth2 client id for /sources guild picker. */
     DISCORD_CLIENT_ID: string;
-    /** Discord OAuth2 client secret for /sources guild picker. */
     DISCORD_CLIENT_SECRET: string;
   }
 }

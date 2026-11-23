@@ -24,7 +24,6 @@ function channelId(value: unknown): number {
   return parsed;
 }
 
-/** Validate the browser draft and convert it to the narrow DB replacement contract. */
 export function buildCampaignParticipantAnalyticsInput(args: {
   rawDraft: string;
   campaignId: number;

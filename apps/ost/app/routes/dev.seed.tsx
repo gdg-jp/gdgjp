@@ -2,12 +2,6 @@ import { createEvent, getEventBySlug } from "~/features/events/events.server";
 import { normalizeSlug } from "~/features/events/slug";
 import type { Route } from "./+types/dev.seed";
 
-/**
- * Local-dev / e2e helper: upsert an event so participant + admin pages resolve
- * without going through the dashboard. Hard 404 in production.
- *
- *   /dev/seed?slug=e2e&title=E2E&chapter=1:dev-chapter
- */
 export async function loader({ request, context }: Route.LoaderArgs) {
   const env = context.cloudflare.env;
   if (env.ENVIRONMENT === "production") throw new Response(null, { status: 404 });

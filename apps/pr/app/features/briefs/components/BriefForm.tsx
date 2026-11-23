@@ -23,7 +23,6 @@ import {
   tableRows,
 } from "../brief-form";
 
-/** Every field of the brief. Posts as f.<path> and t.<table>.<row>.<column> (brief-form.ts). */
 export function BriefForm({ brief, disabled }: { brief: Brief | null; disabled: boolean }) {
   return (
     <Stack>

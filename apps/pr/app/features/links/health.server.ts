@@ -3,7 +3,6 @@ import { notifyChapter, template } from "~/features/notify/send.server";
 import { HEALTH_FAILURE_THRESHOLD, isAlive } from "./link";
 import { linksToCheck, recordHealth } from "./link.repository.server";
 
-/** HEAD, then GET when HEAD is refused; redirects are followed. 0 = no answer. */
 export async function probe(url: string, fetcher: typeof fetch = fetch): Promise<number> {
   for (const method of ["HEAD", "GET"]) {
     try {
@@ -21,10 +20,6 @@ export async function probe(url: string, fetcher: typeof fetch = fetch): Promise
   return 0;
 }
 
-/**
- * Hourly: check every short link's destination of active campaigns. Two failures in a row
- * send one Discord alert (and the settings page shows the link red) until it answers again.
- */
 export async function checkLinkHealth(env: Env, fetcher: typeof fetch = fetch) {
   const links = await linksToCheck(env.DB);
   let broken = 0;

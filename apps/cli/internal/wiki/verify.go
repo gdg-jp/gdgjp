@@ -8,7 +8,6 @@ import (
 	"strings"
 )
 
-// ValidateACLAccess is the subset of AccessEntry needed for dry-run ACL checks.
 type ValidateACLAccess struct {
 	SubjectType string `json:"subjectType"`
 	SubjectKey  string `json:"subjectKey"`
@@ -47,17 +46,13 @@ type ValidateACLResult struct {
 	Findings []ValidateACLFinding `json:"findings,omitempty"`
 }
 
-// GitRunner matches the command-layer gitRunner for verify helpers.
 type GitRunner func(ctx context.Context, directory string, args ...string) (string, error)
 
-// pageRelFromPath maps a pages/** file path (optionally porcelain-prefixed) to
-// the page directory rel used by LocalPages (e.g. "venues/umeda").
 func pageRelFromPath(name string) string {
 	name = filepath.ToSlash(strings.TrimSpace(name))
 	if name == "" {
 		return ""
 	}
-	// status --porcelain: "XY path" or "XY orig -> path"
 	if len(name) > 3 && (name[2] == ' ' || name[2] == '\t') {
 		name = strings.TrimSpace(name[3:])
 		if i := strings.Index(name, " -> "); i >= 0 {
@@ -103,8 +98,6 @@ func uniquePageRels(paths []string) []string {
 	return rels
 }
 
-// CollectChangedPageRels returns pages/ relative directory paths changed vs
-// origin/main or dirty in the worktree.
 func CollectChangedPageRels(ctx context.Context, root string, runGit GitRunner) ([]string, error) {
 	seen := map[string]struct{}{}
 	addPath := func(name string) {
@@ -182,7 +175,6 @@ func pageAccessEntries(access any) []ValidateACLAccess {
 	return out
 }
 
-// BuildValidateACLPages loads changed local pages into the dry-run payload shape.
 func BuildValidateACLPages(root string, changedRels []string) ([]ValidateACLPage, error) {
 	all, err := LocalPages(root)
 	if err != nil {
@@ -192,10 +184,6 @@ func BuildValidateACLPages(root string, changedRels []string) ([]ValidateACLPage
 	for _, rel := range changedRels {
 		want[filepath.ToSlash(rel)] = struct{}{}
 	}
-	// A push creates new parent/child trees in one transaction (the remote helper allocates
-	// the IDs first), so a new page under a new parent is valid here too. PageFromLocal only
-	// resolves parents by key, so give new pages placeholder keys; each page keeps its own
-	// front matter, so a new page is still sent without an ID.
 	parents := make(map[string]LocalPage, len(all))
 	for key, local := range all {
 		if strings.HasPrefix(key, "new:") {
@@ -255,7 +243,6 @@ func addSourceID(seen map[string]struct{}, ids *[]string, id string) {
 	*ids = append(*ids, id)
 }
 
-// FormatACLFindings renders findings for agents and --commit output.
 func FormatACLFindings(findings []ValidateACLFinding) string {
 	if len(findings) == 0 {
 		return ""
@@ -277,14 +264,10 @@ func FormatACLFindings(findings []ValidateACLFinding) string {
 	return strings.TrimRight(b.String(), "\n")
 }
 
-// VerifyACL builds the dry-run request and calls the server.
 func VerifyACL(ctx context.Context, root string, client *Client, token string, runGit GitRunner, readSources []string) (ValidateACLResult, error) {
 	return VerifyACLWithReadSources(ctx, root, client, token, runGit, readSources)
 }
 
-// VerifyACLWithReadSources dry-runs the ACL checks for the clone's changed pages. The read
-// set is explicit: the runner passes its job's sources (`verify-acl --read-sources`); a nil
-// set is an error, so a caller can never fall back to "checked nothing".
 func VerifyACLWithReadSources(ctx context.Context, root string, client *Client, token string, runGit GitRunner, readSources []string) (ValidateACLResult, error) {
 	if readSources == nil {
 		return ValidateACLResult{}, fmt.Errorf("read sources are required (pass --read-sources)")

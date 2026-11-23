@@ -1,6 +1,5 @@
 import type { OutputKind, Slot } from "./protocol";
 
-/** The speaker invite link is the stage id itself. */
 export function inviteUrl(origin: string, stageId: string): string {
   return `${origin}/${stageId}/`;
 }

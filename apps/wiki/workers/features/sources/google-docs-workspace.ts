@@ -22,15 +22,9 @@ import type {
 
 export interface GoogleDocsWorkspaceDocument {
   document: GoogleDocsDocument;
-  /** Optional stable ID when the document object came from a different API. */
   id?: string;
 }
 
-/**
- * A source node ready for node-by-node persistence. `path` and `parentPath`
- * are relative to the `/google-docs` mount, so no synthetic prefix or file
- * extension leaks into R2 manifests.
- */
 export interface GoogleDocsWorkspaceNode {
   path: string;
   parentPath: string | null;
@@ -50,7 +44,6 @@ type Node = {
   children: Node[];
 };
 
-/** Preserve human-readable titles while ensuring each segment is a path segment. */
 export function googleDocsPathSegment(title: string, fallback: string): string {
   const cleaned = title.trim().replaceAll("/", "／").replaceAll("\\", "＼").replace(/\0/g, "");
   return !cleaned || cleaned === "." || cleaned === ".." ? fallback : cleaned;
@@ -86,7 +79,6 @@ function textFromElements(elements: readonly GoogleDocsStructuralElement[] | und
     .join("");
 }
 
-/** Extracts only one requested tab's body. It deliberately never walks child tabs. */
 export function textFromGoogleDocsTab(tab: GoogleDocsTab): string {
   return textFromElements(tab.documentTab?.body?.content);
 }
@@ -124,8 +116,6 @@ function buildDocumentNodes(documents: readonly GoogleDocsWorkspaceDocument[]): 
       title,
       path: name,
       kind: "google_document",
-      // Legacy single-tab documents retain their body on the document node.
-      // Tabbed documents are intentionally not concatenated here.
       content: document.body ? textFromElements(document.body.content) : null,
       children: buildTabNodes(document.tabs ?? [], name),
     };
@@ -171,10 +161,6 @@ function flattenNodes(
   ]);
 }
 
-/**
- * Flattens API documents into independently persistable document/tab records.
- * The content is one node body at a time; it never combines a document's tabs.
- */
 export function flattenGoogleDocsWorkspaceNodes(
   documents: readonly GoogleDocsWorkspaceDocument[],
 ): GoogleDocsWorkspaceNode[] {
@@ -204,11 +190,6 @@ function sliceContent(
   };
 }
 
-/**
- * Builds an immutable mount adapter from Google Docs API responses. Fetching is
- * intentionally separate: the adapter is pure and `cat` returns one stored
- * document/tab body only, never a joined document export.
- */
 export function createGoogleDocsWorkspaceAdapter(
   documents: readonly GoogleDocsWorkspaceDocument[],
 ): WorkspaceAdapter {

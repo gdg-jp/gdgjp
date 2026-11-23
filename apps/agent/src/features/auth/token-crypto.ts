@@ -1,10 +1,5 @@
 import { buffer, base64Decode, base64UrlDecode, base64UrlEncode } from "../../lib";
 
-/**
- * AES-256-GCM for OAuth tokens at rest. Same format as v1 apps/agents
- * (`TOKEN_ENCRYPTION_KEYS` = JSON version → base64 key; ciphertext
- * `base64url(iv).base64url(ct||tag)`), so migrated links decrypt unchanged.
- */
 export type TokenKeyring = { currentVersion: number; keys: ReadonlyMap<number, Uint8Array> };
 export type EncryptedPayload = { keyVersion: number; ciphertext: string };
 

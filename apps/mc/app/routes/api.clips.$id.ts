@@ -10,7 +10,6 @@ import {
 } from "~/features/clips/uploads.server";
 import type { Route } from "./+types/api.clips.$id";
 
-/** PATCH edits an uploaded clip; DELETE removes it (or an unregistered upload). */
 export async function action({ request, params, context }: Route.ActionArgs) {
   const env = context.cloudflare.env;
   if (!(await canUseController(env, request))) {

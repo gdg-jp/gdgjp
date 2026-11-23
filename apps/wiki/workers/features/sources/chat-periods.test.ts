@@ -7,7 +7,6 @@ import {
 } from "./chat-periods";
 
 describe("packNextDocument", () => {
-  // Each "message" is a line count; a document measures the sum of its lines.
   const linesByWeek: Record<string, number[]> = {
     "2026-01-05": [100],
     "2026-01-12": [150],

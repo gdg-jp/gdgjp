@@ -17,13 +17,6 @@ const STALL_MS = 1000;
 
 type Listener = () => void;
 
-/**
- * The OBS-side audio engine: one HTMLAudioElement fed from in-memory blobs.
- *
- * Every clip is downloaded and test-decoded at startup so a ▶ never waits on
- * the network; clips registered later are preloaded as soon as they arrive. A command only reports success once the element's clock has
- * actually moved — "play() resolved" is not proof that sound is coming out.
- */
 export class PlayerEngine {
   private audio: HTMLAudioElement;
   private clips: Clip[] = [];
@@ -31,7 +24,6 @@ export class PlayerEngine {
   private blobs = new Map<string, string>();
   private failed = new Set<string>();
   private preloading = false;
-  /** The clip loaded into the element, even if it was removed since. */
   private lastClip: Clip | null = null;
   private clipId: string | null = null;
   private status: PlayerStatus = "idle";
@@ -42,7 +34,6 @@ export class PlayerEngine {
   private lastTime = -1;
   private lastAdvanceAt = 0;
   private listeners = new Set<Listener>();
-  /** Serialises commands so two quick ones cannot interleave. */
   private queue: Promise<unknown> = Promise.resolve();
 
   diag: PlayerDiagnostics;
@@ -76,11 +67,6 @@ export class PlayerEngine {
     return id ? this.byId.get(id) : undefined;
   }
 
-  /**
-   * Replace the playable set (the room pushes it on connect and after every
-   * upload change). New clips are preloaded; removed ones are released unless
-   * they are the one loaded right now, which keeps playing to its end.
-   */
   setClips(clips: Clip[]) {
     this.clips = clips;
     this.byId = new Map(clips.map((c) => [c.id, c]));
@@ -128,8 +114,6 @@ export class PlayerEngine {
     this.loops = config.loops;
   }
 
-  // ─── startup checks ──────────────────────────────────────────────────────
-
   probeAutoplay() {
     try {
       const Ctx =
@@ -148,14 +132,12 @@ export class PlayerEngine {
     this.emit();
   }
 
-  /** Called from a user gesture on the player page (only shown when blocked). */
   unlock() {
     this.diag.autoplay = "ok";
     this.onLog({ level: "info", code: "autoplay-unlocked" });
     this.emit();
   }
 
-  /** Fetch + test-decode every clip not yet in memory, one at a time. */
   async preload() {
     if (this.preloading) return;
     this.preloading = true;
@@ -185,8 +167,6 @@ export class PlayerEngine {
     }
   }
 
-  // ─── state ───────────────────────────────────────────────────────────────
-
   get state(): PlayerState {
     const clip = this.getClip(this.clipId);
     const durationMs = clip?.durationMs ?? 0;
@@ -207,8 +187,6 @@ export class PlayerEngine {
   private loopFor(clipId: string): LoopSetting {
     return this.loops[clipId] ?? defaultLoop(this.getClip(clipId)?.loop ?? false);
   }
-
-  // ─── commands ────────────────────────────────────────────────────────────
 
   execute(cmd: Command): Promise<CommandResult> {
     const run = this.queue.then(() => this.run(cmd));
@@ -307,7 +285,6 @@ export class PlayerEngine {
   private async load(clip: Clip) {
     const src = this.blobs.get(clip.id) ?? clip.src;
     if (this.clipId === clip.id && this.audio.src === src && this.audio.readyState >= 1) return;
-    // Mark the switch as ours so onExternalPause does not log an interruption.
     if (this.status === "playing") this.status = "paused";
     this.audio.pause();
     this.clipId = clip.id;
@@ -337,8 +314,6 @@ export class PlayerEngine {
     clearTimeout(this.gapTimer);
     this.gapTimer = undefined;
   }
-
-  // ─── element events ──────────────────────────────────────────────────────
 
   private onEnded = () => {
     const clipId = this.clipId;
@@ -384,7 +359,6 @@ export class PlayerEngine {
     this.emit();
   };
 
-  /** A pause we did not ask for (OS / browser interruption). */
   private onExternalPause = () => {
     if (this.status === "playing" && !this.audio.ended) {
       this.status = "paused";

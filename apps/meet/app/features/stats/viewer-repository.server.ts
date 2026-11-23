@@ -130,10 +130,6 @@ function buildParticipantRows(
   return rows;
 }
 
-/**
- * 会議詳細画面向けに D1 のみから開催回別の参加統計を取得する（Google API は一切呼ばない）。
- * `includeParticipants` が `false`（一般参加者）の場合、個人別テーブル行は一切取得・返却しない。
- */
 export async function getMeetingStatsForViewer(
   db: D1Database,
   params: {

@@ -2,18 +2,6 @@ import { CHAPTERS_CLAIM, IS_ADMIN_CLAIM } from "@gdgjp/gdg-lib/auth/claims";
 import { listActiveChaptersForUser } from "~/features/memberships/repository.server";
 import { sha256Base64Url } from "~/lib/crypto.server";
 
-/**
- * First-party session check (`POST /api/rp/v1/session`).
- *
- * Every `*.gdgs.jp` relying party asks this on each authenticated request
- * whether the IdP session its own session is bound to is still alive, and for
- * the user's current claims. Sign-out, account switching, admin revocation,
- * and role or membership changes therefore reach every app on its next
- * request instead of when a 30-day RP cookie expires.
- *
- * Callers authenticate with their client credentials (HTTP Basic) and must be
- * a configured first-party client; third-party developer apps are refused.
- */
 export async function handleRpSessionCheck(env: Env, request: Request): Promise<Response> {
   const clientId = await authenticateFirstPartyClient(env, request);
   if (!clientId) return json({ error: "invalid_client" }, 401);
@@ -41,8 +29,6 @@ export async function handleRpSessionCheck(env: Env, request: Request): Promise<
   if (!row || row.userId !== body.sub) return json({ active: false });
   const expiresAt = Date.parse(row.expiresAt);
   if (!(expiresAt > Date.now())) {
-    // Ending the expired session fires the token-revocation trigger, so its
-    // OAuth grants stop refreshing as well.
     await env.DB.prepare('DELETE FROM "session" WHERE "id" = ?').bind(row.sessionId).run();
     return json({ active: false });
   }
@@ -76,7 +62,6 @@ type SessionUserRow = {
   isAdmin: number;
 };
 
-/** Client IDs of the `*.gdgs.jp` relying parties built on gdg-lib. */
 export function firstPartyRpClientIds(env: Env): string[] {
   return [
     env.TINYURL_CLIENT_ID,

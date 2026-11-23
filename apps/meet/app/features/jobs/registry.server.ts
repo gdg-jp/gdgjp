@@ -9,7 +9,6 @@ import { collectTranscriptStatsJob } from "~/features/stats/collect-transcript-s
 import { maskEmailsInText } from "~/lib/redact-email";
 import { type MeetJobMessage, type MeetJobType, isMeetJobMessage } from "./types";
 
-/** 429 レート制限時に Queue へ指定する最低再試行遅延（Meet API 書き込み上限: 毎分 100 件/ユーザー）。 */
 export const RATE_LIMIT_RETRY_DELAY_SECONDS = 60;
 const BASE_RETRY_DELAY_SECONDS = 30;
 const MAX_RETRY_DELAY_SECONDS = 900;
@@ -24,10 +23,6 @@ export type MeetJobHandlerRegistry = {
   [K in MeetJobType]: MeetJobHandler<Extract<MeetJobMessage, { type: K }>>;
 };
 
-/**
- * ジョブ種別 → ハンドラの登録表。
- * Stage 05・06 はここに各自のジョブ種別を 1 行ずつ追加する。
- */
 export const JOB_HANDLERS: MeetJobHandlerRegistry = {
   sync_members: async (env, message) => {
     await syncMeetingMembers(env, message.meetingId);
@@ -60,7 +55,6 @@ function computeRetryDelaySeconds(attempts: number, isRateLimit: boolean): numbe
   return isRateLimit ? Math.max(exponential, RATE_LIMIT_RETRY_DELAY_SECONDS) : exponential;
 }
 
-/** 単一の Queue メッセージを登録表へ振り分け、ack / retry を制御する。 */
 export async function dispatchMeetJobMessage(
   env: Env,
   message: QueueMessageLike,
@@ -99,7 +93,6 @@ export async function dispatchMeetJobMessage(
   }
 }
 
-/** `workers/app.ts` の `queue` ハンドラから呼ばれるバッチ処理エントリポイント。 */
 export async function processMeetJobBatch(
   batch: MessageBatch<unknown>,
   env: Env,

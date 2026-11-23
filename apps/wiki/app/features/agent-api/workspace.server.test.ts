@@ -12,13 +12,6 @@ vi.mock("../../../app/features/agent-api/workspace/wiki-read-repository", () => 
   createD1WikiWorkspaceStore: (...args: unknown[]) => createStoreMock(...args),
 }));
 
-// Deliberately no `vi.mock("@gdgjp/gdg-lib", ...)` here: this file exercises the
-// real getBearerIdentity implementation end to end (real /userinfo fetch, real
-// claim parsing) rather than a stand-in, to prove the compatibility guarantee
-// that any valid OAuth client token — including one issued to the `agents`
-// client, which never carries the CLI scope (`SEEDED_SCOPES` in
-// accounts/app/lib/seed-clients.server.ts) — still authenticates wiki's
-// /api/agent/* and /api/cli/wiki/* surface through /userinfo.
 import { resolveAgentWorkspace } from "./workspace.server";
 
 const ACCOUNTS_URL = "https://accounts.example";

@@ -3,13 +3,11 @@ import * as schema from "../../../../app/db/schema";
 import type { getDb } from "../../../../app/lib/db.server";
 import { isSourceFetchAttemptCurrent, sourceFetchAttemptIsCurrent } from "../persist";
 
-/** Reconcile only while the owning fetch lease is current. */
 export async function archiveMissingDocuments(
   db: ReturnType<typeof getDb>,
   sourceId: string,
   attemptId: string,
   fetchedPaths: readonly string[],
-  /** When given, the archived documents' v2 objects are deleted from R2. */
   bucket?: R2Bucket,
 ): Promise<boolean> {
   if (!(await isSourceFetchAttemptCurrent(db, sourceId, attemptId))) return false;
@@ -22,8 +20,6 @@ export async function archiveMissingDocuments(
           eq(schema.sourceDocuments.sourceId, sourceId),
           sql`${schema.sourceDocuments.path} NOT IN (SELECT value FROM json_each(${JSON.stringify(fetchedPaths)}))`,
         );
-  // Archived documents leave the search index: drop their v2 objects (v1 `raw/` objects
-  // are immutable history and are removed wholesale in Stage 07).
   const archivedKeys = await db
     .select({ r2Key: schema.sourceDocuments.r2Key })
     .from(schema.sourceDocuments)

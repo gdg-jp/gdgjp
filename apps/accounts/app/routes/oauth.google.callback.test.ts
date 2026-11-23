@@ -54,8 +54,6 @@ describe("Google OAuth callback", () => {
     const response = await pending;
 
     expect(response.status).toBe(302);
-    // The authorization code is single-use, so it must not be carried into
-    // return_to — the user has to restart the flow from a bare /signin.
     expect(response.headers.get("Location")).toBe("/signin");
 
     vi.useRealTimers();

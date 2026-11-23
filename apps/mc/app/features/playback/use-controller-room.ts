@@ -15,7 +15,6 @@ import {
 } from "./protocol";
 import { ReliableSocket, type SocketStatus } from "./reliable-socket";
 
-/** A player as this controller sees it, with local receive time for the clock. */
 export type PlayerView = PlayerPresence & { receivedAt: number; alive: boolean };
 
 export type RoomView = {
@@ -24,21 +23,13 @@ export type RoomView = {
   token: string | null;
   config: RoomConfig;
   players: PlayerView[];
-  /** The player whose state drives the UI: the freshest alive one. */
   primary: PlayerView | null;
   log: LogEntry[];
-  /** Uploaded clips as the room last pushed them; null until the first snapshot. */
   uploaded: UploadedClip[] | null;
 };
 
 const LOG_LIMIT = 200;
 
-/**
- * Controller-side connection to one track's room: one ReliableSocket, the room snapshot, and
- * ack-tracked commands. Player liveness is judged locally from frame arrival
- * (players report at least once a second), so a dead player shows within
- * STALE_MS even if the room never notices a close.
- */
 export function useControllerRoom(track: string) {
   const [socket, setSocket] = useState<SocketStatus>("connecting");
   const [rtt, setRtt] = useState<number | null>(null);
@@ -66,7 +57,6 @@ export function useControllerRoom(track: string) {
             new Map(
               msg.players.map((p) => [
                 p.connId,
-                // Age the snapshot by server-side staleness so a ghost reads dead.
                 { ...p, receivedAt: now - (msg.serverNow - p.lastSeenAt), alive: true },
               ]),
             ),
@@ -121,7 +111,6 @@ export function useControllerRoom(track: string) {
     });
     socketRef.current = s;
     s.start();
-    // Re-evaluate player liveness even when no frames arrive.
     const timer = setInterval(() => setTick((t) => t + 1), 500);
     const probe = setInterval(() => s.send(JSON.stringify({ type: "probe" })), HEARTBEAT_MS);
     return () => {
@@ -168,7 +157,6 @@ export function useControllerRoom(track: string) {
   };
 }
 
-/** Interpolated position of a player's clip at `now` (performance.now()). */
 export function positionAt(player: PlayerView | null, now: number): number {
   const s = player?.state;
   if (!s) return 0;

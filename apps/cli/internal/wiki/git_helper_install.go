@@ -10,7 +10,6 @@ import (
 // InstallGitRemoteHelper places the Git-discoverable helper beside the gdg
 // executable. Git resolves git-remote-gdg-wiki through PATH, so the directory
 // containing gdg must already be on PATH (as it normally is after install).
-// It never overwrites another program's helper.
 func InstallGitRemoteHelper(executable string) (string, error) {
 	if executable == "" {
 		var err error

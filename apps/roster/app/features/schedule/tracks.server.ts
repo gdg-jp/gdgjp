@@ -1,13 +1,5 @@
 import { getDefaultRosterSheet, getRosterSheet } from "../roster-sheets/roster-sheets.server";
 
-/**
- * D1 access for `tracks` (docs/roster/index.md §3 "トラック", §4). Split out
- * of `schedule.server.ts` to keep each file under the 400-line cap
- * (docs/roster/02-domain-schema.md "Design" §4: split by domain, not by
- * read/write) — tracks have no idx-contiguity concern, so they don't share
- * schedule.server.ts's regenerate machinery. Roles live in `roles.server.ts`.
- */
-
 export type Track = {
   id: string;
   eventId: string;
@@ -28,7 +20,6 @@ type TrackRow = {
 
 const TRACK_COLS = "id, event_id, name, color, shared, sort_order";
 
-/** Resolves the sheet a sheet-scoped track/role call targets; shared with `roles.server.ts`. */
 export async function resolveRosterSheetId(
   db: D1Database,
   eventId: string,
@@ -124,11 +115,6 @@ export async function deleteTrack(
     .run();
 }
 
-/**
- * No UNIQUE(event_id, sort_order) constraint on tracks (unlike
- * time_slots.idx), so a plain per-row UPDATE batch is safe — there's no
- * transient-collision risk to guard against.
- */
 export async function reorderTracks(
   db: D1Database,
   eventId: string,

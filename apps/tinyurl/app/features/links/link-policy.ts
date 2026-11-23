@@ -33,8 +33,6 @@ export function canViewLink(
   if (isSuperAdmin(ctx.user)) return true;
   if (link.ownerChapterId !== null && ctx.chapterId === link.ownerChapterId) return true;
   if (matchingRole(ctx, permissions) !== null) return true;
-  // Public links are viewable to any signed-in member. Callers reach this with
-  // ctx already established by requireUserWithChapter, so the viewer is one.
   if (link.visibility === "public") return true;
   return false;
 }
@@ -50,10 +48,6 @@ export function canEditLink(
   return matchingRole(ctx, permissions) === "editor";
 }
 
-/**
- * The dashboard evaluates a single selected chapter. CLI identities carry all
- * memberships, so evaluate the exact same policy once for every membership.
- */
 export function canViewLinkForChapters(
   user: AuthUser,
   chapterIds: number[],

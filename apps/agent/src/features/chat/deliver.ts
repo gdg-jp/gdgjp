@@ -3,7 +3,6 @@ import type { Delivery } from "../inquiry/pending";
 import { chatAccessToken } from "./gchat-auth";
 
 const DISCORD_API = "https://discord.com/api/v10";
-/** Message flag: no link previews. */
 const SUPPRESS_EMBEDS = 1 << 2;
 
 export function discordComponents(reply: Reply) {
@@ -22,7 +21,6 @@ export function discordComponents(reply: Reply) {
   return reply.degraded ? [] : [{ type: 1, components: buttons }];
 }
 
-/** Replace the deferred "thinking" response (15-minute interaction token). */
 export async function deliverDiscord(
   delivery: Extract<Delivery, { platform: "discord" }>,
   reply: Reply,
@@ -44,7 +42,6 @@ export async function deliverDiscord(
   if (!response.ok) throw new Error(`discord_deliver_failed:${response.status}`);
 }
 
-/** Edit the deferred response with a progress line; the answer replaces it later. */
 export async function progressDiscord(
   delivery: Extract<Delivery, { platform: "discord" }>,
   text: string,
@@ -61,7 +58,6 @@ export async function progressDiscord(
   if (!response.ok) throw new Error(`discord_progress_failed:${response.status}`);
 }
 
-/** Edit the bot's own placeholder reply to an @mention (bot token, no interaction token). */
 export async function editDiscordMessage(
   delivery: Extract<Delivery, { platform: "discord-message" }>,
   body: Record<string, unknown>,
@@ -87,7 +83,6 @@ export function discordMessageBody(reply: Reply): Record<string, unknown> {
   };
 }
 
-/** Reply to a message in its channel; returns the new message's id. */
 export async function replyDiscordMessage(
   channelId: string,
   messageId: string,
@@ -127,7 +122,6 @@ export function chatCard(reply: Reply) {
   return [{ cardId: "feedback", card: { sections: [{ widgets: [{ buttonList: { buttons } }] }] } }];
 }
 
-/** Post the answer into the Chat thread with the app's service account. */
 export async function deliverChat(
   delivery: Extract<Delivery, { platform: "google-chat" }>,
   reply: Reply,

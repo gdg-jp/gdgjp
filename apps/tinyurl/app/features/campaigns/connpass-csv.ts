@@ -45,7 +45,6 @@ function firstPresent(headers: string[], candidates: string[]): string | null {
   return candidates.find((candidate) => headers.includes(candidate)) ?? null;
 }
 
-/** Parse RFC 4180-style CSV, including BOM, CRLF, escaped quotes, and newlines in fields. */
 export function parseCsv(text: string): string[][] {
   const input = text.charCodeAt(0) === 0xfeff ? text.slice(1) : text;
   const rows: string[][] = [];
@@ -100,7 +99,6 @@ export function parseConnpassDate(value: string): number | null {
   const japanese = /^(\d{4})年(\d{1,2})月(\d{1,2})日\s+(\d{1,2})時(\d{1,2})分$/.exec(trimmed);
   if (japanese) {
     const [, year, month, day, hour, minute] = japanese;
-    // connpass exports event administration timestamps in Japan Standard Time.
     const parts = [year, month, day, hour, minute].map(Number);
     const timestamp = Math.floor(
       Date.UTC(parts[0], parts[1] - 1, parts[2], parts[3] - 9, parts[4]) / 1000,

@@ -146,12 +146,8 @@ export type ScrapedEventDetail = {
  * the venue as a separate DOM table, not through the Backbone model.
  */
 async function scrapePlaceFromDom(page: Page): Promise<{ name: string; address: string }> {
-  // PlaceEditView binds after its my_places request completes. Synchronize with
-  // that lifecycle rather than depending on a warm Browser Run session.
   await waitForBoundEvent(page, selectors.eventEdit.place, "change");
 
-  // Connpass replaces this widget asynchronously after domcontentloaded. Wait
-  // for a selected saved place (or a populated venue cell) before reading it.
   await page.evaluate(
     async ({ nameSelector }) => {
       const deadline = Date.now() + 5_000;
@@ -208,13 +204,9 @@ export async function scrapeEventDetail(
         capacityText: readableText(await page.locator(selectors.eventEdit.capacity).innerText()),
       }
     : undefined;
-  // scrapeConference navigates to its own edit page, so it must be last. All
-  // event fields above are read while the event-edit DOM is still loaded.
   const conference = await scrapeConference(page, eventId);
 
   if (!model) {
-    // Fall back to the pre-alignment DOM scrape if connpass ever drops the
-    // embedded model dump; keeps the endpoint degraded-but-working.
     return {
       id: String(eventId),
       groupNumericId: null,

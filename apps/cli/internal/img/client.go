@@ -51,14 +51,11 @@ type (
 	FolderDeleteResult = openapigen.FolderDeleteResult
 )
 
-// ListOptions narrows a List call. Zero-value fields are omitted from the request.
 type ListOptions struct {
 	ChapterID *int
-	// FolderID is a folder id (as a string) to filter by, or the literal
-	// "unfiled" for images with no folder.
-	FolderID *string
-	Limit    *int
-	Cursor   *string
+	FolderID  *string
+	Limit     *int
+	Cursor    *string
 }
 
 // ImagePatch describes a partial update to an image (PATCH
@@ -70,18 +67,13 @@ type ListOptions struct {
 // intend to touch.
 type ImagePatch struct {
 	SetSlug bool
-	// Slug is the new slug, or nil to clear it. Only sent when SetSlug is true.
-	Slug *string
+	Slug    *string
 
 	SetFolderID bool
-	// FolderID is the folder to file the image into, or nil to unfile it.
-	// Only sent when SetFolderID is true.
-	FolderID *int
+	FolderID    *int
 
 	SetChapterID bool
-	// ChapterID re-shares the image with a different chapter. Only sent when
-	// SetChapterID is true; the server clears FolderID as a side effect.
-	ChapterID int
+	ChapterID    int
 }
 
 func (p ImagePatch) toJSON() ([]byte, error) {
@@ -140,8 +132,6 @@ func decodeResponse[T any](status int, body []byte, out *T) error {
 	return json.Unmarshal(body, out)
 }
 
-// errorMessage extracts the server's { "error": string } envelope, falling
-// back to the raw trimmed body when it isn't that shape.
 func errorMessage(body []byte) string {
 	var envelope struct {
 		Error string `json:"error"`
@@ -152,8 +142,6 @@ func errorMessage(body []byte) string {
 	return strings.TrimSpace(string(body))
 }
 
-// multipartFile builds a multipart/form-data body with the file at filePath
-// under fieldName, plus any additional string fields.
 func multipartFile(filePath, fieldName string, fields map[string]string) (io.Reader, string, error) {
 	contents, err := os.ReadFile(filePath)
 	if err != nil {
@@ -258,9 +246,6 @@ func (c *Client) UploadMobile(ctx context.Context, token, id, filePath string) (
 	return out, err
 }
 
-// UpdateImage applies a partial update (slug, folder, and/or chapter) to an
-// image. See ImagePatch for how omitted fields are distinguished from
-// fields explicitly cleared.
 func (c *Client) UpdateImage(ctx context.Context, token, id string, patch ImagePatch) (CliImageResponse, error) {
 	body, err := patch.toJSON()
 	if err != nil {
@@ -275,17 +260,14 @@ func (c *Client) UpdateImage(ctx context.Context, token, id string, patch ImageP
 	return out, err
 }
 
-// SetSlug sets an image's custom slug, or clears it when slug is nil.
 func (c *Client) SetSlug(ctx context.Context, token, id string, slug *string) (CliImageResponse, error) {
 	return c.UpdateImage(ctx, token, id, ImagePatch{SetSlug: true, Slug: slug})
 }
 
-// Move assigns an image to a folder, or unfiles it when folderID is nil.
 func (c *Client) Move(ctx context.Context, token, id string, folderID *int) (CliImageResponse, error) {
 	return c.UpdateImage(ctx, token, id, ImagePatch{SetFolderID: true, FolderID: folderID})
 }
 
-// Share re-attributes an image to a different chapter the caller belongs to.
 func (c *Client) Share(ctx context.Context, token, id string, chapterID int) (CliImageResponse, error) {
 	return c.UpdateImage(ctx, token, id, ImagePatch{SetChapterID: true, ChapterID: chapterID})
 }
@@ -300,7 +282,6 @@ func (c *Client) Delete(ctx context.Context, token, id string) (CliDeleteResult,
 	return out, err
 }
 
-// ListFoldersOptions narrows a ListFolders call. Zero-value fields are omitted from the request.
 type ListFoldersOptions struct {
 	ChapterID *int
 	Limit     *int

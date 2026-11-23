@@ -11,10 +11,6 @@ const requestHandler = createRequestHandler(
 
 const PEER_ID_RE = /^[A-Za-z0-9_-]{8,64}$/;
 
-/**
- * `/ws?deck=<id>&role=controller&pid=<tab>` (session cookie, chapter member of
- * the deck's chapter) or `/ws?deck=<id>&role=dock&t=<dock token>` (OBS dock).
- */
 async function handleSocket(request: Request, env: Env, url: URL): Promise<Response> {
   const deckId = url.searchParams.get("deck");
   if (!isDeckId(deckId)) return new Response("bad deck", { status: 400 });

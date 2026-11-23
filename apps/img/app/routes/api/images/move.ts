@@ -28,7 +28,6 @@ export async function action(args: Route.ActionArgs) {
 
 const INVALID = Symbol("invalid");
 
-/** An empty/absent value clears the folder; anything else must be a valid integer id. */
 function parseFolderId(value: FormDataEntryValue | null): number | null | typeof INVALID {
   if (typeof value !== "string" || value === "") return null;
   const parsed = Number(value);

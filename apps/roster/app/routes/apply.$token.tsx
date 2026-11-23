@@ -21,20 +21,6 @@ import { canApply } from "~/features/events/status";
 import { getDb } from "~/lib/db.server";
 import type { Route } from "./+types/apply.$token";
 
-/**
- * `/apply/:token` (docs/roster/04-applications.md "Design" §2, §5): the
- * public staff-registration form. Gated on `getOptionalUser` — never
- * `requireUserWithChapter` — because Chapter membership must not be
- * required to register as staff. Event lookup is by `apply_token` alone;
- * the event id never appears in this URL.
- *
- * The loader's return value is the whole PII surface of this public route:
- * it must contain the event summary, the union of recruiting roles, the live
- * sheet/time-slot groups, and *only the viewer's own* application/skills/availability — never
- * another applicant's name, email, contact, or skills. See
- * `apply.$token.test.ts` for a test that asserts this on the raw returned
- * object, not just on what the UI happens to render.
- */
 export function meta({ data }: Route.MetaArgs) {
   return [{ title: data ? `${data.event.name} — スタッフ登録 — roster` : "roster" }];
 }
@@ -54,12 +40,6 @@ export async function loader({ request, context, params }: Route.LoaderArgs) {
   const url = new URL(request.url);
   const signInHref = `/signin?return_to=${encodeURIComponent(`${url.pathname}${url.search}`)}`;
 
-  // Auto-claim happens on every signed-in view, deliberately not gated on
-  // canApplyNow: claiming only attaches the viewer's identity to an existing
-  // proxy row (ADR-008), it never lets them create or edit anything past
-  // closed — the action below still blocks that. Linking the identity as
-  // soon as they're seen is strictly more useful to the owner than making
-  // them re-open the page while registration happens to be open again.
   let own: ApplyFormOwn | null = null;
   if (viewer) {
     const resolved = await resolveOwnApplication(db, event.id, {
@@ -110,17 +90,11 @@ export async function action({ request, context, params }: Route.ActionArgs) {
   const event = await getEventByApplyToken(db, token);
   if (!event) throw new Response(null, { status: 404 });
 
-  // Never requireUserWithChapter here — Chapter membership must not gate
-  // registering as staff. An unauthenticated write attempt (e.g. a stale
-  // form after the session expired) redirects to sign-in instead of 403ing.
   const viewer = await getOptionalUser(env, request);
   if (!viewer) throw buildSignInRedirect(request);
 
   if (!canApply(event.status)) return { error: "募集は終了しました。" };
 
-  // Resolve server-side from the viewer's identity — never trust a
-  // client-submitted application id (docs/roster/04-applications.md
-  // "Design" §4 "他人の application に書き込めないこと").
   const resolved = await resolveOwnApplication(db, event.id, {
     userId: viewer.id,
     email: viewer.email,
@@ -156,9 +130,6 @@ export async function action({ request, context, params }: Route.ActionArgs) {
   );
   if (errors.length > 0) return { error: errors[0] };
 
-  // "未入力ならアカウントのメールを使う" (docs/roster/04-applications.md
-  // "Design" §2) — resolved once here so both create and update store the
-  // same fallback rather than leaving it to be re-derived later.
   const contact = contactInput || viewer.email;
   const resolvedParty: PartyStatus = event.hasParty ? party : "undecided";
 

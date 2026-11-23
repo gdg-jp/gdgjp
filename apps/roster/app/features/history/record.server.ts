@@ -22,7 +22,6 @@ type RevisionRow = {
   created_at: string;
 };
 
-/** Payload for writes that should be recorded. Restore never records a row. */
 export type RecordRevisionInput = {
   eventId: string;
   assignments: Assignments;
@@ -32,9 +31,7 @@ export type RecordRevisionInput = {
   kind: "generate" | "edit";
   groupKey?: string | null;
   rosterSheetId?: string;
-  /** Cursor observed with the caller's assignment map; null is a valid expected state. */
   expectedRevisionCursor?: number | null;
-  /** Guarded domain mutations to run after claiming the sheet cursor and before history changes. */
   mutationStatements?: readonly D1PreparedStatement[];
 };
 
@@ -127,7 +124,6 @@ function recordGuardStatement(
     : statement.bind(sheetId, eventId, cursor, eventId, sheetId, cursor);
 }
 
-/** Inserts or merges a revision, truncates its redo branch, and applies retention. */
 export async function recordRevision(db: D1Database, input: RecordRevisionInput): Promise<void> {
   const sheetId = await resolveSheetId(db, input.eventId, input.rosterSheetId);
   const cursor = Object.hasOwn(input, "expectedRevisionCursor")

@@ -27,10 +27,8 @@ func prompt(name string) string {
 }
 
 const (
-	synthesizeTimeout = 30 * time.Minute
-	// maxBatchBytes splits a job's raw into several agent runs, by source.
-	maxBatchBytes = 4 << 20
-	// largeDocumentBytes marks documents the agent must read by heading, not whole.
+	synthesizeTimeout  = 30 * time.Minute
+	maxBatchBytes      = 4 << 20
 	largeDocumentBytes = 256 << 10
 	jobFile            = "JOB.md"
 	jobResultFile      = "JOB_RESULT.json"
@@ -53,7 +51,7 @@ func (r *Runner) synthesize(ctx context.Context, job *Job) Result {
 	paths := localDocumentPaths(root)
 	batches := batchDocuments(jc.Documents, maxBatchBytes)
 	if len(batches) == 0 {
-		batches = [][]Document{nil} // requests only
+		batches = [][]Document{nil}
 	}
 	for i, batch := range batches {
 		requests := jc.Requests
@@ -79,12 +77,10 @@ func (r *Runner) synthesize(ctx context.Context, job *Job) Result {
 	return result
 }
 
-// verifyAndPush runs verify-acl with the job's sources as the read set. Findings get one
-// fix-up run; still failing → needs_review with an acl-untagged flag, and nothing is pushed.
 func (r *Runner) verifyAndPush(ctx context.Context, root string, readSources []string, message string) Result {
 	check, err := r.verify(ctx, root, readSources)
 	if err != nil {
-		return failed(fmt.Errorf("verify-acl: %w", err), true) // fail closed: never push unverified
+		return failed(fmt.Errorf("verify-acl: %w", err), true)
 	}
 	if !check.OK {
 		fix := prompt("acl-fix") + "\n\n" + wiki.FormatACLFindings(check.Findings)
@@ -112,7 +108,6 @@ func (r *Runner) verifyAndPush(ctx context.Context, root string, readSources []s
 	return Result{Status: "succeeded", Result: map[string]any{"pagesWritten": written}}
 }
 
-// localDocumentPaths maps document id → clone-relative raw path from the pulled manifest.
 func localDocumentPaths(root string) map[string]string {
 	out := map[string]string{}
 	state, err := wiki.LoadState(root)
@@ -125,8 +120,6 @@ func localDocumentPaths(root string) map[string]string {
 	return out
 }
 
-// batchDocuments groups documents by source and packs sources into batches of at most
-// limit bytes. A single source over the limit is its own batch.
 func batchDocuments(documents []Document, limit int64) [][]Document {
 	bySource := map[string][]Document{}
 	var order []string
@@ -218,8 +211,6 @@ func quote(text string) string {
 	return strings.Join(lines, "\n")
 }
 
-// readRequestOutcomes reads the agent's JOB_RESULT.json; a missing entry counts as applied
-// when the run wrote pages.
 func readRequestOutcomes(root string, count int, result Result) []RequestOutcome {
 	if count == 0 {
 		return nil

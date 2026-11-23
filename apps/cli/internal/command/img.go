@@ -252,8 +252,6 @@ func newImgDeleteCommand(credentials store.CredentialStore) *cobra.Command {
 	}
 }
 
-// --- folders -------------------------------------------------------------
-
 func newImgFoldersCommand(credentials store.CredentialStore) *cobra.Command {
 	command := &cobra.Command{
 		Use:   "folders",

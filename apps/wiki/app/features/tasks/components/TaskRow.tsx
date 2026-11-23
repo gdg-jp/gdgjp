@@ -75,7 +75,6 @@ export default function TaskRow({
     if (editingDesc) descInputRef.current?.focus();
   }, [editingDesc]);
 
-  // Sync drafts from props when not actively editing (keeps display in sync after remote updates)
   useEffect(() => {
     if (!editingTitle) setTitleDraft(task.title);
   }, [task.title, editingTitle]);
@@ -109,7 +108,6 @@ export default function TaskRow({
         if (e.key === "Enter" || e.key === " ") onClick(task.id);
       }}
     >
-      {/* # — focusable button so keyboard users can open the task detail */}
       <td className="whitespace-nowrap px-3 py-2 text-sm text-muted">
         <button
           type="button"
@@ -131,7 +129,6 @@ export default function TaskRow({
         </button>
       </td>
 
-      {/* Status */}
       <td className="overflow-hidden px-3 py-2">
         <DropdownMenu
           value={task.status}
@@ -141,7 +138,6 @@ export default function TaskRow({
         />
       </td>
 
-      {/* Due Date */}
       <td
         className="overflow-hidden px-3 py-2"
         onClick={(e) => e.stopPropagation()}
@@ -153,7 +149,6 @@ export default function TaskRow({
         />
       </td>
 
-      {/* Assignee */}
       <td className="overflow-hidden px-3 py-2">
         <AssigneeCell
           assigneeId={task.assigneeId}
@@ -163,7 +158,6 @@ export default function TaskRow({
         />
       </td>
 
-      {/* Team */}
       <td className="overflow-hidden px-3 py-2">
         {teams.length > 0 ? (
           <DropdownMenu
@@ -177,7 +171,6 @@ export default function TaskRow({
         )}
       </td>
 
-      {/* Dependencies */}
       <td
         className="overflow-hidden px-3 py-2"
         onClick={(e) => e.stopPropagation()}
@@ -191,7 +184,6 @@ export default function TaskRow({
         />
       </td>
 
-      {/* Type */}
       <td className="overflow-hidden px-3 py-2">
         <DropdownMenu
           value={task.type}
@@ -201,7 +193,6 @@ export default function TaskRow({
         />
       </td>
 
-      {/* Title — inline-editable cell */}
       <td className="break-words px-3 py-2 text-sm font-medium text-foreground">
         {editingTitle ? (
           <input
@@ -258,7 +249,6 @@ export default function TaskRow({
         )}
       </td>
 
-      {/* Description — inline-editable cell */}
       <td className="break-words px-3 py-2 text-sm text-muted">
         {editingDesc ? (
           <input

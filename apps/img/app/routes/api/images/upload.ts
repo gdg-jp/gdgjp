@@ -26,12 +26,6 @@ export async function action(args: Route.ActionArgs) {
     return new Response("file too large", { status: 413 });
   }
 
-  // Resolve and authorize the destination folder *before* uploading: the
-  // dashboard's folder bar shows folders across every chapter the caller
-  // belongs to, not just the primary one, so a folder selected while
-  // browsing a non-primary chapter must upload into that folder's chapter —
-  // uploading into the primary chapter and then trying to file it would
-  // fail with folder_chapter_mismatch and silently strand the image unfiled.
   const folderId = parseFolderId(form.get("folderId"));
   if (folderId === INVALID) return new Response("invalid folderId", { status: 400 });
   let uploadChapterId = chapter.chapterId;

@@ -22,10 +22,6 @@ export type AvailabilityRosterSheet = {
   timeSlots: AvailabilityGridSlot[];
 };
 
-/**
- * The grid's bulk shortcuts. "すべて解除" clears every mark; the half-day
- * shortcuts add × to their half and keep the other half's current answers.
- */
 export function availabilityShortcuts(
   values: Readonly<Record<string, AvailabilityValue>>,
 ): { label: string; compute: (slot: AvailabilityGridSlot) => AvailabilityValue }[] {
@@ -37,20 +33,6 @@ export function availabilityShortcuts(
   ];
 }
 
-/**
- * The "参加できない時間" picker over an event's time slots
- * (docs/roster/04-applications.md "Design" §2). Staff mark only the slots they
- * cannot (×) or would rather not (△) work; every unmarked slot is submitted
- * as `o`. Each slot posts one hidden `avail_<slotId>` input (`form-fields.ts`),
- * so the saved o/d/x rows and the solver are unchanged by this input style.
- *
- * Shortcut buttons exist because marking a 10+ slot event by hand is the
- * input-load problem the stage doc calls out (`availabilityShortcuts`).
- *
- * The △ caveat (`UNAVAILABILITY_HINT`) stays visible per the stage doc's
- * warning that leaving it unsaid makes everyone answer △ and breaks the
- * solver's cost model.
- */
 export function AvailabilityGrid({
   timeSlots,
   values,

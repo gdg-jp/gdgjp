@@ -1,7 +1,6 @@
 import { Button, Card, FormField, Heading, Stack, Text, Textarea } from "@gdgjp/design-system";
 import { Form } from "react-router";
 
-/** Settings: the team's KPT notes (read by the retro) and "振り返る". */
 export function RetroNotesCard({ notes, busy }: { notes: string; busy: boolean }) {
   return (
     <Card>
@@ -36,7 +35,6 @@ export function RetroNotesCard({ notes, busy }: { notes: string; busy: boolean }
   );
 }
 
-/** The retro report: what to paste into the Wiki (pr never writes it), and what was refused. */
 export function RetroReportCard({
   content,
 }: { content: { reportMd: string; wikiOutreachUpdateMd: string; refused: string[] } }) {

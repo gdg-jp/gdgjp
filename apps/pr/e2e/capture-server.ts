@@ -1,10 +1,6 @@
 import { readFileSync } from "node:fs";
 import { type Server, createServer } from "node:http";
 
-/**
- * A local stand-in for Discord webhooks and a dead link target (e2e only).
- * POST /hook/<name> records the body; GET /messages lists them; anything under /dead is 404.
- */
 export const CAPTURE_PORT = 5299;
 export const CAPTURE_URL = `http://127.0.0.1:${CAPTURE_PORT}`;
 
@@ -32,7 +28,6 @@ export function startCaptureServer(): Promise<Server> {
       res.writeHead(200, { "content-type": "application/json" }).end(JSON.stringify(messages));
       return;
     }
-    // A public event page whose timetable is only in an image (what the assistant reads).
     if (url.pathname === "/event") {
       res
         .writeHead(200, { "content-type": "text/html; charset=utf-8" })

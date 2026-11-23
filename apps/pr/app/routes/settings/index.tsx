@@ -38,7 +38,6 @@ export function meta() {
   return [{ title: "設定 — GDG PR" }];
 }
 
-/** The sidebar chapter's settings. Organizers change them; members see them. */
 export async function loader({ request, context }: Route.LoaderArgs) {
   const env = context.cloudflare.env;
   const { user, chapter } = await requireUserWithChapter(env, request);

@@ -4,10 +4,6 @@ import type { Project } from "./project";
 import { getProject } from "./projects.server";
 import { normalizeSlug } from "./slug";
 
-/**
- * Gate the admin page (`/admin/:slug`): signed in, has a chapter, and is a
- * member of the chapter that owns this project.
- */
 export async function requireProjectAccess(
   env: Env,
   request: Request,

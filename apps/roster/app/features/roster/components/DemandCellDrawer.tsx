@@ -10,7 +10,6 @@ export type DemandCellSelection = {
   trackName: string;
   roleName: string;
   slotIds: string[];
-  /** e.g. "10:00–11:00" for one slot, or "10:00–11:30" for a merged range. */
   label: string;
 };
 
@@ -21,9 +20,7 @@ export type DemandSuggestion = {
   pref: 1 | 2 | 3;
   level: Level | undefined;
   warnings: string[];
-  /** ○/△/× across the whole event's time slots, in slot order — index.md §5's day-long picture, not just this cell's range. */
   availabilityPattern: string;
-  /** How many slots this person is already assigned to today (fairness context for the owner). */
   loadCount: number;
 };
 
@@ -34,19 +31,6 @@ const CATEGORY_LABELS: Record<SuggestionCategory, string> = {
   unavailable: "稼働不可",
 };
 
-/**
- * The demand-cell editor (docs/roster/07-roster-manual-edit.md "Design"
- * §5b): "その (時間枠 × トラック × 役割) に誰を入れるか." Clicking a merged
- * `RoleGrid` range opens this with every slot in that range — "add" places
- * the chosen candidate into ALL of them via one `intent=assign` submit
- * carrying repeated `slotId` fields ("一括で配置する...1枠ずつクリックさせ
- * ない"), never one request per slot.
- *
- * Suggestions come from `grid.ts#suggestForRange`, already sorted
- * free-○ → free-△ → busy → unavailable, tie-broken by preference — this
- * component only renders that order, it never re-sorts by its own notion
- * of desirability.
- */
 export function DemandCellDrawer({
   selection,
   demand,
@@ -61,7 +45,6 @@ export function DemandCellDrawer({
   currentOccupants: readonly { applicationId: string; name: string; level?: Level }[];
   suggestions: readonly DemandSuggestion[];
   error?: string;
-  /** A fresh truthy value only on a successful assign/unassign — see `StaffDrawer`'s identical contract. */
   succeeded: unknown;
   onClose: () => void;
 }) {

@@ -102,7 +102,6 @@ export default function Dashboard({ loaderData }: Route.ComponentProps) {
       setDisplayProperties(nextDefaults.properties);
       setDefaultPreferences(nextDefaults);
     } catch {
-      // Invalid or unavailable storage should not prevent the dashboard from rendering.
     } finally {
       setPreferencesLoaded(true);
     }
@@ -153,9 +152,7 @@ export default function Dashboard({ loaderData }: Route.ComponentProps) {
     setDefaultPreferences(nextDefaults);
     try {
       window.localStorage.setItem(DISPLAY_PREFERENCES_KEY, JSON.stringify(nextDefaults));
-    } catch {
-      // The default remains active for this session when browser storage is unavailable.
-    }
+    } catch {}
   }
 
   const channelById = useMemo(

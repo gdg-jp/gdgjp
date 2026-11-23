@@ -181,9 +181,6 @@ describe("writeAssignments / readAssignments / readAssignmentsMap", () => {
       ]),
     );
 
-    // A regenerate (or a manual edit) that no longer places this applicant
-    // anywhere must leave zero rows behind for them, not a stray leftover
-    // from the previous write.
     await writeAssignments(asD1(testDb), "evt_1", new Map());
 
     const rows = await readAssignments(asD1(testDb), "evt_1");
@@ -212,7 +209,6 @@ describe("writeAssignments / readAssignments / readAssignmentsMap", () => {
       ]),
     );
 
-    // Re-writing evt_1 to empty must not disturb evt_2's row.
     await writeAssignments(asD1(testDb), "evt_1", new Map());
 
     const evt1Rows = await readAssignments(asD1(testDb), "evt_1");

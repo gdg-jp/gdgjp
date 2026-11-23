@@ -8,7 +8,6 @@ type Props = {
   busy: boolean;
 };
 
-/** A listing's fields to paste (and the "listed by hand" step while no automation exists). */
 export function ListingCard({ platform, fields, approved, busy }: Props) {
   const all = fields.map((f) => `${f.label}: ${f.value}`).join("\n");
   return (

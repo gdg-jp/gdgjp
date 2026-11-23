@@ -48,7 +48,6 @@ describe("AvailabilityGrid", () => {
 
     expect(html).toContain('<input type="hidden" name="avail_s0900" value="d"/>');
     expect(html).toContain('<input type="hidden" name="avail_s1100" value="x"/>');
-    // A slot without an answer is treated as available.
     expect(html).toContain('<input type="hidden" name="avail_s1300" value="o"/>');
     expect(checkedLabels(html)).toEqual(["△ できれば避けたい", "× 参加できない"]);
   });

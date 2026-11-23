@@ -1,7 +1,3 @@
-/**
- * The runner's credential: secret RUNNER_TOKEN (32+ chars, a different value from the wiki's).
- * Accepted only by app/routes/api/runner/* (tests/architecture/runner-identity-routes.test.ts).
- */
 export async function requireRunner(request: Request, env: Env): Promise<void> {
   const expected = env.RUNNER_TOKEN;
   const header = request.headers.get("authorization") ?? "";

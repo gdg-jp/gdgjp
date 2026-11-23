@@ -30,13 +30,11 @@ import {
 
 type Attachment = {
   role: Role;
-  /** Speaker participant id / operator tab id; outputs use their connection id. */
   peerId: string;
   name: string;
   slot: Slot | null;
 };
 
-/** Headers the Worker sets after authenticating the socket (never trusted from clients). */
 export const ROOM_HEADERS = {
   role: "x-screen-role",
   peerId: "x-screen-peer",
@@ -45,16 +43,6 @@ export const ROOM_HEADERS = {
   slot: "x-screen-slot",
 } as const;
 
-/**
- * One stage's live state (`env.STAGE.getByName(stageId)`): who is connected,
- * which SFU session/tracks each of them publishes, output slot assignments,
- * ON AIR, the timer, and chat/cue history.
- *
- * - Sockets are hibernatable; per-socket identity lives in the attachment.
- * - "ping" is answered by the runtime's auto-response.
- * - Every change re-sends each socket its own role-filtered view. The state
- *   is a few KB, so full snapshots keep clients trivially consistent.
- */
 export class StageRoom extends DurableObject<Env> {
   constructor(ctx: DurableObjectState, env: Env) {
     super(ctx, env);
@@ -73,9 +61,6 @@ export class StageRoom extends DurableObject<Env> {
     return this.ctx.storage.kv.get<StageMeta>("meta") ?? null;
   }
 
-  // ─── RPC (from the Worker) ───────────────────────────────────────────────
-
-  /** Rename / change the slot count. */
   async configure(meta: StageMeta): Promise<void> {
     this.ctx.storage.kv.put("meta", meta);
     this.broadcast();
@@ -85,14 +70,11 @@ export class StageRoom extends DurableObject<Env> {
     return summarize(this.load(), meta);
   }
 
-  /** Drop every socket of a role after its token was reissued. */
   async revoke(role: "speaker" | "output"): Promise<void> {
     for (const ws of this.ctx.getWebSockets(role)) {
       try {
         ws.close(CLOSE_REVOKED, "revoked");
-      } catch {
-        // already closed
-      }
+      } catch {}
     }
   }
 
@@ -100,15 +82,11 @@ export class StageRoom extends DurableObject<Env> {
     for (const ws of this.ctx.getWebSockets()) {
       try {
         ws.close(CLOSE_DELETED, "deleted");
-      } catch {
-        // already closed
-      }
+      } catch {}
     }
     this.ctx.storage.kv.delete("room");
     this.ctx.storage.kv.delete("meta");
   }
-
-  // ─── transport ───────────────────────────────────────────────────────────
 
   async fetch(request: Request): Promise<Response> {
     if (request.headers.get("Upgrade")?.toLowerCase() !== "websocket") {
@@ -129,16 +107,13 @@ export class StageRoom extends DurableObject<Env> {
     if (!peerId) return new Response("bad peer", { status: 400 });
     const name = cleanName(decodeURIComponent(request.headers.get(ROOM_HEADERS.name) ?? ""));
 
-    // One live socket per participant/tab: a reload replaces the old one.
     if (role !== "output") {
       for (const old of this.ctx.getWebSockets(`peer:${peerId}`)) {
         const att = old.deserializeAttachment() as Attachment | null;
         if (att) old.serializeAttachment({ ...att, peerId: `${att.peerId}#replaced` });
         try {
           old.close(CLOSE_REPLACED, "replaced");
-        } catch {
-          // already closed
-        }
+        } catch {}
       }
     }
 
@@ -176,9 +151,7 @@ export class StageRoom extends DurableObject<Env> {
     this.onGone(ws);
     try {
       ws.close(code === 1005 || code === 1006 ? 1000 : code, "bye");
-    } catch {
-      // already closed
-    }
+    } catch {}
   }
 
   async webSocketError(ws: WebSocket): Promise<void> {
@@ -222,8 +195,6 @@ export class StageRoom extends DurableObject<Env> {
     }
     try {
       ws.send(JSON.stringify(message));
-    } catch {
-      // closing; webSocketClose cleans up
-    }
+    } catch {}
   }
 }

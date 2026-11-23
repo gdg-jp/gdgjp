@@ -41,7 +41,6 @@ describe("readBase / readDetails", () => {
     expect(base.state.streaming).toBe(true);
     expect(base.state.streamSince).toBe(5000);
     expect(base.state.replayBuffer).toBe(false);
-    // OBS UI order: highest index first.
     expect(base.state.scenes.map((s) => s.name)).toEqual(["B", "A"]);
 
     const results = base.detailRequests.map((req) => {
@@ -101,7 +100,6 @@ describe("applyEvent", () => {
 
 describe("obsAuth", () => {
   it("matches the obs-websocket reference algorithm", async () => {
-    // base64(sha256(base64(sha256("supersecretpassword" + salt)) + challenge))
     const { createHash } = await import("node:crypto");
     const b64 = (s: string) => createHash("sha256").update(s).digest("base64");
     const salt = "lM1GncleQOaCu9lT1yeUZhFYnqhsLLP1G5lAGo3ixaI=";

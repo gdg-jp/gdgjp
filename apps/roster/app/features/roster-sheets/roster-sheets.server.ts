@@ -144,7 +144,6 @@ async function requireLiveSheet(
   return sheet;
 }
 
-/** Creates an event-scoped, non-default sheet appended after the live sheets. */
 export async function createRosterSheet(
   db: D1Database,
   eventId: string,
@@ -197,7 +196,6 @@ export async function createRosterSheet(
   return toSheet(row);
 }
 
-/** Updates only editable sheet metadata/settings; visibility and order have dedicated APIs. */
 export async function updateRosterSheet(
   db: D1Database,
   eventId: string,
@@ -243,7 +241,6 @@ export async function updateRosterSheet(
   return toSheet(row);
 }
 
-/** Switches a live sheet between private draft and published visibility. */
 export async function setRosterSheetVisibility(
   db: D1Database,
   eventId: string,
@@ -267,7 +264,6 @@ export async function setRosterSheetVisibility(
   return toSheet(row);
 }
 
-/** Callers must authorize event access before using these internal accessors. */
 export async function listRosterSheets(db: D1Database, eventId: string): Promise<RosterSheet[]> {
   const { results } = await db
     .prepare(`${LIVE_SHEETS} ORDER BY s.sort_order, s.id`)
@@ -276,7 +272,6 @@ export async function listRosterSheets(db: D1Database, eventId: string): Promise
   return (results ?? []).map(toSheet);
 }
 
-/** Event scoping prevents a sheet ID from resolving under an unrelated event. */
 export async function getRosterSheet(
   db: D1Database,
   eventId: string,
@@ -289,7 +284,6 @@ export async function getRosterSheet(
   return row ? toSheet(row) : null;
 }
 
-/** The first live sheet is the destination of legacy event-only routes. */
 export async function getDefaultRosterSheet(
   db: D1Database,
   eventId: string,

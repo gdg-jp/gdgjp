@@ -14,23 +14,18 @@ export type ReliableSocketOptions = {
   url: () => string;
   onMessage: (data: string) => void;
   onStatus: (status: SocketStatus) => void;
-  /** Fires on every open, including reconnects (send hello/state here). */
   onOpen?: () => void;
-  /** Fires when the server refuses us for good (e.g. rotated player token). */
   onRejected?: (code: number) => void;
   onRtt?: (ms: number) => void;
-  /** Injectable for tests. */
   WebSocketImpl?: typeof WebSocket;
   now?: () => number;
 };
 
-/** Delay before reconnect attempt `n` (0-based): instant, then 0.5s → 2s cap. */
 export function reconnectDelay(attempt: number): number {
   if (attempt <= 0) return 0;
   return Math.min(2000, 500 * 2 ** (attempt - 1));
 }
 
-/** Close codes after which retrying cannot help. */
 /**
  * Hidden pages (a phone in the pocket, an OBS dock in a background tab) get
  * their timers throttled to about once a minute, so a missed pong there is not
@@ -47,15 +42,6 @@ function staleAfter(): number {
 const FATAL_CODES = new Set([CLOSE_REPLACED, CLOSE_REVOKED, CLOSE_DELETED]);
 const CONNECT_TIMEOUT_MS = 4000;
 
-/**
- * A WebSocket that does not give up.
- *
- * - Sends "ping" every HEARTBEAT_MS; no "pong" within STALE_MS means the path
- *   is dead even if the browser still thinks the socket is open (Wi-Fi drops
- *   often never deliver a close), so it force-closes and reconnects.
- * - Reconnects immediately, then with a short capped backoff, forever.
- * - Retries at once on `online`, `visibilitychange` → visible, and `focus`.
- */
 export class ReliableSocket {
   private ws: WebSocket | null = null;
   private attempt = 0;
@@ -65,7 +51,6 @@ export class ReliableSocket {
   private lastPong = 0;
   private lastPingAt = 0;
   private stopped = false;
-  /** Replaced by another tab/dock, or the deck is gone: only `start()` may connect again. */
   private givenUp = false;
   private status: SocketStatus = "connecting";
   private readonly WS: typeof WebSocket;
@@ -106,7 +91,6 @@ export class ReliableSocket {
     return this.status === "open" && this.ws?.readyState === this.WS.OPEN;
   }
 
-  /** Returns false (and sends nothing) unless the socket is verifiably alive. */
   send(data: string): boolean {
     if (!this.isOpen || !this.ws) return false;
     try {
@@ -164,22 +148,16 @@ export class ReliableSocket {
       this.setStatus("offline");
       if (FATAL_CODES.has(event.code)) {
         this.opts.onRejected?.(event.code);
-        // Another tab took over this participant, or the stage is gone:
-        // retrying would only fight the other tab.
         if (event.code === CLOSE_REPLACED || event.code === CLOSE_DELETED) {
           this.givenUp = true;
           return;
         }
-        // A reissued token stays wrong until the page is reloaded with the
-        // new one, but keep trying slowly so a transient mistake heals itself.
         this.retryTimer = setTimeout(this.connect, 5000);
         return;
       }
       this.scheduleRetry();
     };
-    ws.onerror = () => {
-      // onclose follows; nothing to do here.
-    };
+    ws.onerror = () => {};
   };
 
   private scheduleRetry() {
@@ -196,9 +174,7 @@ export class ReliableSocket {
     old.onopen = old.onmessage = old.onclose = old.onerror = null;
     try {
       old.close(4000, "replaced");
-    } catch {
-      // ignore
-    }
+    } catch {}
   }
 
   private forceReconnect = () => {

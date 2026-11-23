@@ -3,7 +3,6 @@ import { buffer, base64Decode, base64UrlEncode, nowSeconds } from "../../lib";
 type ServiceAccount = { client_email: string; private_key: string; token_uri?: string };
 let cached: { token: string; expiresAt: number } | null = null;
 
-/** OAuth token for the Chat app (scope chat.bot) from the service account, signed with WebCrypto. */
 export async function chatAccessToken(
   credentials: string | undefined,
   fetchImpl: typeof fetch = fetch,

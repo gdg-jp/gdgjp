@@ -16,7 +16,6 @@ import {
 } from "./AvailabilitySheetGrids";
 import { RoleSkillRow } from "./RoleSkillRow";
 
-/** The owner-correction drawer's editable snapshot of one application. */
 export type StaffDrawerDetail = {
   applicationId: string;
   name: string;
@@ -27,23 +26,6 @@ export type StaffDrawerDetail = {
 
 type SkillState = { selected: boolean; level: Level; pref: Pref };
 
-/**
- * Owner corrections for one applicant (docs/roster/05-staff-supply-demand.md
- * "Design" §2): experience level, availability, and which roles they can
- * take — reusing `RoleSkillRow`/`AvailabilityGrid` verbatim, the same input
- * UI `ApplyForm`/`ProxyAddDialog` show self-registrants, per the stage doc's
- * "オーナー補正と本人入力で見た目が違うと、どちらが正か分からなくなる".
- *
- * Name/contact/party/note are **not** editable here (out of this stage's
- * explicit scope) — they pass through unchanged via `applications.server
- * .ts#correctApplication`'s own read of the existing row, not through this
- * form at all.
- *
- * Two submits, mirroring `/apply/:token`'s own save-vs-withdraw split
- * (`ApplyForm`): `intent=correct` saves and reactivates a withdrawn
- * application (the same "save reactivates" convention), `intent=withdraw`
- * marks it withdrawn without touching skills/availability.
- */
 export function StaffDrawer({
   detail,
   roles,
@@ -58,7 +40,6 @@ export function StaffDrawer({
   rosterSheets?: readonly ApplyFormRosterSheet[];
   timeSlots?: AvailabilityGridSlot[];
   error?: string;
-  /** A fresh truthy value only on a successful correct/withdraw — see `ProxyAddDialog`'s identical contract. */
   succeeded: unknown;
   onClose: () => void;
 }) {
@@ -72,11 +53,6 @@ export function StaffDrawer({
     buildAvailabilityState(allTimeSlots, detail?.availability ?? [], "x"),
   );
 
-  // Re-seed local state and open the dialog whenever a different
-  // application is selected. Missing availability defaults to "x" (never
-  // "o") — same rule as supply.ts: never assume availability nobody actually
-  // reported (e.g. a time slot added to the grid after this applicant last
-  // saved).
   useEffect(() => {
     if (!detail) return;
     setSkills(
@@ -94,8 +70,6 @@ export function StaffDrawer({
     dialogRef.current?.showModal();
   }, [detail, roles, allTimeSlots]);
 
-  // Close on a successful submission only — an error must leave the
-  // owner's in-progress edits exactly as they were.
   useEffect(() => {
     if (succeeded) dialogRef.current?.close();
   }, [succeeded]);

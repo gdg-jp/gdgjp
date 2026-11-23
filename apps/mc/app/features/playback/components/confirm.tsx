@@ -12,7 +12,6 @@ import { type ReactNode, createContext, useCallback, useContext, useRef, useStat
 export type ConfirmCopy = {
   title: string;
   action: string;
-  /** Only for consequences the title cannot carry (e.g. breaking the stream). */
   description?: string;
   danger?: boolean;
 };
@@ -27,12 +26,6 @@ export function useConfirm(): Ask {
   return ask;
 }
 
-/**
- * One confirmation dialog for the whole page. It sits above the per-track
- * controller so the track switch itself can be confirmed, and chained asks
- * (a second confirmation right after the first) replace the open dialog
- * instead of racing its close.
- */
 export function ConfirmProvider({ children }: { children: ReactNode }) {
   const [dialog, setDialog] = useState<{
     id: number;
@@ -63,7 +56,6 @@ export function ConfirmProvider({ children }: { children: ReactNode }) {
       <AlertDialog open={dialog !== null} onOpenChange={(open) => !open && close(false)}>
         <AlertDialogContent
           className="mc-confirm"
-          // Title-only dialogs have nothing to describe them.
           {...(dialog?.copy.description ? {} : { "aria-describedby": undefined })}
         >
           <AlertDialogTitle>{dialog?.copy.title}</AlertDialogTitle>

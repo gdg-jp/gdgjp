@@ -21,7 +21,6 @@ const example = JSON.parse(
   ),
 ) as Brief;
 
-/** What a browser would submit for the form rendered from `brief`. */
 function formFor(brief: Brief): FormData {
   const form = new FormData();
   for (const section of SCALAR_SECTIONS)
@@ -45,7 +44,6 @@ describe("brief form", () => {
     expect(parsed.brief.sessions[0]?.flags).toEqual(example.sessions[0]?.flags);
     expect(parsed.brief.event.streamUrls).toEqual(example.event.streamUrls);
     expect(parsed.brief.speakers.find((s) => s.id === "llion")?.tier).toBe("high");
-    // Not on the form: kept from the previous version.
     expect(parsed.brief.speakers[0]?.sessionIds).toEqual(example.speakers[0]?.sessionIds);
     expect(parsed.brief.goals.curve).toEqual(example.goals.curve);
   });

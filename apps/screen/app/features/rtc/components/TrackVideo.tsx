@@ -1,6 +1,5 @@
 import { useEffect, useRef } from "react";
 
-/** A muted, autoplaying <video> bound to one track (null shows nothing). */
 export function TrackVideo({
   track,
   mirror = false,
@@ -14,7 +13,6 @@ export function TrackVideo({
   fit?: "contain" | "cover";
   className?: string;
   label?: string;
-  /** Keep showing the last frame when the track goes away (OBS outputs). */
   holdLastFrame?: boolean;
 }) {
   const ref = useRef<HTMLVideoElement>(null);
@@ -44,7 +42,6 @@ export function TrackVideo({
   );
 }
 
-/** Plays one remote audio track, optionally on a chosen output device. */
 export function TrackAudio({
   track,
   muted = false,

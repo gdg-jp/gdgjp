@@ -664,8 +664,7 @@ function checkApp(app, { mode, cwd = repositoryRoot } = {}) {
 
   const selectedPaths = staged
     ? changedPaths.filter((path) => sourceExtensionPattern.test(path))
-    : // Baseline entries and git index paths use "/" on every platform.
-      walk(join(cwd, app, "app")).map((path) => relative(cwd, path).split(sep).join("/"));
+    : walk(join(cwd, app, "app")).map((path) => relative(cwd, path).split(sep).join("/"));
   const sourcePaths = new Set(selectedPaths);
   if (foundationRequested) {
     sourcePaths.add(rootPath);

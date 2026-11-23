@@ -1,10 +1,5 @@
 import { bytesToBase64Url } from "~/lib/crypto.server";
 
-// Bumped only when a new GOOGLE_WORKSPACE_ENCRYPTION_KEY_V<n> secret is
-// introduced. Rotation procedure: add the new secret, add a `case n:` below,
-// bump this constant so new writes use it — existing rows stay on their
-// recorded encryptionKeyVersion and are re-encrypted the next time their row
-// is written (reconnect), not in place.
 export const CURRENT_ENCRYPTION_KEY_VERSION = 1;
 
 function encryptionKeySecret(env: Env, version: number): string {

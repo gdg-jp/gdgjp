@@ -18,7 +18,6 @@ export function meta({ data }: Route.MetaArgs) {
 
 export async function loader({ params, request, context }: Route.LoaderArgs) {
   const lang = pickLang(request.headers.get("cookie"), request.headers.get("accept-language"));
-  // The invite link is the stage id itself.
   const stage = isStageId(params.invite)
     ? await getStage(context.cloudflare.env.DB, params.invite)
     : null;
@@ -78,11 +77,8 @@ function JoinPage({
     try {
       const saved = localStorage.getItem(NAME_KEY) ?? "";
       setName(saved);
-      // A reload mid-talk goes straight back into the room (and its slot).
       if (saved && sessionStorage.getItem(joinedKey(token)) === "1") setPhase("room");
-    } catch {
-      // private mode
-    }
+    } catch {}
   }, [token]);
 
   if (!stage) return <Notice text={MESSAGES[lang].invalid} />;
@@ -110,9 +106,7 @@ function JoinPage({
           media.stopScreen();
           try {
             sessionStorage.removeItem(joinedKey(token));
-          } catch {
-            // private mode
-          }
+          } catch {}
           setPhase("left");
         }}
       />
@@ -138,9 +132,7 @@ function JoinPage({
           try {
             localStorage.setItem(NAME_KEY, name.trim());
             sessionStorage.setItem(joinedKey(token), "1");
-          } catch {
-            // private mode
-          }
+          } catch {}
           setPhase("room");
         }}
       />

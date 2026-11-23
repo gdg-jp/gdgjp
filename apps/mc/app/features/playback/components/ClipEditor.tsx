@@ -41,7 +41,6 @@ export function useOpenEditor(): (mode: EditorMode) => void {
   return open;
 }
 
-/** One add/edit sheet per screen; every ＋ and ✎ opens it. */
 export function ClipEditorProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<{ id: number; mode: EditorMode } | null>(null);
   const [open, setOpen] = useState(false);
@@ -79,7 +78,6 @@ function stem(name: string): string {
 function EditorBody({ mode, onDone }: { mode: EditorMode; onDone: () => void }) {
   const { catalog, uploaded, setUploaded } = useCatalog();
   const { confirmExtra } = useController();
-  // Snapshot at open: a room push while the sheet is open must not reset the form.
   const [editing] = useState(() =>
     mode.kind === "edit" ? (uploaded.find((c) => c.id === mode.clipId) ?? null) : null,
   );
@@ -110,7 +108,6 @@ function EditorBody({ mode, onDone }: { mode: EditorMode; onDone: () => void }) 
   const pendingId = useRef<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // Editing re-aligns typed lines onto the audio's pauses: decode it once.
   useEffect(() => {
     if (!editing) return;
     analysis.current = fetch(editing.src)
@@ -119,7 +116,6 @@ function EditorBody({ mode, onDone }: { mode: EditorMode; onDone: () => void }) 
       .catch(() => null);
   }, [editing]);
 
-  // A new upload that is never registered is removed again.
   useEffect(
     () => () => {
       const id = pendingId.current;

@@ -2,17 +2,14 @@ import type { ScheduleItem } from "./item";
 
 const JST_OFFSET = 9 * 3600;
 
-/** "YYYY-MM-DD" in JST. */
 export function jstDate(epochSeconds: number): string {
   return new Date((epochSeconds + JST_OFFSET) * 1000).toISOString().slice(0, 10);
 }
 
-/** "HH:mm" in JST. */
 export function jstTime(epochSeconds: number): string {
   return new Date((epochSeconds + JST_OFFSET) * 1000).toISOString().slice(11, 16);
 }
 
-/** Epoch seconds from a "YYYY-MM-DDTHH:mm" value typed in JST (datetime-local). */
 export function fromJstLocal(value: string): number | null {
   const match = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})$/.exec(value);
   if (!match) return null;
@@ -24,7 +21,6 @@ export function toJstLocal(epochSeconds: number): string {
   return new Date((epochSeconds + JST_OFFSET) * 1000).toISOString().slice(0, 16);
 }
 
-/** Monday (JST) of the week containing the instant, as "YYYY-MM-DD". */
 export function weekOf(epochSeconds: number): string {
   const date = new Date((epochSeconds + JST_OFFSET) * 1000);
   const day = (date.getUTCDay() + 6) % 7;
@@ -35,10 +31,6 @@ export function weekOf(epochSeconds: number): string {
 export type CalendarRow = { item: ScheduleItem; children: ScheduleItem[] };
 export type CalendarWeek = { weekOf: string; days: { date: string; rows: CalendarRow[] }[] };
 
-/**
- * Weeks → days → items, each derived item under its parent (even when it falls on another day,
- * so a reminder is never separated from the post it is for).
- */
 export function buildCalendar(items: ScheduleItem[]): CalendarWeek[] {
   const children = new Map<number, ScheduleItem[]>();
   for (const item of items) {

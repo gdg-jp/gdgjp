@@ -14,7 +14,6 @@ import { JOB_PRIORITY } from "./shared";
 
 type Db = ReturnType<typeof getDb>;
 
-/** The agent Worker degrades to search results after this; the runner aims for 75 s. */
 export const ANSWER_DEADLINE_SECONDS = 90;
 export const EVAL_ANSWER_PRIORITY = -20;
 export const MAX_BUNDLE_BYTES = 2 * 1024 * 1024;
@@ -40,11 +39,6 @@ export function validateBundle(bundle: unknown): Record<string, string> | null {
   return bytes <= MAX_BUNDLE_BYTES && "question.md" in out ? out : null;
 }
 
-/**
- * Queue an `answer` job for a reader. Spaces are narrowed to the reader's reachable ones
- * here (the agent Worker can only narrow, never widen). The bundle goes to R2; the job token
- * is issued later, when the runner fetches the bundle.
- */
 export async function enqueueAnswer(
   env: Env,
   db: Db,
@@ -76,7 +70,6 @@ export async function enqueueAnswer(
     id: jobId,
     type: "answer",
     spaceId: spaces[0]?.id ?? DEFAULT_SPACE_ID,
-    // Eval answers never take a slot ahead of real work (Stage 06).
     priority: reader.via === "eval" ? EVAL_ANSWER_PRIORITY : JOB_PRIORITY.answer,
     payload: JSON.stringify(payload),
     deadlineAt: new Date(deadline * 1000),
@@ -84,7 +77,6 @@ export async function enqueueAnswer(
   return { jobId, deadlineAt: deadline };
 }
 
-/** Runner: the bundle and a fresh asker-scoped job token (earlier ones are revoked). */
 export async function leaseAnswerBundle(
   env: Env,
   db: Db,
@@ -110,7 +102,6 @@ export async function leaseAnswerBundle(
   return { files: JSON.parse(await object.text()), jobToken, spaces: payload.spaces };
 }
 
-/** The agent Worker gave up waiting (degraded reply). */
 export async function expireAnswer(env: Env, db: Db, jobId: string): Promise<boolean> {
   const result = await db
     .update(schema.agentJobs)
@@ -126,13 +117,11 @@ export async function expireAnswer(env: Env, db: Db, jobId: string): Promise<boo
   return (result.meta?.changes ?? 0) > 0;
 }
 
-/** On any end of an answer job: revoke its tokens and drop its bundle. */
 export async function finishAnswer(env: Env, db: Db, jobId: string): Promise<void> {
   await revokeJobTokens(db, jobId);
   await env.BUCKET.delete(bundleKey(jobId)).catch(() => undefined);
 }
 
-/** Tell the agent Worker (service binding AGENT) that a runner result is in. */
 export async function notifyAgent(
   env: Env,
   input: { jobId: string; status: string; result?: unknown },
@@ -151,7 +140,6 @@ export async function notifyAgent(
   }
 }
 
-/** The agent / eval harness reads a job's outcome. */
 export async function getAnswerJob(db: Db, jobId: string) {
   const job = await db
     .select({

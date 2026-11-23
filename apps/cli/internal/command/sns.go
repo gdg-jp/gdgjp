@@ -18,9 +18,6 @@ func newSnsCommand(credentials store.CredentialStore) *cobra.Command {
 	return command
 }
 
-// addSnsPageFlags registers the API's common --limit/--cursor pagination
-// flags on a list command; sns list commands print the server's nextCursor
-// rather than auto-paging.
 func addSnsPageFlags(cmd *cobra.Command) {
 	cmd.Flags().Int("limit", 0, "Maximum number of results")
 	cmd.Flags().String("cursor", "", "Pagination cursor from a previous nextCursor")

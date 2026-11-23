@@ -1,8 +1,6 @@
 import type { Tier } from "~/features/prizes/prize";
 import type { CutInLevel } from "./staging";
 
-/** Sound, vibration and shake for the spin page. Browser only; no-ops on the server. */
-
 export function reducedMotion() {
   return typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches;
 }
@@ -14,7 +12,6 @@ export function setSoundOn(value: boolean) {
   soundOn = value;
 }
 
-/** The shared AudioContext, or null while sound is off or unsupported. */
 export function context() {
   if (!soundOn || typeof AudioContext === "undefined") return null;
   try {
@@ -28,7 +25,6 @@ export function context() {
 
 type Voice = { gain?: number; at?: number; out?: AudioNode };
 
-/** A note `at` seconds from now; `out` routes it (to the BGM's fader) instead of the speakers. */
 export function tone(
   frequency: number,
   duration: number,
@@ -57,7 +53,6 @@ export function tone(
 
 let noiseBuffer: AudioBuffer | null = null;
 
-/** A burst of band-passed noise sweeping from `from` to `to` Hz: whooshes, crashes and hats. */
 export function noise(
   duration: number,
   { gain = 0.08, at = 0, from = 400, to = 4000, out }: Voice & { from?: number; to?: number } = {},
@@ -65,7 +60,6 @@ export function noise(
   const ctx = context();
   if (!ctx) return;
   const start = ctx.currentTime + at;
-  // One second of noise, made once and looped from a random point.
   if (noiseBuffer?.sampleRate !== ctx.sampleRate) {
     noiseBuffer = ctx.createBuffer(1, ctx.sampleRate, ctx.sampleRate);
     const data = noiseBuffer.getChannelData(0);
@@ -105,7 +99,6 @@ const sparkle = (at: number) =>
 let lastTick = 0;
 
 export const sfx = {
-  /** The pointer passed a slice boundary; `strong` while crawling after a cut-in. */
   tick(strong = false) {
     const now = performance.now();
     if (now - lastTick < 35) return;
@@ -113,7 +106,6 @@ export const sfx = {
     if (strong) tone(1500, 0.06, { gain: 0.07 });
     else tone(2100, 0.03, { gain: 0.03 });
   },
-  /** The CHANCE cut-in slashing across: a whoosh and a chord, bigger with the level. */
   cutIn(level: CutInLevel) {
     noise(0.35, { gain: 0.12, from: 300, to: 6000 });
     cutInChord[level].forEach((f, i) =>
@@ -122,27 +114,22 @@ export const sfx = {
     if (level === "gold" || level === "rainbow") sparkle(0.3);
     if (level === "rainbow") sparkle(0.6);
   },
-  /** The chance button appeared: three quick beeps. */
   prompt() {
     tone(1760, 0.06, { gain: 0.05 });
     tone(1760, 0.06, { gain: 0.05, at: 0.1 });
     tone(2349, 0.14, { gain: 0.06, at: 0.2 });
   },
-  /** One rapid tap, higher as the gauge fills. */
   tap(gauge: number) {
     tone(520 + gauge * 1100, 0.045, { gain: 0.06 });
   },
-  /** The gauge is full. */
   max() {
     sparkle(0);
     tone(2093, 0.4, { type: "triangle", gain: 0.05, at: 0.28 });
   },
-  /** One heartbeat while the wheel crawls. */
   heartbeat() {
     tone(90, 0.12, { type: "sine", gain: 0.3, slideTo: 50 });
     tone(80, 0.14, { type: "sine", gain: 0.22, at: 0.17, slideTo: 45 });
   },
-  /** PUSH: a crash and a rising run as the wheel jolts into the prize. */
   push() {
     tone(120, 0.3, { gain: 0.1, slideTo: 60 });
     noise(0.4, { gain: 0.15, from: 2000, to: 200 });
@@ -150,7 +137,6 @@ export const sfx = {
       tone(f, 0.1, { type: "triangle", gain: 0.05, at: 0.08 + i * 0.05 }),
     );
   },
-  /** Charging the spin by holding the button. */
   ratchet(level: number) {
     tone(480 + level * 900, 0.03, { type: "triangle", gain: 0.06 });
   },
@@ -202,7 +188,6 @@ function iosTap() {
   switchLabel.click();
 }
 
-/** Vibrate in a pattern of on/off milliseconds; on iOS, haptic ticks through each "on". */
 export function vibrate(pattern: number | number[]) {
   if (typeof navigator === "undefined") return;
   try {
@@ -214,14 +199,11 @@ export function vibrate(pattern: number | number[]) {
     const steps = typeof pattern === "number" ? [pattern] : pattern;
     let at = 0;
     steps.forEach((ms, i) => {
-      // On: a tick every 70 ms, at least one. Off: wait.
       if (i % 2 === 0)
         for (let t = 0; t < Math.max(ms, 1); t += 70) window.setTimeout(iosTap, at + t);
       at += ms;
     });
-  } catch {
-    // No haptics on this device.
-  }
+  } catch {}
 }
 
 export const revealVibration: Record<Tier, number[]> = {
@@ -242,7 +224,6 @@ export const promptVibration = [40, 60, 40, 60, 40];
 export const maxVibration = [60, 30, 60];
 export const pushVibration = [150, 50, 150, 50, 300];
 
-/** Shake an element, `power` pixels at first, dying down. */
 export function shake(element: HTMLElement | null, power: number) {
   if (!element || reducedMotion()) return;
   const frames = Array.from({ length: 9 }, (_, i) => {

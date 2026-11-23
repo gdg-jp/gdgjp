@@ -15,7 +15,6 @@ export type SurveyQuestion = {
   options?: string[] | null;
 };
 
-/** Codes confirmed against selectors.survey's AnswerTypesTemplate fixture. */
 export const ANSWER_TYPE_BY_CODE: Record<string, SurveyAnswerType> = {
   "1": "free_text",
   "2": "checkbox",
@@ -79,7 +78,6 @@ export async function upsertSurvey(
   }
 
   const blockSelector = `${survey.questionArea} > ${survey.questionBlock}`;
-  // Full-replace semantics: clear every existing question first.
   while ((await page.locator(blockSelector).count()) > 0) {
     await page.locator(blockSelector).first().locator(survey.deleteQuestion).click();
     await page.waitForTimeout(150);

@@ -44,7 +44,6 @@ import { SourceImportDurableObject } from "./source-import-durable-object";
 
 const TRANSLATION_CRON = "5 0 * * *";
 
-// The server build is a virtual module provided by @react-router/dev/vite at build time.
 const requestHandler = createRequestHandler(
   () => import("virtual:react-router/server-build"),
   import.meta.env?.MODE ?? "production",
@@ -52,13 +51,11 @@ const requestHandler = createRequestHandler(
 
 export default {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
-    // Route WebSocket collab connections to Durable Object
     const url = new URL(request.url);
     if (
       url.pathname.startsWith("/ws/collab/") &&
       request.headers.get("Upgrade")?.toLowerCase() === "websocket"
     ) {
-      // /ws/collab/<spaceSlug>/<slug>
       const [, , , rawSpace, rawSlug] = url.pathname.split("/");
       const spaceSlug = rawSpace ? decodeURIComponent(rawSpace) : "";
       const slug = rawSlug ? decodeURIComponent(rawSlug) : "";
@@ -68,7 +65,6 @@ export default {
       try {
         user = await auth.getSessionUser(request);
       } catch (error) {
-        // An unreachable IdP answers 503 (fail closed).
         if (error instanceof Response) return error;
         throw error;
       }
@@ -90,7 +86,6 @@ export default {
         .where(pageInSpace(space.id, slug))
         .get();
       if (!page) return new Response("Not Found", { status: 404 });
-      // Agent pages are read-only for people; the socket would otherwise be an edit path.
       if (!canHumanEditPage(page)) return new Response("Forbidden", { status: 403 });
       let chapters: Array<{ chapterId: string; role: string }> = [];
       let claimsLoaded = false;
@@ -100,10 +95,7 @@ export default {
           role: chapter.role,
         }));
         claimsLoaded = true;
-      } catch {
-        // Chapter-derived access fails closed; email/general grants still work.
-      }
-      // Outer layer: editing needs the editor role in the space.
+      } catch {}
       const spaceAccess = await resolveSpaceAccess(db, {
         user,
         chapters,
@@ -114,8 +106,6 @@ export default {
       }
       const permissions = await getEffectivePagePermissions(db, page, user, chapters);
       if (!permissions.canEdit) return new Response("Forbidden", { status: 403 });
-      // Collab bypasses the React Router loader — reject when the caller cannot
-      // read every ACL span so redacted content cannot be loaded into Yjs.
       const clearance = await pageAclClearance(
         db,
         [page.contentJa, page.contentEn],
@@ -132,7 +122,6 @@ export default {
     });
   },
 
-  // Cron triggers — discriminate by event.cron (must stay in sync with wrangler.toml).
   async scheduled(event: ScheduledController, env: Env, ctx: ExecutionContext): Promise<void> {
     console.log("[scheduled] cron fired:", event.cron, "at", new Date().toISOString());
 
@@ -215,7 +204,6 @@ export default {
     console.warn("[scheduled] unrecognized cron expression:", event.cron);
   },
 
-  // Queue consumer for background translation, Google Docs import, and source fetch.
   async queue(batch: MessageBatch<unknown>, env: Env, _ctx: ExecutionContext): Promise<void> {
     console.log("[queue] handler invoked, queue:", batch.queue, "messages:", batch.messages.length);
     const db = drizzle(env.DB, { schema });
@@ -249,8 +237,6 @@ export default {
         }
 
         if (isSourceFetchQueueBody(body)) {
-          // A source that can never succeed (no Drive token, deleted document) is acked
-          // so it does not occupy the retry budget; only transient failures come back.
           const outcome = await fetchSource(env, body.sourceId);
           if (outcome.retryable) message.retry();
           else message.ack();
@@ -267,7 +253,6 @@ export default {
   },
 } satisfies ExportedHandler<Env>;
 
-// Re-export Durable Object class so wrangler registers it
 export { CollabDurableObject };
 export { SourceImportDurableObject };
 export { WikiGenerationAgent, WikiGenerationPhaseWorkflow } from "./decommissioned";

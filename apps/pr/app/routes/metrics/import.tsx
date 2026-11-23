@@ -53,7 +53,6 @@ type Step =
   | { step: "done"; message: string; alerts: string[]; problems: string[] }
   | { step: "error"; errors: string[] };
 
-/** Two steps: upload (columns guessed, or the chapter's saved map applied) → confirm the map → import. */
 export async function action({ request, context, params }: Route.ActionArgs): Promise<Step> {
   const env = context.cloudflare.env;
   const access = await requireCampaignAccess(env, request, params.slug);

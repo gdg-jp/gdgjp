@@ -3,7 +3,6 @@ import { type CheckinResult, parseCheckinPage } from "./ui/checkin";
 
 type StoredCookie = { name: string; value: string; domain: string; expires?: number };
 
-/** Cookie header for connpass.com built from the bot's Playwright storageState in KV. */
 export async function connpassCookieHeader(env: Env): Promise<string | null> {
   const state = (await loadStorageState(env)) as { cookies?: StoredCookie[] } | undefined;
   const now = Date.now() / 1000;
@@ -15,11 +14,6 @@ export async function connpassCookieHeader(env: Env): Promise<string | null> {
   return cookies.length ? cookies.map((c) => `${c.name}=${c.value}`).join("; ") : null;
 }
 
-/**
- * Fast path: replay the QR URL with the KV session cookies, no browser. Returns null
- * whenever the outcome is not trustworthy (no cookies, login redirect, non-200) so
- * the caller falls back to the browser, which can also re-login.
- */
 export async function checkInWithFetch(
   env: Env,
   checkinUrl: string,

@@ -5,11 +5,6 @@ import type { SyncOperation } from "./cli-sync-schema";
 
 type PageRow = typeof schema.pages.$inferSelect;
 
-/**
- * The runner never overwrites a human page. Its operations on human pages are dropped from
- * the push and kept as a `human-page-conflict` review flag (with the proposed text), so the
- * rest of the push still applies and a person decides.
- */
 export async function partitionRunnerOperations(
   db: ReturnType<typeof getDb>,
   spaceId: string,

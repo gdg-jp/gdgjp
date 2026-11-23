@@ -1,10 +1,6 @@
 import { foldIndex, weightedLength } from "@skills/pr-playbook/scripts/checks/index.mjs";
 import { constants } from "~/features/playbook/playbook";
 
-/**
- * Split an X post at the last line break before X's fold (the Playbook's provisional threshold),
- * so a human edit only has to change `text`.
- */
 export function autoFold(text: string): { textAboveFold: string; textBelowFold: string } {
   const { weighted } = constants.x.foldThreshold;
   const urlWeight = constants.x.urlWeight;

@@ -1,6 +1,5 @@
 import { newId } from "./model";
 
-/** The editor shrinks images to 256px before upload; this is a hard cap. */
 export const MAX_IMAGE_BYTES = 1024 * 1024;
 
 const TYPES = ["image/png", "image/jpeg", "image/webp"] as const;
@@ -10,10 +9,6 @@ export function imageKey(deckId: string, imageId: string): string {
   return `decks/${deckId}/${imageId}`;
 }
 
-/**
- * The real type from the file's first bytes. SVG (scripts) and anything else
- * is refused whatever the browser claimed.
- */
 export function sniffImageType(bytes: Uint8Array): ImageType | null {
   const at = (i: number) => bytes[i] ?? -1;
   if (at(0) === 0x89 && at(1) === 0x50 && at(2) === 0x4e && at(3) === 0x47) return "image/png";
@@ -54,7 +49,6 @@ export async function getImage(env: Env, deckId: string, imageId: string) {
   return env.IMAGES.get(imageKey(deckId, imageId));
 }
 
-/** Copies every image of a deck to another (deck duplication keeps image ids). */
 export async function copyImages(env: Env, fromDeck: string, toDeck: string): Promise<void> {
   const { results } = await env.DB.prepare(
     "SELECT id, content_type, size FROM deck_image WHERE deck_id = ?",
@@ -75,10 +69,6 @@ export async function copyImages(env: Env, fromDeck: string, toDeck: string): Pr
   }
 }
 
-/**
- * Removes images the saved layout no longer uses. Only images older than a day:
- * a fresh upload may belong to another editor's unsaved changes.
- */
 export async function pruneImages(env: Env, deckId: string, keep: Set<string>): Promise<void> {
   const { results } = await env.DB.prepare(
     "SELECT id FROM deck_image WHERE deck_id = ? AND created_at < unixepoch() - 86400",

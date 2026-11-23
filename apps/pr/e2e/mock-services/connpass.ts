@@ -1,10 +1,7 @@
-// Local stand-in for gdgjp-connpass's PrService (vite.config.ts auxiliaryWorkers, dev only).
-// Groups belong to the chapter in their name ("group-<chapterId>"); organizers write.
 import { WorkerEntrypoint } from "cloudflare:workers";
 import type { ConnpassJobSummary, PrActor } from "@gdgjp/gdg-lib";
 
 const jobs = new Map<string, ConnpassJobSummary & { request: unknown; actor: string }>();
-// Ids stay unique across dev-server restarts (pr keeps them in D1).
 const RUN = Date.now().toString(36);
 
 const chapterOf = (groupSlug: string) => Number(groupSlug.split("-").at(-1));
@@ -82,7 +79,6 @@ export class PrService extends WorkerEntrypoint {
     return submit(input, "create_sub_event", { title: input.title });
   }
   createListing(input: { actor: PrActor; platform: string; targetId: string; listing: unknown }) {
-    // The real connpass app answers not_supported until a method is chosen per platform.
     if (input.platform === "luma")
       return submit({ actor: input.actor, groupSlug: "group-1" }, "create_listing", input.listing);
     return { ok: false as const, code: "not_supported" };
@@ -107,7 +103,6 @@ export class PrService extends WorkerEntrypoint {
   listParticipants() {
     return { ok: true as const, participants: [] };
   }
-  // Test hooks (reached through pr's /dev/mock-services).
   mockState() {
     return { jobs: [...jobs.values()] };
   }

@@ -50,7 +50,6 @@ async function resolveRosterSheetId(
   return null;
 }
 
-/** Demand rows from one live sheet. Event-only callers use its default sheet. */
 export async function listDemandsForEvent(
   db: D1Database,
   eventId: string,
@@ -68,7 +67,6 @@ export async function listDemandsForEvent(
   return (results ?? []).map(toDemand);
 }
 
-/** Explicitly named alias for call sites already operating on a selected sheet. */
 export function listDemandsForRosterSheet(
   db: D1Database,
   eventId: string,
@@ -77,10 +75,6 @@ export function listDemandsForRosterSheet(
   return listDemandsForEvent(db, eventId, rosterSheetId);
 }
 
-/**
- * Get one cell from the slot's event's live default sheet, or from the
- * explicitly supplied live sheet. The slot itself must belong to that sheet.
- */
 export async function getDemand(
   db: D1Database,
   timeSlotId: string,
@@ -187,8 +181,6 @@ function demandStatement(
   ];
 
   if (input.ideal === 0) {
-    // Scope both the target lookup and DELETE. If a referenced row changes
-    // after validation, this guarded statement safely becomes a no-op.
     return db
       .prepare(
         `DELETE FROM demands
@@ -233,7 +225,6 @@ function demandStatement(
     );
 }
 
-/** Writes all entries atomically, rejecting invalid values or cross-sheet targets. */
 export async function bulkUpsertDemands(
   db: D1Database,
   eventId: string,
@@ -258,7 +249,6 @@ export async function upsertDemand(
   await bulkUpsertDemands(db, eventId, [input], rosterSheetId);
 }
 
-/** Explicit sheet-scoped deletion API for call sites that do not use ideal=0. */
 export async function deleteDemand(
   db: D1Database,
   eventId: string,

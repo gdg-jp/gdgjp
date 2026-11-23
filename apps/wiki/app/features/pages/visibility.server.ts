@@ -17,10 +17,6 @@ export type PageLike = {
   authorId: string;
 };
 
-/**
- * Fast direct-access check for pages that do not require an explicit grant.
- * Restricted grants are resolved by the async evaluator below.
- */
 export function canUserSeePage(user: UserLike | null, page: PageLike): boolean {
   if (user?.isAdmin || (user && user.id === page.authorId)) return true;
   return page.visibility === "public" || page.visibility === "unlisted";
@@ -37,11 +33,6 @@ export async function canUserSeePageAsync(
   return permissions.canView;
 }
 
-/**
- * Visibility filter for discoverable surfaces (home, sidebar, search, recent).
- * Unlisted pages are intentionally absent even for their owner; they are only
- * reachable by their direct URL.
- */
 export function buildVisibilityFilter(
   user: UserLike | null,
   chapters: readonly (string | number | ChapterMembership)[] = [],

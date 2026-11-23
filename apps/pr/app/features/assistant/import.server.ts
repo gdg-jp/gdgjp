@@ -20,11 +20,6 @@ export type AssistOutput = {
   actions: RawAction[];
 };
 
-/**
- * The assistant's reply: save the brief it rewrote (validated against the Playbook's schema; one
- * retry with the errors), keep only buttons the Worker can run, press the internal ones itself
- * when the chapter allows, and post the message.
- */
 export async function importAssist(
   env: Env,
   job: Job,
@@ -74,7 +69,6 @@ export async function importAssist(
     ? ((await latestBrief(db, campaign.id))?.brief ?? null)
     : (previous?.brief ?? null);
   const ready = briefGaps(brief).length === 0;
-  // Only buttons the assistant chose: a person who said "not yet" is not overridden.
   if (!ready) actions = actions.filter((a) => a.type !== "run_plan");
   if (saved && previous)
     actions.push({

@@ -1,6 +1,5 @@
 export type PachiTone = "blue" | "red" | "gold" | "white" | "rainbow";
 
-/** Pachinko lettering: metallic fill, black edge and a glow in the tone's color (app.css). */
 export function PachiText({
   text,
   tone,

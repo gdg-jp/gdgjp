@@ -14,14 +14,10 @@ export type { SourceImportKind } from "../../../../app/features/sources/kinds";
 
 export const MAX_CONSECUTIVE_FAILURES = 5;
 export const ALARM_CONTINUE_MS = 500;
-/** D1 reads inside currentRun (run row + source lease row). */
 export const CURRENT_RUN_SUBREQUESTS = 2;
-/** D1 read inside the token resolver. */
 export const ACCESS_TOKEN_SUBREQUESTS = 1;
-/** Worst-case persistSourceDocument with assetPolicy replace/merge. */
 export const PERSIST_REPLACE_SUBREQUESTS = 4;
 export const PERSIST_MERGE_SUBREQUESTS = 5;
-/** archiveMissingDocuments: lease check + update + final lease check. */
 export const ARCHIVE_MISSING_SUBREQUESTS = 5;
 
 export interface SourceImportTickContext {
@@ -29,13 +25,11 @@ export interface SourceImportTickContext {
   sql: SqlStorage;
   budget: SubrequestBudget;
   runId: string;
-  /** Resolved once per tick only for drivers that need Google credentials. */
   accessToken?: string;
 }
 
 export type SourceImportStepOutcome = {
   phaseComplete: boolean;
-  /** When phaseComplete is false, ask the DO alarm to wait this long before the next tick. */
   continueAfterMs?: number;
 };
 
@@ -118,7 +112,6 @@ export function metaNumber(sql: SqlStorage, key: string, fallback = 0): number {
   return Number.isFinite(value) ? value : fallback;
 }
 
-/** Start an import and hand all continuation to the source-scoped Durable Object. */
 export async function startSourceImport(
   env: Env,
   source: typeof schema.sources.$inferSelect,
@@ -132,7 +125,6 @@ export async function startSourceImport(
   });
 }
 
-/** Claim D1 from inside the source-scoped Durable Object's serialized start RPC. */
 export async function claimSourceImport(
   env: Env,
   request: SourceImportClaimRequest,

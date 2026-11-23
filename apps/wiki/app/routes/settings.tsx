@@ -85,9 +85,6 @@ export async function action({ request, context }: Route.ActionArgs): Promise<Ac
   return { ok: true, uiLang: uiLang as string };
 }
 
-// ---------------------------------------------------------------------------
-// SaveButton: Save → Saving... → Saved (auto-clears after 3s)
-// ---------------------------------------------------------------------------
 function SaveButton({
   state,
   saved,
@@ -113,9 +110,6 @@ function SaveButton({
   );
 }
 
-// ---------------------------------------------------------------------------
-// SettingsSection
-// ---------------------------------------------------------------------------
 function SettingsSection({
   title,
   description,
@@ -136,9 +130,6 @@ function SettingsSection({
   );
 }
 
-// ---------------------------------------------------------------------------
-// Settings page component
-// ---------------------------------------------------------------------------
 export default function SettingsPage() {
   const { user, preferredUiLanguage, preferredContentLanguage, discordId } =
     useLoaderData<typeof loader>();
@@ -173,7 +164,6 @@ export default function SettingsPage() {
         </div>
 
         <div className="divide-y divide-border-border rounded-xl border border-border bg-surface">
-          {/* Display Name */}
           <SettingsSection
             title={t("settings.name.title")}
             description={t("settings.name.description")}
@@ -196,7 +186,6 @@ export default function SettingsPage() {
             )}
           </SettingsSection>
 
-          {/* Language Preferences */}
           <SettingsSection
             title={t("settings.language.title")}
             description={t("settings.language.description")}
@@ -244,7 +233,6 @@ export default function SettingsPage() {
             )}
           </SettingsSection>
 
-          {/* Push Notifications */}
           <SettingsSection
             title={t("settings.push.title")}
             description={t("settings.push.description")}
@@ -252,7 +240,6 @@ export default function SettingsPage() {
             <PushNotificationToggle />
           </SettingsSection>
 
-          {/* Discord */}
           <SettingsSection
             title={t("settings.discord.title")}
             description={t("settings.discord.description")}

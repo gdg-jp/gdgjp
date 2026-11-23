@@ -14,7 +14,6 @@ const UA = "Mozilla/5.0 (compatible; GDG-PR-Assistant/1.0; +https://pr.gdgs.jp)"
 const MAX_TEXT = 300_000;
 const MAX_IMAGE_BYTES = 2_500_000;
 const MAX_IMAGES = 8;
-/** Formats the runner's model reads. AVIF and SVG are skipped. */
 const IMAGE_TYPES = ["image/png", "image/jpeg", "image/webp", "image/gif"];
 
 export const sourceTextKey = (campaignId: number, sourceId: number) =>
@@ -45,7 +44,6 @@ async function get(url: string, accept: string): Promise<Response> {
   return response;
 }
 
-/** img.gdgs.jp picks the format from Accept or `f`; ask for one the model reads. */
 function readableImageUrl(raw: string): string {
   const url = new URL(raw);
   if (url.hostname === "img.gdgs.jp" && url.searchParams.has("f"))
@@ -93,7 +91,6 @@ async function readUrl(env: Env, url: string): Promise<Fetched> {
     throw new SourceError(`この形式は読めません（${type.split(";")[0]}）`);
   let html = await response.text();
   const host = new URL(response.url || url).hostname;
-  // Pages that build themselves in the browser (Bevy, Luma) come back nearly empty.
   if (htmlToText(html).length < 300 && env.ENVIRONMENT === "production") {
     try {
       const rendered = await env.BROWSER.quickAction("content", { url } as never);
@@ -136,10 +133,6 @@ async function saveImages(
   return out;
 }
 
-/**
- * Read a source and store its text and images in R2 for the runner. The Worker only collects;
- * it never interprets what it read (the assistant does). Contact details are masked first.
- */
 export async function readSource(env: Env, campaignId: number, sourceId: number) {
   const source = await getSource(env.DB, campaignId, sourceId);
   if (!source) return null;

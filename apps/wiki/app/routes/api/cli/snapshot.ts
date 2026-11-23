@@ -15,15 +15,10 @@ import type { components } from "../../../../openapi/types.generated";
 type WikiSnapshot = components["schemas"]["Snapshot"];
 type WikiSnapshotPage = components["schemas"]["SnapshotPage"];
 
-/**
- * Snapshot is an external contract: retain this normalization while old rows
- * may exist during a rolling migration, even though persisted content is Markdown.
- */
 export function snapshotContentAsMarkdown(content: string): string {
   return canonicalMarkdown(content);
 }
 
-/** GET /api/cli/wiki/snapshot -- agent pages visible to the CLI token. */
 export async function loader({ request, context }: LoaderFunctionArgs) {
   const { env } = context.cloudflare;
   const identity = await getCliOrRunnerIdentity(request, env);
@@ -33,7 +28,6 @@ export async function loader({ request, context }: LoaderFunctionArgs) {
   if (langParam !== null && langParam !== "ja" && langParam !== "en")
     return Response.json({ error: "invalid_lang" }, { status: 400 });
   const locale = langParam === "en" ? "en" : "ja";
-  // `?space=<slug>` — one clone is one space (default gdg-jp for v1 clones).
   const spaceSlug = new URL(request.url).searchParams.get("space") ?? DEFAULT_SPACE_SLUG;
   let spaceId: string;
   try {

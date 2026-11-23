@@ -14,13 +14,6 @@ import { StagedCandidateList } from "./StagedCandidateList";
 import { useDrivePicker } from "./use-drive-picker";
 import { useSourceStaging } from "./use-source-staging";
 
-/**
- * The `/sources` "add candidate" panel: Drive picker, Chat spaces, Discord
- * channels, and raw URLs are staged locally (see `useSourceStaging`), then
- * submitted as one batch with a shared visibility / chapter scope.
- * `discordError` / `needsDiscord*` are kept here (not inside the dialog) so an
- * auth hint or duplicate message shows in this section after the dialog closes.
- */
 import { Icons } from "@gdgjp/design-system";
 import { REGISTRATIONS, SOURCE_KINDS } from "~/features/sources/kinds";
 export function AddSourceSection({

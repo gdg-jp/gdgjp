@@ -88,8 +88,6 @@ function parseUpdatePatch(body: Record<string, unknown>): UpdatePatch | typeof I
   }
   if (body.condition !== undefined) {
     if (typeof body.condition !== "string") return INVALID;
-    // The aggregate service does the real `isValidCondition` check and returns
-    // `invalid_condition` → 400; here we only assert the wire type.
     patch.condition = body.condition as "scheduled" | "photo_required";
   }
   if (body.tagHandles !== undefined) {

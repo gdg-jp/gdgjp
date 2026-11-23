@@ -7,7 +7,6 @@ import {
   SelectValue,
 } from "@gdgjp/design-system";
 
-/** Labelled select that posts `name` with its form (Radix Select renders a hidden input). */
 export function FormSelect({
   name,
   label,

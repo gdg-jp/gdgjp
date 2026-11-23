@@ -7,7 +7,6 @@ const FIELDS = [
   { platform: "bevy", label: "Bevy チャプター ID" },
 ] as const;
 
-/** Where this campaign lists outside connpass (the connpass app's allowlists decide the rest). */
 export function ListingTargetsCard({
   targets,
   busy,

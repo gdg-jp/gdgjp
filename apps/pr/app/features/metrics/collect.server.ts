@@ -8,10 +8,6 @@ import {
 } from "~/features/integrations/bindings.server";
 import { addSnapshot } from "./snapshot.repository.server";
 
-/**
- * Hourly, active campaigns only: tinyurl analytics and connpass stats, as the person who
- * activated the campaign. Aggregates only; failures go to the dispatch log.
- */
 export async function collectMetrics(env: Env): Promise<{ campaigns: number; snapshots: number }> {
   const { results } = await env.DB.prepare(
     "SELECT id, tinyurl_campaign_id, connpass_group_slug, connpass_event_id, created_at FROM campaigns WHERE status = 'active'",

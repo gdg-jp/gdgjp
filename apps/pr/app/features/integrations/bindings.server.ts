@@ -7,7 +7,6 @@ import type {
   UserChapter,
 } from "@gdgjp/gdg-lib";
 
-/** The sns / tinyurl / connpass `PrService` entrypoints (service bindings with `entrypoint = "PrService"`). */
 export const snsService = (env: Env): SnsPrService => env.SNS as unknown as SnsPrService;
 export const connpassService = (env: Env): ConnpassPrService =>
   env.CONNPASS as unknown as ConnpassPrService;
@@ -18,7 +17,6 @@ export function actorOf(access: { user: AuthUser; chapters: UserChapter[] }): Pr
   return { user: access.user, chapters: access.chapters };
 }
 
-/** A stored `{ user, chapters }` snapshot (cron acts for the person who last approved). */
 export function parseActor(raw: string | null | undefined): PrActor | null {
   if (!raw) return null;
   try {
@@ -29,7 +27,6 @@ export function parseActor(raw: string | null | undefined): PrActor | null {
   }
 }
 
-/** RPC failures and thrown binding errors, as one message for dispatch_log and the screen. */
 export async function callRpc<T>(
   run: () => Promise<({ ok: true } & T) | { ok: false; code: string; message?: string }>,
 ): Promise<({ ok: true } & T) | { ok: false; code: string; message?: string }> {

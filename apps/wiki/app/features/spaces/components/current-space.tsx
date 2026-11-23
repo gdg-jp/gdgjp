@@ -23,7 +23,6 @@ const CurrentSpaceContext = createContext<CurrentSpace>(DEFAULT_CURRENT_SPACE);
 
 export const CurrentSpaceProvider = CurrentSpaceContext.Provider;
 
-/** The space the app shell is showing (URL `/s/:space/…`, else the last visited one). */
 export function useCurrentSpace(): CurrentSpace {
   return useContext(CurrentSpaceContext);
 }

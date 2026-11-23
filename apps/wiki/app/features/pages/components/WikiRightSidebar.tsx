@@ -35,7 +35,6 @@ interface WikiRightSidebarProps {
   tocItems: TocItem[];
   author: Author | null;
   editor: Editor | null;
-  /** `agent` pages have no human author or editor: the agent is named instead of "—". */
   origin?: string;
   updatedAt: Date | string | number | null;
   lang: "ja" | "en";
@@ -133,7 +132,6 @@ export default function WikiRightSidebar({
 
   return (
     <aside className="sticky top-14 w-56 flex-shrink-0 self-start overflow-y-auto px-4 py-8">
-      {/* Table of Contents */}
       {tocItems.length > 0 && (
         <div className="mb-6">
           <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">
@@ -162,9 +160,7 @@ export default function WikiRightSidebar({
         </div>
       )}
 
-      {/* Metadata */}
       <div className="space-y-4">
-        {/* Author */}
         <div>
           <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted">
             {t("wiki.author")}
@@ -256,7 +252,6 @@ export default function WikiRightSidebar({
           )}
         </div>
 
-        {/* Last edited */}
         {updatedAt && (
           <div>
             <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted">
@@ -269,7 +264,6 @@ export default function WikiRightSidebar({
           </div>
         )}
 
-        {/* Translation status */}
         {translationStatus === "ai" && (
           <span className="inline-flex items-center rounded-full bg-[var(--gdg-warning-surface)] px-2 py-0.5 text-xs font-medium text-warning">
             {t("wiki.auto_translated")}
@@ -277,7 +271,6 @@ export default function WikiRightSidebar({
         )}
         {lang === "en" && translationStatusEn !== "human" && <TranslateNowButton />}
 
-        {/* Sources (URLs, PDFs, and image attachments) */}
         {((sources && sources.length > 0) || (attachments && attachments.length > 0)) && (
           <div id="page-sources">
             <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-muted">
@@ -378,7 +371,6 @@ export default function WikiRightSidebar({
   );
 }
 
-/** Queue a high-priority translate job for this page (editor role, checked on the server). */
 function TranslateNowButton() {
   const { t } = useTranslation();
   const fetcher = useFetcher<{ ok?: boolean; translateQueued?: boolean }>();

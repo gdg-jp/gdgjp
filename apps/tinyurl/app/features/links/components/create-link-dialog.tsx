@@ -96,7 +96,6 @@ export function CreateLinkDialog({
   campaignChannelOptions?: CampaignChannelOption[];
   chapters?: UserChapter[];
   defaultCampaignChannelId?: number;
-  /** The destination folder for links created from a folder detail page. */
   defaultFolderId?: number;
   domainOptions?: LinkDomainOption[];
   shortUrlBase: string;

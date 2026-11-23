@@ -71,7 +71,6 @@ type Result = { ok: boolean; message?: string; errors?: string[] };
 const fromDispatch = (r: { ok: true; message: string } | { ok: false; error: string }): Result =>
   r.ok ? { ok: true, message: r.message } : { ok: false, errors: [r.error] };
 
-/** The delivery forms on the draft page (`intent` starts with `target-`, or `link`, `media`). */
 export async function deliveryAction(
   env: Env,
   access: CampaignAccess,
@@ -110,7 +109,6 @@ export async function deliveryAction(
   return null;
 }
 
-/** The link and OGP image are part of the content: a new human version (back to review). */
 async function editLink(
   env: Env,
   access: CampaignAccess,

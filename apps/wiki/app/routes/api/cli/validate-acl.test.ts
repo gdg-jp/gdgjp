@@ -20,8 +20,6 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock("~/features/spaces/access.server", async (importOriginal) => {
-  // The outer (space) layer has its own tests in features/spaces; here every caller is
-  // an owner of the default space so these tests keep exercising the inner ACL.
   const original = await importOriginal<typeof import("~/features/spaces/access.server")>();
   const space = {
     id: "gdg-jp",
@@ -118,10 +116,8 @@ describe("POST /api/cli/wiki/validate-acl", () => {
   });
 
   it("matches /sync page-level acl_required for an untagged cited source", async () => {
-    // stored page lookup (empty — new page)
     mocks.allResults = [
       [],
-      // validatePageAclForSync cited-source lookup
       [
         {
           id: "org-src",
@@ -132,7 +128,6 @@ describe("POST /api/cli/wiki/validate-acl", () => {
           addedBy: "owner",
         },
       ],
-      // validateReadSourcesTagged source lookup
       [
         {
           id: "org-src",
@@ -171,9 +166,7 @@ describe("POST /api/cli/wiki/validate-acl", () => {
 
   it("returns acl_untagged_read_source when a confidential read is never tagged", async () => {
     mocks.allResults = [
-      [], // stored pages
-      // validatePageAclForSync — no cited sources / no spans → no query, but
-      // empty cited still may skip. Then run-level lookup:
+      [],
       [
         {
           id: "org-src",
@@ -224,8 +217,6 @@ describe("POST /api/cli/wiki/validate-acl", () => {
   });
 
   it("accepts when one of several pages tags the read source", async () => {
-    // No page ids → no stored-page lookup. Page a has no spans/cites.
-    // Page b span lookup, then run-level lookup.
     mocks.allResults = [
       [
         {

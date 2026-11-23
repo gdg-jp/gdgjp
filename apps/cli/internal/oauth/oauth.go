@@ -21,7 +21,6 @@ import (
 	"github.com/gdg-jp/gdgjp/cli/internal/store"
 )
 
-// issuer is a var, not a const, so tests can point it at an httptest server.
 var issuer = "https://accounts.gdgs.jp"
 
 const (
@@ -64,7 +63,6 @@ func Login(ctx context.Context) (store.Credentials, error) {
 	authorizeURL := authorizationURL(state, verifier)
 	fmt.Printf("Open this URL in your browser to continue:\n%s\n", authorizeURL)
 	if err := openBrowser(authorizeURL); err != nil {
-		// The printed URL keeps login usable on headless systems.
 		fmt.Printf("Could not open a browser automatically: %v\n", err)
 	}
 
@@ -120,11 +118,6 @@ func authorizationURL(state, verifier string) string {
 	return issuer + "/api/auth/oauth2/authorize?" + query.Encode()
 }
 
-// LikelyHeadless reports whether the current session probably has no
-// browser available, so gdg login can default to the device-code flow
-// without requiring the caller to pass --device explicitly. SSH sessions
-// with X11/Wayland forwarding still have a real display, so they are not
-// treated as headless.
 func LikelyHeadless() bool {
 	return likelyHeadless(runtime.GOOS, os.Getenv)
 }
@@ -153,10 +146,6 @@ type deviceErrorResponse struct {
 	Error string `json:"error"`
 }
 
-// DeviceLogin runs the OAuth 2.0 Device Authorization Grant (RFC 8628): it
-// prints a short code and verification URL for the user to open on any
-// device with a browser, then polls until it is approved. This keeps login
-// usable on hosts with no local browser at all, such as SSH remote servers.
 func DeviceLogin(ctx context.Context) (store.Credentials, error) {
 	authResponse, err := requestDeviceAuthorization(ctx)
 	if err != nil {
@@ -239,9 +228,6 @@ func requestDeviceAuthorization(ctx context.Context) (deviceAuthorizationRespons
 	return authResponse, nil
 }
 
-// pollDeviceToken makes one poll attempt. A non-empty pollErr is an RFC 8628
-// token-endpoint error code (authorization_pending, slow_down, ...) for the
-// caller to interpret; err is reserved for transport/decoding failures.
 func pollDeviceToken(ctx context.Context, deviceCode string) (store.Credentials, string, error) {
 	form := url.Values{
 		"grant_type":  {deviceGrantType},
@@ -391,7 +377,6 @@ func exchange(ctx context.Context, code, verifier string) (store.Credentials, er
 	return requestToken(ctx, form)
 }
 
-// Refresh exchanges a saved refresh token for a fresh CLI credential set.
 func Refresh(ctx context.Context, refreshToken string) (store.Credentials, error) {
 	return requestToken(ctx, url.Values{
 		"grant_type":    {"refresh_token"},

@@ -58,10 +58,6 @@ describe("hardViolations", () => {
   });
 
   it("names the constraint, never the applicant — the id must not leak into the UI", () => {
-    // Regression: these strings used to interpolate `app.id`, which has no
-    // display meaning and reached the manual-edit drawers verbatim
-    // ("app-2 はこの役割を担当できません"). Both callers already show the
-    // person's name next to the warning; see constraints.ts's doc comment.
     const input = baseInput();
     const app = baseApp({ withdrawn: true, skills: {}, availability: { [SLOT.id]: "x" } });
     const assignments: Assignments = new Map([
@@ -127,7 +123,6 @@ describe("hardViolations", () => {
       [assignmentKey(app.id, SLOT.id), { trackId: TRACK_ID, roleId: ROLE_ID, locked: false }],
     ]);
     const warnings = hardViolations(input, app, SLOT, "no-such-track", ROLE_ID, assignments);
-    // rule 1 (already assigned) + rule 2 (no skill) + rule 3 (x) + rule 4 (withdrawn) + rule 5 (no demand)
     expect(warnings.length).toBe(5);
   });
 
@@ -140,10 +135,6 @@ describe("hardViolations", () => {
   });
 
   it("does NOT check skill-mix conditions (leadMin / newMax) — that is the caller's job", () => {
-    // A "new" candidate placed into a cell whose newMax is already 0 would
-    // violate the skill-mix rule, but hardViolations only knows the 5 rules
-    // in index.md §5.1 items 1-4/6 — leadMin/newMax is deliberately left to
-    // solve.ts's fillCell / local-search.ts / ojt-swap.ts (Design §2).
     const input = baseInput();
     input.demands.set(demandKey(SLOT.id, TRACK_ID, ROLE_ID), {
       min: 1,

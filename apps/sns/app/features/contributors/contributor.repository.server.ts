@@ -1,10 +1,5 @@
 import type { Contributor } from "./contributor.types";
 
-/**
- * `sns_contributors` has a composite primary key `(chapter_id, user_email)` and
- * `user_email` is `COLLATE NOCASE`, so every lookup, insert conflict, and delete
- * here compares the address case-insensitively.
- */
 export async function isContributor(
   db: D1Database,
   chapterId: number,
@@ -27,10 +22,6 @@ export async function listContributors(db: D1Database, chapterId: number): Promi
   return result.results.map((row) => ({ email: row.user_email, createdAt: row.created_at }));
 }
 
-/**
- * Offset-paginated contributor list. Fetches one extra row (`LIMIT limit + 1`)
- * so the caller can tell whether another page exists without a second query.
- */
 export async function listContributorsPage(
   db: D1Database,
   options: { chapterId: number; limit: number; offset: number },
@@ -55,10 +46,6 @@ export type InsertContributorRecord = {
   now: string;
 };
 
-/**
- * Idempotent add: a row that already exists (case-insensitively) is left
- * untouched rather than raising or overwriting `granted_by_user_id`.
- */
 export async function insertContributor(
   db: D1Database,
   record: InsertContributorRecord,

@@ -80,7 +80,6 @@ export default function TaskCreateDialog({
       assigneeId: assigneeId || null,
       teamId: teamId || null,
     });
-    // Reset
     setTitle("");
     setDescription("");
     setStatus("todo");

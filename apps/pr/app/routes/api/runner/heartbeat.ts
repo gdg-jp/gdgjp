@@ -2,7 +2,6 @@ import { recordHeartbeat } from "~/features/jobs/job.repository.server";
 import { readJson, requireRunner, runnerHost } from "~/features/jobs/runner-auth.server";
 import type { Route } from "./+types/heartbeat";
 
-/** POST /api/runner/heartbeat — runner liveness (shown on /admin/runner). */
 export async function action({ request, context }: Route.ActionArgs) {
   const { env } = context.cloudflare;
   await requireRunner(request, env);

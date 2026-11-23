@@ -3,7 +3,6 @@ import { MAX_CLI_JSON_BODY_BYTES, parseCliJsonBody } from "./http.server";
 
 const url = "https://sns.gdgs.jp/api/cli/v1/posts";
 
-/** A chunked JSON request with no `Content-Length` header. */
 function streamedJsonRequest(totalBytes: number): Request {
   const chunk = new TextEncoder().encode("a".repeat(1024));
   let sent = 0;
@@ -62,8 +61,6 @@ describe("parseCliJsonBody", () => {
   });
 
   it("counts the cap in UTF-8 bytes, not UTF-16 code units", async () => {
-    // Each `é` is 2 UTF-8 bytes but 1 JS string char; a payload that fits in
-    // MAX_CLI_JSON_BODY_BYTES chars can still blow the byte cap.
     const filler = "é".repeat(MAX_CLI_JSON_BODY_BYTES - 20);
     const request = new Request(url, {
       method: "POST",

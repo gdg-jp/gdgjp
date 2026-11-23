@@ -24,7 +24,6 @@ test("a lead creates a campaign, loads a brief, and schedules a post with derive
   await expect(page.getByText("版 1 を保存しました")).toBeVisible();
   await expect(page.getByLabel("イベントのハッシュタグ")).toHaveValue("#DevFestKansai");
 
-  // The rendered form saves back to a valid brief (selects, tables, datetimes).
   await page.getByRole("button", { name: "保存", exact: true }).click();
   await expect(page.getByText("版 2 を保存しました")).toBeVisible();
 
@@ -42,7 +41,6 @@ test("a lead creates a campaign, loads a brief, and schedules a post with derive
   await expect(rows.nth(1)).toContainText("17:00");
   await expect(rows.nth(1)).toContainText("スタッフへいいね・リポストの依頼");
 
-  // Moving the post moves its reminder by the same offset.
   await rows.nth(0).getByRole("button", { name: "編集" }).click();
   await page.getByLabel("日時").fill("2026-10-07T19:00");
   await page.getByRole("button", { name: "保存", exact: true }).click();

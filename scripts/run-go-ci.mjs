@@ -23,13 +23,10 @@ function run(command, args, cwd = process.cwd(), environment = {}) {
     console.error(`Files requiring gofmt:\n${unformatted}`);
     process.exitCode = 1;
   } else {
-    // Keep all vet analyzers; go test's default only enables a subset.
     process.exitCode = await run("go", ["test", "-vet=all", "-ldflags=-w", "./..."], cwd);
     if (!process.exitCode)
       process.exitCode = await run("go", ["build", "-ldflags=-w", "./..."], cwd);
     if (!process.exitCode) {
-      // Match release targets, including Windows. Bound both levels of Go's
-      // parallelism so browser servers can make progress alongside compilers.
       const targets = [
         "darwin/amd64",
         "darwin/arm64",
@@ -42,7 +39,6 @@ function run(command, args, cwd = process.cwd(), environment = {}) {
         Array.from({ length: 2 }, async () => {
           while (!process.exitCode && targets.length) {
             const [GOOS, GOARCH] = targets.shift().split("/");
-            // Match release linking: debug-info generation adds no validation.
             const code = await run(
               "go",
               ["build", "-p=2", "-ldflags=-s -w", "-o", "/dev/null", "./cmd/gdg"],

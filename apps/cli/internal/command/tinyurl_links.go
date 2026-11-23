@@ -55,10 +55,6 @@ func newTinyurlLinksListCommand(credentials store.CredentialStore) *cobra.Comman
 	return command
 }
 
-// linkBody builds the create/update payload from the shared link flags. On
-// create, domainId/slug/destinationUrl are always included and visibility
-// defaults to private; on update every field is optional and only changed
-// flags are sent.
 func linkBody(cmd *cobra.Command, create bool) (map[string]any, error) {
 	body := map[string]any{}
 	if create {
@@ -115,8 +111,6 @@ func linkBody(cmd *cobra.Command, create bool) (map[string]any, error) {
 	return body, nil
 }
 
-// parseShares turns repeated --share TYPE:ID:ROLE flags into the API's
-// { principalType, principalId, role } objects.
 func parseShares(raw []string) ([]map[string]any, error) {
 	shares := make([]map[string]any, 0, len(raw))
 	for _, entry := range raw {
@@ -133,9 +127,6 @@ func parseShares(raw []string) ([]map[string]any, error) {
 	return shares, nil
 }
 
-// addTinyurlLinkFieldFlags registers the link fields shared by create and
-// update. --visibility keeps its "private" default so create always sends a
-// valid value; update only forwards it when explicitly changed.
 func addTinyurlLinkFieldFlags(cmd *cobra.Command) {
 	cmd.Flags().String("slug", "", "Short link slug")
 	cmd.Flags().String("url", "", "Destination URL")

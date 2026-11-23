@@ -69,11 +69,9 @@ function Avatar({ peer }: { peer: CollabPeer }) {
           {getInitials(peer.user.name)}
         </span>
       )}
-      {/* Language indicator dot */}
       <span
         className={`absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border border-border ${langDot}`}
       />
-      {/* Tooltip */}
       {showTooltip && (
         <div className="absolute -top-8 left-1/2 -translate-x-1/2 whitespace-nowrap rounded bg-foreground px-2 py-0.5 text-xs text-primary-foreground shadow">
           {peer.user.name}

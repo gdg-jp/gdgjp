@@ -2,7 +2,6 @@ import { fileKey } from "~/features/assistant/fetch-source.server";
 import { requireCampaignAccess } from "~/features/campaigns/access.server";
 import type { Route } from "./+types/file";
 
-/** GET /c/:slug/files/:id — an attachment or a saved source image, for campaign members only. */
 export async function loader({ request, context, params }: Route.LoaderArgs) {
   const env = context.cloudflare.env;
   const access = await requireCampaignAccess(env, request, params.slug);

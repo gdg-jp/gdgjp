@@ -128,7 +128,6 @@ describe("roster sheet expansion migration", () => {
         expect(raw.prepare(`SELECT * FROM ${table}`).all(), table).toEqual(expandedRows[index]);
       }
 
-      // Keep the existing uniqueness constraints until the later contract migration.
       expect(() =>
         raw.exec(
           "INSERT INTO time_slots VALUES ('duplicate', 'published', 0, '10:00', '10:30', NULL, NULL)",

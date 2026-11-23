@@ -168,7 +168,6 @@ function parseInviteSourcesWithHostChapter(
   return { ok: true, data: { hostChapterId, sources } };
 }
 
-/** 招待元に関するフォーム入力のみを検証・抽出する（作成前のプレビュー・作成で共用）。 */
 export function parseMeetingInviteInputs(
   formData: FormData,
   allowedChapterIds: ReadonlySet<number>,
@@ -181,7 +180,6 @@ export function parseMeetingInviteInputs(
   return parseInviteSourcesWithHostChapter(formData, hostChapterId, initialErrors);
 }
 
-/** 編集画面用の招待元フォーム入力を検証・抽出する（主催チャプターは既存の値で固定）。 */
 export function parseMeetingEditInviteInputs(
   formData: FormData,
   fixedHostChapterId: number,
@@ -282,7 +280,6 @@ function parseMeetingCommonFields(
   };
 }
 
-/** 会議作成フォーム全体を検証してドメイン入力へ変換する。 */
 export function parseMeetingCreateForm(
   formData: FormData,
   allowedChapterIds: ReadonlySet<number>,
@@ -293,7 +290,6 @@ export function parseMeetingCreateForm(
   return parseMeetingCommonFields(formData, inviteResult);
 }
 
-/** 会議編集フォーム全体を検証してドメイン入力へ変換する（主催チャプターは変更不可）。 */
 export function parseMeetingEditForm(
   formData: FormData,
   fixedHostChapterId: number,
@@ -304,7 +300,6 @@ export function parseMeetingEditForm(
   return parseMeetingCommonFields(formData, inviteResult);
 }
 
-/** D1 の `meeting_invite_sources` から `MeetingForm` の初期値へ変換する。 */
 export function inviteSourcesToFormDefaults(
   sources: readonly Pick<MeetingInviteSourceRecord, "kind" | "chapterId" | "email" | "role">[],
 ): MeetingFormInviteDefaults {

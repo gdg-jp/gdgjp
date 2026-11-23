@@ -5,8 +5,6 @@ import type { LinkPermissionRow } from "~/features/links/link-record";
 import { toLinkPermission } from "~/features/links/link-record";
 import { PERM_COLS } from "~/features/links/link-record";
 
-// ---------- Permissions ----------
-
 export async function listPermissionsForLink(
   db: D1Database,
   linkId: string,
@@ -93,10 +91,6 @@ export async function updatePermissionRole(
   return (result.meta.changes ?? 0) > 0;
 }
 
-/**
- * Replaces every explicit permission on a link in one D1 batch. Callers must
- * validate the requested principals before invoking this function.
- */
 export async function replaceLinkPermissions(
   db: D1Database,
   linkId: string,

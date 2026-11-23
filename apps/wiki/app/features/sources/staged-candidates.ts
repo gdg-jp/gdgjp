@@ -15,7 +15,6 @@ export function buildDiscordSourceTitle(
     : `${guildName}#${channelName}`;
 }
 
-/** Candidates one `create-batch` request accepts; the panel sends larger batches in chunks. */
 export const MAX_BATCH_CANDIDATES = 50;
 
 export function parseBatchCandidates(raw: FormDataEntryValue | null): StagedSource[] | null {

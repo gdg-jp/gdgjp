@@ -49,7 +49,6 @@ export type InviteeSourcesCardProps = {
   previewData?: InviteePreviewData;
 };
 
-/** 他チャプター招待・個別メール招待・招待者数の事前プレビューカード。 */
 export function InviteeSourcesCard({
   allChapters,
   additionalChapters,

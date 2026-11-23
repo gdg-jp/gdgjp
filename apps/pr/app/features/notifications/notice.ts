@@ -1,10 +1,8 @@
-/** One line on the notifications page (and the event page's "next steps"). Pure. */
 export type NoticeGroup = "waiting" | "proposal" | "today" | "running";
 
 export type Notice = {
   key: string;
   group: NoticeGroup;
-  /** 2: overdue or due within a day; 1: due within three days; 0: otherwise. */
   urgency: 0 | 1 | 2;
   campaign: { slug: string; name: string } | null;
   title: string;
@@ -31,7 +29,6 @@ export function urgencyOf(at: number | null | undefined, now: number): 0 | 1 | 2
   return 0;
 }
 
-/** Most urgent first, then soonest, then in the order they were gathered. */
 export function sortNotices(notices: Notice[]): Notice[] {
   return notices
     .map((n, i) => ({ n, i }))
@@ -50,10 +47,6 @@ export function groupNotices(notices: Notice[]): { group: NoticeGroup; notices: 
     .filter((g) => g.notices.length > 0);
 }
 
-/**
- * More than `limit` notices of one kind in one campaign become one line ("レビュー待ちが 12 件"),
- * as urgent and as soon as the most urgent of them. Others pass through in order.
- */
 export function collapse(
   notices: Notice[],
   kind: (n: Notice) => string | null,
@@ -80,7 +73,6 @@ export function collapse(
     out.push({
       ...first,
       key: `${k}:all`,
-      // "レビュー待ち: 「a」" → "「a」": the summary line already says what they wait for.
       detail: list
         .slice(0, 3)
         .map((x) => x.title.replace(/^[^「]*(?=「)/, ""))

@@ -99,11 +99,6 @@ async function resolveTags(
   return resolved;
 }
 
-/**
- * A media count change only flips the stored status while the post is still an
- * untouched draft; a `failed`/`needs_confirmation` post keeps its status and
- * failure reason (only the dashboard's explicit save clears those).
- */
 async function reconcileStatusForMediaCount(
   deps: PostDraftDependencies,
   post: Post,
@@ -175,8 +170,6 @@ export async function updateDraft(
   await assertActiveChapterAccount(deps, existing.chapterId, xAccountId);
 
   const mediaCount = (await listMediaForPost(deps.db, id)).length;
-  // Only re-fetch a link preview when the final text actually changes, so a
-  // pure schedule/account edit keeps the card the author already reviewed.
   const linkPreview =
     text === existing.text
       ? {
@@ -242,8 +235,6 @@ export async function attachMedia(
   ]);
   if (invalid) throw new PostDraftError(invalid);
 
-  // R2 write precedes the row it will be referenced by; a failed insert rolls
-  // the just-written object back.
   const r2Key = `${post.chapterId}/${post.id}/${crypto.randomUUID()}`;
   await deps.media.put(r2Key, file.bytes, { httpMetadata: { contentType: file.contentType } });
   let media: Awaited<ReturnType<typeof insertPostMedia>>;
@@ -277,15 +268,12 @@ export async function removeMedia(
   if (!isEditableStatus(post.status)) throw new PostDraftError("not_editable");
 
   const remainingCount = Math.max((await listMediaForPost(deps.db, media.postId)).length - 1, 0);
-  // Capture the key for compensation before the row that records it is gone.
   const r2Key = media.r2Key;
   await deletePostMediaById(deps.db, mediaId);
   await reconcileStatusForMediaCount(deps, post, remainingCount);
   try {
     await deps.media.delete(r2Key);
   } catch (error) {
-    // The row is already gone, so the object is orphaned. Surface it instead
-    // of reporting a clean success so cleanup can be retried.
     throw new PostDraftError(
       "media_storage_cleanup_failed",
       error instanceof Error ? error.message : String(error),
@@ -294,10 +282,6 @@ export async function removeMedia(
   return { id: mediaId, deleted: true, post: await reloadPost(deps, media.postId) };
 }
 
-/**
- * Applies alt-text / sort-order edits to media that survive a dashboard save.
- * Internal to this feature — the CLI surface only attaches and removes.
- */
 export async function updateMediaMetadata(
   deps: PostDraftDependencies,
   edits: MediaMetadataEdit[],

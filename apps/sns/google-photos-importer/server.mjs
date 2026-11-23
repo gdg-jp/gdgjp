@@ -109,9 +109,6 @@ export function googlePhotosDownloadUrl(url) {
   const parsed = new URL(url);
   if (!/^(lh3|lh5)\.googleusercontent\.com$/.test(parsed.hostname))
     throw new Error("unsupported Google Photos image URL");
-  // Image rendition parameters are part of the path (for example, `=w400-h300`).
-  // Always request a fresh full-size rendition instead of persisting the grid's
-  // progressive thumbnail, whose URL and dimensions can change while it loads.
   parsed.pathname = `${parsed.pathname.replace(/=[^/]*$/, "")}=w1600`;
   return parsed.toString();
 }

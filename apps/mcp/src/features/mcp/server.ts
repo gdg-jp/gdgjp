@@ -18,7 +18,6 @@ Wiki (wiki.gdgs.jp):
 - Pages are written by the knowledge runner, not by people or this server. To change what the wiki knows, add material with wiki_add_source (a URL) or wiki_add_inline_source (Markdown); the runner reads it into pages.
 - Cite page URLs from tool results when answering.`;
 
-/** One MCP server per request (stateless Streamable HTTP), bound to this request's grant. */
 export function createServer(env: Env, props: AuthProps): McpServer {
   const server = new McpServer(
     { name: SERVER_NAME, version: SERVER_VERSION },
@@ -39,11 +38,6 @@ export function createServer(env: Env, props: AuthProps): McpServer {
 
 const resourceServers = new Map<string, OAuthResourceServer<Env, AuthProps>>();
 
-/**
- * `/mcp` and its RFC 9728 metadata. Requests without a valid token for this resource get a
- * 401 challenge naming the authorization server; tools that need `wiki:write` answer a
- * read-only token with a 403 step-up challenge (`scopeChallenge`).
- */
 export function resourceServer(env: Env): OAuthResourceServer<Env, AuthProps> {
   const resource = mcpResource(env);
   let server = resourceServers.get(resource);
@@ -55,7 +49,6 @@ export function resourceServer(env: Env): OAuthResourceServer<Env, AuthProps> {
         authorization_servers: [issuer],
         resource_name: "GDG Japan MCP",
       },
-      // Clients ask for both up front; the consent page lets the person leave out write.
       requiredScopes: [...MCP_SCOPES],
       validateToken: (env) => (resource, token) =>
         authorizationServer(env).validateToken<AuthProps>(resource, token, env),

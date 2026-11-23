@@ -10,7 +10,6 @@ import {
 import { type PageRole, ROLES } from "./types";
 import type { ShareDialogController } from "./use-share-dialog";
 
-/** The "grant access to selected people" screen. */
 import { Icons } from "@gdgjp/design-system";
 export function GrantScreen({ c }: { c: ShareDialogController }) {
   const {

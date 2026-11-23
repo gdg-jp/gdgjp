@@ -123,12 +123,10 @@ describe("getGoogleAccessToken", () => {
 
     expect(await getGoogleAccessToken(env, fetchMock)).toBe("access-1");
 
-    // 58 分経過（残り 120 秒 > 60 秒）→ キャッシュを再利用
     vi.advanceTimersByTime(58 * 60 * 1000);
     expect(await getGoogleAccessToken(env, fetchMock)).toBe("access-1");
     expect(fetchMock).toHaveBeenCalledTimes(1);
 
-    // さらに 1 分 1 秒経過（残り 59 秒 <= 60 秒）→ 再取得
     vi.advanceTimersByTime(61 * 1000);
     expect(await getGoogleAccessToken(env, fetchMock)).toBe("access-2");
     expect(fetchMock).toHaveBeenCalledTimes(2);

@@ -30,7 +30,6 @@ import {
 import { formatOdds } from "../odds";
 import { MAX_PRIZES, type Mode } from "../prize";
 
-// Custom adds a % column, evil a "出さない" column.
 const cols: Record<Mode, string> = {
   standard: "md:grid-cols-[3.5rem_minmax(0,1fr)_9rem_5rem_5rem_6.5rem] md:gap-x-3",
   custom: "md:grid-cols-[3.5rem_minmax(0,1fr)_9rem_6.5rem_5rem_5rem_6.5rem] md:gap-x-3",
@@ -70,7 +69,6 @@ function PrizeRow({
   onDelete: () => void;
 }) {
   const n = index + 1;
-  // Column headers name the fields on wide screens; labels show on phones.
   const suffix = <span className="sr-only">（{n} 行目）</span>;
   const stock = Number(row.stockText) || 0;
   return (
@@ -188,7 +186,6 @@ function PrizeRow({
   );
 }
 
-/** The prize table: name, stock (or ∞), % or 出さない by mode, what is left and the odds now. */
 export function PrizeCard({
   draft,
   errors,
@@ -198,7 +195,6 @@ export function PrizeCard({
 }: {
   draft: Draft;
   errors: DraftErrors;
-  /** Odds per row, or null while they cannot be computed (the % do not add up). */
   odds: number[] | null;
   wonOf: (id: string) => number;
   onChange: (draft: Draft) => void;

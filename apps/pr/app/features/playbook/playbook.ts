@@ -1,7 +1,5 @@
 import constantsJson from "@skills/pr-playbook/constants.json";
 import rulesJson from "@skills/pr-playbook/rules.json";
-// The bundled Playbook (skills/pr-playbook from the gdg-jp/skills submodule). Rules and
-// constants are small and shared by server and client; guides and Skills stay server-side.
 import {
   type CheckReport,
   type DraftKind,
@@ -28,7 +26,6 @@ export function channelLabel(channel: string): string {
   return (constants.channelLabels as Record<string, string>)[channel] ?? channel;
 }
 
-/** Paths of every provisional constant (shown as a warning: not measured values). */
 export function provisionalConstants(): string[] {
   const out: string[] = [];
   const walk = (node: unknown, path: string) => {
@@ -48,7 +45,6 @@ export function scopeForKind(kind: string): string {
   return kind === "plan" ? "plan" : `draft.${kind}`;
 }
 
-/** Run the Playbook checks. The Worker cannot run yomiyasu; the runner's result is passed in. */
 export function runChecks(input: {
   kind: DraftKind;
   draft: unknown;

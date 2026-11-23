@@ -17,25 +17,18 @@ import (
 	wikirunner "github.com/gdg-jp/gdgjp/cli/internal/wiki/runner"
 )
 
-// Bundle is what the pr Worker prepared for one job: the Skill, the parts of the Playbook it
-// reads, the brief and the task, as files; plus the prompt and the output schema's path.
 type Bundle struct {
-	Files map[string]string `json:"files"`
-	// BinaryFiles are base64 (images the assistant reads); Images are the ones attached to the
-	// prompt, as paths under the job directory.
-	BinaryFiles map[string]string `json:"binaryFiles,omitempty"`
-	Images      []string          `json:"images,omitempty"`
-	// WorkspaceWrite lets the agent write files in the job directory (design drafts); Render
-	// starts the render broker beside it so the agent can draw and look at its drafts.
-	WorkspaceWrite bool   `json:"workspaceWrite,omitempty"`
-	Render         bool   `json:"render,omitempty"`
-	Prompt         string `json:"prompt"`
-	Skill          string `json:"skill"`
-	Kind           string `json:"kind"`
-	TimeoutSeconds int    `json:"timeoutSeconds"`
+	Files          map[string]string `json:"files"`
+	BinaryFiles    map[string]string `json:"binaryFiles,omitempty"`
+	Images         []string          `json:"images,omitempty"`
+	WorkspaceWrite bool              `json:"workspaceWrite,omitempty"`
+	Render         bool              `json:"render,omitempty"`
+	Prompt         string            `json:"prompt"`
+	Skill          string            `json:"skill"`
+	Kind           string            `json:"kind"`
+	TimeoutSeconds int               `json:"timeoutSeconds"`
 }
 
-// JobOutput is the result body the Worker imports: the agent's JSON and the runner's checks.
 type JobOutput struct {
 	Output json.RawMessage `json:"output"`
 	Checks Checks          `json:"checks"`
@@ -124,17 +117,14 @@ func (r *Runner) handle(ctx context.Context, job *wikirunner.Job) wikirunner.Res
 	}
 }
 
-// imageAnswerer is a backend that can attach images to the prompt (codex).
 type imageAnswerer interface {
 	AnswerWithImages(ctx context.Context, dir, prompt, schemaPath, outPath string, images []string, timeout time.Duration) (string, error)
 }
 
-// optionsAnswerer is a backend that takes AnswerOptions (images, a writable workspace, env).
 type optionsAnswerer interface {
 	AnswerWithOptions(ctx context.Context, dir, prompt, schemaPath, outPath string, opts wikirunner.AnswerOptions, timeout time.Duration) (string, error)
 }
 
-// WriteBinary writes base64 files under dir (after WriteBundle), refusing paths that escape it.
 func WriteBinary(dir string, files map[string]string) error {
 	for name, encoded := range files {
 		clean := filepath.Clean(name)
@@ -156,7 +146,6 @@ func WriteBinary(dir string, files map[string]string) error {
 	return nil
 }
 
-// parseOutput accepts the agent's final message with or without a ```json fence.
 func parseOutput(raw []byte) (json.RawMessage, error) {
 	text := strings.TrimSpace(string(raw))
 	text = strings.TrimPrefix(text, "```json")
@@ -169,7 +158,6 @@ func parseOutput(raw []byte) (json.RawMessage, error) {
 	return json.RawMessage(text), nil
 }
 
-// WriteBundle writes the bundle's files under dir, refusing any path that escapes it.
 func WriteBundle(dir string, files map[string]string) error {
 	if err := os.RemoveAll(dir); err != nil {
 		return err

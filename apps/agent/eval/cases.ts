@@ -2,7 +2,6 @@ import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { parse } from "yaml";
 
-/** Evaluation only ever touches spaces with this prefix (never production content). */
 export const EVAL_SPACE_PREFIX = "e2e-";
 
 export type Asker = "organizer" | "member" | "guest";
@@ -12,10 +11,8 @@ export type EvalCase = {
   space: string;
   asker: Asker;
   question: string;
-  /** Page slugs that hold the answer; hit@5 checks the top 5 search hits. */
   expected_pages: string[];
   expected_answer_contains: string[];
-  /** Terms the asker must never see (span contents, other spaces): any hit is a leak. */
   forbidden_answer_contains: string[];
   expected_refusal: boolean;
   source?: string;
@@ -50,7 +47,6 @@ export function validateCase(raw: unknown, file: string): EvalCase {
   };
 }
 
-/** Load every case under a directory; refuses to start if any case leaves the e2e spaces. */
 export function loadCases(dir: string): EvalCase[] {
   const cases: EvalCase[] = [];
   for (const file of readdirSync(dir)

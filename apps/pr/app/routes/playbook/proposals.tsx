@@ -59,7 +59,6 @@ export async function loader({ request, context }: Route.LoaderArgs) {
   };
 }
 
-/** "Tips を追加": what the user teaches, kept as said (Claude Code shapes it when writing back). */
 export async function action({ request, context }: Route.ActionArgs) {
   const env = context.cloudflare.env;
   const { chapterIds } = await requireOrganizer(env, request);

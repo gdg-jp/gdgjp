@@ -96,8 +96,6 @@ export type LinkRole = "editor" | "viewer";
 
 export type PrincipalType = "user" | "chapter";
 
-// ---------- Comments ----------
-
 export type Comment = {
   id: number;
   linkId: string;
@@ -125,8 +123,6 @@ export function toComment(row: CommentRow): Comment {
 }
 
 export const COMMENT_COLS = "id, link_id, author_user_id, body, created_at";
-
-// ---------- Permissions ----------
 
 export type LinkPermission = {
   id: number;

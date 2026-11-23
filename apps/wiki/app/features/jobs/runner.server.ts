@@ -16,22 +16,13 @@ type Job = typeof schema.agentJobs.$inferSelect;
 
 export const LEASE_SECONDS = 20 * 60;
 export const MAX_ATTEMPTS = 3;
-/** Jobs that work from a whole-space clone: never two at once for one space. */
 const CLONE_JOBS: readonly AgentJobType[] = ["synthesize", "consolidate"];
 
-/**
- * Lease the next runnable job of the given types, atomically. Clone jobs of a space that
- * already has one leased are skipped (one clone per space at a time), so two runners can
- * never push conflicting versions of the same space.
- */
 export async function leaseNextJob(
   db: Db,
   input: { types: readonly AgentJobType[]; host: string; now?: Date },
 ): Promise<Job | null> {
   if (input.types.length === 0) return null;
-  // A runner that died mid-job (restart, crash) stops extending its lease. Return such jobs
-  // now rather than at the hourly cron: until then the leased row blocks every clone job of
-  // its space. Same attempt accounting as the cron.
   await requeueExpiredJobs(db, input.now);
   const now = Math.floor((input.now ?? new Date()).getTime() / 1000);
   const types = sql.join(
@@ -84,11 +75,6 @@ function parsePayload(job: Job): SynthesizePayload {
   }
 }
 
-/**
- * Record a runner's result. On a successful synthesize, the documents it integrated are
- * marked (`integrated_hash = content_hash`), their sources get `last_integrated_at`, and
- * everyone who asked for a change is notified.
- */
 export async function completeJob(
   env: Env,
   db: Db,
@@ -200,10 +186,6 @@ async function notifyRequesters(
   }
 }
 
-/**
- * Hourly, and before every lease: expired leases go back to the queue (3 attempts, then
- * failed); answers past their deadline expire (the asker already got the degraded reply).
- */
 export async function requeueExpiredJobs(db: Db, now = new Date()): Promise<number> {
   const nowSec = Math.floor(now.getTime() / 1000);
   await db.run(sql`
@@ -263,7 +245,6 @@ export async function recordRunnerHeartbeat(
     });
 }
 
-/** Newest runner heartbeat (null = never). Stage 05 answers degrade when this is stale. */
 export async function latestRunnerHeartbeat(db: Db): Promise<Date | null> {
   const row = await db
     .select({ lastSeenAt: schema.runnerStatus.lastSeenAt })
@@ -274,10 +255,6 @@ export async function latestRunnerHeartbeat(db: Db): Promise<Date | null> {
   return row?.lastSeenAt ?? null;
 }
 
-/**
- * Hourly: if no runner has been heard from for 10 minutes, alert once (Discord webhook in
- * RUNNER_ALERT_WEBHOOK_URL when set, else the Worker log) until a heartbeat clears it.
- */
 export async function alertIfRunnerDown(env: Env, db: Db, now = new Date()): Promise<boolean> {
   const rows = await db.select().from(schema.runnerStatus).all();
   const stale = rows.filter(

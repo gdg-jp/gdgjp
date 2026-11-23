@@ -39,11 +39,6 @@ export type CompleteOutcome = {
   error?: string;
 };
 
-/**
- * Import a runner result. The runner is not trusted: the output is validated against the
- * Skill's schema here, then every saved version is checked against the Playbook. A MUST
- * failure gets one automatic fix job; a fix's own result goes to review as is.
- */
 export async function importResult(
   db: D1Database,
   job: Job,
@@ -244,7 +239,6 @@ async function saveVersion(
   return { mustFails: fails };
 }
 
-/** One fix per version: a fix never queues another fix. */
 async function maybeFix(
   db: D1Database,
   job: Job,
@@ -274,7 +268,6 @@ async function briefOf(
   );
 }
 
-/** Drafts left "generating" by a fix that failed for good go to review so a person sees them. */
 export async function releaseFailedFix(db: D1Database, job: Job): Promise<void> {
   if (job.type !== "fix") return;
   const target = (job.payload as { target: FixTarget }).target;

@@ -183,7 +183,6 @@ export async function createSpaceMember(
   member: { email: string; role?: MeetMemberRole },
   fetchFn?: GoogleFetch,
 ): Promise<MeetSpaceMember> {
-  // 通常の参加者（ノック不要）は role を省略して送信する（PoC 検証済み仕様）。
   const body = member.role ? { email: member.email, role: member.role } : { email: member.email };
   return googleJsonRequest<MeetSpaceMember>({
     accessToken,

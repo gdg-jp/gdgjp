@@ -11,11 +11,6 @@ type Props = {
   className?: string;
 };
 
-/**
- * One line of the spoken text that slides with the playhead: spoken
- * characters are bright, upcoming ones muted, and the line scrolls so the
- * caret stays in view (flush left at the start, flush right at the end).
- */
 export function ScrollingText({ segments, durationMs, getMs, className }: Props) {
   const viewRef = useRef<HTMLDivElement>(null);
   const textRef = useRef<HTMLSpanElement>(null);
@@ -29,7 +24,6 @@ export function ScrollingText({ segments, durationMs, getMs, className }: Props)
     const span = textRef.current;
     if (!view || !span) return;
 
-    // x of the left edge of every character (+ the end), measured once per layout.
     let edges: number[] = [];
     let viewWidth = 0;
     const measure = () => {

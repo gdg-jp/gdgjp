@@ -24,10 +24,8 @@ import { pageInSpace } from "./page-space.server";
 
 type WikiDb = ReturnType<typeof getDb>;
 
-/** Data assembly behind the `/wiki/*` page loader. */
 export async function loadWikiPage({ request, context, params }: LoaderFunctionArgs) {
   const { env } = context.cloudflare;
-  // Outer layer first: the space must be reachable, then the inner page ACL runs.
   const { space, role: spaceRole, identity } = await requireSpace(request, env, params.space);
   const sessionUser = identity.user;
   const db = getDb(env);
@@ -68,8 +66,6 @@ export async function loadWikiPage({ request, context, params }: LoaderFunctionA
 
   const permissions = await getEffectivePagePermissions(db, page, sessionUser, identity.chapters);
   if (!permissions.canView) {
-    // A shared link opened while signed out: offer sign-in and come back here, instead of a
-    // 404 that reads as "this page was deleted".
     if (!sessionUser) {
       const here = new URL(request.url);
       throw redirect(`/signin?return_to=${encodeURIComponent(here.pathname + here.search)}`);
@@ -159,7 +155,6 @@ export async function loadWikiPage({ request, context, params }: LoaderFunctionA
   const langParam = url.searchParams.get("lang");
   const lang: "ja" | "en" = langParam === "ja" || langParam === "en" ? langParam : "ja";
 
-  // Fire-and-forget view tracking
   if (sessionUser) {
     context.cloudflare.ctx.waitUntil(rememberLastSpace(env, sessionUser.id, space.id));
     context.cloudflare.ctx.waitUntil(
@@ -174,8 +169,6 @@ export async function loadWikiPage({ request, context, params }: LoaderFunctionA
     );
   }
 
-  // The body carries its sources so inline `(source: id)` citations render as links at once.
-  // Agent pages cite a source id or a source-document id, not always one linked to the page.
   const content = Promise.all([
     redactPageMarkdown(db, canonicalMarkdown(page.contentJa), sessionUser, identity.chapters),
     redactPageMarkdown(db, canonicalMarkdown(page.contentEn), sessionUser, identity.chapters),
@@ -186,7 +179,6 @@ export async function loadWikiPage({ request, context, params }: LoaderFunctionA
     sourceRefs,
   }));
 
-  // Parents (root first) for the breadcrumb above the title.
   const ancestors = chain.slice(0, -1).map((a) => ({
     slug: a.slug,
     titleJa: a.titleJa,
@@ -218,7 +210,6 @@ export async function loadWikiPage({ request, context, params }: LoaderFunctionA
     currentUserId: sessionUser?.id ?? null,
     isAuthenticated: !!sessionUser,
     canComment: permissions.canComment,
-    // Agent pages: people ask the agent instead of editing (§8-6).
     canAskAgent: page.origin === "agent" && canEditInSpace && permissions.canView,
     canEdit:
       canHumanEditPage(page) &&
@@ -233,7 +224,6 @@ export async function loadWikiPage({ request, context, params }: LoaderFunctionA
   };
 }
 
-/** Favorite toggle / archive / author change behind the `/wiki/*` action. */
 export async function handleWikiPageAction({ request, context, params }: ActionFunctionArgs) {
   const { env } = context.cloudflare;
   const sessionUser = await requireUser(request, env);

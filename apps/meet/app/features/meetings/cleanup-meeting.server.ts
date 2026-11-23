@@ -42,14 +42,6 @@ function isNoActiveConferenceError(error: GoogleApiError): boolean {
   );
 }
 
-/**
- * 取り消し済み会議の Meet スペースを後始末する `cleanup_meeting` ジョブ本体。
- * 1. `meetings` を読み、不在・未取り消し・`space_name` 未設定なら終了
- * 2. 登録中の Meet メンバー（共有ホスト自身を除く）を全件削除
- * 3. `spaces.patch` で `accessType` を `RESTRICTED` に戻す
- * 4. `endActiveConference` で進行中会議を終了（進行中会議が無い 404 / FAILED_PRECONDITION は正常扱い）
- * 5. 既に共有済みの Drive ファイル権限には一切触れない
- */
 export async function cleanupCanceledMeeting(
   env: Env,
   meetingId: string,

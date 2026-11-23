@@ -24,7 +24,6 @@ import {
 import type { ClientMessage, Message, Peer } from "../../protocol";
 import { ChatLog } from "../ChatLog";
 
-/** Bilingual so any speaker can read them without a language setting. */
 export const CUE_PRESETS: Array<{ icon: ReactNode; label: string; text: string }> = [
   { icon: <Timer size={16} />, label: "残り 5 分", text: "残り 5 分です / 5 minutes left" },
   { icon: <FastForward size={16} />, label: "巻いて", text: "巻いてください / Please wrap up" },
@@ -35,10 +34,8 @@ export const CUE_PRESETS: Array<{ icon: ReactNode; label: string; text: string }
   },
 ];
 
-/** Radix Select items cannot have an empty value; this stands for "everyone". */
 const ALL = "all";
 
-/** Chat and cue cards (カンペ) toward one speaker or everyone. */
 export function MessagePanel({
   speakers,
   messages,

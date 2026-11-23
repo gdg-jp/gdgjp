@@ -1,8 +1,3 @@
-/**
- * The wiki's Bearer API, called as the signed-in person with their GDG Japan Accounts token.
- * This Worker never decides who may see what: spaces, page ACLs and redaction are the
- * wiki's, exactly as for `gdg wiki` (CLI) and the agent Worker.
- */
 export class WikiApiError extends Error {
   constructor(
     readonly status: number,
@@ -26,7 +21,6 @@ export type WikiClient = {
 };
 
 export function wikiClient(input: {
-  /** The WIKI service binding, or global fetch in local dev. */
   fetcher: { fetch(input: string, init?: RequestInit): Promise<Response> };
   origin: string;
   accessToken: string;

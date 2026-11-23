@@ -17,9 +17,7 @@ export function BlurhashPlaceholder({
       const image = new ImageData(width, width);
       image.data.set(pixels);
       context.putImageData(image, 0, 0);
-    } catch {
-      // An invalid placeholder must not prevent loading the original image.
-    }
+    } catch {}
   }, [hash]);
 
   return hash ? (

@@ -21,14 +21,12 @@ import {
   saveChatSenderName,
 } from "../../../workers/features/sources/chat-sender-registry";
 
-/** Data assembly behind the `/sources` loader — see `app/routes/sources/page.tsx`. */
 export async function loadSourcesPageData(
   request: Request,
   env: Env,
   spaceSlug: string | undefined,
 ) {
   const user = await requireUser(request, env);
-  // Outer layer: only this space's sources, then canAccessSource inside it.
   const { space, role, identity } = await requireSpace(request, env, spaceSlug);
   const db = getDb(env);
 
@@ -70,9 +68,6 @@ export async function loadSourcesPageData(
       documentsBySource.set(doc.sourceId, list);
     }
 
-    // Chapter labels come from Accounts (same directory ShareDialog uses). Wiki's
-    // local `chapters` table is not kept in sync with memberships, so reading it
-    // left the picker empty and Radix Select appeared not to open.
     const directoryChapters = await loadChapterDirectory(env).catch((error) => {
       console.error("[sources] unable to load chapter directory", error);
       return [];
@@ -108,8 +103,6 @@ export async function loadSourcesPageData(
     const allChapters = [...chapterById.values()].sort((a, b) =>
       a.nameJa.localeCompare(b.nameJa, "ja"),
     );
-    // Only chapters the user may actually assign, so the picker cannot offer a scope
-    // the action would reject.
     const assignableChapters = user.isAdmin
       ? allChapters
       : identity.chapterIds
@@ -135,7 +128,6 @@ export async function loadSourcesPageData(
       const source = visible.find((item) => item.id === sample.sourceId);
       return source !== undefined;
     });
-    // Profiles are one row per sender — select all instead of an unbounded inArray.
     const profiles = await db
       .select({
         resourceName: schema.googleChatSenderProfiles.resourceName,
@@ -156,8 +148,6 @@ export async function loadSourcesPageData(
         return {
           ...source,
           documents: docs,
-          // "Fetched" ≠ "in the wiki": documents whose current content the runner has not
-          // integrated into pages yet.
           pendingIntegration: docs.filter(
             (doc) => doc.status === "ready" && doc.integratedHash !== doc.contentHash,
           ).length,
@@ -176,7 +166,6 @@ export async function loadSourcesPageData(
   };
 }
 
-/** Intent dispatch behind the `/sources` action — see `app/routes/sources/page.tsx`. */
 export async function handleSourcesAction(
   env: Env,
   form: FormData,
@@ -185,7 +174,6 @@ export async function handleSourcesAction(
   space: { id: string },
 ) {
   const intent = String(form.get("intent") ?? "create");
-  // Every intent that names a source must stay inside the current space.
   const namedSourceId = form.get("sourceId");
   if (typeof namedSourceId === "string" && namedSourceId) {
     const owner = await getDb(env)
@@ -213,8 +201,6 @@ export async function handleSourcesAction(
         chapters: identity.chapters,
       });
 
-      // `createSource` persists an error source when queue delivery fails. It must leave
-      // the staging list so retrying cannot create a duplicate source.
       if (result.ok || result.error === "enqueue_failed") {
         addedIds.push(candidate.id);
       } else {
@@ -276,7 +262,6 @@ export async function handleSourcesAction(
   }
 
   if (intent === "integrate-now") {
-    // "Integrate now": lift the hourly wait, with every document not integrated yet.
     await integrateNow(getDb(env), space.id);
     return { ok: true as const };
   }
@@ -337,7 +322,6 @@ export async function handleSourcesAction(
   return { ok: false as const, error: "unknown_intent" };
 }
 
-/** Space-level state of the synthesize queue for the sources screen. */
 async function loadIntegrationSummary(db: ReturnType<typeof getDb>, spaceId: string) {
   const rows = await db
     .select({

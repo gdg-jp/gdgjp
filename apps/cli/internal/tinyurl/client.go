@@ -1,7 +1,3 @@
-// Package tinyurl is the gdg CLI client for the tinyurl (url.gdgs.jp)
-// authenticated CLI/agent API: links, tags, folders, custom domains, and
-// campaigns with channels, sources, and aggregate analytics. It wraps the
-// generated OpenAPI client in openapigen.
 package tinyurl
 
 import (
@@ -38,7 +34,6 @@ func (e *HTTPError) Error() string {
 
 func (e *HTTPError) HTTPStatus() int { return e.StatusCode }
 
-// Typed models re-exported so command code and tests never import openapigen.
 type (
 	Domain                           = openapigen.Domain
 	DomainList                       = openapigen.DomainList
@@ -57,34 +52,27 @@ type (
 	CliArchiveResult                 = openapigen.CliArchiveResult
 )
 
-// Page carries the API's common --limit/--cursor pagination flags. Nil
-// fields are omitted from the request.
 type Page struct {
 	Limit  *int
 	Cursor *string
 }
 
-// ListLinksOptions narrows a links list. Nil fields are omitted.
 type ListLinksOptions struct {
 	FolderID *int
 	TagID    *int
 	Page
 }
 
-// ListDomainsOptions narrows a domains list. Nil fields are omitted.
 type ListDomainsOptions struct {
 	ChapterID *int
 	Page
 }
 
-// ListCampaignOptions narrows a campaigns/channels/sources list.
 type ListCampaignOptions struct {
 	IncludeArchived *bool
 	Page
 }
 
-// AnalyticsOptions is the bounded window for campaign analytics. From and To
-// are required; Bucket is optional ("hour" or "day").
 type AnalyticsOptions struct {
 	From   time.Time
 	To     time.Time
@@ -123,9 +111,6 @@ func bearer(token string) openapigen.RequestEditorFn {
 	}
 }
 
-// query adds fixed query parameters to a request. Used for the tags/folders
-// list endpoints, whose generated methods take no typed params but whose
-// server honours the shared --limit/--cursor flags.
 func query(params map[string]string) openapigen.RequestEditorFn {
 	return func(_ context.Context, request *http.Request) error {
 		q := request.URL.Query()
@@ -160,8 +145,6 @@ func decodeResponse[T any](status int, body []byte, out *T) error {
 	return json.Unmarshal(body, out)
 }
 
-// errorMessage extracts the server's { "error": string } envelope, falling
-// back to the raw trimmed body when it isn't that shape.
 func errorMessage(body []byte) string {
 	var envelope struct {
 		Error string `json:"error"`
@@ -172,8 +155,6 @@ func errorMessage(body []byte) string {
 	return strings.TrimSpace(string(body))
 }
 
-// raw passes an endpoint's success body straight through, so a command's
-// stdout is byte-for-byte the server's response. Non-2xx becomes *HTTPError.
 func raw(status int, body []byte) (json.RawMessage, error) {
 	if status < 200 || status >= 300 {
 		return nil, &HTTPError{StatusCode: status, Message: errorMessage(body)}
@@ -188,8 +169,6 @@ func jsonReader(body map[string]any) (io.Reader, error) {
 	}
 	return bytes.NewReader(payload), nil
 }
-
-// --- links -----------------------------------------------------------------
 
 func (c *Client) ListLinks(ctx context.Context, token string, options ListLinksOptions) (json.RawMessage, error) {
 	params := &openapigen.ListCliLinksParams{
@@ -245,8 +224,6 @@ func (c *Client) DeleteLink(ctx context.Context, token, id string) (json.RawMess
 	return raw(res.StatusCode(), res.Body)
 }
 
-// --- tags ----------------------------------------------------------------
-
 func (c *Client) ListTags(ctx context.Context, token string, page Page) (json.RawMessage, error) {
 	res, err := c.generatedClient().ListCliTagsWithResponse(ctx, bearer(token), query(page.query()))
 	if err != nil {
@@ -286,8 +263,6 @@ func (c *Client) DeleteTag(ctx context.Context, token string, id int) (json.RawM
 	}
 	return raw(res.StatusCode(), res.Body)
 }
-
-// --- folders -------------------------------------------------------------
 
 func (c *Client) ListFolders(ctx context.Context, token string, page Page) (json.RawMessage, error) {
 	res, err := c.generatedClient().ListCliFoldersWithResponse(ctx, bearer(token), query(page.query()))
@@ -336,8 +311,6 @@ func (c *Client) DeleteFolder(ctx context.Context, token string, id int) (json.R
 	}
 	return raw(res.StatusCode(), res.Body)
 }
-
-// --- domains -----------------------------------------------------------------
 
 func (c *Client) ListDomains(ctx context.Context, token string, options ListDomainsOptions) (DomainList, error) {
 	params := &openapigen.ListCliDomainsParams{
@@ -397,8 +370,6 @@ func (c *Client) DeleteDomain(ctx context.Context, token string, id int) (Domain
 	err = decodeResponse(res.StatusCode(), res.Body, &out)
 	return out, err
 }
-
-// --- campaigns -----------------------------------------------------------------
 
 func (c *Client) ListCampaigns(ctx context.Context, token string, options ListCampaignOptions) (CliCampaignList, error) {
 	params := &openapigen.ListCliCampaignsParams{
@@ -473,8 +444,6 @@ func (c *Client) RestoreCampaign(ctx context.Context, token string, id int) (Cli
 	return out, err
 }
 
-// --- campaign channels -----------------------------------------------------
-
 func (c *Client) ListChannels(ctx context.Context, token string, campaignID int, options ListCampaignOptions) (CliCampaignChannelList, error) {
 	params := &openapigen.ListCliCampaignChannelsParams{
 		IncludeArchived: options.IncludeArchived,
@@ -537,8 +506,6 @@ func (c *Client) RestoreChannel(ctx context.Context, token string, campaignID, c
 	err = decodeResponse(res.StatusCode(), res.Body, &out)
 	return out, err
 }
-
-// --- campaign channel sources --------------------------------------------
 
 func (c *Client) ListSources(ctx context.Context, token string, campaignID, channelID int, options ListCampaignOptions) (CliCampaignChannelSourceList, error) {
 	params := &openapigen.ListCliCampaignChannelSourcesParams{
@@ -603,13 +570,8 @@ func (c *Client) RestoreSource(ctx context.Context, token string, campaignID, ch
 	return out, err
 }
 
-// --- campaign analytics --------------------------------------------------
-
-// MaxAnalyticsRangeDays mirrors the server's cap (campaign-cli-analytics.ts).
 const MaxAnalyticsRangeDays = 366
 
-// ValidateAnalyticsWindow performs the same order/366-day checks the server
-// does, so the CLI rejects a bad window before calling the API.
 func ValidateAnalyticsWindow(from, to time.Time) error {
 	if from.After(to) {
 		return fmt.Errorf("--from must not be after --to")

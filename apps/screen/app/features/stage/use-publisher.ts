@@ -14,14 +14,8 @@ import type { SocketStatus } from "./reliable-socket";
 
 const QUALITY_MS = 2000;
 
-/** Track names are fixed per page; the SFU session id tells pages apart. */
 const TRACK_NAMES = { mic: "mic", camera: "camera", screen: "screen", screenAudio: "screenAudio" };
 
-/**
- * Feeds this page's capture into its SFU session and keeps the room told
- * what it publishes. Re-reports on every socket (re)open, because operators
- * are forgotten by the room when they disconnect.
- */
 export function usePublisher({
   manager,
   snapshot,
@@ -37,10 +31,8 @@ export function usePublisher({
   media: LocalMedia;
   socketStatus: SocketStatus;
   send: (msg: ClientMessage) => boolean;
-  /** Whether the mic is actually audible (mute toggle / push-to-talk). */
   micLive: boolean;
   talking?: boolean;
-  /** The operator's choice for this page (speakers); operators keep the default. */
   denoise?: DenoiseSetting;
 }): Quality | null {
   const camera = media.camOn ? media.camera : null;

@@ -1,19 +1,6 @@
 import type { Phase, TimeSlot } from "~/features/schedule/schedule.server";
 import type { Demand, DemandValue } from "./types";
 
-/**
- * Row/column assembly for the demand matrix on `/e/:id/design`
- * (docs/roster/03-demand-input.md "Design" §3, §4). Pure — no D1, no React.
- *
- * Two axes are independent of each other:
- *  - **Columns** — the (track, role) pairs that have at least one real
- *    demand row. Showing every possible combination would be unreadable
- *    (§3(c): "6 役割 × 4 トラック = 24 列を全部出すと読めない").
- *  - **Rows** — either one row per phase (writing to a phase-row cell
- *    fans the same value out to every time slot in that phase) or one row
- *    per time slot (§3(a)).
- */
-
 export type MatrixMode = "phase" | "slot";
 
 export type DemandColumn = { trackId: string; roleId: string };
@@ -22,17 +9,10 @@ export function columnKey(trackId: string, roleId: string): string {
   return `${trackId}:${roleId}`;
 }
 
-/** Synthetic phase-row key for time slots with `phaseId === null` (Stage 02 allows this). */
 export const UNPHASED_ROW_KEY = "__unphased__";
 
 const ZERO_VALUE: DemandValue = { min: 0, ideal: 0, leadMin: 0, newMax: 0 };
 
-/**
- * `ideal === 0` and "no row" are the same "no demand" state (types.ts
- * module doc) — collapse both to the same zero value before any comparison
- * so uniformity/emptiness checks don't have to special-case which form a
- * given slot happens to be in.
- */
 function demandValue(d: Demand | undefined): DemandValue {
   if (!d || d.ideal === 0) return ZERO_VALUE;
   return { min: d.min, ideal: d.ideal, leadMin: d.leadMin, newMax: d.newMax };
@@ -49,7 +29,6 @@ export type MatrixCell =
 export type MatrixRow = {
   key: string;
   label: string;
-  /** Time slots a write to this row's cells fans out to (1 element for a slot row). */
   timeSlotIds: string[];
   cells: Map<string, MatrixCell>;
 };
@@ -57,7 +36,6 @@ export type MatrixRow = {
 type SortableTrack = { id: string; sortOrder: number };
 type SortableRole = { id: string; sortOrder: number };
 
-/** Only the (track, role) pairs with at least one `ideal > 0` demand row, ordered by track then role sort order. */
 export function buildColumns(
   demands: readonly Demand[],
   tracks: readonly SortableTrack[],
@@ -98,7 +76,6 @@ function indexDemandsBySlot(demands: readonly Demand[]): Map<string, Map<string,
   return bySlot;
 }
 
-/** One row per time slot — editing a cell here overwrites only that slot (docs/roster/03-demand-input.md "Design" §3(a)). */
 export function buildSlotRows(
   timeSlots: readonly TimeSlot[],
   demands: readonly Demand[],
@@ -135,9 +112,6 @@ function buildPhaseRow(
       cells.set(colKey, { kind: "empty" });
       continue;
     }
-    // Representative value shown on the phase row: the first slot's value.
-    // `uniform` (not this choice of representative) is what callers must
-    // check before trusting it applies to every slot in the phase.
     const representative = values[0] ?? ZERO_VALUE;
     const uniform = values.every((v) => sameValue(v, representative));
     cells.set(colKey, { kind: "value", value: representative, uniform });
@@ -145,16 +119,6 @@ function buildPhaseRow(
   return { key, label, timeSlotIds: slots.map((s) => s.id), cells };
 }
 
-/**
- * One row per phase — editing a cell here fans the value out to every time
- * slot in that phase (docs/roster/03-demand-input.md "Design" §3(a)). A
- * cell shows `uniform: false` when the phase's slots disagree, which the
- * UI renders as a `*` suffix (§3(a), §Verification #3).
- *
- * Slots with `phaseId === null` (Stage 02 allows this) are grouped into a
- * trailing synthetic row keyed `UNPHASED_ROW_KEY` so their demand stays
- * visible and editable in phase view, rather than disappearing silently.
- */
 export function buildPhaseRows(
   phases: readonly Phase[],
   timeSlots: readonly TimeSlot[],
@@ -180,7 +144,6 @@ export function buildPhaseRows(
   return rows;
 }
 
-/** Expands a clicked row + mode into the concrete time slots a write should fan out to — used by the route action to build a bulk write. */
 export function timeSlotIdsForTarget(
   mode: MatrixMode,
   rowKey: string,

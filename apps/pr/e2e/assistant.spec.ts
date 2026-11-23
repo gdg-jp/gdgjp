@@ -3,8 +3,6 @@ import { type APIRequestContext, expect, test } from "@playwright/test";
 import { CAPTURE_URL } from "./capture-server";
 import { createCampaign } from "./helpers";
 
-// The assistant: a person pastes a page and a file, the Worker collects them (text and images),
-// the runner answers with a brief and buttons, and the assistant presses the internal ones.
 const brief = JSON.parse(
   readFileSync(
     new URL(
@@ -110,7 +108,6 @@ test("the assistant reads a pasted page and its image, rewrites the brief, and s
       },
     ],
   }));
-  // What the Worker collected: the page's text (contacts masked), its image, and the file.
   const sourceText = Object.entries(bundle.files).find(([p]) => /^sources\/\d+\.txt$/.test(p))?.[1];
   expect(sourceText).toContain("E2E Meetup");
   expect(sourceText).not.toContain("staff@example.com");
@@ -125,7 +122,6 @@ test("the assistant reads a pasted page and its image, rewrites the brief, and s
   await expect(page.getByText("予算はいくらですか？", { exact: true })).toBeVisible();
   await expect(page.getByRole("link", { name: "予定表を見る" })).toBeVisible();
   await expect(page.getByRole("link", { name: "外へ" })).toHaveCount(0);
-  // The assistant offered the plan and pressed it itself (chapter default: auto).
   await expect(page.getByText("計画を作る: 計画を作り始めました")).toBeVisible();
 
   await page.goto("/");
@@ -133,7 +129,6 @@ test("the assistant reads a pasted page and its image, rewrites the brief, and s
   await expect(mine.filter({ hasText: "秘書から質問: 予算はいくらですか？" })).toBeVisible();
   await expect(mine.filter({ hasText: "計画を作っています" })).toBeVisible();
 
-  // The sidebar's chapter decides what every list shows.
   await page.getByRole("button", { name: "チャプターを切り替える" }).click();
   await page.getByRole("menuitem", { name: "GDG Kyoto" }).click();
   await expect(page).toHaveURL(/\/events$/);

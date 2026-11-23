@@ -89,7 +89,6 @@ export function canReadGroup(identity: BearerIdentity, group: AllowedGroup): boo
   return identity.chapters.some((c) => String(c.chapterId) === String(group.chapterId));
 }
 
-/** Organizer access to an allowlisted connpass group or Luma calendar. */
 export function canWriteGroup(
   identity: BearerIdentity,
   group: Pick<AllowedGroup, "chapterId" | "enabled">,
@@ -102,11 +101,6 @@ export function canWriteGroup(
   );
 }
 
-/**
- * Organizer of at least one enabled allowlisted connpass group. connpass reception
- * QR check-in opens the URL as the bot without resolving the event's group, so it
- * is gated on this instead of a per-group check.
- */
 export async function canWriteAnyGroup(db: D1Database, identity: BearerIdentity): Promise<boolean> {
   if (identity.user.isAdmin) return true;
   const chapterIds = identity.chapters

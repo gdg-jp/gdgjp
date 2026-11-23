@@ -25,7 +25,6 @@ function NoticeAction({ notice }: { notice: Notice }) {
   );
 }
 
-/** Notices grouped (返事待ち, 提案, 今日の予定, 秘書が動いています), one button per line. */
 export function NoticeList({
   notices,
   showCampaign = true,

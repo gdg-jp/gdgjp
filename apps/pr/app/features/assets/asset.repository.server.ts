@@ -176,7 +176,6 @@ export async function finishRender(
     .run();
 }
 
-/** Compare-and-set, so a double click approves (and uploads) once. */
 export async function moveAsset(
   db: D1Database,
   id: number,
@@ -202,10 +201,6 @@ export async function setPublished(db: D1Database, id: number, imgId: string, im
     .run();
 }
 
-/**
- * An older image for the same purpose is replaced by a new one. Kit directions are not: they are
- * compared side by side until one is adopted.
- */
 export async function supersedeOthers(
   db: D1Database,
   asset: {
@@ -234,7 +229,6 @@ export async function supersedeOthers(
     .run();
 }
 
-/** The campaign's adopted kit (the face) and its pending directions. */
 export async function kitAssets(
   db: D1Database,
   campaignId: number,
@@ -257,7 +251,6 @@ export async function kitAssets(
   };
 }
 
-/** Adopt one direction: the campaign points at it, it is approved, the other pending ones are rejected. */
 export async function adoptKit(
   db: D1Database,
   campaignId: number,

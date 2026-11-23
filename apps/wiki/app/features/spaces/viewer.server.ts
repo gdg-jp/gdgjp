@@ -12,7 +12,6 @@ export type ViewerContext = {
   lastSpaceId: string | null;
 };
 
-/** Identity + reachable spaces + display preferences for listing screens. */
 export async function loadViewerContext(
   request: Request,
   env: Env,

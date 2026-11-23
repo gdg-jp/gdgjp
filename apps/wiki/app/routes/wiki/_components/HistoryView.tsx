@@ -106,13 +106,11 @@ function HistoryContent({
 
   return (
     <div className="flex flex-1 gap-0 px-4 py-4 md:px-10 md:py-6">
-      {/* Left: version list */}
       <aside className="mr-6 w-56 shrink-0 border-r border-border pr-4">
         {versions.length === 0 ? (
           <p className="text-sm text-muted/70">{t("wiki.history_empty")}</p>
         ) : (
           <ul className="space-y-1">
-            {/* "Current" entry linking back to live page */}
             <li>
               <Link
                 to={page.wikiPath}
@@ -155,9 +153,7 @@ function HistoryContent({
         )}
       </aside>
 
-      {/* Right: content preview */}
       <div className="min-w-0 flex-1">
-        {/* Language tabs + Preview/Diff toggle */}
         <div className="mb-4 flex items-center justify-between gap-2">
           <div className="flex w-fit shrink-0 gap-1 rounded-md border border-border bg-surface p-0.5">
             {(["ja", "en"] as const).map((l) => {
@@ -295,7 +291,6 @@ export function HistoryView({ page, lang, historyData }: HistoryLoaderData) {
 
   return (
     <div className="flex min-h-full flex-col">
-      {/* Mini-header */}
       <div className="flex items-center justify-between gap-2 border-b border-border px-4 py-2 md:px-10">
         <Link to={page.wikiPath} className="text-sm text-muted hover:text-foreground">
           ← {pageTitle}

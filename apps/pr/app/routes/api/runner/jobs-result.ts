@@ -5,7 +5,6 @@ import { readJson, requireRunner, runnerHost } from "~/features/jobs/runner-auth
 import type { RunnerResult } from "~/features/jobs/shared";
 import type { Route } from "./+types/jobs-result";
 
-/** POST /api/runner/jobs/:id/result — import the output (validated and checked here) and finish. */
 export async function action({ request, context, params }: Route.ActionArgs) {
   const { env } = context.cloudflare;
   await requireRunner(request, env);

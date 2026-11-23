@@ -1,10 +1,3 @@
-/**
- * Read-only virtual filesystem contracts exposed to the generation model.
- *
- * Adapters receive paths relative to their mount ("" is their root). The
- * router is the only component which accepts absolute workspace paths.
- */
-
 export const WORKSPACE_LIMITS = {
   defaultDirectoryEntries: 25,
   maxDirectoryEntries: 50,
@@ -17,16 +10,11 @@ export const WORKSPACE_LIMITS = {
 } as const;
 
 export type WorkspaceEntry = {
-  /** One segment, never an absolute path. */
   name: string;
-  /** Absolute path as visible to the model. The router adds the mount. */
   path: string;
-  /** A resource can be both readable and contain descendants. */
   readable: boolean;
-  /** `unknown` preserves lazy hierarchy resolution without N+1 reads. */
   hasChildren: boolean | "unknown";
   title?: string;
-  /** Page summary, truncated for ls payloads. */
   summary?: string;
 };
 
@@ -56,10 +44,6 @@ export type SearchResult = { matches: SearchMatch[]; nextCursor: string | null }
 
 export type AdapterResult<T> = { data: T; truncated: boolean };
 
-/**
- * An adapter owns one mounted source. All of its paths are relative and may
- * not begin with `/`; this prevents one adapter from escaping into another.
- */
 export interface WorkspaceAdapter {
   ls(path: string, options?: ListOptions): Promise<AdapterResult<ListResult>>;
   cat(path: string, options?: ReadOptions): Promise<AdapterResult<ReadResult>>;

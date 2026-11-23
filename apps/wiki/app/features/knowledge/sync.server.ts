@@ -10,9 +10,7 @@ import { rawItemKey } from "./shared";
 
 type Db = ReturnType<typeof getDb>;
 
-/** Uploads + deletes per call; the queue continues the rest (Worker subrequest budget). */
 const MAX_OPERATIONS = 60;
-/** Raw documents larger than the Items API text limit are not indexed. */
 const MAX_RAW_BYTES = 4 * 1024 * 1024;
 
 export type KnowledgeSyncMessage = { type: "knowledge_sync"; spaceId: string };
@@ -26,13 +24,11 @@ export function isKnowledgeSyncQueueBody(body: unknown): body is KnowledgeSyncMe
   );
 }
 
-/** Ask the queue to bring a space's index up to date (after a page save or an import). */
 export async function scheduleKnowledgeSync(env: Env, spaceId: string): Promise<void> {
   if (!knowledgeBinding(env)) return;
   try {
     await env.SOURCE_FETCH_QUEUE.send({ type: "knowledge_sync", spaceId });
   } catch (error) {
-    // The hourly reconcile catches up.
     console.error("[knowledge] could not schedule sync", spaceId, error);
   }
 }
@@ -82,7 +78,6 @@ async function removeItem(db: Db, instance: KnowledgeInstance, row: Tracked) {
     try {
       await instance.items.delete(row.itemId);
     } catch (error) {
-      // Already gone is fine; anything else is retried by the next sync.
       if (!/not exist|not found|404/i.test(String(error))) throw error;
     }
   }
@@ -96,12 +91,6 @@ async function removeItem(db: Db, instance: KnowledgeInstance, row: Tracked) {
     );
 }
 
-/**
- * Bring one space's AI Search instance in line with D1 (the source of truth):
- * published pages (mirror per `buildPageMirror`, versioned by sync_revision) and ready raw
- * documents (versioned by content hash + audience, so a visibility change re-tags them).
- * Items whose subject is gone are deleted. Returns `done: false` when the budget ran out.
- */
 export async function syncSpaceKnowledge(
   env: Env,
   spaceId: string,
@@ -127,9 +116,6 @@ export async function syncSpaceKnowledge(
   }
   const seenSubjects = new Set<string>();
 
-  // --- pages ---------------------------------------------------------------
-  // Ids and revisions only; content is loaded just for pages whose mirror is stale (the
-  // editor schedules a sync on every autosave, so the common case must be cheap).
   const pageRevisions = await db
     .select({ id: schema.pages.id, syncRevision: schema.pages.syncRevision })
     .from(schema.pages)
@@ -206,10 +192,8 @@ export async function syncSpaceKnowledge(
     }
   }
 
-  // More stale pages than this call loaded: let the queue continue before raw work.
   if (stalePageIds.length > pages.length) return { done: false, uploaded, deleted };
 
-  // --- raw documents --------------------------------------------------------
   const readySources = sourceRows.filter((row) => row.status !== "archived");
   const documents =
     readySources.length === 0
@@ -264,7 +248,6 @@ export async function syncSpaceKnowledge(
     uploaded += 1;
   }
 
-  // --- subjects that no longer exist (archived / deleted / moved) ----------
   for (const [subjectKey, rows] of bySubject) {
     if (seenSubjects.has(subjectKey)) continue;
     for (const row of rows) {
@@ -277,13 +260,11 @@ export async function syncSpaceKnowledge(
   return { done: true, uploaded, deleted };
 }
 
-/** Queue consumer: sync, and continue through the queue while work remains. */
 export async function processKnowledgeSync(env: Env, message: KnowledgeSyncMessage): Promise<void> {
   let result: Awaited<ReturnType<typeof syncSpaceKnowledge>>;
   try {
     result = await syncSpaceKnowledge(env, message.spaceId);
   } catch (error) {
-    // Local dev / e2e: AI Search is remote-only. Ack instead of retrying forever.
     if (isRemoteOnlyBindingError(error)) {
       console.warn("knowledge: AI Search binding unavailable locally; sync skipped");
       return;
@@ -302,7 +283,6 @@ function isRemoteOnlyBindingError(error: unknown): boolean {
   );
 }
 
-/** Hourly: schedule a sync of every space (cheap when nothing changed). */
 export async function scheduleAllKnowledgeSyncs(env: Env, db: Db): Promise<number> {
   const spaces = await db.select({ id: schema.spaces.id }).from(schema.spaces).all();
   for (const space of spaces) await scheduleKnowledgeSync(env, space.id);

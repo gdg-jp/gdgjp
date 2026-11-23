@@ -33,15 +33,6 @@ type DeskRow = {
   created_at: number;
 };
 
-/**
- * One board per OST event. Addressed as `env.OST_BOARD.getByName(slug)`.
- *
- * Topics, votes, merge groups and desks live in this DO's own SQLite (no D1).
- * Every connected client (`/ws?board=<slug>`) holds a hibernatable WebSocket
- * and receives the full {@link OstBoardState} on connect and after every
- * mutation. Participants submit / vote via route actions -> RPC; the sockets
- * are push-only.
- */
 export class OstBoard extends DurableObject<Env> {
   constructor(ctx: DurableObjectState, env: Env) {
     super(ctx, env);
@@ -49,8 +40,6 @@ export class OstBoard extends DurableObject<Env> {
       ensureOstBoardSchema(this.ctx.storage.sql);
     });
   }
-
-  // ─── Reads ──────────────────────────────────────────────────────────────────
 
   listState(): OstBoardState {
     return this.snapshot();
@@ -116,9 +105,6 @@ export class OstBoard extends DurableObject<Env> {
       .map((r) => r.topic_id);
   }
 
-  // ─── Topics ─────────────────────────────────────────────────────────────────
-
-  /** Append a topic. `text` is expected to be pre-normalized by the caller. */
   submitTopic(text: string): Topic {
     const clean = text.replace(/\s+/g, " ").trim().slice(0, MAX_TOPIC_LENGTH);
     if (clean.length === 0) throw new Error("empty topic");
@@ -156,9 +142,6 @@ export class OstBoard extends DurableObject<Env> {
     this.touch();
   }
 
-  // ─── Votes ──────────────────────────────────────────────────────────────────
-
-  /** Toggle one voter's 👍 on one topic. Returns the resulting state. */
   toggleVote(topicId: string, voterId: string): { voted: boolean } {
     if (!voterId) throw new Error("missing voter id");
     const exists = this.ctx.storage.sql
@@ -188,8 +171,6 @@ export class OstBoard extends DurableObject<Env> {
     return { voted: true };
   }
 
-  // ─── Merge groups ───────────────────────────────────────────────────────────
-
   mergeTopics(sourceId: string, targetId: string): void {
     if (!sourceId || !targetId || sourceId === targetId) return;
     const rows = this.ctx.storage.sql
@@ -218,8 +199,6 @@ export class OstBoard extends DurableObject<Env> {
       );
     }
 
-    // Move both topics (and, if the source carried a group, its whole group)
-    // into `groupId`.
     if (source.group_id && source.group_id !== groupId) {
       const old = source.group_id;
       this.ctx.storage.sql.exec("UPDATE topics SET group_id = ? WHERE group_id = ?", groupId, old);
@@ -258,8 +237,6 @@ export class OstBoard extends DurableObject<Env> {
       this.ctx.storage.sql.exec("DELETE FROM groups WHERE id = ?", groupId);
     }
   }
-
-  // ─── Desks ──────────────────────────────────────────────────────────────────
 
   addDesk(input: DeskInput): Desk {
     const nextOrder =
@@ -326,8 +303,6 @@ export class OstBoard extends DurableObject<Env> {
     this.touch();
   }
 
-  // ─── Assignment ─────────────────────────────────────────────────────────────
-
   autoAssignDesks(): void {
     const state = this.snapshot();
     this.ctx.storage.sql.exec("UPDATE topics SET desk_id = NULL");
@@ -350,8 +325,6 @@ export class OstBoard extends DurableObject<Env> {
     this.touch();
   }
 
-  // ─── WebSocket transport ────────────────────────────────────────────────────
-
   override async fetch(request: Request): Promise<Response> {
     if (request.headers.get("Upgrade")?.toLowerCase() !== "websocket") {
       return new Response("Expected WebSocket", { status: 426 });
@@ -364,23 +337,18 @@ export class OstBoard extends DurableObject<Env> {
     return new Response(null, { status: 101, webSocket: client });
   }
 
-  // The clients are push-only; ignore anything they send.
   async webSocketMessage(_ws: WebSocket, _message: ArrayBuffer | string): Promise<void> {}
 
   async webSocketClose(ws: WebSocket, code: number, reason: string): Promise<void> {
     try {
       ws.close(code, reason);
-    } catch {
-      // already closing
-    }
+    } catch {}
   }
 
   async webSocketError(ws: WebSocket): Promise<void> {
     try {
       ws.close(1011, "socket error");
-    } catch {
-      // already closing
-    }
+    } catch {}
   }
 
   private stateMessage(): BoardMessage {
@@ -392,9 +360,7 @@ export class OstBoard extends DurableObject<Env> {
     for (const ws of this.ctx.getWebSockets()) {
       try {
         ws.send(payload);
-      } catch {
-        // dropped; the close handler cleans it up
-      }
+      } catch {}
     }
   }
 }

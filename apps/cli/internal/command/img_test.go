@@ -485,9 +485,6 @@ func TestImgDelete(t *testing.T) {
 	}
 }
 
-// TestImgGetRetriesOnceOn401 pins the 401-refresh-retry-once path (cliutil.WithToken)
-// for the img command tree: a stale access token gets one refresh, then the
-// original request is retried exactly once with the fresh token.
 func TestImgGetRetriesOnceOn401(t *testing.T) {
 	var tokensSeen []string
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

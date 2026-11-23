@@ -16,8 +16,6 @@ export default defineConfig({
     reactRouter(),
     tailwindcss(),
   ],
-  // `@gdgjp/gdg-lib` is consumed as source; dedupe React so hydration sees one
-  // copy (same block as ost/roster/mc).
   resolve: { tsconfigPaths: true, dedupe: ["react", "react-dom", "react-router"] },
   optimizeDeps: {
     include: ["react", "react-dom", "react-dom/client", "react-router", "radix-ui", "lucide-react"],

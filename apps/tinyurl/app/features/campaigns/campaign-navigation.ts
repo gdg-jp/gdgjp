@@ -33,7 +33,6 @@ export function resolveCampaignScope(
   return { selectedChannelId, selectedLinkId };
 }
 
-/** The view parameter only selects already-loaded UI and does not affect loader data. */
 export function shouldReloadCampaign(
   currentUrl: URL,
   nextUrl: URL,

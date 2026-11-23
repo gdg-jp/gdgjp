@@ -28,7 +28,6 @@ export async function action({ request, context }: ActionFunctionArgs) {
   if (connpassCheckin) {
     checkIn = async () => {
       if (!(await canWriteAnyGroup(env.DB, identity))) return "forbidden";
-      // Fast path (KV cookies, no browser); the browser handles relogin and unclear pages.
       const fast = await checkInWithFetch(env, connpassCheckin.url).catch(() => null);
       return fast ?? (await checkInInBrowser(env, connpassCheckin.url));
     };
@@ -52,7 +51,6 @@ export async function action({ request, context }: ActionFunctionArgs) {
   try {
     const result = await checkIn();
     if (result === "forbidden") return Response.json({ error: "forbidden" }, { status: 403 });
-    // Promo lookup only on a fresh check-in; userId is null for Luma, so it yields null there.
     const promoCode =
       result.checkedIn && result.userId ? await env.PROMO_USERS_KV.get(result.userId) : null;
     return Response.json({ ...result, promoCode });

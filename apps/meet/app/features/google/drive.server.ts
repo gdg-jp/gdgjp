@@ -150,7 +150,6 @@ export async function deletePermission(
   });
 }
 
-/** Drive API の `400 invalidSharingRequest`（共有先 Google アカウント不在など）か判定する。 */
 export function isInvalidSharingRequestError(error: unknown): error is GoogleApiError {
   return (
     error instanceof GoogleApiError &&

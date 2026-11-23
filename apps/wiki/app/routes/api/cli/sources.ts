@@ -31,7 +31,6 @@ function toUnixSeconds(value: Date | number | null | undefined): number | null {
   return value;
 }
 
-/** GET /api/cli/wiki/sources — manifest of raw documents for gdg wiki raw pull. */
 export async function loader({ request, context }: LoaderFunctionArgs) {
   const { env } = context.cloudflare;
   const identity = await getCliOrRunnerIdentity(request, env);
@@ -41,7 +40,6 @@ export async function loader({ request, context }: LoaderFunctionArgs) {
   if (!lang) return Response.json({ error: "invalid_lang" }, { status: 400 });
 
   const db = getDb(env);
-  // `?space=<slug>` — raw material of one space only (default gdg-jp).
   const spaceSlug = new URL(request.url).searchParams.get("space") ?? DEFAULT_SPACE_SLUG;
   let spaceId: string;
   try {

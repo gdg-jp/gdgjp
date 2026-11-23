@@ -22,7 +22,6 @@ export async function loader({ request, context, params }: LoaderFunctionArgs) {
 export async function action({ request, context, params }: ActionFunctionArgs) {
   const { env } = context.cloudflare;
   const user = await requireUser(request, env);
-  // Registering or changing sources needs the editor role in the space.
   const { space, identity } = await requireSpace(request, env, params.space, "editor");
   const form = await request.formData();
   return handleSourcesAction(env, form, user, identity, space);
@@ -94,7 +93,6 @@ function SourcesContent({
     [sources],
   );
 
-  // Soft-poll while fetches are in flight.
   useEffect(() => {
     if (pendingCount === 0) return;
     const timer = setInterval(() => revalidator.revalidate(), 3000);

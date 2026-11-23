@@ -1,4 +1,3 @@
-// Pure reconciliation helper exported for unit tests.
 export function reconcileSlotKeys(
   existing: { dayOfWeek: number; startTime: string }[],
   next: { dayOfWeek: number; startTime: string }[],

@@ -3,7 +3,6 @@ import type { ReactNode } from "react";
 
 export type TopBarUser = { name: string; email: string; image: string | null };
 
-/** Header: brand (or a page title) on the left, the shared GDG app launcher and account menu on the right. */
 export function TopBar({
   user,
   accountsUrl,

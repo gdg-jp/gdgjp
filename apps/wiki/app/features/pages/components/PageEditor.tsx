@@ -14,10 +14,6 @@ import { useCurrentSpace } from "~/features/spaces/components/current-space";
 
 registerMdEditorJa();
 
-// ---------------------------------------------------------------------------
-// Types
-// ---------------------------------------------------------------------------
-
 import { Icons } from "@gdgjp/design-system";
 interface Page {
   id: string;
@@ -36,10 +32,6 @@ interface PageEditorProps {
   currentUser: CollabUser;
 }
 
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
 function formatRelativeTime(
   isoString: string,
   t: (key: string, opts?: Record<string, unknown>) => string,
@@ -53,10 +45,6 @@ function formatRelativeTime(
   const days = Math.floor(hours / 24);
   return t("time.days_ago", { count: days });
 }
-
-// ---------------------------------------------------------------------------
-// Component
-// ---------------------------------------------------------------------------
 
 export default function PageEditor({ page, currentUser }: PageEditorProps) {
   const { t } = useTranslation();
@@ -73,7 +61,6 @@ export default function PageEditor({ page, currentUser }: PageEditorProps) {
   const isJaActive = activeLang === "ja";
   const isEnActive = activeLang === "en";
 
-  // Collaborative editing hook
   const {
     contentJa,
     contentEn,
@@ -90,7 +77,6 @@ export default function PageEditor({ page, currentUser }: PageEditorProps) {
     user: currentUser,
   });
 
-  // Sync language tab with collab awareness
   const setActiveLang = useCallback(
     (lang: "ja" | "en") => {
       setActiveLangLocal(lang);
@@ -99,7 +85,6 @@ export default function PageEditor({ page, currentUser }: PageEditorProps) {
     [setCollabActiveLang],
   );
 
-  // Track last saved content to detect dirty state
   const lastSavedRef = useRef({
     titleJa: page.titleJa,
     titleEn: page.titleEn,
@@ -107,8 +92,6 @@ export default function PageEditor({ page, currentUser }: PageEditorProps) {
     contentEn: page.contentEn,
   });
 
-  // Snapshot of the payload that was actually submitted — updated at submit time,
-  // not at response time, so concurrent edits don't incorrectly clear dirty state.
   const pendingSaveRef = useRef<typeof lastSavedRef.current | null>(null);
 
   const isDirty =
@@ -117,7 +100,6 @@ export default function PageEditor({ page, currentUser }: PageEditorProps) {
     contentJa !== lastSavedRef.current.contentJa ||
     contentEn !== lastSavedRef.current.contentEn;
 
-  // Update lastSavedAt when autosave succeeds — use the submitted snapshot
   useEffect(() => {
     if (fetcher.data?.ok && fetcher.data.savedAt && pendingSaveRef.current) {
       setLastSavedAt(fetcher.data.savedAt);
@@ -126,7 +108,6 @@ export default function PageEditor({ page, currentUser }: PageEditorProps) {
     }
   }, [fetcher.data]);
 
-  // Auto-save every 30s when dirty
   const submitAutosave = useCallback(() => {
     if (!isDirty) return;
     const snapshot = { titleJa, titleEn, contentJa, contentEn };
@@ -145,8 +126,6 @@ export default function PageEditor({ page, currentUser }: PageEditorProps) {
     return () => clearInterval(id);
   }, [submitAutosave]);
 
-  // Navigation guard when dirty: the dialog below offers "save and go back" (edits are already
-  // shared live through the collab document; saving records a version) or staying.
   const blocker = useBlocker(() => isDirty && fetcher.state === "idle");
   const leaveAfterSaveRef = useRef(false);
   useEffect(() => {
@@ -167,7 +146,6 @@ export default function PageEditor({ page, currentUser }: PageEditorProps) {
     fetcher.submit(fd, { method: "post" });
   }, [titleJa, titleEn, contentJa, contentEn, fetcher]);
 
-  // Image upload callback for the markdown editor
   const handleUploadImg = useCallback(
     async (files: File[], callback: (urls: string[]) => void) => {
       const urls: string[] = [];
@@ -191,7 +169,6 @@ export default function PageEditor({ page, currentUser }: PageEditorProps) {
     [page.slug, spaceSlug],
   );
 
-  // Autosave status text
   let statusText: string | null = null;
   if (fetcher.state !== "idle") {
     statusText = t("editor.saving");
@@ -207,7 +184,6 @@ export default function PageEditor({ page, currentUser }: PageEditorProps) {
       className="flex flex-col"
       style={{ height: "calc(100dvh - 3.5rem)" }}
     >
-      {/* Hidden content fields — always kept in sync */}
       <input type="hidden" name="contentJa" value={contentJa} />
       <input type="hidden" name="contentEn" value={contentEn} />
 
@@ -217,11 +193,7 @@ export default function PageEditor({ page, currentUser }: PageEditorProps) {
         </div>
       )}
 
-      {/* ------------------------------------------------------------------ */}
-      {/* Mini-header                                                          */}
-      {/* ------------------------------------------------------------------ */}
       <div className="sticky top-14 z-10 flex flex-wrap items-center gap-x-2 gap-y-1 border-b border-border bg-surface px-3 py-2 shadow-sm">
-        {/* Back + title */}
         <div className="flex min-w-0 flex-1 items-center gap-1">
           <Link
             to={page.wikiPath}
@@ -231,7 +203,6 @@ export default function PageEditor({ page, currentUser }: PageEditorProps) {
             <Icons name="ArrowLeft" size={18} />
           </Link>
 
-          {/* Title inputs — toggled by active language, both always in DOM */}
           <input
             name="titleJa"
             value={titleJa}
@@ -251,12 +222,9 @@ export default function PageEditor({ page, currentUser }: PageEditorProps) {
           />
         </div>
 
-        {/* Actions */}
         <div className="flex shrink-0 items-center justify-end gap-2 ml-auto">
-          {/* Presence avatars */}
           <PresenceAvatars peers={peers} />
 
-          {/* Connection status dot */}
           <span className="group relative hidden sm:inline-flex">
             <span
               role="status"
@@ -268,7 +236,6 @@ export default function PageEditor({ page, currentUser }: PageEditorProps) {
             </span>
           </span>
 
-          {/* Save status: unsaved changes win over the last autosave time */}
           {(isDirty || statusText) && (
             <span
               className={`hidden shrink-0 text-xs sm:inline ${
@@ -285,7 +252,6 @@ export default function PageEditor({ page, currentUser }: PageEditorProps) {
             </span>
           )}
 
-          {/* Language switcher */}
           <div className="flex shrink-0 overflow-hidden rounded-md border border-border">
             {(["ja", "en"] as const).map((lang) => (
               <button
@@ -318,9 +284,6 @@ export default function PageEditor({ page, currentUser }: PageEditorProps) {
         </div>
       </div>
 
-      {/* ------------------------------------------------------------------ */}
-      {/* Editor body — no padding, full size                                 */}
-      {/* ------------------------------------------------------------------ */}
       <div className={`min-h-0 flex-1 ${isJaActive ? "" : "hidden"}`}>
         <MdEditor
           editorId="editor-ja"

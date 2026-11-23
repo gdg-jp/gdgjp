@@ -8,7 +8,6 @@ describe("canApproveTarget", () => {
     expect(canApproveTarget({ chapterId: 1 }, { chapters, isMember: false, isAdmin: false })).toBe(
       true,
     );
-    // The host chapter's lead is not in the co-host chapter.
     expect(canApproveTarget({ chapterId: 2 }, { chapters, isMember: true, isAdmin: false })).toBe(
       false,
     );

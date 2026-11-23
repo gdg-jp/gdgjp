@@ -5,9 +5,7 @@ const getPageAccessListMock = vi.fn<(...args: unknown[]) => unknown>();
 const getEffectivePagePermissionsMock = vi.fn<(...args: unknown[]) => unknown>();
 const upsertCatalogEntryMock = vi.fn<(...args: unknown[]) => unknown>();
 
-/** Rows keyed by page id, mutated per test to drive resolveReplaceTarget. */
 let pagesById: Record<string, Record<string, unknown>> = {};
-/** Rows keyed by slug, used by the post-conflict lookup. */
 let pagesBySlug: Record<string, Record<string, unknown>> = {};
 
 vi.mock("~/lib/db.server", () => ({
@@ -25,10 +23,8 @@ vi.mock("~/lib/db.server", () => ({
   }),
 }));
 
-// drizzle `eq` is only used to build the predicate our fake `where` reads back.
 vi.mock("drizzle-orm", () => ({
   eq: (column: { name: string }, value: string) => ({ [column.name]: value }),
-  // pageInSpace(spaceId, slug) = and(eq(spaceId), eq(slug)); merge so `where` reads slug.
   and: (...parts: Array<Record<string, string>>) => Object.assign({}, ...parts),
 }));
 
@@ -54,7 +50,6 @@ vi.mock("~/features/sources/sources.server", () => ({
   canAssignChapter: () => true,
 }));
 
-/** Chapter every cited page resolves to; set per test. */
 let citedChapterId: string | null = "A";
 
 vi.mock("../../../app/features/agent-api/workspace/wiki-read-repository", () => ({
@@ -129,10 +124,6 @@ beforeEach(() => {
 
 describe("createOrReplaceAnswerNote — replacement never moves access scope", () => {
   it("refuses to relocate an answer to a different chapter", async () => {
-    // The target belongs to chapter A; the citations resolve to chapter B.
-    // Allowing this would move chapter_id to B while the page_versions row
-    // inserted by the update still holds A's prior content, and history access
-    // is evaluated against the page's CURRENT row.
     pagesById["ans-1"] = {
       id: "ans-1",
       parentId: NS_ANSWERS,
@@ -169,9 +160,6 @@ describe("createOrReplaceAnswerNote — replacement never moves access scope", (
       titleJa: "Old",
       titleEn: "Old",
     };
-    // Only the replace TARGET carries ACL rows — the cited pages are clean, so
-    // computeAccessFloor passes and the target-specific check is what refuses.
-    // Target ACL rows survive the UPDATE, carrying their grantees onto new content.
     getPageAccessListMock.mockImplementation(async (_db: unknown, pageId: unknown) =>
       pageId === "ans-1" ? [{ id: "acl-1" }] : [],
     );
@@ -189,7 +177,6 @@ describe("createOrReplaceAnswerNote — replacement never moves access scope", (
 
 describe("createOrReplaceAnswerNote — slug collision is decided by the database", () => {
   it("maps an insert conflict to 409 slug_exists instead of raising", async () => {
-    // No pre-check row exists: this is the racing writer whose INSERT loses.
     pagesBySlug["venue-picks"] = {
       slug: "venue-picks",
       parentId: NS_ANSWERS,

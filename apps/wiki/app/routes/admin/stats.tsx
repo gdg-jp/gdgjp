@@ -8,7 +8,6 @@ import { getDb } from "~/lib/db.server";
 
 export const meta: MetaFunction = () => [{ title: "Stats — GDG Japan Wiki" }];
 
-/** /admin/stats — 7-day p50 / p95 of freshness, integration and answer latency (Stage 06). */
 export async function loader({ request, context }: LoaderFunctionArgs) {
   const { env } = context.cloudflare;
   await requireAdmin(request, env);

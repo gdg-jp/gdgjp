@@ -1,24 +1,18 @@
 import type { Env } from "../../env";
 
-/** `@gdgjp/gdg-lib` CHAPTERS_SCOPE: the wiki reads chapter roles from `/userinfo` with it. */
 export const CHAPTERS_SCOPE = "https://gdgs.jp/scopes/chapters";
 export const UPSTREAM_SCOPES = ["openid", "email", "profile", "offline_access", CHAPTERS_SCOPE];
-/** Seconds before upstream expiry at which a token counts as expired. */
 export const EXPIRY_SKEW_SECONDS = 60;
 
-/** GDG Japan Accounts tokens for the signed-in person, held encrypted in the grant's props. */
 export type UpstreamTokens = {
   accessToken: string;
   refreshToken: string;
-  /** Seconds since the Unix epoch. */
   expiresAt: number;
 };
 
 export type AccountsUser = { sub: string; email: string; name: string };
 
-/** Accounts said the refresh token is gone for good (signed out, revoked, rotated away). */
 export class UpstreamGrantError extends Error {}
-/** Accounts is unreachable or answered something unusable; the grant may still be fine. */
 export class UpstreamUnavailableError extends Error {}
 
 type AccountsEnv = Pick<Env, "APP_URL" | "ACCOUNTS_URL" | "IDP_CLIENT_ID" | "IDP_CLIENT_SECRET">;
@@ -26,7 +20,6 @@ type Deps = { fetch?: typeof fetch; now?: () => number };
 
 const trim = (url: string) => url.replace(/\/+$/, "");
 
-/** Must match the seeded `mcp` client's redirect URI byte for byte. */
 export function upstreamRedirectUri(env: Pick<Env, "APP_URL">): string {
   return `${trim(env.APP_URL)}/callback`;
 }
@@ -106,7 +99,6 @@ export function exchangeCode(
   );
 }
 
-/** Rotating refresh; a response without a new refresh token keeps the current one. */
 export function refreshTokens(
   env: AccountsEnv,
   refreshToken: string,
@@ -145,7 +137,6 @@ export async function fetchUser(
   };
 }
 
-/** Lifetime for an MCP access token that carries `tokens`: it ends before the upstream one. */
 export function accessTokenTtl(tokens: UpstreamTokens, now = Math.floor(Date.now() / 1000)) {
   return Math.max(60, tokens.expiresAt - now - EXPIRY_SKEW_SECONDS);
 }

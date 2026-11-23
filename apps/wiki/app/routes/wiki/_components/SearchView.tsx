@@ -17,13 +17,11 @@ export function SearchView() {
     ragResult,
     hideAgentPages,
   } = useLoaderData<typeof loader>();
-  // A tag nobody used filters to nothing: offer only the ones that exist on a page.
   const allTags = everyTag.filter((tg) => tg.pageCount > 0 || tg.slug === tag);
   const { t, i18n } = useTranslation();
   const isJa = i18n.language === "ja";
   const navigate = useNavigate();
   const navigation = useNavigation();
-  // `/s/:space/search` stays inside that space when the mode or tag changes.
   const { space: spaceParam } = useParams();
   const searchBase = spaceParam ? `/s/${encodeURIComponent(spaceParam)}/search` : "/search";
 
@@ -63,7 +61,6 @@ export function SearchView() {
     <div className="max-w-3xl px-4 py-6 md:px-8 md:py-8">
       <h1 className="mb-4 text-lg font-semibold text-foreground">{t("search.title")}</h1>
 
-      {/* Mode toggle tabs */}
       <div className="mb-4 flex gap-1 rounded-lg bg-neutral p-1">
         <button
           type="button"
@@ -89,7 +86,6 @@ export function SearchView() {
         </button>
       </div>
 
-      {/* Tag filter dropdown */}
       {mode !== "ai" && allTags.length > 0 && (
         <div className="mb-6 flex items-center gap-2">
           <label htmlFor="tag-filter" className="text-sm font-medium text-muted whitespace-nowrap">
@@ -121,7 +117,6 @@ export function SearchView() {
         </div>
       )}
 
-      {/* AI search results */}
       {mode === "ai" ? (
         !q ? (
           <p className="text-sm text-muted">{t("search.empty_query")}</p>
@@ -158,8 +153,7 @@ export function SearchView() {
             </Await>
           </Suspense>
         )
-      ) : /* Keyword search results */
-      !q && !tag ? (
+      ) : !q && !tag ? (
         <p className="text-sm text-muted">{t("search.empty_query")}</p>
       ) : isNavigating ? (
         <ListSkeleton rows={5} />
@@ -287,7 +281,6 @@ function AiSearchResults({
 
   return (
     <div className="flex flex-col gap-4">
-      {/* AI Answer card */}
       {ragResult.answer && (
         <div className="rounded-lg border border-link bg-selected/50 p-4  ">
           <div className="mb-2 flex items-center gap-1.5 text-sm font-medium text-link ">
@@ -300,7 +293,6 @@ function AiSearchResults({
         </div>
       )}
 
-      {/* Source pages */}
       {ragResult.sources.length > 0 && (
         <div>
           <h2 className="mb-3 text-sm font-medium text-muted">

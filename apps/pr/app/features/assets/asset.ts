@@ -8,10 +8,8 @@ export type AssetStatus =
   | "superseded"
   | "failed";
 
-/** "image" is a usable image; "kit" is one direction for the event's face (its design kit). */
 export type AssetPurpose = "image" | "kit";
 
-/** The agent's design kit: the decisions every image of the event shares. */
 export type DesignKit = {
   feel: string;
   why: string;
@@ -49,7 +47,6 @@ export type Asset = {
   campaignId: number;
   templateId: string;
   purpose: AssetPurpose;
-  /** Design mode: the agent's HTML (as written; the Worker sanitizes it before rendering). */
   html: string | null;
   notes: AssetNotes;
   slots: Record<string, unknown>;
@@ -84,14 +81,12 @@ export const ASSET_STATUS_LABELS: Record<AssetStatus, string> = {
   failed: "失敗",
 };
 
-/** Where an approved image goes, by template. */
 export const ASSET_PURPOSE: Record<string, "connpass" | "ogp" | "post" | "live"> = {
   "connpass-thumbnail": "connpass",
   "ogp-1200x630": "ogp",
   "live-session-16x9": "live",
 };
 
-/** What each template is for, in people's words (the order is the order of the picker). */
 export const TEMPLATE_LABELS: Record<string, string> = {
   "connpass-thumbnail": "connpass のサムネイル（顔）",
   "session-card-16x9": "セッション紹介（横）",
@@ -107,7 +102,6 @@ export const TEMPLATE_LABELS: Record<string, string> = {
   "live-session-16x9": "当日実況のカード",
 };
 
-/** The library's kinds, and which templates each kind is a reference for. */
 export const REFERENCE_KINDS = [
   "thumbnail",
   "session",

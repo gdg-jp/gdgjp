@@ -102,7 +102,6 @@ describe("normalizeChatMessages", () => {
     expect(documents).toHaveLength(1);
     expect(documents[0]?.path).toBe("2026-07-13");
     expect(documents[0]?.title).toBe("2026-07-13 – 2026-08-02");
-    // A thread answered in a later week stays one section, without a parent quote.
     expect(documents[0]?.markdown.match(/^## /gm)).toHaveLength(2);
     expect(documents[0]?.markdown).not.toContain(THREAD_PARENT_UNAVAILABLE);
     expect(documents[0]?.cursor).toBe("2026-08-01T01:00:00Z");
@@ -124,9 +123,7 @@ describe("normalizeChatMessages", () => {
   });
 
   it("uses Asia/Tokyo and Monday dates for weekly paths, including a year boundary", () => {
-    // 2026-07-31 16:00 UTC is already 2026-08-01 01:00 in Tokyo.
     expect(weekPathFromCreateTime("2026-07-31T16:00:00Z")).toBe("2026-07-27");
-    // 2026-01-01 is Thursday, so it belongs to Monday 2025-12-29.
     expect(weekPathFromCreateTime("2025-12-31T15:00:00Z")).toBe("2025-12-29");
     expect(weekBoundsRfc3339("2025-12-29")).toEqual({
       start: "2025-12-28T15:00:00Z",

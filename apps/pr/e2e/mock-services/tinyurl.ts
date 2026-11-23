@@ -1,10 +1,8 @@
-// Local stand-in for gdgjp-tinyurl's PrService (vite.config.ts auxiliaryWorkers, dev only).
 import { WorkerEntrypoint } from "cloudflare:workers";
 import type { PrActor } from "@gdgjp/gdg-lib";
 
 const campaigns = new Map<string, { id: number; chapterId: number; name: string }>();
 const channels = new Map<string, { id: number; campaignId: number; code: string }>();
-// Ids stay unique across dev-server restarts (pr keeps them in D1).
 const RUN = Date.now().toString(36);
 const links = new Map<
   string,

@@ -1,13 +1,3 @@
-// Runs the design harness (packages/design-system/DESIGN.md "## Harness") from the monorepo.
-//
-//   scenarios                    `design:check` for every scenario in design/scenarios/
-//   source --staged              static source rules on staged app TSX (Git index content)
-//   source --diff BASE HEAD      static source rules on app TSX changed between two commits
-//   source FILE...               static source rules on the given app TSX files
-//
-// Source rules only cover changed files: existing app code predates the harness, so a file
-// must satisfy the rules once it is touched (a ratchet), not before. Apps that do not depend on
-// @gdgjp/design-system are not built with it, so its rules do not apply to them.
 import { spawnSync } from "node:child_process";
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { join, resolve } from "node:path";

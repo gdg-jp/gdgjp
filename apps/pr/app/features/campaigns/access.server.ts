@@ -10,9 +10,7 @@ import {
 import { normalizeSlug } from "./slug";
 
 export type CampaignPermissions = {
-  /** Lead or the host chapter's organizer: brief, settings, co-hosts, members. */
   manage: boolean;
-  /** Any member of a host / co-host chapter: schedule, drafts, reviews. */
   edit: boolean;
 };
 
@@ -25,7 +23,6 @@ export type CampaignAccess = {
   permissions: CampaignPermissions;
 };
 
-/** Pure: who may do what in a campaign. Super admins may do everything. */
 export function campaignPermissions(
   user: AuthUser,
   chapters: UserChapter[],
@@ -44,7 +41,6 @@ export function campaignPermissions(
   return { manage: user.isAdmin || hostOrganizer || lead, edit: true };
 }
 
-/** Gate every /c/:slug page: signed in, in a host or co-host chapter. 404 otherwise. */
 export async function requireCampaignAccess(
   env: Env,
   request: Request,

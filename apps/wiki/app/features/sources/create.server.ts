@@ -10,18 +10,15 @@ import { canAssignSourceVisibility, parseSourceVisibilitySelection } from "./per
 
 export interface CreateSourceInput {
   url?: unknown;
-  /** Registration entry point (`RegistrationKind`); omitted means a plain URL. */
   kind?: unknown;
   externalId?: unknown;
   title?: unknown;
-  /** Kind-specific settings, e.g. the Discord server channel selection. */
   config?: unknown;
   visibility: unknown;
   chapter: unknown;
   refreshPolicy?: unknown;
   user: AuthUser;
   chapters: readonly Membership[];
-  /** Space the source is registered in (caller has already checked the editor role). */
   spaceId: string;
 }
 
@@ -45,11 +42,6 @@ export type CreateSourceResult =
 export type { CreateInlineSourceInput } from "./inline-source.server";
 export { MAX_INLINE_SOURCE_BYTES, createInlineSource } from "./inline-source.server";
 
-/**
- * Register a source and queue its first fetch. Both the `/sources` form and the JSON
- * API go through here — a second copy of this would be a second place for the chapter
- * check to drift out of, and raw material is exactly what must not leak between chapters.
- */
 export async function createSource(
   env: Env,
   input: CreateSourceInput,
@@ -91,9 +83,6 @@ export async function createSource(
     : kindSpec.defaultRefreshPolicy;
 
   const db = getDb(env);
-  // Drive/Chat identity is external_id; websites have no external id so the
-  // normalized URL is the registration key. Archived rows still count — delete
-  // or unarchive instead of registering a second copy of the same primary material.
   const duplicate = classified.externalId
     ? await db
         .select({ id: schema.sources.id })
@@ -137,10 +126,6 @@ export async function createSource(
   try {
     await env.SOURCE_FETCH_QUEUE.send({ type: "source_fetch", sourceId: id });
   } catch (error) {
-    // The row is already committed, so leaving it `pending` would strand it: a manual
-    // source is never retried by the cron, and the caller would see a failure and
-    // register the URL again. Mark it `error` instead — the row stays visible and the
-    // existing 再取得 action re-enqueues it.
     const message = error instanceof Error ? error.message : String(error);
     console.error("[sources] enqueue failed", id, message);
     await db

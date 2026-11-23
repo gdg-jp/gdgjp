@@ -9,7 +9,6 @@ export function meta() {
   return [{ title: "Runner — GDG PR" }];
 }
 
-/** Is the OCI runner alive, and what is waiting for it. No job contents, only metadata. */
 export async function loader({ request, context }: Route.LoaderArgs) {
   const env = context.cloudflare.env;
   const { user } = await requireUserWithChapter(env, request);

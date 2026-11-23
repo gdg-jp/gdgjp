@@ -144,7 +144,6 @@ function normalizeInput(
   };
 }
 
-/** Atomically replaces the connpass participant snapshot belonging to one campaign. */
 export async function replaceCampaignParticipantAnalytics(
   db: D1Database,
   rawInput: ReplaceCampaignParticipantAnalyticsInput,

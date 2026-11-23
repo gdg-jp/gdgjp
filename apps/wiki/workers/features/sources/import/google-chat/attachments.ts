@@ -74,7 +74,6 @@ export async function stepAttachments(
       .toArray();
     if (pending.length === 0) return { phaseComplete: true };
 
-    // 2 subrequests per attachment; progress is object-local.
     const batchSize = Math.min(
       pending.length,
       Math.floor(ctx.budget.remaining() / 2),

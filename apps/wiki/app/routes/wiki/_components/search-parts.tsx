@@ -16,7 +16,6 @@ export function timeAgo(
   return t("time.days_ago", { count: days });
 }
 
-/** Where a result lives: its space (outside a space) and its parent pages (root first). */
 export function ResultLocation({
   ancestors,
   spaceName,
@@ -40,7 +39,6 @@ export function ResultLocation({
   );
 }
 
-/** The empty state's one-click way out when the reader's own setting hid the matches. */
 export function IncludeAgentPagesButton() {
   const { t } = useTranslation();
   const fetcher = useFetcher();

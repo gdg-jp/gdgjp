@@ -48,7 +48,6 @@ export function meta({ data }: Route.MetaArgs) {
   return [{ title: data ? `${data.project.name} — GDG Roulette` : "GDG Roulette" }];
 }
 
-/** The page polls, so it lists only the latest spins; the CSV has them all. */
 const LOG_LIMIT = 50;
 
 export async function loader({ request, params, context }: Route.LoaderArgs) {
@@ -71,7 +70,6 @@ type Intent =
 export async function action({ request, params, context }: Route.ActionArgs) {
   const env = context.cloudflare.env;
   const { project } = await requireProjectAccess(env, request, params.slug);
-  // Untrusted: every field is checked below (the draft by parseDraft).
   const body = (await request.json().catch(() => null)) as Intent | null;
   if (body?.intent === "open" && typeof body.open === "boolean") {
     await setOpen(env.DB, project.slug, body.open);
@@ -98,7 +96,6 @@ export async function action({ request, params, context }: Route.ActionArgs) {
   throw new Response("Bad Request", { status: 400 });
 }
 
-/** While the page is visible, refresh the counters every so often. */
 function usePolling(ms: number) {
   const { revalidate, state } = useRevalidator();
   useEffect(() => {
@@ -121,7 +118,6 @@ export default function AdminPage({ loaderData }: Route.ComponentProps) {
   const hydrated = useHydrated();
   usePolling(15_000);
 
-  // A save (here or by another organizer) bumps the revision: start over from it.
   if (project.revision !== revision) {
     setRevision(project.revision);
     setDraft(toDraft(project));

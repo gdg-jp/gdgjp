@@ -8,7 +8,6 @@ import { JOB_PRIORITY } from "./shared";
 
 type Db = ReturnType<typeof getDb>;
 
-/** Pages over this are not sent to the agent (one job = one whole page). */
 export const MAX_TRANSLATE_BYTES = 150 * 1024;
 export const DEFAULT_NIGHTLY_CAP = 200;
 
@@ -42,11 +41,6 @@ async function activeTranslatePageIds(db: Db): Promise<Set<string>> {
   );
 }
 
-/**
- * Nightly: one translate job per page whose Japanese changed since its last runner
- * translation, in spaces with translation on (default: all). Bounded by `cap`, oldest
- * update first; the rest wait for the next night. Human-written English is never touched.
- */
 export async function enqueueNightlyTranslations(
   db: Db,
   options: { cap?: number; now?: Date } = {},
@@ -133,7 +127,6 @@ export async function enqueueNightlyTranslations(
   return { queued, skipped };
 }
 
-/** "Update the English version now" on a page (editor role, checked by the caller). */
 export async function enqueueTranslateNow(db: Db, pageId: string): Promise<boolean> {
   const page = await db.select().from(schema.pages).where(eq(schema.pages.id, pageId)).get();
   if (!page || page.status !== "published" || page.translationStatusEn === "human") return false;
@@ -151,7 +144,6 @@ export async function enqueueTranslateNow(db: Db, pageId: string): Promise<boole
   return true;
 }
 
-/** Spans must survive translation one-for-one: same count, same `src` in the same order. */
 export function spansMatch(contentJa: string, contentEn: string): boolean {
   const ja = parseAclSpans(contentJa).map((span) => [...span.srcIds].sort().join(","));
   const en = parseAclSpans(contentEn).map((span) => [...span.srcIds].sort().join(","));
@@ -166,12 +158,6 @@ export type ApplyTranslationResult =
       error: "not_found" | "stale_source" | "acl_required" | "acl_malformed" | "human_translation";
     };
 
-/**
- * Accept the runner's English for a page: only if the Japanese is still the one it
- * translated (else 409, retried next night) and the `<acl>` spans match — a translation
- * that drops or merges a span would show restricted text unredacted in English.
- * Writes content_en / title_en only; content_ja and metadata are untouched.
- */
 export async function applyTranslation(
   db: Db,
   input: { pageId: string; sourceHash: string; titleEn: string; contentEn: string },

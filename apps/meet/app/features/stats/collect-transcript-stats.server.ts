@@ -40,10 +40,6 @@ function isExpiredAt(expireTime: string | null | undefined, now: Date): boolean 
   return Number.isFinite(ms) && ms <= now.getTime();
 }
 
-/**
- * `collect_transcript_stats` ジョブ本体。
- * 文字起こし本文（`text`）は保存せず文字数のみを加算して破棄し、1 ジョブ最大 100 ページまで処理する。
- */
 export async function collectTranscriptStatsJob(
   env: Env,
   input: CollectTranscriptStatsInput,

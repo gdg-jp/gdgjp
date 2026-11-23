@@ -2,11 +2,6 @@ import { UPLOAD_ID_RE } from "~/features/clips/clip-input";
 import { audioKey } from "~/features/clips/uploads.server";
 import type { Route } from "./+types/media.$id";
 
-/**
- * Uploaded clip audio. Public, like the bundled /audio/*.mp3 (the OBS player
- * has no session); ids are random. The audio under an id never changes, so it
- * caches forever. Supports Range for the player's network fallback seeking.
- */
 export async function loader({ request, params, context }: Route.LoaderArgs) {
   if (!UPLOAD_ID_RE.test(params.id)) return new Response("not found", { status: 404 });
   const bucket = context.cloudflare.env.AUDIO;

@@ -5,10 +5,6 @@ import { hasRequiredGoogleChatScopes } from "~/features/google/drive-oauth.serve
 import { getGoogleDriveTokenRow } from "~/features/google/drive-token.server";
 import { getDb } from "~/lib/db.server";
 
-/**
- * List Google Chat Spaces the signed-in user participates in.
- * Requires Chat OAuth scopes recorded on google_drive_tokens.granted_scopes.
- */
 export async function loader({ request, context }: LoaderFunctionArgs) {
   const { env } = context.cloudflare;
   const user = await requireUser(request, env);

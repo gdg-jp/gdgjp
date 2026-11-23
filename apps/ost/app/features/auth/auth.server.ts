@@ -2,14 +2,6 @@ import { type RpAuthInstance, initializeRpAuth } from "@gdgjp/gdg-lib";
 
 let cached: { instance: RpAuthInstance; env: Env } | null = null;
 
-/**
- * The GDG Accounts relying-party auth instance for OST.
- *
- * Cookie prefix `gdgjp-ost` isolates OST's session/tx cookies from the other
- * apps on `*.gdgs.jp`. OIDC discovery/token/UserInfo calls go through the
- * `ACCOUNTS` service binding so Worker-to-Worker traffic stays on Cloudflare's
- * internal network.
- */
 export function getAuth(env: Env): RpAuthInstance {
   if (cached?.env === env) return cached.instance;
   const instance = initializeRpAuth({

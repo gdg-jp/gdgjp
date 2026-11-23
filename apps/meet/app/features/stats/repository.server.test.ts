@@ -226,7 +226,6 @@ describe("stats repository", () => {
       collectedAt: "2026-11-19T11:06:00Z",
     });
 
-    // 一般参加者向け: skipped は除外され、集計値のみ返し participants は null
     const viewerStats = await getMeetingStatsForViewer(db, {
       meetingId: "mtg-1",
       invitees: SAMPLE_INVITEES,
@@ -250,7 +249,6 @@ describe("stats repository", () => {
       participants: null,
     });
 
-    // cohost 向け: ホスト除外、招待者の displayName 優先、未出席者含む、メールはマスク済み
     const cohostStats = await getMeetingStatsForViewer(db, {
       meetingId: "mtg-1",
       invitees: SAMPLE_INVITEES,
@@ -302,7 +300,6 @@ describe("stats repository", () => {
     const { raw, db } = createStatsTestDb();
     raw.prepare("INSERT INTO meetings (id, title) VALUES (?, ?)").run("mtg-1", "定例");
 
-    // 1. 期限切れかつ未完了 → expired へ
     raw
       .prepare(
         `INSERT INTO conference_records (name, meeting_id, end_time, expire_time, stats_status, stats_attempts)
@@ -316,7 +313,6 @@ describe("stats repository", () => {
         "pending",
         0,
       );
-    // 2. 終了 30 分以上経過かつ期限内 → 再投入対象
     raw
       .prepare(
         `INSERT INTO conference_records (name, meeting_id, end_time, expire_time, stats_status, stats_attempts)
@@ -330,7 +326,6 @@ describe("stats repository", () => {
         "failed",
         2,
       );
-    // 3. 試行回数 10 回到達 → 対象外
     raw
       .prepare(
         `INSERT INTO conference_records (name, meeting_id, end_time, expire_time, stats_status, stats_attempts)
@@ -379,9 +374,7 @@ describe("stats repository", () => {
       `INSERT INTO conference_records (name, meeting_id, end_time, expire_time, stats_status, stats_attempts)
        VALUES (?, ?, ?, ?, 'collecting', 1)`,
     );
-    // 3 時間前に終了したのに collecting → 止まっている
     insert.run("conferenceRecords/stuck", "mtg-1", "2026-11-19T09:00:00Z", "2026-12-19T09:00:00Z");
-    // 1 時間前に終了して collecting → 収集中の可能性があるので触らない
     insert.run(
       "conferenceRecords/running",
       "mtg-1",
@@ -396,7 +389,6 @@ describe("stats repository", () => {
         staleCollectingBeforeIso: "2026-11-19T10:00:00Z",
       }),
     ).toEqual(["conferenceRecords/stuck"]);
-    // 指定がなければ collecting は拾わない
     expect(await listPendingConferenceStatsForCron(db, params)).toEqual([]);
   });
 });

@@ -38,7 +38,6 @@ function docJson(text: string) {
   };
 }
 
-/** A fake Google API: folder id → children, plus the per-file endpoints the steps call. */
 function stubGoogle(
   folders: Record<string, Item[]>,
   metadata: { name: string; mimeType: string },
@@ -218,7 +217,6 @@ describe("Google Drive folder source", () => {
     expect(String(minutes?.[1] && new TextDecoder().decode(minutes[1] as Uint8Array))).toContain(
       "body of doc-2",
     );
-    // Staging objects of the run are cleaned up; only raw documents remain.
     expect([...bucket.objects.keys()].filter((key) => key.includes("/import-runs/"))).toEqual([]);
   });
 

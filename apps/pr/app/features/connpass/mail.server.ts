@@ -9,11 +9,6 @@ import { linkForItem } from "~/features/links/link.repository.server";
 import { withShortlink } from "~/features/links/slug";
 import { connpassEventOf, submitConnpass } from "./submit.server";
 
-/**
- * Every minute: approved connpass mails whose time has come (Tips 10: never on approval). The
- * campaign's own group mails the event's participants; another group's members would need a
- * group mail, which the connpass app cannot send yet, so that target fails asking for delegation.
- */
 export async function sendDueMails(env: Env): Promise<{ sent: number; failed: number }> {
   let sent = 0;
   let failed = 0;

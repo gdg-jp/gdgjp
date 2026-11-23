@@ -2,16 +2,6 @@ import { Form, useNavigation } from "react-router";
 
 export type GenerateResult = { ok: true; ms: number; seed: number } | { ok: false; error: string };
 
-/**
- * The "自動生成" control (docs/roster/07-roster-manual-edit.md "Design" §2).
- * The seed is a plain number input defaulting to `events.seed`; submitting
- * with a changed value persists it there too (`e.$id.roster.tsx`'s action),
- * so "同じ入力とシードなら同じ結果になる" is directly demonstrable by
- * re-generating without touching the field. MVP has no server-sent progress
- * (a Worker action can't stream partial results), so this only disables the
- * button and shows a spinner while the action runs (index.md §5's "生成"
- * step; docs/roster/07-roster-manual-edit.md Design §2 "進捗表示").
- */
 export function GeneratePanel({
   seed,
   hasAssignments,

@@ -27,7 +27,7 @@ describe("freshness sampling", () => {
       { kind: "answer", v: 40 },
       { kind: "answer_expired", v: 0 },
       { kind: "answer_expired", v: 1 },
-      { kind: "freshness", v: 600 }, // d2 is not indexed yet and is skipped
+      { kind: "freshness", v: 600 },
       { kind: "integration", v: 3500 },
     ]);
     const summary = await summarizeLatency(db, 7, new Date(now * 1000));

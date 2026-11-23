@@ -19,9 +19,6 @@ export function findNodeIdBySlug(nodes: PageNode[], slug: string): string | null
   return null;
 }
 
-// ---------------------------------------------------------------------------
-// Projection helpers (drag-and-drop)
-// ---------------------------------------------------------------------------
 export function getProjection(
   items: FlatNode[],
   activeId: string,
@@ -81,7 +78,6 @@ export function applyDragResult(
   const activeItem = items[activeIndex];
   const depthChange = newDepth - activeItem.depth;
 
-  // Collect the subtree (active + descendants)
   let subtreeEnd = items.length;
   for (let i = activeIndex + 1; i < items.length; i++) {
     if (items[i].depth <= activeItem.depth) {
@@ -95,10 +91,8 @@ export function applyDragResult(
     parentId: i === 0 ? newParentId : n.parentId,
   }));
 
-  // Remove subtree from list
   const remaining = [...items.slice(0, activeIndex), ...items.slice(subtreeEnd)];
 
-  // Find insertion point
   let insertIndex: number;
   if (!insertAfterId) {
     if (!newParentId) {

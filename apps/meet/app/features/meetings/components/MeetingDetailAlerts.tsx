@@ -18,7 +18,6 @@ export type MeetingDetailAlertsProps = {
   googleConnectionStatus: GoogleConnectionSummary["status"];
 };
 
-/** 会議詳細画面上部に表示する更新通知・再同期/取り消し結果・状態アラート群。 */
 export function MeetingDetailAlerts({
   flashUpdated,
   showCohostAddedNotice,

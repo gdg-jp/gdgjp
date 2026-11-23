@@ -53,7 +53,6 @@ export type NewMessage = {
   questions?: string[];
   meta?: MessageMeta;
   jobId?: string | null;
-  /** Posted once per campaign and key; a repeat returns null. */
   eventKey?: string | null;
 };
 
@@ -82,7 +81,6 @@ export async function insertMessage(db: D1Database, input: NewMessage): Promise<
   return row?.id ?? null;
 }
 
-/** The newest `limit` messages, oldest first. */
 export async function listMessages(
   db: D1Database,
   campaignId: number,
@@ -109,7 +107,6 @@ export async function getMessage(
   return row ? toMessage(row) : null;
 }
 
-/** The last message of each campaign (for the notifications page). */
 export async function lastMessages(
   db: D1Database,
   campaignIds: number[],

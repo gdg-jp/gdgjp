@@ -10,14 +10,12 @@ export const SHEET_MIME = "application/vnd.google-apps.spreadsheet";
 export const SLIDES_MIME = "application/vnd.google-apps.presentation";
 export const FOLDER_MIME = "application/vnd.google-apps.folder";
 export const SHORTCUT_MIME = "application/vnd.google-apps.shortcut";
-/** File MIME types a Drive source imports (a folder source imports these beneath it). */
 export const IMPORTABLE_FILE_MIMES: ReadonlySet<string> = new Set([
   DOC_MIME,
   SHEET_MIME,
   SLIDES_MIME,
 ]);
 export const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
-/** Unofficial per-gid sheet PDF exports are rate-limited; retry before giving up. */
 export const MAX_SHEET_PDF_ATTEMPTS = 5;
 const SHEET_PDF_BACKOFF_BASE_MS = 15_000;
 const SHEET_PDF_BACKOFF_CAP_MS = 120_000;
@@ -34,25 +32,21 @@ export interface DriveUnit {
   body_r2_key: string | null;
   status: string;
   sort_index: number;
-  /** The Drive file this unit comes from; null = the source's own file (runs before folders). */
   file_id: string | null;
 }
 
-/** One Drive file a run imports: the source's own file, or one file under a folder source. */
 export interface DriveFile {
   [key: string]: SqlStorageValue;
   id: number;
   file_id: string;
   mime_type: string;
   title: string;
-  /** "" for a single-file source; `<sub-folders>/<file>/` under a folder source. */
   path_prefix: string;
   json_key: string | null;
   enumerate_index: number;
   status: string;
 }
 
-/** Units of one file sort together, in Drive listing order (file row id). */
 export const FILE_SORT_STRIDE = 1_000_000;
 
 export interface DriveImage {
@@ -84,7 +78,6 @@ export function fileId(current: CurrentSourceImport): string {
   return current.source.externalId || extractFileId(current.source.url);
 }
 
-/** The Drive file a unit's content is fetched from. */
 export function unitFileId(unit: DriveUnit, current: CurrentSourceImport): string {
   return unit.file_id || fileId(current);
 }
@@ -198,8 +191,6 @@ export function spreadsheetUnitDescriptors(
         sortIndex: units.length,
       });
     }
-    // Always attempt a PDF. GRID sheets also keep Markdown from the Values API;
-    // OBJECT sheets (charts) only have the unofficial per-gid PDF export.
     units.push({
       unitKind: "sheet-pdf",
       path: `${name}.pdf`,
@@ -226,8 +217,6 @@ export function isSkippablePdfExport(
   unitKind: DriveUnitKind,
   error: unknown,
 ): error is InvalidPdfExportError {
-  // Too large to keep as a PDF: skip just that PDF (the Markdown of the same file still lands).
-  // Any other semantic failure is skipped only for the unofficial per-sheet export.
   if (error instanceof PdfTooLargeError) return unitKind === "sheet-pdf" || unitKind === "file-pdf";
   return unitKind === "sheet-pdf" && error instanceof InvalidPdfExportError;
 }

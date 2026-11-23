@@ -1,8 +1,3 @@
-// Package sns is the gdg CLI client for the sns (sns.gdgs.jp) authenticated
-// CLI/agent API: scheduled X-post and media CRUD, "publish now to X",
-// X-account discovery and revocation, and contributor administration. It
-// wraps the generated OpenAPI client in openapigen. Every endpoint responds
-// synchronously, so there are no job-polling calls.
 package sns
 
 import (
@@ -44,15 +39,11 @@ func (e *HTTPError) Error() string {
 
 func (e *HTTPError) HTTPStatus() int { return e.StatusCode }
 
-// Page carries the API's common --limit/--cursor pagination flags. Nil fields
-// are omitted from the request.
 type Page struct {
 	Limit  *int
 	Cursor *string
 }
 
-// ListPostsOptions narrows a posts list. ChapterID is required by the server;
-// the other fields are omitted when nil.
 type ListPostsOptions struct {
 	ChapterID int
 	Status    *string
@@ -91,8 +82,6 @@ func bearer(token string) openapigen.RequestEditorFn {
 	}
 }
 
-// errorMessage extracts the server's { "error": string } envelope, falling
-// back to the raw trimmed body when it isn't that shape.
 func errorMessage(body []byte) string {
 	var envelope struct {
 		Error string `json:"error"`
@@ -103,8 +92,6 @@ func errorMessage(body []byte) string {
 	return strings.TrimSpace(string(body))
 }
 
-// raw passes an endpoint's success body straight through, so a command's
-// stdout is byte-for-byte the server's response. Non-2xx becomes *HTTPError.
 func raw(status int, body []byte) (json.RawMessage, error) {
 	if status < 200 || status >= 300 {
 		return nil, &HTTPError{StatusCode: status, Message: errorMessage(body)}
@@ -120,8 +107,6 @@ func jsonReader(body map[string]any) (io.Reader, error) {
 	return bytes.NewReader(payload), nil
 }
 
-// multipartFile builds a multipart/form-data body with the file at filePath
-// under fieldName, plus any additional string fields.
 func multipartFile(filePath, fieldName string, fields map[string]string) (io.Reader, string, error) {
 	contents, err := os.ReadFile(filePath)
 	if err != nil {
@@ -158,8 +143,6 @@ func (p Page) apply(params *openapigen.ListCliPostsParams) {
 	params.Limit = p.Limit
 	params.Cursor = p.Cursor
 }
-
-// --- posts ---------------------------------------------------------------
 
 func (c *Client) ListPosts(ctx context.Context, token string, options ListPostsOptions) (json.RawMessage, error) {
 	params := &openapigen.ListCliPostsParams{ChapterId: options.ChapterID}
@@ -215,18 +198,11 @@ func (c *Client) DeletePost(ctx context.Context, token, id string) (json.RawMess
 	return raw(res.StatusCode(), res.Body)
 }
 
-// PublishResult carries the publish endpoint's body together with its HTTP
-// status. A 502 still carries the persisted post (status `failed` or
-// `needs_confirmation`, with `failureReason` set), so the command prints the
-// body and then exits non-zero rather than discarding it.
 type PublishResult struct {
 	Body   json.RawMessage
 	Status int
 }
 
-// PublishPost publishes a post to X now. A 2xx or a 502 returns the body with
-// no error so the caller can print the terminal post; only a genuine error
-// status (401/404/409) becomes an *HTTPError.
 func (c *Client) PublishPost(ctx context.Context, token, id string) (PublishResult, error) {
 	res, err := c.generatedClient().PublishCliPostWithResponse(ctx, id, bearer(token))
 	if err != nil {
@@ -238,8 +214,6 @@ func (c *Client) PublishPost(ctx context.Context, token, id string) (PublishResu
 	}
 	return PublishResult{}, &HTTPError{StatusCode: status, Message: errorMessage(res.Body)}
 }
-
-// --- media -------------------------------------------------------------
 
 func (c *Client) AddMedia(ctx context.Context, token, postID, filePath string, sortOrder int, altText *string) (json.RawMessage, error) {
 	fields := map[string]string{"sortOrder": strconv.Itoa(sortOrder)}
@@ -265,8 +239,6 @@ func (c *Client) DeleteMedia(ctx context.Context, token, id string) (json.RawMes
 	return raw(res.StatusCode(), res.Body)
 }
 
-// --- X accounts ------------------------------------------------------------
-
 func (c *Client) ListXAccounts(ctx context.Context, token string, chapterID int) (json.RawMessage, error) {
 	params := &openapigen.ListCliXAccountsParams{ChapterId: chapterID}
 	res, err := c.generatedClient().ListCliXAccountsWithResponse(ctx, params, bearer(token))
@@ -287,8 +259,6 @@ func (c *Client) RevokeXAccount(ctx context.Context, token, id, xUserID string) 
 	}
 	return raw(res.StatusCode(), res.Body)
 }
-
-// --- contributors --------------------------------------------------------
 
 func (c *Client) ListContributors(ctx context.Context, token string, chapterID int, page Page) (json.RawMessage, error) {
 	params := &openapigen.ListCliContributorsParams{
@@ -315,9 +285,6 @@ func (c *Client) AddContributor(ctx context.Context, token string, chapterID int
 	return raw(res.StatusCode(), res.Body)
 }
 
-// RemoveContributor deletes a grant by (chapterId, userEmail) query
-// parameters. This resource has no single-column id, so unlike every other
-// resource here it is not addressed by a path id.
 func (c *Client) RemoveContributor(ctx context.Context, token string, chapterID int, email string) (json.RawMessage, error) {
 	params := &openapigen.RemoveCliContributorParams{
 		ChapterId: chapterID,

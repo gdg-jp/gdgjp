@@ -10,20 +10,13 @@ import (
 type State struct {
 	Ingested    map[string]string `json:"ingested"`
 	AgentsHash  string            `json:"agentsHash,omitempty"`
-	Rendered    map[string]string `json:"rendered,omitempty"`    // documentID -> post-replace digest
-	SendersHash string            `json:"sendersHash,omitempty"` // digest of sender map
-	// Manifest is the last complete raw pull snapshot. A missing ChapterID in a
-	// legacy entry remains unresolved; consumers must fail closed rather than
-	// treating it as an all-chapters source. Ingest deliberately uses
-	// this local snapshot so queue generation and completion do not call Wiki.
-	Manifest *SourcesManifest `json:"manifest,omitempty"`
+	Rendered    map[string]string `json:"rendered,omitempty"`
+	SendersHash string            `json:"sendersHash,omitempty"`
+	Manifest    *SourcesManifest  `json:"manifest,omitempty"`
 }
 
-// CloneState is an alias used by ingest helpers.
 type CloneState = State
 
-// ACLSource is the deliberately minimal local lookup used by wk when it
-// evaluates <acl src="…"> spans. Do not add paths, titles, or content here.
 type ACLSource struct {
 	Visibility string  `json:"visibility"`
 	ChapterID  *string `json:"chapterId"`
@@ -36,8 +29,6 @@ func ACLSourcesPath(root string) string {
 }
 
 func WriteACLSources(root string, manifest SourcesManifest) error {
-	// Conversation sources are appended by xangi and are absent from the raw
-	// manifest. Keep existing entries while refreshing manifest-backed values.
 	sources := map[string]ACLSource{}
 	if raw, err := os.ReadFile(ACLSourcesPath(root)); err == nil {
 		if err := json.Unmarshal(raw, &sources); err != nil {

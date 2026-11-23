@@ -35,7 +35,6 @@ func runGitRemoteHelper(ctx context.Context, args []string) error {
 	if err != nil {
 		return err
 	}
-	// The runner passes its RUNNER_TOKEN to its own git subprocesses; no OAuth refresh.
 	if token := os.Getenv(wiki.TokenEnv); token != "" {
 		return wiki.RunRemoteHelper(ctx, args[0], args[1], wiki.NewClientAt(base), token, os.Stdin, os.Stdout, os.Stderr)
 	}

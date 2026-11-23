@@ -34,10 +34,6 @@ export {
   upsertPageAccess,
 } from "./access-mutations.server";
 
-// ---------------------------------------------------------------------------
-// Queries and permission evaluation
-// ---------------------------------------------------------------------------
-
 export async function getPageAccessList(
   db: DrizzleD1Database<typeof schema>,
   pageId: string,
@@ -70,7 +66,6 @@ export async function getPageAccessList(
   }));
 }
 
-/** Returns the grants that explicitly apply to this signed-in user. */
 export async function getExplicitPageRoles(
   db: DrizzleD1Database<typeof schema>,
   pageId: string,
@@ -116,18 +111,12 @@ export async function getExplicitPageRoles(
   );
 }
 
-/**
- * Central page permission evaluator. Callers fetch fresh chapter claims before
- * passing fresh Chapter memberships; on a claims failure pass none (fail closed).
- */
 export async function getEffectivePagePermissions(
   db: DrizzleD1Database<typeof schema>,
   page: PagePermissionSubject,
   user: UserLike | null,
   chapters: readonly (string | number | ChapterMembership)[] = [],
 ): Promise<EffectivePagePermissions> {
-  // These implicit grants do not depend on stored share rows. Avoiding the
-  // query also keeps owner/admin authorization available if D1 is degraded.
   if (!user || user.isAdmin || user.id === page.authorId) {
     return evaluatePagePermissions(page, user);
   }
@@ -138,7 +127,6 @@ export async function getEffectivePagePermissions(
   return evaluatePagePermissions(page, user, explicit, chapters);
 }
 
-/** Pure form of the evaluator, useful for focused policy tests. */
 export function evaluatePagePermissions(
   page: PagePermissionSubject,
   user: UserLike | null,
@@ -176,8 +164,6 @@ export function evaluatePagePermissions(
   const generalRole = isPageRole(page.generalRole) ? page.generalRole : "viewer";
   const hasGeneralAccess = page.visibility === "unlisted" || page.visibility === "public";
 
-  // Anonymous visitors are intentionally read-only even when a general role is
-  // configured as commenter/editor.
   if (!user) {
     return {
       role: hasGeneralAccess ? "viewer" : null,
@@ -220,13 +206,11 @@ export function evaluatePagePermissions(
     canView: role !== null,
     canComment: role === "commenter" || role === "editor",
     canEdit: role === "editor",
-    // General access never authorizes sharing. An explicit editor grant does.
     canManageSharing: explicit.some((entry) => entry.role === "editor"),
     source,
   };
 }
 
-/** Legacy convenience helper for direct email/user grants only. */
 export async function getUserPageRole(
   db: DrizzleD1Database<typeof schema>,
   pageId: string,
@@ -249,7 +233,6 @@ export async function canUserManageAccess(
   return explicit.some((entry) => entry.role === "editor");
 }
 
-/** Editors may manage sharing but cannot create an owner, because owners are implicit. */
 export function canUserGrantRole(
   granterPageRole: EffectivePageRole,
   granterIsAdmin: boolean | null | undefined,
@@ -260,5 +243,3 @@ export function canUserGrantRole(
     isPageRole(targetRole)
   );
 }
-
-// Mutations live in `access-mutations.server.ts` (re-exported above).

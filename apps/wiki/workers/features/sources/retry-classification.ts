@@ -1,6 +1,5 @@
 import { GOOGLE_CHAT_REAUTH_MESSAGE } from "./google-chat";
 
-/** A permanent OAuth grant failure that requires explicit user action. */
 export class SourceAuthorizationError extends Error {
   constructor(message: string) {
     super(message);
@@ -8,13 +7,6 @@ export class SourceAuthorizationError extends Error {
   }
 }
 
-/**
- * Classify a failure so the queue consumer / DO alarm knows whether to retry.
- *
- * Google helpers put the HTTP status in their message, which is the only signal
- * available without rewriting them. Anything unrecognized is treated as transient:
- * a spurious retry is cheap, whereas giving up on a real network blip loses the fetch.
- */
 export function isRetryableFetchError(error: unknown): boolean {
   if (error instanceof SourceAuthorizationError) return false;
   const message = error instanceof Error ? error.message : String(error);
@@ -33,8 +25,6 @@ export function isRetryableFetchError(error: unknown): boolean {
 
   const status = Number(/\((\d{3})\)/.exec(message)?.[1]);
   if (!Number.isNaN(status)) {
-    // 401: the access token expired mid-run; the next attempt resolves a refreshed one. A revoked
-    // grant keeps failing and still ends the run after MAX_CONSECUTIVE_FAILURES.
     if (status === 401 || status === 408 || status === 429) return true;
     return status < 400 || status >= 500;
   }

@@ -1,10 +1,3 @@
-/**
- * Turns a key's action into obs-websocket v5 requests (run by the dock).
- *
- * Toggles OBS has no request for (studio mode, source visibility, filters,
- * play/pause) read the current value from the dock's live state.
- */
-
 import {
   type MediaOp,
   type ObsAction,
@@ -20,15 +13,12 @@ import type { ObsState } from "./state";
 
 export type ObsRequest = { requestType: string; requestData?: Record<string, unknown> };
 
-/** How a key was operated: a tap, or press/release of a push-to-talk key. */
 export type Phase = "press" | "down" | "up";
 
 export type RunContext = {
   state: ObsState;
   phase: Phase;
-  /** Slider value for `volume` keys in slider mode. */
   value?: number;
-  /** Folder the dock saves screenshots into (dock setting). */
   screenshotDir: string;
   now: Date;
 };
@@ -39,7 +29,6 @@ function pick(mode: Toggle, toggle: string, on: string, off: string): ObsRequest
   return { requestType: mode === "toggle" ? toggle : mode === "on" ? on : off };
 }
 
-/** on/off for a toggle given the current value. */
 function target(mode: Toggle, current: boolean): boolean {
   return mode === "toggle" ? !current : mode === "on";
 }
@@ -67,10 +56,8 @@ function clampVolume(db: number): number {
   return Math.round(Math.min(VOLUME_MAX_DB, Math.max(VOLUME_MIN_DB, db)) * 10) / 10;
 }
 
-/** Requests for one action; throws ActionError when it cannot run (missing scene…). */
 export function toRequests(action: ObsAction, ctx: RunContext): ObsRequest[] {
   const { state, phase } = ctx;
-  // Only push-to-talk / push-to-mute react to release.
   if (phase === "up" && !(action.op === "mute" && action.mode.startsWith("push"))) return [];
 
   switch (action.op) {

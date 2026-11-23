@@ -15,10 +15,6 @@ interface BaseSidebarProps {
   children: (props: { isCollapsed: boolean }) => React.ReactNode;
 }
 
-/**
- * Wiki navigation uses the shared Sheet surface and a fixed-width desktop
- * sidebar. Width dragging is intentionally removed for the GDG Apps shell.
- */
 export default function BaseSidebar({
   isOpen,
   isMobile,

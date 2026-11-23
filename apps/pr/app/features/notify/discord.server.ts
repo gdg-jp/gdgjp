@@ -2,7 +2,6 @@ import { discordBody } from "./discord";
 
 export type SendResult = { ok: true } | { ok: false; status: number; error: string };
 
-/** POST one message. A 429 waits once (at most 5 s) and retries; the URL is never logged. */
 export async function sendDiscord(
   webhookUrl: string,
   content: string,
@@ -35,7 +34,6 @@ export async function sendDiscord(
   }
 }
 
-/** Claim a notification key once; false means it was already sent (or is being sent). */
 export async function claimNotification(db: D1Database, key: string): Promise<boolean> {
   const result = await db
     .prepare("INSERT OR IGNORE INTO notifications_sent (key) VALUES (?)")

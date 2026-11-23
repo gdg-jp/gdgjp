@@ -31,20 +31,6 @@ import {
 import { getDb } from "~/lib/db.server";
 import type { Route } from "./+types/e.$id.staff";
 
-/**
- * `/e/:id/staff` (docs/roster/05-staff-supply-demand.md "Design" §2-§4):
- * Chapter-gated, same access pattern as `/e/:id/design`. Stage 04 built only
- * the proxy-add entry point; Stage 05 adds the staff list (`StaffTable`),
- * owner-correction drawer (`StaffDrawer`), the supply-demand view
- * (`SupplyDemandRow`/`ShortageSummary`), and the apply-URL/status card
- * (`ApplyLinkCard`). No new route — every addition is new loader/action
- * surface on this same URL.
- */
-// Deliberately loose — a sanity check against typos, not RFC 5322
-// validation. Don't tighten this without checking real-world addresses it'd
-// reject; accounts.gdgs.jp is the actual source of truth for whether an
-// address is real (this route only decides whether it looks well-formed
-// enough to store).
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const SCHEDULE_CHANGED_ERROR =
   "シフト表が更新されたため保存できませんでした。画面を再読み込みして、もう一度お試しください。";
@@ -80,7 +66,6 @@ export async function loader({ request, context, params }: Route.LoaderArgs) {
   );
   const registeredCount = applicantDetails.filter((d) => !d.application.withdrawn).length;
 
-  // Reuse applicant details so each sheet's supply query does not re-fetch applicants.
   const supplyDataBySheet = await Promise.all(
     rosterSheets.map(async (sheet) => {
       const supplyDemand = await getSupplyDemandForEvent(db, event.id, applicantDetails, sheet.id);
@@ -137,10 +122,6 @@ export async function action({ request, context, params }: Route.ActionArgs) {
     const applicationId = String(form.get("applicationId") ?? "");
     const existing = await getApplicationById(db, event.id, applicationId);
     if (!existing) throw new Response(null, { status: 404 });
-    // Always true here in practice (this whole route already required
-    // canManageEvent above), but routes the check through the single point
-    // of permission judgment (docs/roster/index.md §6) rather than assuming
-    // the earlier gate covers every future caller of this branch.
     if (!canEditApplication(null, chapters, event, existing)) {
       throw new Response("Forbidden", { status: 403 });
     }
@@ -202,11 +183,6 @@ export async function action({ request, context, params }: Route.ActionArgs) {
     if (!isEventStatus(status)) {
       return { error: "不明なステータスです。", intent: "updateStatus" as const };
     }
-    // updateEventSettings overwrites the whole settings row — pass the
-    // event's current stepMin/maxConsecutive/noSoloNewcomer through
-    // unchanged so this status-only submit can't clobber them (same
-    // "preserve what this form doesn't own" rule `correctApplication`
-    // follows for name/contact/party/note).
     await updateEventSettings(db, event.id, {
       stepMin: event.stepMin,
       status,
@@ -249,10 +225,6 @@ export async function action({ request, context, params }: Route.ActionArgs) {
   const contact = contactInput || email;
   const resolvedParty: PartyStatus = event.hasParty ? party : "undecided";
 
-  // Upsert by (event, email) — ADR-008's "代理登録のみ user_id が NULL"
-  // dedup key. A second proxyAdd for the same email edits that row
-  // (owner-vs-owner or owner-vs-self, "最後に書いた側が勝つ") rather than
-  // creating a duplicate; `userId` is left untouched either way.
   const existingByEmail = await getApplicationByEventAndEmail(db, event.id, email);
   try {
     const saved = await saveOwnerRegistration(db, {
@@ -293,9 +265,6 @@ export default function StaffPage({ loaderData, actionData }: Route.ComponentPro
   } = loaderData;
   const actionIntent = actionData && "intent" in actionData ? actionData.intent : undefined;
   const error = actionData && "error" in actionData ? actionData.error : undefined;
-  // A fresh object only on an actual success — an error response is also a
-  // truthy object, so a dialog can't tell "an action ran" from "the action
-  // succeeded" without this being computed here.
   const succeeded = actionData && "ok" in actionData && actionData.ok ? actionData : undefined;
 
   const proxyError = actionIntent === "proxyAdd" ? error : undefined;

@@ -62,7 +62,6 @@ export function useAnchoredMenu({
     setSearch("");
   }, []);
 
-  // Close on outside click
   useEffect(() => {
     if (!open) return;
     function handleOutside(e: MouseEvent) {
@@ -74,7 +73,6 @@ export function useAnchoredMenu({
     return () => document.removeEventListener("mousedown", handleOutside);
   }, [open, close]);
 
-  // Close on Escape
   useEffect(() => {
     if (!open) return;
     function handleKey(e: KeyboardEvent) {
@@ -84,7 +82,6 @@ export function useAnchoredMenu({
     return () => document.removeEventListener("keydown", handleKey);
   }, [open, close]);
 
-  // Reposition on scroll while open
   useEffect(() => {
     if (!open) return;
     function handleScroll() {

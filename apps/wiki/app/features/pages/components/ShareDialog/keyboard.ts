@@ -13,7 +13,6 @@ interface KeyboardDeps {
   close: () => void;
 }
 
-/** Combobox + dialog keyboard handling for `ShareDialog`. */
 export function createShareKeyboardHandlers(deps: KeyboardDeps) {
   function handleInputKeyDown(event: React.KeyboardEvent<HTMLInputElement>) {
     const { isListOpen, activeIndex, candidateRows } = deps;

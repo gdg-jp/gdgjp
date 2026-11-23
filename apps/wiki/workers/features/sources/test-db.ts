@@ -3,15 +3,6 @@ import { DatabaseSync } from "node:sqlite";
 import { drizzle } from "drizzle-orm/sqlite-proxy";
 import * as schema from "../../../app/db/schema";
 
-/**
- * A real SQLite database driven through Drizzle's proxy driver, seeded from the
- * checked-in migration.
- *
- * The source lifecycle rules this exercises live entirely in WHERE clauses — "only
- * finish if the row is still fetching", "archive the paths this fetch did not return".
- * Mocking the query builder would assert that we wrote the code we wrote; running the
- * statements asserts they select the rows we meant.
- */
 export function createSourcesTestDb() {
   const sqlite = new DatabaseSync(":memory:");
   let afterExecute:
@@ -113,7 +104,6 @@ export function createSourcesTestDb() {
       "utf8",
     ),
   );
-  // The sources half of 0062_spaces.sql (this harness has no pages / user_preferences).
   sqlite.exec(`
     ALTER TABLE "sources" ADD COLUMN "space_id" TEXT NOT NULL DEFAULT 'gdg-jp';
     CREATE INDEX "idx_sources_space" ON "sources" ("space_id", "status");
@@ -121,8 +111,6 @@ export function createSourcesTestDb() {
     CREATE UNIQUE INDEX "idx_sources_owner_kind_external_id"
       ON "sources" ("space_id", "added_by", "kind", "external_id") WHERE "external_id" IS NOT NULL;
   `);
-  // agent_jobs (0063) references spaces; 0063 also backs up page_sources. Only the columns
-  // matter here (this harness has no pages table).
   sqlite.exec(`
     CREATE TABLE "pages" ("id" TEXT PRIMARY KEY, "sync_revision" INTEGER NOT NULL DEFAULT 1);
     CREATE TABLE "page_sources" (

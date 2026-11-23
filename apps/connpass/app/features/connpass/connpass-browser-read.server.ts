@@ -9,12 +9,6 @@ import { scrapeSubEvents } from "./ui/sub-events";
 import { scrapeSurvey } from "./ui/survey";
 import { scrapeVoucherRecipients } from "./ui/vouchers";
 
-/**
- * Run a connpass.com read against a browser session, reusing a warm session when
- * one is available. Reads have no queue behind them, so if the (possibly skipped)
- * auth pre-check let a dead-cookie session through and the scrape hits a login
- * wall, retry once after a forced relogin.
- */
 async function withConnpassRead<T>(env: Env, fn: (page: Page) => Promise<T>): Promise<T> {
   for (let attempt = 0; attempt < 2; attempt++) {
     const session = await openConnpassSession(env);
@@ -31,9 +25,7 @@ async function withConnpassRead<T>(env: Env, fn: (page: Page) => Promise<T>): Pr
         poisoned = true;
         try {
           await forceRelogin(env);
-        } catch {
-          // fall through and retry anyway
-        }
+        } catch {}
         continue;
       }
       throw error;
@@ -89,12 +81,6 @@ export function getVoucherRecipientsInBrowser(env: Env, eventId: string | number
   return withConnpassRead(env, (page) => scrapeVoucherRecipients(page, String(eventId)));
 }
 
-/**
- * Reception check-in is synchronous: staff scan one QR after another and need the
- * result immediately. Opening the QR URL as the bot (a co-admin of the event) is
- * all connpass needs to record attendance, so nothing else is loaded first; the
- * caller authorizes before invoking this.
- */
 export function checkInInBrowser(env: Env, checkinUrl: string): Promise<CheckinResult> {
   return withConnpassRead(env, (page) => checkInWithQrUrl(page, checkinUrl));
 }

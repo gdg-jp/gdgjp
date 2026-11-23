@@ -9,7 +9,6 @@ import { stepListing } from "./steps/listing";
 import { stepMetadata } from "./steps/metadata";
 import { stepRewrite } from "./steps/rewrite";
 
-// Shared helpers / descriptors used by `phases.test.ts` and other Drive-import callers.
 export {
   MAX_SHEET_PDF_ATTEMPTS,
   type SpreadsheetMetadata,

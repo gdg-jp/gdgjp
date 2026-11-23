@@ -1,5 +1,3 @@
-// Package judge is `gdg wiki judge`: the Stage 06 faithfulness judge. It runs on the
-// developer's machine (local `codex exec --sandbox read-only`), never in a Worker.
 package judge
 
 import (
@@ -29,13 +27,10 @@ type Verdict struct {
 	Unsupported []string `json:"unsupported"`
 }
 
-// Backend is the slice of runner.CodexBackend the judge needs.
 type Backend interface {
 	Answer(ctx context.Context, dir, prompt, schemaPath, outPath string, mcp *runner.MCPConfig, timeout time.Duration) (string, error)
 }
 
-// Judge one case. A faithful verdict must quote the evidence verbatim; a verdict with no
-// quote, or with a quote that is not in the evidence, counts as unfaithful.
 func Judge(ctx context.Context, backend Backend, workdir string, question string, answer json.RawMessage, evidence map[string]string) (Verdict, error) {
 	dir, err := os.MkdirTemp(workdir, "judge-")
 	if err != nil {
@@ -79,7 +74,6 @@ func normalize(text string) string {
 	return strings.Join(strings.Fields(text), " ")
 }
 
-// Enforce downgrades a faithful verdict that does not quote the evidence verbatim.
 func Enforce(verdict Verdict, evidence map[string]string) Verdict {
 	if verdict.Verdict != "faithful" {
 		verdict.Verdict = "unfaithful"
@@ -114,8 +108,6 @@ func Enforce(verdict Verdict, evidence map[string]string) Verdict {
 	return verdict
 }
 
-// Results is the eval results file (apps/agent/eval/results/*.json); only the fields the
-// judge reads or writes are typed, the rest round-trip untouched.
 type Results struct {
 	raw     map[string]json.RawMessage
 	Results []map[string]json.RawMessage

@@ -2,13 +2,6 @@ import { readFileSync } from "node:fs";
 import { DatabaseSync } from "node:sqlite";
 import { describe, expect, it } from "vitest";
 
-/**
- * 0054 rewrites `sources` under a CHECK that ties `visibility` to `chapter_id`. SQLite
- * doesn't roll back a failed statement inside a plain `.exec()` script, so a backfill that
- * violates the CHECK it just created silently drops the table instead of erroring loudly.
- * This seeds a chapter-scoped row *before* applying 0054, matching the shape production data
- * has today, rather than reimplementing the backfill mapping in TypeScript.
- */
 describe("0054_add_source_visibility migration", () => {
   function openPreMigrationDb() {
     const db = new DatabaseSync(":memory:");

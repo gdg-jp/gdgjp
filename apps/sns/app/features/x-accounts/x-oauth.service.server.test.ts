@@ -176,7 +176,6 @@ describe("completeXConnect", () => {
     expect(result).toEqual({ returnTo: "/settings" });
     expect(xAccounts).toHaveLength(1);
     expect(xAccounts[0]).toMatchObject({ chapter_id: 1, x_user_id: "x-user-1" });
-    // The transaction is consumed exactly once.
     expect(transactions).toHaveLength(0);
   });
 

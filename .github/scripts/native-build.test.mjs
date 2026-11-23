@@ -77,8 +77,6 @@ test("native builds retain Worker class names and reject aliased server code in 
   assert.notEqual(invalid.status, 0);
   assert.match(invalid.stdout + invalid.stderr, /Server-only module referenced by client/);
 
-  // Exercise the actual Accounts config: its dev pre-bundling must not replace
-  // Cloudflare's Worker entry with React Router's server-only build entry.
   write("app/value.ts", 'export const value = "public";');
   write(
     "vite.config.ts",

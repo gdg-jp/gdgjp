@@ -21,7 +21,6 @@ export function meta({ data }: Route.MetaArgs) {
   return [{ title: `${data?.campaign.name ?? "イベント"} — GDG PR` }];
 }
 
-/** An event's home: the thread with the assistant, and where things stand. */
 export async function loader({ request, context, params }: Route.LoaderArgs) {
   const env = context.cloudflare.env;
   const access = await requireCampaignAccess(env, request, params.slug);

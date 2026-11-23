@@ -5,11 +5,6 @@ import { createDerivedItem, createItem } from "~/features/schedule/item.reposito
 import { planToItems } from "./adopt";
 import { deleteUntouchedPlanItems, getPlan, markAdopted } from "./plan.repository.server";
 
-/**
- * Adopt a plan: replace the untouched items an earlier plan created, insert this plan's items
- * (the plan already lists its derived reminders, so items are not re-derived), mark it adopted.
- * Items people created or already worked on are kept.
- */
 export async function adoptPlan(
   db: D1Database,
   campaignId: number,
@@ -31,7 +26,6 @@ export async function adoptPlan(
     created++;
   }
   await markAdopted(db, campaignId, version);
-  // Ad flights from the budget allocation, measured from the event's start.
   const brief = (await latestBrief(db, campaignId))?.brief;
   const eventAt = brief ? Math.floor(Date.parse(brief.event.startAt) / 1000) : null;
   if (eventAt)

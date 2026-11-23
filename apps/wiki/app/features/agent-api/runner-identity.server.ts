@@ -1,11 +1,5 @@
 import { type BearerIdentity, getBearerIdentity } from "@gdgjp/gdg-lib";
 
-/**
- * The OCI runner (Stage 04) authenticates with the `RUNNER_TOKEN` secret instead of an
- * OAuth token. It reads every space at full clearance and writes only through `/sync`
- * (agent pages) and `/api/runner/*`; every other route keeps using getBearerIdentity and
- * so rejects it (tests/architecture/runner-identity-routes.test.ts).
- */
 export const RUNNER_USER_ID = "runner";
 
 export function runnerIdentity(): BearerIdentity {
@@ -36,7 +30,6 @@ export function isRunnerRequest(request: Request, env: Env): boolean {
   return !!match?.[1] && timingSafeEqual(match[1].trim(), secret);
 }
 
-/** Bearer identity for the CLI routes the runner may use: runner token, else OAuth. */
 export async function getCliOrRunnerIdentity(
   request: Request,
   env: Env,

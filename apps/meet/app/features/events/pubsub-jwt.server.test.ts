@@ -107,7 +107,6 @@ describe("verifyPubsubJwt", () => {
     }
     expect(fetchMock).toHaveBeenCalledTimes(1);
 
-    // 2 回目は同一 kid のためキャッシュを使い JWKS を再取得しない。
     const res2 = await verifyPubsubJwt(req1, createEnv(), {
       fetchFn: fetchMock,
       nowSec: () => BASE_NOW_SEC + 10,
@@ -115,7 +114,6 @@ describe("verifyPubsubJwt", () => {
     expect(res2.ok).toBe(true);
     expect(fetchMock).toHaveBeenCalledTimes(1);
 
-    // 鍵ローテーション後（未知の kid-2）は 1 回だけ強制再取得して成功する。
     rotated = true;
     const token2 = await signJwt(
       key2.privateKey,

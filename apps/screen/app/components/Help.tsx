@@ -2,7 +2,6 @@ import { IconButton, Popover, PopoverContent, PopoverTrigger } from "@gdgjp/desi
 import type { ReactNode } from "react";
 import { CircleHelp } from "~/components/icons";
 
-/** The (?) next to an area: a short explanation on demand, never inline. */
 export function Help({ label = "ヘルプ", children }: { label?: string; children: ReactNode }) {
   return (
     <Popover>

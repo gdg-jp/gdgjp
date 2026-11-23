@@ -1,6 +1,5 @@
 import { isRunnerRequest } from "~/features/agent-api/runner-identity.server";
 
-/** 401 unless the request carries RUNNER_TOKEN. Every /api/runner/* route calls this. */
 export function requireRunner(request: Request, env: Env): void {
   if (!isRunnerRequest(request, env)) {
     throw Response.json({ error: "invalid_token" }, { status: 401 });

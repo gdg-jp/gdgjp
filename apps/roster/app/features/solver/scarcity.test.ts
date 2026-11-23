@@ -44,7 +44,6 @@ describe("orderDemandCells", () => {
   it("sorts scarcer cells (fewer eligible people relative to min) before easier ones", () => {
     const input = baseInput({
       demands: new Map([
-        // easy: 3 eligible people, min 1 -> scarcity very negative (low)... wait, compute below
         [demandKey("slot-0", TRACK, ROLE), { min: 1, ideal: 1, leadMin: 0, newMax: 5 }],
         [demandKey("slot-1", TRACK, ROLE), { min: 3, ideal: 3, leadMin: 0, newMax: 5 }],
       ]),
@@ -52,9 +51,6 @@ describe("orderDemandCells", () => {
     });
     const ordered = orderDemandCells(input);
     expect(ordered).toHaveLength(2);
-    // slot-1 needs 3 of the same 3 eligible people (scarcity = 3-3+5=5)
-    // slot-0 needs 1 of the same 3 eligible people (scarcity = 3-1+5=7)
-    // -> slot-1 is scarcer and sorts first.
     expect(ordered[0].slotId).toBe("slot-1");
     expect(ordered[1].slotId).toBe("slot-0");
   });
@@ -72,7 +68,6 @@ describe("orderDemandCells", () => {
       ],
     });
     const [cell] = orderDemandCells(input);
-    // scarcity = eligible(1) - min(1) + leadPressure(5, since leadMin=0) = 5
     expect(cell).toBeDefined();
   });
 
@@ -85,8 +80,6 @@ describe("orderDemandCells", () => {
       applications: [makeApp("a1", { skills: { [ROLE]: { level: "lead", pref: 2 } } })],
     });
     const ordered = orderDemandCells(input);
-    // slot-1: eligible=1, leads=1, leadMin=1 -> leadPressure=(1-1)*0.5=0 -> scarcity=1-1+0=0
-    // slot-0: eligible=1, leadMin=0 -> leadPressure=5 -> scarcity=1-1+5=5
     expect(ordered[0].slotId).toBe("slot-1");
     expect(ordered[1].slotId).toBe("slot-0");
   });

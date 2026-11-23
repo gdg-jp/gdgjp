@@ -11,7 +11,6 @@ export interface ChatMessageAttachment {
 
 export interface ChatMessageSender {
   name?: string;
-  /** Google Chat's user-authenticated message sender shape. */
   type?: "HUMAN" | "BOT";
 }
 
@@ -39,13 +38,9 @@ export interface ChatSpace {
 }
 
 export interface NormalizeChatOptions {
-  /** Display-name lookup; defaults to a safe sender resource fallback. */
   resolveSenderName?: (sender: ChatMessageSender | undefined) => string;
-  /** Known root-message bodies, including parents fetched outside the cursor window. */
   threadParents?: ReadonlyMap<string, string>;
-  /** Time zone for Monday-date paths and timestamps. Defaults to Asia/Tokyo. */
   timeZone?: string;
-  /** One document spanning every message's week instead of one per week (`chat-periods.ts`). */
   singleDocument?: boolean;
 }
 
@@ -53,7 +48,6 @@ export interface NormalizedWeek {
   path: string;
   title: string;
   markdown: string;
-  /** createTime of the latest message in this document (RFC-3339). */
   cursor: string | null;
   urls: string[];
   attachments: Array<{
@@ -64,7 +58,6 @@ export interface NormalizedWeek {
   }>;
 }
 
-/** Split text without splitting a UTF-8 code point. The pieces concatenate exactly. */
 export function splitMarkdownByUtf8Bytes(markdown: string, maxBytes: number): string[] {
   if (maxBytes <= 0) throw new Error("maxBytes must be positive");
   const encoder = new TextEncoder();
@@ -80,8 +73,6 @@ export function splitMarkdownByUtf8Bytes(markdown: string, maxBytes: number): st
       chunk = "";
       chunkBytes = 0;
     }
-    // A JavaScript string code point cannot realistically exceed this limit, but
-    // retaining it prevents an accidental infinite loop if the caller sets one.
     if (bytes > maxBytes) throw new Error("A single code point exceeds the Markdown byte limit");
     chunk += codePoint;
     chunkBytes += bytes;
@@ -90,7 +81,6 @@ export function splitMarkdownByUtf8Bytes(markdown: string, maxBytes: number): st
   return chunks;
 }
 
-/** Extract http(s) URLs from message text and rich-link annotations. */
 export function extractUrlsFromMessage(message: ChatMessage): string[] {
   const found = new Set<string>();
   const body = message.text ?? message.argumentText ?? "";
@@ -108,7 +98,6 @@ function trimTrailingPunctuation(url: string): string {
   return url.replace(/[),.;!?]+$/u, "");
 }
 
-/** Return the Asia/Tokyo (by default) date of the Monday containing createTime. */
 export function weekPathFromCreateTime(createTime: string, timeZone = "Asia/Tokyo"): string | null {
   const date = new Date(createTime);
   if (Number.isNaN(date.getTime())) return null;
@@ -123,21 +112,16 @@ export function weekPathFromCreateTime(createTime: string, timeZone = "Asia/Toky
   const day = parts.find((part) => part.type === "day")?.value;
   if (!year || !month || !day) return null;
 
-  // Interpret the formatted local calendar date at UTC midnight. This is deliberate:
-  // we only need calendar arithmetic, so it avoids applying the Tokyo offset twice.
   const localDate = new Date(`${year}-${month}-${day}T00:00:00Z`);
   const daysSinceMonday = (localDate.getUTCDay() + 6) % 7;
   localDate.setUTCDate(localDate.getUTCDate() - daysSinceMonday);
   return localDate.toISOString().slice(0, 10);
 }
 
-/** RFC-3339 bounds for a Monday-date document, in the source's local time zone. */
 export function weekBoundsRfc3339(
   weekPath: string,
   timeZone = "Asia/Tokyo",
 ): { start: string; end: string } | null {
-  // The path is a local calendar date. Constructing it at UTC is only for calendar
-  // arithmetic; the resulting date parts are then formatted in the requested zone.
   const localMonday = new Date(`${weekPath}T00:00:00Z`);
   if (Number.isNaN(localMonday.getTime())) return null;
   const format = (date: Date) => {
@@ -154,15 +138,11 @@ export function weekBoundsRfc3339(
     const day = value("day");
     return year && month && day ? `${year}-${month}-${day}` : null;
   };
-  // For Asia/Tokyo this date is the previous calendar day, so use a noon UTC anchor
-  // before formatting to recover the requested local calendar date.
   localMonday.setUTCHours(12);
   const startDate = format(localMonday);
   localMonday.setUTCDate(localMonday.getUTCDate() + 7);
   const endDate = format(localMonday);
   if (!startDate || !endDate) return null;
-  // Google accepts offset-less RFC-3339 UTC values. Tokyo is the only current source
-  // zone, but derive its actual offset rather than hard-coding it in path arithmetic.
   const offsetParts = new Intl.DateTimeFormat("en-US", {
     timeZone,
     timeZoneName: "longOffset",
@@ -227,11 +207,6 @@ export function attachmentObjectId(attachment: ChatMessageAttachment, index: num
   return `attachment-${index}`;
 }
 
-/**
- * Turn a Chat messages.list payload into weekly (or, with `singleDocument`, one),
- * thread-grouped Markdown documents.
- * Pure: no network. Caller supplies sender resolution when names are prefetched.
- */
 export function normalizeChatMessages(
   messages: readonly ChatMessage[],
   options: NormalizeChatOptions = {},
@@ -245,8 +220,6 @@ export function normalizeChatMessages(
     return at < bt ? -1 : at > bt ? 1 : 0;
   });
 
-  // Roots fetched outside the selected week are context-only. Roots in the current
-  // week are rendered as normal messages and must not be repeated as quotes.
   const threadParents = new Map(options.threadParents);
   for (const message of sorted) {
     const threadName = message.thread?.name;
@@ -288,7 +261,7 @@ export function normalizeChatMessages(
       };
       weeks.set(key, bucket);
     }
-    bucket.lastWeek = path; // sorted by time: the last message seen is in the latest week
+    bucket.lastWeek = path;
 
     const threadKey = message.thread?.name || message.name || `message-${messageIndex}`;
     const thread = bucket.threads.get(threadKey) ?? [];
@@ -385,9 +358,7 @@ export function mergeDocumentUrls(
           if (typeof url === "string" && url) set.add(url);
         }
       }
-    } catch {
-      // Ignore corrupt metadata; rebuild from this fetch.
-    }
+    } catch {}
   }
   for (const url of urls) set.add(url);
   if (set.size === 0) return existingMetadata ?? null;

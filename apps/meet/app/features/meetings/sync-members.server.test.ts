@@ -219,7 +219,6 @@ describe("syncMeetingMembers", () => {
   it("2 回連続で実行したとき、2 回目は members.create / members.delete を一切呼ばない（冪等性）", async () => {
     const { env } = await createEnvFixture(ACTIVE_MEETING, INVITEES);
 
-    // インメモリの Meet スペースメンバー一覧を模倣する。
     let remoteMembers: Array<{ name: string; email: string; role?: string }> = [
       { name: "spaces/sync-1/members/host", email: HOST_EMAIL, role: "COHOST" },
     ];
@@ -239,7 +238,6 @@ describe("syncMeetingMembers", () => {
       if (url === "https://meet.googleapis.com/v2/spaces/sync-1/members" && method === "POST") {
         createdCalls += 1;
         const body = JSON.parse(String(init?.body)) as { email: string; role?: string };
-        // Gmail のドット表記揺れを含めて Meet 側が返すケースも検証する。
         const storedEmail =
           body.email === "m.e.m.b.e.r@gmail.com" ? "member@gmail.com" : body.email;
         const created = {
@@ -262,7 +260,6 @@ describe("syncMeetingMembers", () => {
       throw new Error(`想定外の fetch: ${method} ${url}`);
     }) as unknown as typeof fetch;
 
-    // 1 回目: cohost（COHOST）と participant（role 省略）が作成され、ホスト自身は触られない。
     await syncMeetingMembers(env, "mtg-1", { fetchFn: fetchMock });
     expect(createdCalls).toBe(2);
     expect(deletedCalls).toBe(0);
@@ -272,7 +269,6 @@ describe("syncMeetingMembers", () => {
       { name: "spaces/sync-1/members/m-2", email: "member@gmail.com" },
     ]);
 
-    // 2 回目: 差分ゼロのため create / delete ともに 0 回。
     createdCalls = 0;
     deletedCalls = 0;
     await syncMeetingMembers(env, "mtg-1", { fetchFn: fetchMock });
@@ -293,11 +289,8 @@ describe("syncMeetingMembers", () => {
       if (url === "https://meet.googleapis.com/v2/spaces/sync-1/members" && method === "GET") {
         return Response.json({
           members: [
-            // cohost だが Meet 側では participant（role なし）→ delete→create 対象
             { name: "spaces/sync-1/members/old-cohost", email: "cohost@example.com" },
-            // 既に一致 → 無操作
             { name: "spaces/sync-1/members/keep-member", email: "member@gmail.com" },
-            // 招待外 → delete 対象
             { name: "spaces/sync-1/members/stale-user", email: "removed@example.com" },
           ],
         });
@@ -343,7 +336,6 @@ describe("syncMeetingMembers", () => {
               email: "cohost@example.com",
               role: "COHOST",
             },
-            // participant へ降格された元 cohost → delete → create(role 省略)
             { name: "spaces/sync-1/members/demoted", email: "member@gmail.com", role: "COHOST" },
           ],
         });
@@ -422,7 +414,6 @@ describe("syncMeetingMembers", () => {
 
     expect(created).toEqual(["m.e.m.b.e.r@gmail.com"]);
     expect(getMeeting()?.lastError).toContain("400");
-    // プライバシー保護のため last_error にメールアドレスを漏らさないこと
     expect(getMeeting()?.lastError).not.toContain("cohost@example.com");
   });
 

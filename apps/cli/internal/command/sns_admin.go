@@ -9,8 +9,6 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// --- X accounts ----------------------------------------------------------
-
 func newSnsXAccountsCommand(credentials store.CredentialStore) *cobra.Command {
 	command := &cobra.Command{
 		Use:   "x-accounts",
@@ -68,8 +66,6 @@ func newSnsXAccountsRevokeCommand(credentials store.CredentialStore) *cobra.Comm
 	_ = command.MarkFlagRequired("x-user-id")
 	return command
 }
-
-// --- contributors ------------------------------------------------------
 
 func newSnsContributorsCommand(credentials store.CredentialStore) *cobra.Command {
 	command := &cobra.Command{
@@ -130,9 +126,6 @@ func newSnsContributorsAddCommand(credentials store.CredentialStore) *cobra.Comm
 	return command
 }
 
-// newSnsContributorsRemoveCommand takes --chapter-id / --email flags, not a
-// positional id: the sns_contributors table is keyed by (chapter_id,
-// user_email) and has no single-column id to address.
 func newSnsContributorsRemoveCommand(credentials store.CredentialStore) *cobra.Command {
 	var chapterID int
 	var email string

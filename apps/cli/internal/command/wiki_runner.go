@@ -10,8 +10,6 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// newWikiRunnerCommand is `gdg wiki runner`, the systemd service on the OCI VM. Settings
-// come from the environment (/etc/gdg/runner.env); see infra/oci-runner/README.md.
 func newWikiRunnerCommand(service *wikiService) *cobra.Command {
 	var once, dryRun bool
 	command := &cobra.Command{
@@ -21,7 +19,6 @@ func newWikiRunnerCommand(service *wikiService) *cobra.Command {
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			cfg := runner.ConfigFromEnv()
 			cfg.Once, cfg.DryRun, cfg.Version = once, dryRun, version
-			// The runner's clones push through git-remote-gdg-wiki, like a person's.
 			if _, err := service.ensureGitHelper(); err != nil {
 				return err
 			}

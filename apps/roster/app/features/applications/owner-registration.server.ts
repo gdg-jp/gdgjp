@@ -18,7 +18,6 @@ export type OwnerRegistrationInput = {
   party: PartyStatus;
   note: string | null;
   skills: readonly SkillInput[];
-  /** Correction replaces visible roles only; archived-sheet role rows survive. */
   liveRoleIds?: readonly string[];
   availability: readonly AvailabilityInput[];
 };
@@ -27,12 +26,6 @@ export type OwnerRegistrationResult =
   | { ok: true; applicationId: string }
   | { ok: false; reason: "duplicate_email" | "duplicate_user" };
 
-/**
- * Saves owner correction or proxy registration as one D1 transaction. The
- * live event slot-set and the expected email are checked inside the same
- * batch as profile, skill, and availability writes, so races roll everything
- * back and a changed proxy identity cannot receive this submission.
- */
 export async function saveOwnerRegistration(
   db: D1Database,
   input: OwnerRegistrationInput,

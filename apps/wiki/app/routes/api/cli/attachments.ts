@@ -71,7 +71,6 @@ export async function loader({ request, context, params }: LoaderFunctionArgs) {
   });
 }
 
-/** PUT replaces bytes; DELETE removes the attachment.  Metadata is set by sync. */
 export async function action({ request, context, params }: ActionFunctionArgs) {
   const result = await permitted(request, context.cloudflare.env, params.attachmentId ?? "", true);
   if ("error" in result) return result.error;
@@ -94,7 +93,6 @@ export async function action({ request, context, params }: ActionFunctionArgs) {
       contentType: request.headers.get("content-type") || result.attachment.mimeType,
     },
   });
-  // Touching page_attachments creates a new mirror revision.
   await result.db
     .update(schema.pageAttachments)
     .set({ fileName: result.attachment.fileName })

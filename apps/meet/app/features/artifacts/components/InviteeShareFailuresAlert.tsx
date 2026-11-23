@@ -5,7 +5,6 @@ export type InviteeShareFailuresAlertProps = {
   failures: readonly InviteeShareFailure[];
 };
 
-/** 会議詳細画面（編集権限者向け）に表示する招待者単位の Drive 共有失敗アラート。 */
 export function InviteeShareFailuresAlert({ failures }: InviteeShareFailuresAlertProps) {
   if (failures.length === 0) return null;
 

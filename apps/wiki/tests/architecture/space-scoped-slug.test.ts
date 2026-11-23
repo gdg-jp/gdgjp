@@ -3,11 +3,6 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
-/**
- * Page slugs are unique per space, not globally (migration 0062). A lookup by slug alone
- * can resolve a page in another space — a cross-tenant read or overwrite. Every slug
- * lookup must go through `pageInSpace(spaceId, slug)` or carry `space_id` itself.
- */
 const WIKI_ROOT = fileURLToPath(new URL("../../", import.meta.url));
 
 function sourceFiles(relRoot: string): string[] {
@@ -29,7 +24,6 @@ function sourceFiles(relRoot: string): string[] {
 
 const SLUG_EQ = /eq\(\s*(?:schema\.)?pages\.slug\s*,/;
 const RAW_SLUG = /FROM\s+pages\s+WHERE\s+slug\s*=/i;
-// The single place allowed to compare pages.slug, because it always pairs it with space_id.
 const ALLOWED = new Set(["app/features/pages/page-space.server.ts"]);
 
 describe("space-scoped slug lookups", () => {

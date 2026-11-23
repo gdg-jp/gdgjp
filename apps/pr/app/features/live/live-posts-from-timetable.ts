@@ -11,16 +11,13 @@ type LiveConstants = {
 };
 
 export type LivePost = {
-  /** Stable per session (and kind), so regenerating updates instead of duplicating. */
   key: string;
   sessionId: string | null;
   purpose: "live" | "photo";
-  /** Epoch seconds. */
   at: number;
   title: string;
   text: string;
   track: string | null;
-  /** For the live-session-16x9 card. */
   card: {
     time: string;
     track: string;
@@ -38,11 +35,6 @@ const FLAG_KEYS: Record<string, string> = {
 };
 const epoch = (iso: string) => Math.floor(Date.parse(iso) / 1000);
 
-/**
- * Every live post from the timetable alone (no LLM): one post per public session at its start,
- * in time order (then track), and a photo post after each session for the photographer. A track
- * without a stream URL has no stream line. Same brief in, same posts out.
- */
 export function livePostsFromTimetable(brief: Brief, live: LiveConstants): LivePost[] {
   const speakers = new Map(brief.speakers.map((s) => [s.id, s.name]));
   const tracks = [

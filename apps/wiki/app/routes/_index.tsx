@@ -39,10 +39,6 @@ export const meta: MetaFunction<typeof loader> = ({ matches }) => {
   ];
 };
 
-// ---------------------------------------------------------------------------
-// Loader
-// ---------------------------------------------------------------------------
-
 export async function loader({ request, context, params }: LoaderFunctionArgs) {
   const { env } = context.cloudflare;
   const db = getDb(env);
@@ -93,7 +89,6 @@ export async function loader({ request, context, params }: LoaderFunctionArgs) {
   }
 
   const homeData = Promise.all([
-    // 8 most recently updated published pages
     db
       .select({
         id: schema.pages.id,
@@ -108,14 +103,8 @@ export async function loader({ request, context, params }: LoaderFunctionArgs) {
       .limit(8)
       .all(),
 
-    // All tags ordered by popularity
-    db
-      .select()
-      .from(schema.tags)
-      .orderBy(desc(schema.tags.pageCount))
-      .all(),
+    db.select().from(schema.tags).orderBy(desc(schema.tags.pageCount)).all(),
 
-    // 6 most recent non-deleted comments with author + page info
     db
       .select({
         commentId: schema.pageComments.id,
@@ -134,7 +123,6 @@ export async function loader({ request, context, params }: LoaderFunctionArgs) {
         and(
           isNull(schema.pageComments.deletedAt),
           eq(schema.pages.status, "published"),
-          // "Recent" means this month: a three-month-old comment is not activity.
           gt(schema.pageComments.createdAt, new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)),
           visFilter,
         ),
@@ -166,10 +154,6 @@ export async function loader({ request, context, params }: LoaderFunctionArgs) {
     homeData,
   };
 }
-
-// ---------------------------------------------------------------------------
-// Component
-// ---------------------------------------------------------------------------
 
 export default function Index() {
   const data = useLoaderData<typeof loader>();
@@ -250,12 +234,10 @@ export default function Index() {
     );
   }
 
-  // Home page for authenticated users
   const isJa = i18n.language !== "en";
 
   return (
     <div className="max-w-5xl px-4 py-6 md:px-8 md:py-8">
-      {/* Section 1: Create with AI CTA */}
       <HomeCta />
 
       <Suspense fallback={<CardGridSkeleton count={4} />}>
@@ -265,7 +247,6 @@ export default function Index() {
         >
           {({ recentPages, allTags, recentComments }) => (
             <>
-              {/* Section 2: Browse by Tag — only once a tag has pages behind it */}
               {allTags.some((tag) => tag.pageCount > 0) && (
                 <section className="mb-10">
                   <Heading level={2} className="mb-4">
@@ -294,13 +275,11 @@ export default function Index() {
                 </section>
               )}
 
-              {/* Section 3: Discover what's happening */}
               <section>
                 <Heading level={2} className="mb-4">
                   {t("home.activity_heading")}
                 </Heading>
                 <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-                  {/* Recent pages column */}
                   <div>
                     <Heading
                       level={3}
@@ -333,7 +312,6 @@ export default function Index() {
                     )}
                   </div>
 
-                  {/* Recent comments column */}
                   <div>
                     <Heading
                       level={3}

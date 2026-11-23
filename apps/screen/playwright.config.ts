@@ -7,7 +7,6 @@ export default defineConfig({
   testDir: "./e2e",
   testMatch: "**/*.spec.ts",
   globalSetup: "./e2e/global-setup.ts",
-  // Specs share the dev D1 and stage Durable Objects.
   fullyParallel: false,
   workers: 1,
   forbidOnly: !!process.env.CI,
@@ -17,7 +16,6 @@ export default defineConfig({
   use: {
     baseURL: BASE_URL,
     trace: "on-first-retry",
-    // Speaker pages follow Accept-Language; the specs assert Japanese copy.
     locale: "ja-JP",
   },
   projects: [

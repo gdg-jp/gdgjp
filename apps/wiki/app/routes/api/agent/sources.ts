@@ -5,7 +5,6 @@ import { requireSpaceForIdentity } from "~/features/spaces/access.server";
 import { DEFAULT_SPACE_SLUG } from "~/features/spaces/shared";
 import { getDb } from "~/lib/db.server";
 
-/** POST /api/agent/sources — register a source as the Bearer token's user. */
 export async function action({ request, context }: ActionFunctionArgs) {
   if (request.method !== "POST") {
     return Response.json({ error: "method_not_allowed" }, { status: 405 });

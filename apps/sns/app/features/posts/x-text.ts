@@ -12,10 +12,6 @@ export function parseXPostText(text: string) {
   return twitterText.parseTweet(text);
 }
 
-/**
- * Returns UTF-16 ranges for entities that X displays as links: URLs, mentions,
- * hashtags, and cashtags. These indices can be used directly with String#slice.
- */
 export function getXPostLinkRanges(text: string): XPostLinkRange[] {
   return twitterText
     .extractEntitiesWithIndices(text)

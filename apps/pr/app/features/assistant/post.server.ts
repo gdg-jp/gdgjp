@@ -14,7 +14,6 @@ import { deleteSource, getSource, upsertSource } from "./source.repository.serve
 const MAX_BODY = 8000;
 const MAX_URLS = 3;
 
-/** Ask the runner to answer everything up to this message (one queued job at a time). */
 export async function queueAssist(
   db: D1Database,
   campaignId: number,
@@ -32,10 +31,6 @@ const randomId = () =>
 
 export type PostResult = { ok: true } | { ok: false; error: string };
 
-/**
- * A person writes in the thread: files go to R2, URLs become sources the Worker reads now (so the
- * runner gets their text and images), and an assist job answers.
- */
 export async function postMessage(
   env: Env,
   access: CampaignAccess,
@@ -82,7 +77,6 @@ export async function postMessage(
   return { ok: true };
 }
 
-/** Read a source again (the page changed) and let the assistant compare. */
 export async function refreshSource(
   env: Env,
   access: CampaignAccess,

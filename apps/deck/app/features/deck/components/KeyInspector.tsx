@@ -58,7 +58,6 @@ function defaultBehavior(type: Behavior["type"], layout: DeckLayout): Behavior {
   }
 }
 
-/** Shrinks an image to 256 px (longest side) as WebP before upload. */
 async function shrink(file: File): Promise<Blob> {
   const bitmap = await createImageBitmap(file);
   const scale = Math.min(1, 256 / Math.max(bitmap.width, bitmap.height));
@@ -285,7 +284,6 @@ function StepsEditor({
   );
 }
 
-/** The editor's right panel: everything about the selected key. */
 export function KeyInspector({
   deckId,
   layout,

@@ -74,7 +74,6 @@ export type MeetingFormProps = {
   formError?: string;
 };
 
-/** Google Meet 会議の作成・編集フォーム。 */
 export function MeetingForm({
   mode = "create",
   userChapters = [],

@@ -170,8 +170,6 @@ describe("advanceSourceImportTick with the Chat driver", () => {
       const body = objects.get(key);
       return body ? { json: async () => JSON.parse(body) } : null;
     });
-    // currentRun(2) + accessToken(1) + page fetch/R2 put(2) = 5; the
-    // object-local page cursor leaves room for one more page in this budget.
     const budget = new SubrequestBudget(7);
     const result = await advanceSourceImportTick({
       env: { BUCKET: { put, get } } as unknown as Env,
@@ -225,7 +223,6 @@ describe("advanceSourceImportTick with the Chat driver", () => {
       runId: run.id,
     });
 
-    // accessToken is mocked (no D1), so charge it explicitly as production would.
     expect(budget.spent).toBe(fetchOps + r2Ops + d1Ops + ACCESS_TOKEN_SUBREQUESTS);
     expect(d1Ops).toBeGreaterThanOrEqual(CURRENT_RUN_SUBREQUESTS);
     expect(fetchOps).toBeGreaterThan(0);
@@ -349,7 +346,6 @@ describe("advanceSourceImportTick with the Chat driver", () => {
       return body ? { json: async () => JSON.parse(body) } : null;
     });
     const sql = memorySql();
-    // Budget reaches indexing but stops before sender resolution.
     await advanceSourceImportTick({
       env: { BUCKET: { put, get } } as unknown as Env,
       sql,
@@ -413,7 +409,6 @@ describe("advanceSourceImportTick with the Chat driver", () => {
     });
 
     expect(result.phase).toBe("senders");
-    // Re-fetched from the open document's first week (Monday 2026-06-22, JST).
     const url = new URL(String(fetchSpy.mock.calls[0]?.[0]));
     expect(url.searchParams.get("filter")).toBe('createTime >= "2026-06-21T15:00:00Z"');
     expect(
@@ -802,7 +797,6 @@ describe("advanceSourceImportTick with the Chat driver", () => {
 
     expect(result).toMatchObject({ finished: true, phase: "complete" });
     expect(budget.spent).toBeLessThanOrEqual(budget.limit);
-    // 10 upserts + 1 prune for a single sender — must not scale with message count.
     expect(sampleD1Statements).toBe(11);
     expect(
       sqlite
@@ -848,7 +842,6 @@ describe("advanceSourceImportTick with the Chat driver", () => {
       }
     });
 
-    // CURRENT_RUN(2) + ACCESS(1) + profiles(1) + one flush batch(1) = 5.
     const first = await advanceSourceImportTick({
       env: {} as Env,
       sql,
@@ -866,7 +859,6 @@ describe("advanceSourceImportTick with the Chat driver", () => {
       budget: new SubrequestBudget(),
       runId: run.id,
     });
-    // No week documents → finalizing completes quickly; import finishes.
     expect(second.phase === "senders" || second.finished).toBe(true);
 
     const third =

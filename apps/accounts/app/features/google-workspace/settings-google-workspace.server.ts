@@ -42,10 +42,6 @@ export async function actOnSettingsGoogleWorkspace(args: RouteRequestArgs) {
 
   const connection = await getWorkspaceConnection(env.DB, user.id);
   if (connection && connection.revokedAt === null) {
-    // Local disconnect must succeed even if the token can't be decrypted
-    // (stale/missing key, corrupted row) or Google's revoke call fails —
-    // otherwise the user would be unable to disconnect, and vending would
-    // resume if the key later became available again.
     try {
       const refreshToken = await decryptRefreshToken(
         env,

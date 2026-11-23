@@ -35,7 +35,6 @@ function describeArtifactStatus(artifact: PublicArtifact): string {
   return parts.join(" ・ ");
 }
 
-/** 会議詳細画面に表示する生成ファイル（録画・文字起こし/Gemini メモ・チャット記録）一覧カード。 */
 export function ArtifactList({ artifacts }: ArtifactListProps) {
   return (
     <Card>

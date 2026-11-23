@@ -29,7 +29,6 @@ import {
 const BACKFILL_LOOKBACK_MS = 7 * 24 * 60 * 60 * 1000;
 const PENDING_ARTIFACT_MAX_ATTEMPTS = 20;
 const STATS_ENDED_GRACE_MS = 30 * 60 * 1000;
-// 通常の収集は終了の数分後に済む。2 時間たっても `collecting` なら再試行切れで止まっている。
 const STATS_STALE_COLLECTING_MS = 2 * 60 * 60 * 1000;
 const STATS_MAX_ATTEMPTS = 10;
 const STATS_CRON_LIMIT = 20;
@@ -51,14 +50,6 @@ export type CronRunSummary = {
   errors: string[];
 };
 
-/**
- * 毎時 cron ハンドラ本体。
- * `google_connection` が `connected` でなければスキップし、接続時は次の 4 段を順に実行する:
- * 1. Workspace Events 購読の維持・延長・再作成
- * 2. 過去 7 日以内の `active` 会議の生成ファイル取りこぼし補完（文字起こし統計の投入を含む）
- * 3. 未共有・未添付かつ再試行上限未満の `artifacts` の再投入
- * 4. 会議統計・文字起こし統計の期限切れ更新と未完了レコードの再投入（Meet API 呼び出しなし）
- */
 export async function runMeetCron(env: Env, deps: CronDeps = {}): Promise<CronRunSummary> {
   const fetchFn = deps.fetchFn ?? globalThis.fetch;
   const now = deps.now ?? (() => new Date());
@@ -82,7 +73,6 @@ export async function runMeetCron(env: Env, deps: CronDeps = {}): Promise<CronRu
   let expiredStatsRecords = 0;
   const enqueuedTranscripts = new Set<string>();
 
-  // 1. 購読の維持
   try {
     const ensured = await ensureSubscription(env, { fetchFn, now });
     subscriptionAction = ensured.ok ? ensured.action : "skipped";
@@ -92,7 +82,6 @@ export async function runMeetCron(env: Env, deps: CronDeps = {}): Promise<CronRu
     errors.push(error instanceof Error ? error.message : String(error));
   }
 
-  // 2. 過去 7 日以内の active 会議の取りこぼし補完
   let backfilledProcessJobs = 0;
   try {
     const nowDate = now();
@@ -208,7 +197,6 @@ export async function runMeetCron(env: Env, deps: CronDeps = {}): Promise<CronRu
     errors.push(error instanceof Error ? error.message : String(error));
   }
 
-  // 3. 未共有・未添付 artifact の回収
   let requeuedShareJobs = 0;
   try {
     const pendingArtifacts = await listPendingArtifacts(env.DB, PENDING_ARTIFACT_MAX_ATTEMPTS);
@@ -221,7 +209,6 @@ export async function runMeetCron(env: Env, deps: CronDeps = {}): Promise<CronRu
     errors.push(error instanceof Error ? error.message : String(error));
   }
 
-  // 4. 会議統計・文字起こし統計の期限切れ更新と未完了レコードの再投入（Meet API 呼び出しなし）
   try {
     const nowDate = now();
     const nowIso = nowDate.toISOString();

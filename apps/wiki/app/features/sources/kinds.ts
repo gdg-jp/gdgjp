@@ -7,19 +7,6 @@ import {
 } from "./classify";
 import type { SourceKind, SourceRefreshPolicy } from "./shared";
 
-/**
- * The only place that knows what each source kind can do (knowledge platform v2 §2-b).
- *
- * Two different things carry a "kind":
- * - `SourceKind` — what is stored in `sources.kind` (9 + discord-guild).
- * - `RegistrationKind` — the entry point in the add-source panel. `url` becomes `website` or a
- *   Drive kind, `google-drive` becomes doc / sheet / slides.
- *
- * Code elsewhere reads these tables instead of comparing kind literals
- * (tests/architecture/source-kind-branches.test.ts).
- */
-
-/** Import driver a stored kind runs on (`workers/features/sources/import/<driver>/`). */
 export type SourceImportKind =
   | "google-chat-space"
   | "google-drive"
@@ -29,17 +16,11 @@ export type SourceImportKind =
 
 export interface SourceKindSpec {
   kind: SourceKind;
-  /** null = no remote fetch (upload / text / conversation are written once, inline). */
   driver: SourceImportKind | null;
-  /** Can be refreshed manually or by cron. Same as `driver !== null`, named for intent. */
   refreshable: boolean;
-  /** Refresh policies offered for this kind. */
   refreshPolicies: readonly SourceRefreshPolicy[];
-  /** Policy used when registration does not choose one. */
   defaultRefreshPolicy: SourceRefreshPolicy;
-  /** Key the add-source panel uses to mark an already-registered external object. */
   candidateId(externalId: string): string;
-  /** Title shown until the first fetch reports the real one. */
   provisionalTitle(classified: Extract<ClassifiedSource, { ok: true }>): string;
   labelKey: string;
 }
@@ -88,8 +69,6 @@ export const SOURCE_KINDS: Record<SourceKind, SourceKindSpec> = {
   "google-doc": driveKind("google-doc", "sources.kind.google-doc"),
   "google-sheet": driveKind("google-sheet", "sources.kind.google-sheet"),
   "google-slides": driveKind("google-slides", "sources.kind.google-slides"),
-  // One source for a whole folder: every Docs / Sheets / Slides file beneath it, sub-folders
-  // included, imported under the folder's own paths (`<sub>/<file>/<unit>`).
   "google-drive-folder": driveKind(
     "google-drive-folder",
     "sources.kind.google-drive-folder",
@@ -144,7 +123,6 @@ export function sourceKindSpec(kind: string): SourceKindSpec | null {
   return Object.hasOwn(SOURCE_KINDS, kind) ? SOURCE_KINDS[kind as SourceKind] : null;
 }
 
-/** First import phase of each driver (resumable DO alarm loop, `import/tick.ts`). */
 export const IMPORT_FIRST_PHASE: Record<SourceImportKind, string> = {
   "google-chat-space": "listing",
   "discord-channel": "listing",
@@ -153,26 +131,18 @@ export const IMPORT_FIRST_PHASE: Record<SourceImportKind, string> = {
   website: "start",
 };
 
-// ---------------------------------------------------------------------------
-// Registration entry points (add-source panel → createSource)
-// ---------------------------------------------------------------------------
-
 export type RegistrationKind = "url" | "google-drive" | "google-chat-space" | "discord-guild";
 
-/** A candidate staged in the add-source panel before the batch is submitted. */
 export type StagedSource = {
   id: string;
   kind: RegistrationKind;
   title: string;
   url: string;
   externalId?: string;
-  /** JSON settings (discord-guild selection). */
   config?: string;
 };
 
-/** The registration-specific part of createSource's input. */
 export type RegistrationInput = {
-  /** The registration entry point (createSource's `kind`). */
   kind: RegistrationKind;
   url?: unknown;
   externalId?: unknown;
@@ -182,17 +152,12 @@ export type RegistrationInput = {
 
 export interface RegistrationSpec {
   registration: RegistrationKind;
-  /** Validate one staged candidate from the batch form (untrusted JSON). */
   parseCandidate(raw: Record<string, unknown>): StagedSource | null;
-  /** Client-side check before submit; returns an error code or null. */
   validate(candidate: StagedSource): string | null;
-  /** Server-side classification into a stored kind. */
   classify(input: RegistrationInput): ClassifiedSource;
   toCreateInput(candidate: StagedSource): RegistrationInput;
-  /** Row rendering in the staged list. */
   icon: IconName;
   editableUrl: boolean;
-  /** Staged candidates of this kind also block a second identical pick before submit. */
   dedupeStaged: boolean;
   labelKey: string;
 }
@@ -251,7 +216,6 @@ export const REGISTRATIONS: Record<RegistrationKind, RegistrationSpec> = {
     classify(input) {
       if (typeof input.url !== "string") return { ok: false, error: "url_required" };
       const classified = classifySourceUrl(input.url, input.title);
-      // A Drive registration must land on a Drive kind, never on a plain website.
       return classified.ok && SOURCE_KINDS[classified.kind].driver !== "google-drive"
         ? { ok: false, error: "unsupported_url" }
         : classified;
@@ -309,7 +273,6 @@ export function registrationSpec(registration: unknown): RegistrationSpec | null
     : null;
 }
 
-/** Stored kinds that never fetch — for SQL guards (`notInArray(sources.kind, …)`). */
 export const NON_REFRESHABLE_KINDS: readonly SourceKind[] = Object.values(SOURCE_KINDS)
   .filter((spec) => !spec.refreshable)
   .map((spec) => spec.kind);

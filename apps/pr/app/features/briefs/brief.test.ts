@@ -17,7 +17,6 @@ describe("parseBrief", () => {
     expect(parseBrief(example)).toMatchObject({ ok: true });
   });
   it("requires exactly the schema's required keys", () => {
-    // parseBrief validates with the Playbook schema itself, so the two cannot drift.
     expect([...BRIEF_REQUIRED].sort()).toEqual(
       ["audienceSegments", "budget", "event", "goals", "metaThemes", "sessions", "speakers"].sort(),
     );

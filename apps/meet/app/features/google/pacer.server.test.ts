@@ -22,24 +22,20 @@ describe("createPacer", () => {
       sleep,
     });
 
-    // 1 回目: 待機なし
     expect(await pacer.next()).toBe(true);
     expect(sleepCalls).toEqual([]);
     expect(pacer.usedCalls()).toBe(1);
 
-    // 50ms 経過後に 2 回目 → 150ms 待機
     clock += 50;
     expect(await pacer.next()).toBe(true);
     expect(sleepCalls).toEqual([150]);
     expect(pacer.usedCalls()).toBe(2);
 
-    // 250ms 経過後に 3 回目 → 待機なし
     clock += 250;
     expect(await pacer.next()).toBe(true);
     expect(sleepCalls).toEqual([150]);
     expect(pacer.usedCalls()).toBe(3);
 
-    // 4 回目: 上限到達のため待機せず false を返す
     expect(await pacer.next()).toBe(false);
     expect(sleepCalls).toEqual([150]);
     expect(pacer.usedCalls()).toBe(3);

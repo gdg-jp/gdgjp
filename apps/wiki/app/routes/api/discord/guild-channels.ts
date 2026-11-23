@@ -8,10 +8,6 @@ import {
 import { getDiscordOauthTokenRow } from "~/features/discord/token.server";
 import { getDb } from "~/lib/db.server";
 
-/**
- * List text/announcement channels in a guild via the bot token, grouped by category.
- * Requires the user to be Discord-connected and the bot to be in the guild.
- */
 export async function loader({ request, context, params }: LoaderFunctionArgs) {
   const { env } = context.cloudflare;
   const user = await requireUser(request, env);
@@ -36,7 +32,6 @@ export async function loader({ request, context, params }: LoaderFunctionArgs) {
     return Response.json({ error: "discord_scopes_missing", reauthorize: true }, { status: 403 });
   }
 
-  // Confirm the user belongs to this guild before exposing channel names.
   try {
     const { listUserGuilds } = await import("~/features/discord/api.server");
     const userGuilds = await listUserGuilds(token.accessToken);

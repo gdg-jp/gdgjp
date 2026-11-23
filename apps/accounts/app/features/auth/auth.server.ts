@@ -9,11 +9,7 @@ export const CLI_SCOPE = "https://gdgs.jp/scopes/cli";
 export const CHAPTERS_CLAIM = "https://gdgs.jp/claims/chapters";
 export const IS_ADMIN_CLAIM = "https://gdgs.jp/claims/is_admin";
 export const OAUTH_STATE_STORAGE = "cookie" as const;
-// A session lookup is on the critical path for every authenticated SSR route.
-// Do not let one stuck D1 request turn a persistent browser cookie into an
-// indefinitely pending navigation.
 export const SESSION_LOOKUP_TIMEOUT_MS = 5_000;
-// Bounds auth.handler / auth.api entry points (Google token exchange + D1 writes).
 export const AUTH_HANDLER_TIMEOUT_MS = 10_000;
 // Cloudflare always sets cf-connecting-ip as a single value; prefer it over
 // multi-hop x-forwarded-for so rate-limit keys do not collapse to no-trusted-ip.
@@ -31,15 +27,10 @@ export function getAuth(env: Env): AuthInstance {
   return instance;
 }
 
-/** Drop a stalled betterAuth() instance so the next request rebuilds `$context`. */
 export function invalidateAuthCache(): void {
   cached = null;
 }
 
-/**
- * Kick `$context` init (including the kysely dynamic import) under waitUntil so
- * client abort cannot leave the module-scoped init promise permanently pending.
- */
 export function warmAuth(env: Env): Promise<void> {
   return getAuth(env)
     .$context.then(() => undefined)
@@ -102,10 +93,6 @@ export function authUnavailableResponse(): Response {
   });
 }
 
-/**
- * Run an auth promise with a hard deadline. On timeout, invalidate the cached
- * betterAuth instance so the next request can rebuild a healthy `$context`.
- */
 export async function withAuthTimeout<T>(operation: Promise<T>, onTimeout: () => T): Promise<T> {
   try {
     return await withTimeout(operation, AUTH_HANDLER_TIMEOUT_MS);
@@ -133,7 +120,6 @@ export async function requireUser(env: Env, request: Request): Promise<AuthUser>
   return user;
 }
 
-/** First-party OAuth client IDs that skip consent via cachedTrustedClients. */
 export function trustedOAuthClientIds(env: Env): string[] {
   return [
     env.TINYURL_CLIENT_ID,
@@ -178,14 +164,9 @@ function buildAuth(env: Env) {
     },
     session: {
       expiresIn: 60 * 60 * 24 * 14,
-      // Admin revocation deletes sessions in D1. Keep the database authoritative
-      // so revoked users cannot continue with a cached, self-contained cookie.
       cookieCache: { enabled: false },
     },
     account: {
-      // OAuth state is short-lived, encrypted, and bound to the browser. Keeping
-      // it in the state cookie avoids a D1 write on every Google sign-in start;
-      // user accounts and sessions remain database-backed.
       storeStateStrategy: OAUTH_STATE_STORAGE,
     },
     socialProviders: {
@@ -222,10 +203,8 @@ function buildAuth(env: Env) {
         ],
         allowDynamicClientRegistration: false,
         allowUnauthenticatedClientRegistration: false,
-        // Allow http:// only on exact loopback hosts so web clients work in local dev and E2E.
         allowInsecureRedirectUri: (url) =>
           url.hostname === "localhost" || url.hostname === "127.0.0.1" || url.hostname === "[::1]",
-        // Protected resources are not managed through Better Auth's admin CRUD endpoints.
         resourcePrivileges: () => false,
         clientPrivileges: async ({ user }) => {
           if (!user) return false;
@@ -243,7 +222,6 @@ function buildAuth(env: Env) {
         accessTokenExpiresIn: 60 * 60,
         refreshTokenExpiresIn: 60 * 60 * 24 * 30,
         grantTypes: ["authorization_code", "refresh_token"],
-        // Both root discovery routes are explicitly mounted through React Router.
         silenceWarnings: { oauthAuthServerConfig: true, openidConfig: true },
         customUserInfoClaims: async ({ user, scopes }) =>
           scopes.includes(CHAPTERS_SCOPE) ? chapterClaims(env.DB, user.id, user) : {},

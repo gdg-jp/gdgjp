@@ -22,12 +22,6 @@ type AssetOutput = {
 
 const MAX_HTML_BYTES = 300_000;
 
-/**
- * `asset` jobs. Design mode: the agent's HTML becomes an asset, sanitized, rendered and checked
- * here (the Worker never takes pixels from the agent); for purpose "kit" each direction becomes
- * one "kit" asset to choose from. Template mode: the slots, as before. A MUST failure queues one
- * more asset job with the failures and the previous version; that retry's result is final.
- */
 export async function importAsset(
   env: Env,
   job: Job,

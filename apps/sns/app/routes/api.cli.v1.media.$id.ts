@@ -7,8 +7,6 @@ import { getPostMediaById } from "~/features/posts/post-media.repository.server"
 import { getPost } from "~/features/posts/post.repository.server";
 import type { Route } from "./+types/api.cli.v1.media.$id";
 
-// Action-only route: a GET/HEAD never reaches `action`, so answer it here with
-// the same JSON 405 the HTTP boundary promises.
 export function loader(_args: Route.LoaderArgs) {
   return cliMethodNotAllowed();
 }
@@ -18,7 +16,6 @@ export async function action(args: Route.ActionArgs) {
   const env = args.context.cloudflare.env;
   const id = args.params.id ?? "";
 
-  // Authorize by the owning post's chapter — never a caller-supplied id.
   const media = await getPostMediaById(env.DB, id);
   if (!media) return cliError("not_found", 404);
   const post = await getPost(env.DB, media.postId);

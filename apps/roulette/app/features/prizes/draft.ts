@@ -1,18 +1,12 @@
 import { currentOdds, finiteLeft } from "./odds";
 import { MAX_PRIZES, MODES, type Mode, type Prize } from "./prize";
 
-/**
- * The prize settings form while it is being edited: text as typed, validated on
- * save on both the client and the server.
- */
-
 export type DraftPrize = {
   id: string;
   name: string;
   stockText: string;
   unlimited: boolean;
   percentText: string;
-  /** Kept while switching modes; only takes effect in the evil mode. */
   excluded: boolean;
 };
 
@@ -22,7 +16,6 @@ export type DraftErrors = {
   name?: Record<string, string>;
   stock?: Record<string, string>;
   percent?: Record<string, string>;
-  /** About the whole list: empty, too many, the % do not add up, or nothing excluded. */
   list?: string;
   expected?: string;
 };
@@ -64,7 +57,6 @@ function wonOf(saved: Prize[], id: string) {
   return saved.find((prize) => prize.id === id)?.won ?? 0;
 }
 
-/** The draft as prizes, reading unparseable numbers as 0 so the preview always works. */
 export function draftPrizes(draft: Draft, saved: Prize[]): Prize[] {
   return draft.prizes.map((row) => ({
     id: row.id,
@@ -85,13 +77,11 @@ export function percentTotal(draft: Draft) {
   return Math.round(total * 100) / 100;
 }
 
-/** Odds of the draft for the preview; null while the % do not add up to 100. */
 export function previewOdds(draft: Draft, saved: Prize[], draws: number) {
   if (draft.mode === "custom" && percentTotal(draft) !== 100) return null;
   return currentOdds(draftPrizes(draft, saved), draft.mode, draftExpected(draft), draws);
 }
 
-/** Losing tickets in the box right now (expected − drawn − finite left). */
 export function boxPool(draft: Draft, saved: Prize[], draws: number) {
   return Math.max(draftExpected(draft) - draws - finiteLeft(draftPrizes(draft, saved)), 0);
 }
@@ -150,7 +140,6 @@ export function hasErrors(errors: DraftErrors) {
   return Object.values(errors).some(Boolean);
 }
 
-/** Validate an untrusted JSON body into a Draft (shape only; values go through validateDraft). */
 export function parseDraft(input: unknown): Draft | null {
   if (!input || typeof input !== "object") return null;
   const { mode, expectedText, prizes } = input as Record<string, unknown>;
@@ -175,7 +164,6 @@ export function parseDraft(input: unknown): Draft | null {
   return { mode: mode as Mode, expectedText, prizes: rows };
 }
 
-/** Draft → the values to store. Call only after validateDraft returned no errors. */
 export function draftToSettings(draft: Draft, saved: Prize[]) {
   return {
     mode: draft.mode,
@@ -188,7 +176,6 @@ export function newRow(id: string): DraftPrize {
   return { id, name: "", stockText: "1", unlimited: false, percentText: "0", excluded: false };
 }
 
-/** Add above the first unlimited row so the losing slot stays at the bottom. */
 export function addRow(draft: Draft, id: string): Draft {
   const at = draft.prizes.findIndex((row) => row.unlimited);
   const prizes = [...draft.prizes];
@@ -204,7 +191,6 @@ export function moveRow(draft: Draft, index: number, by: -1 | 1): Draft {
   return { ...draft, prizes };
 }
 
-/** Rank of a row counting only finite rows (unlimited rows are null). */
 export function draftRank(draft: Draft, index: number) {
   if (draft.prizes[index]?.unlimited) return null;
   return draft.prizes.slice(0, index + 1).filter((row) => !row.unlimited).length;

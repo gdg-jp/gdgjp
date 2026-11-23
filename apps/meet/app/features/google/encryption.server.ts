@@ -1,11 +1,5 @@
-/**
- * リフレッシュトークン暗号化に使う鍵バージョン。
- * 新しい鍵へローテーションする際は `GOOGLE_TOKEN_ENCRYPTION_KEY_V<n>` を追加し、
- * `encryptionKeySecret` に case を足したうえで本定数を上げる。
- */
 export const CURRENT_ENCRYPTION_KEY_VERSION = 1;
 
-/** 単一行 `google_connection (id = 1)` 用の AES-GCM 追加認証データ（AAD）。 */
 export const GOOGLE_CONNECTION_AAD = "google-connection:1";
 
 export type GoogleEncryptionEnv = {
@@ -69,10 +63,6 @@ async function importAesKey(
   return crypto.subtle.importKey("raw", rawKey, "AES-GCM", false, [usage]);
 }
 
-/**
- * リフレッシュトークンを AES-256-GCM で暗号化する。
- * `aad` は行識別子（例: `google-connection:1`）を束縛するために使用する。
- */
 export async function encryptRefreshToken(
   env: GoogleEncryptionEnv,
   aad: string,
@@ -92,9 +82,6 @@ export async function encryptRefreshToken(
   };
 }
 
-/**
- * 暗号化済みリフレッシュトークンを `keyVersion` に対応する鍵で復号する。
- */
 export async function decryptRefreshToken(
   env: GoogleEncryptionEnv,
   aad: string,

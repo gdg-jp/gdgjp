@@ -11,10 +11,6 @@ import { getTarget } from "./target.repository.server";
 
 const DAY_MINUTES = 24 * 60;
 
-/**
- * A co-host chapter's account with nobody here to approve it: a request item (with the text to
- * copy) and a message on that chapter's Discord, instead of posting for them.
- */
 export async function delegateTarget(
   env: Env,
   access: CampaignAccess,

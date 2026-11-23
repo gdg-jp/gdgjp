@@ -8,14 +8,6 @@ import { listRosterSheets } from "~/features/roster-sheets/roster-sheets.server"
 import { getDb } from "~/lib/db.server";
 import type { Route } from "./+types/e.$id.share";
 
-/**
- * `/e/:id/share` (docs/roster/09-share-public-views.md "Design" §1):
- * chapter-gated exactly like `/e/:id/design`/`/e/:id/staff`/`/e/:id/roster`
- * — the same `requireUserWithChapter` + `canManageEvent` pattern every other
- * owner route in this app uses. This route does not change `status`; it
- * surfaces the default compatibility URL and each live sheet's visibility and public URL.
- * Publication is managed on the event overview, independently of recruitment.
- */
 async function requireShareAccess(env: Env, request: Request, id: string | undefined) {
   const { chapters } = await requireUserWithChapter(env, request);
   if (!id) throw new Response(null, { status: 404 });

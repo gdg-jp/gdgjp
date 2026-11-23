@@ -236,11 +236,6 @@ export async function listProposedCrossSheetAssignmentConflicts(
   return conflicts.sort(compareConflicts);
 }
 
-/**
- * Returns target-sheet slots that an applicant cannot take because they
- * already have an overlapping assignment on another live sheet for this event.
- * This deliberately selects identifiers only; solver input does not need PII.
- */
 export async function listCrossSheetAssignmentOverlapByApplication(
   db: D1Database,
   eventId: string,
@@ -297,11 +292,6 @@ export async function listCrossSheetAssignmentOverlapByApplication(
   return slotsByApplication;
 }
 
-/**
- * Finds assignments on other live sheets that overlap actual target-sheet
- * assignments for the same applicant. Sheets only conflict on the same date;
- * slot intervals use half-open boundaries, so adjacent shifts are allowed.
- */
 export async function listCrossSheetAssignmentConflicts(
   db: D1Database,
   eventId: string,

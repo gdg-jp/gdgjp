@@ -23,7 +23,6 @@ export async function action(args: Route.ActionArgs) {
   return Response.json(body);
 }
 
-/** Accepts the slug from a JSON `{ slug }` body or a `slug` form field. */
 async function readSlug(request: Request): Promise<string | null> {
   const contentType = request.headers.get("content-type") ?? "";
   if (contentType.includes("application/json")) {

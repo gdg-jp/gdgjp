@@ -3,8 +3,6 @@ import type { CommentRow } from "~/features/links/link-record";
 import { toComment } from "~/features/links/link-record";
 import { COMMENT_COLS } from "~/features/links/link-record";
 
-// ---------- Comments ----------
-
 export async function listComments(db: D1Database, linkId: string): Promise<Comment[]> {
   const { results } = await db
     .prepare(`SELECT ${COMMENT_COLS} FROM comments WHERE link_id = ? ORDER BY created_at`)
@@ -33,7 +31,6 @@ export async function deleteComment(db: D1Database, id: number): Promise<void> {
   await db.prepare("DELETE FROM comments WHERE id = ?").bind(id).run();
 }
 
-/** Replaces one author's comment atomically; an empty body removes it. */
 export async function replaceCommentForAuthor(
   db: D1Database,
   input: { linkId: string; authorUserId: string; body: string },

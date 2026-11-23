@@ -32,7 +32,6 @@ export default function TaskRemainingView({ tasks, members, onTaskClick }: TaskR
 
   const remaining = useMemo(() => tasks.filter((t) => !DONE_STATUSES.has(t.status)), [tasks]);
 
-  // Group by assignee, sorted by due date
   const groups = useMemo(() => {
     const map = new Map<string | null, Task[]>();
     for (const task of remaining) {
@@ -41,7 +40,6 @@ export default function TaskRemainingView({ tasks, members, onTaskClick }: TaskR
       list.push(task);
       map.set(key, list);
     }
-    // Sort each group by due date (null last)
     for (const [, list] of map) {
       list.sort((a, b) => {
         if (!a.dueDate && !b.dueDate) return 0;

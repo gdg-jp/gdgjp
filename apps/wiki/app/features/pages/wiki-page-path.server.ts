@@ -2,9 +2,6 @@ import { wikiPagePath } from "./wiki-page-path";
 const ANCESTRY_DEPTH_CAP = 32;
 const BATCH_CHUNK_SIZE = 50;
 
-/**
- * Resolve root→leaf slug segments for a single page by walking `parent_id` upward.
- */
 export async function getWikiCanonicalSlugPath(env: Env, pageId: string): Promise<string[]> {
   const result = await env.DB.prepare(
     `WITH RECURSIVE ancestry(id, slug, parent_id, depth) AS (
@@ -22,10 +19,6 @@ export async function getWikiCanonicalSlugPath(env: Env, pageId: string): Promis
   return result.results.map((row) => row.slug);
 }
 
-/**
- * Resolve root→leaf slug segments for many pages in one (chunked) query.
- * `origin_id` rides along each recursive row so paths never mix across origins.
- */
 export async function getWikiCanonicalSlugPaths(
   env: Env,
   pageIds: readonly string[],
@@ -66,10 +59,6 @@ export async function getWikiCanonicalSlugPaths(
 
 export type WikiAncestor = { id: string; slug: string; titleJa: string; titleEn: string };
 
-/**
- * Root→leaf ancestry (titles included) for many pages, for breadcrumbs. The leaf itself is
- * the last element; callers that want only the parents drop it.
- */
 export async function getWikiAncestry(
   env: Env,
   pageIds: readonly string[],
@@ -107,10 +96,6 @@ export async function getWikiAncestry(
   return chains;
 }
 
-/**
- * Full browser URLs (`/s/<space>/wiki/<root>/…/<leaf>`) for many pages. Use this for any
- * listing that may contain pages from more than one space.
- */
 export async function getWikiPageUrls(
   env: Env,
   pageIds: readonly string[],
@@ -129,7 +114,6 @@ export async function getWikiPageUrls(
   return urls;
 }
 
-/** Space slug of each page. */
 export async function getPageSpaceSlugs(
   env: Env,
   pageIds: readonly string[],

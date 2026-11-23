@@ -9,10 +9,8 @@ import type {
   MeetUserAvatar,
 } from "@gdgjp/gdg-lib";
 
-/** 1 回の RPC 呼び出しで指定できるチャプター ID の上限。 */
 export const MAX_MEET_DIRECTORY_CHAPTER_IDS = 50;
 
-/** 1 回の RPC 呼び出しでアバター照会できるメールアドレスの上限。 */
 export const MAX_MEET_AVATAR_EMAILS = 200;
 
 const SQL_EMAIL_CHUNK_SIZE = 50;
@@ -35,11 +33,6 @@ function isChapterRole(value: unknown): value is ChapterRole {
   return typeof value === "string" && VALID_ROLES.has(value);
 }
 
-/**
- * `meet.gdgs.jp` 向け service-binding RPC の本体。
- * 呼び出し主体のアクティブ所属を DB で直接検証したうえで、指定チャプターの
- * `status = 'active'` なメンバーのみを返す。例外は投げず常に値で返す。
- */
 export async function listMeetChapterMembers(
   db: D1Database,
   input: ListChapterMembersInput,
@@ -50,7 +43,6 @@ export async function listMeetChapterMembers(
       return { ok: false, code: "forbidden" };
     }
 
-    // 引数 actor.chapters の自己申告は信頼せず、accounts D1 上の active 所属を直接検証する。
     const activeMembership = await db
       .prepare("SELECT 1 FROM memberships WHERE user_id = ? AND status = 'active' LIMIT 1")
       .bind(userId)
@@ -179,10 +171,6 @@ type PreparedEmailLookup =
   | { ok: true; uniqueEmails: string[]; uniqueEmailSet: Set<string> }
   | MeetRpcFailure;
 
-/**
- * `"user"` テーブル向けのメール照会 RPC（アバター取得・登録済み判定）で共通の
- * 呼び出し主体検証・メール配列検証・正規化・上限チェックを行う。
- */
 async function prepareUserEmailLookup(
   db: D1Database,
   input: { actorUserId?: unknown; emails?: unknown } | null | undefined,
@@ -224,11 +212,6 @@ async function prepareUserEmailLookup(
   return { ok: true, uniqueEmails, uniqueEmailSet };
 }
 
-/**
- * `meet.gdgs.jp` 向け service-binding RPC（招待者の Google アカウント画像 URL 取得）。
- * 会議詳細画面はチャプター未所属の招待ゲストにも閲覧を許可するため、
- * `memberships` ではなく `"user"` テーブル上の有効アカウント存在のみを検証する。
- */
 export async function listMeetUserAvatarsByEmails(
   db: D1Database,
   input: ListUserAvatarsByEmailsInput,
@@ -280,10 +263,6 @@ export async function listMeetUserAvatarsByEmails(
   }
 }
 
-/**
- * `meet.gdgs.jp` 向け service-binding RPC（GDG Accounts 登録済みメールアドレスの照会）。
- * `"user"` テーブルに存在する正規化済みメールアドレスのみを返す（image の有無は問わない）。
- */
 export async function listMeetRegisteredEmails(
   db: D1Database,
   input: ListRegisteredEmailsInput,

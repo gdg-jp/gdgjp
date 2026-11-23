@@ -15,11 +15,6 @@ export function useCatalog(): Ctx {
   return ctx;
 }
 
-/**
- * Bundled + uploaded clips for the controller. Seeded by the loader so the
- * first paint already has every card; afterwards the room's pushes and the
- * editor's own API responses keep it current.
- */
 export function CatalogProvider({
   initial,
   children,

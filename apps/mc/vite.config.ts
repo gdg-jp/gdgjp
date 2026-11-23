@@ -8,7 +8,6 @@ export default defineConfig({
   server: {
     port: 5187,
     strictPort: true,
-    // Clip sources and the build scripts' outputs are not app inputs.
     watch: { ignored: ["**/音声/**", "**/原稿/**", "**/scripts/**"] },
   },
   plugins: [
@@ -21,8 +20,6 @@ export default defineConfig({
     reactRouter(),
     tailwindcss(),
   ],
-  // `@gdgjp/gdg-lib` is consumed as source; dedupe React so hydration sees one
-  // copy (same block as ost/roster).
   resolve: { tsconfigPaths: true, dedupe: ["react", "react-dom", "react-router"] },
   optimizeDeps: {
     include: ["react", "react-dom", "react-dom/client", "react-router", "radix-ui", "lucide-react"],

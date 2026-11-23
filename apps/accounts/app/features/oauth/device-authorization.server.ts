@@ -1,16 +1,4 @@
 import { randomToken, sha256Base64Url } from "~/lib/crypto.server";
-// RFC 8628 (OAuth 2.0 Device Authorization Grant) support around the vendored
-// @better-auth/oauth-provider plugin, which only implements
-// authorization_code/client_credentials/refresh_token. Both entry points here
-// are called from api.auth.$.ts before it falls through to runAuthHandler,
-// mirroring how developer-oauth-api.server.ts intercepts client-management
-// paths ahead of the plugin.
-//
-// Access/refresh tokens are never written to D1. On approve we only persist
-// the one-time authorization_code the plugin mints; the token endpoint
-// exchanges that code for real tokens at poll time and streams the result
-// straight through, so a leaked or abandoned row never holds a live
-// credential for longer than that single code's own short lifetime.
 
 import { AUTH_IP_ADDRESS_HEADERS } from "~/features/auth/auth.server";
 import { normalizeUserCode } from "~/features/oauth/user-code";
@@ -20,13 +8,8 @@ export const DEVICE_GRANT_TYPE = "urn:ietf:params:oauth:grant-type:device_code";
 const DEVICE_CODE_TTL_SECONDS = 600;
 const DEFAULT_POLL_INTERVAL_SECONDS = 5;
 const SLOW_DOWN_INCREMENT_SECONDS = 5;
-// Excludes 0/O/1/I/L so a user reading the code aloud or typing it by hand
-// can't confuse characters.
 const USER_CODE_ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
 const USER_CODE_LENGTH = 8;
-// Bounds how many device logins can sit unresolved at once. Expired rows are
-// swept on every device_authorization request, so these are effectively caps
-// within a rolling DEVICE_CODE_TTL_SECONDS window, not a lifetime total.
 export const MAX_PENDING_DEVICE_CODES_PER_CLIENT = 20;
 export const MAX_PENDING_DEVICE_CODES_PER_IP = 5;
 
@@ -56,9 +39,6 @@ export async function handleDeviceAuthorizationRequest(
   if (request.method !== "POST") return new Response("Method Not Allowed", { status: 405 });
 
   const now = new Date();
-  // The only cleanup path for abandoned logins (CLI killed, user never
-  // submits the code): sweep whatever has aged out on every request to this
-  // endpoint rather than relying on someone polling that exact device_code.
   await env.DB.prepare("DELETE FROM oauthDeviceCode WHERE expiresAt <= ?")
     .bind(now.toISOString())
     .run();
@@ -169,11 +149,6 @@ export async function handleDeviceAuthorizationRequest(
   );
 }
 
-/**
- * Handles POST /api/auth/oauth2/token when grant_type is the device-code
- * URN. Returns null (unhandled) for every other grant type so the caller can
- * forward the original, untouched request to the plugin.
- */
 export async function handleDeviceTokenGrant(
   env: Env,
   request: Request,
@@ -236,8 +211,6 @@ export async function handleDeviceTokenGrant(
     return tokenErrorResponse(400, "access_denied", "the user denied the request");
   }
 
-  // completed: claim and delete in one statement so two overlapping polls
-  // can't both read the same one-time authorization code.
   const claimed = await env.DB.prepare(
     `DELETE FROM oauthDeviceCode WHERE id = ? AND status = 'completed'
      RETURNING clientId, scope, codeVerifier, authorizationCode`,
@@ -283,7 +256,6 @@ export async function handleDeviceTokenGrant(
   });
 }
 
-/** Looks up a pending device code by its user-facing code for the /device verification page. */
 export async function findPendingDeviceCodeByUserCode(
   env: Env,
   userCode: string,
@@ -307,7 +279,6 @@ export async function findPendingDeviceCodeByUserCode(
   };
 }
 
-/** Marks a pending device code denied. No-op if it was already resolved. */
 export async function denyDeviceCode(env: Env, id: string): Promise<void> {
   await env.DB.prepare(
     "UPDATE oauthDeviceCode SET status = 'denied' WHERE id = ? AND status = 'pending'",
@@ -316,16 +287,6 @@ export async function denyDeviceCode(env: Env, id: string): Promise<void> {
     .run();
 }
 
-/**
- * Approves a pending device code: drives the plugin's own
- * authorization_code + PKCE grant in-process (using the caller's session
- * cookie) so token minting stays inside the already-tested plugin code, then
- * stores only the resulting one-time authorization_code for the token
- * endpoint to exchange on the CLI's next poll. Access/refresh tokens are
- * never written to D1. Returns false if the row was already resolved or the
- * bridge failed; the row is left untouched (still pending) so the user can
- * retry.
- */
 export async function approveDeviceCode(
   env: Env,
   request: Request,
@@ -371,8 +332,6 @@ export async function approveDeviceCode(
   try {
     authorizeResult = (await authorizeResponse.json()) as { redirect?: boolean; url?: string };
   } catch {
-    // The plugin returned a non-JSON body (e.g. an HTML login page) instead
-    // of the { redirect, url } shape we asked for via Accept: application/json.
     return false;
   }
   const code = authorizeResult.url ? new URL(authorizeResult.url).searchParams.get("code") : null;

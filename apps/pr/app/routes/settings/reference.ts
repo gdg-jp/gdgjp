@@ -2,7 +2,6 @@ import { requireUserWithChapter } from "~/features/auth/access.server";
 import { getReference } from "~/features/design/reference.repository.server";
 import type { Route } from "./+types/reference";
 
-/** GET /settings/references/:id — a chapter's reference design, for that chapter's members. */
 export async function loader({ request, context, params }: Route.LoaderArgs) {
   const env = context.cloudflare.env;
   const { chapters } = await requireUserWithChapter(env, request);

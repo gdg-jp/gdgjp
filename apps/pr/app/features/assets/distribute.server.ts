@@ -23,11 +23,6 @@ type ImageUpload = {
   }): Promise<{ id: string; url: string }>;
 };
 
-/**
- * Approval publishes the image to img.gdgs.jp as the approver, then hands it to where it is
- * used: the connpass thumbnail (JPEG ≤ 1 MB), a short link's OGP, a post's attachment, or a
- * connpass page's image slot (a new page version).
- */
 export async function approveAsset(env: Env, access: CampaignAccess, asset: Asset) {
   if (asset.purpose === "kit")
     return { ok: false as const, error: "顔の案は「この案をキットにする」で選びます" };

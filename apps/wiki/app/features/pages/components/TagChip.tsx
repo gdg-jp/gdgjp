@@ -6,11 +6,8 @@ interface TagChipProps {
   labelJa: string;
   labelEn: string;
   color: string;
-  /** Preserve a text query in the /search?tag= URL */
   q?: string;
-  /** sm = compact (px-2 py-0.5), md = normal (px-2.5 py-1) */
   size?: "sm" | "md";
-  /** Optionally display a page count after the label */
   pageCount?: number;
   onClick?: React.MouseEventHandler<HTMLAnchorElement>;
 }
@@ -27,7 +24,6 @@ export default function TagChip({
 }: TagChipProps) {
   const { i18n } = useTranslation();
   const label = i18n.language === "ja" ? labelJa : labelEn;
-  // Inside `/s/:space/…` the tag search stays in that space.
   const { space } = useParams();
   const base = space ? `/s/${encodeURIComponent(space)}/search` : "/search";
   const to = `${base}?tag=${tagSlug}${q ? `&q=${encodeURIComponent(q)}` : ""}`;

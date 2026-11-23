@@ -32,19 +32,6 @@ export type CrossSheetAssignmentWarning = {
 
 const NEW_MAX_DEFAULT = 99;
 
-/**
- * The staff × slot cell editor (docs/roster/07-roster-manual-edit.md
- * "Design" §5a): "そのスタッフのその枠をどこに割り当てるか." Every candidate
- * comes from `grid.ts#buildStaffCellCandidates`, which already ran
- * `hardViolations` — this component only renders the result, it never
- * decides whether a placement is safe.
- *
- * **Warn-and-allow, not warn-and-block**: a candidate with warnings still
- * gets a normal, always-enabled "割り当てる" submit button
- * (docs/roster/index.md §5.1: "手動編集ではこれらを警告のうえ許可する" — the
- * asymmetry with auto-generation is deliberate, do not disable this button
- * when warnings exist).
- */
 export function CellDrawer({
   selection,
   current,
@@ -63,7 +50,6 @@ export function CellDrawer({
   roleNameById: ReadonlyMap<string, string>;
   error?: string;
   crossSheetWarning?: CrossSheetAssignmentWarning;
-  /** A fresh truthy value only on a successful assign/unassign — see `StaffDrawer`'s identical contract. */
   succeeded: unknown;
   onClose: () => void;
 }) {

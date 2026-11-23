@@ -12,6 +12,6 @@ export default [
   route("api/auth/*", "routes/api.auth.$.ts"),
   route("api/google/events", "routes/api.google.events.ts"),
   route("auth/signout", "routes/auth.signout.ts"),
-  route("dev/login", "routes/dev.login.ts"), // 404 unless APP_URL is loopback
-  route("dev/simulate-event", "routes/dev.simulate-event.ts"), // 404 in production or off loopback
+  route("dev/login", "routes/dev.login.ts"),
+  route("dev/simulate-event", "routes/dev.simulate-event.ts"),
 ] satisfies RouteConfig;

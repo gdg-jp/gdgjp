@@ -12,10 +12,6 @@ function isLoopbackUrl(rawUrl: string): boolean {
   }
 }
 
-/**
- * `wrangler types` は ENVIRONMENT を `[vars]` のリテラル "production" として型付けするため、
- * ほかのアプリと同じく "production" との比較にし、APP_URL とリクエストの両方が loopback であることを必須にする。
- */
 function isDevSimulationEnabled(env: Env, request: Request): boolean {
   return (
     env.ENVIRONMENT !== "production" && isLoopbackUrl(env.APP_URL) && isLoopbackUrl(request.url)
@@ -29,11 +25,6 @@ export function loader({ request, context }: Route.LoaderArgs) {
   return new Response("Method Not Allowed", { status: 405 });
 }
 
-/**
- * ローカル開発専用の Pub/Sub 通知シミュレータ。
- * ENVIRONMENT が "production" ではなく、かつ loopback のときのみ有効で、それ以外では 404 を返す。
- * `/api/google/events` 自体に JWT バイパスを入れず、内部ハンドラ `processPubsubEnvelope` を直接呼ぶ。
- */
 export async function action({ request, context }: Route.ActionArgs) {
   const env = context.cloudflare.env;
   if (!isDevSimulationEnabled(env, request)) {

@@ -5,11 +5,8 @@ import { Icons } from "@gdgjp/design-system";
 export interface DropdownOption {
   value: string;
   label: string;
-  /** Optional colored dot rendered before the label */
   dot?: string;
-  /** Optional Tailwind classes applied when this option is the chip trigger */
   chipClass?: string;
-  /** Optional profile image URL (used for assignee avatars) */
   image?: string | null;
 }
 
@@ -17,17 +14,11 @@ interface DropdownMenuProps {
   value: string;
   options: DropdownOption[];
   onChange: (value: string) => void;
-  /** Text to show when value is empty / no match */
   placeholder?: string;
-  /** Render style: "inline" for table cells, "field" for forms, "filter" for filter bar, "chip" for colored pill */
   variant?: "inline" | "field" | "filter" | "chip";
-  /** Show a search input inside the dropdown */
   searchable?: boolean;
-  /** Header text shown at the top of the dropdown */
   header?: string;
-  /** Placeholder for the search input */
   searchPlaceholder?: string;
-  /** Extra classes applied to the label span inside the trigger */
   labelClass?: string;
 }
 

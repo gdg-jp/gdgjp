@@ -5,13 +5,7 @@ export type DirectoryChapter = {
   kind: "gdg" | "gdgoc";
 };
 
-/**
- * Public chapter directory from Accounts — same source ShareDialog uses.
- * Wiki's local `chapters` table is not kept in sync with memberships, so
- * pickers that need real chapter options must call this instead.
- */
 export async function loadChapterDirectory(
-  // Use a plain string — wrangler types may narrow Env.ACCOUNTS_URL to a literal URL.
   env: { ACCOUNTS_URL: string },
   query = "",
 ): Promise<DirectoryChapter[]> {

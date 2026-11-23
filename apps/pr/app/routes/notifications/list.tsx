@@ -11,7 +11,6 @@ export function meta() {
   return [{ title: "通知 — GDG PR" }];
 }
 
-/** Home: what waits on people across the chapter's events, with one button per line. */
 export async function loader({ request, context }: Route.LoaderArgs) {
   const env = context.cloudflare.env;
   const { user, chapter, chapters } = await requireUserWithChapter(env, request);

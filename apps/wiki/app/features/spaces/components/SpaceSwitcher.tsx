@@ -13,7 +13,6 @@ import { Link, useFetcher, useNavigate } from "react-router";
 import { spacePath } from "../shared";
 import { type SpaceSummary, useCurrentSpace } from "./current-space";
 
-/** Sidebar header: which space the tree shows, and a link to the space list. */
 export function SpaceSwitcher({
   spaces,
   isCollapsed,
@@ -62,7 +61,6 @@ export function SpaceSwitcher({
   );
 }
 
-/** "Hide agent-written pages" — a display preference, not a permission. */
 export function HideAgentPagesToggle({ hideAgentPages }: { hideAgentPages: boolean }) {
   const { t } = useTranslation();
   const fetcher = useFetcher();

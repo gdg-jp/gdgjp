@@ -1,8 +1,6 @@
 import type { LinkRole } from "~/features/links/link-record";
 import type { PrincipalType } from "~/features/links/link-record";
 
-// ---------- Folders ----------
-
 export type Folder = {
   id: number;
   name: string;

@@ -1,5 +1,3 @@
-// The brief editor's form: scalar fields plus row tables, and the conversion between a Brief
-// and FormData. Pure and shared by the client (rendering) and the action (parsing).
 import type { Brief } from "./brief";
 
 export type FieldType =
@@ -250,7 +248,6 @@ function set(obj: Record<string, unknown>, path: string, value: unknown): void {
   node[keys.at(-1) as string] = value;
 }
 
-/** Brief value → the string an input shows. */
 export function toInput(type: FieldType, value: unknown): string {
   if (value === undefined || value === null) return "";
   if (type === "datetime") {
@@ -262,10 +259,8 @@ export function toInput(type: FieldType, value: unknown): string {
   return String(value);
 }
 
-/** Input string → brief value (undefined when empty, so compact() drops it). */
 export function fromInput(type: FieldType, raw: FormDataEntryValue | null): unknown {
   const text = typeof raw === "string" ? raw.trim() : "";
-  // An emptied list is an empty array (a session with no speakers), not a missing key.
   if (!text) return type === "list" || type === "lines" ? [] : undefined;
   if (type === "int") {
     const n = Number(text.replace(/[,，_]/g, ""));
@@ -290,7 +285,6 @@ export const fieldName = (path: string) => `f.${path}`;
 export const cellName = (table: string, row: number, column: string) =>
   `t.${table}.${row}.${column}`;
 
-/** Rows of a table as input strings. */
 export function tableRows(table: Table, brief: Brief | null): Record<string, string>[] {
   const value = brief ? get(brief, table.path) : undefined;
   if (table.object) {
@@ -308,10 +302,6 @@ export function scalarValue(field: Field, brief: Brief | null): string {
   return toInput(field.type, brief ? get(brief, field.path) : undefined);
 }
 
-/**
- * FormData → brief object (not validated; pass it to parseBrief). Fields the form does not show
- * (for example speakers[].sessionIds, connections) are kept from `previous`.
- */
 export function briefFromForm(form: FormData, previous: Brief | null): Record<string, unknown> {
   const out: Record<string, unknown> = structuredClone((previous ?? {}) as Record<string, unknown>);
   for (const section of SCALAR_SECTIONS) {

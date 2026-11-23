@@ -12,7 +12,6 @@ import { requirePageSpace } from "~/features/spaces/access.server";
 import { loadChapterDirectory } from "~/lib/chapter-directory.server";
 import { getDb } from "~/lib/db.server";
 
-/** GET /api/share-candidates?pageId=...&q=...&authorOnly=1 */
 export async function loader({ request, context }: LoaderFunctionArgs) {
   const { env } = context.cloudflare;
   const user = await requireUser(request, env);
@@ -46,9 +45,7 @@ export async function loader({ request, context }: LoaderFunctionArgs) {
           chapterId: String(chapter.chapterId),
           role: chapter.role,
         }));
-      } catch {
-        // Chapter-derived sharing is fail-closed while direct email grants continue working.
-      }
+      } catch {}
       const permissions = await getEffectivePagePermissions(db, page, user, chapters);
       if (!permissions.canManageSharing) return new Response("Forbidden", { status: 403 });
     }
@@ -73,8 +70,6 @@ export async function loader({ request, context }: LoaderFunctionArgs) {
     authorOnly
       ? Promise.resolve([])
       : loadChapterDirectory(env, query).catch((error) => {
-          // Keep direct-email sharing usable when the accounts directory is
-          // temporarily unavailable. Chapter suggestions simply fail closed.
           console.error("Unable to load Chapter sharing candidates", error);
           return [];
         }),
@@ -108,7 +103,6 @@ export async function loader({ request, context }: LoaderFunctionArgs) {
         type: "email" as const,
         key: normalizeEmail(candidate.email),
         label: candidate.name,
-        // The picker shows who, not their address: a few letters are enough to tell twins apart.
         secondary: maskEmail(candidate.email),
         subjectType: "email" as const,
         subjectKey: normalizeEmail(candidate.email),
@@ -123,7 +117,6 @@ export async function loader({ request, context }: LoaderFunctionArgs) {
   return Response.json({ candidates });
 }
 
-/** `harineko@gmail.com` → `ha***@gmail.com`. */
 export function maskEmail(email: string): string {
   const at = email.indexOf("@");
   if (at <= 0) return "***";

@@ -465,7 +465,6 @@ describe("updateMeeting", () => {
       throw new Error(`想定外の fetch: ${method} ${url}`);
     }) as unknown as typeof fetch;
 
-    // guest@example.com を外し、new-cohost@example.com を cohost として追加、accessType を TRUSTED へ変更
     let idSeq = 0;
     const result = await updateMeeting(
       env,
@@ -499,7 +498,6 @@ describe("updateMeeting", () => {
       roles: ["organizer"],
     });
 
-    // spaces.patch → calendar.patchEvent のみ（Drive API 呼び出しは 0 件）
     expect(calls).toHaveLength(2);
     expect(calls[0]).toEqual({
       url: "https://meet.googleapis.com/v2/spaces/space-1?updateMask=config.accessType",
@@ -522,7 +520,6 @@ describe("updateMeeting", () => {
       "new-cohost@example.com",
       "org@example.com",
     ]);
-    // 外した guest@example.com は attendees から消えていること
     expect(calBody.attendees.some((a) => a.email === "guest@example.com")).toBe(false);
 
     expect(dbFixture.batchHistory).toHaveLength(1);

@@ -17,16 +17,6 @@ export type ReaderIdentity = SpaceIdentity & {
   chapters: Array<{ chapterId: string | number; role: string }>;
 };
 
-/**
- * Who an agent read is made AS (Stage 05). The agent Worker never decides permissions; it
- * only says who it is calling as, and every route below applies the space role and inner
- * ACL for that reader:
- * - a linked user's OAuth token → that user;
- * - AGENT_SERVICE_TOKEN + `X-Agent-Principal: discord_guild:<id> | chat_space:<id>` → no user,
- *   no chapters, only that principal (public channel answers);
- * - AGENT_SERVICE_TOKEN alone → anonymous (public spaces only);
- * - a job token (`jt_…`) → the asker snapshot of that answer job, until it expires.
- */
 export type AgentReader = {
   identity: ReaderIdentity;
   extraPrincipals: ExtraPrincipal[];
@@ -34,14 +24,8 @@ export type AgentReader = {
   jobId?: string;
 };
 
-/**
- * Eval readers (Stage 06) exist only inside spaces with this slug prefix. The eval harness
- * asks as a synthetic member / organizer / guest; confining it to e2e spaces keeps that
- * from ever being a way into real content.
- */
 export const EVAL_SPACE_PREFIX = "e2e-";
 
-/** `x-agent-eval-as: guest | member:<chapterId> | organizer:<chapterId>` (service token only). */
 export function parseEvalHeader(value: string | null): ReaderIdentity | null | "invalid" {
   if (!value) return null;
   const trimmed = value.trim();
@@ -61,7 +45,6 @@ export function parseEvalHeader(value: string | null): ReaderIdentity | null | "
   };
 }
 
-/** Space-access filter for a reader: eval readers see only e2e spaces. */
 export function readerMaySeeSpace(reader: AgentReader, spaceSlug: string): boolean {
   return reader.via !== "eval" || spaceSlug.startsWith(EVAL_SPACE_PREFIX);
 }
@@ -85,7 +68,6 @@ function serviceSecret(env: Env): string | null {
   return secret && secret.length >= 32 ? secret : null;
 }
 
-/** The agent Worker itself (enqueue / expire / runner status). */
 export function isAgentService(request: Request, env: Env): boolean {
   const secret = serviceSecret(env);
   if (!secret) return false;
@@ -139,7 +121,6 @@ export async function resolveAgentReader(
     > & {
       evalOnly?: boolean;
     };
-    // An eval asker's token stays confined to e2e spaces (readerMaySeeSpace).
     return {
       identity: snapshot.identity,
       extraPrincipals: snapshot.extraPrincipals,
@@ -177,7 +158,6 @@ export async function resolveAgentReader(
   };
 }
 
-/** Issue the job token the runner hands to its MCP tools. Returned once; only the hash is kept. */
 export async function issueJobToken(
   db: Db,
   jobId: string,

@@ -9,10 +9,6 @@ import {
   listMeetUserAvatarsByEmails,
 } from "./meet-directory.server";
 
-/**
- * Node 組み込み SQLite（`:memory:`）上に accounts の必要テーブルを用意し、
- * 実 SQL の JOIN・status フィルタ・並び順をそのまま検証する。
- */
 function createDb() {
   const raw = new DatabaseSync(":memory:");
   const executedSql: string[] = [];
@@ -237,7 +233,6 @@ describe("listMeetChapterMembers", () => {
 
     const result = await listMeetChapterMembers(db, { actor, chapterIds: [] });
     expect(result).toEqual({ ok: true, members: [] });
-    // actor の active 所属検証クエリのみ実行され、メンバー一覧クエリは実行されない。
     expect(executedSql).toHaveLength(1);
     expect(executedSql[0]).toContain("SELECT 1 FROM memberships");
   });
@@ -341,8 +336,6 @@ describe("listMeetUserAvatarsByEmails", () => {
       ],
     });
 
-    // 会議詳細画面はチャプター未所属の招待ゲストにも閲覧を許可するため、
-    // memberships を持たない accounts ユーザーでも照会できる。
     const byNonChapterUser = await listMeetUserAvatarsByEmails(db, {
       actorUserId: "u-outsider",
       emails: ["alice@example.com", "eve@example.com"],
@@ -499,7 +492,6 @@ describe("listMeetUserAvatarsByEmails", () => {
         },
       ],
     });
-    // 1 actor check + 3 chunked SELECTs (50 + 50 + 20)
     expect(executedSql).toHaveLength(4);
     for (const sql of executedSql.slice(1)) {
       const placeholderCount = (sql.match(/\?/g) ?? []).length;
@@ -605,7 +597,6 @@ describe("listMeetRegisteredEmails", () => {
       emails: bulk,
     });
     expect(bulkRes).toEqual({ ok: true, emails: ["carol@example.com"] });
-    // 1 actor check + 3 chunked SELECTs (50 + 50 + 20)
     expect(executedSql).toHaveLength(4);
     for (const sql of executedSql.slice(1)) {
       expect((sql.match(/\?/g) ?? []).length).toBeLessThanOrEqual(50);

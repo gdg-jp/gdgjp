@@ -22,7 +22,6 @@ export {
 export const GOOGLE_OAUTH_STATE_TTL_SECONDS = 600;
 export const GOOGLE_HOST_DOMAIN = "gdgoc.jp";
 
-/** 会議作成・スペース設定（自動録画/文字起こし/Gemini メモ）・Calendar・Drive 共有に必須の 4 スコープ。1 つでも欠けていれば接続を拒否する。 */
 export const GOOGLE_REQUIRED_SCOPES = [
   "https://www.googleapis.com/auth/meetings.space.created",
   "https://www.googleapis.com/auth/meetings.space.settings",
@@ -124,10 +123,6 @@ export type ConsumedGoogleOauthState =
   | { ok: true; userId: string; codeVerifier: string }
   | { ok: false; reason: "not_found" | "expired" | "session_mismatch" };
 
-/**
- * 単回利用の OAuth state を削除しつつ取得する。
- * 成否にかかわらず 1 回目で削除されるため、リプレイは常に `not_found` となる。
- */
 export async function consumeGoogleOauthState(
   db: D1Database,
   state: string,

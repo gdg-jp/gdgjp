@@ -5,11 +5,6 @@ import { sweepOverdue } from "../features/inquiry/inquiry";
 
 const SWEEP_MS = 30_000;
 
-/**
- * One instance ("sweep"). While answers are pending it wakes every 30 s and gives every
- * answer past its deadline the search-results-only reply, so an asker is never left
- * waiting when the runner is down.
- */
 export class PendingSweeper extends DurableObject<Env> {
   async fetch(): Promise<Response> {
     if ((await this.ctx.storage.getAlarm()) === null)

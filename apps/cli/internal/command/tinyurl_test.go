@@ -170,7 +170,6 @@ func TestTinyurlDomainsSync(t *testing.T) {
 }
 
 func TestTinyurlCampaignsAnalyticsWindowValidation(t *testing.T) {
-	// The server must never be hit: validation happens CLI-side first.
 	server := httptest.NewServer(http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) {
 		t.Fatalf("unexpected request %s %s", r.Method, r.URL.Path)
 	}))

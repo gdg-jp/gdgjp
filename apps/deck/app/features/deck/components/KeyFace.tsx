@@ -7,11 +7,6 @@ export function imageUrl(deckId: string, imageId: string): string {
   return `/images/${deckId}/${imageId}`;
 }
 
-/**
- * What a key looks like: background colour, icon or uploaded image, title and
- * an optional live badge (timer, dB). `on` switches to the key's "on" look,
- * or rings the key when it has none.
- */
 export function KeyFace({
   deckId,
   keyDef,
@@ -24,9 +19,7 @@ export function KeyFace({
   keyDef: Key;
   on: boolean | null;
   badge?: string | null;
-  /** Hold-to-confirm progress 0–1. */
   progress?: number;
-  /** Double-tap: waiting for the second tap. */
   armed?: boolean;
 }) {
   const look: KeyLook = on && keyDef.lookOn ? keyDef.lookOn : keyDef.look;

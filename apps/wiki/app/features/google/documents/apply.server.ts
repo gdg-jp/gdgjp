@@ -56,7 +56,6 @@ export async function importGoogleDocument(
       slugBySource.set(node.sourceNodeId, await uniqueSlug(env, node.node.title, reserved));
     }
   }
-  // Legacy single-tab heading/bookmark links omit tabId. They target the root page.
   slugBySource.set("", slugBySource.get(ROOT_NODE_ID) as string);
 
   const rendered = new Map<string, Awaited<ReturnType<typeof persistImages>>>();
@@ -230,7 +229,6 @@ export async function importGoogleDocument(
       elapsedMs: Date.now() - startedAt,
       ...errorDetails(error),
     });
-    // The page rows are atomic; clean up image objects that never became reachable.
     if (newKeys.length) await env.BUCKET.delete(newKeys);
     throw error;
   }

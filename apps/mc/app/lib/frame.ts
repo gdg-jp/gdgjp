@@ -9,7 +9,6 @@ function loop(now: number) {
   raf = tickers.size > 0 ? requestAnimationFrame(loop) : 0;
 }
 
-/** One requestAnimationFrame loop for every animated element on the page. */
 export function onFrame(fn: TickFn): () => void {
   tickers.add(fn);
   if (!raf && typeof requestAnimationFrame !== "undefined") raf = requestAnimationFrame(loop);

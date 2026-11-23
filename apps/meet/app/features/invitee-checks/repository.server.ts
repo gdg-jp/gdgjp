@@ -21,7 +21,6 @@ type DriveShareCheckRow = {
   checked_at: string;
 };
 
-/** 正規化メールアドレス一覧に対する `drive_share_checks` のキャッシュを取得する。 */
 export async function listDriveShareChecksByEmails(
   db: D1Database,
   emailsNormalized: readonly string[],

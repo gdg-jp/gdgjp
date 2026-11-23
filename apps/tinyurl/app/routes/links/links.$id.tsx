@@ -133,7 +133,6 @@ export default function EditLink({ loaderData, actionData }: Route.ComponentProp
   return (
     <DashboardShell user={loaderData.user}>
       <Stack className="pb-24">
-        {/* Top bar: breadcrumb + actions */}
         <div className="flex min-w-0 flex-wrap items-center justify-between gap-3">
           <nav className="flex min-w-0 items-center gap-2 text-sm" aria-label="Breadcrumb">
             <Link
@@ -247,7 +246,6 @@ export default function EditLink({ loaderData, actionData }: Route.ComponentProp
           </Alert>
         ) : null}
 
-        {/* Hidden update form submits the controlled draft edited by the visible inputs. */}
         <Form id="link-update" method="post" className="hidden">
           <input type="hidden" name="intent" value="update" />
           <input type="hidden" name="manageTags" value="1" />
@@ -268,11 +266,8 @@ export default function EditLink({ loaderData, actionData }: Route.ComponentProp
           ))}
         </Form>
 
-        {/* Body grid */}
         <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
-          {/* LEFT COLUMN */}
           <div className="min-w-0 space-y-8">
-            {/* Destination URL */}
             <FormField id="destinationUrl" label={<>Destination URL</>} required>
               <Input
                 id="destinationUrl"
@@ -284,7 +279,6 @@ export default function EditLink({ loaderData, actionData }: Route.ComponentProp
               />
             </FormField>
 
-            {/* Short Link */}
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <Label id="slug-label" htmlFor="slug">
@@ -363,7 +357,6 @@ export default function EditLink({ loaderData, actionData }: Route.ComponentProp
               </div>
             </div>
 
-            {/* Tags */}
             <div className="space-y-3">
               <div className="flex items-center justify-between">
                 <Label>Tags</Label>
@@ -379,7 +372,6 @@ export default function EditLink({ loaderData, actionData }: Route.ComponentProp
               />
             </div>
 
-            {/* Folder */}
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <Label htmlFor="folder">Folder</Label>
@@ -412,7 +404,6 @@ export default function EditLink({ loaderData, actionData }: Route.ComponentProp
               </Select>
             </div>
 
-            {/* Comment (single) */}
             <FormField id="comment" label={<>Comment</>}>
               <Textarea
                 id="comment"
@@ -425,7 +416,6 @@ export default function EditLink({ loaderData, actionData }: Route.ComponentProp
               />
             </FormField>
 
-            {/* Visibility */}
             <FormField id="visibility" label={<>Visibility</>}>
               <Select
                 value={draft.visibility}
@@ -444,7 +434,6 @@ export default function EditLink({ loaderData, actionData }: Route.ComponentProp
               </Select>
             </FormField>
 
-            {/* Sharing */}
             <div className="space-y-3">
               <Label>Sharing</Label>
               <div className="rounded-md border bg-surface">
@@ -466,7 +455,6 @@ export default function EditLink({ loaderData, actionData }: Route.ComponentProp
               {editable ? <ShareForm chapters={chapters} /> : null}
             </div>
 
-            {/* Created by footer */}
             <div className="flex min-w-0 items-center gap-2 border-t pt-4 text-sm text-muted">
               <Avatar alt="" fallback={userInitials(users, link.ownerUserId)} />
               <span className="min-w-0 break-words">
@@ -480,9 +468,7 @@ export default function EditLink({ loaderData, actionData }: Route.ComponentProp
             </div>
           </div>
 
-          {/* RIGHT COLUMN */}
           <div className="min-w-0 space-y-6">
-            {/* QR Code */}
             <div className="space-y-2">
               <Label>QR Code</Label>
               <div className="flex items-center justify-center rounded-md border bg-surface p-4">
@@ -496,7 +482,6 @@ export default function EditLink({ loaderData, actionData }: Route.ComponentProp
               <p className="break-all text-center font-mono text-xs text-muted">{apexShortUrl}</p>
             </div>
 
-            {/* Custom Link Preview */}
             <div className="space-y-3">
               <div className="flex items-center justify-between">
                 <Label>Custom Link Preview</Label>

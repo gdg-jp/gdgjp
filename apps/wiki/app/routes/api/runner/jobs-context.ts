@@ -5,10 +5,6 @@ import { requireRunner } from "~/features/jobs/runner-routes.server";
 import type { SynthesizePayload } from "~/features/jobs/shared";
 import { getDb } from "~/lib/db.server";
 
-/**
- * GET /api/runner/jobs/:id/context — what the runner needs to write JOB.md: the space, the
- * job's sources (id, kind, visibility, title) and documents (id, path, size), and requests.
- */
 export async function loader({ request, context, params }: LoaderFunctionArgs) {
   const { env } = context.cloudflare;
   requireRunner(request, env);

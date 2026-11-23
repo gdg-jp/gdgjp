@@ -1,6 +1,5 @@
 export type GoogleFetch = typeof fetch;
 
-/** Google REST API の HTTP / JSON エラー情報を型付きで保持する例外クラス。 */
 export class GoogleApiError extends Error {
   readonly httpStatus: number;
   readonly apiStatus: string | undefined;
@@ -21,7 +20,6 @@ export class GoogleApiError extends Error {
   }
 }
 
-/** スラッシュ区切りの Google リソース名（例: `spaces/abc`）をセグメント単位で URL エンコードする。 */
 export function encodeResourcePath(resourceName: string): string {
   const trimmed = resourceName.replace(/^\/+/, "");
   return trimmed
@@ -62,7 +60,6 @@ async function parseGoogleError(
   return { apiMessage: response.statusText || `HTTP ${response.status}` };
 }
 
-/** Bearer 認証付きで Google JSON API を呼び出す共通ラッパー。 */
 export async function googleJsonRequest<T>(options: {
   accessToken: string;
   url: string;
@@ -107,7 +104,6 @@ export async function googleJsonRequest<T>(options: {
   return JSON.parse(text) as T;
 }
 
-/** `nextPageToken` を自動追従してすべてのページを連結取得するヘルパー。 */
 export async function paginateAll<TItem, TPage extends { nextPageToken?: string }>(
   fetchPage: (pageToken?: string) => Promise<TPage>,
   extractItems: (page: TPage) => TItem[] | undefined,

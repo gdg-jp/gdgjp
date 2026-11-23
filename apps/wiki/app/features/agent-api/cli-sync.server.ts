@@ -25,7 +25,6 @@ type BearerIdentity = {
   chapters: Array<{ chapterId: string | number; role: string }>;
 };
 
-/** Post-commit cleanup must never turn an already-committed sync into a 5xx. */
 export function scheduleSyncPostCommit(context: ExecutionContext, tasks: Promise<unknown>[]): void {
   if (tasks.length === 0) return;
   context.waitUntil(
@@ -43,11 +42,6 @@ export function scheduleSyncPostCommit(context: ExecutionContext, tasks: Promise
   );
 }
 
-/**
- * Per-operation preflight: permission, page-type, origin, and revision checks.
- * Returns an error `Response` to short-circuit the action, or `null` when every
- * operation may proceed (revision conflicts are reported as a single 409).
- */
 export async function preflightSyncOperations(
   db: Db,
   operations: readonly SyncOperation[],
@@ -119,11 +113,6 @@ export type ResolvedSyncPageSharing = {
   resolvedSharing: ReturnType<typeof resolveExistingPageSharing>;
 };
 
-/**
- * Fold the requested sharing block against the stored row (agents often rewrite
- * front matter from the create template). Returns an error `Response` when the
- * effective visibility / role is invalid.
- */
 export function resolveSyncPageSharing(
   current: PageRow | undefined,
   existingAccess: readonly AccessRow[],
@@ -177,11 +166,6 @@ export function resolveSyncPageSharing(
   return { effectiveMeta, resolvedSharing };
 }
 
-/**
- * Append every D1 statement for one upsert page (row / version / tags / access /
- * sources / attachments). Pushes into `statements` and `objectsToDelete`;
- * returns the attachment id map, or an error `Response`.
- */
 export async function buildSyncPageWriteStatements(args: {
   db: Db;
   env: Env;
@@ -198,7 +182,6 @@ export async function buildSyncPageWriteStatements(args: {
   identity: BearerIdentity;
   statements: D1PreparedStatement[];
   objectsToDelete: string[];
-  /** Space the push targets; new pages are created in it. */
   spaceId: string;
 }): Promise<Response | { attachmentIds: Record<string, string> }> {
   const {
@@ -279,8 +262,6 @@ export async function buildSyncPageWriteStatements(args: {
       aclSourceIdsJson,
     );
     statements.push(env.DB.prepare(update.sql).bind(...update.binds));
-    // Only mark ACL drift when sharing actually changes; content-only updates
-    // must not force nested pages to re-sync parent grants.
     if (resolvedSharing.sharingChanged) {
       statements.push(
         env.DB.prepare("UPDATE pages SET acl_synced_with_parent = ? WHERE id = ?").bind(

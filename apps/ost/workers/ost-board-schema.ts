@@ -1,11 +1,3 @@
-/**
- * SQLite schema for one event's {@link OstBoard} Durable Object.
- *
- * Every statement is idempotent, so this runs unconditionally from the
- * constructor. There is no version counter yet (Workers SQLite rejects
- * `PRAGMA user_version` via `sql.exec`); a future migration would add a
- * `meta(key, value)` row and stepwise `ALTER TABLE`s.
- */
 export function ensureOstBoardSchema(sql: SqlStorage): void {
   sql.exec(
     `CREATE TABLE IF NOT EXISTS topics (

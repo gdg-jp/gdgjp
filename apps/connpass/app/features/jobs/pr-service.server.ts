@@ -12,8 +12,6 @@ import { getJob } from "./job-repository.server";
 import { createJob } from "./job-submission.server";
 import type { JobRecord, JobType } from "./job-types";
 
-/** The calls pr.gdgs.jp makes through the PrService entrypoint (workers/app.ts). */
-
 type In<K extends keyof ConnpassPrService> = Parameters<ConnpassPrService[K]>[0];
 const fail = (code: string, message?: string) => ({ ok: false as const, code, message });
 const IMAGE_TYPES = new Set(["image/png", "image/jpeg", "image/gif"]);

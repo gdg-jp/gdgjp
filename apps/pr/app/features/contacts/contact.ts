@@ -32,7 +32,6 @@ export type Contact = {
   ownerUserId: string | null;
   wikiPerson: string | null;
   wikiPath: string | null;
-  /** Milliseconds of the last Wiki import that listed this row. */
   syncedAt: number | null;
   manual: boolean;
   lastUsedCampaignId: number | null;
@@ -40,7 +39,6 @@ export type Contact = {
   outcomes: { campaignId: number; outcome: string; note?: string; at: number }[];
 };
 
-/** Normalized key so 「京都大学」「京都大学 」「京都大学（KUPAC）」 group into one organization. */
 export function organizationKey(name: string): string {
   return name
     .normalize("NFKC")

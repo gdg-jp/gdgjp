@@ -31,8 +31,6 @@ export async function loader({ request, context, params }: LoaderFunctionArgs) {
 
   try {
     const detail = await getEventInBrowser(env, eventId);
-    // EventFields declares startAt/endAt/capacity as plain (non-nullable) optional
-    // properties; connpass drafts can leave these unset, so map null -> omitted.
     const event: Event = {
       ...detail,
       startAt: detail.startAt ?? undefined,

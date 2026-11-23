@@ -6,7 +6,6 @@ import { ChapterSwitcher } from "./ChapterSwitcher";
 
 export type ShellUser = { name: string; email: string; image: string | null };
 
-/** What `routes/shell.tsx` loads for every signed-in page. */
 type ShellData = {
   user: ShellUser;
   accountsUrl: string;
@@ -21,7 +20,6 @@ const NAV = [
   { to: "/settings", label: "設定", icon: "Settings", end: false },
 ] as const;
 
-/** A campaign's pages (/c/…) belong to イベント. */
 function isActive(item: (typeof NAV)[number], pathname: string) {
   if (item.end) return pathname === item.to;
   return (
@@ -31,7 +29,6 @@ function isActive(item: (typeof NAV)[number], pathname: string) {
   );
 }
 
-/** Frame for every signed-in page. The user and chapter come from the shell route. */
 export function AppLayout({
   user: userProp,
   accountsUrl: accountsProp,

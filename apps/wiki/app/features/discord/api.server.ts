@@ -1,15 +1,9 @@
-/**
- * Discord REST helpers for guild/channel listing (picker) and message fetch (import).
- */
-
 import { DISCORD_API } from "~/features/discord/oauth.server";
 
 const API_TIMEOUT_MS = 30_000;
 
-/** Guild text + announcement channels are importable as sources. */
 export const DISCORD_IMPORTABLE_CHANNEL_TYPES = new Set([0, 5]);
 
-/** Discord GUILD_CATEGORY channel type. */
 export const DISCORD_CATEGORY_CHANNEL_TYPE = 4;
 
 export interface DiscordGuild {
@@ -60,10 +54,6 @@ function toChannelListItem(channel: DiscordChannel): DiscordChannelListItem {
   };
 }
 
-/**
- * Group importable guild channels under their Discord categories, preserving
- * Discord sidebar order (uncategorized first, then categories by position).
- */
 export function groupDiscordChannelsByCategory(channels: DiscordChannel[]): DiscordChannelGroup[] {
   const categories = channels
     .filter((channel) => channel.type === DISCORD_CATEGORY_CHANNEL_TYPE)
@@ -226,7 +216,6 @@ export function parseDiscordChannelUrl(url: string): { guildId: string; channelI
   }
 }
 
-/** Discord epoch snowflake for a Unix millisecond timestamp (approximate lower bound). */
 export function snowflakeFromUnixMs(ms: number): string {
   const discordEpoch = 1_420_070_400_000n;
   const value = (BigInt(Math.max(0, Math.floor(ms))) - discordEpoch) << 22n;

@@ -6,10 +6,6 @@ import { requireSpace } from "~/features/spaces/access.server";
 import { getDb } from "~/lib/db.server";
 import { pageInSpace } from "./page-space.server";
 
-/**
- * Page intents that hand work to the agent runner: "ask the agent" (agent pages are
- * read-only for people) and "update the English version now". Both need the editor role.
- */
 export async function handlePageAgentIntent(
   request: Request,
   env: Env,
@@ -24,7 +20,6 @@ export async function handlePageAgentIntent(
 ) {
   const db = getDb(env);
   if (input.intent === "translateNow") {
-    // "Update the English version now": a high-priority translate job for this page.
     await requireSpace(request, env, input.spaceSlug, "editor");
     const page = await db
       .select({ id: schema.pages.id })
@@ -37,8 +32,6 @@ export async function handlePageAgentIntent(
   }
 
   if (input.intent === "askAgent") {
-    // People change agent pages by asking: the request rides the space's next synthesize
-    // job (hourly batching applies) and the runner reports back through a notification.
     const text = String(input.form.get("text") ?? "").trim();
     if (!text || text.length > 2000) {
       return Response.json({ error: "invalid_request_text" }, { status: 400 });
@@ -51,7 +44,6 @@ export async function handlePageAgentIntent(
     if (!page || page.origin !== "agent") {
       return Response.json({ error: "not_an_agent_page" }, { status: 400 });
     }
-    // Asking needs the editor role in the space (viewers can read, not request changes).
     await requireSpace(request, env, input.spaceSlug, "editor");
     await enqueueSynthesize(db, {
       spaceId: input.spaceId,

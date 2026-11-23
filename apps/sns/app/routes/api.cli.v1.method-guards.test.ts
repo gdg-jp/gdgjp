@@ -5,12 +5,6 @@ import { loader as postPublishLoader } from "./api.cli.v1.posts.$id.publish";
 import { action as xAccountsAction } from "./api.cli.v1.x-accounts";
 import { loader as xAccountIdLoader } from "./api.cli.v1.x-accounts.$id";
 
-/**
- * Action-only CLI routes have no loader of their own, so a GET/HEAD would fall
- * through to framework handling instead of the documented JSON 405. Each such
- * route now exports a guard; likewise the GET-only x-accounts collection guards
- * write verbs. These are pure and never touch `env`.
- */
 const noArgs = {} as never;
 
 describe("CLI method guards on action-only / loader-only routes", () => {

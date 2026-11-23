@@ -11,7 +11,6 @@ const IMAGE_TYPES = new Set(["image/png", "image/jpeg", "image/gif"]);
 export const MAX_IMAGE_BYTES = 1024 * 1024;
 const now = () => Math.floor(Date.now() / 1000);
 
-/** An item for what a person just did on connpass, tracked until its job finishes. */
 async function trackedItem(
   env: Env,
   access: CampaignAccess,
@@ -68,7 +67,6 @@ async function run(
     : { ok: false, error: result.error };
 }
 
-/** 計画画面「アンケートを反映」: the plan's survey, with channel labels as the source options. */
 export async function applySurvey(env: Env, access: CampaignAccess): Promise<Result> {
   const plan = await adoptedPlan(env.DB, access.campaign.id);
   if (!plan) return { ok: false, error: "計画を採用してから反映してください" };
@@ -85,7 +83,6 @@ export async function applySurvey(env: Env, access: CampaignAccess): Promise<Res
   );
 }
 
-/** A sub-event (座談会・ハンズオンの申込枠) from the plan's segment ideas or a person's title. */
 export async function createSubEvent(
   env: Env,
   access: CampaignAccess,
@@ -103,7 +100,6 @@ export async function createSubEvent(
   );
 }
 
-/** The thumbnail a person uploads (Stage 06 generates them): PNG / JPEG / GIF, 1 MB or less. */
 export async function uploadThumbnail(
   env: Env,
   access: CampaignAccess,
@@ -131,7 +127,6 @@ export async function uploadThumbnail(
   );
 }
 
-/** 「公開」: the connpass event goes public (a person confirms first). */
 export async function publishEvent(
   env: Env,
   access: CampaignAccess,

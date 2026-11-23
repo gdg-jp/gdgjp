@@ -11,7 +11,6 @@ import {
 const MAX_BYTES = 8 * 1024 * 1024;
 const TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
 
-/** Save one reference design (a person's own work) for a chapter. */
 export async function addReference(
   env: Env,
   chapterId: number,

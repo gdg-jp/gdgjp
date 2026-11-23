@@ -18,19 +18,15 @@ import { isLoggedIn, loginWithPassword } from "./ui/login";
 
 /** Max keep-alive the Browser Rendering API accepts (10 minutes). */
 const KEEP_ALIVE_MS = 600_000;
-/** Skip the dashboard auth re-check when a warm session was verified this recently. */
 const SESSION_FRESH_MS = 3 * 60_000;
 
 export type BrowserSession = {
   browser: Browser;
   context: BrowserContext;
   page: Page;
-  /** "connected" = reused a warm keep-alive session; "launched" = fresh cold start. */
   mode: "connected" | "launched";
   persist: () => Promise<void>;
-  /** Happy-path teardown: leave the remote session warm for the next request. */
   release: () => Promise<void>;
-  /** Error / relogin teardown: terminate the remote session. */
   destroy: () => Promise<void>;
 };
 
@@ -56,9 +52,7 @@ function buildSession(
       if (mode === "connected") {
         await browser.close();
       }
-    } catch {
-      // best effort — must never break the happy path
-    }
+    } catch {}
   };
 
   const destroy = async () => {
@@ -73,9 +67,7 @@ function buildSession(
       } catch {
         await browser.close();
       }
-    } catch {
-      // best effort
-    }
+    } catch {}
   };
 
   return { browser, context, page, mode, persist, release, destroy };
@@ -86,7 +78,6 @@ async function tryConnectWarmSession(env: Env): Promise<BrowserSession | null> {
   try {
     active = await sessions(env.BROWSER);
   } catch {
-    // Local miniflare without /v1/sessions, or a transient API error — cold launch.
     return null;
   }
 
@@ -105,10 +96,7 @@ async function tryConnectWarmSession(env: Env): Promise<BrowserSession | null> {
       const page = context.pages()[0] ?? (await context.newPage());
       console.log("connpass session: reused warm", candidate.sessionId);
       return buildSession(env, browser, context, page, "connected");
-    } catch {
-      // Lost the race for this session (one connection per session) or it died —
-      // try the next free candidate, then fall through to a cold launch.
-    }
+    } catch {}
   }
   return null;
 }
@@ -132,12 +120,9 @@ export async function ensureLoggedIn(env: Env, session: BrowserSession): Promise
   if (session.mode === "connected") {
     const checkedAt = await loadSessionCheckedAt(env);
     if (checkedAt && Date.now() - checkedAt < SESSION_FRESH_MS) {
-      // Warm session verified moments ago — trust it and skip the dashboard nav.
       return;
     }
   }
-  // Cold launch (context seeded from possibly-stale KV storageState) or a warm
-  // session past the freshness window: do the full check.
   if (await isLoggedIn(session.page)) {
     await markSessionChecked(env);
     await session.persist();
@@ -153,7 +138,6 @@ export async function ensureLoggedIn(env: Env, session: BrowserSession): Promise
 }
 
 export async function forceRelogin(env: Env): Promise<void> {
-  // Never connect() to a possibly-poisoned warm session here — always start fresh.
   const session = await coldLaunchSession(env);
   try {
     const credentials = botCredentials(env);
@@ -162,15 +146,12 @@ export async function forceRelogin(env: Env): Promise<void> {
       throw new Error("connpass_login_failed");
     }
     await session.persist();
-    // Drop the freshness marker so the next ensureLoggedIn re-validates even on a
-    // warm connect (a stale session may still be in the pool).
     await clearSessionChecked(env);
   } finally {
     await session.destroy();
   }
 }
 
-/** Best-effort Live View URL for CAPTCHA / unexpected walls. */
 export async function tryGetLiveViewUrl(page: Page): Promise<string | null> {
   try {
     const cdp = await page.context().newCDPSession(page);

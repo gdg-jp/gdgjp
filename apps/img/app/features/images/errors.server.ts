@@ -1,6 +1,5 @@
 import type { ImageServiceErrorCode } from "~/features/images/result";
 
-/** Preserves the cookie-session routes' original status codes and text bodies. */
 export function dashboardImageErrorResponse(code: ImageServiceErrorCode): Response {
   switch (code) {
     case "not_found":

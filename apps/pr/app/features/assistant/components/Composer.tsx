@@ -5,7 +5,6 @@ import { useFetcher } from "react-router";
 const MAX_SIDE = 2048;
 const RESIZE_OVER = 1_500_000;
 
-/** Phone photos are large: shrink images in the browser before they are sent (JPEG, 2048px). */
 async function shrink(file: File): Promise<File> {
   if (!file.type.startsWith("image/") || file.type === "image/gif") return file;
   const bitmap = await createImageBitmap(file);
@@ -23,7 +22,6 @@ async function shrink(file: File): Promise<File> {
     : file;
 }
 
-/** Where people write to the assistant: text, URLs and files in one box. */
 export function Composer({ disabled }: { disabled?: boolean }) {
   const fetcher = useFetcher<{ ok: boolean; error?: string }>();
   const form = useRef<HTMLFormElement>(null);

@@ -66,7 +66,6 @@ export default function BoardScreen({ loaderData }: Route.ComponentProps) {
   }, [state.topics, state.groups]);
 
   const cellId = (c: Cell) => (c.kind === "topic" ? c.topic.id : `group:${c.group.id}`);
-  // A drag target's representative topic id (what we send to mergeTopics).
   const cellTopicId = (c: Cell) => (c.kind === "topic" ? c.topic.id : c.members[0].id);
 
   function onDragEnd(source: Cell, clientX: number, clientY: number) {

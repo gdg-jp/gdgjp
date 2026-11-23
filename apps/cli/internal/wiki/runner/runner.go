@@ -1,6 +1,3 @@
-// Package runner is `gdg wiki runner`: the OCI-resident loop that leases agent_jobs from
-// the wiki, runs a coding agent (Codex on a personal Pro login) on a local clone, and is
-// the only party that pushes. The Worker never calls an LLM.
 package runner
 
 import (
@@ -18,20 +15,18 @@ import (
 	"github.com/gdg-jp/gdgjp/cli/internal/wiki"
 )
 
-// Config comes from /etc/gdg/runner.env (systemd EnvironmentFile).
 type Config struct {
-	BaseURL    string // GDG_WIKI_URL
-	Token      string // RUNNER_TOKEN
-	Backend    string // RUNNER_BACKEND=codex|gemini
-	Model      string // RUNNER_MODEL (optional)
-	Workdir    string // RUNNER_WORKDIR
+	BaseURL    string
+	Token      string
+	Backend    string
+	Model      string
+	Workdir    string
 	Host       string
 	Version    string
-	Executable string // the gdg binary, for `gdg wiki clone`
+	Executable string
 	Once       bool
 	DryRun     bool
-	// Types limits the job types this runner leases (RUNNER_TYPES, comma-separated; empty = all).
-	Types []string
+	Types      []string
 }
 
 func ConfigFromEnv() Config {
@@ -58,8 +53,6 @@ func ConfigFromEnv() Config {
 	return cfg
 }
 
-// Handler turns one leased job into its result. It must not push or call the API on the
-// agent's behalf beyond what the job type needs.
 type Handler func(ctx context.Context, job *Job) Result
 
 type Runner struct {
@@ -68,9 +61,7 @@ type Runner struct {
 	backend  Backend
 	log      *log.Logger
 	handlers map[string]Handler
-	// slots: each slot is one goroutine leasing only its own types. `answer` gets its own
-	// slot (Stage 05) so a long synthesize never delays a reply.
-	slots [][]string
+	slots    [][]string
 
 	mu      sync.Mutex
 	running map[string]bool
@@ -100,8 +91,6 @@ func New(cfg Config, logger *log.Logger) (*Runner, error) {
 		"translate":   r.translate,
 		"answer":      r.answer,
 	}
-	// `answer` has its own slot and never lends it out, so replies are not stuck behind a
-	// 30-minute synthesize.
 	r.slots = filterSlots([][]string{{"answer"}, {"synthesize", "consolidate", "translate"}}, cfg.Types)
 	if len(r.slots) == 0 {
 		return nil, fmt.Errorf("RUNNER_TYPES %v matches no job type", cfg.Types)
@@ -132,7 +121,6 @@ func filterSlots(slots [][]string, allowed []string) [][]string {
 	return out
 }
 
-// Run serves jobs until ctx ends (or after one job with Once).
 func (r *Runner) Run(ctx context.Context) error {
 	if err := os.MkdirAll(r.cfg.Workdir, 0o700); err != nil {
 		return err
@@ -223,7 +211,6 @@ func (r *Runner) serve(ctx context.Context, types []string) error {
 	return ctx.Err()
 }
 
-// process runs one job with its lease kept alive, then reports the result.
 func (r *Runner) process(ctx context.Context, job *Job) {
 	handler := r.handlers[job.Type]
 	r.mu.Lock()
@@ -261,7 +248,7 @@ func (r *Runner) process(ctx context.Context, job *Job) {
 		result = handler(jobCtx, job)
 	}
 	if jobCtx.Err() != nil && ctx.Err() == nil {
-		return // lease lost: the server requeues it
+		return
 	}
 	if err := r.api.Complete(ctx, job.ID, job.Attempts, result); err != nil {
 		r.log.Printf("job %s: report failed: %v", job.ID, err)
@@ -281,13 +268,10 @@ func failed(err error, retry bool) Result {
 	return Result{Status: "failed", Error: err.Error(), Retry: retry}
 }
 
-// --- workspace: clone, verify, push. Only the runner holds the token for these. ---
-
 func (r *Runner) jobDir(jobID string) string {
 	return filepath.Join(r.cfg.Workdir, "jobs", jobID)
 }
 
-// gdgEnv is the environment of the runner's own git / gdg subprocesses (never the agent's).
 func (r *Runner) gdgEnv() []string {
 	return append(os.Environ(), wiki.TokenEnv+"="+r.cfg.Token, "GDG_WIKI_URL="+r.cfg.BaseURL)
 }
@@ -340,8 +324,6 @@ func (r *Runner) verify(ctx context.Context, root string, readSources []string) 
 
 var errPushConflict = errors.New("push conflict")
 
-// push commits pages/** and pushes through the remote helper (→ /sync, where acl_required
-// is the last guard). It returns the page files written; none means nothing changed.
 func (r *Runner) push(ctx context.Context, root, message string) ([]string, error) {
 	status, err := r.git(ctx, root, "status", "--porcelain", "--", "pages")
 	if err != nil {

@@ -13,7 +13,6 @@ export type CampaignLink = {
   healthAlertedAt: number | null;
 };
 
-/** Failures in a row before a link is reported broken. */
 export const HEALTH_FAILURE_THRESHOLD = 2;
 
 export type HealthState = "ok" | "unknown" | "warning" | "broken";
@@ -24,5 +23,4 @@ export function healthState(link: Pick<CampaignLink, "healthFailures" | "healthC
   return link.healthFailures > 0 ? ("warning" as const) : ("ok" as const);
 }
 
-/** 2xx and 3xx are alive (redirects are followed, but a final 3xx still answers). */
 export const isAlive = (status: number) => status >= 200 && status < 400;

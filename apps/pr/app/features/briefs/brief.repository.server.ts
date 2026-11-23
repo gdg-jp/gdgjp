@@ -40,10 +40,6 @@ export async function briefVersion(
     : null;
 }
 
-/**
- * Insert the next version (never update) and copy the event facts onto the campaign row.
- * Returns the new version.
- */
 export async function saveBrief(
   db: D1Database,
   campaignId: number,

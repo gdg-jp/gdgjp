@@ -18,12 +18,6 @@ export async function loader({ request, context }: Route.LoaderArgs) {
   return { chapters };
 }
 
-/**
- * Creates the event, its initial time-slot grid (no phases yet), and a
- * single shared "全体" track (docs/roster/index.md §3 "トラック") — all
- * three must exist before `/e/:id/design` first renders
- * (docs/roster/02-domain-schema.md "Verification" #2).
- */
 export async function action({ request, context }: Route.ActionArgs) {
   const env = context.cloudflare.env;
   const { user, chapters } = await requireUserWithChapter(env, request);

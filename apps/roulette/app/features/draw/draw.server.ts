@@ -46,13 +46,11 @@ export async function getDeviceDraw(
   return row ? toResult(row) : null;
 }
 
-/** A project's spins for the admin log, latest first; every spin unless `limit` is given. */
 export async function listDraws(
   db: D1Database,
   slug: string,
   limit?: number,
 ): Promise<DrawLogEntry[]> {
-  // LIMIT -1 is no limit in SQLite.
   const { results } = await db
     .prepare(
       `SELECT number, prize_name, rank, created_at FROM draw
@@ -74,19 +72,6 @@ function secureRandom() {
 
 const ATTEMPTS = 4;
 
-/**
- * Spin once for a device. The prize is picked from the current odds, then one
- * D1 batch (a transaction) records it:
- *
- *   1. count the spin, only while the project is open;
- *   2. take one of the prize, only if the spin counted and stock is left;
- *   3. insert the draw with the spin's number — NULL (a NOT NULL violation that
- *      rolls the whole batch back) unless step 2 took a prize. The unique
- *      (project, device) index rolls back a second spin from the same device.
- *
- * A rolled-back batch is re-read and retried, so a prize that ran out between
- * the read and the write is re-picked instead of handed out twice.
- */
 export async function spin(
   db: D1Database,
   slug: string,

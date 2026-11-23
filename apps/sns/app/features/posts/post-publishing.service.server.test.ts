@@ -16,7 +16,6 @@ function postRow(over: Row = {}): Row {
     text: "hello world",
     scheduled_at: "2026-09-01T00:00:00.000Z",
     condition: "scheduled",
-    // `runXPublish` requires the row to already be claimed.
     status: "posting",
     created_by_user_id: "u1",
     published_x_post_id: null,
@@ -32,7 +31,6 @@ function postRow(over: Row = {}): Row {
   };
 }
 
-/** `posts`/`post_media`/`post_media_tags`/`post_attempts` fake for `runXPublish`. */
 function makeDb(seed: Row) {
   const post = { ...seed };
   const attempts: Row[] = [];

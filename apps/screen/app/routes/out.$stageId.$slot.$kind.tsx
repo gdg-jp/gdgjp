@@ -31,14 +31,8 @@ export function loader({ params, request }: Route.LoaderArgs) {
   };
 }
 
-/** A disconnected speaker's last frame stays up this long before fading out. */
 const HOLD_MS = 10_000;
 
-/**
- * OBS Browser Source. Renders nothing but the assigned speaker's camera or
- * screen (contain-fit on a transparent page), or plays its mic. Everything
- * reconnects on its own; nothing here ever needs a click.
- */
 export default function Output({ loaderData }: Route.ComponentProps) {
   const { stageId, slot, kind, token, debug } = loaderData;
   const room = useStageRoom<OutputView>({ role: "output", stage: stageId, slot, t: token });

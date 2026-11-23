@@ -5,11 +5,6 @@ import { refreshAccessToken } from "~/features/google/drive-oauth.server";
 
 type Db = ReturnType<typeof drizzle>;
 
-/**
- * Refresh this long before the stored expiry. A token handed out seconds before it expires is
- * dead halfway through the caller's work — a source import tick makes many Google calls with
- * the one token it resolved at the start.
- */
 export const TOKEN_REFRESH_MARGIN_MS = 5 * 60_000;
 
 export interface GoogleDriveTokenRow {
@@ -17,13 +12,11 @@ export interface GoogleDriveTokenRow {
   grantedScopes: string | null;
 }
 
-/** Returns a usable Drive token and persists a refresh when the stored one expired. */
 export async function getGoogleDriveAccessToken(env: Env, db: Db, userId: string): Promise<string> {
   const row = await getGoogleDriveTokenRow(env, db, userId);
   return row.accessToken;
 }
 
-/** Same as getGoogleDriveAccessToken, but also returns the scopes recorded at consent. */
 export async function getGoogleDriveTokenRow(
   env: Env,
   db: Db,

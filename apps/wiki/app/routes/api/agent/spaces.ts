@@ -3,7 +3,6 @@ import { readerMaySeeSpace, resolveAgentReader } from "~/features/agent-api/agen
 import { listAccessibleSpaces, resolveSpaceAccess } from "~/features/spaces/access.server";
 import { getDb } from "~/lib/db.server";
 
-/** GET /api/agent/spaces — the reader's reachable spaces and role (agent `/setup`). */
 export async function loader({ request, context }: LoaderFunctionArgs) {
   const { env } = context.cloudflare;
   const db = getDb(env);

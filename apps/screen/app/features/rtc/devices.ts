@@ -2,7 +2,6 @@ export type DeviceOption = { deviceId: string; label: string; isDefault: boolean
 
 type DeviceLike = Pick<MediaDeviceInfo, "deviceId" | "groupId" | "label">;
 
-/** Chrome lists pseudo devices that alias a real one. */
 const PSEUDO_IDS = new Set(["default", "communications"]);
 
 /**
@@ -21,10 +20,6 @@ export function deviceOptions(devices: DeviceLike[], fallbackLabel: string): Dev
   }));
 }
 
-/**
- * Which option is in use: the explicit choice, else the device the live track
- * opened, else the OS default ("" means "follow the OS default").
- */
 export function selectedDevice(
   options: DeviceOption[],
   chosenId: string,

@@ -48,9 +48,7 @@ function decodeMountedSearchCursor(
     ) {
       return new Map(Object.entries(value.mounts));
     }
-  } catch {
-    // Normalize all malformed cursors to the same public error.
-  }
+  } catch {}
   throw new Error("Invalid workspace cursor");
 }
 
@@ -64,15 +62,10 @@ function encodeMountedSearchCursor(mounts: ReadonlyMap<string, string | null>): 
 }
 
 export type MountedWorkspaceAdapter = {
-  /** Absolute mount path, e.g. `/wiki` or a future `/google-forms`. */
   mount: string;
   adapter: WorkspaceAdapter;
 };
 
-/**
- * The only absolute-path API exposed to models. It routes an operation to a
- * mounted adapter, records compact provenance, and never materialises data.
- */
 export class MountedWorkspace {
   #traces: WorkspaceTrace[] = [];
   #references: WorkspaceManifest["references"] = [];
@@ -252,7 +245,6 @@ export class MountedWorkspace {
   }
 }
 
-/** A mount which intentionally has no sources yet, while preserving the tree. */
 export class EmptyWorkspaceAdapter implements WorkspaceAdapter {
   async ls(path: string): Promise<AdapterResult<ListResult>> {
     if (path) throw new Error("Workspace path not found");
@@ -272,7 +264,6 @@ export function createMountedWorkspace(options: {
   wiki: WorkspaceAdapter;
   googleDocs?: WorkspaceAdapter;
   websites?: WorkspaceAdapter;
-  /** Additional adapters can be mounted without changing the router. */
   additionalMounts?: readonly MountedWorkspaceAdapter[];
 }): MountedWorkspace {
   return new MountedWorkspace([

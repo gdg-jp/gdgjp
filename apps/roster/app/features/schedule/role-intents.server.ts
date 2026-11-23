@@ -7,17 +7,6 @@ import {
   setEventRoles,
 } from "./roles.server";
 
-/**
- * The sheet design screen's role intents (`RolePicker`): `setRoles` toggles
- * this sheet's selection; `createRole` / `renameRole` / `deleteRole` manage
- * the event's own roles (ADR-011). Kept out of the route module so
- * `e.$id.s.$sheetId.design.tsx` stays under the 400-line cap. Every id the
- * form submits is checked against `listRoles(db, eventId)`, so another
- * event's custom role id is ignored or rejected. Errors carry
- * `section: "roles"` so the screen shows them inside the role card, next to
- * the form that was submitted, instead of in the page-top banner.
- */
-
 export type RoleIntent = "setRoles" | "createRole" | "renameRole" | "deleteRole";
 export type RoleIntentResult = { ok: true } | { error: string; section: "roles" };
 
@@ -31,7 +20,6 @@ function duplicateName(name: string): RoleIntentResult {
   return fail(`「${name}」という役割はすでにあります。`);
 }
 
-/** A concurrent exact duplicate that passed `validateRoleName` hits `roles_event_name`. */
 function isUniqueViolation(error: unknown): boolean {
   return error instanceof Error && error.message.includes("UNIQUE");
 }

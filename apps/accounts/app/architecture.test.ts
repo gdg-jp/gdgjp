@@ -5,7 +5,6 @@ import ts from "typescript";
 import { describe, expect, it } from "vitest";
 
 const app = dirname(fileURLToPath(import.meta.url));
-// Paths relative to app/, with "/" on every platform so the patterns below hold on Windows.
 const rel = (file: string) => relative(app, file).split(sep).join("/");
 
 function sourceFiles(directory: string): string[] {

@@ -21,11 +21,6 @@ function toCandidate(document: GooglePickerDocument): StagedSource | null {
   };
 }
 
-/**
- * The add-source panel's Google Drive button: opens the Picker and stages each picked Docs /
- * Sheets / Slides file — or folder, which becomes one source holding every such file beneath
- * it under the folder's own paths — as a candidate.
- */
 export function useDrivePicker({
   addCandidates,
   onNeedsConnection,

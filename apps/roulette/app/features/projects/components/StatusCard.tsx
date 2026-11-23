@@ -12,7 +12,6 @@ import {
 } from "@gdgjp/design-system";
 import { Link } from "react-router";
 
-/** Accepting spins, the counters, and the public URL to share. */
 export function StatusCard({
   open,
   draws,
@@ -25,7 +24,6 @@ export function StatusCard({
 }: {
   open: boolean;
   draws: number;
-  /** What is left of the finite prizes. */
   left: number;
   slug: string;
   publicUrl: string;

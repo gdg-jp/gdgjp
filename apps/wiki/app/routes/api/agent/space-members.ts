@@ -4,11 +4,6 @@ import { requireSpaceForIdentity } from "~/features/spaces/access.server";
 import { upsertSpaceMember } from "~/features/spaces/members.server";
 import { getDb } from "~/lib/db.server";
 
-/**
- * POST /api/agent/spaces/:space/members { principalType, principalId } — the agent's
- * `/setup`: an OWNER (their own token, never the service token) makes a Discord guild or
- * Chat space a viewer of a shared space. Personal and chapter spaces refuse these principals.
- */
 export async function action({ request, context, params }: ActionFunctionArgs) {
   const { env } = context.cloudflare;
   const db = getDb(env);

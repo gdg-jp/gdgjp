@@ -2,11 +2,9 @@ import { Badge, Card, Heading, Separator, Stack, Text } from "@gdgjp/design-syst
 import { rankLabel, textUnits } from "~/features/prizes/odds";
 import { type DrawResult, drawNumberLabel } from "../result";
 
-/** What staff check before handing the prize over: the prize, draw number and time. */
 export function ResultCard({ result }: { result: DrawResult }) {
   const lose = result.tier === "lose";
   return (
-    // <output> is a live status region, so screen readers announce the result.
     <output className="block">
       <Card className="text-center">
         <Stack align="center" className="gap-2">

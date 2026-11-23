@@ -10,9 +10,6 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// newDiscordGatewayCommand is `gdg agent discord-gateway`, a systemd service on the OCI VM
-// (gdg-discord-gateway). Settings come from /etc/gdg/discord-gateway.env; see
-// infra/oci-runner/README.md.
 func newDiscordGatewayCommand() *cobra.Command {
 	return &cobra.Command{
 		Use:   "discord-gateway",

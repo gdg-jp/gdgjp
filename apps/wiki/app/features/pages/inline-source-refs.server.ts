@@ -4,7 +4,6 @@ import type { getDb } from "~/lib/db.server";
 
 type WikiDb = ReturnType<typeof getDb>;
 
-/** Every id an inline `(source: …)` citation may name. */
 export function inlineSourceIds(markdown: string): string[] {
   return [
     ...new Set(
@@ -15,11 +14,6 @@ export function inlineSourceIds(markdown: string): string[] {
 
 type SourceRef = { sourceId: string | null; url: string; title: string };
 
-/**
- * Sources an inline citation can link to: the page's own source rows, then any cited
- * `sources.id` or `source_documents.id` (resolved to its source's URL). Only titles and URLs
- * leave here; the reader already sees the page, and source URLs are what the sidebar shows.
- */
 export async function loadInlineSourceRefs(
   db: WikiDb,
   pageId: string,

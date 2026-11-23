@@ -20,7 +20,6 @@ export async function action({ request, context }: ActionFunctionArgs) {
   const { pageId, newParentId, insertAfterId } = parsed.data;
 
   try {
-    // Reordering edits the tree of the page's space.
     await requirePageSpace(getDb(env), await getAccessIdentity(request, env), pageId, "editor");
     await movePage(env, user, { pageId, newParentId, insertAfterId });
     return Response.json({ ok: true });

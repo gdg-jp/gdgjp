@@ -58,7 +58,6 @@ export function CreateStageDialog({ trigger }: { trigger: ReactNode }) {
   const [id, setId] = useState("");
   const [slots, setSlots] = useState("2");
   const [origin, setOrigin] = useState("");
-  // The id the last rejected submit used, so its error clears once the id changes.
   const [submitted, setSubmitted] = useState("");
   const fetcher = useFetcher<{ ok: false; error: string }>();
   useEffect(() => {
@@ -230,7 +229,6 @@ export function ObsDialog({
   );
 }
 
-/** Wrap a trigger so it asks before acting. */
 export function ConfirmButton({
   title,
   body,
@@ -306,11 +304,6 @@ function RenameDialog({
   );
 }
 
-/**
- * The [⋯] menu: copy invite link, OBS URLs, rename, (reset), delete. The invite link is the
- * stage id, so it cannot be reissued.
- * `onReset` is only offered inside the control room.
- */
 export function StageMenu({ stage, onReset }: { stage: StageAccess; onReset?: () => void }) {
   const [obs, setObs] = useState(false);
   const [rename, setRename] = useState(false);

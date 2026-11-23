@@ -1,14 +1,5 @@
-/**
- * Minimal obs-websocket v5 client for the browser (the OBS custom dock).
- *
- * Hello → Identify (with the SHA-256 challenge when a password is set) →
- * Identified; then requests (op 6/7), request batches (op 8/9) and events
- * (op 5). Reconnects forever while started.
- */
-
 export const OBS_DEFAULT_URL = "ws://127.0.0.1:4455";
 
-/** General … Ui (every non-high-volume category). */
 const EVENT_SUBSCRIPTIONS = (1 << 11) - 1;
 
 const OP = {
@@ -50,7 +41,6 @@ async function sha256Base64(text: string): Promise<string> {
   return btoa(String.fromCharCode(...new Uint8Array(digest)));
 }
 
-/** obs-websocket's auth string: base64(sha256(base64(sha256(password + salt)) + challenge)). */
 export async function obsAuth(password: string, salt: string, challenge: string): Promise<string> {
   const secret = await sha256Base64(password + salt);
   return sha256Base64(secret + challenge);
@@ -99,7 +89,6 @@ export class ObsClient {
     this.teardown("stopped");
   }
 
-  /** Reconnect now (password or address changed). */
   restart() {
     clearTimeout(this.retryTimer);
     this.teardown("restart");
@@ -114,7 +103,6 @@ export class ObsClient {
     return this.call(OP.request, { requestType, requestData }) as Promise<T>;
   }
 
-  /** Runs requests in one round trip; failures do not stop the rest. */
   batch(
     requests: { requestType: string; requestData?: Record<string, unknown> }[],
   ): Promise<BatchResult[]> {
@@ -166,7 +154,6 @@ export class ObsClient {
       this.ws = null;
       this.identified = false;
       this.failPending("OBS との接続が切れました");
-      // 4009 = authentication failed: retrying with the same password cannot help.
       if (event.code === 4009) {
         this.opts.onStatus("auth-failed", "パスワードが違います");
         return;
@@ -174,9 +161,7 @@ export class ObsClient {
       this.opts.onStatus("offline", event.reason || undefined);
       this.scheduleRetry();
     };
-    ws.onerror = () => {
-      // onclose follows.
-    };
+    ws.onerror = () => {};
   }
 
   private async onMessage(ws: WebSocket, raw: string) {
@@ -248,9 +233,7 @@ export class ObsClient {
       ws.onopen = ws.onmessage = ws.onclose = ws.onerror = null;
       try {
         ws.close(1000, reason);
-      } catch {
-        // ignore
-      }
+      } catch {}
     }
   }
 

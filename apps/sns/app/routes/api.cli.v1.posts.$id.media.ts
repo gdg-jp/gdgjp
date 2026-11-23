@@ -6,8 +6,6 @@ import { PostDraftError, attachMedia } from "~/features/posts/post-draft.service
 import { getPost } from "~/features/posts/post.repository.server";
 import type { Route } from "./+types/api.cli.v1.posts.$id.media";
 
-// Action-only route: a GET/HEAD never reaches `action`, so answer it here with
-// the same JSON 405 the HTTP boundary promises.
 export function loader(_args: Route.LoaderArgs) {
   return cliMethodNotAllowed();
 }

@@ -50,13 +50,6 @@ describe("build-publish-package", () => {
     }
   });
 
-  // The failure mode this guards against is real: an earlier version of this
-  // package used `publishConfig.exports` to remap "." to dist/, which `npm pack`
-  // silently ignored, and a separate earlier version emitted extensionless
-  // relative imports that Node's ESM resolver rejects. Neither was caught by
-  // asserting on file lists or manifest JSON alone -- only actually installing
-  // the packed tarball into a scratch project with no sibling checkout and
-  // importing it through Node's real resolver caught them.
   describe("consumed exactly like an external package (packed, installed, no sibling checkout)", () => {
     const scratchDir = mkdtempSync(join(tmpdir(), "gdg-lib-consumer-"));
     let installedName = "";
@@ -96,7 +89,6 @@ describe("build-publish-package", () => {
         execFileSync("node", ["smoke.mjs"], { cwd: scratchDir, stdio: "pipe" }),
       ).not.toThrow();
 
-      // Ensure ./acl is NOT exported and fails to import
       writeFileSync(join(scratchDir, "smoke-not-exported.mjs"), `import "${installedName}/acl";`);
       expect(() =>
         execFileSync("node", ["smoke-not-exported.mjs"], { cwd: scratchDir, stdio: "pipe" }),
@@ -113,7 +105,6 @@ describe("build-publish-package", () => {
           "void v; void k;",
         ].join("\n"),
       );
-      // node_modules/.bin/tsc is a shell script, which Windows cannot execute directly.
       const tsc = createRequire(import.meta.url).resolve("typescript/bin/tsc");
       expect(() =>
         execFileSync(

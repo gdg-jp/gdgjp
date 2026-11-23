@@ -22,7 +22,6 @@ export async function saveDiscordWebhook(
   return { ok: true };
 }
 
-/** The decrypted webhook, server-side only. */
 export async function discordWebhookFor(env: Env, chapterId: number): Promise<string | null> {
   const row = await env.DB.prepare(
     "SELECT discord_webhook_cipher FROM chapter_settings WHERE chapter_id = ?",
@@ -45,7 +44,6 @@ export async function maskedDiscordWebhook(env: Env, chapterId: number): Promise
 export type AssistantMode = "auto" | "suggest";
 export type AssistantSettings = { mode: AssistantMode; morningDigest: boolean };
 
-/** Defaults (no row yet): the assistant queues plans and drafts itself, and sends the digest. */
 export async function assistantSettings(
   db: D1Database,
   chapterId: number,
@@ -76,7 +74,6 @@ export async function saveAssistantSettings(
     .run();
 }
 
-/** Chapters whose 09:00 digest is on (no row means on), among the given ones. */
 export async function digestChapters(db: D1Database, chapterIds: number[]): Promise<number[]> {
   if (!chapterIds.length) return [];
   const { results } = await db

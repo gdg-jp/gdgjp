@@ -19,7 +19,6 @@ export default function SidebarPopover({
   const panelRef = useRef<HTMLDivElement>(null);
   const [pos, setPos] = useState<PopoverPosition | null>(null);
 
-  // Calculate the anchor position when it can change while the panel is open.
   const updatePosition = useCallback(() => {
     const anchor = anchorRef.current;
     if (!anchor) return;
@@ -50,7 +49,6 @@ export default function SidebarPopover({
     };
   }, [open, updatePosition]);
 
-  // Close on Escape
   useEffect(() => {
     if (!open) return;
     function onKeyDown(e: KeyboardEvent) {
@@ -60,7 +58,6 @@ export default function SidebarPopover({
     return () => document.removeEventListener("keydown", onKeyDown);
   }, [open, onClose]);
 
-  // Close on click outside (excluding popover panel and anchor button)
   useEffect(() => {
     if (!open) return;
     function onMouseDown(e: MouseEvent) {

@@ -23,8 +23,6 @@ import { buildSolverInput } from "./solver-input.server";
 
 export { readAssignments, readAssignmentsMap, toAssignment } from "./assignment-reads.server";
 
-/** Sheet-scoped D1 access for the current assignments table. */
-
 const ASSIGNMENT_COLS =
   "event_id, roster_sheet_id, application_id, time_slot_id, track_id, role_id, locked";
 
@@ -33,7 +31,6 @@ export type AssignmentState = {
   revisionCursor: number | null;
 };
 
-/** Reads the cursor before the corresponding assignment map to support CAS writes. */
 export async function readAssignmentsState(
   db: D1Database,
   eventId: string,
@@ -194,30 +191,15 @@ async function validateAssignmentsForSheet(
   }
 }
 
-/** Stage 08's hook payload (module doc above) — `kind` excludes `"restore"`
- * at the type level since restoring never passes this argument at all. */
 export type WriteAssignmentsRevision = {
   metrics: Metrics;
   label: string;
   actor: Actor;
   kind: "generate" | "edit";
-  /** The merge key `history.server.ts`'s `recordRevision` groups consecutive
-   * edits by — pass the acting user's id for `kind: "edit"` (docs/roster/
-   * 08-history.md "Design" §3: "同一ユーザー × 同一イベント"). Ignored for
-   * `kind: "generate"`, which never merges regardless of this value. */
   groupKey?: string | null;
-  /** Cross-sheet safety checks that must run inside the assignment/history batch. */
   mutationGuards?: readonly D1PreparedStatement[];
 };
 
-/**
- * Replaces one sheet's ENTIRE `assignments` set with `next` — the single
- * write path every caller uses (module doc). Always a sheet-scoped delete-then-
- * insert, never a partial patch: this is what guarantees a stale row from a
- * previous generation can never survive alongside a new one
- * (docs/roster/07-roster-manual-edit.md "回帰として固定すべきテスト": "生成後に
- * assignments の古い行が残っていない").
- */
 export async function writeAssignments(
   db: D1Database,
   eventId: string,
@@ -277,12 +259,6 @@ export async function writeAssignments(
   }
 }
 
-/**
- * Replaces a solver-generated sheet snapshot only if its applicants still
- * have no overlapping live-sheet assignments. The guards are part of the
- * same history/cursor batch as the replacement, so a conflict changes
- * nothing in this sheet.
- */
 export async function writeGeneratedAssignments(
   db: D1Database,
   eventId: string,
@@ -311,17 +287,6 @@ export async function writeGeneratedAssignments(
   return true;
 }
 
-/**
- * The `assign`/`unassign` intents' shared tail (docs/roster/08-history.md
- * "Design" §3): both produce a full replacement `Assignments` map and need
- * the identical revision recorded afterward — re-evaluate against the
- * event's current `SolverInput` and write through with `kind: "edit"`,
- * using the acting user's id as the merge `groupKey` so consecutive edits by
- * the SAME person collapse per `grouping.ts`'s 5-minute window. Lives here
- * (not in the route) per this app's placement rule: logic beyond "read the
- * request, call a feature, shape the response" belongs in a feature's
- * `*.server.ts`, not `app/routes/`.
- */
 export async function writeManualEdit(
   db: D1Database,
   event: EventRecord,

@@ -7,8 +7,6 @@ export async function loader({ request, context }: Route.LoaderArgs) {
   const url = new URL(request.url);
   const callbackURL = safeReturnTo(url.searchParams.get("return_to")) ?? "/dashboard";
   const oauthQuery = url.searchParams.get("oauth_query") ?? undefined;
-  // oauth-provider's pre-login middleware consumes this signed continuation
-  // value before Better Auth validates the core social-sign-in body.
   const body = { provider: "google" as const, callbackURL, oauth_query: oauthQuery };
   const response = await withAuthTimeout(
     getAuth(context.cloudflare.env).api.signInSocial({
@@ -16,8 +14,6 @@ export async function loader({ request, context }: Route.LoaderArgs) {
       body,
       asResponse: true,
     }),
-    // Preserve the caller's original return_to. Using this route's own URL
-    // would nest it inside a second return_to and restart the Google hop.
     () => redirect(`/signin?return_to=${encodeURIComponent(callbackURL)}`),
   );
   return redirectSocialResponse(response);

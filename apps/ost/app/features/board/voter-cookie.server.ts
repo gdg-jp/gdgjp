@@ -1,11 +1,5 @@
 import { parseCookies, serializeCookie } from "@gdgjp/gdg-lib";
 
-/**
- * Anonymous per-browser voter identity for participant pages.
- *
- * Not authenticated — bypassable by clearing cookies / incognito, and shared by
- * everyone using the same device. That is acceptable for an in-room OST vote.
- */
 export const VOTER_COOKIE = "ost-voter";
 
 const ONE_YEAR_S = 60 * 60 * 24 * 365;
@@ -26,10 +20,6 @@ export function serializeVoterCookie(id: string, opts: { secure: boolean }): str
   });
 }
 
-/**
- * Return the request's voter id, minting one when absent. `setCookie` is only
- * present when a fresh id was generated and must be echoed on the response.
- */
 export function ensureVoterId(
   request: Request,
   opts: { secure: boolean },

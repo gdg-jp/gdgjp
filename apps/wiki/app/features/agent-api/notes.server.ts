@@ -35,16 +35,6 @@ export type CreateAnswerNoteResult =
     }
   | { ok: false; error: string; status: number; path?: string };
 
-/**
- * Authorization for this route is a constant, not a caller-supplied value.
- *
- * Ordinary chapter members lack `canEdit` on the answers namespace page, so they
- * cannot use CLI sync. This bounded route is safe to grant them because it can
- * only create or replace a leaf under the hard-coded parent `ns-answers`, it
- * hard-codes `visibility: restricted` / `page_type: answer` / `origin: agent`,
- * and it never accepts parent, page type, visibility, or chapter from the body.
- * The access floor is derived from cited pages the caller can already view.
- */
 export async function createOrReplaceAnswerNote(
   env: Env,
   workspaceCtx: AgentWorkspaceContext,
@@ -92,18 +82,9 @@ export async function createOrReplaceAnswerNote(
       return { ok: false, error: "not_found", status: 404 };
     }
 
-    // A replacement must not move the page's access scope. The UPDATE below
-    // rewrites chapter_id, but the page_versions row it inserts preserves the
-    // PRIOR content — and wiki.$slug.history.tsx evaluates canView against the
-    // page's CURRENT row before returning every version. So relocating an
-    // A-scoped answer to chapter B would expose A's prior content to B.
-    // Keep the target's scope immutable and require the citations to match it.
     if ((existing.chapterId ?? null) !== floor.chapterId) {
       return { ok: false, error: "replace_scope_mismatch", status: 409 };
     }
-    // Explicit per-page ACL rows survive the UPDATE untouched, so they would
-    // carry their grantees into whatever the new content is. Refuse instead of
-    // reconciling them — the same reasoning as computeAccessFloor.
     const targetAccess = await getPageAccessList(db, existing.id);
     if (targetAccess.length > 0) {
       return { ok: false, error: "replace_target_shared", status: 409 };
@@ -177,9 +158,6 @@ export async function createOrReplaceAnswerNote(
     };
   }
 
-  // `(space_id, slug)` is UNIQUE (the default space here), so a read-then-insert is a race: two
-  // concurrent filings both see no collision and the loser raises a constraint
-  // error (a 500) instead of the documented 409. Let the database arbitrate.
   const id = nanoid();
   const inserted = await env.DB.prepare(
     "INSERT INTO pages (id,title_ja,title_en,slug,content_ja,content_en,translation_status_ja,translation_status_en,summary_ja,summary_en,parent_id,acl_synced_with_parent,sort_order,status,page_type,page_metadata,visibility,general_role,chapter_id,origin,author_id,last_edited_by,acl_source_ids,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,unixepoch(),unixepoch()) ON CONFLICT(space_id, slug) DO NOTHING",
@@ -217,8 +195,6 @@ export async function createOrReplaceAnswerNote(
       .from(schema.pages)
       .where(pageInSpace(DEFAULT_SPACE_ID, parsed.body.slug))
       .get();
-    // The slug may belong to a page outside answers/ — do not report a path
-    // that claims otherwise.
     return {
       ok: false,
       error: "slug_exists",
@@ -275,11 +251,6 @@ async function resolveCitedPages(
   return { ok: true, pages };
 }
 
-/**
- * A filed note must never be readable by anyone who could not have read its
- * inputs. Refuse rather than intersecting ACLs — copying access lists is a
- * feature in its own right, and a subtle bug there leaks restricted pages.
- */
 export async function computeAccessFloor(
   db: ReturnType<typeof getDb>,
   pages: readonly CitedPage[],
@@ -309,14 +280,9 @@ export async function computeAccessFloor(
     }
     return { ok: false, error: "chapter_ambiguous", status: 409 };
   }
-  // Mixed null + one chapter should not happen given the sets above, but refuse.
   return { ok: false, error: "citations_span_chapters", status: 409 };
 }
 
-/**
- * `replaceId` is normally a page id. The filing pass may also send an answers
- * workspace path (`/wiki/answers/<slug>`) when that is all the tool trace has.
- */
 async function resolveReplaceTarget(
   db: ReturnType<typeof getDb>,
   store: ReturnType<typeof createD1WikiWorkspaceStore>,

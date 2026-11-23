@@ -21,7 +21,6 @@ export function isolatedE2EMetrics(output, startedAtUnixMs) {
 }
 
 export function turboMetrics(output) {
-  // Only read summaries named by this process, not other CI runs in the checkout.
   const paths = [...new Set(output.match(/\.turbo\/runs\/[\w-]+\.json/g) ?? [])];
   return paths.map((path) => {
     const summary = JSON.parse(readFileSync(path, "utf8"));
@@ -47,7 +46,6 @@ export function playwrightMetrics(directory, startedAtUnixMs, cached = false) {
     if (error.code === "ENOENT") return undefined;
     throw error;
   }
-  // A process that failed before Playwright started must not reuse an old result.
   if (!cached && Date.parse(report.stats.startTime) < startedAtUnixMs) return undefined;
   const tests = [];
   function visit(suite) {
@@ -74,7 +72,6 @@ export function playwrightMetrics(directory, startedAtUnixMs, cached = false) {
     directory,
     cached,
     durationMs: report.stats.duration,
-    // Includes discovery, server startup and global setup before the first test.
     firstTestDelayMs: starts.length
       ? Math.min(...starts) - Date.parse(report.stats.startTime)
       : null,

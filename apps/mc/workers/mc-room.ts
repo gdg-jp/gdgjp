@@ -28,36 +28,18 @@ type Attachment = {
   connId: string;
   connectedAt: number;
   lastSeenAt: number;
-  /** Last state report (players only). */
   state: PlayerPresence["state"];
 };
 
 const LOG_LIMIT = 200;
 
-/**
- * The relay between one track's controller pages and its OBS player pages
- * (addressed as `env.MC_ROOM.getByName("track:<id>")`, one room per track).
- *
- * - Sockets are hibernatable; per-socket metadata lives in the attachment so
- *   it survives eviction.
- * - "ping" is answered by the runtime's auto-response, so heartbeats cost
- *   nothing and keep NAT/proxy paths warm.
- * - Durable state (player token, played marks, loop settings, event log) is
- *   in the SQLite-backed synchronous KV, plus a cache of the uploaded-clip
- *   list from D1 so commands validate without a round trip.
- * - Commands are never queued: with no player connected, a command fails
- *   immediately so the operator sees it instead of sound appearing late.
- */
 export class McRoom extends DurableObject<Env> {
-  /** cmd id → controller connId awaiting the ack. In-memory: acks are ~ms. */
   private pending = new Map<string, string>();
 
   constructor(ctx: DurableObjectState, env: Env) {
     super(ctx, env);
     this.ctx.setWebSocketAutoResponse(new WebSocketRequestResponsePair(PING, PONG));
   }
-
-  // ─── storage ─────────────────────────────────────────────────────────────
 
   private get token(): string {
     let token = this.ctx.storage.kv.get<string>("token");
@@ -94,11 +76,6 @@ export class McRoom extends DurableObject<Env> {
     return this.catalog.get(id);
   }
 
-  /**
-   * Re-read the uploaded clips from D1 and push them to every socket if they
-   * changed. Called by the Worker after an upload/edit/delete (RPC) and on
-   * every connect, so a missed notification heals itself.
-   */
   async refreshCatalog(track?: string): Promise<void> {
     if (track && this.ctx.storage.kv.get<string>("track") !== track) {
       this.ctx.storage.kv.put("track", track);
@@ -122,8 +99,6 @@ export class McRoom extends DurableObject<Env> {
     this.broadcast("controller", { type: "log", entry: full });
   }
 
-  // ─── transport ───────────────────────────────────────────────────────────
-
   async fetch(request: Request): Promise<Response> {
     if (request.headers.get("Upgrade")?.toLowerCase() !== "websocket") {
       return new Response("Expected WebSocket", { status: 426 });
@@ -133,13 +108,10 @@ export class McRoom extends DurableObject<Env> {
     if (role !== "controller" && role !== "player") {
       return new Response("bad role", { status: 400 });
     }
-    // The Worker routes by track; remember which one this room serves.
     const track = url.searchParams.get("track");
     if (track && this.ctx.storage.kv.get<string>("track") !== track) {
       this.ctx.storage.kv.put("track", track);
     }
-    // Controllers are authenticated by the Worker before reaching here;
-    // players present the room's token.
     if (role === "player" && !timingSafeEqual(url.searchParams.get("t") ?? "", this.token)) {
       return new Response("bad token", { status: 403 });
     }
@@ -196,9 +168,7 @@ export class McRoom extends DurableObject<Env> {
     this.onGone(ws, code);
     try {
       ws.close(code === 1005 || code === 1006 ? 1000 : code, "bye");
-    } catch {
-      // already closed
-    }
+    } catch {}
   }
 
   async webSocketError(ws: WebSocket): Promise<void> {
@@ -215,8 +185,6 @@ export class McRoom extends DurableObject<Env> {
     });
     this.broadcast("controller", { type: "playerGone", connId: att.connId });
   }
-
-  // ─── controller messages ─────────────────────────────────────────────────
 
   private onControllerMessage(att: Attachment, msg: ControllerMessage | null) {
     if (!msg) return;
@@ -235,7 +203,6 @@ export class McRoom extends DurableObject<Env> {
           return;
         }
         this.pending.set(id, att.connId);
-        // Forget it after a while either way; the controller has its own timeout.
         setTimeout(() => this.pending.delete(id), 10_000);
         for (const ws of players) this.send(ws, { type: "cmd", id, cmd });
         this.appendLog({
@@ -288,7 +255,6 @@ export class McRoom extends DurableObject<Env> {
 
   private setPlayed(clipId: string, value: boolean) {
     const clip = this.getClip(clipId);
-    // Standby (common) clips never get a played mark.
     if (!clip || clip.track === null) return;
     const played = this.config.played;
     if (value === Boolean(played[clipId])) return;
@@ -297,8 +263,6 @@ export class McRoom extends DurableObject<Env> {
     this.ctx.storage.kv.put("played", played);
     this.broadcastConfig();
   }
-
-  // ─── player messages ─────────────────────────────────────────────────────
 
   private onPlayerMessage(ws: WebSocket, att: Attachment, msg: PlayerMessage | null) {
     if (!msg) return;
@@ -315,7 +279,6 @@ export class McRoom extends DurableObject<Env> {
 
     if (msg.type !== "ack") return;
     const controller = this.pending.get(msg.id);
-    // With several players the first ack decides; later ones only update state.
     if (!controller) return;
     this.pending.delete(msg.id);
     if (msg.ok) {
@@ -334,8 +297,6 @@ export class McRoom extends DurableObject<Env> {
       });
     }
   }
-
-  // ─── helpers ─────────────────────────────────────────────────────────────
 
   private players(): PlayerPresence[] {
     return this.ctx
@@ -367,9 +328,7 @@ export class McRoom extends DurableObject<Env> {
   private send(ws: WebSocket, msg: ToControllerMessage | ToPlayerMessage) {
     try {
       ws.send(JSON.stringify(msg));
-    } catch {
-      // Socket closing; its close handler cleans up.
-    }
+    } catch {}
   }
 }
 

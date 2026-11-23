@@ -9,11 +9,6 @@ import { i18nextServer } from "./i18n.server";
 import enCommon from "./locales/en/common.json";
 import jaCommon from "./locales/ja/common.json";
 
-/**
- * How long deferred loader promises may stream before React Router rejects them. The
- * default (~5 s) is shorter than an AI Search query with reranking, which showed up as the
- * search page's "AI search failed" message.
- */
 export const streamTimeout = 20_000;
 
 export default async function handleRequest(
@@ -23,8 +18,6 @@ export default async function handleRequest(
   routerContext: EntryContext,
   _loadContext: AppLoadContext,
 ) {
-  // Create a fresh i18next instance per request so concurrent requests don't
-  // share mutable language state (important for Cloudflare Workers isolates).
   const instance = createInstance();
   const lng = await i18nextServer.getLocale(request);
   await instance.use(initReactI18next).init({
@@ -56,8 +49,6 @@ export default async function handleRequest(
   );
   shellRendered = true;
 
-  // Bots and SPA mode need the full document (including deferred Suspense data)
-  // before the response finishes. Humans get progressive streaming.
   if ((userAgent && isbot(userAgent)) || routerContext.isSpaMode) {
     await body.allReady;
   }

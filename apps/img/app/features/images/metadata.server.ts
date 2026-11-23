@@ -12,12 +12,6 @@ import {
 import { type ImageActor, type ImageServiceResult, fail, ok } from "./result";
 import { validateSlug } from "./slug";
 
-/**
- * Sets or clears an image's custom slug. An empty/whitespace-only value clears
- * it. `validateSlug`'s three rejection reasons collapse into `invalid_slug`;
- * the HTTP error mappers turn that into human-readable text. Keyed by id — the
- * slug namespace is only resolved by the public serve route.
- */
 export async function setImageSlugForActor(
   env: Env,
   actor: ImageActor,
@@ -38,12 +32,6 @@ export async function setImageSlugForActor(
   return ok(result.image);
 }
 
-/**
- * Assigns or clears (folderId === null) an image's folder. The folder must
- * belong to the image's current chapter — a folder is scoped to one chapter,
- * so cross-chapter assignment is rejected rather than silently reattributing
- * either side.
- */
 export async function setImageFolderForActor(
   env: Env,
   actor: ImageActor,
@@ -68,11 +56,6 @@ export async function setImageFolderForActor(
   return ok(await setImageFolder(env.DB, id, folderId));
 }
 
-/**
- * Re-shares an image with a different chapter the actor belongs to. Clears
- * the image's folder as a side effect, since a folder belongs to exactly one
- * chapter (see setImageChapter).
- */
 export async function setImageChapterForActor(
   env: Env,
   actor: ImageActor,
@@ -94,21 +77,6 @@ export type UpdateImagePatch = {
   chapterId?: number;
 };
 
-/**
- * Applies any combination of slug/folderId/chapterId to an image as a single
- * atomic change: every field is checked against the prospective final state
- * — including cross-field interactions like "does this folder belong to the
- * chapter we're moving to?" — before anything is written, and the write
- * itself is one UPDATE statement (updateImageAttributes). This guarantees a
- * later field failing (e.g. an unknown folderId) can never leave an earlier
- * field's change (e.g. a chapter reassignment) already committed.
- *
- * A chapterId change without an explicit folderId in the same patch clears
- * the folder, since a folder belongs to exactly one chapter. When both are
- * given together, the client's folderId is validated against the *new*
- * chapter, so moving an image and its folder to a new chapter in one call
- * works as expected.
- */
 export async function updateImageForActor(
   env: Env,
   actor: ImageActor,
@@ -141,9 +109,6 @@ export async function updateImageForActor(
       if (folder.chapterId !== chapterId) return fail("folder_chapter_mismatch");
     }
   } else if (chapterId !== image.chapterId) {
-    // The chapter is changing and the caller didn't say where the folder
-    // should land — clear it, since the old folder cannot belong to the new
-    // chapter.
     folderId = null;
   }
 

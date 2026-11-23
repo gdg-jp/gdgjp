@@ -1,4 +1,3 @@
-// Package wiki is the client and on-disk representation used by `gdg wiki`.
 package wiki
 
 import (
@@ -20,16 +19,12 @@ const defaultBaseURL = "https://wiki.gdgs.jp"
 type Client struct {
 	BaseURL    string
 	HTTPClient *http.Client
-	// Space scopes /api/cli/wiki/* calls to one space (`?space=`); empty = gdg-jp.
-	Space     string
-	generated *openapigen.ClientWithResponses
+	Space      string
+	generated  *openapigen.ClientWithResponses
 }
 
-// TokenEnv carries a non-OAuth bearer (the runner's RUNNER_TOKEN) to the git remote helper
-// and wiki commands. The runner sets it only for its own git / gdg subprocesses.
 const TokenEnv = "GDG_WIKI_TOKEN"
 
-// withSpace appends `space=<slug>` to Wiki CLI API paths.
 func (c *Client) withSpace(path string) string {
 	if c.Space == "" || !strings.HasPrefix(path, "/api/cli/") {
 		return path
@@ -70,9 +65,6 @@ func NewClient() *Client {
 	return NewClientAt(base)
 }
 
-// NewClientAt creates a Wiki API client for a Git remote's origin. The
-// gdg-wiki transport address includes an API path, while the generated client
-// owns those paths itself, so callers pass only the origin here.
 func NewClientAt(base string) *Client {
 	client := &Client{BaseURL: strings.TrimRight(base, "/"), HTTPClient: http.DefaultClient}
 	client.generatedClient()
@@ -165,16 +157,15 @@ type SyncResult struct {
 }
 
 type SourcesManifestEntry struct {
-	DocumentID  string  `json:"documentId"`
-	SourceID    *string `json:"sourceId"`
-	Kind        string  `json:"kind"`
-	Title       string  `json:"title"`
-	Path        string  `json:"path"`
-	ContentHash string  `json:"contentHash"`
-	MediaType   *string `json:"mediaType"`
-	CapturedAt  *int64  `json:"capturedAt"`
-	Visibility  *string `json:"visibility"`
-	// ChapterIDPresent distinguishes omitted chapterId from explicit JSON null.
+	DocumentID       string  `json:"documentId"`
+	SourceID         *string `json:"sourceId"`
+	Kind             string  `json:"kind"`
+	Title            string  `json:"title"`
+	Path             string  `json:"path"`
+	ContentHash      string  `json:"contentHash"`
+	MediaType        *string `json:"mediaType"`
+	CapturedAt       *int64  `json:"capturedAt"`
+	Visibility       *string `json:"visibility"`
 	ChapterID        *string `json:"chapterId,omitempty"`
 	ChapterIDPresent bool    `json:"-"`
 }
@@ -294,8 +285,6 @@ func (c *Client) Sync(ctx context.Context, token string, input SyncRequest) (Syn
 		if p.ID != "" {
 			page["id"] = p.ID
 		}
-		// Partial-locale sync: only send locales that are present so a
-		// Japanese-only clone cannot wipe English content.
 		if localePresent(p.JA) {
 			page["ja"] = p.JA
 		}
@@ -348,7 +337,6 @@ func (c *Client) Download(ctx context.Context, token, rawURL string) ([]byte, er
 	return io.ReadAll(res.Body)
 }
 
-// Upload replaces bytes for an attachment allocated by Sync.
 func (c *Client) Upload(ctx context.Context, token, attachmentID string, data []byte, mime string) error {
 	res, err := c.generatedClient().UploadWikiAttachmentWithBodyWithResponse(ctx, attachmentID, mime, bytes.NewReader(data), bearer(token), c.spaceEditor())
 	if err != nil {
@@ -369,7 +357,6 @@ type ChatSenders struct {
 	Senders []ChatSender `json:"senders"`
 }
 
-// Map returns resourceName -> displayName. Nil/empty input yields an empty map.
 func (cs ChatSenders) Map() map[string]string {
 	out := make(map[string]string, len(cs.Senders))
 	for _, sender := range cs.Senders {
@@ -426,7 +413,6 @@ func (c *Client) AgentsMD(ctx context.Context, token string) ([]byte, error) {
 	return io.ReadAll(res.Body)
 }
 
-// ValidateACL dry-runs page ACL checks on the server without writing to D1.
 func (c *Client) ValidateACL(ctx context.Context, token string, input ValidateACLRequest) (ValidateACLResult, error) {
 	raw, err := json.Marshal(input)
 	if err != nil {

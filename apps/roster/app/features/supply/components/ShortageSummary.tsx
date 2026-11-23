@@ -1,18 +1,5 @@
 import { SHORTAGE_KIND_LABELS, type ShortageSummaryEntry } from "~/features/supply/supply";
 
-/**
- * The top-of-page summary on `/e/:id/staff` (docs/roster/05-staff-supply-
- * demand.md "Design" §3): registered-staff count, plus every event-wide
- * (role, kind) shortage phrased as a noun so it can be pasted straight into
- * a recruiting announcement ("配信の経験者" / "受付の頭数") — a different
- * phrasing from `SupplyDemandRow`'s per-slot badge on purpose (that one
- * reads as a status, this one reads as a thing to ask for).
- *
- * Always shows the "候補数は同時配置可能数ではない" caveat — `supply.ts`'s
- * counts are an upper bound (the same applicant can cover several roles),
- * never a guarantee an assignment exists (Stage 06/07's job). Omitting this
- * risks being read as "候補はいるのに生成が失敗した" once the solver ships.
- */
 export function ShortageSummary({
   registeredCount,
   shortages,

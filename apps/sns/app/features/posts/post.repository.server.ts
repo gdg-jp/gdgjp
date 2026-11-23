@@ -58,12 +58,6 @@ export async function getPost(db: D1Database, id: string): Promise<Post | null> 
   return row ? postFromRow(row) : null;
 }
 
-/**
- * Offset-paginated post list for a chapter, optionally filtered to one status.
- * Fetches one extra row so the caller can tell whether another page exists.
- * Unlike {@link listPosts}, this does not exclude `published` posts — the CLI
- * uses it to inspect a chapter's whole schedule, filtering by `status` itself.
- */
 export async function listPostsPage(
   db: D1Database,
   options: { chapterId: number; status?: PostStatus; limit: number; offset: number },
@@ -139,7 +133,6 @@ export type UpdatePostFieldsRecord = {
   now: string;
 };
 
-/** Mirrors the dashboard's save: also clears any prior failure reason. */
 export async function updatePostFields(
   db: D1Database,
   id: string,
@@ -165,7 +158,6 @@ export async function updatePostFields(
     .run();
 }
 
-/** Recompute-only status write; never disturbs a `published`/`posting` row. */
 export async function updatePostStatus(
   db: D1Database,
   id: string,

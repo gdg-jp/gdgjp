@@ -45,7 +45,6 @@ type JwksCacheEntry = {
 
 let jwksCache: JwksCacheEntry | null = null;
 
-/** Isolate 内の JWKS キャッシュを破棄する（テスト用）。 */
 export function resetPubsubJwksCache(): void {
   jwksCache = null;
 }
@@ -139,7 +138,6 @@ async function findJwkByKid(
   const initialHit = matchKey(initialKeys);
   if (initialHit) return initialHit;
 
-  // キャッシュに該当 kid が見つからない場合のみ 1 回強制再取得して鍵ローテーションに追随する。
   if (usedCache) {
     const refreshedKeys = await fetchJwksKeys(jwksUrl, fetchFn, nowMs);
     return matchKey(refreshedKeys);
@@ -154,10 +152,6 @@ function extractBearerToken(request: Request): string | null {
   return match ? match[1] : null;
 }
 
-/**
- * Cloud Pub/Sub Push の Google 署名 OIDC JWT を WebCrypto のみで検証する。
- * `PUBSUB_PUSH_SERVICE_ACCOUNT` や `PUBSUB_PUSH_AUDIENCE` が空の場合は迂回せず必ず拒否する。
- */
 export async function verifyPubsubJwt(
   request: Request,
   env: PubsubJwtEnv,

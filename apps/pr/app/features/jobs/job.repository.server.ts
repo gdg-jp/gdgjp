@@ -83,10 +83,6 @@ export async function getJob(db: D1Database, id: string): Promise<Job | null> {
   return row ? toJob(row) : null;
 }
 
-/**
- * Lease the next runnable job of the given types in one statement: the UPDATE only matches
- * while the row is still queued, so two runners can never lease the same job.
- */
 export async function leaseNextJob(
   db: D1Database,
   input: { types: readonly JobType[]; host: string; now?: number },
@@ -109,7 +105,6 @@ export async function leaseNextJob(
   return row ? toJob(row) : null;
 }
 
-/** Extend a lease the caller still holds. False means the lease was lost (expired or requeued). */
 export async function extendLease(
   db: D1Database,
   id: string,
@@ -125,7 +120,6 @@ export async function extendLease(
   return (result.meta.changes ?? 0) > 0;
 }
 
-/** Finish a leased job. False when the caller no longer holds the lease. */
 export async function finishJob(
   db: D1Database,
   id: string,
@@ -169,7 +163,6 @@ export async function finishJob(
   return (result.meta.changes ?? 0) > 0;
 }
 
-/** Leases past their deadline go back to the queue; the third time they fail. */
 export async function requeueExpired(
   db: D1Database,
   now = Math.floor(Date.now() / 1000),
@@ -236,7 +229,6 @@ export async function jobCounts(db: D1Database) {
   return results;
 }
 
-/** Open (queued or leased) jobs of a type for a campaign, optionally matching a payload key. */
 export async function openJobs(db: D1Database, campaignId: number, type: JobType): Promise<Job[]> {
   const { results } = await db
     .prepare(
@@ -247,10 +239,6 @@ export async function openJobs(db: D1Database, campaignId: number, type: JobType
   return results.map(toJob);
 }
 
-/**
- * A new message in the thread: widen a still-queued assist job to include it, or report that
- * none is queued (a leased one is already reading an older thread, so a new job is needed).
- */
 export async function widenQueuedAssist(
   db: D1Database,
   campaignId: number,

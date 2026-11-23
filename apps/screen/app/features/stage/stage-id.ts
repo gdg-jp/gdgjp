@@ -1,9 +1,3 @@
-/**
- * A stage id is also its speaker invite link (screen.gdgs.jp/<id>/). New stages
- * suggest three short, easy-to-say English words ("apple-banana-orange"; 512
- * words → 134M combinations), and the operator may replace them with any
- * lowercase letters, digits and hyphens up to STAGE_ID_MAX characters.
- */
 export const WORDS = `
 acorn album amber anchor angel ant apple apron arch arrow atlas attic aunt autumn avocado
 badge bagel baker balloon bamboo banana band banjo barn basket bat beach beacon bean bear beaver
@@ -45,13 +39,8 @@ starling sunflower tadpole thistle tofu toucan truffle tundra vanilla waffle was
 
 export const STAGE_ID_MAX = 32;
 
-/** Lowercase letters and digits, hyphens inside. */
 export const STAGE_ID_RE = /^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/;
 
-/**
- * First path segments the app already serves, so `/<id>/` would never reach
- * the invite page (routes.ts, Worker paths, public/ and build assets).
- */
 const RESERVED = new Set([
   "api",
   "assets",
@@ -77,14 +66,12 @@ export function isStageId(value: unknown): value is string {
   );
 }
 
-/** Operator input → candidate id: trimmed and lowercased (validate with isStageId). */
 export function normalizeStageId(value: unknown): string {
   return typeof value === "string" ? value.trim().toLowerCase() : "";
 }
 
 function randomIndex(max: number): number {
   const buf = new Uint32Array(1);
-  // Rejection sampling keeps the distribution uniform.
   const limit = Math.floor(0x1_0000_0000 / max) * max;
   for (;;) {
     crypto.getRandomValues(buf);
@@ -93,7 +80,6 @@ function randomIndex(max: number): number {
   }
 }
 
-/** Three distinct words joined by "-". */
 export function generateStageId(pick: (max: number) => number = randomIndex): string {
   const chosen: string[] = [];
   while (chosen.length < 3) {

@@ -62,22 +62,17 @@ async function runWithBrowser(
     ok = true;
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    // Capture diagnostics from the live page before any teardown / relogin.
     const liveView = await tryGetLiveViewUrl(session.page);
     const artifactKey = await captureFailureArtifact(env, job.id, session.page);
     if (message.includes("login")) {
       try {
         await forceRelogin(env);
-      } catch {
-        // fall through
-      }
+      } catch {}
     }
     const detail = liveView ? `${message}; liveView=${liveView}` : message;
     await markJobFailed(env.DB, job.id, detail, artifactKey);
     throw error;
   } finally {
-    // A failed job often leaves a half-filled form or open modal — burn that
-    // session down; only keep it warm when the job succeeded cleanly.
     if (ok) await session.release();
     else await session.destroy();
   }

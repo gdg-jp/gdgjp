@@ -40,11 +40,6 @@ async function saveColumnMap(
     .run();
 }
 
-/**
- * One ads export: rows mapped by the chapter's saved column map, stored as the snapshot for its
- * period (replacing an earlier import of the same period), spend summed into the overlapping
- * flights, and one Discord alert per flight that overruns.
- */
 export async function importAdsCsv(
   env: Env,
   access: CampaignAccess,

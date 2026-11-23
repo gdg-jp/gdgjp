@@ -21,15 +21,10 @@ import {
   slotsOf,
 } from "./protocol";
 
-/**
- * Everything the StageRoom persists. Pure functions here; the Durable Object
- * only loads, applies and saves, so all rules are unit-testable.
- */
 export type RoomData = {
   onAir: boolean;
   slots: Partial<Record<Slot, string | null>>;
   timer: Timer;
-  /** Speakers survive disconnects (so they return to their slot); operators do not. */
   peers: Record<string, Peer>;
   messages: Message[];
 };
@@ -46,7 +41,6 @@ export function cleanName(raw: unknown): string {
   return typeof raw === "string" ? raw.trim().slice(0, MAX_NAME_LENGTH) : "";
 }
 
-/** Milliseconds left on the timer; negative once overrun. */
 export function timerRemaining(timer: Timer, now: number): number {
   const running = timer.startedAt === null ? 0 : Math.max(0, now - timer.startedAt);
   return timer.durationMs - timer.elapsedMs - running;
@@ -60,7 +54,6 @@ export function connectPeer(data: RoomData, sender: Sender, now: number): RoomDa
         name: sender.name || existing.name,
         online: true,
         since: now,
-        // Rooms saved before noise suppression existed lack these.
         denoise: existing.denoise ?? DEFAULT_DENOISE,
         denoiseState: existing.denoiseState ?? null,
         simulcast: existing.simulcast ?? NO_SIMULCAST,
@@ -84,8 +77,6 @@ export function disconnectPeer(data: RoomData, id: string, now: number): RoomDat
     const { [id]: _gone, ...rest } = data.peers;
     return { ...data, peers: rest };
   }
-  // The SFU session dies with the page; keep the speaker (and its slot) so a
-  // reload or reconnect lands back in place, but drop what can no longer play.
   return {
     ...data,
     peers: {
@@ -176,7 +167,6 @@ export function applyMessage(
       const target = msg.participantId;
       if (target !== null && data.peers[target]?.role !== "speaker") return unchanged(data);
       const slots = { ...data.slots };
-      // A speaker occupies at most one slot: moving it frees the old one.
       if (target !== null) {
         for (const s of Object.keys(slots) as Slot[]) if (slots[s] === target) slots[s] = null;
       }
@@ -211,7 +201,6 @@ export function applyMessage(
       const text = typeof msg.text === "string" ? msg.text.trim().slice(0, MAX_MESSAGE_LENGTH) : "";
       if (!text) return unchanged(data);
       const kind = isOperator && msg.kind === "cue" ? "cue" : "chat";
-      // Speakers always write to the operators; operators address one speaker or all.
       const to =
         isOperator && typeof msg.to === "string" && data.peers[msg.to]?.role === "speaker"
           ? msg.to

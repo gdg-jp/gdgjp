@@ -101,7 +101,6 @@ describe("rows", () => {
 describe("box preview", () => {
   it("counts what the losing slot stands for now", () => {
     const draft = { ...base(), mode: "standard" as const, expectedText: "120" };
-    // 120 − 32 drawn − (1 + 18) finite left
     expect(boxPool(draft, saved, 32)).toBe(69);
   });
 });

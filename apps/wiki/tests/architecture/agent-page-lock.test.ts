@@ -3,7 +3,6 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
-/** Every human write path to a page body checks the agent-page lock (§8-6). */
 const WIKI_ROOT = fileURLToPath(new URL("../../", import.meta.url));
 const HUMAN_WRITE_PATHS = [
   "app/routes/wiki/edit.tsx",

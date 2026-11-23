@@ -15,17 +15,12 @@ import { timeAgo } from "~/lib/time";
 import { Icons } from "@gdgjp/design-system";
 export const meta: MetaFunction = () => [{ title: "Archived — GDG Japan Wiki" }];
 
-// ---------------------------------------------------------------------------
-// Loader
-// ---------------------------------------------------------------------------
-
 export async function loader({ request, context }: LoaderFunctionArgs) {
   const { env } = context.cloudflare;
   const user = await requireUser(request, env);
   const db = getDb(env);
 
   const isAdmin = !!user.isAdmin;
-  // Pre-SSO "lead" was a separate role; admins now subsume those capabilities.
   const isLead = isAdmin;
 
   const pages = db
@@ -48,10 +43,6 @@ export async function loader({ request, context }: LoaderFunctionArgs) {
 
   return { pages, isAdmin, isLead, currentUserId: user.id };
 }
-
-// ---------------------------------------------------------------------------
-// Action
-// ---------------------------------------------------------------------------
 
 export async function action({ request, context }: ActionFunctionArgs) {
   const { env } = context.cloudflare;
@@ -95,10 +86,6 @@ export async function action({ request, context }: ActionFunctionArgs) {
 
   throw new Response("Unknown intent", { status: 400 });
 }
-
-// ---------------------------------------------------------------------------
-// Component
-// ---------------------------------------------------------------------------
 
 type PageRow = {
   id: string;

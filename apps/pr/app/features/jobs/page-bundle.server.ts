@@ -34,7 +34,6 @@ const EXT: Record<string, string> = {
   "image/webp": "webp",
 };
 
-/** What a `page` job adds to the bundle: copy, plan, the section templates, images, the mail's item. */
 export async function pageFiles(
   db: D1Database,
   campaign: Campaign,
@@ -88,12 +87,6 @@ export type AssetExtra = {
   render: true;
 };
 
-/**
- * What an `asset` job adds: the design guide's examples, the template's contract, the adopted kit
- * (KIT.json + KIT.html), the GDG logo and stickers as `assets/`, the speakers' photos, the
- * chapter's reference designs (attached as images, newest first), copy, the post's text, and for
- * a revision the previous HTML and PNG with the person's instructions.
- */
 export async function assetFiles(
   env: Env,
   campaign: Campaign,
@@ -136,7 +129,6 @@ export async function assetFiles(
     if (version) files["POST.json"] = json(version.content);
   }
 
-  // Which people are in the picture: the job's speaker or session, or the headliners for the face.
   const item =
     typeof payload.forScheduleItemId === "number"
       ? await getItem(db, campaign.id, payload.forScheduleItemId)
@@ -166,7 +158,6 @@ export async function assetFiles(
   else if (speakerIds.size)
     files["SPEAKERS.json"] = json(brief.speakers.filter((s) => speakerIds.has(s.id)));
 
-  // Reference designs: the chapter's library (newest first), then the brief's own references.
   const limit = constants.design.referenceImagesPerJob;
   const picked = pickReferences(
     await listReferences(db, campaign.chapterId),
@@ -203,7 +194,6 @@ export async function assetFiles(
     files["REFERENCES.md"] =
       `# 参考画像\n\n新しいものほど重く見る。同じにしない。\n\n${notes.join("\n")}\n`;
 
-  // A revision: what was there and what the person said.
   if (typeof payload.revisionOf === "number") {
     const previous = await getAsset(db, campaign.id, payload.revisionOf);
     if (previous) {

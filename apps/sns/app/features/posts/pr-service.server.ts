@@ -11,8 +11,6 @@ import {
 } from "./post-draft.service.server";
 import type { Post } from "./post.types";
 
-/** The calls pr.gdgs.jp makes through the PR_SERVICE entrypoint (workers/app.ts). */
-
 const summary = (post: Post): SnsPostSummary => ({
   id: post.id,
   status: post.status,
@@ -79,7 +77,6 @@ export async function prCreateScheduledPost(
   });
 }
 
-/** The post must belong to the chapter the actor posts for. */
 async function ownedPost(env: Env, chapterId: number, postId: string) {
   const detail = await getDraft(postDraftDepsFromEnv(env), postId);
   return detail && detail.post.chapterId === chapterId ? detail : null;

@@ -86,7 +86,6 @@ func pageDir(root string, p Page, byID map[string]Page) (string, error) {
 	return filepath.Join(append([]string{root, "pages"}, parts...)...), nil
 }
 
-// WritePage writes a single-language page.md for the configured clone language.
 func WritePage(root string, p Page, byID map[string]Page, token string, c *Client, lang string) error {
 	if lang == "" {
 		lang = "ja"
@@ -130,7 +129,6 @@ func WritePage(root string, p Page, byID map[string]Page, token string, c *Clien
 	if err = os.WriteFile(filepath.Join(dir, "page.md"), pageMD, 0644); err != nil {
 		return err
 	}
-	// Remove legacy bilingual files from older clones if present.
 	_ = os.Remove(filepath.Join(dir, "ja.md"))
 	_ = os.Remove(filepath.Join(dir, "en.md"))
 	for _, a := range p.Attachments {
@@ -148,8 +146,6 @@ func WritePage(root string, p Page, byID map[string]Page, token string, c *Clien
 	return nil
 }
 
-// Keep each attachment distinct even when several attachments share the same
-// display name. The server-side attachment ID is stable across clone/sync.
 func attachmentLocalName(attachment Attachment) string {
 	name := filepath.Base(attachment.FileName)
 	if attachment.ID == "" {
@@ -158,7 +154,6 @@ func attachmentLocalName(attachment Attachment) string {
 	return attachment.ID + "-" + name
 }
 
-// variable makes filesystem helpers testable without threading context through every function.
 var contextBackground = func() context.Context { return context.Background() }
 
 func LocalPages(root string) (map[string]LocalPage, error) {
@@ -171,9 +166,6 @@ func LocalPages(root string) (map[string]LocalPage, error) {
 	return LocalPagesForLanguage(root, lang)
 }
 
-// LocalPagesForLanguage enforces the one locale configured for a clone. It is
-// also used by the remote helper after extracting a Git tree, where .gdgwiki
-// is intentionally absent because it is ignored.
 func LocalPagesForLanguage(root, language string) (map[string]LocalPage, error) {
 	if language != "ja" && language != "en" {
 		return nil, fmt.Errorf("unsupported Wiki language %q", language)

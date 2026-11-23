@@ -4,8 +4,6 @@ const getMock = vi.fn();
 const enqueueSourceRefreshMock = vi.fn();
 
 vi.mock("~/features/spaces/access.server", async (importOriginal) => {
-  // The outer (space) layer has its own tests in features/spaces; here every caller is
-  // an owner of the default space so these tests keep exercising the inner ACL.
   const original = await importOriginal<typeof import("~/features/spaces/access.server")>();
   const space = {
     id: "gdg-jp",
@@ -87,8 +85,6 @@ describe("source refresh action", () => {
   });
 
   it("passes on the lifecycle's refusal for kinds without a fetch driver", async () => {
-    // The route no longer branches on kind; enqueueSourceRefresh (SOURCE_KINDS.refreshable)
-    // decides, and its answer reaches the client unchanged.
     getMock.mockResolvedValue({ ...source, kind: "conversation" });
     enqueueSourceRefreshMock.mockResolvedValue({
       ok: false,

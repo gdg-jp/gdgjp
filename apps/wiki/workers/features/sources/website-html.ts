@@ -1,4 +1,3 @@
-/** Limits for a single website HTML+CSS capture. */
 export const MAX_HTML_BYTES = 5 * 1024 * 1024;
 export const MAX_CSS_BYTES = 2 * 1024 * 1024;
 export { MAX_WEBSITE_STYLESHEETS as MAX_STYLESHEETS } from "./subrequest-budget";
@@ -10,7 +9,6 @@ const HREF_ATTR_RE = /(?:^|\s)href\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))/i;
 const CSS_IMPORT_RE =
   /@import\s+(?:url\(\s*(?:"([^"]+)"|'([^']+)'|([^)"'\s]+))\s*\)|"([^"]+)"|'([^']+)')[^;]*;/gi;
 
-/** Resolve a possibly-relative href against a page URL. Returns null for non-http(s). */
 export function resolveHttpUrl(base: string, href: string): string | null {
   const trimmed = href.trim();
   if (!trimmed || trimmed.startsWith("data:") || trimmed.startsWith("blob:")) return null;
@@ -23,7 +21,6 @@ export function resolveHttpUrl(base: string, href: string): string | null {
   }
 }
 
-/** Extract the document title from HTML, if present. */
 export function extractHtmlTitle(html: string): string | null {
   const match = TITLE_RE.exec(html);
   const title = match?.[1]?.replace(/\s+/g, " ").trim();
@@ -42,10 +39,6 @@ function isStylesheetLink(tag: string): boolean {
   return rel.toLowerCase().split(/\s+/).includes("stylesheet");
 }
 
-/**
- * Collect absolute stylesheet URLs referenced by `<link rel="stylesheet">` tags.
- * Order is document order; duplicates are kept once (first wins).
- */
 export function extractStylesheetUrls(html: string, pageUrl: string): string[] {
   const urls: string[] = [];
   const seen = new Set<string>();
@@ -68,10 +61,6 @@ export function extractStylesheetUrls(html: string, pageUrl: string): string[] {
   return urls;
 }
 
-/**
- * Rewrite stylesheet `href` attributes whose resolved URL is in `urlToPath`.
- * Only `<link rel="stylesheet">` tags are rewritten.
- */
 export function rewriteStylesheetHrefs(
   html: string,
   pageUrl: string,
@@ -89,7 +78,6 @@ export function rewriteStylesheetHrefs(
   });
 }
 
-/** Extract absolute `@import` URLs from a CSS stylesheet (one pass). */
 export function extractCssImportUrls(css: string, stylesheetUrl: string): string[] {
   const urls: string[] = [];
   const seen = new Set<string>();
@@ -109,7 +97,6 @@ export function extractCssImportUrls(css: string, stylesheetUrl: string): string
   return urls;
 }
 
-/** Rewrite `@import` references whose resolved URL is in `urlToPath`. */
 export function rewriteCssImports(
   css: string,
   stylesheetUrl: string,

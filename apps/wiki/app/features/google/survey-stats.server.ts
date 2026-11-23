@@ -1,16 +1,4 @@
-/**
- * Survey statistics pre-processor.
- *
- * Computes descriptive statistics from raw Google Forms responses before
- * feeding them to Gemini. This ensures the AI uses pre-computed numbers
- * as ground truth rather than hallucinating statistics.
- */
-
 import type { FormData, FormQuestion, FormQuestionType, FormResponse } from "./forms.server";
-
-// ---------------------------------------------------------------------------
-// Public types
-// ---------------------------------------------------------------------------
 
 export interface QuestionStats {
   questionId: string;
@@ -67,10 +55,6 @@ export interface SurveyStatsResult {
   questions: QuestionStats[];
 }
 
-// ---------------------------------------------------------------------------
-// Main entry point
-// ---------------------------------------------------------------------------
-
 export function computeSurveyStats(formData: FormData): SurveyStatsResult {
   const { structure, responses } = formData;
 
@@ -92,10 +76,6 @@ export function computeSurveyStats(formData: FormData): SurveyStatsResult {
     questions,
   };
 }
-
-// ---------------------------------------------------------------------------
-// Per-question stats
-// ---------------------------------------------------------------------------
 
 function computeQuestionStats(
   question: FormQuestion,
@@ -194,7 +174,6 @@ function computeScaleStats(
     distribution[String(v)] = (distribution[String(v)] ?? 0) + 1;
   }
 
-  // NPS calculation for 1-10 scales
   let nps: NpsStats | undefined;
   if (low === 1 && high === 10 && values.length > 0) {
     const detractors = values.filter((v) => v <= 6).length;
@@ -234,12 +213,10 @@ function computeFreeTextStats(answers: string[][]): FreeTextStats {
 }
 
 function computeGridStats(answers: string[][], columns: string[]): GridStats {
-  // For grid questions, each answer maps to a row; value is the selected column
   const rows: Record<string, Record<string, number>> = {};
 
   for (const answerSet of answers) {
     for (const a of answerSet) {
-      // Grid answers come as the column label
       const rowKey = "row";
       if (!rows[rowKey]) {
         rows[rowKey] = {};
@@ -251,10 +228,6 @@ function computeGridStats(answers: string[][], columns: string[]): GridStats {
 
   return { kind: "grid", rows };
 }
-
-// ---------------------------------------------------------------------------
-// Format stats as structured text for Gemini
-// ---------------------------------------------------------------------------
 
 export function formatSurveyStatsAsText(stats: SurveyStatsResult, eventTitle: string): string {
   const lines: string[] = [];
@@ -328,10 +301,6 @@ export function formatSurveyStatsAsText(stats: SurveyStatsResult, eventTitle: st
 
   return lines.join("\n");
 }
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
 
 function collectAnswers(questionId: string, responses: FormResponse[]): string[][] {
   const result: string[][] = [];

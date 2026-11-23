@@ -1,4 +1,3 @@
-/** Folder boundary used by both browser and CLI adapters. */
 export {
   canEditFolder,
   canViewFolder,

@@ -74,7 +74,6 @@ function parseIntParam(raw: string | null): number | undefined | typeof INVALID 
   return Number.isInteger(value) ? value : INVALID;
 }
 
-/** "unfiled" is the sentinel for "no folder"; anything else must be a folder id. */
 function parseFolderIdParam(raw: string | null): number | null | undefined | typeof INVALID {
   if (raw === null || raw === "") return undefined;
   if (raw === "unfiled") return null;

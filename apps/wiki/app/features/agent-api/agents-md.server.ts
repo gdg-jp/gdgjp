@@ -15,14 +15,8 @@ export function agentsHash(content: string): string {
 
 const seedMatch = /````markdown\n([\s\S]*?)\n````/.exec(draft);
 if (!seedMatch) throw new Error("AGENTS.md seed is missing its Markdown fence");
-/** Migration/bootstrap value only; database content is authoritative after initialization. */
 export const INITIAL_AGENTS_MD = `${seedMatch[1]}\n`;
 
-/**
- * Slice AGENTS.md by exact heading text up to the next heading of the same or
- * higher level. Used by the query filing profile so the answer path never sees
- * the full document.
- */
 export function extractInstructionSections(
   markdown: string,
   headings: readonly string[],
@@ -67,9 +61,6 @@ export async function getAgentInstructions(
     .where(eq(schema.wikiAgentInstructions.id, 1))
     .get();
   if (!row) {
-    // Older production databases do not necessarily contain the optional
-    // wiki-system row introduced by the namespace seed migration. Attribute the
-    // bootstrap to the oldest user so it satisfies the foreign-key constraint.
     const seedUser = await db
       .select({ id: schema.user.id })
       .from(schema.user)

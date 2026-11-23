@@ -1,4 +1,3 @@
-/** A short 660 Hz beep on the chosen output device. */
 export function playTestTone(sinkId: string) {
   const ctx = new AudioContext();
   const osc = ctx.createOscillator();

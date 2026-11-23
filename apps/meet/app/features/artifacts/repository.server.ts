@@ -110,10 +110,6 @@ export type UpsertArtifactInput = {
   createdAt: string;
 };
 
-/**
- * `artifacts` を `drive_file_id` 一意制約で upsert し、保存後の実レコードを返す。
- * 文字起こしと Gemini メモが同一ドキュメント ID を返す場合でも 1 行に統合される。
- */
 export async function upsertArtifact(
   db: D1Database,
   input: UpsertArtifactInput,
@@ -181,11 +177,6 @@ export async function listArtifactsByMeetingId(
   return (result.results ?? []).map(mapArtifactRow);
 }
 
-/**
- * 未共有または未添付で、再試行上限未満の artifact 一覧を返す（毎時 cron 用）。
- * `share_artifact` が何もしない取り消し済み会議と、添付先の予定がない会議の未添付は除外する
- * （除外しないと毎時同じジョブを投入し続ける）。
- */
 export async function listPendingArtifacts(
   db: D1Database,
   maxAttempts = 20,
@@ -204,7 +195,6 @@ export async function listPendingArtifacts(
   return (result.results ?? []).map(mapArtifactRow);
 }
 
-/** 管理画面向けの失敗・未完了 artifact 一覧を返す（完了済みで警告のみの行は除く）。 */
 export async function listFailedArtifacts(
   db: D1Database,
   limit = 50,
@@ -227,11 +217,6 @@ export async function listFailedArtifacts(
   }));
 }
 
-/**
- * 管理画面向けの「警告あり（完了済み）」artifact 一覧を返す。
- * `shared_at` があり、かつ（`attached_at` あり、または会議に `calendar_event_id` が無い）行のうち
- * `last_error` が残っているものを返す。
- */
 export async function listCompletedWarningArtifacts(
   db: D1Database,
   limit = 50,

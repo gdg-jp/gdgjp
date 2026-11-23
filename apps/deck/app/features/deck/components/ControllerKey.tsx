@@ -7,10 +7,6 @@ import { KeyFace } from "./KeyFace";
 
 const DOUBLE_TAP_MS = 1500;
 
-/**
- * One key on the phone. Handles the confirm modes (hold with a progress fill,
- * double tap) and push-to-talk keys (press and release are both sent).
- */
 export function ControllerKey({
   deckId,
   keyDef,
@@ -25,7 +21,6 @@ export function ControllerKey({
   keyDef: Key;
   on: boolean | null;
   badge: string | null;
-  /** OBS keys while the dock / socket is down. */
   disabled: boolean;
   onPress: (phase: Phase) => void;
   onNavigate: () => void;

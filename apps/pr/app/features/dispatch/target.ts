@@ -43,17 +43,12 @@ export type DispatchTarget = {
   account: CampaignAccount;
 };
 
-/** Kinds that go out through sns (one target per X account) or connpass (per group). */
 export const DISPATCH_KINDS = ["x_post", "live_post", "connpass_mail"] as const;
 export const targetAccountKind = (kind: string) =>
   kind === "connpass_mail" ? "connpass_group" : "x";
 export const isDispatchKind = (kind: string) =>
   (DISPATCH_KINDS as readonly string[]).includes(kind);
 
-/**
- * Only someone in the account's chapter approves its target (overview §2-11): a host lead
- * cannot post on a co-host chapter's account. sns checks the same actor again.
- */
 export function canApproveTarget(
   account: Pick<CampaignAccount, "chapterId">,
   viewer: { chapters: UserChapter[]; isMember: boolean; isAdmin: boolean },
@@ -66,7 +61,6 @@ export function canApproveTarget(
 const SETTLED: readonly TargetStatus[] = ["scheduled", "done", "skipped", "delegated"];
 const FINISHED: readonly TargetStatus[] = ["done", "skipped", "delegated"];
 
-/** The item's status once every target has moved on; null while any is still open. */
 export function rollupItemStatus(statuses: TargetStatus[]): ItemStatus | null {
   if (statuses.length === 0) return null;
   if (statuses.every((s) => FINISHED.includes(s))) return "done";

@@ -4,7 +4,6 @@ import * as schema from "~/db/schema";
 import { requireUser } from "~/features/auth/utils.server";
 import { getDb } from "~/lib/db.server";
 
-// GET /api/users/search?q=<query>
 export async function loader({ request, context }: LoaderFunctionArgs) {
   const { env } = context.cloudflare;
   await requireUser(request, env);

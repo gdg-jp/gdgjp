@@ -1,4 +1,3 @@
-/** Mirrors skills/pr-plan/references/output.schema.json. */
 export type PlanItem = {
   ref: string;
   kind: string;

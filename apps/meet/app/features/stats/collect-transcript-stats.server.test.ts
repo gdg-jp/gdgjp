@@ -206,7 +206,6 @@ describe("collectTranscriptStatsJob", () => {
       });
     }) as unknown as typeof fetch;
 
-    // 1 ページ制限（maxCalls=1）で実行 → pageToken 付き継続ジョブを投入
     await collectTranscriptStatsJob(
       env,
       { conferenceRecord: "conferenceRecords/cr-1", transcript: transcriptName },
@@ -223,7 +222,6 @@ describe("collectTranscriptStatsJob", () => {
       { delaySeconds: 30 },
     );
 
-    // 2 ページ目を処理して完了
     await collectTranscriptStatsJob(
       env,
       {
@@ -254,7 +252,6 @@ describe("collectTranscriptStatsJob", () => {
       speaking_seconds: 25,
     });
 
-    // D1 バインド引数に文字起こし本文が含まれないことを検証
     const serializedArgs = JSON.stringify(boundArgsLog);
     expect(serializedArgs).not.toContain(secretTranscriptBody1);
     expect(serializedArgs).not.toContain(secretTranscriptBody2);

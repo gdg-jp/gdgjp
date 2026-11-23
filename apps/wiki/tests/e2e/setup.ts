@@ -100,10 +100,6 @@ export function signCookie(payload: unknown, secret: string): string {
   return `${body}.${signature}`;
 }
 
-/**
- * A gdg-lib v4 dev session (the format `/dev/login` mints): it carries its own
- * claims, so the loopback e2e server never asks the Accounts IdP.
- */
 export function buildSessionCookieValue(user: E2EUser, secret: string, issuer: string): string {
   const expiresAt = Date.now() + 30 * 24 * 60 * 60 * 1000;
   return signCookie(
@@ -127,7 +123,6 @@ export function buildSessionCookieValue(user: E2EUser, secret: string, issuer: s
 }
 
 function writeStorageStates(storageDirectory: string, secret: string, issuer: string): void {
-  // Only this gitignored, test-owned directory is removed between retries.
   rmSync(storageDirectory, { recursive: true, force: true });
   mkdirSync(storageDirectory, { recursive: true });
   for (const user of Object.values(USERS)) {

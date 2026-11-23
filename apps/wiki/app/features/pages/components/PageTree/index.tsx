@@ -20,10 +20,6 @@ interface PageTreeProps {
   onImportZip?: () => void;
 }
 
-// ---------------------------------------------------------------------------
-// PageTree — public component. Tree math: `build-tree.ts`; DnD: `dnd.tsx`;
-// row rendering: `row.tsx`.
-// ---------------------------------------------------------------------------
 export default function PageTree({
   pages,
   currentSlug,
@@ -49,14 +45,11 @@ export default function PageTree({
       const ancestors = getAncestorIdsForSlug(pagesRef.current, currentSlug);
       if (!currentSlug) return ancestors;
 
-      // Preserve expand/collapse of the destination itself when the same click both
-      // toggled the row and navigated (title click on a folder).
       const next = new Set(ancestors);
       const currentId = findNodeIdBySlug(pagesRef.current, currentSlug);
       if (currentId && previous.has(currentId)) next.add(currentId);
       return next;
     });
-    // The tree can revalidate without a navigation; only the destination should reset manual state.
   }, [currentSlug]);
 
   function toggleExpanded(id: string) {

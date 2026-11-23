@@ -34,10 +34,6 @@ function assertNoHardViolations(
 }
 
 describe("solve", () => {
-  // This is the single most important regression in this feature (see
-  // docs/roster/06-solver.md's "回帰として固定すべきテスト"): if this is ever
-  // flaky, Stage 07's re-generate button and Stage 08's history comparison
-  // both silently stop meaning anything.
   it("is deterministic: the same input and seed produce a deeply-equal Assignments map every time", () => {
     const input = buildSmallFixture(42);
     const first = solve(input);
@@ -162,18 +158,11 @@ describe("solve", () => {
       const [[key, value]] = [...first.assignments.entries()];
       const existingAssignments = new Map([[key, { ...value, locked: true }]]);
 
-      const second = solve({ ...input, existingAssignments }); // no opts.keepLocked
+      const second = solve({ ...input, existingAssignments });
       expect(second.assignments).toEqual(first.assignments);
     });
   });
 
-  // Regression for a bug found via manual QA (not by any existing fixture):
-  // `newcomerAllowed` compared the cell's TOTAL headcount against `newMax`
-  // instead of the count of "new"-level members. Any cell with `leadMin >= 1`
-  // hit `newMax` the instant its required lead was placed — with zero actual
-  // newcomers seated — permanently blocking the newcomer half of its own
-  // demand. This is index.md §5.2's own illustrative example ("受付は常時1名
-  // 以上のリード経験者" + "初参加者は1名まで"), so it is not an edge case.
   it("fills a cell's newcomer seat even when leadMin already put an experienced member in it", () => {
     const input: SolverInput = {
       slots: [{ id: "slot-0", idx: 0 }],

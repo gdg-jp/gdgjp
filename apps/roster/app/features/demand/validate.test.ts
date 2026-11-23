@@ -18,13 +18,6 @@ describe("validateDemand", () => {
     expect(validateDemand({ min: 0, ideal: 0, leadMin: 0, newMax: 0 })).toEqual([]);
   });
 
-  /**
-   * docs/roster/03-demand-input.md "回帰として固定すべきテスト": rejecting
-   * this is the single highest-leverage check in this feature — an unmet
-   * leadMin would sit at rank 1 of the solver's scarcity ordering forever
-   * (docs/roster/index.md §5.2) and silently degrade every other slot's
-   * fill order. It must never reach D1.
-   */
   it("rejects leadMin > ideal", () => {
     const errors = validateDemand({ min: 0, ideal: 2, leadMin: 3, newMax: 5 });
     expect(errors).toContain("LEAD_MIN_EXCEEDS_IDEAL");

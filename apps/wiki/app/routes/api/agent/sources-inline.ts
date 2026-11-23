@@ -2,7 +2,6 @@ import type { ActionFunctionArgs } from "react-router";
 import { agentUnauthorized, resolveAgentWorkspace } from "~/features/agent-api/workspace.server";
 import { createInlineSource } from "~/features/sources/sources.server";
 
-/** POST /api/agent/sources/inline — register an inline conversation log. */
 export async function action({ request, context }: ActionFunctionArgs) {
   if (request.method !== "POST") {
     return Response.json({ error: "method_not_allowed" }, { status: 405 });

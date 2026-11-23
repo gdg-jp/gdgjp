@@ -18,7 +18,6 @@ const TOPIC = "projects/gdgs-meet/topics/meet-events";
 const TARGET_RESOURCE = "//cloudidentity.googleapis.com/users/110111222333";
 const WORKSPACE_EVENTS_ORIGIN = "https://workspaceevents.googleapis.com";
 
-/** Google 側から返る購読リソース（topic と 4 型はアプリの設定と一致）。 */
 function liveSubscription(
   name: string,
   state: string,
@@ -36,15 +35,10 @@ function liveSubscription(
   };
 }
 
-/** オペレーション（`done: true`）で包んだ購読レスポンス。 */
 function doneOperation(subscription: ReturnType<typeof liveSubscription>) {
   return { name: "operations/op", done: true, response: subscription };
 }
 
-/**
- * `"<METHOD> <パス>"`（Workspace Events API のオリジンを除いたもの）ごとに応答を返す fetch モック。
- * トークン更新は自動で応答し、それ以外の呼び出しを `called` に順に記録する。
- */
 function routeFetch(routes: Record<string, () => Response>) {
   const called: string[] = [];
   const fetchFn = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
@@ -431,7 +425,6 @@ describe("ensureSubscription & ライフサイクル通知", () => {
             {
               name: "subscriptions/old-poc",
               targetResource: TARGET_RESOURCE,
-              // PoC の購読などイベント型が異なるケース
               eventTypes: ["google.workspace.meet.conference.v2.ended"],
               notificationEndpoint: { pubsubTopic: TOPIC },
               state: "ACTIVE",

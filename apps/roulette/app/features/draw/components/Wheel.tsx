@@ -46,10 +46,6 @@ function star(radius: number) {
 
 export type LightMode = "idle" | "spin" | "tension" | "celebrate" | "off";
 
-/**
- * Marquee bulbs on the rim: a slow chase at rest, fast while spinning, red and
- * yellow flashing through a chance, blinking on a win.
- */
 function Lights({ mode }: { mode: LightMode }) {
   const [phase, setPhase] = useState(0);
   useEffect(() => {
@@ -86,11 +82,6 @@ function Lights({ mode }: { mode: LightMode }) {
   );
 }
 
-/**
- * The roulette wheel. `rotation` is the resting angle; while spinning, the
- * caller drives the `wheelRef` group's transform directly so React does not
- * re-render every frame.
- */
 export function Wheel({
   segments,
   rotation,
@@ -106,7 +97,6 @@ export function Wheel({
   highlight?: number;
   lights: LightMode;
   dimmed?: boolean;
-  /** Smaller when the result matters more than the wheel (already spun). */
   compact?: boolean;
   wheelRef?: Ref<SVGGElement>;
   pointerRef?: Ref<SVGGElement>;
@@ -174,7 +164,6 @@ export function Wheel({
   );
 }
 
-/** Flick the pointer back as a slice boundary passes it. */
 export function flickPointer(element: SVGGElement | null) {
   element?.animate([{ transform: "rotate(-26deg)" }, { transform: "rotate(0deg)" }], {
     duration: 160,

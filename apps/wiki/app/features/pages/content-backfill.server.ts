@@ -16,7 +16,6 @@ interface D1Statement {
   run(): Promise<unknown>;
 }
 
-/** The small D1 surface used by the one-time content migration. */
 export interface ContentBackfillDatabase {
   prepare(query: string): D1Statement;
   batch(statements: D1Statement[]): Promise<unknown>;
@@ -28,16 +27,8 @@ export interface ContentBackfillResult {
   alreadyCompleted: boolean;
 }
 
-/**
- * Converts only an actual TipTap document JSON value. A Markdown document that
- * merely happens to be valid JSON is deliberately left untouched.
- */
 export const tiptapJsonToMarkdown = legacyTiptapToMarkdown;
 
-/**
- * Idempotently converts legacy TipTap JSON in both live pages and their saved
- * versions. Invoke after migration 0028 has been applied.
- */
 export async function backfillMarkdownContent(
   db: ContentBackfillDatabase,
   batchSize = DEFAULT_BATCH_SIZE,
@@ -67,8 +58,6 @@ async function backfillTable(
   let afterId = "";
 
   for (;;) {
-    // json_valid narrows the scan without making validity a conversion rule:
-    // TypeScript still verifies the parsed value is a TipTap document.
     const { results } = await db
       .prepare(
         `SELECT id, content_ja, content_en FROM ${table}

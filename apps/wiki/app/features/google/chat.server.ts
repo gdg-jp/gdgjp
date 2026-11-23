@@ -1,8 +1,3 @@
-/**
- * Google Chat API helpers used from React Router loaders (Space picker).
- * Message fetch/normalization lives in workers/features/sources/google-chat.ts.
- */
-
 const CHAT_TIMEOUT_MS = 30_000;
 
 export interface ChatSpace {
@@ -17,7 +12,6 @@ function fetchWithTimeout(url: string, init: RequestInit, timeoutMs: number): Pr
   return fetch(url, { ...init, signal: controller.signal }).finally(() => clearTimeout(id));
 }
 
-/** Paginate spaces.list for the Space-selection UI. */
 export async function listGoogleChatSpaces(accessToken: string): Promise<ChatSpace[]> {
   const spaces: ChatSpace[] = [];
   let pageToken: string | undefined;

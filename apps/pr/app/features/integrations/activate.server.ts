@@ -11,7 +11,6 @@ import { adoptedPlan } from "~/features/plans/plan.repository.server";
 import { constants, channelLabel } from "~/features/playbook/playbook";
 import { actorOf, callRpc, tinyurlService } from "./bindings.server";
 
-/** tinyurl codes: lowercase, digits, `_` and `-`, at most 32. */
 export const tinyurlCode = (raw: string) =>
   raw
     .toLowerCase()
@@ -19,17 +18,12 @@ export const tinyurlCode = (raw: string) =>
     .slice(0, 32)
     .replace(/[-_]+$/, "");
 
-/** The adopted plan's channels, or the whole catalog when there is no plan yet. */
 export async function campaignChannelCodes(db: D1Database, campaignId: number): Promise<string[]> {
   const plan = await adoptedPlan(db, campaignId);
   const adopted = plan?.body.channelMix.filter((c) => c.adopt).map((c) => c.channel) ?? [];
   return adopted.length ? [...new Set(adopted)] : [...constants.channelCatalog];
 }
 
-/**
- * draft → active: the tinyurl campaign and one channel per PR channel (idempotent, so a failure
- * can be retried), then the actor snapshot cron uses for tinyurl.
- */
 export async function activateCampaign(
   env: Env,
   access: CampaignAccess,

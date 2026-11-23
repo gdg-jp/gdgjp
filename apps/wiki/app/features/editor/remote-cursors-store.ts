@@ -1,11 +1,7 @@
-// Module-level store that bridges the React hook (useCollabEditor) and the
-// CM6 extension (remoteCursorsExtension). Both sides import this module and
-// communicate through it without needing a shared React context.
-
 export interface RemoteCursor {
   clientId: number;
   userName: string;
-  color: string; // hex
+  color: string;
   cursorPos: number;
   activeLang: "ja" | "en";
 }
@@ -43,8 +39,6 @@ function getLocalStore(editorId: string): LocalCursorStore {
   return s;
 }
 
-// --- Remote cursors (React → CM6) ---
-
 export function setCursors(editorId: string, cursors: RemoteCursor[]): void {
   const s = getStore(editorId);
   s.cursors = cursors;
@@ -60,8 +54,6 @@ export function subscribe(editorId: string, listener: Listener): () => void {
   s.listeners.add(listener);
   return () => s.listeners.delete(listener);
 }
-
-// --- Local cursor (CM6 → React) ---
 
 export function setLocalCursor(editorId: string, pos: number): void {
   const s = getLocalStore(editorId);

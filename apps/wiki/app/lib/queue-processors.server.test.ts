@@ -26,12 +26,10 @@ describe("queue body guards", () => {
     expect(isSourceFetchQueueBody(null)).toBe(false);
     expect(isSourceFetchQueueBody("source_fetch")).toBe(false);
 
-    // Cross-check: unknown bodies match none of the known guards.
     const unknown = { type: "totally_unknown", payload: 1 };
     expect(isTranslationQueueBody(unknown)).toBe(false);
     expect(isGoogleDocumentImportQueueBody(unknown)).toBe(false);
     expect(isSourceFetchQueueBody(unknown)).toBe(false);
-    // Legacy per-message Chat import queue bodies must be dropped.
     expect(
       isSourceFetchQueueBody({ type: "google_chat_import", runId: "run-1", work: "list" }),
     ).toBe(false);

@@ -119,7 +119,6 @@ describe("resizeDesk", () => {
 
   it("projects the delta onto the desk's local axes when rotated", () => {
     const start = desk({ x: 0, y: 0, width: 100, height: 60, rotation: 90 });
-    // A 90°-rotated desk's local "width" axis points along screen +y.
     const result = resizeDesk(start, 0, 40, { scale: 1 });
     expect(result.width).toBeCloseTo(140);
     expect(result.height).toBeCloseTo(60);

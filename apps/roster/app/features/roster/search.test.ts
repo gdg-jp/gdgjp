@@ -48,8 +48,6 @@ describe("matchStaffIds", () => {
   });
 
   it("returns an empty set for a blank query — never every row", () => {
-    // The result drives a highlight; matching everything when the box is
-    // empty would light up the whole grid.
     expect(matchStaffIds("", STAFF)).toEqual(new Set());
     expect(matchStaffIds("   ", STAFF)).toEqual(new Set());
   });

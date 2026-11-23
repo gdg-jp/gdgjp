@@ -1,7 +1,3 @@
-/**
- * メールアドレスの簡易構文チェックを行う。
- * 制御文字・空白を含まず、単一の `@` で空でないローカル部とドメイン部に分かれることを確認する。
- */
 export function isValidEmail(raw: string): boolean {
   if (raw.length === 0 || raw.length > 254) return false;
   for (let i = 0; i < raw.length; i++) {
@@ -24,13 +20,6 @@ export function isValidEmail(raw: string): boolean {
   return true;
 }
 
-/**
- * 招待者照合および Drive 共有権限の突合に使うメールアドレス正規化を行う。
- * - 前後空白を除去して小文字化する
- * - ドメインが gmail.com / googlemail.com の場合のみローカル部の `.` をすべて除去する
- * - `+tag` 以降は除去せずそのまま保持する
- * - 独自ドメイン（gdgoc.jp 等）のローカル部の `.` は保持する
- */
 export function normalizeEmail(raw: string): string {
   const trimmed = raw.trim().toLowerCase();
   const atIndex = trimmed.indexOf("@");

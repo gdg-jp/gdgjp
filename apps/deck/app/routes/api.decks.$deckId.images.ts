@@ -3,7 +3,6 @@ import { requireDeck } from "~/features/deck/access.server";
 import { uploadImage } from "~/features/deck/images.server";
 import type { Route } from "./+types/api.decks.$deckId.images";
 
-/** Key image upload (multipart `file`): PNG / JPEG / WebP up to 1 MB. */
 export async function action({ request, params, context }: Route.ActionArgs) {
   const env = context.cloudflare.env;
   const { deck } = await requireDeck(env, request, params.deckId);

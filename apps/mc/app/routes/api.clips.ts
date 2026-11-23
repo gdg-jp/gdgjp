@@ -9,7 +9,6 @@ import {
 } from "~/features/clips/uploads.server";
 import type { Route } from "./+types/api.clips";
 
-/** Step 2 of adding a clip: register audio stored by /api/clips/upload. */
 export async function action({ request, context }: Route.ActionArgs) {
   const env = context.cloudflare.env;
   if (request.method !== "POST") return new Response(null, { status: 405 });

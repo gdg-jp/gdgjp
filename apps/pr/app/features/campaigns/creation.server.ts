@@ -7,10 +7,6 @@ import { slugFromName } from "./slug";
 
 export type CreateErrors = Partial<Record<"name", string>>;
 
-/**
- * A new event needs only a name (a working title is fine): the URL is made from it, the host is
- * the sidebar's chapter, and everything else comes from what the assistant reads afterwards.
- */
 export async function createCampaignFromForm(
   env: Env,
   request: Request,

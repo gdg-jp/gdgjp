@@ -71,7 +71,6 @@ export async function loader({ request, context, params }: Route.LoaderArgs) {
     eventDate: campaign.eventAt ? jstDate(campaign.eventAt) : null,
     items,
     pending,
-    // Each item's draft, so the schedule doubles as the timeline of drafts.
     draftOf: Object.fromEntries(
       drafts
         .filter((d) => d.scheduleItemId !== null && d.status !== "superseded")
@@ -187,7 +186,6 @@ export default function Calendar({ loaderData, actionData }: Route.ComponentProp
   const people = Object.fromEntries(members.map((m) => [m.value, m.label]));
   const errors: ItemFormErrors =
     actionData && !actionData.ok && "errors" in actionData ? (actionData.errors ?? {}) : {};
-  // Keep the dialog open to show field errors; close it once a save succeeds.
   useEffect(() => {
     if (!actionData) return;
     setOpen(!actionData.ok && "errors" in actionData && !!actionData.errors);

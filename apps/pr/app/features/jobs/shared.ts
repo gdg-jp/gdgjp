@@ -13,10 +13,8 @@ export const JOB_TYPES = [
 export type JobType = (typeof JOB_TYPES)[number];
 export type JobStatus = "queued" | "leased" | "succeeded" | "failed" | "needs_review" | "expired";
 
-/** Higher runs first. Fixes jump the queue so a draft is not left half-done. */
 export const JOB_PRIORITY: Record<JobType, number> = {
   review: 10,
-  // A person is waiting in the thread.
   assist: 9,
   fix: 8,
   copy: 5,
@@ -28,7 +26,6 @@ export const JOB_PRIORITY: Record<JobType, number> = {
   retro: -10,
 };
 
-/** Seconds the runner may spend on one job before its bundle says to stop. */
 export const JOB_TIMEOUT_SECONDS: Record<JobType, number> = {
   plan: 900,
   copy: 480,
@@ -73,14 +70,12 @@ export type JobPayload =
       type: "asset";
       briefVersion: number;
       templateId: string;
-      /** "kit": the event's design kit and 2–3 directions for its face. */
       purpose?: "image" | "kit";
       forDraftId?: number;
       forScheduleItemId?: number;
       forImageSlotId?: string;
       sessionId?: string;
       speakerId?: string;
-      /** A revision of this asset, with the person's instructions. */
       revisionOf?: number;
       retryOf?: number;
       failures?: { ruleId: string; detail: string }[];
@@ -110,7 +105,6 @@ export type Job = {
   finishedAt: number | null;
 };
 
-/** What the runner posts back (the wiki runner's Result shape; extra fields are ignored). */
 export type RunnerResult = {
   status: "succeeded" | "failed" | "needs_review";
   result?: {
@@ -121,7 +115,6 @@ export type RunnerResult = {
   retry?: boolean;
 };
 
-/** ULID-ish: time-sortable and unique enough for job ids. */
 export function newJobId(now = Date.now()): string {
   const time = now.toString(36).padStart(9, "0");
   const random = crypto.getRandomValues(new Uint8Array(8));

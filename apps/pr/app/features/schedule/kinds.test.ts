@@ -4,7 +4,6 @@ import { KIND_LABELS, SCHEDULE_KINDS } from "./kinds";
 
 describe("schedule kinds", () => {
   it("equal the set in docs/plans/pr/00-overview.md §4", () => {
-    // A kind added to the plan but not here makes the plan job's output fail validation.
     const overview = readFileSync(
       new URL("../../../../../docs/plans/pr/00-overview.md", import.meta.url),
       "utf8",

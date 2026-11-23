@@ -9,6 +9,5 @@ export function loader({ request }: LoaderFunctionArgs) {
 }
 
 export default function SignInPage() {
-  // Unreachable: the loader immediately starts the accounts IdP sign-in flow.
   return null;
 }

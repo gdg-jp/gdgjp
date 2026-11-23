@@ -4,17 +4,11 @@ import { callRpc, parseActor, snsService } from "./bindings.server";
 
 export type PostingCheck = {
   accountId: number;
-  /** The account is still connected on sns. */
   connected: boolean | null;
-  /** Campaign members (by their last claims) sns would let post on it. */
   posters: string[];
   warning: string | null;
 };
 
-/**
- * Before the day: ask sns, as each campaign member in the account's chapter, whether they could
- * post. DevFest 2026 found out on the day that nobody could.
- */
 export async function checkPosting(
   env: Env,
   campaignId: number,

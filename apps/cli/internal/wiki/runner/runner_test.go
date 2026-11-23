@@ -23,7 +23,6 @@ func TestChildEnvStripsRunnerAndGDGVariables(t *testing.T) {
 	}
 }
 
-// The agent process itself must not see the token, or it could push and skip verify-acl.
 func TestAgentProcessHasNoRunnerToken(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("uses env(1)")
@@ -91,8 +90,6 @@ func TestJobMDCarriesVisibilityAndRequests(t *testing.T) {
 	}
 }
 
-// The wiki requires a span for a `member` source on a restricted page (its readers may be
-// outside GDG). Telling the agent "narrower than member" left c-2's job in needs_review.
 func TestPromptsAskForSpansOnMemberSources(t *testing.T) {
 	for _, name := range []string{"synthesize", "acl-fix"} {
 		text := prompt(name)
@@ -125,7 +122,6 @@ func (f *fakeBackend) Run(_ context.Context, dir, prompt string, _ time.Duration
 	return "", f.run(dir, prompt)
 }
 
-// A translate job end to end against a fake wiki: lease → page → agent → translation → result.
 func TestTranslateJobEndToEnd(t *testing.T) {
 	var mu sync.Mutex
 	posted := map[string]map[string]any{}

@@ -34,7 +34,6 @@ function toSource(row: Row): Source {
   };
 }
 
-/** Add a URL (or mark an existing one for a fresh read). */
 export async function upsertSource(
   db: D1Database,
   campaignId: number,

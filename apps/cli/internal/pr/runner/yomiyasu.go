@@ -14,11 +14,8 @@ import (
 
 var japanese = regexp.MustCompile(`[\p{Hiragana}\p{Katakana}\p{Han}]`)
 
-// skipKeys mirrors japaneseTexts in skills/pr-playbook/scripts/checks/util.mjs: markup and the
-// author's own notes are not prose to proofread.
 var skipKeys = map[string]bool{"html": true, "metaThemeMapping": true, "rationaleMd": true, "textAboveFold": true, "textBelowFold": true}
 
-// JapaneseTexts collects every string leaf with kana or kanji.
 func JapaneseTexts(value any, key string) []string {
 	if skipKeys[key] {
 		return nil
@@ -54,8 +51,6 @@ func yomiyasuState(cfg Config) string {
 	return "ok"
 }
 
-// Yomiyasu runs `yomiyasu_check.py run --fail-on error` on the output's Japanese prose, with
-// the brief as material. Missing tool or Python → unevaluated (the Worker shows it as such).
 func Yomiyasu(ctx context.Context, cfg Config, output json.RawMessage, brief []byte) CheckResult {
 	if yomiyasuState(cfg) != "ok" {
 		return CheckResult{Status: "unevaluated", Detail: "yomiyasu が見つからない"}

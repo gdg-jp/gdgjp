@@ -14,7 +14,6 @@ export function normaliseAbsoluteWorkspacePath(input: string): string {
   return segments.length === 0 ? "/" : `/${segments.join("/")}`;
 }
 
-/** Adapters deliberately cannot receive a path rooted outside their mount. */
 export function normaliseRelativeWorkspacePath(input: string): string {
   if (input.startsWith("/") || input.includes("\\") || input.includes("\0")) {
     throw new Error("Workspace adapter paths must be relative");
@@ -66,9 +65,7 @@ export function decodeOffsetCursor(cursor: string | undefined): number {
   try {
     const value = JSON.parse(atob(cursor)) as OffsetCursor;
     if (Number.isSafeInteger(value.offset) && value.offset >= 0) return value.offset;
-  } catch {
-    // Normalize all malformed cursors to the same public error.
-  }
+  } catch {}
   throw new Error("Invalid workspace cursor");
 }
 

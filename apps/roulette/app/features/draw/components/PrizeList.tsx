@@ -3,7 +3,6 @@ import { rankLabel } from "~/features/prizes/odds";
 
 export type PrizeListItem = { name: string; rank: number };
 
-/** What can be won. Names and ranks only — stock is never shown to visitors. */
 export function PrizeList({ prizes }: { prizes: PrizeListItem[] }) {
   if (!prizes.length) return null;
   return (

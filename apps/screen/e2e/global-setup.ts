@@ -1,6 +1,5 @@
 import { execFileSync } from "node:child_process";
 
-/** Apply D1 migrations so the RP auth tables exist before the dev server boots. */
 export default function globalSetup() {
   execFileSync(
     "pnpm",

@@ -17,7 +17,6 @@ export async function loader({ request, context }: LoaderFunctionArgs) {
   if (error) throw redirect("/ingest?error=drive_auth_denied");
   if (!code || !state) throw redirect("/ingest?error=drive_auth_invalid");
 
-  // Verify state from cookie
   const cookieHeader = request.headers.get("Cookie") ?? "";
   const stateCookie = cookieHeader
     .split(";")
@@ -29,10 +28,8 @@ export async function loader({ request, context }: LoaderFunctionArgs) {
     throw redirect("/ingest?error=drive_auth_state_mismatch");
   }
 
-  // Extract returnTo path from state (format: "nonce:/path")
   const colonIdx = state.indexOf(":");
   const returnTo = colonIdx >= 0 ? state.slice(colonIdx + 1) : "/ingest";
-  // Ensure returnTo is a relative path to prevent open redirect
   const safePath = returnTo.startsWith("/") ? returnTo : "/ingest";
   const withError = (key: string) => `${safePath}${safePath.includes("?") ? "&" : "?"}error=${key}`;
 
@@ -49,7 +46,6 @@ export async function loader({ request, context }: LoaderFunctionArgs) {
     const db = drizzle(env.DB, { schema });
     const now = new Date();
 
-    // Upsert token
     await db
       .insert(schema.googleDriveTokens)
       .values({
@@ -77,7 +73,6 @@ export async function loader({ request, context }: LoaderFunctionArgs) {
     throw redirect(withError("drive_auth_failed"));
   }
 
-  // Clear state cookie and redirect back
   throw redirect(safePath, {
     headers: {
       "Set-Cookie": "gdrive_oauth_state=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0; Secure",

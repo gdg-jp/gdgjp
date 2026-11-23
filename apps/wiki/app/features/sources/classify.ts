@@ -14,7 +14,6 @@ export type ClassifiedSource =
       url: string;
       externalId: string | null;
       title?: string;
-      /** Kind-specific settings stored in sources.config (JSON). */
       config?: string;
     }
   | { ok: false; error: string };
@@ -27,18 +26,15 @@ function extractDriveFileId(url: string): string | null {
 const SPACE_NAME_RE = /^spaces\/[A-Za-z0-9_-]+$/;
 const DISCORD_SNOWFLAKE_RE = /^\d{5,32}$/;
 
-/** Build the canonical Chat Space URL stored on the sources row. */
 export function googleChatSpaceUrl(spaceName: string): string {
   const id = spaceName.replace(/^spaces\//, "");
   return `https://mail.google.com/chat/u/0/#chat/space/${id}`;
 }
 
-/** Canonical Discord channel deep link stored on the sources row. */
 export function discordChannelSourceUrl(guildId: string, channelId: string): string {
   return `https://discord.com/channels/${guildId}/${channelId}`;
 }
 
-/** Normalize and classify a user-supplied URL for Stage 1 source registration. */
 export function classifySourceUrl(raw: string, title?: unknown): ClassifiedSource {
   const trimmed = raw.trim();
   if (!trimmed) return { ok: false, error: "url_required" };
@@ -94,9 +90,6 @@ export function classifySourceUrl(raw: string, title?: unknown): ClassifiedSourc
   return { ok: true, kind: "website", url: href, externalId: null };
 }
 
-/**
- * Classify a Space chosen from the Chat picker. `externalId` must be `spaces/…`.
- */
 export function classifyGoogleChatSpace(externalId: unknown, title: unknown): ClassifiedSource {
   if (typeof externalId !== "string" || !SPACE_NAME_RE.test(externalId)) {
     return { ok: false, error: "invalid_space" };
@@ -111,10 +104,6 @@ export function classifyGoogleChatSpace(externalId: unknown, title: unknown): Cl
   };
 }
 
-/**
- * Classify a Discord channel from the picker. `externalId` is the channel snowflake;
- * `url` must be `https://discord.com/channels/{guildId}/{channelId}`.
- */
 export function classifyDiscordChannel(
   externalId: unknown,
   title: unknown,
@@ -149,18 +138,14 @@ export function classifyDiscordChannel(
   };
 }
 
-/** Canonical Discord server link stored on the sources row. */
 export function discordGuildSourceUrl(guildId: string): string {
   return `https://discord.com/channels/${guildId}`;
 }
 
-/** Which channels of a Discord server a `discord-guild` source imports. */
 export type DiscordGuildConfig = {
-  /** The whole server: every text channel, including ones created later (minus `exclude`). */
   all: boolean;
   include: { categories: string[]; channels: string[] };
   exclude: { channels: string[] };
-  /** Pick up channels created later under the included categories. */
   autoDiscover: boolean;
 };
 
@@ -200,7 +185,6 @@ function safeJson(value: string): unknown {
   }
 }
 
-/** Classify a Discord server picked with a channel / category selection. */
 export function classifyDiscordGuild(
   externalId: unknown,
   title: unknown,

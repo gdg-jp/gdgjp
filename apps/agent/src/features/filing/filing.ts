@@ -6,20 +6,11 @@ const MIN_CITED_PAGES = 2;
 
 export type FilingProposal = { slug: string; title: string; summary: string; content: string };
 
-/**
- * gdg-jp page URL → v1 workspace path (`/wiki/<tree path>`), which /api/agent/notes takes
- * as a citation. Answer notes are filed into gdg-jp only.
- */
 export function workspacePath(url: string): string | null {
   const match = /\/s\/gdg-jp\/wiki\/([^?#]+)/.exec(url);
   return match?.[1] ? `/wiki/${decodeURIComponent(match[1])}` : null;
 }
 
-/**
- * File a reusable answer as an `answers/*` note, once per question (asked_questions). The
- * runner proposes it; the Worker only applies the v1 gate and calls the wiki AS the linked
- * asker, so the wiki's note ACL floor still decides. Public (guild) answers are never filed.
- */
 export async function fileAnswer(
   input: {
     messageId: string;

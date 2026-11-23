@@ -16,12 +16,7 @@ export default defineConfig(({ command }) => ({
     reactRouter(),
     tailwindcss(),
   ],
-  // `@gdgjp/gdg-lib` is consumed as source; dedupe React so hydration sees one
-  // copy (same block as ost/roster/mc/screen).
   resolve: { tsconfigPaths: true, dedupe: ["react", "react-dom", "react-router"] },
-  // Pre-bundle the linked UI package before requests arrive (same as accounts).
-  // Discovering its dependencies on the first page load re-optimizes and
-  // reloads the page mid-hydration.
   optimizeDeps: {
     include: [
       "react",

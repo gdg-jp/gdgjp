@@ -14,7 +14,6 @@ import { i18n } from "~/lib/i18n/i18n.server";
 import type { RouteRequestArgs } from "~/lib/route-args";
 export async function loadAdminRequests(args: RouteRequestArgs) {
   const env = args.context.cloudflare.env;
-  // None of these depend on each other — fan everything out in parallel.
   const [t, userResult, requests, locale] = await Promise.all([
     i18n.getFixedT(args.request),
     requireUser(env, args.request).then(

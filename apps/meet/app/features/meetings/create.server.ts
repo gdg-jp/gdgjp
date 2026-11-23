@@ -55,10 +55,6 @@ export type CreateMeetingDeps = {
   generateId?: () => string;
 };
 
-/**
- * フォーム送信前の招待者数内訳をサーバー側で解決し、**人数のみ**を返す。
- * チャプターメンバーのメールアドレスや氏名はブラウザへ一切返さない。
- */
 export async function previewMeetingInvitees(
   env: Env,
   actor: MeetActor,
@@ -114,9 +110,6 @@ export async function previewMeetingInvitees(
   return { ok: true, counts: resolved.counts };
 }
 
-/**
- * 方式 B（Meet スペース先行作成 → Calendar 予定結び付け → `MEET_JOBS` で非同期メンバー同期）で会議を作成する。
- */
 export async function createMeeting(
   env: Env,
   actor: MeetActor,
@@ -214,7 +207,6 @@ export async function createMeeting(
       fetchFn,
     );
 
-    // 後続の Calendar API が失敗してもスペース情報を失わないよう先に保存する。
     await updateMeetingSpace(env.DB, meetingId, {
       spaceName: createdSpace.name,
       meetingUri: createdSpace.meetingUri,
@@ -279,7 +271,6 @@ export async function createMeeting(
   try {
     await env.MEET_JOBS.send({ type: "sync_members", meetingId });
   } catch (error) {
-    // 会議と予定自体は作成済みのため active を維持し、同期キュー投入エラーのみ警告として残す。
     await updateMeetingLastError(
       env.DB,
       meetingId,

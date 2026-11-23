@@ -10,19 +10,6 @@ export type StaffGridSlot = { id: string; start: string; end: string };
 
 type TrackInfo = { name: string; color: string };
 
-/**
- * The default view on `/e/:id/roster`: vertical = time, horizontal = staff
- * (docs/roster/07-roster-manual-edit.md "Design" §3a). One column per staff
- * member's whole day; reading across a row answers "who is where right now".
- *
- * A cell shows the role name and track name (never the experience level —
- * that's the column header's job, ADR-005).
- *
- * Layout comes entirely from the shared `.data-grid*` classes in `app.css`
- * (see that file's "2 次元表" block) rather than per-component Tailwind: the
- * time column, the sticky header, and the cell fill have to be identical
- * across all four grids or the views stop reading side-by-side.
- */
 export function StaffGrid({
   timeSlots,
   columns,
@@ -38,8 +25,6 @@ export function StaffGrid({
   trackById: ReadonlyMap<string, TrackInfo>;
   roleNameById: ReadonlyMap<string, string>;
   onCellClick: (applicationId: string, slotId: string) => void;
-  /** Application ids matching the name search (`GridSearch`). Their column
-   * header lights up while the cells remain easy to scan. */
   matchedIds?: ReadonlySet<string>;
 }) {
   const byAppSlot = useMemo(() => {
@@ -69,8 +54,6 @@ export function StaffGrid({
                 時間
               </th>
               {columns.map((col) => {
-                // Every match is marked; `GridSearch`'s `querySelector` takes
-                // the first in DOM order, which here is the leftmost hit.
                 const matched = matchedIds?.has(col.applicationId) ?? false;
                 return (
                   <th
@@ -147,21 +130,10 @@ export function StaffGrid({
   );
 }
 
-/**
- * The header shows only the first-choice role (`skills[0]`, ordered by
- * `buildStaffColumns`) because a staff column is ~7rem wide — the full list
- * used to wrap to three ragged lines and push the header row taller than the
- * data. The rest stays reachable as the cell's `title`.
- */
 function skillsTitle(skills: readonly { roleName: string; level: Level }[]): string {
   return skills.map((s) => `${s.roleName}:${LEVEL_LABELS[s.level]}`).join(" / ");
 }
 
-/**
- * An unassigned slot the person marked "x" gets the hatched fill instead of
- * the "—" placeholder: "nobody scheduled here" and "this person cannot work
- * here" are different facts, and the old grid rendered both as blank.
- */
 function cellClass(
   assigned: boolean,
   availability: string,

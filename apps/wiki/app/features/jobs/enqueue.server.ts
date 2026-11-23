@@ -11,15 +11,6 @@ import { mergeSynthesizePayload } from "./synthesize-payload.server";
 
 type Db = ReturnType<typeof getDb>;
 
-/**
- * Queue (or merge into) the space's synthesize job.
- *
- * One queued synthesize per space (partial unique index): new documents and requests merge
- * into it, because the runner integrates a whole space from one clone. A new job may not
- * start within an hour of the last finished one — hourly Discord refreshes would otherwise
- * schedule ~24 runs a day against a personal subscription quota. `manual` ("integrate now")
- * lifts that wait and raises the priority.
- */
 export async function enqueueSynthesize(
   db: Db,
   input: {
@@ -82,7 +73,6 @@ export async function enqueueSynthesize(
   return { jobId: queued.id, merged: queued.id !== id };
 }
 
-/** Documents of a source the runner has not integrated yet (new or changed content). */
 export function pendingDocumentsCondition() {
   return and(
     eq(schema.sourceDocuments.status, "ready"),
@@ -93,7 +83,6 @@ export function pendingDocumentsCondition() {
   );
 }
 
-/** After an import completes: queue synthesis of whatever it left unintegrated. */
 export async function enqueueSynthesizeForSource(
   db: Db,
   sourceId: string,
@@ -119,10 +108,6 @@ export async function enqueueSynthesizeForSource(
   });
 }
 
-/**
- * Hourly safety net: any space with unintegrated documents and no queued / leased job gets
- * one, so a dropped hook never leaves material unintegrated.
- */
 export async function enqueuePendingSynthesis(db: Db): Promise<number> {
   const bySpace = await pendingDocumentsBySpace(db);
   let enqueued = 0;
@@ -149,7 +134,6 @@ export async function enqueuePendingSynthesis(db: Db): Promise<number> {
   return enqueued;
 }
 
-/** Unintegrated documents of non-archived sources, grouped by space (one space, if given). */
 async function pendingDocumentsBySpace(
   db: Db,
   spaceId?: string,
@@ -181,11 +165,6 @@ async function pendingDocumentsBySpace(
   return bySpace;
 }
 
-/**
- * "Integrate now": queue (or raise) the space's synthesize job with every document not
- * integrated yet. Without them the job would run on an empty list and "succeed" at once —
- * which also restarted the hourly wait — after a failed or needs_review run.
- */
 export async function integrateNow(db: Db, spaceId: string, now?: Date) {
   const pending = (await pendingDocumentsBySpace(db, spaceId)).get(spaceId);
   return enqueueSynthesize(db, {
@@ -197,7 +176,6 @@ export async function integrateNow(db: Db, spaceId: string, now?: Date) {
   });
 }
 
-/** Nightly: one consolidate job per space that has agent pages (none if one is queued). */
 export async function enqueueConsolidation(db: Db): Promise<number> {
   const spaces = await db
     .selectDistinct({ spaceId: schema.pages.spaceId })

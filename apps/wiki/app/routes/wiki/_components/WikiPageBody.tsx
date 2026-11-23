@@ -75,7 +75,6 @@ export function WikiPageBody({
 
   const hasContent = primaryContent && primaryContent.trim().length > 0;
   const hasFallback = !hasContent && fallbackContent && fallbackContent.trim().length > 0;
-  // The title is already above the body; inline `(source: id)` citations become links.
   const { slug: spaceSlug } = useCurrentSpace();
   const displayContent = resolveWikiRelativeLinks(
     linkInlineSourceRefs(
@@ -126,7 +125,6 @@ export function WikiPageBody({
         data-small-text={display.smallText}
         className={`${display.fullWidth ? "" : "max-w-3xl"} min-w-0 flex-1 px-4 pt-4 pb-6 md:px-10 md:pt-4 md:pb-8`}
       >
-        {/* Mobile "Contents" button */}
         {tocItems.length > 0 ? (
           <button
             ref={mobileContentsTriggerRef}

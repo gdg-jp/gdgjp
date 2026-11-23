@@ -90,9 +90,6 @@ function ThemeSwitcher() {
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <IconButton variant="ghost" title={title} aria-label={title} className="text-muted">
-          {/* The resolved theme is only known in the browser (localStorage, media query): the
-              `dark` class on <html> is set before hydration, so CSS picks the icon and the
-              server and client render the same markup. */}
           <Icons name="Sun" size={18} aria-hidden="true" className="dark:hidden" />
           <Icons name="Moon" size={18} aria-hidden="true" className="hidden dark:inline-flex" />
         </IconButton>
@@ -170,18 +167,15 @@ export default function Navbar({
   const [searchParams] = useSearchParams();
   const currentQuery = searchParams.get("q") ?? "";
   const [queryInput, setQueryInput] = useState(currentQuery);
-  // Searching from inside `/s/:space/…` stays in that space.
   const { space: spaceParam } = useParams();
   const searchAction = spaceParam ? spacePath(spaceParam, "search") : "/search";
 
-  // Sync input value when the URL q param changes (e.g. back/forward nav)
   useEffect(() => {
     setQueryInput(currentQuery);
   }, [currentQuery]);
 
   return (
     <header className="fixed top-0 right-0 left-0 z-50 flex h-14 items-center gap-2 border-b border-border bg-surface px-3 sm:gap-4 sm:px-4">
-      {/* Sidebar toggle */}
       {onToggleSidebar && (
         <IconButton
           variant="ghost"
@@ -198,7 +192,6 @@ export default function Navbar({
         </IconButton>
       )}
 
-      {/* Logo */}
       <Link to="/" prefetch="intent" className="flex flex-shrink-0 items-center gap-2">
         <img
           src="/app-icon.png"
@@ -210,7 +203,6 @@ export default function Navbar({
         <span className="hidden text-sm font-semibold tracking-tight sm:block">GDG Japan Wiki</span>
       </Link>
 
-      {/* Search */}
       <Form action={searchAction} method="get" className="flex min-w-0 flex-1 justify-center">
         <Input
           id="wiki-search"
@@ -224,7 +216,6 @@ export default function Navbar({
         />
       </Form>
 
-      {/* Right actions */}
       <div className="flex shrink-0 items-center gap-1 sm:gap-3">
         {user && <NewPageDropdown onImportZip={onImportZip} />}
 

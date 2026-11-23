@@ -24,8 +24,6 @@ export const shouldRevalidate: ShouldRevalidateFunction = ({
   formAction,
   defaultShouldRevalidate,
 }) => {
-  // Locale only changes when the user switches it via the locale switcher,
-  // which posts to /api/locale. Skip revalidating on every page navigation.
   if (formAction === "/api/locale") return defaultShouldRevalidate;
   return false;
 };

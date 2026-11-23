@@ -18,20 +18,10 @@ import { log, requireBotToken } from "../discord/shared";
 import { ARCHIVE_MISSING_SUBREQUESTS, metaGet, metaSet } from "../run";
 import type { ImportKindDriver } from "../tick";
 
-/**
- * Discord server source (`kind = discord-guild`, external_id = guild snowflake).
- *
- * `discover` lists the server's channels and keeps the ones the source config selects.
- * `channels` then runs each selected channel through the existing channel steps
- * (listing → attachments → grouping → finalizing), one at a time, with the channel's own
- * incremental cursor and its documents under `channels/<channelId>/`. Channel ids rather
- * than names keep paths stable across renames; titles carry the names.
- */
 type GuildPhase = "discover" | "channels";
 type ChannelStep = "listing" | "attachments" | "grouping" | "finalizing";
 const CHANNEL_STEPS: ChannelStep[] = ["listing", "attachments", "grouping", "finalizing"];
 
-/** DO-local tables private to this driver (object-local SQL costs no subrequests). */
 function ensureGuildTables(sql: SqlStorage): void {
   sql.exec(`
     CREATE TABLE IF NOT EXISTS guild_channels (
@@ -46,7 +36,6 @@ function ensureGuildTables(sql: SqlStorage): void {
   `);
 }
 
-/** Per-channel scratch state the channel steps keep in the shared DO tables. */
 function resetChannelState(sql: SqlStorage): void {
   for (const table of ["pages", "week_messages", "attachments", "week_documents"]) {
     sql.exec(`DELETE FROM ${table}`);
@@ -60,7 +49,6 @@ export function channelPathPrefix(channelId: string): string {
   return `channels/${channelId}/`;
 }
 
-/** Channels a config selects from the server's current channel list. */
 export function selectGuildChannels(
   channels: readonly DiscordChannel[],
   configJson: string | null,
@@ -140,8 +128,6 @@ async function stepChannels(ctx: DiscordImportTickContext, current: Current): Pr
     const prefix = channelPathPrefix(channel.channel_id);
 
     if (metaGet(ctx.sql, "guild_channel_started") !== String(index)) {
-      // Fresh channel: clear the previous channel's scratch state and read this channel's
-      // own incremental cursor (the newest message already persisted under its prefix).
       if (!ctx.budget.canSpend(1)) return { phaseComplete: false };
       resetChannelState(ctx.sql);
       ctx.budget.spend(1);
@@ -194,9 +180,6 @@ async function stepChannels(ctx: DiscordImportTickContext, current: Current): Pr
                 ? await stepGrouping(channelCtx, channelCurrent)
                 : await stepFinalizing(channelCtx, channelCurrent);
       } catch (error) {
-        // A whole-server source lists every text channel, including private ones the bot
-        // was never given. One such channel must not fail the server: skip it, keep its
-        // earlier documents, and import the rest.
         if (step === "listing" && (error as Error).message === DISCORD_BOT_ACCESS_MESSAGE) {
           unreadable = true;
           break;
@@ -223,7 +206,6 @@ async function stepChannels(ctx: DiscordImportTickContext, current: Current): Pr
       continue;
     }
 
-    // Channel done: remember its documents, drop its temporary R2 objects, move on.
     for (const row of ctx.sql
       .exec<{ week_path: string }>("SELECT week_path FROM week_documents")
       .toArray()) {
@@ -260,9 +242,6 @@ async function completeGuildImport(ctx: DiscordImportTickContext, current: Curre
     .toArray()
     .map((row) => row.path);
 
-  // Keep older documents of channels that are still selected, except an open document a
-  // channel run rebuilt (it is in `written` again when a document still starts there);
-  // documents of channels that were deselected (or deleted from the server) are archived.
   ctx.budget.spend(1);
   const existing = await current.db
     .select({ path: schema.sourceDocuments.path })

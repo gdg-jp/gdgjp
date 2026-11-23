@@ -1,4 +1,3 @@
-// Browser-only fixture data. Real route components; authentication and mutations are not exercised.
 import { ThemeProvider } from "@gdgjp/design-system";
 import type { ComponentType } from "react";
 import { createRoot } from "react-dom/client";

@@ -30,7 +30,6 @@ import {
   requireSharingPermissions,
 } from "./page-acl-helpers.server";
 
-/** GET /api/pages/:pageId/access — explicit shares, owner, and evaluated permissions. */
 export async function loadPageAccess(
   env: Env,
   request: Request,
@@ -90,7 +89,6 @@ export async function loadPageAccess(
   });
 }
 
-/** POST /api/pages/:pageId/access — batch grant, grant update/remove, general-access changes. */
 export async function handlePageAccessAction(
   env: Env,
   request: Request,
@@ -130,8 +128,6 @@ export async function handlePageAccessAction(
       unique.set(`${target.subjectType}:${target.subjectKey}`, target);
     }
 
-    // Persist all grants before attempting notifications. A failed email never
-    // rolls back a permission change.
     await Promise.all(
       [...unique.values()].map((target) =>
         upsertPageAccess(db, { ...target, pageId, role, grantedBy: user.id }),
@@ -203,8 +199,6 @@ export async function handlePageAccessAction(
   }
 
   if (intent === "transfer") {
-    // Ownership is implicit via pages.authorId, so only the current owner may
-    // transfer it. Editors (and admins acting as admins) cannot replace one.
     if (user.id !== page.authorId) return new Response("Forbidden", { status: 403 });
     const accessId = body.accessId;
     if (typeof accessId !== "string") {
@@ -248,8 +242,6 @@ export async function handlePageAccessAction(
       .get();
     if (!previousOwner) return new Response("Not Found", { status: 404 });
 
-    // The former owner remains an editor. The ownership switch and removal of
-    // the new owner's redundant explicit grant happen in one D1 batch.
     await upsertPageAccess(db, {
       pageId,
       subjectType: "email",

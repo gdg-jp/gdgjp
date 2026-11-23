@@ -2,13 +2,6 @@ import { Button, FormField, Input } from "@gdgjp/design-system";
 import { Form } from "react-router";
 import type { Phase, TimeSlot } from "~/features/schedule/schedule.server";
 
-/**
- * The "フェーズと時間枠の一覧" card on `/e/:id/design`
- * (docs/roster/02-domain-schema.md "Design" §6). Phases are created/deleted
- * here; the resulting time-slot grid is read-only — it's derived by
- * `regenerateTimeSlots` from the event's start/end/step and this phase list,
- * never edited directly.
- */
 export function PhaseList({
   phases,
   timeSlots,

@@ -9,7 +9,7 @@ import { pageInSpace } from "~/features/pages/page-space.server";
 import { requireSpace } from "~/features/spaces/access.server";
 import { DEFAULT_SPACE_SLUG } from "~/features/spaces/shared";
 
-const MAX_IMAGE_SIZE = 10 * 1024 * 1024; // 10 MB
+const MAX_IMAGE_SIZE = 10 * 1024 * 1024;
 
 export async function action({ request, context, params }: ActionFunctionArgs) {
   if (request.method !== "POST") {
@@ -18,7 +18,6 @@ export async function action({ request, context, params }: ActionFunctionArgs) {
 
   const { env } = context.cloudflare;
   const user = await requireUser(request, env);
-  // `/api/wiki/:slug/upload-image` (v1 clients) targets the default space.
   const { space, identity } = await requireSpace(
     request,
     env,

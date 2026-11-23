@@ -11,7 +11,6 @@ import { getPageSpaceSlugs, getWikiCanonicalSlugPaths } from "./wiki-page-path.s
 
 type Page = typeof schema.pages.$inferSelect;
 
-/** Copy only published branches; UNION also terminates corrupt cyclic trees. */
 export async function duplicatePage(
   env: Env,
   user: AuthUser,
@@ -54,7 +53,6 @@ export async function duplicatePage(
     env,
     pages.map((page) => page.id),
   );
-  // A copied tree stays in the space of its root.
   const spaceSlug = (await getPageSpaceSlugs(env, [pageId])).get(pageId) ?? "gdg-jp";
   const lookup = (map: Map<string, string>, key: string | null) => {
     const value = key ? map.get(key) : undefined;
@@ -79,14 +77,12 @@ export async function duplicatePage(
     const oldSegments = oldPaths.get(page.id) ?? [page.slug];
     links.set(wikiPagePath(oldSegments, spaceSlug), newPath(page));
     links.set(wikiPagePath([page.slug], spaceSlug), newPath(page));
-    // v1 bodies still carry /wiki/… links (served by a 301 into gdg-jp).
     if (spaceSlug === "gdg-jp") {
       links.set(`/wiki/${oldSegments.map(encodeURIComponent).join("/")}`, newPath(page));
       links.set(`/wiki/${encodeURIComponent(page.slug)}`, newPath(page));
     }
   }
 
-  // Copy objects first; publish the complete relational graph in one transaction.
   const copiedKeys: string[] = [];
   const statements: D1PreparedStatement[] = [];
   const insert = (table: string, values: Record<string, string | number | null>) => {
@@ -117,7 +113,6 @@ export async function duplicatePage(
         attachments.push({ ...attachment, newKey: key });
       }
     }
-    // Parents must precede children for foreign keys, independent of query order.
     pages.sort((a, b) => newPath(a).split("/").length - newPath(b).split("/").length);
     for (const page of pages) {
       insert("pages", {

@@ -4,15 +4,6 @@ import type { EventRecord } from "~/features/events/events.server";
 import { type TestD1Database, asD1, createTestD1 } from "../../../tests/helpers/sqlite-d1";
 import { buildPublicRosterData } from "./public-roster.server";
 
-/**
- * docs/roster/09-share-public-views.md "回帰として固定すべきテスト": this is
- * the single most important server-side test in the whole stage. Every
- * assertion here is either "the returned key set is exactly this" or "no
- * query for this table ever ran" — never "the UI doesn't render it", which
- * ADR-005's own Context explicitly warns is not sufficient (data can leak
- * through the hydration payload without ever being painted on screen).
- */
-
 const MIGRATIONS = [
   fileURLToPath(new URL("../../../migrations/0002_domain.sql", import.meta.url)),
   fileURLToPath(new URL("../../../migrations/0003_demands.sql", import.meta.url)),
@@ -59,7 +50,6 @@ function baseEvent(overrides: Partial<EventRecord> = {}): EventRecord {
   };
 }
 
-/** Wraps a TestD1Database so tests can assert which SQL text was actually issued. */
 function spyOn(db: TestD1Database): { db: D1Database; calls: string[] } {
   const calls: string[] = [];
   const wrapped: TestD1Database = {
@@ -98,8 +88,6 @@ async function seedFullFixture(db: TestD1Database) {
     .prepare("INSERT INTO event_roles (event_id, role_id) VALUES ('evt_1', 'reception')")
     .run();
 
-  // An active applicant with contact/note filled in — proves those fields
-  // never make it into the public shape even though they exist in the row.
   await db
     .prepare(
       `INSERT INTO applications (id, event_id, user_id, email, name, contact, party, note, withdrawn, created_at, updated_at)
@@ -107,8 +95,6 @@ async function seedFullFixture(db: TestD1Database) {
     )
     .bind(now, now)
     .run();
-  // A withdrawn applicant who still has a residual assignment row — must be
-  // excluded entirely, assignment included or not.
   await db
     .prepare(
       `INSERT INTO applications (id, event_id, user_id, email, name, party, withdrawn, created_at, updated_at)
@@ -229,8 +215,6 @@ describe("buildPublicRosterData", () => {
       );
     }
 
-    // Belt-and-suspenders: none of the banned substrings appear anywhere in
-    // the serialized payload, even inside a value (e.g. an email address).
     const serialized = JSON.stringify(result);
     for (const banned of [
       "email",

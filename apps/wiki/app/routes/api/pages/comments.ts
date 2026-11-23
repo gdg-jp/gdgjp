@@ -34,9 +34,6 @@ export async function action({ request, context }: ActionFunctionArgs) {
     if (!permissions.canComment) throw new Response("Forbidden", { status: 403 });
   }
 
-  // -------------------------------------------------------------------------
-  // addComment — insert a top-level comment
-  // -------------------------------------------------------------------------
   if (intent === "addComment") {
     const pageId = form.get("pageId");
     const contentJson = form.get("contentJson");
@@ -59,9 +56,6 @@ export async function action({ request, context }: ActionFunctionArgs) {
     return Response.json({ ok: true, id });
   }
 
-  // -------------------------------------------------------------------------
-  // addReply — insert a reply and notify the parent comment author
-  // -------------------------------------------------------------------------
   if (intent === "addReply") {
     const parentCommentId = form.get("parentCommentId");
     const pageId = form.get("pageId");
@@ -102,7 +96,6 @@ export async function action({ request, context }: ActionFunctionArgs) {
       updatedAt: new Date(),
     });
 
-    // Notify the parent author (skip if replying to own comment)
     if (parentComment.authorId !== sessionUser.id) {
       await createNotification(
         env,
@@ -123,9 +116,6 @@ export async function action({ request, context }: ActionFunctionArgs) {
     return Response.json({ ok: true, id });
   }
 
-  // -------------------------------------------------------------------------
-  // deleteComment — soft-delete (set deleted_at)
-  // -------------------------------------------------------------------------
   if (intent === "deleteComment") {
     const commentId = form.get("commentId");
     if (typeof commentId !== "string" || !commentId) {
@@ -154,9 +144,6 @@ export async function action({ request, context }: ActionFunctionArgs) {
     return Response.json({ ok: true });
   }
 
-  // -------------------------------------------------------------------------
-  // toggleReaction — insert or delete a reaction
-  // -------------------------------------------------------------------------
   if (intent === "toggleReaction") {
     const commentId = form.get("commentId");
     const emoji = form.get("emoji");
@@ -202,7 +189,6 @@ export async function action({ request, context }: ActionFunctionArgs) {
         createdAt: new Date(),
       });
 
-      // Notify the comment author about the reaction (skip self-reactions)
       const comment = await db
         .select({
           authorId: schema.pageComments.authorId,
@@ -213,7 +199,6 @@ export async function action({ request, context }: ActionFunctionArgs) {
         .get();
 
       if (comment && comment.authorId !== sessionUser.id) {
-        // Look up the page slug for the refUrl
         const page = await db
           .select({ slug: schema.pages.slug })
           .from(schema.pages)
@@ -239,7 +224,6 @@ export async function action({ request, context }: ActionFunctionArgs) {
       }
     }
 
-    // Return updated aggregate for this comment
     const reactions = await db
       .select()
       .from(schema.commentReactions)

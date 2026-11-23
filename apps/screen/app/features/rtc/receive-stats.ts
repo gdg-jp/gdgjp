@@ -3,11 +3,9 @@ import type { SfuManager } from "./sfu-manager";
 
 const STATS_MS = 2000;
 
-/** The inbound-rtp fields the debug readout needs. */
 export type InboundSample = {
   trackIdentifier: string;
   bytesReceived: number;
-  /** ms */
   timestamp: number;
   frameWidth?: number;
   frameHeight?: number;
@@ -15,7 +13,6 @@ export type InboundSample = {
 
 export type ReceiveRate = {
   kbps: number;
-  /** "1280x720"; the received size tells which simulcast layer arrives. */
   size: string | null;
 };
 
@@ -35,7 +32,6 @@ export function inboundSamples(stats: Iterable<Record<string, unknown>>): Inboun
   return out;
 }
 
-/** Per receiver track id: bitrate between two samples, plus the latest frame size. */
 export function receiveRates(
   prev: ReadonlyMap<string, InboundSample>,
   next: InboundSample[],
@@ -52,17 +48,12 @@ export function receiveRates(
   return rates;
 }
 
-/**
- * Debug only: what each pulled track actually costs, keyed like
- * `snapshot.remote` (remoteKey). Off unless `enabled`.
- */
 export function useReceiveStats(
   manager: SfuManager | null,
   remote: ReadonlyMap<string, MediaStreamTrack>,
   enabled: boolean,
 ): Map<string, ReceiveRate> {
   const [rates, setRates] = useState<Map<string, ReceiveRate>>(new Map());
-  // Read at each tick so a changing pull set does not restart the sampling.
   const remoteRef = useRef(remote);
   remoteRef.current = remote;
   useEffect(() => {
@@ -86,7 +77,6 @@ export function useReceiveStats(
   return rates;
 }
 
-/** remoteKey → "812 kbps 1280x720" for a debug readout. */
 export function describeRates(
   remote: ReadonlyMap<string, MediaStreamTrack>,
   rates: ReadonlyMap<string, ReceiveRate>,

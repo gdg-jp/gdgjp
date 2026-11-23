@@ -20,10 +20,6 @@ export type RowColumn = {
   width?: string;
 };
 
-/**
- * An editable table whose cells post as `<name(row, column)>`. Rows can be added and removed on
- * the client; the server reads whatever rows arrive. Domain-free.
- */
 export function RowTable({
   label,
   columns,

@@ -11,26 +11,18 @@ import {
 
 export type StaffRoleTag = { roleId: string; roleName: string; level: Level; pref: Pref };
 
-/** One row of the `/e/:id/staff` staff list (docs/roster/05-staff-supply-demand.md "Design" §2). */
 export type StaffRow = {
   applicationId: string;
   name: string;
   withdrawn: boolean;
   roles: StaffRoleTag[];
-  /** Count of `o` (fully available) time slots. */
   availableCount: number;
-  /** Count of `d` (available only if `o` doesn't fill the slot) time slots. */
   softAvailableCount: number;
   party: PartyStatus;
   updatedBy: UpdatedBy;
   updatedAt: string;
 };
 
-/**
- * The staff list table. `hasParty` hides the 懇親会 column entirely when the
- * event has no party (docs/roster/05-staff-supply-demand.md "Design" §2) —
- * clicking a row opens `StaffDrawer` for owner corrections, via `onSelect`.
- */
 export function StaffTable({
   rows,
   hasParty,

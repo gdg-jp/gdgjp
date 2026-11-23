@@ -9,17 +9,12 @@ export type WikiHumanPagePathEntry = {
   parentId: string | null;
 };
 
-/** Returns a readable, single path segment for a source's raw clone directory. */
 export function rawSourceDirectory(title: string): string {
   const cleaned = title.trim().replaceAll("/", "／").replaceAll("\\", "＼").replace(/\0/g, "");
   const name = !cleaned || cleaned === "." || cleaned === ".." ? "Untitled source" : cleaned;
   return `[${name}]`;
 }
 
-/**
- * Assigns stable source directories. IDs are added only when multiple ready
- * sources share the same readable title, so their contents cannot merge.
- */
 export function rawSourceDirectories(
   sources: readonly { id: string; title: string }[],
 ): Map<string, string> {
@@ -39,10 +34,6 @@ export function rawSourceDirectories(
   return directories;
 }
 
-/**
- * Returns the raw-clone location for a human-authored page, using the same
- * directory hierarchy and page.md convention as the authored Wiki tree.
- */
 export function wikiHumanRawPath(
   page: WikiHumanPagePathEntry,
   pagesByID: ReadonlyMap<string, WikiHumanPagePathEntry>,
@@ -69,10 +60,6 @@ export function wikiHumanRawPath(
   return `raw/${segments.join("/")}/page.md`;
 }
 
-/**
- * Makes manifest paths unique without exposing IDs unless their readable paths
- * collide. IDs are inserted before a filename extension when present.
- */
 export function disambiguateRawManifestPaths<T extends RawManifestPathEntry>(entries: T[]): T[] {
   const counts = new Map<string, number>();
   for (const entry of entries) {

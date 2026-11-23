@@ -9,7 +9,6 @@ export function isChatSenderResourceName(value: string): boolean {
   return USER_RESOURCE_NAME.test(value);
 }
 
-/** Keep at most MAX_SENDER_SAMPLES rows per resource_name (fixed bind count). */
 export function pruneSenderSamplesStatement(db: ReturnType<typeof getDb>, resourceName: string) {
   return db.delete(schema.googleChatSenderSamples).where(
     sql`resource_name = ${resourceName}
@@ -22,7 +21,6 @@ export function pruneSenderSamplesStatement(db: ReturnType<typeof getDb>, resour
   );
 }
 
-/** Persist a manual Chat sender display name. Does not rewrite source documents. */
 export async function saveChatSenderName(
   env: Env,
   resourceName: string,

@@ -30,7 +30,6 @@ export interface StarredContentProps {
   open: boolean;
 }
 
-// Module-level cache — survives component unmounts (popover close/reopen)
 let cachedFavorites: FavoritesData | null = null;
 
 export default function StarredContent({
@@ -53,7 +52,6 @@ export default function StarredContent({
     listFetcher.load("/api/favorites");
   }, [listFetcher.load]);
 
-  // Load favorites when opened
   useEffect(() => {
     if (open) {
       loadFavorites();
@@ -61,7 +59,6 @@ export default function StarredContent({
     }
   }, [open, loadFavorites]);
 
-  // Sync star state after toggle
   useEffect(() => {
     if (toggleFetcher.data?.ok) {
       onStarChange?.(toggleFetcher.data.starred);
@@ -97,7 +94,6 @@ export default function StarredContent({
 
   return (
     <>
-      {/* Header */}
       <div className="flex items-center justify-between border-b border-border px-5 py-4">
         <h2 className="text-base font-semibold text-foreground">
           {t("wiki.starred_dialog_title")}
@@ -112,7 +108,6 @@ export default function StarredContent({
         </button>
       </div>
 
-      {/* Current page (only shown when inside a wiki page) */}
       {currentPageId && currentPageTitle && (
         <div className="border-b border-border px-5 py-3">
           <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">
@@ -137,7 +132,6 @@ export default function StarredContent({
         </div>
       )}
 
-      {/* Search */}
       <div className="px-5 pt-3">
         <input
           type="text"
@@ -148,7 +142,6 @@ export default function StarredContent({
         />
       </div>
 
-      {/* List */}
       <div className="max-h-64 overflow-y-auto px-5 py-3">
         {isFirstLoad ? (
           <ListSkeleton rows={4} />

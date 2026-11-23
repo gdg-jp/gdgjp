@@ -14,7 +14,6 @@ function pipApi(): DocumentPip | null {
   );
 }
 
-/** Copy the page's stylesheets so the mini window looks like the app. */
 function cloneStyles(target: Document) {
   for (const node of document.querySelectorAll('link[rel="stylesheet"], style')) {
     target.head.appendChild(node.cloneNode(true));

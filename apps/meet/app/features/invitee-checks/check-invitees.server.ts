@@ -125,15 +125,6 @@ async function createProbePermissionWith404Recovery(
   }
 }
 
-/**
- * 会議保存前に「今回新しく追加される招待者」の中に Drive 共有できないアドレスが含まれるか判定する。
- * 1. ホストアカウントと既存招待者を除外
- * 2. D1 キャッシュ（30 日以内の `ok` はスキップ、`unshareable` は Drive で確かめ直し、
- *    確かめられなければ拒否）
- * 3. `userId` あり・GDG Accounts 登録済みアドレスをスキップ
- * 4. 2 の確かめ直しと 3 の残りを、合わせて最大 20 件まで Drive の確認用ファイルへの
- *    `permissions.create` で試行確認
- */
 export async function findUnshareableInvitees(
   env: Env,
   input: FindUnshareableInviteesInput,
@@ -156,8 +147,6 @@ export async function findUnshareableInvitees(
 
   const nowMs = now().getTime();
   const unshareableEmails = new Set<string>();
-  // 共有不可と記録済みのアドレスは、Accounts 登録済みでも Drive で確かめ直す（後から Google
-  // アカウントが作られた場合に保存できるようにするため）。確かめられなければ共有不可のまま扱う。
   const recheck: InviteeCandidate[] = [];
   const afterCache: InviteeCandidate[] = [];
 

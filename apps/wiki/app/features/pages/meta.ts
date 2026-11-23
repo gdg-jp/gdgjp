@@ -29,8 +29,6 @@ export function buildPageMeta({
   const robots = visibility === "public" ? [] : [{ name: "robots", content: "noindex,nofollow" }];
 
   if (visibility !== "public" && visibility !== "unlisted") {
-    // A members-only page unfurls as the site, never as its title: chat previews must not
-    // leak what the page is about, but a bare link with no card reads as broken.
     return [
       { title: documentTitle },
       { property: "og:site_name", content: SITE_NAME },

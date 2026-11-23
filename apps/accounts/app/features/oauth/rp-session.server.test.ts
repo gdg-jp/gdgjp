@@ -139,13 +139,11 @@ describe("handleRpSessionCheck", () => {
   });
 
   it("accepts every seeded gdg-lib relying party (all but the agents and MCP clients)", () => {
-    // Each `<APP>_CLIENT_ID` resolves to its own name, so a client seeded but missing here fails.
     const all = new Proxy({} as Env, {
       get: (_, key) => (typeof key === "string" ? key.toLowerCase() : undefined),
     });
     const seeded = collectSpecs(all)
       .map((spec) => spec.clientId)
-      // Not gdg-lib RPs: they hold their own refresh tokens and never check a browser session.
       .filter((id) => id !== "agents_client_id" && id !== "mcp_client_id");
     expect(firstPartyRpClientIds(all).sort()).toEqual(seeded.sort());
   });

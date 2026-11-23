@@ -56,10 +56,6 @@ function DeviceItems({
   );
 }
 
-/**
- * Meet-style split control: a menu button on the left (device choice) joined
- * to the round on/off toggle on the right.
- */
 function Split({
   menuLabel,
   menuIcon,
@@ -88,13 +84,8 @@ function Split({
   );
 }
 
-/** Below this the mic counts as silent and the indicator rests as three dots. */
 const VOICE_THRESHOLD = 0.08;
 
-/**
- * The mic menu's glyph: three resting dots that rise into bars while sound is
- * coming in, taller the louder it is (like Meet).
- */
 function VoiceDots({ track }: { track: MediaStreamTrack | null }) {
   const level = useLevel(track);
   const active = level > VOICE_THRESHOLD;
@@ -110,10 +101,6 @@ function VoiceDots({ track }: { track: MediaStreamTrack | null }) {
   );
 }
 
-/**
- * Mic toggle plus a menu for the microphone. `toggle` replaces the plain
- * mute button (the control room swaps in push-to-talk while ON AIR).
- */
 export function MicControl({ media, toggle }: { media: LocalMedia; toggle?: ReactNode }) {
   const { t } = useI18n();
   const mics = deviceOptions(media.devices.mics, t("mic"));
@@ -134,7 +121,6 @@ export function MicControl({ media, toggle }: { media: LocalMedia; toggle?: Reac
   );
 }
 
-/** Mutes incoming audio locally; the menu picks the output device and plays a test tone. */
 export function SpeakerControl({ media }: { media: LocalMedia }) {
   const { t } = useI18n();
   const speakers = deviceOptions(media.devices.speakers, t("speaker"));
@@ -200,7 +186,6 @@ export function CamControl({ media }: { media: LocalMedia }) {
   );
 }
 
-/** Mute toggle alone (the mini window has no room for the menu). */
 export function MicToggle({ media }: { media: LocalMedia }) {
   const { t } = useI18n();
   return (
@@ -214,7 +199,6 @@ export function MicToggle({ media }: { media: LocalMedia }) {
   );
 }
 
-/** Share / stop. `onShare` must start the capture synchronously (user activation). */
 export function ShareToggle({ media, onShare }: { media: LocalMedia; onShare: () => void }) {
   const { t } = useI18n();
   return media.screen ? (

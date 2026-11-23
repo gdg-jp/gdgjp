@@ -133,7 +133,7 @@ describe("computeSlotSupplyDemand — exclusions", () => {
       applicant({
         applicationId: "a1",
         skills: new Map([[STREAM, "exp"]]),
-        availability: new Map(), // no entry at all for SLOT_1
+        availability: new Map(),
       }),
     ];
 
@@ -164,14 +164,14 @@ describe("computeSlotSupplyDemand — exclusions", () => {
     const applicants = [
       applicant({
         applicationId: "a1",
-        skills: new Map([[RECEPTION, "lead"]]), // can't take STREAM
+        skills: new Map([[RECEPTION, "lead"]]),
         availability: new Map([[SLOT_1, "o"]]),
       }),
     ];
 
     const result = computeSlotSupplyDemand(SLOT_1, demands, applicants);
 
-    expect(result.available).toBe(1); // available overall, just not for this role
+    expect(result.available).toBe(1);
     expect(result.tight).toEqual([{ roleId: STREAM, kind: "head", lack: 1 }]);
   });
 });
@@ -192,8 +192,6 @@ describe("computeSlotSupplyDemand — cross-track aggregation", () => {
 
     const result = computeSlotSupplyDemand(SLOT_1, demands, applicants);
 
-    // roleMin = 1 + 1 = 2; only 1 candidate available -> lack 1, not two
-    // independent shortages for the same role.
     expect(result.tight).toEqual([{ roleId: RECEPTION, kind: "head", lack: 1 }]);
   });
 
@@ -217,7 +215,6 @@ describe("computeSlotSupplyDemand — cross-track aggregation", () => {
 
     const result = computeSlotSupplyDemand(SLOT_1, demands, applicants);
 
-    // headcount met (2 candidates >= min 2), but only 1 lead against leadMin 2.
     expect(result.tight).toEqual([{ roleId: RECEPTION, kind: "lead", lack: 1 }]);
   });
 });

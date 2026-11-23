@@ -7,8 +7,6 @@ if (!Number.isInteger(port) || port < 6100 || port > 6199) {
   throw new Error("CI E2E requires a 61xx port");
 }
 
-// Keep the running 51xx dev server's vars intact. Both Cloudflare Vite APIs
-// select this separate file through the e2e environment.
 const varsPath = ".dev.vars.e2e";
 const previousVars = existsSync(varsPath) ? readFileSync(varsPath) : null;
 const configPath = resolvePath(".wrangler.e2e.toml");
@@ -33,8 +31,6 @@ writeFileSync(
 
 let previewDirectory;
 try {
-  // Named environments suffix Worker names; point service bindings at those
-  // names too, so a running dev Accounts worker cannot receive CI requests.
   writeFileSync(
     configPath,
     readFileSync("wrangler.toml", "utf8").replaceAll(
@@ -67,7 +63,6 @@ try {
     previewDirectory = mkdtempSync(resolvePath(".wrangler/ci-preview-"));
     const previewConfig = join(previewDirectory, "wrangler.json");
     writeFileSync(previewConfig, JSON.stringify(config));
-    // Keep secrets in a vars file so Wrangler redacts them in diagnostics.
     writeFileSync(join(previewDirectory, ".dev.vars"), readFileSync(varsPath), { mode: 0o600 });
     args = [
       "exec",
@@ -92,7 +87,6 @@ try {
     const child = spawn(command, args, {
       env: {
         ...process.env,
-        // The preview config already has E2E names. Do not suffix them twice.
         CLOUDFLARE_ENV: previewDirectory ? undefined : "e2e",
         CLOUDFLARE_VITE_WRANGLER_CONFIG_PATH: configPath,
       },

@@ -4,17 +4,6 @@ import { DenoisePipeline, denoiseSupported, loadDenoiseAssets } from "./engine";
 
 const RETRY_MS = 30_000;
 
-/**
- * Decides what this page's mic sends: the DeepFilterNet3 output while it
- * actually runs, otherwise the raw mic with the browser's own suppression
- * (`setBrowserSuppression`) turned back on. Switching between the two is one
- * `replaceTrack`, so nothing renegotiates.
- *
- * Falls back (never silently drops audio) while assets load, when the
- * browser cannot run it, when the AudioContext is not allowed to start yet,
- * and once a frame takes longer than real time (overload, sticky until the
- * operator turns it off and on again).
- */
 export function useDenoise(
   mic: MediaStreamTrack | null,
   setting: DenoiseSetting,
@@ -33,8 +22,6 @@ export function useDenoise(
 
   useEffect(() => setSupported(denoiseSupported()), []);
 
-  // Build the pipeline the first time it is wanted; keep it for the page's
-  // life, since loading the model takes a while.
   const wanted = setting.on && supported === true;
   // biome-ignore lint/correctness/useExhaustiveDependencies: attempt forces a retry
   useEffect(() => {
@@ -108,8 +95,6 @@ export function useDenoise(
     }
   }, [pipeline, feed]);
 
-  // Not tied to `mic`: it is briefly null while reopening, and flipping the
-  // browser's suppression on that would reopen it again.
   const active = setting.on && !overload && !failed && running && pipeline !== null;
   useEffect(() => setBrowserSuppression(!active), [active, setBrowserSuppression]);
 
@@ -123,7 +108,6 @@ export function useDenoise(
   return { track: active && pipeline ? pipeline.track : mic, state };
 }
 
-/** Starts the asset download early (the lobby) where the browser can use it. */
 export function preloadDenoise() {
   if (denoiseSupported()) void loadDenoiseAssets().catch(() => {});
 }

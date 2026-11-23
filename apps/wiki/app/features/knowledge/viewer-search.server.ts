@@ -41,12 +41,6 @@ type Reader = SpaceIdentity & {
   user: (SpaceIdentity["user"] & { email?: string | null; isAdmin?: boolean | null }) | null;
 };
 
-/**
- * Search for one reader. `spaceIds` must already be the reader's reachable spaces (outer
- * layer). Audiences come from `readableAudienceKeys` (= canAccessSource); every returned
- * page is re-checked with the page ACL and every raw document with canAccessSource, so the
- * index can never widen what the reader sees.
- */
 export async function searchForReader(
   env: Env,
   db: Db,
@@ -67,7 +61,6 @@ export async function searchForReader(
     audienceKeys: readableAudienceKeys(reader.user, chapters),
     query: input.query,
     layers: input.layers,
-    // Post-filters (page ACL, hidden agent pages) drop hits: over-fetch.
     maxResults: Math.min(maxResults * 2, 50),
     rewrite: input.rewrite,
   });
@@ -88,7 +81,6 @@ async function resolvePageHits(
   const pageHits = hits.filter((hit) => hit.pageId);
   const ids = [...new Set(pageHits.map((hit) => hit.pageId as string))];
   if (ids.length === 0) return { pages: [], excludedPages: 0 };
-  // Published pages the index matched but this reader may not see: counted, never named.
   const excluded = new Set<string>();
   const rows = await db.select().from(schema.pages).where(inArray(schema.pages.id, ids)).all();
   const byId = new Map(rows.map((row) => [row.id, row]));

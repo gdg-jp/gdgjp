@@ -14,8 +14,6 @@ function trimTrailing(value: string): string {
   return value.endsWith("/") ? value.slice(0, -1) : value;
 }
 
-// --- Incremental-consent state (PKCE + CSRF state) ---------------------
-
 export function workspaceRedirectUri(env: Env): string {
   return `${trimTrailing(env.APP_URL)}/oauth/google-workspace/callback`;
 }
@@ -77,11 +75,6 @@ export type ConsumedWorkspaceOauthState =
   | { ok: true; userId: string; codeVerifier: string; returnTo: string }
   | { ok: false; reason: "not_found" | "expired" | "session_mismatch" };
 
-/**
- * Single-use: the row is deleted on the first lookup regardless of outcome,
- * so a replayed `state` (valid or not) always reports "not_found" on the
- * second attempt.
- */
 export async function consumeWorkspaceOauthState(
   db: D1Database,
   state: string,
@@ -98,8 +91,6 @@ export async function consumeWorkspaceOauthState(
   if (row.userId !== sessionUserId) return { ok: false, reason: "session_mismatch" };
   return { ok: true, userId: row.userId, codeVerifier: row.codeVerifier, returnTo: row.returnTo };
 }
-
-// --- Google token endpoint calls ---------------------------------------
 
 type GoogleTokenSuccessBody = {
   access_token: string;
@@ -180,7 +171,6 @@ function isPositiveFiniteNumber(value: unknown): value is number {
   return typeof value === "number" && Number.isFinite(value) && value > 0;
 }
 
-/** Google's token responses are an external boundary: validate before trusting any field. */
 async function parseGoogleAccessTokenBody(
   response: Response,
 ): Promise<{ access_token: string; expires_in: number } | null> {
@@ -214,7 +204,6 @@ async function parseGoogleExchangeBody(response: Response): Promise<GoogleTokenS
   };
 }
 
-/** Best-effort: disconnect should still remove the local row even if Google's revoke call fails. */
 export async function revokeGoogleToken(env: Env, token: string): Promise<void> {
   await fetch(GOOGLE_REVOKE_URL, {
     method: "POST",
@@ -233,8 +222,6 @@ async function safeErrorBody(response: Response): Promise<string> {
     return `HTTP ${response.status}`;
   }
 }
-
-// --- Connection storage --------------------------------------------------
 
 export type WorkspaceConnectionRow = {
   userId: string;
@@ -262,7 +249,6 @@ export async function getWorkspaceConnection(
   return row ?? null;
 }
 
-/** Insert-or-reconnect. Reconnect clears any prior revocation and keeps the original connectedAt. */
 export async function upsertWorkspaceConnection(
   env: Env,
   db: D1Database,
@@ -297,16 +283,6 @@ export async function revokeWorkspaceConnection(db: D1Database, userId: string):
     .run();
 }
 
-/**
- * Rotation hook: call after any successful decrypt of a connection row. If
- * the row is still on an older encryption key version, re-encrypt it under
- * the current key and persist immediately — this is the "re-encrypt on next
- * refresh" half of the rotation procedure documented on
- * CURRENT_ENCRYPTION_KEY_VERSION above (the other half, a user-initiated
- * reconnect, already re-encrypts via upsertWorkspaceConnection). Without
- * this, a compromised key can only be retired once every connected user
- * happens to reconnect, which may never happen.
- */
 export async function reencryptWorkspaceConnectionIfStale(
   env: Env,
   db: D1Database,
@@ -318,8 +294,6 @@ export async function reencryptWorkspaceConnectionIfStale(
   await upsertWorkspaceConnection(env, db, userId, refreshToken, connection.scope);
 }
 
-// --- Token-vending rate limit + audit trail ------------------------------
-
 export type TokenVendOutcome =
   | "ok"
   | "forbidden_caller"
@@ -327,14 +301,6 @@ export type TokenVendOutcome =
   | "rate_limited"
   | "google_error";
 
-/**
- * Atomically reserves one request of quota for `callerUserId` in the current
- * fixed window and reports whether the caller is still under the limit. A
- * single `INSERT ... ON CONFLICT ... RETURNING` — rather than a separate
- * count-then-decide step — so concurrent requests can't all observe "under
- * the limit" and all proceed: D1/SQLite serializes writers, so each caller
- * gets a distinct, correctly-incremented count.
- */
 export async function reserveTokenVendQuota(
   db: D1Database,
   callerUserId: string,

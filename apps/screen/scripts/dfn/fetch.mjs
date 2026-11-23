@@ -1,22 +1,9 @@
 #!/usr/bin/env node
-// Puts the DeepFilterNet3 noise-suppression assets into public/dfn/<version>/
-// before a build or dev server: downloaded from the `screen-dfn/<version>`
-// GitHub Release (made by build.sh) and checked against the hashes below.
-// Files that already match are left alone.
-//
-//   node scripts/dfn/fetch.mjs              # from the release
-//   node scripts/dfn/fetch.mjs --from DIR   # from a local build.sh output
-//   node scripts/dfn/fetch.mjs --strict     # fail instead of warning (build)
-//
-// Without the assets the app still works (mics fall back to the browser's
-// own noise suppression), so dev only warns; `build` is strict so a deploy
-// never ships without them.
 import { createHash } from "node:crypto";
 import { copyFile, mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
-// Bump together with DFN_BASE in app/features/rtc/denoise/engine.ts.
 const VERSION = "v1";
 const RELEASE = `https://github.com/gdg-jp/gdgjp/releases/download/screen-dfn/${VERSION}`;
 // Release file → [served name, sha256]. The model is served as .bin: servers

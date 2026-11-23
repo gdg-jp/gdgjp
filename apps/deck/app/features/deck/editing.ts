@@ -1,7 +1,3 @@
-/**
- * Pure edits on a draft layout for the editor. Each returns a new layout.
- */
-
 import { type ObsAction, isDangerous, parseAction } from "~/features/obs/actions";
 import {
   type Behavior,
@@ -32,7 +28,6 @@ export function newKey(behavior: Behavior): Key {
   };
 }
 
-/** Stream / record stop keys start as hold-to-confirm. */
 export function confirmFor(behavior: Behavior): Key["confirm"] {
   if (behavior.type === "action" && isDangerous(behavior.action)) {
     return { mode: "hold", ms: HOLD_DEFAULT_MS };
@@ -40,7 +35,6 @@ export function confirmFor(behavior: Behavior): Key["confirm"] {
   return { mode: "none" };
 }
 
-/** Changing a key's action to a dangerous one turns hold-to-confirm on (once). */
 export function withAction(key: Key, action: ObsAction): Key {
   const before = key.behavior.type === "action" ? key.behavior.action : null;
   const behavior: Behavior = { type: "action", action };
@@ -77,7 +71,6 @@ export function setKey(
   }));
 }
 
-/** Moves a key to another slot of the same page, swapping with whatever is there. */
 export function moveKey(
   layout: DeckLayout,
   boardId: string,
@@ -130,7 +123,6 @@ export function movePage(
   });
 }
 
-/** A new folder board, with a "back" key in its first slot. */
 export function addFolder(
   layout: DeckLayout,
   name: string,
@@ -158,7 +150,6 @@ export function renameBoard(layout: DeckLayout, boardId: string, name: string): 
   return updateBoard(layout, boardId, (b) => ({ ...b, name: name.slice(0, 40) || b.name }));
 }
 
-/** Deletes a folder and every key that opened it. */
 export function removeBoard(layout: DeckLayout, boardId: string): DeckLayout {
   if (boardId === ROOT_BOARD || !layout.boards[boardId]) return layout;
   const boards: Record<string, Board> = {};
@@ -179,7 +170,6 @@ export function removeBoard(layout: DeckLayout, boardId: string): DeckLayout {
   return { ...layout, boards };
 }
 
-/** Changes the grid size, keeping every key at its row/column; keys outside the new grid are dropped. */
 export function resize(layout: DeckLayout, cols: number, rows: number): DeckLayout {
   const c = clampInt(cols, 1, MAX_COLS, layout.cols);
   const r = clampInt(rows, 1, MAX_ROWS, layout.rows);
@@ -202,7 +192,6 @@ export function resize(layout: DeckLayout, cols: number, rows: number): DeckLayo
   return { cols: c, rows: r, boards };
 }
 
-/** Keys that resizing to cols × rows would drop. */
 export function droppedByResize(layout: DeckLayout, cols: number, rows: number): number {
   let n = 0;
   for (const board of Object.values(layout.boards)) {
@@ -216,7 +205,6 @@ export function droppedByResize(layout: DeckLayout, cols: number, rows: number):
   return n;
 }
 
-/** Actions on the key the server would drop (missing scene name…). */
 export function keyIsIncomplete(key: Key): boolean {
   const b = key.behavior;
   const bad = (a: ObsAction) => parseAction(a) === null;

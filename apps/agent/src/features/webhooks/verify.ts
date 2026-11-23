@@ -1,6 +1,5 @@
 import { buffer, base64UrlDecode, hexToBytes, nowSeconds } from "../../lib";
 
-/** ±5 minute acceptance window for platform timestamps (v1 contract). */
 export const TIMESTAMP_WINDOW_SECONDS = 5 * 60;
 export const REPLAY_TTL_SECONDS = TIMESTAMP_WINDOW_SECONDS + 60;
 export const GOOGLE_CHAT_ISSUER = "chat@system.gserviceaccount.com";
@@ -8,7 +7,6 @@ export const GOOGLE_CHAT_JWKS_URL =
   "https://www.googleapis.com/service_accounts/v1/jwk/chat@system.gserviceaccount.com";
 
 export type ReplayStore = {
-  /** Records `id`; returns false if it was already recorded (a replay). */
   claim(id: string, ttlSeconds: number): Promise<boolean>;
 };
 
@@ -78,7 +76,6 @@ async function verifyDiscord(
   } catch {
     return fail("invalid_body");
   }
-  // A signed PING is answered before replay storage so endpoint registration needs no state.
   if (body.type === 1)
     return { ok: true, platform: "discord", ping: true, messageId: String(body.id ?? "") };
   if (typeof body.id !== "string" || !body.id) return fail("invalid_body");
@@ -158,7 +155,6 @@ async function verifyGoogleChat(request: Request, deps: VerifyDeps): Promise<Ver
   return { ok: true, platform: "google-chat", messageId: payload.jti };
 }
 
-/** Verify an inbound Discord interaction or Google Chat event before any application logic. */
 export async function verifyWebhook(
   request: Request,
   rawBody: string,
@@ -170,8 +166,6 @@ export async function verifyWebhook(
   return verifyGoogleChat(request, deps);
 }
 
-/** KV replay store. KV is eventually consistent, so this is best-effort dedupe on top of
- * the timestamp window; Discord retries reuse the interaction id within seconds. */
 export function kvReplayStore(kv: KVNamespace): ReplayStore {
   return {
     async claim(id, ttlSeconds) {

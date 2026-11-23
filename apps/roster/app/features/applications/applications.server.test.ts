@@ -108,11 +108,6 @@ describe("createApplication dedup (real SQLite, migrated schema)", () => {
     await seedEvent(testDb);
   });
 
-  /**
-   * docs/roster/04-applications.md "回帰として固定すべきテスト": a second
-   * application with the same (event_id, email) must be rejected — this is
-   * the dedup guarantee the whole proxy-registration design depends on.
-   */
   it("rejects a second application with the same (event_id, email)", async () => {
     const first = await createApplication(db, EVENT_ID, {
       userId: "user_1",
@@ -161,13 +156,6 @@ describe("createApplication dedup (real SQLite, migrated schema)", () => {
     expect(second).toEqual({ ok: false, reason: "duplicate_user" });
   });
 
-  /**
-   * Found during review: neither `accounts.gdgs.jp` nor an owner typing a
-   * proxy-add address guarantees stable email casing, and the
-   * `(event_id, email)` UNIQUE index has no `COLLATE NOCASE` — without
-   * normalizing, "Person@Example.com" and "person@example.com" would
-   * silently create two rows for the same person on the same event.
-   */
   it("treats emails as case-insensitive for dedup", async () => {
     const first = await createApplication(db, EVENT_ID, {
       userId: "user_1",
@@ -256,10 +244,6 @@ describe("claimApplication", () => {
     expect(claimed?.userId).toBe("user_9");
   });
 
-  /**
-   * docs/roster/04-applications.md "回帰として固定すべきテスト": an
-   * already-claimed row must never be claimable by someone else.
-   */
   it("does nothing when the row is already claimed by someone else", async () => {
     const created = await createApplication(db, EVENT_ID, {
       userId: "user_1",
@@ -340,12 +324,6 @@ describe("resolveOwnApplication", () => {
     expect(result).toEqual({ kind: "own", application: created.application });
   });
 
-  /**
-   * Found during review: the IdP-returned email case for a real sign-in
-   * won't always match whatever case a proxy-add row was created with, so
-   * the claim match must be case-insensitive too — not just dedup at write
-   * time.
-   */
   it("auto-claims a proxy registration even when the viewer's email differs only in case", async () => {
     const created = await createApplication(db, EVENT_ID, {
       userId: null,
@@ -435,12 +413,6 @@ describe("getApplicationByEventAndEmail", () => {
   });
 });
 
-/**
- * docs/roster/05-staff-supply-demand.md "回帰として固定すべきテスト": an
- * owner correction must land as `updated_by = 'owner'`, and (like
- * `/apply/:token`'s own "save reactivates" convention) reactivate a
- * withdrawn applicant rather than leaving them withdrawn.
- */
 describe("correctApplication", () => {
   let testDb: TestD1Database;
   let db: D1Database;

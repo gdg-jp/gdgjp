@@ -1,9 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { STATUSES, canApply, isEventStatus } from "./status";
 
-/**
- * Pin all known statuses so registration access cannot open early.
- */
 describe("canApply", () => {
   it.each(STATUSES)("status=%s", (status) => {
     expect(canApply(status)).toBe(status === "open");

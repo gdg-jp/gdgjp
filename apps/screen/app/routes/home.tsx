@@ -44,7 +44,6 @@ export default function Home({ loaderData }: Route.ComponentProps) {
   const { stages, user, accountsUrl } = loaderData;
   const revalidator = useRevalidator();
 
-  // Live counts: re-read the summaries while the list is on screen.
   useEffect(() => {
     const timer = setInterval(() => {
       if (document.visibilityState === "visible" && revalidator.state === "idle") {

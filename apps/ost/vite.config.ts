@@ -15,9 +15,6 @@ export default defineConfig({
     reactRouter(),
     tailwindcss(),
   ],
-  // `@gdgjp/gdg-lib` is consumed as source; without dedupe + eagerly optimizing
-  // the React-dependent libs it pulls in (radix-ui, lucide, motion), the client
-  // ends up with two React copies → "invalid hook call" at hydration.
   resolve: { tsconfigPaths: true, dedupe: ["react", "react-dom", "react-router"] },
   optimizeDeps: {
     include: [

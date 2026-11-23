@@ -107,7 +107,6 @@ describe("toRequests", () => {
       inputName: "Mic",
       inputMuted: true,
     });
-    // Ordinary keys ignore the release.
     expect(toRequests({ op: "stream", mode: "toggle" }, ctx(s, { phase: "up" }))).toEqual([]);
   });
 

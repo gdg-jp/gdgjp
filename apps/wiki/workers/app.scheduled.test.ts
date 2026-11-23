@@ -1,12 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { SOURCE_REFRESH_CRON, TASK_REMINDER_CRON } from "./features/sources/fetch-source";
 
-// The `scheduled` handler discriminates purely by cron string and fans out to
-// feature modules that moved in Stage 05 (`features/discord/reminders.server`,
-// `features/pages/content-backfill.server`, `features/sources/fetch-source`). A
-// broken import there only throws in production — cron never runs in CI — so
-// this test pins that both branches still reach their moved dependencies.
-
 const sendDueTaskReminders = vi.fn((_arg?: unknown) => Promise.resolve());
 const backfillMarkdownContent = vi.fn((_arg?: unknown) => Promise.resolve());
 const enqueueDueSourceRefreshes = vi.fn((_arg?: unknown) => Promise.resolve());
@@ -26,8 +20,6 @@ vi.mock("./features/sources/fetch-source", async (importOriginal) => {
   };
 });
 
-// Runtime-boundary modules pull `cloudflare:`-scheme imports the node test loader
-// cannot resolve; the `scheduled` handler never touches them.
 vi.mock("./decommissioned", () => ({
   WikiGenerationAgent: class {},
   WikiGenerationPhaseWorkflow: class {},

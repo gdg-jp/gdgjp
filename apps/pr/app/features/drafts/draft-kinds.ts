@@ -1,4 +1,3 @@
-/** `drafts.kind`. The checkable ones match skills/pr-playbook's DRAFT_KINDS. */
 export const DRAFT_KINDS = [
   "copy",
   "x_post",

@@ -6,10 +6,6 @@ export function loader() {
   return new Response("Method Not Allowed", { status: 405 });
 }
 
-/**
- * Cloud Pub/Sub Push 通知の受信エンドポイント。
- * 常に Google 署名 OIDC JWT を WebCrypto で検証し、バイパス経路を持たない。
- */
 export async function action({ request, context }: Route.ActionArgs) {
   if (request.method !== "POST") {
     return new Response("Method Not Allowed", { status: 405 });

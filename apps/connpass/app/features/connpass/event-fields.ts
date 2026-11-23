@@ -89,11 +89,6 @@ const eventWriteFieldNames = [
   "receiptIssuerAddress",
 ] as const;
 
-/**
- * Keep HTTP writes and the Browser Run job on the same, deliberately small
- * contract. Connpass exposes additional read-only or file-upload-only fields;
- * accepting those here would otherwise create successful no-op jobs.
- */
 export function parseEventWriteFields(
   body: Record<string, unknown>,
 ): { fields: EventEditFields } | { error: string } {

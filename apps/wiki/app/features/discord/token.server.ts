@@ -14,7 +14,6 @@ export interface DiscordOauthTokenRow {
   discordUserId: string | null;
 }
 
-/** Returns a usable Discord user OAuth token, refreshing when expired. */
 export async function getDiscordOauthTokenRow(
   env: Env,
   db: Db,

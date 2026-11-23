@@ -21,7 +21,7 @@ type fakeDiscord struct {
 	t        *testing.T
 	url      string
 	mu       sync.Mutex
-	opens    []map[string]any // the Identify or Resume each connection sent
+	opens    []map[string]any
 	forwards []Message
 	auth     []string
 	done     chan struct{}
@@ -62,7 +62,6 @@ func (f *fakeDiscord) gateway(w http.ResponseWriter, r *http.Request) {
 			"session_id": "sess1", "resume_gateway_url": f.url,
 			"user": map[string]any{"id": botID, "username": "GDG Agent"}, "guilds": []any{},
 		})
-		// Forwarded: a mention in a guild, and a DM.
 		write(0, "MESSAGE_CREATE", 2, map[string]any{
 			"id": "m1", "channel_id": "c1", "guild_id": "g1", "author": person,
 			"content": "<@" + botID + "> 会場は？", "mentions": []any{mention},
@@ -70,7 +69,6 @@ func (f *fakeDiscord) gateway(w http.ResponseWriter, r *http.Request) {
 		write(0, "MESSAGE_CREATE", 3, map[string]any{
 			"id": "m2", "channel_id": "dm", "author": person, "content": "DM の質問", "mentions": []any{},
 		})
-		// Not forwarded: no mention, and another bot mentioning us.
 		write(0, "MESSAGE_CREATE", 4, map[string]any{
 			"id": "m3", "channel_id": "c1", "guild_id": "g1", "author": person, "mentions": []any{},
 		})
@@ -78,7 +76,7 @@ func (f *fakeDiscord) gateway(w http.ResponseWriter, r *http.Request) {
 			"id": "m4", "channel_id": "c1", "guild_id": "g1",
 			"author": map[string]any{"id": "b", "bot": true}, "mentions": []any{mention},
 		})
-		write(7, "", 0, nil) // Reconnect: the client must resume
+		write(7, "", 0, nil)
 	} else {
 		write(0, "RESUMED", 6, map[string]any{})
 		close(f.done)
@@ -117,7 +115,7 @@ func TestGatewayIdentifiesOnlineForwardsMentionsAndResumes(t *testing.T) {
 	go func() {
 		select {
 		case <-f.done:
-			time.Sleep(100 * time.Millisecond) // let the forwards land
+			time.Sleep(100 * time.Millisecond)
 			cancel()
 		case <-ctx.Done():
 		}

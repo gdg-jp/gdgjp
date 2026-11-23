@@ -2,7 +2,6 @@ import { HOURLY_CRON, MINUTE_CRON, WEEKLY_CRON, runCron } from "~/features/cron/
 import type { Route } from "./+types/cron";
 import { isLocalDev } from "./local";
 
-/** Local dev / e2e: run a cron now. `/dev/cron?name=minute|hourly|weekly`. 404 elsewhere. */
 export async function loader({ request, context }: Route.LoaderArgs) {
   const env = context.cloudflare.env;
   if (!isLocalDev(env, request)) throw new Response(null, { status: 404 });

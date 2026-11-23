@@ -10,7 +10,6 @@ import { Button } from "@gdgjp/design-system";
 
 import type { ShareDialogController } from "./use-share-dialog";
 
-/** Prompt to propagate an ACL change to a page's descendants, shown after close. */
 import { Icons } from "@gdgjp/design-system";
 export function DescendantSyncDialog({ c }: { c: ShareDialogController }) {
   const {

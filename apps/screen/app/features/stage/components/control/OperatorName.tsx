@@ -14,12 +14,6 @@ function savedName(): string {
   }
 }
 
-/**
- * The name speakers see for this operator (chat, cues, "talking" indicator).
- * Defaults to the account name; an edited name is remembered in this browser
- * and re-announced on every (re)connect, since the room forgets operators
- * when they disconnect.
- */
 export function OperatorName({
   current,
   socketStatus,
@@ -45,9 +39,7 @@ export function OperatorName({
     if (!name) return;
     try {
       localStorage.setItem(NAME_KEY, name);
-    } catch {
-      // private mode: still applies for this connection
-    }
+    } catch {}
     send({ type: "name", name });
     setOpen(false);
   };

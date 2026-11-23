@@ -52,7 +52,6 @@ export async function stepListing(
           limit: DISCORD_PAGE_SIZE,
           after: after ?? current.run.sinceCursor ?? undefined,
         });
-        // Discord returns ascending when using `after`. Advance with the newest id.
         const newest = messages[messages.length - 1];
         if (newest) metaSet(ctx.sql, cursorKey, newest.id);
       } else {
@@ -60,7 +59,6 @@ export async function stepListing(
           limit: DISCORD_PAGE_SIZE,
           before: pageCursor ?? undefined,
         });
-        // Discord returns descending when using `before`. Advance with the oldest id.
         const oldest = messages[messages.length - 1];
         if (oldest) metaSet(ctx.sql, cursorKey, oldest.id);
       }
@@ -84,8 +82,6 @@ export async function stepListing(
       messages.length,
     );
 
-    // An incremental run only learns here whether anything is new; the open document is
-    // then re-fetched whole (regenerateOpenDocument), new messages included.
     if (incremental) {
       if (messages.length > 0) metaSet(ctx.sql, "has_new_messages", "1");
     } else {
@@ -119,7 +115,6 @@ export async function stepListing(
   return { phaseComplete: true };
 }
 
-/** Week of a Discord snowflake (its creation time). */
 function weekOfSnowflake(id: string): string | null {
   try {
     const unixMs = Number((BigInt(id) >> 22n) + 1420070400000n);
@@ -129,10 +124,6 @@ function weekOfSnowflake(id: string): string | null {
   }
 }
 
-/**
- * When the delta had new messages, index every message from the open document's first
- * week onward, so grouping packs the open document (and any that follow it) whole.
- */
 async function regenerateOpenDocument(
   ctx: DiscordImportTickContext,
   current: Current,
@@ -170,7 +161,6 @@ async function regenerateOpenDocument(
       throw error;
     }
     for (const message of messages) indexMessage(ctx.sql, message);
-    // Discord returns ascending when using `after`. Advance with the newest id.
     const newest = messages[messages.length - 1];
     if (messages.length < DISCORD_PAGE_SIZE || !newest) break;
     metaSet(ctx.sql, "open_regenerate_after", newest.id);

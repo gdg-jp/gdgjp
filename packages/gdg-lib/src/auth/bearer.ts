@@ -3,12 +3,6 @@ import type { AuthUser, ChapterRole, UserChapter } from "./index";
 
 export type BearerIdentity = { user: AuthUser; chapters: UserChapter[] };
 
-/**
- * Compatibility identity lookup: any valid OAuth client access token, resolved
- * through OIDC `/userinfo`. Malformed chapter entries are dropped individually
- * rather than failing the whole lookup — this leniency is part of the existing
- * authorization contract for connpass/wiki and must be preserved.
- */
 export async function getBearerIdentity(
   request: Request,
   accountsUrl: string,
@@ -41,13 +35,6 @@ export async function getBearerIdentity(
   };
 }
 
-/**
- * Strict CLI identity lookup: only a `gdg-cli` access token carrying the
- * `https://gdgs.jp/scopes/cli` scope succeeds. Backed by Accounts'
- * `/api/cli/v1/identity`, not `/userinfo`. A malformed Accounts response is an
- * integration failure — this returns `null` for the whole response rather than
- * dropping individual invalid entries.
- */
 export async function getCliIdentity(
   request: Request,
   accountsUrl: string,

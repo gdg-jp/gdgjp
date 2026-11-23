@@ -10,8 +10,6 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// newWikiJudgeCommand is `gdg wiki judge`: score eval answers for faithfulness with the
-// local Codex (read-only sandbox), writing verdicts back into the results file.
 func newWikiJudgeCommand() *cobra.Command {
 	var input, backendName, model string
 	command := &cobra.Command{

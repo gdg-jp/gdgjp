@@ -9,7 +9,6 @@ import {
 import { useFetcher } from "react-router";
 import { chapterLabel } from "~/features/auth/current-chapter";
 
-/** Top left of the sidebar. One chapter is a plain label; several get a menu. */
 export function ChapterSwitcher({
   chapters,
   chapterId,

@@ -7,7 +7,6 @@ export async function createJob(
 ): Promise<JobRecord> {
   const id = await insertQueuedJob(env.DB, input);
   await env.JOB_QUEUE.send({ jobId: id } satisfies JobQueueMessage);
-  // Vite local queue consumers often never fire; run the worker inline in dev.
   if (import.meta.env.DEV && ctx) {
     ctx.waitUntil(
       import("./job-runner.server").then((mod) =>

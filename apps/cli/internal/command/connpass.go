@@ -119,9 +119,6 @@ func jsonBodySpecified(cmd *cobra.Command) bool {
 	return fromFile != "" || rawJSON != ""
 }
 
-// jobProgress writes async-job status lines to stderr so callers (and agents
-// watching the process) can tell a long-running connpass browser job apart from
-// a hang. stdout stays reserved for the single terminal-job JSON document.
 func jobProgress(cmd *cobra.Command, job connpass.Job, elapsed time.Duration) {
 	fmt.Fprintf(cmd.ErrOrStderr(), "job %s status=%s elapsed=%s\n", job.Id, job.Status, elapsed.Round(time.Second))
 }

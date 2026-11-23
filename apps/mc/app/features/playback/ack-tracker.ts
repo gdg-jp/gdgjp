@@ -7,10 +7,6 @@ type Timers = {
   clearTimeout: (handle: unknown) => void;
 };
 
-/**
- * Pairs each sent command with its player ack. Every command resolves exactly
- * once: with the ack, with the room's failure, or with "timeout".
- */
 export class AckTracker {
   private pending = new Map<string, { resolve: (r: CommandResult) => void; timer: unknown }>();
 
@@ -40,7 +36,6 @@ export class AckTracker {
     return true;
   }
 
-  /** Fail everything in flight (the socket died under them). */
   failAll(reason: FailureReason) {
     for (const id of [...this.pending.keys()]) this.settle(id, { ok: false, reason });
   }

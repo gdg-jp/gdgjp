@@ -28,7 +28,6 @@ async function openController(page: Page, track = "A"): Promise<string> {
 }
 
 async function openPlayer(browser: Browser, playerUrl: string): Promise<Page> {
-  // A separate context = a separate machine (no shared cookies).
   const context = await browser.newContext();
   const player = await context.newPage();
   await player.goto(playerUrl);
@@ -50,7 +49,6 @@ test("play is acknowledged by the player, and stopping asks first", async ({ pag
   const bar = page.locator(".mc-bar");
   await expect(bar).toBeVisible();
 
-  // While playing, the length label counts down the time left.
   const seconds = async () => {
     const [m, sec] = (await card.locator(".mc-card-duration").innerText()).split(":").map(Number);
     return m * 60 + sec;
@@ -58,7 +56,6 @@ test("play is acknowledged by the player, and stopping asks first", async ({ pag
   const first = await seconds();
   await expect.poll(seconds, { timeout: 5000 }).toBeLessThan(first);
 
-  // ⏸ is a confirmation, and cancelling keeps the sound going.
   await bar.getByRole("button", { name: "停止" }).click();
   const dialog = page.getByRole("alertdialog");
   await expect(dialog.getByText("再生を停止しますか？")).toBeVisible();
@@ -69,7 +66,6 @@ test("play is acknowledged by the player, and stopping asks first", async ({ pag
   await page.getByRole("alertdialog").getByRole("button", { name: "停止する" }).click();
   await expect(card).toHaveAttribute("data-status", "paused");
 
-  // Resuming produces sound, so it needs no confirmation.
   await bar.getByRole("button", { name: "再生", exact: true }).click();
   await expect(card).toHaveAttribute("data-status", "playing");
   await bar.getByRole("button", { name: "停止" }).click();
@@ -125,7 +121,6 @@ test("each track is its own channel", async ({ page, browser }) => {
   const playerA = await openPlayer(browser, urlA);
   await expect(page.getByTestId("player-lamp")).toHaveAttribute("data-state", "ok");
 
-  // Track B has its own Player URL and does not see A's player.
   await switchTrack(page, "B");
   await page.getByRole("button", { name: "診断" }).click();
   const urlB = await page.getByTestId("player-url").inputValue();
@@ -138,7 +133,6 @@ test("each track is its own channel", async ({ page, browser }) => {
   await page.locator(".mc-card").first().getByRole("button", { name: "再生", exact: true }).click();
   await expect(page.getByText("配信PCが接続されていません").first()).toBeVisible();
 
-  // A's token is rejected by B's room.
   const crossed = await openPlayer(
     browser,
     urlB.replace(/t=[0-9a-f]+$/, `t=${new URL(urlA).searchParams.get("t")}`),
@@ -147,7 +141,6 @@ test("each track is its own channel", async ({ page, browser }) => {
   await expect(page.getByTestId("player-lamp")).toHaveAttribute("data-state", "down");
   await crossed.context().close();
 
-  // Back on A, A's player is still there and plays.
   await switchTrack(page, "A");
   await expect(page.getByTestId("player-lamp")).toHaveAttribute("data-state", "ok");
   const card = page.locator(".mc-card").first();
@@ -172,7 +165,6 @@ test("reissuing the Player URL needs two confirmations", async ({ page }) => {
   await page.getByRole("button", { name: "診断" }).click();
   const dialog = page.getByRole("alertdialog");
 
-  // Backing out at the second, warning step keeps the URL.
   await page.getByRole("button", { name: "再発行" }).click();
   await expect(dialog.getByText("Player URL を再発行しますか？")).toBeVisible();
   await dialog.getByRole("button", { name: "再発行する" }).click();
@@ -182,7 +174,6 @@ test("reissuing the Player URL needs two confirmations", async ({ page }) => {
   await expect(dialog).toHaveCount(0);
   await expect(page.getByTestId("player-url")).toHaveValue(before);
 
-  // Confirming both rotates it.
   await page.getByRole("button", { name: "再発行" }).click();
   await dialog.getByRole("button", { name: "再発行する" }).click();
   await expect(dialog.getByText("本当に Player URL を再発行しますか？")).toBeVisible();
@@ -190,7 +181,6 @@ test("reissuing the Player URL needs two confirmations", async ({ page }) => {
   await expect(page.getByTestId("player-url")).not.toHaveValue(before);
 });
 
-/** Mono 16-bit PCM WAV: tone, pause, tone — enough for decode + pause alignment. */
 function testWav(): Buffer {
   const rate = 8000;
   const parts: [boolean, number][] = [
@@ -244,24 +234,20 @@ test("an uploaded clip reaches the player and can be edited and deleted", async 
   await sheet.getByRole("button", { name: "登録" }).click();
   await expect(sheet).toBeHidden();
 
-  // New uploads go to the end of the track by default.
   const card = page.locator(".mc-card").last();
   await expect(card).toContainText(title);
   await expect(card).toContainText("一行目です。二行目です。");
 
-  // The player learns about it from the room and plays it.
   await card.getByRole("button", { name: "再生", exact: true }).click();
   await expect(card).toHaveAttribute("data-status", "playing");
   await expect(card).toHaveAttribute("data-status", "ended", { timeout: 8000 });
 
-  // Edit the heading.
   await card.getByRole("button", { name: "編集" }).click();
   await sheet.getByLabel("見出し").fill(`${title} 改`);
   await sheet.getByRole("button", { name: "保存" }).click();
   await expect(sheet).toBeHidden();
   await expect(card).toContainText(`${title} 改`);
 
-  // Delete it (danger confirmation).
   await card.getByRole("button", { name: "編集" }).click();
   await sheet.getByRole("button", { name: "削除" }).click();
   const confirm = page.getByRole("alertdialog");

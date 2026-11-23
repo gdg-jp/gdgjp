@@ -158,7 +158,6 @@ export async function sendDueTaskReminders(env: Env): Promise<void> {
     return;
   }
 
-  // Compute today's date in JST (UTC+9). At 15:00 UTC + 9h = 00:00 JST next calendar day.
   const nowUtcMs = Date.now();
   const jstMs = nowUtcMs + 9 * 3600 * 1000;
   const todayJst = new Date(jstMs).toISOString().slice(0, 10);
@@ -196,7 +195,6 @@ export async function sendDueTaskReminders(env: Env): Promise<void> {
     return;
   }
 
-  // Group tasks by Discord user ID
   const byUser = new Map<string, DueTask[]>();
   for (const row of rows) {
     if (!row.discordId) continue;

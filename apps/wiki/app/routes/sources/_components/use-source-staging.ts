@@ -7,12 +7,6 @@ import type { action } from "../page";
 
 type BatchFields = { visibility: string; chapter: string };
 
-/**
- * Local staging state for the `/sources` add-source panel: candidates picked
- * from Drive / Chat / Discord / URLs, their per-candidate errors, and the batch
- * submit fetcher. `registeredCandidateIds` folds in already-imported sources so
- * the pickers can disable duplicates.
- */
 export function useSourceStaging(
   sources: ReadonlyArray<{ externalId: string | null; kind: string }>,
 ) {
@@ -34,8 +28,6 @@ export function useSourceStaging(
     return ids;
   }, [sources, candidates]);
 
-  // A batch larger than one request allows (a picked Drive folder) is sent in chunks: each
-  // response removes what was added, then the next chunk goes out. `queue` holds the rest.
   const queue = useRef<{ rest: StagedSource[]; fields: BatchFields } | null>(null);
   const handled = useRef<unknown>(null);
   const [chunking, setChunking] = useState(false);

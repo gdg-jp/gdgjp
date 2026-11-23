@@ -81,7 +81,6 @@ describe("parseLayout", () => {
       },
     });
     expect(Object.keys(layout?.boards.root?.pages[0]?.keys ?? {})).toEqual(["0"]);
-    // A board with no pages gets one empty page.
     expect(layout?.boards.fold?.pages).toHaveLength(1);
   });
 

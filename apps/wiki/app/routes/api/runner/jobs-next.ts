@@ -7,7 +7,6 @@ import { getDb } from "~/lib/db.server";
 const TYPES: readonly AgentJobType[] = ["synthesize", "answer", "consolidate", "translate"];
 const POLL_MS = 2000;
 
-/** GET /api/runner/jobs/next?types=synthesize,translate&wait=25 — lease one job or 204. */
 export async function loader({ request, context }: LoaderFunctionArgs) {
   const { env } = context.cloudflare;
   requireRunner(request, env);

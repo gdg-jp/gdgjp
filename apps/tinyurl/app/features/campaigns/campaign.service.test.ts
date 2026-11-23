@@ -14,7 +14,6 @@ function dnsResponse(addresses: Array<{ data: string; type: number }>) {
   return Response.json({ Answer: addresses });
 }
 
-/** Stubs the DNS-over-HTTPS lookup `validatePublicHttpUrl` makes to resolve a hostname. */
 function stubPublicDns() {
   vi.stubGlobal(
     "fetch",
@@ -27,12 +26,6 @@ function stubPublicDns() {
   );
 }
 
-/**
- * A minimal in-memory D1 stand-in covering only the SQL shapes the campaign
- * repository issues for a campaign + its channels, so the service layer's
- * chapter-membership gate can be exercised end-to-end (not just the isolated
- * policy predicate).
- */
 function fakeCampaignsDb(campaigns: Row[], chapterLinks: Row[], channels: Row[]): D1Database {
   function prepare(sql: string) {
     let bound: unknown[] = [];
@@ -172,7 +165,6 @@ describe("campaign chapter-membership regression", () => {
   it("does not grant access from ownerUserId alone for a caller outside every campaign chapter", async () => {
     const { campaigns, chapterLinks, channels } = fixtures();
     const db = fakeCampaignsDb(campaigns, chapterLinks, channels);
-    // The caller IS campaign.ownerUserId, but belongs to none of its chapters.
     const actor = { user: user({ id: "user_owner" }), chapters: [chapter(99, "organizer")] };
 
     const result = await updateCampaignChannelForActor(db, actor, 1, 10, { name: "Hijacked" });

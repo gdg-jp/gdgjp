@@ -2,7 +2,6 @@ import { IconButton, Icons } from "@gdgjp/design-system";
 import { blockingIssues, issueText, issuesOf } from "../diagnostics";
 import { useController } from "./controller-context";
 
-/** Header lamps: this PC's link, the player link, and the diagnostics entry. */
 export function StatusCluster({ onOpenDiagnostics }: { onOpenDiagnostics: () => void }) {
   const { room } = useController();
   const alive = room.players.filter((p) => p.alive).length;
@@ -53,7 +52,6 @@ export function StatusCluster({ onOpenDiagnostics }: { onOpenDiagnostics: () => 
   );
 }
 
-/** The strip under the header: impossible to miss, one line, no prose. */
 export function IssueStrip() {
   const { room } = useController();
   const issue = issuesOf(room).find((i) => blockingIssues.has(i));

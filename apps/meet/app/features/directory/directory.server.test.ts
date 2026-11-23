@@ -44,7 +44,6 @@ describe("fetchChaptersDirectory", () => {
             name: "GDG Tokyo",
             kind: "gdg",
             region: "kanto",
-            // 余分な個人情報が混入してもブラウザ向け型 ChapterSummary には含めない。
             email: "secret@example.com",
           },
           {
@@ -81,7 +80,6 @@ describe("fetchChaptersDirectory", () => {
         region: "kansai",
       },
     ]);
-    // ブラウザ向け型 ChapterSummary のキーにメールアドレス等の個人情報が含まれないことを固定する。
     for (const chapter of chapters) {
       expect(Object.keys(chapter).sort()).toEqual(["id", "kind", "name", "region", "slug"]);
       expect("email" in chapter).toBe(false);
@@ -121,7 +119,6 @@ describe("fetchChaptersDirectory", () => {
   });
 });
 
-/** RP ローカル `user.id` → accounts ユーザー ID（`oidc_subject`）を返す D1 スタブ。 */
 function fakeUserDb(oidcSubject: string | null = "accounts-u-1") {
   const bound: unknown[][] = [];
   const db = {

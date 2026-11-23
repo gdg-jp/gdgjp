@@ -27,8 +27,6 @@ func newTinyurlCampaignsCommand(credentials store.CredentialStore) *cobra.Comman
 	return command
 }
 
-// addTinyurlArchivedListFlags registers --include-archived plus the shared
-// pagination flags on a campaigns/channels/sources list command.
 func addTinyurlArchivedListFlags(cmd *cobra.Command) {
 	cmd.Flags().Bool("include-archived", false, "Include archived rows")
 	addTinyurlPageFlags(cmd)
@@ -42,8 +40,6 @@ func tinyurlArchivedListOptions(cmd *cobra.Command) tinyurl.ListCampaignOptions 
 	}
 	return options
 }
-
-// --- campaigns ---------------------------------------------------------------
 
 func newTinyurlCampaignsListCommand(credentials store.CredentialStore) *cobra.Command {
 	command := &cobra.Command{
@@ -209,8 +205,6 @@ func newTinyurlCampaignsRestoreCommand(credentials store.CredentialStore) *cobra
 		},
 	}
 }
-
-// --- campaign channels -----------------------------------------------------
 
 func newTinyurlCampaignChannelsCommand(credentials store.CredentialStore) *cobra.Command {
 	command := &cobra.Command{
@@ -381,8 +375,6 @@ func newTinyurlChannelsRestoreCommand(credentials store.CredentialStore) *cobra.
 	return command
 }
 
-// --- campaign channel sources ------------------------------------------------
-
 func newTinyurlCampaignSourcesCommand(credentials store.CredentialStore) *cobra.Command {
 	command := &cobra.Command{
 		Use:   "sources",
@@ -540,8 +532,6 @@ func newTinyurlSourcesRestoreCommand(credentials store.CredentialStore) *cobra.C
 	addSourceIDFlag(command)
 	return command
 }
-
-// --- campaign analytics --------------------------------------------------
 
 func newTinyurlCampaignAnalyticsCommand(credentials store.CredentialStore) *cobra.Command {
 	command := &cobra.Command{

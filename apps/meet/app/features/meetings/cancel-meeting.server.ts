@@ -15,12 +15,6 @@ export type CancelMeetingDeps = {
   now?: () => Date;
 };
 
-/**
- * `active` な会議を取り消す。
- * 1. `calendar.deleteEvent(sendUpdates="all")` で予定削除・キャンセル通知送信（404 / 410 は冪等成功）
- * 2. D1 `meetings` を `status = 'canceled'`、`canceled_at = now` に更新
- * 3. `MEET_JOBS` へ `{ type: "cleanup_meeting", meetingId }` を投入
- */
 export async function cancelMeeting(
   env: Env,
   meeting: MeetingRecord,
@@ -60,7 +54,6 @@ export async function cancelMeeting(
           fetchFn,
         );
       } catch (error) {
-        // 既に Google 側で削除済みの場合は冪等に成功扱いとする。
         if (
           !(
             error instanceof GoogleApiError &&

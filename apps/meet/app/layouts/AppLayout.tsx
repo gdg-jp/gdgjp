@@ -11,7 +11,6 @@ export type AppUser = {
   isAdmin?: boolean;
 };
 
-/** サインイン済み GDG Japan Meet 画面共通のアプリシェル。 */
 export function AppLayout({
   user,
   accountsUrl,

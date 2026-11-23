@@ -1,11 +1,3 @@
-/**
- * Adapts Web Audio's 128-sample render quanta to the model's hop size.
- *
- * Input collects until a whole hop is there, which `process` turns into a hop
- * of output. Output starts primed with one hop of silence: since quanta and
- * hops are both multiples of 32, the queue then never runs dry, at the cost of
- * one hop (10 ms at 48 kHz) of extra delay.
- */
 export class Reframer {
   private readonly input: Float32Array;
   private filled = 0;
@@ -22,7 +14,6 @@ export class Reframer {
     this.available = hop;
   }
 
-  /** Feeds one quantum in and writes the same number of samples out. */
   push(samples: Float32Array, out: Float32Array) {
     for (let i = 0; i < samples.length; ) {
       const take = Math.min(this.hop - this.filled, samples.length - i);
@@ -39,7 +30,6 @@ export class Reframer {
 
   private write(frame: Float32Array) {
     const size = this.ring.length;
-    // A stall upstream could overfill the ring; drop the oldest audio.
     if (this.available + frame.length > size) {
       const drop = this.available + frame.length - size;
       this.readPos = (this.readPos + drop) % size;
@@ -65,7 +55,6 @@ export class Reframer {
   }
 }
 
-/** 95th percentile of the samples (sorts in place). */
 export function p95(values: number[]): number {
   if (values.length === 0) return 0;
   values.sort((a, b) => a - b);

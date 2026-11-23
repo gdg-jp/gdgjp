@@ -5,20 +5,16 @@ import { ReliableSocket, type SocketStatus } from "./reliable-socket";
 export type RoomConnection<V extends View> = {
   view: V | null;
   status: SocketStatus;
-  /** Close code when the server refused us for good (replaced/revoked/deleted). */
   rejected: number | null;
-  /** Server clock minus local clock, for timers. */
   clockOffset: number;
   send: (msg: ClientMessage) => boolean;
 };
 
-/** Build the stage socket URL (same origin; ws/wss follows the page). */
 export function socketUrl(params: Record<string, string>): string {
   const proto = window.location.protocol === "https:" ? "wss:" : "ws:";
   return `${proto}//${window.location.host}/ws?${new URLSearchParams(params)}`;
 }
 
-/** Live view of a stage over an endlessly reconnecting socket. */
 export function useStageRoom<V extends View>(
   params: Record<string, string> | null,
 ): RoomConnection<V> {

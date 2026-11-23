@@ -505,7 +505,6 @@ describe("validatePageAclForSync", () => {
       visibility: "member",
       status: "ready",
     };
-    // First query: span ids from ja∪en; second would be cited (none).
     const db = mockDb([enSource]);
     await expect(
       validatePageAclForSync(
@@ -617,10 +616,6 @@ describe("validateReadSourcesTagged", () => {
   });
 
   it("server-side run-level check fails on empty pages (CLI short-circuits before calling)", async () => {
-    // Direct API / library callers with readSourceIds and no pages still fail
-    // acl_untagged_read_source. `gdg wiki verify-acl` intentionally returns OK
-    // without calling the server when dirty/diff, tip history, and Writes are
-    // all empty — so this empty-pages failure is not the CLI contract.
     await expect(
       validateReadSourcesTagged(mockDb([organizerSource]), [], ["org-src"], memberUser, [
         { chapterId: "tokyo", role: "organizer" },

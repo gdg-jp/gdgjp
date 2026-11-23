@@ -7,7 +7,6 @@ export type AutoArtifactsCardProps = {
   onChange: (next: MeetingAutoArtifacts) => void;
 };
 
-/** 会議スペースの自動記録（文字起こし・Gemini Notes・録画）の設定カード。 */
 export function AutoArtifactsCard({ value, onChange }: AutoArtifactsCardProps) {
   const idPrefix = useId();
 

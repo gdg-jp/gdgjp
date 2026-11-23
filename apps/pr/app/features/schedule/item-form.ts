@@ -14,7 +14,6 @@ const opt = (value: FormDataEntryValue | null): string | null => {
   return text && text !== NONE ? text : null;
 };
 
-/** The schedule item dialog's fields → ItemInput. */
 export function parseItemForm(
   form: FormData,
 ): { ok: true; input: ItemInput } | { ok: false; errors: ItemFormErrors } {

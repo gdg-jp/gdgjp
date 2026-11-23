@@ -47,9 +47,6 @@ export async function stepFinalizing(ctx: SourceImportTickContext, current: Curr
     index += 1;
     metaSet(ctx.sql, "drive_finalize_index", String(index));
   }
-  // The tick engine calls complete immediately after the last phase. Reserve its
-  // reconciliation + final D1 mutations + one batched staging delete instead of crossing
-  // the soft limit.
   return {
     phaseComplete: index >= units.length && ctx.budget.canSpend(ARCHIVE_MISSING_SUBREQUESTS + 3),
   };
@@ -111,7 +108,6 @@ export async function completeDriveImport(
     .toArray()) {
     stagedKeys.push(row.json_key);
   }
-  // Runs started before drive_files staged the document JSON under this meta key.
   const sourceJsonKey = metaGet(ctx.sql, "drive_source_json_key");
   if (sourceJsonKey) stagedKeys.push(sourceJsonKey);
   // One R2 delete call takes up to 1,000 keys; a folder source can stage hundreds per run.

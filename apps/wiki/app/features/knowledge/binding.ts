@@ -1,7 +1,3 @@
-/**
- * The slice of the AI Search namespace binding this app uses (built-in storage instances,
- * Items API, filtered search). Narrow on purpose: tests provide a fake with this shape.
- */
 export type KnowledgeChunk = {
   id: string;
   score: number;

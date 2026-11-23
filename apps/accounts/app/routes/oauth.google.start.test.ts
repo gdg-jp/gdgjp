@@ -75,8 +75,6 @@ describe("Google OAuth start", () => {
     await vi.advanceTimersByTimeAsync(AUTH_HANDLER_TIMEOUT_MS);
     const response = await pending;
 
-    // Not the start route's own URL: nesting return_to would restart the
-    // Google hop instead of returning the user where they asked to go.
     expect(response.headers.get("Location")).toBe("/signin?return_to=%2Fchapters%2Ftokyo");
 
     vi.useRealTimers();

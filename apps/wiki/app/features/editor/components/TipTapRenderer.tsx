@@ -9,10 +9,6 @@ export interface TocItem {
   level: number;
 }
 
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
 function slugify(text: string): string {
   return text
     .toLowerCase()
@@ -24,10 +20,6 @@ export function extractPlainText(nodes: TipTapNode[]): string {
   return nodes.map((n) => (n.text ?? "") + extractPlainText(n.content ?? [])).join("");
 }
 
-/**
- * Generates a stable, deduplicated heading ID.
- * Mutates `counters` to track usage across a document.
- */
 function makeHeadingId(text: string, counters: Map<string, number>): string {
   const baseId = `h-${slugify(text) || "section"}`;
   const count = counters.get(baseId) ?? 0;
@@ -35,10 +27,6 @@ function makeHeadingId(text: string, counters: Map<string, number>): string {
   return count === 0 ? baseId : `${baseId}-${count}`;
 }
 
-/**
- * Extracts h2 and h3 headings for Table of Contents generation.
- * Uses the same counter strategy as TipTapRenderer so anchor IDs match.
- */
 export function extractTocItems(doc: TipTapDoc | TipTapNode): TocItem[] {
   const items: TocItem[] = [];
   const counters = new Map<string, number>();
@@ -58,10 +46,6 @@ export function extractTocItems(doc: TipTapDoc | TipTapNode): TocItem[] {
   visit(doc as TipTapNode);
   return items;
 }
-
-// ---------------------------------------------------------------------------
-// Inline rendering
-// ---------------------------------------------------------------------------
 
 function renderMarkedText(text: string, marks: TipTapNode["marks"]): ReactNode {
   let content: ReactNode = text;
@@ -114,10 +98,6 @@ function renderInline(nodes: TipTapNode[]): ReactNode {
     return <span key={k}>{renderInline(node.content ?? [])}</span>;
   });
 }
-
-// ---------------------------------------------------------------------------
-// Block rendering
-// ---------------------------------------------------------------------------
 
 function renderNode(node: TipTapNode, counters: Map<string, number>, key: number): ReactNode {
   switch (node.type) {
@@ -246,10 +226,6 @@ function renderNode(node: TipTapNode, counters: Map<string, number>, key: number
       return node.text ? <span key={key}>{node.text}</span> : null;
   }
 }
-
-// ---------------------------------------------------------------------------
-// Main component
-// ---------------------------------------------------------------------------
 
 interface TipTapRendererProps {
   doc: TipTapDoc | TipTapNode;

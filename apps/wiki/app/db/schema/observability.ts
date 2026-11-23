@@ -1,7 +1,6 @@
 import { sql } from "drizzle-orm";
 import { index, integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
 
-// Stage 06: nightly latency samples (freshness, integration, answer). See /admin/stats.
 export const freshnessSamples = sqliteTable(
   "freshness_samples",
   {

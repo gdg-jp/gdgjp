@@ -43,13 +43,8 @@ function toIntervalMs(session: SessionIntervalInput): { startMs: number; endMs: 
   return { startMs, endMs };
 }
 
-/**
- * 同一人物の重なり合うセッション区間を統合して合計滞在時間（秒）を算出する。
- * 二重計上を防ぎ、不正・未終了・長さ 0 以下のセッションは無視する。
- */
 type IntervalMs = { startMs: number; endMs: number };
 
-/** 有効なセッション区間を開始順に並べ、重なり合う区間を統合して返す。 */
 function mergeIntervals(sessions: readonly SessionIntervalInput[]): IntervalMs[] {
   const intervals = sessions
     .map(toIntervalMs)
@@ -73,10 +68,6 @@ export function mergeSessionIntervalsSeconds(sessions: readonly SessionIntervalI
   return Math.round(totalMs / 1000);
 }
 
-/**
- * 全セッションのイベント走査でピーク同時接続数を算出する。
- * 同時刻の同着（`end == start`）は「退室（-1）を先、入室（+1）を後」として処理する。
- */
 export function computePeakConcurrent(sessions: readonly SessionIntervalInput[]): number {
   return peakFromIntervals(sessions.map(toIntervalMs).filter((i): i is IntervalMs => i !== null));
 }
@@ -103,10 +94,6 @@ function peakFromIntervals(intervals: readonly IntervalMs[]): number {
   return peak;
 }
 
-/**
- * 開催回全体の統計と参加者ごとの集計を算出する。
- * 共有ホストアカウント（`isHostAccount === true`）は参加者数・ピーク同時接続・出席数・総滞在時間から除外する。
- */
 export function aggregateConferenceStats(
   inputs: readonly ParticipantAggregationInput[],
 ): ConferenceAggregationResult {
@@ -128,7 +115,6 @@ export function aggregateConferenceStats(
   }
 
   const attendedInviteeEmails = new Set<string>();
-  // 同一人物が複数端末で同時に入室していても 1 人と数えるため、人ごとに区間を統合してから走査する。
   const nonHostIntervals: IntervalMs[] = [];
   let totalAttendanceSeconds = 0;
 
@@ -149,10 +135,6 @@ export function aggregateConferenceStats(
   };
 }
 
-/**
- * 文字起こしエントリ配列から話者別のエントリ数・文字数・発言時間（秒）を集計する。
- * 本文（`text`）自体は保持せず文字数のみを加算する。
- */
 export function aggregateTranscriptEntries(
   entries: readonly MeetTranscriptEntry[],
 ): SpeakerTranscriptDelta[] {

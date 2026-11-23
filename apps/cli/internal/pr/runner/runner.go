@@ -1,9 +1,3 @@
-// Package runner is `gdg pr runner`: the OCI-resident loop that leases pr.gdgs.jp agent jobs,
-// runs a coding agent read-only on a bundle of files, and returns its JSON. It never posts,
-// never pushes and never calls X or connpass: the pr Worker validates, checks and delivers.
-//
-// The job protocol is the wiki runner's (/api/runner/jobs/next, /heartbeat, /result), so the
-// HTTP client, Job / Result types and agent backends come from internal/wiki/runner.
 package runner
 
 import (
@@ -18,19 +12,17 @@ import (
 	wikirunner "github.com/gdg-jp/gdgjp/cli/internal/wiki/runner"
 )
 
-// JobTypes this runner serves, highest priority first (the server orders by priority anyway).
 var JobTypes = []string{"assist", "fix", "post", "copy", "page", "asset", "plan", "analyze", "retro"}
 
-// Config comes from /etc/gdg/pr-runner.env (systemd EnvironmentFile).
 type Config struct {
-	BaseURL     string // GDG_PR_URL
-	Token       string // RUNNER_TOKEN (pr's, not the wiki's)
-	Backend     string // RUNNER_BACKEND=codex|gemini
-	Model       string // RUNNER_MODEL
-	Workdir     string // RUNNER_WORKDIR
-	YomiyasuDir string // YOMIYASU_DIR
-	RenderDir   string // GDG_RENDER_DIR: a directory with node_modules/playwright and browsers/ (the render broker)
-	FontsDir    string // GDG_FONTS_DIR: the design fonts the broker serves to rendered pages
+	BaseURL     string
+	Token       string
+	Backend     string
+	Model       string
+	Workdir     string
+	YomiyasuDir string
+	RenderDir   string
+	FontsDir    string
 	Python      string
 	Host        string
 	Version     string
@@ -87,7 +79,6 @@ func New(cfg Config, logger *log.Logger) (*Runner, error) {
 	return NewWithBackend(cfg, backend, logger), nil
 }
 
-// NewWithBackend is New with an injected backend (tests).
 func NewWithBackend(cfg Config, backend wikirunner.Backend, logger *log.Logger) *Runner {
 	if logger == nil {
 		logger = log.New(os.Stderr, "pr-runner: ", log.LstdFlags)
@@ -100,8 +91,6 @@ func NewWithBackend(cfg Config, backend wikirunner.Backend, logger *log.Logger) 
 	}
 }
 
-// Run serves jobs until ctx ends (or after one job with Once). One slot: the Codex quota is
-// shared with the wiki runner on the same VM.
 func (r *Runner) Run(ctx context.Context) error {
 	if err := os.MkdirAll(r.cfg.Workdir, 0o700); err != nil {
 		return err
@@ -155,7 +144,6 @@ func (r *Runner) heartbeatLoop(ctx context.Context) {
 	}
 }
 
-// process runs one job with its lease kept alive, then reports the result.
 func (r *Runner) process(ctx context.Context, job *wikirunner.Job) {
 	r.mu.Lock()
 	r.running = job.ID
@@ -187,7 +175,7 @@ func (r *Runner) process(ctx context.Context, job *wikirunner.Job) {
 	r.log.Printf("job %s (%s, campaign %s) started", job.ID, job.Type, job.SpaceID)
 	result := r.handle(jobCtx, job)
 	if jobCtx.Err() != nil && ctx.Err() == nil {
-		return // lease lost: the server requeues it
+		return
 	}
 	if err := r.api.Complete(ctx, job.ID, job.Attempts, result); err != nil {
 		r.log.Printf("job %s: report failed: %v", job.ID, err)

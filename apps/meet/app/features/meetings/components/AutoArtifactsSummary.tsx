@@ -1,7 +1,6 @@
 import { Badge, Inline } from "@gdgjp/design-system";
 import { MEETING_AUTO_ARTIFACT_OPTIONS, type MeetingAutoArtifacts } from "../meeting";
 
-/** 会議詳細画面で自動記録設定（文字起こし・Gemini Notes・録画）の有効/無効をバッジ表示する。 */
 export function AutoArtifactsSummary(artifacts: MeetingAutoArtifacts) {
   return (
     <Inline>

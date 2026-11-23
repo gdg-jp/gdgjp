@@ -47,7 +47,6 @@ export function toCampaign(row: CampaignRow): Campaign {
   };
 }
 
-/** Campaigns hosted or co-hosted by any of the chapters. */
 export async function listCampaignsForChapters(
   db: D1Database,
   chapterIds: number[],
@@ -114,7 +113,6 @@ export type NewCampaign = {
   creator: { id: string; name: string; email: string };
 };
 
-/** Campaign + its host chapter + the creator as lead, in one batch. */
 export async function insertCampaign(
   db: D1Database,
   input: NewCampaign,
@@ -311,7 +309,6 @@ export async function removeMember(
     .run();
 }
 
-/** Users who have signed in to pr (the gdg-lib user cache): the pool members are picked from. */
 export async function listKnownUsers(
   db: D1Database,
 ): Promise<{ id: string; name: string; email: string }[]> {
@@ -321,7 +318,6 @@ export async function listKnownUsers(
   return results;
 }
 
-/** Keep the member's live claims so the precheck can ask sns about them later. */
 export async function recordMemberClaims(
   db: D1Database,
   campaignId: number,
@@ -348,7 +344,6 @@ export async function listMemberClaims(
   return results.map((r) => ({ userId: r.user_id, name: r.name, claims: r.claims_snapshot }));
 }
 
-/** The `{ user, chapters }` cron calls to tinyurl act for (whoever last activated). */
 export async function setActorSnapshot(db: D1Database, id: number, actor: string): Promise<void> {
   await db
     .prepare("UPDATE campaigns SET actor_snapshot = ?, updated_at = unixepoch() WHERE id = ?")
@@ -371,7 +366,6 @@ export async function setTinyurlCampaign(db: D1Database, id: number, tinyurlId: 
     .run();
 }
 
-/** Slugs already taken among `base` and `base-<n>`. */
 export async function takenSlugs(db: D1Database, base: string): Promise<Set<string>> {
   const { results } = await db
     .prepare("SELECT slug FROM campaigns WHERE slug = ? OR substr(slug, 1, ?) = ?")

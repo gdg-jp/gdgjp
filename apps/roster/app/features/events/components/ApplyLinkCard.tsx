@@ -2,20 +2,6 @@ import { useState } from "react";
 import { Form } from "react-router";
 import { type EventStatus, STATUSES, STATUS_LABELS } from "~/features/events/status";
 
-/**
- * The public apply-URL card on `/e/:id/staff` (docs/roster/05-staff-supply-
- * demand.md "Design" §4): one-click copy of the registration link, plus the
- * event status switch. `canApplyNow` mirrors `~/features/events/status
- * #canApply(event.status)` — when false, the URL still displays (an owner
- * may want to copy it ahead of opening registration) but a banner makes it
- * explicit that visiting it right now won't let anyone register.
- *
- * Submitting the status select reuses `~/features/events/events.server
- * #updateEventSettings` — a full-row overwrite, so the route's action must
- * pass through the event's *current* `stepMin`/`maxConsecutive`/
- * `noSoloNewcomer` alongside the new `status` (this component only ever
- * sends `status`).
- */
 export function ApplyLinkCard({
   applyUrl,
   status,
@@ -53,11 +39,7 @@ export function ApplyLinkCard({
               await navigator.clipboard.writeText(applyUrl);
               setCopied(true);
               setTimeout(() => setCopied(false), 2000);
-            } catch {
-              // Clipboard access can be denied (permissions, non-HTTPS
-              // context) — the URL is still selectable text either way, so
-              // failing silently (no copied confirmation) is enough.
-            }
+            } catch {}
           }}
           className="rounded-full border-2 border-border bg-surface px-4 py-2 text-sm font-bold transition hover:bg-neutral-100"
         >

@@ -1,11 +1,6 @@
 import { type Server, createServer } from "node:http";
 import { chromium } from "@playwright/test";
 
-/**
- * Local stand-in for Browser Rendering's `snapshot` (it does not run locally): POST the same
- * options ({ html, viewport, waitForSelector, screenshotOptions }) and get the same JSON
- * ({ success, result: { content, screenshot } }). The pr Worker uses it when PR_RENDER_URL is set.
- */
 export const RENDER_PORT = 5298;
 
 export async function startRenderServer(): Promise<Server> {

@@ -62,7 +62,6 @@ export function parseTransformOpts(url: URL): TransformOpts {
 }
 
 export function hasTransform(opts: TransformOpts): boolean {
-  // DPR is folded into explicit dimensions and has no effect by itself.
   return Boolean(opts.w || opts.h || opts.fit || opts.radius || opts.q || opts.f);
 }
 
@@ -70,7 +69,6 @@ export function imageUrl(env: Env, id: string): string {
   return `${env.APP_URL.replace(/\/$/, "")}/${id}`;
 }
 
-/** Canonical public URL for a known row: the custom slug when set, else the id. */
 export function imageUrlFor(env: Env, image: Pick<ImageRow, "id" | "slug">): string {
   return `${env.APP_URL.replace(/\/$/, "")}/${image.slug ?? image.id}`;
 }

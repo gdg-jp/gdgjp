@@ -1,25 +1,14 @@
-/**
- * Google Forms API client for fetching form structure and responses.
- *
- * Uses the logged-in user's OAuth access token (stored in better-auth's
- * `account` table) to access forms they own or have been shared.
- */
-
-// ---------------------------------------------------------------------------
-// Types
-// ---------------------------------------------------------------------------
-
 export interface FormQuestion {
   questionId: string;
   title: string;
   type: FormQuestionType;
-  options?: string[]; // for RADIO, CHECKBOX, DROP_DOWN
-  low?: number; // for SCALE
-  high?: number; // for SCALE
+  options?: string[];
+  low?: number;
+  high?: number;
   lowLabel?: string;
   highLabel?: string;
-  rows?: string[]; // for GRID
-  columns?: string[]; // for GRID
+  rows?: string[];
+  columns?: string[];
 }
 
 export type FormQuestionType =
@@ -58,15 +47,7 @@ export interface FormData {
   responses: FormResponse[];
 }
 
-// ---------------------------------------------------------------------------
-// URL parsing (re-exported from shared utils for convenience)
-// ---------------------------------------------------------------------------
-
 export { extractFormId, isGoogleFormUrl } from "./forms-utils";
-
-// ---------------------------------------------------------------------------
-// API fetching
-// ---------------------------------------------------------------------------
 
 export async function fetchFormStructure(
   formId: string,
@@ -123,10 +104,6 @@ export async function fetchFormData(formId: string, accessToken: string): Promis
   return { structure, responses };
 }
 
-// ---------------------------------------------------------------------------
-// Google Forms API raw types (subset we care about)
-// ---------------------------------------------------------------------------
-
 interface GoogleFormsApiForm {
   formId: string;
   info: { title: string; description?: string };
@@ -177,10 +154,6 @@ interface GoogleFormsApiResponse {
     }
   >;
 }
-
-// ---------------------------------------------------------------------------
-// Parsers
-// ---------------------------------------------------------------------------
 
 function parseFormStructure(formId: string, raw: GoogleFormsApiForm): FormStructure {
   const questions: FormQuestion[] = [];

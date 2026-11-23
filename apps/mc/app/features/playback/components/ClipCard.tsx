@@ -8,7 +8,6 @@ import { ScrollingText } from "./ScrollingText";
 import { SeekBar } from "./SeekBar";
 import { useController } from "./controller-context";
 
-/** Shared clock hook: live position, cue, or the value being scrubbed/held. */
 export function useClipClock(clipId: string) {
   const { positionOf } = useController();
   const preview = useRef<number | null>(null);
@@ -37,7 +36,6 @@ export const ClipCard = memo(function ClipCard({ clip }: { clip: Clip }) {
       setCue(clip.id, ms);
       return;
     }
-    // Hold the released position while the confirmation is open.
     setPreview(ms);
     await run(`${clip.id}:seek`, seekIntent(ms, now));
     setPreview(null);

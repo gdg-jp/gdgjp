@@ -47,15 +47,12 @@ export function WikiPageView() {
   const contentLangFetcher = useFetcher();
   const submitRef = contentLangFetcher.submit;
 
-  // Persist content lang selection only when it differs from the stored value.
   useEffect(() => {
     try {
       const stored = localStorage.getItem("content_lang");
       if (stored === lang) return;
       localStorage.setItem("content_lang", lang);
-    } catch {
-      // Reader preferences must remain usable when browser storage is blocked.
-    }
+    } catch {}
     submitRef({ lang }, { method: "post", action: "/api/set-content-lang" });
   }, [lang, submitRef]);
 
@@ -159,7 +156,6 @@ export function WikiPageView() {
         </Await>
       </Suspense>
 
-      {/* Comments section — full article width below content */}
       <div
         className={`${display.fullWidth ? "" : "max-w-3xl"} min-w-0 flex-1 border-t border-border px-4 py-8 md:px-10`}
       >

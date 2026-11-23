@@ -30,7 +30,6 @@ export type ScheduleItem = {
   updatedAt: number;
 };
 
-/** What a caller supplies to create an item (derived items are computed). */
 export type ItemInput = {
   kind: ScheduleKind;
   channel?: string | null;

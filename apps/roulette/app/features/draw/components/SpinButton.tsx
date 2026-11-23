@@ -2,11 +2,6 @@ import { Button, Icons } from "@gdgjp/design-system";
 import { useEffect, useRef } from "react";
 import { reducedMotion } from "../feedback";
 
-/**
- * The spin button. Holding it charges the spin (the fill grows); releasing —
- * or a click / Enter — spins. While idle a halo pulses behind it; the button
- * itself stays still so it is easy to hit.
- */
 export function SpinButton({
   label,
   charge = 0,

@@ -10,7 +10,6 @@ import { getDb } from "~/lib/db.server";
 
 export const meta: MetaFunction = () => [{ title: "Starred — GDG Japan Wiki" }];
 
-/** `/starred`: the reader's favorites across every space they can reach, newest star first. */
 export async function loader({ request, context }: LoaderFunctionArgs) {
   const { env } = context.cloudflare;
   const user = await requireUser(request, env);

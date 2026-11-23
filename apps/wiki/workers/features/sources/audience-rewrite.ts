@@ -3,13 +3,11 @@ import * as schema from "../../../app/db/schema";
 import { rawObjectMetadata } from "../../../app/features/sources/raw-object";
 import { getDb } from "../../../app/lib/db.server";
 
-/** Documents re-tagged per queue message (each costs one R2 get + one put). */
 const BATCH = 40;
 
 export type SourceAudienceRewriteMessage = {
   type: "source_audience_rewrite";
   sourceId: string;
-  /** Resume after this document id. */
   after?: string;
 };
 
@@ -24,12 +22,6 @@ export function isSourceAudienceRewriteQueueBody(
   );
 }
 
-/**
- * After a visibility change, re-tag every v2 raw object of the source with the new
- * `audience`. Unchanged content is never re-fetched, so without this the old audience would
- * keep matching readers the source no longer allows (search would leak after narrowing).
- * Continues itself through the queue in batches.
- */
 export async function rewriteSourceAudience(
   env: Env,
   message: SourceAudienceRewriteMessage,

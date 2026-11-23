@@ -27,7 +27,6 @@ export async function loader({ request, context, params }: LoaderFunctionArgs) {
   const { env } = context.cloudflare;
   const cache = (caches as CacheStorage & { default: Cache }).default;
   const db = getDb(env);
-  // OG images are fetched anonymously by crawlers: the space itself must be public.
   const space = await getSpaceBySlug(db, params.space ?? DEFAULT_SPACE_SLUG);
   if (!space || !(await isSpacePublic(db, space.id))) {
     throw new Response("Not Found", { status: 404 });
@@ -51,8 +50,6 @@ export async function loader({ request, context, params }: LoaderFunctionArgs) {
 
   if (!pageRecord) throw new Response("Not Found", { status: 404 });
 
-  // Check visibility before the cache so changing a page back to restricted
-  // immediately makes every previously generated image URL unavailable.
   const cached = await cache.match(request);
   if (cached) return cached;
 

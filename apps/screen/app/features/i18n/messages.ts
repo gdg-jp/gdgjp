@@ -1,7 +1,3 @@
-/**
- * Speaker-facing strings (the only bilingual surface). Most are tooltips and
- * accessible names: the UI itself is icon-first.
- */
 export type Lang = "ja" | "en";
 
 export const LANG_COOKIE = "screen-lang";
@@ -136,7 +132,6 @@ export function isLang(value: unknown): value is Lang {
   return value === "ja" || value === "en";
 }
 
-/** Cookie first, then Accept-Language; Japanese by default. */
 export function pickLang(cookieHeader: string | null, acceptLanguage: string | null): Lang {
   const cookie = cookieHeader
     ?.split(";")

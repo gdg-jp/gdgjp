@@ -1,18 +1,5 @@
 import { SSO_SESSION_COOKIE } from "@gdgjp/gdg-lib/auth/claims";
 
-/**
- * Keeps the parent-domain `gdg_sid` cookie in step with the browser's Better
- * Auth session, the way accounts.google.com keeps `*.google.com` informed.
- *
- * Relying parties bind their own session to the IdP session ID (`sid`) and
- * compare it with this cookie on every request, so signing out, switching
- * accounts or an expired IdP session is visible to every `*.gdgs.jp` app on
- * its next request. The value is the public session ID, never the session
- * token, so a relying party never receives an IdP credential.
- */
-
-// Better Auth names its session cookie `<prefix>.session_token`, with the
-// `__Secure-` prefix whenever the base URL is HTTPS.
 const SESSION_COOKIE_NAMES = [
   "__Secure-gdgjp-accounts.session_token",
   "gdgjp-accounts.session_token",
@@ -32,9 +19,6 @@ export async function reconcileSsoCookie(
   if (issued === "cleared") {
     session = null;
   } else if (issued) {
-    // A different session replaced the presented one (signing in again or as
-    // another user without signing out first). End the old session so its
-    // OAuth grants are revoked instead of lingering beside the new one.
     if (presented && presented !== issued) await deleteSessionByToken(env.DB, presented);
     session = await findLiveSession(env.DB, issued);
   } else if (shouldCheckPresentedSession(request)) {
@@ -44,8 +28,6 @@ export async function reconcileSsoCookie(
   }
 
   const current = readCookie(request, SSO_SESSION_COOKIE);
-  // Re-issue on every new session cookie so the hint's lifetime follows
-  // Better Auth's sliding expiry.
   if (!issued && (session?.id ?? null) === current) return response;
   if (!session && current === null) return response;
 
@@ -58,7 +40,6 @@ export async function reconcileSsoCookie(
   });
 }
 
-/** Navigations and OAuth endpoints are where a relying party may look next. */
 function shouldCheckPresentedSession(request: Request): boolean {
   if (request.method !== "GET") return false;
   if (new URL(request.url).pathname.startsWith("/api/auth/oauth2/")) return true;
@@ -107,7 +88,6 @@ function readPresentedSessionToken(request: Request): string | null {
   return null;
 }
 
-/** Better Auth signs the cookie as `<token>.<signature>`; D1 stores the token. */
 function sessionTokenFromCookieValue(value: string): string | null {
   let decoded: string;
   try {

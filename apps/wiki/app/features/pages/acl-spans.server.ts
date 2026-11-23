@@ -1,11 +1,3 @@
-/**
- * Server-side policy evaluation for page-body ACL spans.
- *
- * Span evaluation MUST call canAccessSource directly so raw visibility and
- * derived-span visibility stay in lockstep when source permissions change.
- * Do not invent a second evaluator or a total confidentiality ordering.
- */
-
 import type { AuthUser } from "@gdgjp/gdg-lib";
 import { audienceContains, parseLevelAudienceKey, sourceAudienceKey } from "@gdgjp/gdg-lib/acl";
 import type { PageAudienceSubject, SourceAudienceKey } from "@gdgjp/gdg-lib/acl";
@@ -24,7 +16,6 @@ import {
 import { mapInChunks } from "~/features/pages/d1-chunk.server";
 import { canAccessSource } from "~/features/sources/sources.server";
 
-// Structural enough for both getDb() and workers' drizzle(env.DB, { schema }).
 // biome-ignore lint/suspicious/noExplicitAny: Drizzle schema generics are invariant across call sites
 type Db = DrizzleD1Database<any>;
 type Membership = { chapterId: string | number; role: string };
@@ -49,10 +40,6 @@ function syntheticSourceFromLevel(
   }
 }
 
-/**
- * Build a synchronous allow predicate for redactAclSpans.
- * Loads every referenced source in one inArray query.
- */
 export async function buildAclSpanPolicy(
   db: Db,
   spanSourceIds: readonly string[],
@@ -87,8 +74,6 @@ export async function buildAclSpanPolicy(
 
     if (span.srcIds.length === 0) return false;
 
-    // Logical AND across sources; missing/deleted src → Admin only (fail closed).
-    // Archived sources keep their visibility — archive is a lifecycle state, not ACL revocation.
     return span.srcIds.every((id) => {
       const source = sourceById.get(id);
       if (!source) {
@@ -99,7 +84,6 @@ export async function buildAclSpanPolicy(
   };
 }
 
-/** True only when every ACL span across the given markdowns is allowed. */
 export async function pageAclClearance(
   db: Db,
   markdowns: readonly (string | null | undefined)[],
@@ -120,7 +104,6 @@ export async function pageAclClearance(
   return spans.every((span) => allow(span));
 }
 
-/** Redact denied spans and always strip tags. Scrubs residual malformed markers too. */
 export async function redactPageMarkdown(
   db: Db,
   markdown: string,
@@ -148,24 +131,14 @@ export type AclSyncValidationPage = {
 export type AclSyncContext = {
   pageVisibility: string;
   pageAccess: readonly { subjectType: string; subjectKey: string }[];
-  /** Cited source IDs from front matter sources[]. */
   citedSourceIds: readonly string[];
-  /**
-   * Space of the page. A span may only cite sources of the same space — a cross-space
-   * reference would let one tenant's page carry (and gate on) another tenant's source.
-   */
   spaceId: string;
-  /** Existing opposite-locale body, used when only one locale is in the upsert. */
   storedContentJa?: string | null;
   storedContentEn?: string | null;
   contentJa?: string | null;
   contentEn?: string | null;
 };
 
-/**
- * Validate ACL tags on a sync upsert. Does not check redacted_page_not_editable
- * (that needs the pusher's clearance over the stored page).
- */
 export async function validatePageAclForSync(
   db: Db,
   locales: { ja?: AclSyncValidationPage; en?: AclSyncValidationPage },
@@ -211,7 +184,6 @@ export async function validatePageAclForSync(
     const byId = new Map(rows.map((row) => [row.id, row]));
     for (const id of uniqueSrcIds) {
       const source = byId.get(id);
-      // Archived sources remain citeable; only truly missing ids are unknown.
       if (!source || source.spaceId !== ctx.spaceId) {
         return { ok: false, error: "acl_unknown_source", sourceId: id };
       }
@@ -221,8 +193,6 @@ export async function validatePageAclForSync(
     }
   }
 
-  // Invariant: every cited source must either be audience-covered by the page
-  // or appear in at least one <acl src> span in either locale body.
   const spanIdSet = new Set(uniqueSrcIds);
   if (ctx.citedSourceIds.length > 0) {
     const citedUnique = [...new Set(ctx.citedSourceIds.filter(Boolean))];
@@ -248,10 +218,8 @@ export async function validatePageAclForSync(
       if (spanIdSet.has(id)) continue;
       const source = citedById.get(id);
       if (!source) {
-        // Unknown citation is a separate concern; require a span to be safe.
         return { ok: false, error: "acl_required", sourceId: id };
       }
-      // Archived sources keep visibility — evaluate the invariant the same way.
       const key = sourceAudienceKey(source.visibility, source.chapterId);
       if (!key || !audienceContains(key, pageAudience)) {
         return { ok: false, error: "acl_required", sourceId: id };
@@ -269,11 +237,6 @@ export type ValidateReadSourcesPage = {
   content: string;
 };
 
-/**
- * Run-level ingest gate: every read source narrower than `member` must either
- * appear in an `<acl src>` on at least one submitted page, or be audience-covered
- * by every submitted page. Does not require every page to tag S.
- */
 export async function validateReadSourcesTagged(
   db: Db,
   pages: readonly ValidateReadSourcesPage[],
@@ -305,7 +268,6 @@ export async function validateReadSourcesTagged(
 
   for (const id of uniqueIds) {
     const source = byId.get(id);
-    // Archive does not change visibility; member-wide reads still need no tag.
     if (source && source.visibility === "member") {
       continue;
     }

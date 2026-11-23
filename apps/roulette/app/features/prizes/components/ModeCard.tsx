@@ -43,7 +43,6 @@ export function ModeCard({
 }: {
   draft: Draft;
   errors: DraftErrors;
-  /** What the unlimited prizes count as right now, for the standard and evil modes. */
   pool: number;
   onChange: (draft: Draft) => void;
 }) {

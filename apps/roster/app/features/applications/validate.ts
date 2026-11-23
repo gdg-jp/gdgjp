@@ -9,14 +9,6 @@ import {
   type Pref,
 } from "./types";
 
-/**
- * Pure validation for the `/apply/:applyToken` form (docs/roster/04-
- * applications.md "Design" §2 "入力項目"). No D1, no auth — the route
- * gathers `allowedRoleIds` (the event's `event_roles`) and `timeSlotIds`
- * (the event's `time_slots`) once and passes them in, so this stays a
- * pure function testable without touching the database.
- */
-
 export type SkillInput = { roleId: string; level: Level; pref: Pref };
 export type AvailabilityInput = { timeSlotId: string; value: AvailabilityValue };
 
@@ -30,17 +22,11 @@ export type ApplyFormInput = {
 };
 
 export type ApplyFormContext = {
-  /** `event.hasParty` — when false the party field isn't asked and isn't validated. */
   hasParty: boolean;
   allowedRoleIds: ReadonlySet<string>;
   timeSlotIds: ReadonlySet<string>;
 };
 
-/**
- * Every time slot must have an availability entry (docs/roster/04-
- * applications.md "Design" §2 lists it as 必須) — an omitted slot isn't
- * "unspecified", it just wouldn't exist for the solver to read.
- */
 export function validateApplyForm(input: ApplyFormInput, ctx: ApplyFormContext): string[] {
   const errors: string[] = [];
 

@@ -7,11 +7,9 @@ import {
   parseTokenEncryptionKeys,
 } from "./token-crypto";
 
-/** Must match the seeded `agents` client redirect URI byte for byte. */
 export const REDIRECT_URI = "https://agent.gdgs.jp/auth/callback";
 export const STATE_TTL_SECONDS = 10 * 60;
 const REFRESH_SKEW_SECONDS = 60;
-/** `@gdgjp/gdg-lib/auth/claims` CHAPTERS_SCOPE; the agent Worker has no workspace deps. */
 export const CHAPTERS_SCOPE = "https://gdgs.jp/scopes/chapters";
 export const OAUTH_SCOPES = ["openid", "email", "profile", "offline_access", CHAPTERS_SCOPE];
 
@@ -64,7 +62,6 @@ async function tokenRequest(deps: AuthDeps, body: URLSearchParams): Promise<Toke
 
 type LinkState = { platform: ChatPlatform; chatUserId: string; codeVerifier: string };
 
-/** Start Authorization Code + PKCE for a verified chat identity; state lives in KV (single use). */
 export async function createLinkUrl(
   platform: ChatPlatform,
   chatUserId: string,
@@ -93,7 +90,6 @@ export async function createLinkUrl(
   return url.toString();
 }
 
-/** OAuth callback: the chat identity comes from the consumed state, never from the query. */
 export async function completeLink(code: string, state: string, deps: AuthDeps): Promise<boolean> {
   if (!code || !state) return false;
   const key = `link:state:${state}`;
@@ -144,7 +140,6 @@ export type LinkedToken =
   | { status: "none" }
   | { status: "temporarily_unavailable" };
 
-/** A usable access token for a linked chat user, refreshed (rotating, CAS) when near expiry. */
 export async function getLinkedToken(
   platform: ChatPlatform,
   chatUserId: string,
@@ -167,7 +162,6 @@ export async function getLinkedToken(
       );
     } catch (error) {
       if (error instanceof InvalidGrantError) {
-        // Someone else may have rotated it a moment ago; otherwise the link is dead.
         const current = await deps.links.read(platform, chatUserId);
         if (current && current.serialized !== stored.serialized)
           return getLinkedToken(platform, chatUserId, deps);
@@ -202,7 +196,6 @@ export async function getLinkedToken(
   }
 }
 
-/** Revoke at the IdP, then delete exactly the record that supplied the token. */
 export async function unlink(
   platform: ChatPlatform,
   chatUserId: string,

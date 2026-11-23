@@ -5,7 +5,6 @@ import { listEventsForChapters } from "~/features/events/events.server";
 import { getDb } from "~/lib/db.server";
 import type { Route } from "./+types/admin";
 
-/** Shared authenticated chrome. Child routes continue to own event authorization. */
 export async function loader({ request, context }: Route.LoaderArgs) {
   const env = context.cloudflare.env;
   const { user, chapters } = await requireUserWithChapter(env, request);

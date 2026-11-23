@@ -9,11 +9,6 @@ import {
   revokeInvite,
 } from "./repository.server";
 
-/**
- * Runs the invite SQL against real SQLite (Node's built-in driver) so the
- * migration's constraints and the membership upsert are exercised, not just
- * the calls. Only the slice of D1 these modules use is wrapped.
- */
 function createDb() {
   const raw = new DatabaseSync(":memory:");
   raw.exec(`PRAGMA foreign_keys = ON;

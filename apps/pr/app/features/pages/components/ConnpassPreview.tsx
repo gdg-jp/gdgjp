@@ -2,7 +2,6 @@ import { Button, Card, FormField, Heading, Input, Stack, Text } from "@gdgjp/des
 import { useState } from "react";
 import { Form } from "react-router";
 
-// A frame shaped like connpass's description column (no sanitizer: the renderer guarantees it).
 const FRAME_CSS =
   "body{margin:0;padding:16px;font-family:'Hiragino Sans','Noto Sans JP',sans-serif;font-size:15px;line-height:1.8;color:#333;}a{color:#1a73e8;}img{max-width:100%;height:auto;}";
 
@@ -14,7 +13,6 @@ type Props = {
   busy: boolean;
 };
 
-/** connpass-like preview at 1000 / 390 px, the images to supply, and "copy the HTML". */
 export function ConnpassPreview({ html, warnings, imageSlots, imageUrls, busy }: Props) {
   const [width, setWidth] = useState<1000 | 390>(1000);
   return (

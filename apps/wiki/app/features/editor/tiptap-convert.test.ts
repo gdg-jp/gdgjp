@@ -123,7 +123,6 @@ describe("applyPatchesToMarkdown", () => {
     const result = applyPatchesToMarkdown(existingMarkdown, patches);
     expect(result).toContain("## 関連リンク");
     expect(result).toContain("- https://example.com");
-    // New section should be at the end
     const staffIdx = result.indexOf("## 担当スタッフ");
     const linksIdx = result.indexOf("## 関連リンク");
     expect(linksIdx).toBeGreaterThan(staffIdx);
@@ -167,13 +166,10 @@ describe("applyPatchesToMarkdown", () => {
       },
     ];
     const result = applyPatchesToMarkdown(mdWithCodeFence, patches);
-    // Code fence content should be preserved unchanged
     expect(result).toContain(
       "```markdown\n## 担当スタッフ\nこれはコードブロック内のヘッダーです\n```",
     );
-    // Patch should be applied to the real section, not inside the code fence
     expect(result).toContain("- New Person");
-    // The real 担当スタッフ section (last occurrence) has the patch appended
     const realSectionIdx = result.lastIndexOf("## 担当スタッフ");
     const newPersonIdx = result.indexOf("- New Person");
     expect(newPersonIdx).toBeGreaterThan(realSectionIdx);

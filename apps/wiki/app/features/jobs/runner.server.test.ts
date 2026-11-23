@@ -42,14 +42,11 @@ describe("leaseNextJob", () => {
     const leased = await leaseNextJob(db, { types: ["synthesize"], host: "a" });
     expect(leased?.id).toBe("dead");
     expect(leased?.attempts).toBe(2);
-    // Still one clone job per space.
     insertJob(sqlite, { id: "next", type: "synthesize", run_after: 0 });
     expect(await leaseNextJob(db, { types: ["synthesize"], host: "b" })).toBeNull();
   });
 
   it("merges an expired job into the space's queued one instead of violating the index", async () => {
-    // c-2: a runner restart left its synthesize leased while new Discord documents queued a
-    // second one. Requeueing the first broke idx_agent_jobs_one_queued_per_space.
     const { db, sqlite } = createSpacesTestDb();
     insertJob(sqlite, {
       id: "dead",

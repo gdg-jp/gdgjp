@@ -32,7 +32,6 @@ export function metaOf(stage: StageRow): StageMeta {
   return { id: stage.id, name: stage.name, slotCount: stage.slotCount };
 }
 
-/** URL-safe random token (base64url, 24 bytes). */
 export function randomToken(): string {
   const bytes = crypto.getRandomValues(new Uint8Array(24));
   return btoa(String.fromCharCode(...bytes))
@@ -58,7 +57,6 @@ export async function getStage(db: D1Database, id: string): Promise<StageRow | n
   return row ? toStage(row) : null;
 }
 
-/** Inserts a stage under the operator's id; null when that id is already taken. */
 export async function createStage(
   db: D1Database,
   input: { id: string; name: string; slotCount: number; createdBy: string },
@@ -88,7 +86,6 @@ export async function renameStage(db: D1Database, id: string, name: string): Pro
     .run();
 }
 
-/** New OBS token; the old OBS URLs stop working. */
 export async function rotateOutputToken(db: D1Database, id: string): Promise<string> {
   const token = randomToken();
   await db

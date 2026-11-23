@@ -1,4 +1,3 @@
-/** The parts of a draft version that delivery needs (pr-x-post's first post). */
 export type DeliverablePost = {
   text: string;
   attachmentKind: "image" | "ogp" | "none";
@@ -40,7 +39,6 @@ export function deliverablePost(content: unknown): DeliverablePost | null {
   };
 }
 
-/** Reasons a draft cannot be approved for delivery (OGP-ON-SHORTLINK, a link with no target). */
 export function approvalBlockers(
   post: DeliverablePost | null,
   fallbackUrl: string | null,
@@ -59,10 +57,8 @@ export function approvalBlockers(
   return out;
 }
 
-/** The ISO instant sns expects. */
 export const isoAt = (unixSeconds: number) => new Date(unixSeconds * 1000).toISOString();
 
-/** JST wall time for messages, e.g. 12/01 18:00. */
 export function jstLabel(unixSeconds: number): string {
   const d = new Date((unixSeconds + 9 * 3600) * 1000);
   const pad = (n: number) => String(n).padStart(2, "0");

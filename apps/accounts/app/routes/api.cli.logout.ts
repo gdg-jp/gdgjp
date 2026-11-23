@@ -41,7 +41,6 @@ function bearerToken(request: Request): string | null {
   return match?.[1] ?? null;
 }
 
-/** Better Auth stores OAuth access tokens as unpadded base64url SHA-256 hashes. */
 async function hashAccessToken(token: string): Promise<string> {
   const digest = new Uint8Array(
     await crypto.subtle.digest("SHA-256", new TextEncoder().encode(token)),

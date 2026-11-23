@@ -1,19 +1,16 @@
 import { type RouteConfig, index, layout, route } from "@react-router/dev/routes";
 
 export default [
-  // Public routes (no app shell)
   route("/api/auth/*", "routes/public/api-auth.tsx"),
   route("/signin", "routes/public/signin.tsx"),
   route("/dev/login", "routes/public/dev.login.ts"),
   route("/logout", "routes/public/logout.tsx"),
 
-  // Task API routes (no app shell)
   route("/api/tasks/:taskListId", "routes/api/tasks/list.ts"),
   route("/api/tasks/:taskListId/:taskId", "routes/api/tasks/task.ts"),
   route("/api/tasks/:taskListId/teams", "routes/api/tasks/teams.ts"),
   route("/api/tasks/:taskListId/reorder", "routes/api/tasks/reorder.ts"),
 
-  // API routes (no app shell)
   route("/api/set-ui-lang", "routes/api/user/set-ui-lang.tsx"),
   route("/api/set-content-lang", "routes/api/user/set-content-lang.tsx"),
   route("/api/user/preferences", "routes/api/user/preferences.ts"),
@@ -63,7 +60,6 @@ export default [
   route("/api/cli/wiki/chat-senders", "routes/api/cli/chat-senders.ts"),
   route("/api/cli/wiki/agents-md", "routes/api/cli/agents-md.ts"),
   route("/api/cli/wiki/attachments/:attachmentId", "routes/api/cli/attachments.ts"),
-  // OCI runner (Stage 04) — RUNNER_TOKEN only.
   route("/api/runner/heartbeat", "routes/api/runner/heartbeat.ts"),
   route("/api/runner/jobs/next", "routes/api/runner/jobs-next.ts"),
   route("/api/runner/jobs/:id/context", "routes/api/runner/jobs-context.ts"),
@@ -76,7 +72,6 @@ export default [
   route("/api/agent/cat", "routes/api/agent/cat.ts"),
   route("/api/agent/search", "routes/api/agent/search.ts"),
   route("/api/agent/knowledge-search", "routes/api/agent/knowledge-search.ts"),
-  // Stage 05 — agent Worker (Discord / Chat) reads as a reader; answer jobs.
   route("/api/agent/page", "routes/api/agent/page.ts"),
   route("/api/agent/spaces", "routes/api/agent/spaces.ts"),
   route("/api/agent/spaces/:space/members", "routes/api/agent/space-members.ts"),
@@ -90,26 +85,19 @@ export default [
   route("/api/agent/log", "routes/api/agent/log.ts"),
   route("/api/agent/instructions", "routes/api/agent/instructions.ts"),
 
-  // Public OGP image for public and unlisted wiki pages.
   route("/og/wiki/:slug", "routes/wiki/og-image.tsx"),
   route("/og/s/:space/wiki/:slug", "routes/wiki/og-image.tsx", { id: "space-og-image" }),
 
-  // About / landing for logged-in users — no app shell
   route("/about", "routes/public/about.tsx"),
 
-  // Legal pages — public, no auth shell
   route("/privacy", "routes/public/privacy.tsx"),
   route("/terms", "routes/public/terms.tsx"),
 
-  // Catch-all: return 404 for any unmatched URL (suppresses React Router warning)
   route("*", "routes/$.tsx"),
 
-  // App routes — wrapped in shared layout (Navbar + PageTree sidebar)
   layout("routes/_app.tsx", [
     index("routes/_index.tsx"),
     route("/search", "routes/wiki/search.tsx"),
-    // v1 URLs: permanent redirects into the migrated default space (kept indefinitely —
-    // Discord messages and external links still carry them).
     route("/wiki/new", "routes/spaces/legacy-redirect.tsx", { id: "legacy-wiki-new" }),
     route("/wiki/*", "routes/spaces/legacy-redirect.tsx", { id: "legacy-wiki-page" }),
     route("/wiki/:slug/edit", "routes/spaces/legacy-redirect.tsx", { id: "legacy-wiki-edit" }),
@@ -120,7 +108,6 @@ export default [
     route("/ingest", "routes/spaces/ingest-redirect.tsx", { id: "legacy-ingest" }),
     route("/ingest/*", "routes/spaces/ingest-redirect.tsx", { id: "legacy-ingest-session" }),
     route("/analyze", "routes/spaces/ingest-redirect.tsx", { id: "legacy-analyze" }),
-    // Spaces (knowledge platform v2 Stage 01).
     route("/spaces", "routes/spaces/list.tsx"),
     route("/spaces/:space/settings", "routes/spaces/settings.tsx"),
     route("/spaces/:space/review", "routes/spaces/review.tsx"),
@@ -140,9 +127,6 @@ export default [
     route("/tasks/:slug/settings", "routes/tasks/settings.tsx"),
     route("/tasks/:slug/history", "routes/tasks/history.tsx"),
 
-    // Admin screens. Share the app shell (Navbar + Sidebar) with the rest of
-    // the app. User and chapter management are owned by the accounts IdP;
-    // admins land on /admin/pages.
     route("admin", "routes/admin/layout.tsx", [
       index("routes/admin/index.tsx"),
       route("pages", "routes/admin/pages.tsx"),

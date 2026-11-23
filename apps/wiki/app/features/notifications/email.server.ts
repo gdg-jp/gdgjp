@@ -1,10 +1,6 @@
 const FROM_ADDRESS = "GDG Wiki <noreply@gdgs.jp>";
 const RESEND_API_URL = "https://api.resend.com/emails";
 
-// ---------------------------------------------------------------------------
-// Security helpers
-// ---------------------------------------------------------------------------
-
 function sanitizeEmailHeader(value: string): string {
   return value.replace(/[\r\n]/g, "");
 }
@@ -52,10 +48,6 @@ async function sendViaResend(
     throw new Error(`Resend API error ${res.status}: ${body}`);
   }
 }
-
-// ---------------------------------------------------------------------------
-// Ingestion complete email
-// ---------------------------------------------------------------------------
 
 export interface IngestionCompleteEmailOpts {
   to: string;
@@ -125,10 +117,6 @@ export async function sendIngestionCompleteEmail(
   );
 }
 
-// ---------------------------------------------------------------------------
-// Invitation email
-// ---------------------------------------------------------------------------
-
 export interface InvitationEmailOpts {
   to: string;
   role: "lead" | "member" | "viewer";
@@ -136,10 +124,6 @@ export interface InvitationEmailOpts {
   siteUrl: string;
 }
 
-/**
- * Sends an invitation email via Resend.
- * In non-production environments, logs the email content instead.
- */
 export async function sendInvitationEmail(env: Env, opts: InvitationEmailOpts): Promise<void> {
   const { to, role, chapterName, siteUrl } = opts;
 
@@ -192,10 +176,6 @@ export async function sendInvitationEmail(env: Env, opts: InvitationEmailOpts): 
   await sendViaResend(env.RESEND_API_KEY, safeToHeader, subject, htmlBody, textBody);
 }
 
-// ---------------------------------------------------------------------------
-// Page share email
-// ---------------------------------------------------------------------------
-
 export interface PageShareEmailOpts {
   to: string;
   pageTitle: string;
@@ -211,10 +191,7 @@ const PAGE_ROLE_LABEL: Record<PageShareEmailOpts["role"], string> = {
   editor: "Editor",
 };
 
-/** Sends a sharing notice for a directly-addressed email grant (never Chapters). */
 export async function sendPageShareEmail(env: Env, opts: PageShareEmailOpts): Promise<void> {
-  // Development uses a localhost URL and only logs the notification; production
-  // mail links must remain HTTPS.
   const pageUrl =
     env.ENVIRONMENT === "production"
       ? requireHttpsUrl(opts.pageUrl)

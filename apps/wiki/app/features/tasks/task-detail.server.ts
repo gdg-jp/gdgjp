@@ -8,10 +8,8 @@ import { pageInSpace } from "~/features/pages/page-space.server";
 import { DEFAULT_SPACE_ID } from "~/features/spaces/shared";
 import { getDb } from "~/lib/db.server";
 
-/** Resolved shape of the `/tasks/:slug` loader data (used by `TaskListView`). */
 export type TaskDetailData = Awaited<ReturnType<typeof loadTaskDetail>>;
 
-/** Data assembly behind the `/tasks/:slug` loader. */
 export async function loadTaskDetail(request: Request, env: Env, slug: string | undefined) {
   const identity = await getAccessIdentity(request, env);
   const user = identity.user;
@@ -74,7 +72,6 @@ export async function loadTaskDetail(request: Request, env: Env, slug: string | 
         : Promise.resolve(undefined),
     ]);
 
-    // Get dependencies for all tasks in this list
     const taskIds = tasks.map((t) => t.id);
     const deps =
       taskIds.length > 0
@@ -85,7 +82,6 @@ export async function loadTaskDetail(request: Request, env: Env, slug: string | 
             .all()
         : [];
 
-    // Build dependency map
     const depMap = new Map<string, string[]>();
     for (const d of deps) {
       const list = depMap.get(d.taskId) || [];
@@ -125,7 +121,6 @@ export async function loadTaskDetail(request: Request, env: Env, slug: string | 
   };
 }
 
-/** Favorite toggle / archive / settings update behind the `/tasks/:slug` action. */
 export async function handleTaskDetailAction(request: Request, env: Env, slug: string | undefined) {
   const user = await requireUser(request, env);
   const identity = await getAccessIdentity(request, env);

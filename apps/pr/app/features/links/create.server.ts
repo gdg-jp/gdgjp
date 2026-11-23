@@ -8,10 +8,6 @@ import type { CampaignLink } from "./link";
 import { campaignChannelId, insertLink, linkForItem } from "./link.repository.server";
 import { shortlinkSlug } from "./slug";
 
-/**
- * One short link per schedule item, created on url.gdgs.jp (tinyurl) as the approver. The draft
- * keeps `{{shortlink}}`; delivery substitutes this link's URL.
- */
 export async function ensureShortlink(
   env: Env,
   actor: PrActor,

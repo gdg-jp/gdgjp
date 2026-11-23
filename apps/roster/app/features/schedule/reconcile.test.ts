@@ -3,9 +3,6 @@ import { reconcileSlotKeys } from "./reconcile";
 
 describe("reconcileSlotKeys", () => {
   it("keeps the id of every slot whose (start, end) key is unchanged (docs/roster/02-domain-schema.md regression: stepMin 60 -> 30 -> 60)", () => {
-    // Simulates the manual E2E in 02-domain-schema.md: an event goes from
-    // 60-min slots to 30-min slots and back. On the 30-min pass, none of the
-    // original 60-min keys survive; on the way back to 60, they all do.
     const sixty = [
       { id: "s0", start: "09:00", end: "10:00" },
       { id: "s1", start: "10:00", end: "11:00" },
@@ -45,7 +42,6 @@ describe("reconcileSlotKeys", () => {
       { id: "s0", start: "09:00", end: "10:00" },
       { id: "s1", start: "10:00", end: "11:00" },
     ];
-    // end_time extended from 11:00 to 12:00; the first two slots are untouched.
     const next = [
       { start: "09:00", end: "10:00" },
       { start: "10:00", end: "11:00" },

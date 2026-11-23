@@ -8,7 +8,6 @@ type Db = ReturnType<typeof getDb>;
 
 export type SpaceAccess = ReadonlyMap<string, SpaceRole>;
 
-/** Identity fields the resolver reads. Accepts browser sessions and Bearer identities. */
 export type SpaceIdentity = {
   user: { id: string; isAdmin?: boolean } | null;
   chapters: readonly { chapterId: string | number; role: string }[];
@@ -19,7 +18,6 @@ export type ExtraPrincipal = { type: "discord_guild" | "chat_space"; id: string 
 
 export type SpaceRow = typeof schema.spaces.$inferSelect;
 
-/** Keys a chapter membership matches: exact chapter and wildcard; organizer implies member. */
 export function chapterPrincipalKeys(chapters: SpaceIdentity["chapters"]): string[] {
   const keys = new Set<string>();
   for (const chapter of chapters) {
@@ -34,11 +32,6 @@ export function chapterPrincipalKeys(chapters: SpaceIdentity["chapters"]): strin
   return [...keys];
 }
 
-/**
- * Resolve the caller's role in every space they can reach. This is the OUTER layer only:
- * callers must still run the inner ACL (canAccessSource / getEffectivePagePermissions /
- * redactPageMarkdown) on anything inside the space.
- */
 export async function resolveSpaceAccess(
   db: Db,
   identity: SpaceIdentity,
@@ -59,7 +52,6 @@ export async function resolveSpaceAccess(
         eq(m.principalType, "user"),
     );
   }
-  // Fail closed: without fresh claims, chapter-derived membership is not evaluated.
   const chapterKeys = identity.claimsAvailable ? chapterPrincipalKeys(identity.chapters) : [];
   if (chapterKeys.length > 0) {
     conditions.push(
@@ -83,7 +75,6 @@ export async function resolveSpaceAccess(
     .all();
   for (const row of rows) {
     if (!isSpaceRole(row.role)) continue;
-    // Anonymous visitors only ever get the public viewer role.
     access.set(row.spaceId, strongerRole(access.get(row.spaceId), row.role));
   }
   return access;
@@ -104,11 +95,6 @@ export type ResolvedSpace = {
   access: SpaceAccess;
 };
 
-/**
- * Route guard: the space must exist and the caller must hold at least `minRole`.
- * Missing and forbidden spaces are both 404 so the URL is not an existence oracle.
- * Call this BEFORE the inner ACL (enforced by tests/architecture/space-before-inner-acl).
- */
 export async function requireSpace(
   request: Request,
   env: Env,
@@ -132,7 +118,6 @@ export async function requireSpace(
   };
 }
 
-/** Spaces the caller can view, in name order, with their role. */
 export async function listAccessibleSpaces(
   db: Db,
   access: SpaceAccess,
@@ -147,7 +132,6 @@ export async function listAccessibleSpaces(
     );
 }
 
-/** Whether anonymous visitors may reach the space (it has the `public` viewer principal). */
 export async function isSpacePublic(db: Db, spaceId: string): Promise<boolean> {
   const row = await db
     .select({ id: schema.spaceMembers.spaceId })
@@ -162,11 +146,6 @@ export async function isSpacePublic(db: Db, spaceId: string): Promise<boolean> {
   return !!row;
 }
 
-/**
- * Outer-layer check for routes addressed by page id (comments, sharing, favorites…).
- * Returns the page's space and the caller's role, or throws 404 when the caller cannot
- * reach that space. Call before the inner page ACL.
- */
 export async function requirePageSpace(
   db: Db,
   identity: SpaceIdentity,
@@ -185,7 +164,6 @@ export async function requirePageSpace(
   return { spaceId: row.spaceId, role: role as SpaceRole };
 }
 
-/** Outer-layer check for routes addressed by source id. Same contract as requirePageSpace. */
 export async function requireSourceSpace(
   db: Db,
   identity: SpaceIdentity,
@@ -204,10 +182,6 @@ export async function requireSourceSpace(
   return { spaceId: row.spaceId, role: role as SpaceRole };
 }
 
-/**
- * `requireSpace` for callers that already hold an identity (Bearer tokens for the CLI /
- * agent APIs). Missing and forbidden spaces are both 404.
- */
 export async function requireSpaceForIdentity(
   db: Db,
   identity: SpaceIdentity,

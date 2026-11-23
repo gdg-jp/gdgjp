@@ -6,7 +6,6 @@ import { HowItWorksSection } from "./landing/HowItWorksSection";
 import { LandingFooter } from "./landing/LandingFooter";
 
 type LandingContentProps = {
-  /** CTA slot rendered in the hero (e.g. "Sign in" or "Go to Home"). */
   ctaSlot: React.ReactNode;
 };
 

@@ -12,7 +12,6 @@ export function loader() {
 
 const NAME_MAX = 60;
 
-/** Deck mutations from the deck list and the editor (chapter members only). */
 export async function action({ request, context }: Route.ActionArgs) {
   const env = context.cloudflare.env;
   const form = await request.formData();
@@ -46,7 +45,6 @@ export async function action({ request, context }: Route.ActionArgs) {
     return { ok: true as const };
   }
   if (intent === "duplicate") {
-    // Into any chapter the user belongs to; the copy is independent of the original.
     const chapterId = Number(form.get("chapterId"));
     if (!chapters.some((c) => c.chapterId === chapterId)) {
       return data({ ok: false as const, error: "chapter" }, { status: 400 });

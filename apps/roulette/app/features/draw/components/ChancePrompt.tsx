@@ -7,18 +7,11 @@ export type Prompt = {
   kind: "renda" | "push";
   level: CutInLevel;
   key: number;
-  /** Push only: the press happens by itself after this long. */
   timeout?: number;
 };
 
 const RING = 2 * Math.PI * 76;
 
-/**
- * The chance button, fixed at the bottom within thumb reach. 連打 asks for
- * rapid taps that fill a gauge and change nothing; 押せ asks for one press
- * that sends the wheel on into the prize. The result was decided before
- * either shows up.
- */
 export function ChancePrompt({
   prompt,
   gauge,
@@ -26,7 +19,6 @@ export function ChancePrompt({
   onPress,
 }: {
   prompt: Prompt;
-  /** 0–1, renda only. */
   gauge: number;
   taps: number;
   onPress: () => void;

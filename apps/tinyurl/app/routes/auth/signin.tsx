@@ -8,7 +8,6 @@ export function loader({ request }: Route.LoaderArgs) {
 }
 
 export default function SignInPage() {
-  // Unreachable — the loader always redirects.
   return null;
 }
 

@@ -9,10 +9,6 @@ export type RawAction = {
   instructions: string | null;
 };
 
-/**
- * Keep only buttons the Worker can run: a known type, items of this campaign, a readable time,
- * and a path inside the campaign. Pure; the runner's output is never trusted.
- */
 export function sanitizeActions(
   raw: RawAction[],
   context: { base: string; itemIds: Set<number> },
@@ -51,5 +47,4 @@ export function sanitizeActions(
   return out.slice(0, 5);
 }
 
-/** Buttons the assistant may press itself when the chapter lets it (internal work only). */
 export const AUTO_ACTIONS: readonly MessageAction["type"][] = ["run_plan", "draft_items"];

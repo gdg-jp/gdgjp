@@ -1,6 +1,5 @@
 import { config } from "md-editor-rt";
 
-/** md-editor-rt ships zh-CN and en-US only; this is the Japanese UI for the wiki's editors. */
 export const MD_EDITOR_JA = {
   toolbarTips: {
     bold: "太字",
@@ -87,14 +86,12 @@ export const MD_EDITOR_JA = {
 export const MD_EDITOR_LANG_JA = "ja-JP";
 
 let registered = false;
-/** Register once per runtime (server and client), before an editor renders with `ja-JP`. */
 export function registerMdEditorJa(): void {
   if (registered) return;
   registered = true;
   config({ editorConfig: { languageUserDefined: { [MD_EDITOR_LANG_JA]: MD_EDITOR_JA } } });
 }
 
-/** The md-editor UI language for the current UI language. */
 export function mdEditorLanguage(uiLanguage: string): string {
   return uiLanguage === "ja" ? MD_EDITOR_LANG_JA : "en-US";
 }

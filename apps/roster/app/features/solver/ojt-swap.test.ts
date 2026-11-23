@@ -11,8 +11,6 @@ import {
   demandKey,
 } from "./types";
 
-// Same minimal harness as local-search.test.ts — see its comment for why
-// this is reconstructed locally rather than imported from solve.ts.
 function buildState(input: SolverInput, seed: number): EngineState {
   return {
     input,
@@ -66,7 +64,7 @@ function makeMovers(state: EngineState): Movers {
   };
 }
 
-const SLOT_A = "slot-0"; // idx 0, shared by both cells
+const SLOT_A = "slot-0";
 const TRACK_A = "track-a";
 const TRACK_B = "track-b";
 const ROLE_A = "role-a";
@@ -123,9 +121,6 @@ describe("ojtSwap", () => {
   it("swaps a newcomer-only cell's member with an experienced member from another cell in the same slot", () => {
     const newcomer = app("newcomer", { [ROLE_A]: skill("new"), [ROLE_B]: skill("new") });
     const expert = app("expert", { [ROLE_A]: skill("exp"), [ROLE_B]: skill("exp") });
-    // B needs a second experienced member so it still has one left after
-    // "expert" moves to A — see the "loses its only experienced member" test
-    // below for the case where B does NOT have this spare.
     const spare = app("spare", { [ROLE_B]: skill("exp") });
     const input = inputWith([newcomer, expert, spare]);
     const state = buildState(input, 1);
@@ -155,8 +150,6 @@ describe("ojtSwap", () => {
     const state = buildState(input, 1);
     const movers = makeMovers(state);
     place(state, "newcomer", 0, TRACK_A, ROLE_A, false);
-    // B has exactly one member ("expert") — swapping it out would leave B
-    // with zero experienced people, so `remainingExperienced` must block it.
     place(state, "expert", 0, TRACK_B, ROLE_B, false);
     const before = new Map(state.assignments);
 
@@ -179,8 +172,6 @@ describe("ojtSwap", () => {
 
     ojtSwap(state, movers);
 
-    // Removing either lead drops B's lead count from 2 to 1, below leadMin=2
-    // — both candidates fail, so no swap happens at all.
     expect(state.assignments).toEqual(before);
   });
 
@@ -198,15 +189,13 @@ describe("ojtSwap", () => {
 
     ojtSwap(state, movers);
 
-    // Moving the "new"-at-B newcomer into B would make B's newcomer count 1,
-    // over newMax=0 — fails for both exp1 and exp2 candidates.
     expect(state.assignments).toEqual(before);
   });
 
   it("does not swap when the newcomer has no skill record for B's role at all", () => {
-    const newcomer = app("newcomer", { [ROLE_A]: skill("new") }); // no ROLE_B entry
+    const newcomer = app("newcomer", { [ROLE_A]: skill("new") });
     const expert = app("expert", { [ROLE_A]: skill("exp"), [ROLE_B]: skill("exp") });
-    const spare = app("spare", { [ROLE_B]: skill("exp") }); // keeps B's remainingExperienced true
+    const spare = app("spare", { [ROLE_B]: skill("exp") });
     const input = inputWith([newcomer, expert, spare]);
     const state = buildState(input, 1);
     const movers = makeMovers(state);
@@ -221,11 +210,9 @@ describe("ojtSwap", () => {
   });
 
   it("requires the experienced candidate to be experienced at A's specific role, not just B's", () => {
-    // "expert" is experienced at ROLE_B but only a newcomer at ROLE_A — must
-    // not be treated as a valid mentor for cell A.
     const newcomer = app("newcomer", { [ROLE_A]: skill("new"), [ROLE_B]: skill("new") });
     const mixedLevel = app("mixed", { [ROLE_A]: skill("new"), [ROLE_B]: skill("exp") });
-    const spare = app("spare", { [ROLE_B]: skill("exp") }); // keeps B's remainingExperienced true
+    const spare = app("spare", { [ROLE_B]: skill("exp") });
     const input = inputWith([newcomer, mixedLevel, spare]);
     const state = buildState(input, 1);
     const movers = makeMovers(state);
@@ -245,7 +232,7 @@ describe("ojtSwap", () => {
     const input = inputWith([newcomer, expert]);
     const state = buildState(input, 1);
     const movers = makeMovers(state);
-    place(state, "newcomer", 0, TRACK_A, ROLE_A, true); // locked newcomer
+    place(state, "newcomer", 0, TRACK_A, ROLE_A, true);
     place(state, "expert", 0, TRACK_B, ROLE_B, false);
     const before = new Map(state.assignments);
 

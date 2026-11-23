@@ -66,10 +66,6 @@ export async function action(args: Route.ActionArgs) {
       return Response.json({ error: "invalid_request" }, { status: 400 });
     }
 
-    // Collect every provided field into one patch object before touching the
-    // service layer, so validation of later fields (below, and inside
-    // updateImageForActor) can never run after an earlier field has already
-    // been written — the whole patch is applied atomically or not at all.
     const patch: UpdateImagePatch = {};
     if ("chapterId" in payload) {
       if (typeof payload.chapterId !== "number" || !Number.isInteger(payload.chapterId)) {

@@ -18,7 +18,6 @@ import { assistantSettings, digestChapters } from "~/features/settings/chapter-s
 import { postEvent } from "./events.server";
 import { lastMessages } from "./message.repository.server";
 
-/** Drafts for posts and mails are queued this long before they go out. */
 export const DRAFT_LEAD_SECONDS = 7 * 86_400;
 const AUTO_DRAFT_KINDS = ["x_post", "ig_post", "connpass_mail"];
 const DEADLINE_KINDS = ["x_post", "ig_post", "connpass_mail"];
@@ -30,10 +29,6 @@ async function liveCampaigns(db: D1Database): Promise<Campaign[]> {
   return (await listCampaignsForChapters(db, [], true)).filter((c) => c.status !== "closed");
 }
 
-/**
- * Hourly: post and mail items whose time is within a week and that have no draft get one, for
- * campaigns with an adopted plan in chapters that let the assistant act ("auto").
- */
 export async function queueDueDrafts(env: Env, now = Math.floor(Date.now() / 1000)) {
   let queued = 0;
   for (const campaign of await liveCampaigns(env.DB)) {
@@ -90,7 +85,6 @@ export async function queueDueDrafts(env: Env, now = Math.floor(Date.now() / 100
   return { queued };
 }
 
-/** Hourly: a post or mail due within 24 hours and not yet approved is flagged once. */
 export async function flagDeadlines(env: Env, now = Math.floor(Date.now() / 1000)) {
   let flagged = 0;
   for (const campaign of await liveCampaigns(env.DB)) {
@@ -139,7 +133,6 @@ export async function flagDeadlines(env: Env, now = Math.floor(Date.now() / 1000
   return { flagged };
 }
 
-/** At 09:00 JST: each live campaign with something today or waiting sends one Discord message. */
 export async function morningDigest(env: Env, now = Math.floor(Date.now() / 1000)) {
   if (jstTime(now).slice(0, 2) !== "09") return { sent: 0 };
   const campaigns = await liveCampaigns(env.DB);

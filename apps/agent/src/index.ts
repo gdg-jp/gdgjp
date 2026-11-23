@@ -41,7 +41,6 @@ export default {
   },
 } satisfies ExportedHandler<Env>;
 
-/** Verification runs before any application logic; failures never touch the wiki. */
 async function webhook(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
   const rawBody = await request.text();
   const verified = await verifyWebhook(request, rawBody, {
@@ -62,11 +61,6 @@ async function webhook(request: Request, env: Env, ctx: ExecutionContext): Promi
     : handleChatEvent(app, body, ctx);
 }
 
-/**
- * Called by `gdg agent discord-gateway` on the OCI VM for @mentions and DMs. The shared token
- * is checked before the body is read; the listener retries nothing, so a dropped message is
- * simply unanswered.
- */
 async function discordMessageRoute(
   request: Request,
   env: Env,
@@ -79,7 +73,6 @@ async function discordMessageRoute(
   const message = (await request.json().catch(() => null)) as GatewayMessage | null;
   if (!message?.id || !message.channel_id)
     return Response.json({ error: "invalid_request" }, { status: 400 });
-  // A resumed Gateway session can replay an event; answer each message once.
   if (!(await kvReplayStore(env.KV).claim(`gateway:${message.id}`, 24 * 60 * 60)))
     return new Response(null, { status: 204 });
   const app = createApp(env);
@@ -91,7 +84,6 @@ async function discordMessageRoute(
   return new Response(null, { status: 202 });
 }
 
-/** Called by the wiki (service binding) when the runner posts an `answer` result. */
 async function answerReadyRoute(request: Request, env: Env): Promise<Response> {
   const auth = request.headers.get("authorization") ?? "";
   if (!env.AGENT_SERVICE_TOKEN || !timingSafeEqual(auth, `Bearer ${env.AGENT_SERVICE_TOKEN}`)) {

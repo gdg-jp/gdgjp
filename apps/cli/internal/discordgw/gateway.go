@@ -1,10 +1,3 @@
-// Package discordgw keeps the GDG Agent bot connected to the Discord Gateway.
-//
-// gdgjp-agent (a Cloudflare Worker) answers slash commands over HTTP, but Discord shows a bot
-// as online, and delivers ordinary messages, only to a client holding a Gateway WebSocket. A
-// Worker cannot hold one cheaply, so `gdg agent discord-gateway` runs next to the runners on
-// the OCI VM: it identifies with an online presence and forwards @mentions and DMs to
-// https://agent.gdgs.jp/internal/discord-message. It never answers anything itself.
 package discordgw
 
 import (
@@ -33,11 +26,9 @@ const (
 	// fills `content` for messages that mention the app and for DMs, the only ones we forward.
 	Intents = 1<<9 | 1<<12
 
-	// DefaultStatus is the custom status shown under the bot's name.
 	DefaultStatus = "/ask か @メンションで wiki に質問"
 )
 
-// Config comes from /etc/gdg/discord-gateway.env on the VM; see infra/oci-runner/README.md.
 type Config struct {
 	BotToken     string
 	ForwardURL   string
@@ -46,8 +37,7 @@ type Config struct {
 	Status       string
 	HTTP         *http.Client
 	Logger       *log.Logger
-	// MaxBackoff caps the wait between reconnects (tests shorten it).
-	MaxBackoff time.Duration
+	MaxBackoff   time.Duration
 }
 
 func ConfigFromEnv() Config {
@@ -68,7 +58,6 @@ func envOr(key, fallback string) string {
 	return fallback
 }
 
-// Message is the part of MESSAGE_CREATE the agent Worker reads.
 type Message struct {
 	ID        string `json:"id"`
 	ChannelID string `json:"channel_id"`
@@ -84,8 +73,6 @@ type Message struct {
 	} `json:"mentions"`
 }
 
-// ForBot reports whether the agent should see this message: a person's DM to the bot, or a
-// guild message that mentions it. The Worker applies the same rule again.
 func (m Message) ForBot(botID string) bool {
 	if m.Author == nil || m.Author.Bot || m.WebhookID != "" || botID == "" {
 		return false
@@ -108,10 +95,8 @@ type payload struct {
 	T  string          `json:"t,omitempty"`
 }
 
-// errFatal ends Run: retrying cannot help (bad token, intents not allowed).
 type errFatal struct{ error }
 
-// Gateway holds the session that survives reconnects (Resume).
 type Gateway struct {
 	cfg       Config
 	sessionID string
@@ -149,7 +134,6 @@ func New(cfg Config) (*Gateway, error) {
 	return &Gateway{cfg: cfg}, nil
 }
 
-// Run connects, and reconnects (resuming when it can), until ctx ends or a fatal close.
 func (g *Gateway) Run(ctx context.Context) error {
 	defer g.wg.Wait()
 	backoff := time.Second
@@ -301,7 +285,6 @@ func (g *Gateway) heartbeat(
 		case <-beat:
 		case <-timer.C:
 			if !acked.Load() {
-				// A zombied connection: drop it and resume on a fresh one.
 				conn.Close(4000, "heartbeat not acknowledged")
 				return errors.New("heartbeat not acknowledged")
 			}
@@ -314,7 +297,7 @@ func (g *Gateway) heartbeat(
 			d = seq
 		}
 		if err := send(ctx, conn, 1, d); err != nil {
-			return nil // the read loop sees the broken connection
+			return nil
 		}
 	}
 }
@@ -378,7 +361,6 @@ func (g *Gateway) forward(ctx context.Context, m Message) error {
 	return nil
 }
 
-// closeError maps Gateway close codes: some end the process, some forbid resuming.
 func (g *Gateway) closeError(err error) error {
 	code := websocket.CloseStatus(err)
 	switch code {

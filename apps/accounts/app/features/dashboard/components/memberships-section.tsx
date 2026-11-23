@@ -176,8 +176,6 @@ export function LeaveDialog({
   isPending: boolean;
 }) {
   const { t } = useTranslation();
-  // Organizers should resign role before leaving; we still allow the dialog so
-  // the server can return a clear "lastOrganizer" error when applicable.
   return (
     <AlertDialog>
       <AlertDialogTrigger asChild>

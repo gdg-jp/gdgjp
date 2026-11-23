@@ -1,11 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { pageAclClearance } from "~/features/pages/acl-spans.server";
 
-/**
- * `/ws/collab/:slug` short-circuits in workers/app.ts before the React Router
- * loader. This locks the clearance predicate that gate uses so a regression
- * cannot silently reopen the WebSocket path for redacted pages.
- */
 describe("collab websocket ACL clearance gate", () => {
   it("denies clearance when the caller cannot read every span", async () => {
     const db = {

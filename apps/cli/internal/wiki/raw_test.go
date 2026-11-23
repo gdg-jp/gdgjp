@@ -539,7 +539,6 @@ func TestPullRawRejectsTamperedContentBeforeSenderReplace(t *testing.T) {
 		case "/api/cli/wiki/sources":
 			_ = json.NewEncoder(w).Encode(manifest)
 		case "/api/cli/wiki/sources/week-1/content":
-			// Tampered payload: would look fine after replace if verification ran second.
 			_, _ = io.WriteString(w, "### [12:00] Unknown user (users/alice)\ntampered\n")
 		default:
 			http.NotFound(w, r)
@@ -563,7 +562,6 @@ func TestPullRawSucceedsFromLegacyStateWithoutRendered(t *testing.T) {
 	if err := WriteConfig(root, Config{Lang: "ja"}); err != nil {
 		t.Fatal(err)
 	}
-	// Legacy clones only persist Ingested / AgentsHash.
 	if err := WriteState(root, State{Ingested: map[string]string{"other": "abc"}, AgentsHash: "old"}); err != nil {
 		t.Fatal(err)
 	}

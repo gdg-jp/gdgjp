@@ -1,5 +1,3 @@
-/** Capture presets agreed for the MVP: camera 720p30, screen 1080p30, Opus 48 kHz. */
-
 export const CAMERA_CONSTRAINTS: MediaTrackConstraints = {
   width: { ideal: 1280 },
   height: { ideal: 720 },
@@ -38,10 +36,6 @@ export function permissionProblem(err: unknown): PermissionProblem {
   return "unknown";
 }
 
-/**
- * `noiseSuppression` is the browser's own; it is turned off while
- * DeepFilterNet3 (features/rtc/denoise) cleans the mic instead.
- */
 export async function openMic(
   deviceId?: string,
   noiseSuppression = true,
@@ -70,7 +64,6 @@ export async function openCamera(deviceId?: string): Promise<MediaStreamTrack> {
 
 export type ScreenCapture = { video: MediaStreamTrack; audio: MediaStreamTrack | null };
 
-/** Chrome/Edge's Conditional Focus handle (absent from older TS DOM typings). */
 type FocusController = {
   setFocusBehavior: (behavior: "focus-captured-surface" | "no-focus-change") => void;
 };
@@ -94,7 +87,6 @@ export function startScreenShare(): Promise<ScreenCapture> {
     .getDisplayMedia({
       video: { width: { ideal: 1920 }, height: { ideal: 1080 }, frameRate: { ideal: 30, max: 30 } },
       audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false },
-      // Chrome: offer "this tab" last and keep the picker focused on windows/screens.
       ...({ selfBrowserSurface: "exclude", surfaceSwitching: "include" } as object),
       ...(controller ? ({ controller } as object) : {}),
     } as DisplayMediaStreamOptions)
@@ -103,9 +95,7 @@ export function startScreenShare(): Promise<ScreenCapture> {
       // already switched focus. Only tabs and windows can be held back.
       try {
         controller?.setFocusBehavior("no-focus-change");
-      } catch {
-        // A whole screen was shared; there is nothing to focus.
-      }
+      } catch {}
       const video = stream.getVideoTracks()[0];
       if (!video) throw new DOMException("no video", "NotFoundError");
       video.contentHint = "detail";
@@ -113,13 +103,11 @@ export function startScreenShare(): Promise<ScreenCapture> {
     });
 }
 
-/** Safari and Firefox cannot share tab audio. */
 export function canShareTabAudio(userAgent: string): boolean {
   if (/Firefox\//.test(userAgent)) return false;
   return /Chrome\/|Chromium\/|Edg\//.test(userAgent);
 }
 
-/** Chrome/Edge ship Document Picture-in-Picture. */
 export function hasDocumentPip(): boolean {
   return typeof window !== "undefined" && "documentPictureInPicture" in window;
 }
@@ -127,7 +115,5 @@ export function hasDocumentPip(): boolean {
 export function stopTrack(track: MediaStreamTrack | null | undefined) {
   try {
     track?.stop();
-  } catch {
-    // already stopped
-  }
+  } catch {}
 }

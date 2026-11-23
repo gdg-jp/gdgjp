@@ -1,9 +1,5 @@
 import type { Env } from "../../env";
 
-/**
- * Langfuse over its public ingestion API (no SDK on Workers). Chat ids are HMAC'd with
- * TELEMETRY_ID_SALT; tokens and answer bundles are never sent.
- */
 async function ingest(env: Env, batch: unknown[]): Promise<void> {
   if (!env.LANGFUSE_PUBLIC_KEY || !env.LANGFUSE_SECRET_KEY) return;
   const base = (env.LANGFUSE_BASE_URL ?? "https://cloud.langfuse.com").replace(/\/$/, "");

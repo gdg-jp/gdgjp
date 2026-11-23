@@ -3,14 +3,6 @@ import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
-// One-off: makes the spoken text authoritative. For every WAV under 音声/ it
-// sends the audio plus the manuscript section to Gemini (Vertex AI, ADC auth —
-// same setup as gemini-tts.mjs) and asks for the text exactly as spoken. The
-// result goes to scripts/overrides.json, which build-clips.mjs prefers over
-// the manuscript.
-//
-//   node scripts/transcribe.mjs [--only A-03,B-10] [-m gemini-2.5-pro]
-//   node scripts/build-clips.mjs
 import { GoogleGenAI } from "@google/genai";
 import { listJobs } from "./build-clips.mjs";
 

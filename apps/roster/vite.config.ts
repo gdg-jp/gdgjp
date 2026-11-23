@@ -21,7 +21,6 @@ export default defineConfig({
   // copies → "invalid hook call" at hydration (see ost/vite.config.ts, which
   // this block is copied from per ADR-001). The app shell renders shared menu
   // components, so their React-dependent libraries must be eagerly optimized.
-  // Add motion here too if a future shared component starts pulling it in.
   resolve: { tsconfigPaths: true, dedupe: ["react", "react-dom", "react-router"] },
   optimizeDeps: {
     include: ["react", "react-dom", "react-dom/client", "react-router", "radix-ui", "lucide-react"],

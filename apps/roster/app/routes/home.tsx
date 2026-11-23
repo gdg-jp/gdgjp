@@ -20,7 +20,6 @@ export async function loader({ request, context }: Route.LoaderArgs) {
   return { events };
 }
 
-/** イベント一覧 (docs/roster/02-domain-schema.md "Design" §6, screen `/`). */
 export default function Dashboard({ loaderData }: Route.ComponentProps) {
   const { events } = loaderData;
   return (

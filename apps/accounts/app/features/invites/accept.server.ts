@@ -8,12 +8,6 @@ import { inviteState } from "./invite-policy";
 import { getInviteByToken } from "./repository.server";
 import type { InviteJoinOutcome } from "./types";
 
-/**
- * `/invite/:token`: validates the link before asking anyone to sign in, then
- * joins every linked chapter on open. Signed-out visitors return here through
- * `/signin?return_to=…`, which bypasses the zero-membership onboarding
- * redirect on `/` and `/dashboard`, so first-time users land on this result.
- */
 export async function loadInviteAcceptance(args: RouteRequestArgs) {
   const env = args.context.cloudflare.env;
   const t = await i18n.getFixedT(args.request);

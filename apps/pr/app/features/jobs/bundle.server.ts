@@ -23,7 +23,6 @@ import { SKILL_FOR_KIND } from "./skill-kinds";
 
 export const MAX_BUNDLE_BYTES = 2 * 1024 * 1024;
 
-/** Which Skill a job runs. A fix runs the Skill that made the draft. */
 export function skillFor(job: Job): { skill: string; kind: string } {
   const payload = job.payload as { kind?: string; channel?: string };
   switch (job.type) {
@@ -60,12 +59,9 @@ const json = (value: unknown) => `${JSON.stringify(value, null, 2)}\n`;
 
 export type Bundle = {
   files: Record<string, string>;
-  /** Base64 files (images) the runner writes beside `files`; `images` are attached to the prompt. */
   binaryFiles?: Record<string, string>;
   images?: string[];
-  /** The agent may write files in the job directory (design drafts); default read-only. */
   workspaceWrite?: boolean;
-  /** The runner starts the render broker (scripts/render/broker.mjs) beside the agent. */
   render?: boolean;
   prompt: string;
   skill: string;
@@ -73,7 +69,6 @@ export type Bundle = {
   timeoutSeconds: number;
 };
 
-/** Everything the runner needs for one job, as files. The runner holds no repository. */
 export async function buildBundle(
   db: D1Database,
   job: Job,
@@ -264,7 +259,6 @@ async function briefFor(
   return stored?.brief ?? null;
 }
 
-/** The approved copy (first candidate) or, failing that, the newest copy draft. */
 export async function approvedCopy(db: D1Database, campaignId: number): Promise<unknown | null> {
   const drafts = await listDrafts(db, campaignId);
   const copy =

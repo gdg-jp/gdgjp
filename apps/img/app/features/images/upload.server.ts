@@ -12,12 +12,6 @@ import { createImage } from "./repository.server";
 import { type ImageActor, type ImageServiceResult, fail, ok } from "./result";
 import { deleteOriginal, putOriginal } from "./storage.server";
 
-/**
- * Creates a brand-new image: R2 write happens before the D1 insert (the row
- * references the object), so a D1 failure rolls back the just-written object.
- * Reused as-is by the cookie-session upload route, the local-dev internal
- * upload route, and the ImageUploadService RPC entrypoint used by tinyurl.
- */
 export async function uploadImage(
   env: Env,
   ctx: ExecutionContext,
@@ -94,10 +88,6 @@ async function upsertImageOwner(db: D1Database, user: ImageUploadInput["user"]):
   return user.id;
 }
 
-/**
- * CLI-facing upload: unlike the dashboard's single "primary" chapter, a
- * bearer-token caller may belong to several chapters and must select one.
- */
 export async function uploadImageForActor(
   env: Env,
   ctx: ExecutionContext,

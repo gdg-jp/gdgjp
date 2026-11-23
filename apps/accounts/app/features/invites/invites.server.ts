@@ -53,7 +53,6 @@ export async function loadInvites(args: RouteRequestArgs) {
     invites: invites.map((invite) => ({
       ...invite,
       url: inviteUrl(env.APP_URL, invite.token),
-      // Linked chapters the viewer does not organize are still shown by name.
       canRevoke: invite.chapters.some((c) => organizerIds.has(c.id)),
     })),
     title: t("meta.invites"),

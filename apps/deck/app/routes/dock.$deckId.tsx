@@ -10,7 +10,6 @@ export function meta() {
   return [{ title: "deck ドック" }];
 }
 
-/** The OBS custom dock. No sign-in: the dock token in the URL is the credential. */
 export async function loader({ request, params, context }: Route.LoaderArgs) {
   const token = new URL(request.url).searchParams.get("t") ?? "";
   const deck = isDeckId(params.deckId)
@@ -40,9 +39,7 @@ function loadSettings(deckId: string): DockSettings {
 function saveSettings(deckId: string, settings: DockSettings) {
   try {
     localStorage.setItem(storageKey(deckId), JSON.stringify(settings));
-  } catch {
-    // storage blocked: settings last until the dock reloads
-  }
+  } catch {}
 }
 
 const ROOM_LABEL = { connecting: "接続中…", open: "接続", offline: "再接続中…" } as const;
@@ -130,7 +127,6 @@ function DockPanel({ deckId, token, name }: { deckId: string; token: string; nam
         <div className="dk-dock-error">
           <p>{rejected}</p>
           {snapshot?.rejected === CLOSE_REPLACED && (
-            // Taking the deck back is deliberate: the other dock is then cut off.
             <Button size="sm" variant="outline" onClick={() => window.location.reload()}>
               このドックで接続し直す
             </Button>

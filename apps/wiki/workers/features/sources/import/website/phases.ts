@@ -89,7 +89,6 @@ async function fetchContent(
   current: CurrentSourceImport,
 ): Promise<SourceImportStepOutcome> {
   if (metaGet(ctx.sql, WEBSITE_DOCUMENT_KEY)) return { phaseComplete: true };
-  // HTML fetch + (stylesheet fetch + R2 put) per sheet, capped by MAX_STYLESHEETS.
   const fetchBudget = 1 + MAX_STYLESHEETS * 2;
   if (!ctx.budget.canSpend(fetchBudget)) return { phaseComplete: false };
   ctx.budget.spend(fetchBudget);

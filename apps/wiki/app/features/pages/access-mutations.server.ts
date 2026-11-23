@@ -5,10 +5,6 @@ import * as schema from "~/db/schema";
 import type { PageRole, ShareSubject } from "./access-types";
 import { normalizeEmail } from "./access-types";
 
-// ---------------------------------------------------------------------------
-// Mutations
-// ---------------------------------------------------------------------------
-
 export async function upsertPageAccess(
   db: DrizzleD1Database<typeof schema>,
   opts: ShareSubject & { pageId: string; role: PageRole; grantedBy: string },
@@ -100,7 +96,6 @@ export async function removePageAccess(
   return { ok: true };
 }
 
-/** Kept as a harmless migration shim for old page-creation callers. */
 export async function insertPageOwner(
   _db: DrizzleD1Database<typeof schema>,
   _pageId: string,

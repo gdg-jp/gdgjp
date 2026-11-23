@@ -1,13 +1,5 @@
 import { type Page, expect, test } from "@playwright/test";
 
-/**
- * Sets the event status and confirms it actually persisted server-side
- * before returning. `<select>`'s `toHaveValue` reflects the *client-side*
- * selection the instant `selectOption()` runs — it does not wait for the
- * form's POST to complete — so asserting on it right after a click can pass
- * before the write has landed. Reloading and re-checking forces a fresh
- * server-rendered `defaultValue`, which only reflects committed state.
- */
 async function setEventStatus(page: Page, eventId: string, status: string): Promise<void> {
   await page.goto(`/e/${eventId}/staff`);
   await page.selectOption('select[name="status"]', status);
@@ -17,11 +9,6 @@ async function setEventStatus(page: Page, eventId: string, status: string): Prom
   await expect(page.locator('select[name="status"]')).toHaveValue(status);
 }
 
-/**
- * Owner creates an event, selects the "reception" role, and opens
- * registration. Returns the event id and the public apply path so callers
- * can drive the rest of a flow from a clean, open event.
- */
 async function createAndOpenEvent(
   page: Page,
   eventName: string,
@@ -47,31 +34,17 @@ async function createAndOpenEvent(
   return { eventId, applyPath };
 }
 
-/**
- * Full Stage 04 registration flow (docs/roster/04-applications.md
- * "手動 E2E" 1-13, condensed into one browser session by switching identity
- * through `/dev/login`): an owner creates and opens an event, an
- * unauthenticated visitor sees only the overview, a signed-in visitor from
- * a *different* Chapter can still register — the one non-negotiable
- * constraint of this stage (docs/roster/04-applications.md "Design" §4
- * 制約, "Chapter を要求しない") — and closing registration swaps the form
- * for "募集は終了しました" without 404ing (a live link must never look
- * broken).
- */
 test("public registration: overview when signed out, form for any signed-in visitor, closed message once registration ends", async ({
   page,
 }) => {
   const { eventId, applyPath } = await createAndOpenEvent(page, "E2E Apply Flow Event");
 
-  // An unauthenticated visitor sees the event overview and the recruiting
-  // role, but no registration form.
   await page.context().clearCookies();
   await page.goto(applyPath);
   await expect(page.getByText("受付")).toBeVisible();
   await expect(page.getByRole("link", { name: "サインインして登録する" })).toBeVisible();
   await expect(page.locator('input[name="name"]')).toHaveCount(0);
 
-  // A visitor from a DIFFERENT Chapter can still register.
   await page.goto(`/dev/login?as=staff1&chapter=999:other-chapter&return_to=${applyPath}`);
   await expect(page.locator('input[name="name"]')).toHaveValue(/staff1/);
 
@@ -80,12 +53,9 @@ test("public registration: overview when signed out, form for any signed-in visi
   await page.getByRole("button", { name: "登録する" }).click();
   await expect(page.getByRole("button", { name: "登録内容を更新" })).toBeVisible();
 
-  // Reopening the same URL shows the same registration in edit mode — not a
-  // second, duplicate signup.
   await page.reload();
   await expect(page.getByRole("button", { name: "登録内容を更新" })).toBeVisible();
 
-  // Closing registration swaps the form for the closed message.
   await page.goto(`/dev/login?as=owner&chapter=1:e2e-owner-chapter&return_to=/e/${eventId}/staff`);
   await setEventStatus(page, eventId, "closed");
 
@@ -93,23 +63,11 @@ test("public registration: overview when signed out, form for any signed-in visi
   await expect(page.getByText("募集は終了しました")).toBeVisible();
 });
 
-/**
- * ADR-008 proxy-add + claim, end to end through the real forms (not just
- * the unit-tested resolver function) — manual E2E steps 11-12 in
- * docs/roster/04-applications.md. The owner types the proxy email in a
- * DIFFERENT case than the claimant's account email on purpose: this is the
- * exact case-sensitivity gap found in review (applications.server.ts's
- * email normalization) — proxy-add and self-registration go through two
- * different routes, so only an end-to-end pass through both real forms
- * proves they're wired to the same normalized identity key.
- */
 test("proxy-add: owner registers by email, and that person's sign-in claims it despite different email casing", async ({
   page,
 }) => {
   const { applyPath } = await createAndOpenEvent(page, "E2E Proxy Claim Event");
 
-  // Owner proxy-registers someone by email, typed in a different case than
-  // the account email that will sign in below.
   await page.getByRole("button", { name: "メールアドレスで代理登録" }).click();
   await page.fill('input[name="email"]', "Claimee@Dev.Local");
   await page.fill('input[name="name"]', "Proxy Claimee");
@@ -118,22 +76,13 @@ test("proxy-add: owner registers by email, and that person's sign-in claims it d
   await page.getByRole("dialog").getByRole("button", { name: "登録する" }).click();
   await expect(page.getByRole("dialog")).toBeHidden();
 
-  // The claimee signs in with the lowercase account email `/dev/login`
-  // derives from `as` — different casing than what the owner typed above.
   await page.context().clearCookies();
   await page.goto(`/dev/login?as=claimee&chapter=999:claimee-chapter&return_to=${applyPath}`);
 
-  // The proxy registration's content shows up as their own, in edit mode —
-  // proof the claim matched despite the casing difference.
   await expect(page.locator('input[name="name"]')).toHaveValue("Proxy Claimee");
   await expect(page.getByRole("button", { name: "登録内容を更新" })).toBeVisible();
 });
 
-/**
- * ADR-011 event-owned roles, end to end: the owner creates a role on the
- * sheet design screen (it starts selected on that sheet), renames it, and a
- * staff member then registers for it under the new name on the public form.
- */
 test("custom role: owner creates and renames an event-owned role, and staff can register for it", async ({
   page,
 }) => {

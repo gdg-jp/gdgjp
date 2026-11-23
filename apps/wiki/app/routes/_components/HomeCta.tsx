@@ -4,7 +4,6 @@ import { Link } from "react-router";
 import { useCurrentSpace } from "~/features/spaces/components/current-space";
 import { spacePath } from "~/features/spaces/shared";
 
-/** How pages come to be in v2: sources in, agent-written pages out; humans write directly too. */
 export function HomeCta() {
   const { t } = useTranslation("common");
   const { slug } = useCurrentSpace();

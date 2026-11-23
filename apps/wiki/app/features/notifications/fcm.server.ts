@@ -2,10 +2,6 @@ import { eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/d1";
 import * as schema from "~/db/schema";
 
-// ---------------------------------------------------------------------------
-// Types
-// ---------------------------------------------------------------------------
-
 interface ServiceAccount {
   client_email: string;
   private_key: string;
@@ -17,10 +13,6 @@ interface FcmMessage {
   body?: string;
   url?: string;
 }
-
-// ---------------------------------------------------------------------------
-// JWT / OAuth helpers (Web Crypto — works in Cloudflare Workers)
-// ---------------------------------------------------------------------------
 
 function base64url(buffer: ArrayBuffer): string {
   const bytes = new Uint8Array(buffer);
@@ -73,7 +65,6 @@ async function createSignedJwt(sa: ServiceAccount): Promise<string> {
   return `${signingInput}.${base64url(sig)}`;
 }
 
-// Module-scoped token cache
 let cachedToken: { token: string; expiresAt: number } | null = null;
 
 async function getAccessToken(env: Env): Promise<string> {
@@ -98,10 +89,6 @@ async function getAccessToken(env: Env): Promise<string> {
   };
   return cachedToken.token;
 }
-
-// ---------------------------------------------------------------------------
-// Send push to a single device
-// ---------------------------------------------------------------------------
 
 async function sendToToken(
   env: Env,
@@ -128,16 +115,11 @@ async function sendToToken(
   });
   if (res.ok) return "ok";
   const status = res.status;
-  // 404 = token not found, 410 = token expired — both mean stale
   if (status === 404 || status === 410) return "stale";
   const body = await res.text();
   console.error(`[fcm] sendToToken failed (${status}): ${body}`);
-  return "ok"; // treat other errors as transient — don't delete token
+  return "ok";
 }
-
-// ---------------------------------------------------------------------------
-// Send push to all devices of a user
-// ---------------------------------------------------------------------------
 
 export async function sendPushToUser(
   env: Env,
@@ -160,7 +142,6 @@ export async function sendPushToUser(
 
   const db = drizzle(env.DB, { schema });
 
-  // Get user's language preference
   const prefRow = await db
     .select({ lang: schema.userPreferences.preferredUiLanguage })
     .from(schema.userPreferences)
@@ -169,7 +150,6 @@ export async function sendPushToUser(
   const lang = prefRow?.lang ?? "ja";
   const message = lang === "en" ? messageEn : messageJa;
 
-  // Get all device tokens
   const tokens = await db
     .select({ token: schema.fcmTokens.token })
     .from(schema.fcmTokens)
@@ -194,7 +174,6 @@ export async function sendPushToUser(
     }),
   );
 
-  // Clean up stale tokens
   for (const token of staleTokens) {
     await db.delete(schema.fcmTokens).where(eq(schema.fcmTokens.token, token));
   }

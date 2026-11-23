@@ -1,7 +1,3 @@
-/**
- * SQLite tables inside SourceImportDurableObject storage.
- * Object-local: reads/writes do not consume the Workers subrequest budget.
- */
 export function ensureSourceImportDoSchema(sql: SqlStorage): void {
   sql.exec(`
     CREATE TABLE IF NOT EXISTS pages (
@@ -105,7 +101,6 @@ export function ensureSourceImportDoSchema(sql: SqlStorage): void {
       value TEXT NOT NULL
     );
   `);
-  // A run started before drive_units.file_id existed keeps its table across a deploy.
   const driveUnitColumns = sql.exec<{ name: string }>("PRAGMA table_info(drive_units)").toArray();
   if (!driveUnitColumns.some((column) => column.name === "file_id")) {
     sql.exec("ALTER TABLE drive_units ADD COLUMN file_id TEXT");

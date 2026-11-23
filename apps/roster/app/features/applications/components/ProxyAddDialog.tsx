@@ -28,20 +28,6 @@ function buildInitialSkills(roles: readonly { id: string }[]): Record<string, Sk
   );
 }
 
-/**
- * Owner-side proxy registration (ADR-008, docs/roster/04-applications.md
- * "Design" §3): the entry point for adding someone who told the organizer
- * in person or on the day, identified by email since `accounts` has no
- * user-search API. This is the ONLY staff-management UI Stage 04 builds —
- * the full staff list/table with per-row edit is Stage 05's job
- * (docs/roster/04-applications.md "Design" §4 制約).
- *
- * Same fields as self-registration (`ApplyForm`), plus the email that
- * identifies who this becomes once they sign in and open `/apply/:token`.
- * `e.$id.staff.tsx`'s action upserts by (event, email): a second submission
- * with the same email edits that row instead of creating a duplicate — the
- * same "last write wins" rule as self-edits (ADR-008).
- */
 export function ProxyAddDialog({
   hasParty,
   roles,
@@ -55,12 +41,6 @@ export function ProxyAddDialog({
   rosterSheets?: readonly ApplyFormRosterSheet[];
   timeSlots?: AvailabilityGridSlot[];
   error?: string;
-  /**
-   * A fresh truthy value (the route's `actionData`) only when the last
-   * submission succeeded — `undefined` on error or before any submission.
-   * The caller must compute this (an error response is also a truthy
-   * object), not just forward `actionData` as-is.
-   */
   succeeded: unknown;
 }) {
   const dialogRef = useRef<HTMLDialogElement>(null);
@@ -74,11 +54,6 @@ export function ProxyAddDialog({
     buildAvailabilityState(allTimeSlots, [], "o"),
   );
 
-  // Reset the form and close the dialog only on a successful submission —
-  // an error must leave the owner's in-progress input exactly as they typed
-  // it. `succeeded` (a fresh object only on success) is the actual trigger;
-  // `roles`/`timeSlots` are listed only to satisfy exhaustive-deps; the
-  // `if (!succeeded) return` guard makes re-running on their change a no-op.
   useEffect(() => {
     if (!succeeded) return;
     setSkills(buildInitialSkills(roles));

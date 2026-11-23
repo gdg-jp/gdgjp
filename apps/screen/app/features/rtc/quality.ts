@@ -1,11 +1,8 @@
 import type { Quality } from "~/features/stage/protocol";
 
 export type LinkSample = {
-  /** Seconds, from the selected candidate pair. */
   rtt: number | null;
-  /** 0..1 packet loss the SFU reports for what we send. */
   loss: number | null;
-  /** The encoder is held back by bandwidth. */
   bandwidthLimited: boolean;
   connected: boolean;
 };
@@ -21,7 +18,6 @@ export function classifyLink(sample: LinkSample): Quality {
 
 type StatLike = Record<string, unknown> & { type: string };
 
-/** Reduce a getStats() report to the numbers classifyLink needs. */
 export function sampleFromStats(stats: Iterable<StatLike>, iceState: string): LinkSample {
   let rtt: number | null = null;
   const losses: number[] = [];

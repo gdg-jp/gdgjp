@@ -628,8 +628,6 @@ describe("approveDeviceCode", () => {
     );
 
     expect(approved).toBe(true);
-    // Only the authorize step runs here; the token exchange happens on the
-    // CLI's next poll (handleDeviceTokenGrant), never during approve.
     expect(runAuthHandler).toHaveBeenCalledTimes(1);
     const [, authorizeRequest] = runAuthHandler.mock.calls[0] as [Env, Request];
     expect(authorizeRequest.headers.get("cookie")).toBe("session=abc");

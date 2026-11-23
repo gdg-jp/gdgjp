@@ -44,7 +44,6 @@ export async function getFolder(db: D1Database, id: number): Promise<FolderRow |
 export type FolderListCursor = { name: string; id: number };
 
 export type ListFoldersOptions = {
-  /** Narrows to one explicit chapter (still subject to the caller's access). */
   chapterId?: number;
   limit?: number;
   cursor?: FolderListCursor | null;
@@ -55,11 +54,6 @@ export type ListFoldersResult = {
   nextCursor: string | null;
 };
 
-/**
- * Parses an opaque folder-list cursor, mirroring parseImageListCursor in
- * ../images/repository.ts: undefined means malformed, distinct from the
- * "no cursor" case (null).
- */
 export function parseFolderListCursor(cursor: string): FolderListCursor | undefined {
   try {
     const value = JSON.parse(cursor) as { name?: unknown; id?: unknown };
@@ -73,14 +67,6 @@ export function parseFolderListCursor(cursor: string): FolderListCursor | undefi
 
 const DEFAULT_LIST_LIMIT = 100;
 
-/**
- * Lists folders in any of the given chapters, with the count of images
- * currently assigned to each. Since folders are chapter-owned and images can
- * only be assigned to a folder in their own chapter (see
- * setImageFolderForActor), every image counted here is also visible to a
- * viewer who can see the folder — no separate access predicate needed on the
- * count subquery (contrast tinyurl's LINK_ACCESS_SQL).
- */
 export async function listFoldersForChapters(
   db: D1Database,
   chapterIds: number[],
@@ -172,7 +158,6 @@ export async function renameFolder(
   }
 }
 
-/** Images in the folder fall back to unfiled via ON DELETE SET NULL. */
 export async function deleteFolder(db: D1Database, id: number): Promise<void> {
   await db.prepare("DELETE FROM folders WHERE id = ?").bind(id).run();
 }

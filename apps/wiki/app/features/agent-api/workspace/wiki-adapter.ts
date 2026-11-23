@@ -52,10 +52,6 @@ export type WikiWorkspacePageBody = WikiWorkspacePage & {
 
 type StoreListOptions = { limit: number; offset: number };
 
-/**
- * Pure Tool-layer port. The D1 implementation owns query construction and
- * evaluates permissions, while this adapter owns virtual path semantics.
- */
 export interface WikiWorkspaceStore {
   getRootPage(slug: string): Promise<WikiWorkspacePage | null>;
   getChildPage(parentId: string, slug: string): Promise<WikiWorkspacePage | null>;
@@ -117,11 +113,6 @@ function boundedVisiblePages(
   );
 }
 
-/**
- * Maps D1's parentId hierarchy lazily. A Wiki page node is readable at its
- * own path and may also have descendants; there are no artificial `index.*`
- * files or directory-only proxy nodes.
- */
 export class WikiWorkspaceAdapter implements WorkspaceAdapter {
   constructor(private readonly store: WikiWorkspaceStore) {}
 
@@ -134,7 +125,6 @@ export class WikiWorkspaceAdapter implements WorkspaceAdapter {
     const limit = boundedLimit(options.limit, 50, 25);
     const offset = decodeOffsetCursor(options.cursor);
     const candidates = await this.store.listChildren(page?.id ?? null, {
-      // Read one extra record so the cursor is correct without reading bodies.
       limit: limit + 1,
       offset,
     });
@@ -228,7 +218,6 @@ export class WikiWorkspaceAdapter implements WorkspaceAdapter {
   }
 }
 
-/** Resolves a relative slug hierarchy without exposing D1 IDs to the model. */
 export async function resolveWikiWorkspacePage(
   store: WikiWorkspaceStore,
   relativePath: string,

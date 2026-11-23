@@ -4,11 +4,6 @@ import type { Route } from "./+types/dev.reset";
 
 const LOOPBACK = new Set(["localhost", "127.0.0.1", "[::1]"]);
 
-/**
- * Local-dev shortcut for trying the spin effects again: clears the project's
- * spins and returns to its spin page, keeping `?demo=`. 404 unless the app runs
- * on a loopback URL, like `/dev/login`.
- */
 export async function loader({ request, params, context }: Route.LoaderArgs) {
   const env = context.cloudflare.env;
   const slug = normalizeSlug(params.slug);

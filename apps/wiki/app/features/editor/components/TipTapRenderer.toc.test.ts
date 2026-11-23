@@ -67,7 +67,6 @@ describe("extractTocItems", () => {
     const items = extractTocItems(doc);
     expect(items).toHaveLength(2);
     expect(items[0].id).toBe("h-section");
-    // h1 consumed count=1, so second h2 gets count=2
     expect(items[1].id).toBe("h-section-2");
   });
 

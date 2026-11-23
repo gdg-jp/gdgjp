@@ -2,11 +2,6 @@ import type { Brief } from "~/features/briefs/brief";
 import type { PlaybookConstants } from "~/features/playbook/playbook";
 import type { ItemInput } from "./item";
 
-/**
- * Items the Playbook derives from a parent item (REMIND-STAFF-BEFORE-POST,
- * SPEAKER-REQUEST-BEFORE-POST, SPEAKER-TIER-HIGH-NO-ASK). Pure; the repository writes them in the
- * parent's batch and moves them when the parent moves.
- */
 export function deriveItems(
   parent: ItemInput,
   brief: Brief | null,

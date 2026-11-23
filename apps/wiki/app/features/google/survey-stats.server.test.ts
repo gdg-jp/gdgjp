@@ -108,7 +108,6 @@ describe("computeSurveyStats", () => {
       stdDev: number;
       distribution: Record<string, number>;
     };
-    // Values: 5, 4, 5 → mean = 4.67, median = 5
     expect(scale.mean).toBeCloseTo(4.67, 1);
     expect(scale.median).toBe(5);
     expect(scale.distribution["5"]).toBe(2);
@@ -123,8 +122,6 @@ describe("computeSurveyStats", () => {
 
     const scale = q4?.stats as { kind: "scale"; nps: { score: number; promoters: number } };
     expect(scale.nps).toBeDefined();
-    // Values: 9, 7, 10 → promoters=2, passives=1, detractors=0
-    // NPS = (2-0)/3 * 100 = 66.7
     expect(scale.nps.promoters).toBe(2);
     expect(scale.nps.score).toBeCloseTo(66.7, 0);
   });

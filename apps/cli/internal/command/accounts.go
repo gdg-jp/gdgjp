@@ -215,10 +215,6 @@ func (service *accountsService) withAccessToken(
 	return cliutil.WithToken(ctx, saveWrappingCredentialStore{service.credentials}, operation)
 }
 
-// saveWrappingCredentialStore preserves the Accounts and Agent commands'
-// existing "save refreshed credentials: %w" error text now that refresh-on-401
-// retry is shared via cliutil.WithToken, which otherwise returns Save errors
-// bare (matching connpass and wiki's original, unwrapped behavior).
 type saveWrappingCredentialStore struct {
 	store.CredentialStore
 }

@@ -1,7 +1,3 @@
-/**
- * `schedule_items.kind`. The source is docs/plans/pr/00-overview.md §4 (kinds.test.ts keeps
- * them equal). Not a SQL CHECK because the set grows.
- */
 export const SCHEDULE_KINDS = [
   "x_post",
   "x_ad_start",
@@ -74,14 +70,12 @@ export const KIND_LABELS: Record<ScheduleKind, string> = {
   metrics_review: "数値の確認",
 };
 
-/** Kinds that are requests to a person or organization (tracked as sent / replied / declined). */
 export const REQUEST_KINDS: readonly ScheduleKind[] = [
   "community_ask",
   "org_outreach",
   "sponsor_ask",
 ];
 
-/** Listings on other platforms: drafts mapped from the brief (no runner). */
 export const LISTING_KINDS: readonly ScheduleKind[] = [
   "luma_publish",
   "techplay_publish",
@@ -89,7 +83,6 @@ export const LISTING_KINDS: readonly ScheduleKind[] = [
   "bevy_publish",
 ];
 
-/** Kinds that get a draft from the schedule page (runner jobs, or listings from the brief). */
 export const DRAFTABLE_KINDS: readonly ScheduleKind[] = [
   "x_post",
   "ig_post",

@@ -17,7 +17,6 @@ export async function action({ request, context, params }: ActionFunctionArgs) {
   const { env } = context.cloudflare;
   const user = await requireUser(request, env);
   const identity = await getAccessIdentity(request, env);
-  // Outer layer first: the source's space must grant the editor role.
   await requireSourceSpace(getDb(env), identity, sourceId, "editor");
   const db = getDb(env);
 

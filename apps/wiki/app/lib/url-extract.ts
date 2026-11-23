@@ -33,15 +33,10 @@ export interface JinaError {
 
 const URL_REGEX = /https?:\/\/[^\s<>"')\]},;!？。、）」』】\u3000]+/g;
 
-// Google Drive/Docs/Slides/Sheets patterns — already handled by Step 2
 const GOOGLE_DRIVE_RE = /^https?:\/\/(docs|drive|slides|sheets)\.google\.com\//;
 
 const JINA_RE = /^https?:\/\/r\.jina\.ai\//;
 
-/**
- * Extract URLs from text, excluding Google Drive URLs and Jina URLs.
- * Returns deduplicated list with surrounding context snippets.
- */
 export function extractUrls(
   text: string,
   source: "user_text" | "google_doc",
@@ -58,7 +53,6 @@ export function extractUrls(
     if (JINA_RE.test(url)) continue;
     seen.add(url);
 
-    // Extract ~50 chars of surrounding context
     const idx = match.index ?? 0;
     const start = Math.max(0, idx - 25);
     const end = Math.min(text.length, idx + url.length + 25);
@@ -77,10 +71,6 @@ export function extractUrls(
   return results;
 }
 
-/**
- * Render a URL as a PDF using Cloudflare Browser Rendering.
- * Only available in production (requires BROWSER binding).
- */
 export async function fetchUrlAsPdf(
   browser: BrowserWorker,
   url: string,
@@ -93,15 +83,10 @@ export async function fetchUrlAsPdf(
     await page.goto(url, { waitUntil: "networkidle2", timeout: timeoutMs });
     const title = await page.title();
     const pdfBuffer = await page.pdf({ format: "A4", printBackground: true });
-    // Defensive copy: pdfBuffer may be a Node.js Buffer with a shared backing
-    // ArrayBuffer, so always copy to get an isolated, correctly-sized ArrayBuffer.
     const arrayBuffer = pdfBuffer.buffer.slice(
       pdfBuffer.byteOffset,
       pdfBuffer.byteOffset + pdfBuffer.byteLength,
     ) as ArrayBuffer;
-    // Validate the PDF signature (%PDF-). page.pdf() can return non-PDF bytes
-    // (e.g. garbled binary from the CDP transport) that would cause Gemini to
-    // reject the upload with "400 No file found in request".
     const header = new Uint8Array(arrayBuffer, 0, Math.min(4, arrayBuffer.byteLength));
     if (header[0] !== 0x25 || header[1] !== 0x50 || header[2] !== 0x44 || header[3] !== 0x46) {
       return {
@@ -120,17 +105,11 @@ export async function fetchUrlAsPdf(
     if (b) {
       try {
         await b.close();
-      } catch {
-        // ignore close errors
-      }
+      } catch {}
     }
   }
 }
 
-/**
- * Fetch a URL via Jina.ai reader API, returning clean markdown.
- * Used as a fallback when the BROWSER binding is unavailable (local dev).
- */
 export async function fetchUrlViaJina(
   url: string,
   timeoutMs = 15000,

@@ -75,7 +75,6 @@ export async function retroNotes(db: D1Database, campaignId: number): Promise<st
   return row?.retro_notes_md ?? "";
 }
 
-/** What the retro reads: grouped edits (with recurrences), outcomes, reviews, KPT notes, decisions. */
 export async function retroFiles(
   env: Env,
   campaign: Campaign,
@@ -133,11 +132,6 @@ export async function retroFiles(
   );
 }
 
-/**
- * The retro's report (a `report` draft), its proposals (personal data refused), contact outcomes
- * appended to contacts, and observed values for provisional constants as constant proposals.
- * The Wiki update is shown for a person to paste: pr never writes the Wiki.
- */
 export async function importRetro(
   env: Env,
   job: Job,

@@ -2,7 +2,6 @@ import { Button, Card, Heading, Stack, Text } from "@gdgjp/design-system";
 import { Form } from "react-router";
 import type { AnalyzeReport } from "../report";
 
-/** The weekly report, and each proposal with its own "apply" (nothing is applied automatically). */
 export function ReportCard({
   report,
   canApply,

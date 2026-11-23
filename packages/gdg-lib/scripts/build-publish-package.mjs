@@ -14,10 +14,6 @@ rmSync(distDir, { recursive: true, force: true });
 const tsc = createRequire(import.meta.url).resolve("typescript/bin/tsc");
 execFileSync(process.execPath, [tsc, "-p", "tsconfig.build.json"], { cwd: root, stdio: "inherit" });
 
-// tsc emits the extensionless relative specifiers written in src/acl (this
-// monorepo's tsconfig.base.json uses moduleResolution "Bundler", which never
-// needs an extension). Plain Node ESM does need one, so add ".js" to every
-// bare-specifier import/export before publishing.
 function addJsExtensions(dir) {
   for (const entry of readdirSync(dir, { withFileTypes: true })) {
     const full = join(dir, entry.name);

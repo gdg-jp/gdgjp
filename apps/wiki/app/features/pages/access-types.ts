@@ -1,9 +1,3 @@
-/**
- * Shared vocabulary for page access: role/visibility types, guards, and the
- * pure role-ranking helpers. Query-time resolution lives in `access.server.ts`;
- * ACL mutations live in `access-mutations.server.ts`.
- */
-
 export type GeneralAccess = "restricted" | "unlisted" | "public" | "organizer" | "member";
 export type PageRole = "viewer" | "commenter" | "editor";
 export type EffectivePageRole = "owner" | PageRole | null;
@@ -22,7 +16,6 @@ export interface PageAccessEntry extends ShareSubject {
   id: string;
   pageId: string;
   role: PageRole;
-  /** @deprecated use role */
   pageRole: PageRole;
   grantedBy: string;
   createdAt: number;

@@ -19,7 +19,6 @@ export interface WebsiteFetchResult {
 }
 
 interface DownloadedCss {
-  /** URL used for the fetch request (matches HTML / @import resolution). */
   requestedUrl: string;
   absoluteUrl: string;
   objectId: string;
@@ -31,18 +30,9 @@ interface FetchedHtml {
   pageUrl: string;
 }
 
-/** Identifies wiki source capture; many origins 403 bare Workers fetches. */
 export const WEBSITE_FETCH_USER_AGENT =
   "Mozilla/5.0 (compatible; GDG-Wiki/1.0; +https://wiki.gdgs.jp)";
 
-/**
- * Fetch a public website as HTML plus linked stylesheets.
- * CSS files are written under `raw/<sourceId>/assets/`; HTML `href` / `@import`
- * references are rewritten to those asset paths.
- *
- * Plain `fetch` first; on bot-block statuses, fall back to Browser Rendering
- * (`BROWSER.quickAction("content")`) so sites that reject Workers egress still work.
- */
 export async function fetchWebsiteSource(
   env: Env,
   sourceId: string,
@@ -90,8 +80,6 @@ export async function fetchWebsiteSource(
   const urlToPath = new Map<string, string>();
   const assets: PersistAssetInput[] = [];
 
-  // Store imported sheets first (no further @import rewrite). Primary sheets then
-  // rewrite @import to those final content-addressed paths.
   for (const css of importedSheets) {
     assets.push(await storeCssAsset(env, sourceId, css, css.text, urlToPath));
   }

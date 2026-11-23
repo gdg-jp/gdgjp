@@ -9,11 +9,6 @@ export interface FetchedSourceDocument {
   images: GoogleDocsInlineImage[];
 }
 
-/**
- * The document body becomes `index`; tabs keep their title hierarchy. The document
- * title is deliberately left out of the path so renaming the Doc does not orphan
- * every source_document under it.
- */
 export function collectDocuments(root: GoogleDocsMarkdownNode): FetchedSourceDocument[] {
   const documents: FetchedSourceDocument[] = [];
   if (root.markdown.trim()) {
@@ -49,7 +44,6 @@ function collectTabs(
   }
 }
 
-/** Sibling tabs may share a title; disambiguate so `(source_id, path)` stays unique. */
 export function withUniqueNames<T extends { name: string }>(values: readonly T[]): T[] {
   const occurrences = new Map<string, number>();
   return values.map((value) => {

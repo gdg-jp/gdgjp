@@ -26,7 +26,6 @@ export async function action({ request, context }: ActionFunctionArgs) {
       });
   }
 
-  // Set a cookie so subsequent SSR requests render in the chosen language.
   return Response.json(
     { ok: true },
     {

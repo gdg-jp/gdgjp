@@ -19,7 +19,6 @@ const bytesToBase64 = (bytes: ArrayBuffer) => {
   return btoa(binary);
 };
 
-/** Browser Rendering's snapshot (or, locally, the Playwright server at PR_RENDER_URL). */
 async function snapshot(
   env: Env,
   html: string,
@@ -61,7 +60,6 @@ export const renderLimits = () => ({
   minContrastLarge: constants.render.minContrastLarge,
 });
 
-/** Template mode: the template's HTML for these slots (the same builder the Skill's local renderer uses). */
 export function buildHtml(asset: Pick<Asset, "templateId" | "slots" | "layoutVars" | "skin">) {
   const template = imageTemplates.html[asset.templateId];
   const schema = imageTemplates.schemas[asset.templateId];
@@ -79,10 +77,6 @@ export function buildHtml(asset: Pick<Asset, "templateId" | "slots" | "layoutVar
   });
 }
 
-/**
- * The `assets/…` paths the agent's HTML may reference, as data URIs: the GDG logo and stickers
- * (from the skills), the campaign's speaker photos and event logo (from R2).
- */
 export async function assetsMap(env: Env, campaignId: number, html: string) {
   const map: Record<string, string> = { "assets/gdg.svg": svgDataUri(imageTemplates.logoSvg) };
   for (const [file, svg] of Object.entries(designAssets.stickers))
@@ -99,7 +93,6 @@ export async function assetsMap(env: Env, campaignId: number, html: string) {
   return map;
 }
 
-/** Design mode: the agent's HTML wrapped into the page (fonts, checks, CSP), resources inlined. */
 export async function buildDesign(
   env: Env,
   asset: Pick<Asset, "campaignId" | "templateId" | "html" | "width" | "height">,
@@ -124,11 +117,6 @@ export async function buildDesign(
 
 export const assetSkin = (brief: Brief | null) => skinFromBrief(brief);
 
-/**
- * Render, store the PNG (and for connpass a JPEG of 1 MB or less, lowering the quality step by
- * step and failing instead of silently resizing), then check: the slot contract, the Playbook's
- * mechanical rules, and the render rules measured in the page.
- */
 export async function renderAsset(
   env: Env,
   asset: Asset,

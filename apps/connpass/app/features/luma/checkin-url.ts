@@ -4,11 +4,6 @@ const CHECKIN_PATH = /^\/check-in\/(evt-[A-Za-z0-9]+)\/?$/;
 const PROXY_KEY = /^g-[A-Za-z0-9]+$/;
 const HOSTS = new Set(["luma.com", "lu.ma"]);
 
-/**
- * Accept only the guest ticket QR payload Luma renders under "My ticket"
- * (`https://luma.com/check-in/evt-…?pk=g-…`). Only the event id and the guest
- * proxy key are kept; the bot never requests the caller-supplied URL itself.
- */
 export function parseLumaCheckinUrl(raw: unknown): LumaCheckinUrl | null {
   if (typeof raw !== "string") return null;
   let url: URL;

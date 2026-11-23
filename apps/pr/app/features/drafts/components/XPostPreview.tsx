@@ -17,7 +17,6 @@ type Post = {
   } | null;
 };
 
-/** An X post as it folds: the part above "さらに表示", a divider, then the hidden part. */
 export function XPostPreview({ post }: { post: Post }) {
   return (
     <div className="space-y-2">

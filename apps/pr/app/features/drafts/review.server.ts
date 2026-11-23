@@ -21,7 +21,6 @@ import {
   statusAfterEdit,
 } from "./state-machine";
 
-/** Who may review and approve this draft. */
 export function actorFor(access: CampaignAccess, draft: Draft): Actor {
   const me = access.members.find((m) => m.userId === access.user.id);
   const canApprove = access.permissions.manage;
@@ -67,10 +66,6 @@ export async function reviewDraft(
   return { ok: true };
 }
 
-/**
- * A person's edit: validate against the Skill schema, check against the Playbook, append a
- * human version (never update the agent's), and send the draft back to review.
- */
 export async function editDraft(
   db: D1Database,
   access: CampaignAccess,
@@ -79,7 +74,6 @@ export async function editDraft(
 ): Promise<{ ok: true; version: number } | { ok: false; errors: string[] }> {
   const skill = SKILL_FOR_KIND[draft.kind];
   const schema = skill ? outputSchemas[skill] : undefined;
-  // A connpass page carries what the Worker added (skin, html): validate the slots only.
   const slots =
     draft.kind === "connpass_page" && content && typeof content === "object"
       ? (({ html: _h, skin: _s, renderWarnings: _w, ...rest }) => rest)(

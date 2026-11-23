@@ -42,7 +42,6 @@ type VersionFullRaw = VersionRaw & {
   content_en: string;
 };
 
-/** Data assembly behind the `/wiki/:slug/history` loader. */
 export async function loadPageHistory(
   request: Request,
   env: Env,
@@ -183,7 +182,6 @@ export async function loadPageHistory(
   };
 }
 
-/** Revert a page to a stored version — behind the `/wiki/:slug/history` action. */
 export async function revertPageVersion(
   request: Request,
   env: Env,
@@ -300,7 +298,6 @@ export async function revertPageVersion(
   const aclSourceIdsJson = computeAclSourceIdsJson(restoredJa, restoredEn);
 
   await env.DB.batch([
-    // Snapshot current state before overwriting
     env.DB.prepare(
       `INSERT INTO page_versions (id, page_id, content_ja, content_en, title_ja, title_en, edited_by, saved_at)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
@@ -314,7 +311,6 @@ export async function revertPageVersion(
       user.id,
       now,
     ),
-    // Overwrite with version content
     env.DB.prepare(
       `UPDATE pages SET title_ja = ?, title_en = ?, content_ja = ?, content_en = ?,
           acl_source_ids = ?, last_edited_by = ?, updated_at = unixepoch() WHERE id = ?`,
@@ -327,7 +323,6 @@ export async function revertPageVersion(
       user.id,
       page.id,
     ),
-    // Prune — keep last 10
     env.DB.prepare(
       `DELETE FROM page_versions WHERE page_id = ? AND id NOT IN (
          SELECT id FROM page_versions WHERE page_id = ? ORDER BY saved_at DESC LIMIT 10

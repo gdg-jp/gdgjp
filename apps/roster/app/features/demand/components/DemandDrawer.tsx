@@ -6,19 +6,6 @@ import type { Track } from "~/features/schedule/tracks.server";
 import type { MatrixMode } from "../matrix";
 import type { DemandValue } from "../types";
 
-/**
- * The demand-cell editor on `/e/:id/design` (docs/roster/03-demand-input.md
- * "Design" §4). Rendered as a native modal dialog aligned to the right edge,
- * matching the editing drawer used throughout the admin surface without
- * adding an app-local UI primitive layer.
- *
- * Bulk copy (§3(b)) is two independent checkbox groups rather than a full
- * (phase x track) picker: "copy this value to these other tracks, keeping
- * the same row" and, in phase mode, "copy it to these other phases, keeping
- * the same track". Combining both axes in one copy isn't offered — running
- * the copy twice covers that case — which keeps this form to the size the
- * stage's manual E2E actually exercises (step 8: one row, one other track).
- */
 export function DemandDrawer({
   mode,
   rowKey,
@@ -147,9 +134,6 @@ export function DemandDrawer({
                 formNoValidate
                 className="ml-auto text-sm font-medium text-gdg-red underline"
                 onClick={(e) => {
-                  // Zero every field client-side before submit — ideal=0
-                  // means "no demand" and must carry zeroed siblings
-                  // (validate.ts's IDEAL_ZERO_REQUIRES_ZEROED_FIELDS).
                   const form = e.currentTarget.form;
                   if (!form) return;
                   for (const name of ["min", "ideal", "leadMin", "newMax"]) {

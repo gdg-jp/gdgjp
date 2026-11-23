@@ -4,10 +4,6 @@ import { useLocation } from "react-router";
 import type { TopBarUser } from "~/layouts/top-bar";
 
 type PageShellProps = {
-  /**
-   * Kept while feature routes migrate to the authenticated layout. The account
-   * shell owns the global user menu and navigation now.
-   */
   user?: TopBarUser | null;
   children: ReactNode;
   className?: string;

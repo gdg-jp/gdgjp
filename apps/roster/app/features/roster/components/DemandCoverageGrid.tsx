@@ -14,24 +14,6 @@ export type CoverageSlot = { id: string; start: string; end: string };
 type TrackInfo = { id: string; name: string; color: string; sortOrder: number };
 type RoleInfo = { id: string; name: string; sortOrder: number };
 
-/**
- * The coverage view on `/e/:id/roster`: vertical = time, horizontal =
- * (track × role) — the same axis as `RoleGrid` so the two views read
- * side-by-side (docs/roster/07-roster-manual-edit.md "Design" §3c). Each
- * cell shows 現在/理想 and the lead/newcomer condition, colored by
- * `evaluate()`'s own `Report` (via `grid.ts#indexReportByCell`) — never
- * re-judged here. Unlike `RoleGrid`, cells are never merged: coverage is a
- * per-slot fact, not a "who is here" lineup that can repeat unchanged.
- *
- * `.data-grid-numeric` centers the header AND the cell together — the two
- * have to move as a pair or the numbers stop lining up under their column.
- *
- * The lead line spells out **リード**, matching `CellDrawer` (the drawer this
- * grid opens) and index.md §3's own label for the `lead` level. It used to
- * read `LOK` / `L不足` — an unexplained initial that formed a nonsense word.
- * Note this measures the `lead` level ONLY, not `exp`, which is why it is not
- * called 経験者 here even though `ShortageReport`/`MetricsRow` still do.
- */
 export function DemandCoverageGrid({
   timeSlots,
   tracks,
@@ -143,8 +125,6 @@ export function DemandCoverageGrid({
   );
 }
 
-/** Mirrors `coverageClass` below — keep the two in step, they are the only
- * two places that name a coverage state's colour. */
 const COVERAGE_LEGEND = [
   { label: "理想を充足", className: "data-grid-cell-ok" },
   { label: "理想に未達", className: "data-grid-cell-under" },
@@ -152,16 +132,6 @@ const COVERAGE_LEGEND = [
   { label: "頭数が不足", className: "data-grid-cell-short" },
 ] as const;
 
-/**
- * Coverage colour comes from `evaluate()`'s `Report`, never from a fresh
- * comparison here (docs/roster/07-roster-manual-edit.md "制約": "evaluate を
- * 再実装しない").
- *
- * These are `.data-grid-cell-*` classes, NOT Tailwind `bg-*` utilities:
- * `app.css`'s unlayered `.data-grid-cell { background: none }` outranks
- * anything in Tailwind's utilities layer, so a `bg-gdg-green/25` here would
- * silently render transparent. See that file's note next to the fills.
- */
 function coverageClass(
   demand: Demand | undefined,
   current: number,

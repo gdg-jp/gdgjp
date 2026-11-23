@@ -1,10 +1,6 @@
 import { Tooltip, TooltipContent, TooltipTrigger } from "@gdgjp/design-system";
 import type { ComponentProps, ReactNode } from "react";
 
-/**
- * Meet-style round icon button. `off` paints it red (mic muted, camera off);
- * `active` highlights it (sharing). The tooltip doubles as the accessible name.
- */
 export function RoundToggle({
   label,
   off = false,

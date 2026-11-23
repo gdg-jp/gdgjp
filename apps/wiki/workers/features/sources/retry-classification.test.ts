@@ -4,8 +4,6 @@ import { SourceAuthorizationError, isRetryableFetchError } from "./retry-classif
 
 describe("isRetryableFetchError", () => {
   it("does not retry failures a retry can never fix", () => {
-    // These would otherwise cycle error → fetching → error through the whole
-    // retry budget while the source is broken for a reason no retry addresses.
     expect(isRetryableFetchError(new Error("Google Drive is not connected"))).toBe(false);
     expect(isRetryableFetchError(new Error("Unsupported Google Workspace URL"))).toBe(false);
     expect(isRetryableFetchError(new Error("Unsupported source kind: upload"))).toBe(false);

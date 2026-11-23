@@ -39,7 +39,6 @@ export type PostMedia = {
 
 export type PostCondition = "scheduled" | "photo_required";
 
-/** Resolved OGP/Twitter-card metadata for the first URL in a post's text. */
 export type LinkPreview = {
   url: string;
   title: string | null;
@@ -54,7 +53,6 @@ export type CreateDraftInput = {
   scheduledAt: string;
   condition: PostCondition;
   createdByUserId: string;
-  /** Normalized/resolved through the selected X account, maximum 10. */
   tagHandles?: string[];
 };
 
@@ -73,11 +71,6 @@ export type MediaMetadataEdit = { id: string; altText: string; sortOrder: number
 
 export type PostDetail = { post: Post; media: PostMedia[] };
 
-/**
- * Everything the aggregate draft service needs that a route (or a future CLI
- * caller) supplies. Link-preview derivation and X-handle resolution are
- * injected so the service itself stays free of `fetch`/crypto/`Env`.
- */
 export type PostDraftDependencies = {
   db: D1Database;
   media: R2Bucket;

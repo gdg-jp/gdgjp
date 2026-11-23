@@ -4,7 +4,6 @@ import { requireRunner, runnerHost } from "~/features/jobs/runner-routes.server"
 import { completeJob } from "~/features/jobs/runner.server";
 import { getDb } from "~/lib/db.server";
 
-/** POST /api/runner/jobs/:id/result — finish a leased job. */
 export async function action({ request, context, params }: ActionFunctionArgs) {
   const { env } = context.cloudflare;
   requireRunner(request, env);

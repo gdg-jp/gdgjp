@@ -1,11 +1,5 @@
 import type { GoogleDocsStructuralElement, GoogleDocsTextStyle } from "./drive.server";
 
-/**
- * Inline-level Google Docs → Markdown conversion: text-run styling, smart chips,
- * embedded/inline objects, and paragraph-style CSS. Block-level assembly
- * (paragraphs, tables, tabs, the document walker) lives in `docs-markdown.server.ts`.
- */
-
 export interface GoogleDocsInlineImage {
   objectId: string;
   sourceUrl: string;

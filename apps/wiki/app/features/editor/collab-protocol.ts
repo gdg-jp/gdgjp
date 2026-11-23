@@ -1,14 +1,9 @@
 import { diffChars } from "diff";
 import * as Y from "yjs";
 
-/** WebSocket message discriminators for the collab Durable Object protocol. */
 export const MSG_SYNC = 0;
 export const MSG_AWARENESS = 1;
 
-/**
- * Apply a new string value to a Y.Text by computing a character-level diff
- * and applying insert/delete operations.
- */
 export function applyStringToYText(ytext: Y.Text, newValue: string): void {
   const currentValue = ytext.toString();
   if (currentValue === newValue) return;

@@ -7,7 +7,6 @@ export type LinkShareInput = {
 };
 
 export type LinkCreateInput = {
-  /** Required to disambiguate a campaign chapter for multi-chapter CLI callers. */
   chapterId?: number;
 };
 

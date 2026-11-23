@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "syncedBaseCommit": "443846d8",
+  "syncedBaseCommit": "c14af669",
   "method": "Bounded exhaustive execution of production TypeScript and SQL in SQLite, with targeted adversarial request interleavings and production-expression mutations.",
   "tools": {
     "node": "v26.3.1",
@@ -72,17 +72,17 @@
     },
     {
       "path": "apps/cli/internal/pr/runner/runner.go",
-      "sha256": "1e8c8f0e8a6a2c89f4ab8cc35c6aa4a911c257c9b162a46d553bc12632efda25",
+      "sha256": "8e34384c7d57084345f7bb7edbc7ce5a41a402eb592fe40827470adc6ba701d0",
       "role": "go-wire"
     },
     {
       "path": "apps/cli/internal/pr/runner/runner_test.go",
-      "sha256": "d1dfca9199955948eaab9809c229af3a3b8aa07e129a7b8f9dfbac98a06643f0",
+      "sha256": "27f41afcf9f1a616054601443fcd4867f413566cec0ad2bcda4131ac124b2470",
       "role": "go-wire"
     },
     {
       "path": "apps/cli/internal/wiki/runner/jobs.go",
-      "sha256": "d718121f02148479910313cc2a4a949aba60bc9c2f5ed0e2665bbbf7238b5e07",
+      "sha256": "59bd85357db3034cc371b202fd53916920ce100767c9e048dd425b3d49a8ad31",
       "role": "go-wire"
     },
     {
@@ -92,27 +92,27 @@
     },
     {
       "path": "apps/cli/internal/wiki/runner/runner.go",
-      "sha256": "c4feb31fddb04738704e0356adbcf27c5a168dc139f9f111ddaa7da3ddc5077a",
+      "sha256": "b86a5b0d604069593ccebd3e62605f1de890f40b877d4b2702625a6918b1b008",
       "role": "go-wire"
     },
     {
       "path": "apps/cli/internal/wiki/runner/runner_test.go",
-      "sha256": "6ed5f5b667ea6ae346d84dfbd8577fe112849a68cef2743fee117b1d4613265c",
+      "sha256": "5399a5cf61f8f44c886c8d5bdb4322ed0152cf2a505d1290d976e3ed78a0f07e",
       "role": "go-wire"
     },
     {
       "path": "apps/wiki/app/db/schema/chapters.ts",
-      "sha256": "c2122e5e52890b1c444345b0378e3638e92afd69f7d69882407b359c77742b8d",
+      "sha256": "038038de346dba30302794545442e14c14ffc046d2f5f21d882b7a0654e55668",
       "role": "schema"
     },
     {
       "path": "apps/wiki/app/db/schema/discord.ts",
-      "sha256": "8922baca401242037abea4d6f22a96ec8238187d83d9704bb5b874a210cb5bfa",
+      "sha256": "1bf39342aaa0f11c0c3b9d3537d81015662842b504a6c432ed01a9baae18404e",
       "role": "schema"
     },
     {
       "path": "apps/wiki/app/db/schema/google.ts",
-      "sha256": "c98e2a6b82a48626ed127647c2169ff88f91fad4e193e6ad0343a40b5b6cf76b",
+      "sha256": "81001b629fceda8c3b965036013ce347119981d242d3d93b5e849bcd4c3a057c",
       "role": "schema"
     },
     {
@@ -122,52 +122,52 @@
     },
     {
       "path": "apps/wiki/app/db/schema/ingestion.ts",
-      "sha256": "1ebb366694972a091be2bf2166e729b1bcb9076fe32e9ae68242f41a9159213d",
+      "sha256": "64af4d91b7efcd9dce943ef2ed62e687ae1b05b2bc0209938e3b2d87e4ba27e3",
       "role": "schema"
     },
     {
       "path": "apps/wiki/app/db/schema/jobs.ts",
-      "sha256": "b34ff6c1e9e3351b41ea83819c2ec9d17bcbe6159026fb6cf02431f3f7c6b294",
+      "sha256": "dc400b03558de3ade0e42ea64afc81403bdb22afb14803af4fd30b6c2c6a65a6",
       "role": "schema"
     },
     {
       "path": "apps/wiki/app/db/schema/knowledge.ts",
-      "sha256": "5c49d776cda1904731ab625048c1ed5f179e5c8818413a56f2e976dfeedd9cb4",
+      "sha256": "597379df7da16088b01c7d3b5deaaa560d7579c39b9e784fc8e1fa42a0969832",
       "role": "schema"
     },
     {
       "path": "apps/wiki/app/db/schema/notifications.ts",
-      "sha256": "5ea22a3f3437dad9857d184ae55380935cd4da467b6b9ba25208a72676d4a464",
+      "sha256": "b2fb5f7bd5b68d7fc712fb0010e347ee05a77ae02abff215647107afe24e4953",
       "role": "schema"
     },
     {
       "path": "apps/wiki/app/db/schema/observability.ts",
-      "sha256": "bfd88ce8f4383a6cff47c1bd0a28a919ee47b0915de8195e7afc844a58486b4a",
+      "sha256": "17d7ebc225f995fe7d32faba4687f91305de50c1089f551b54249c14224438a5",
       "role": "schema"
     },
     {
       "path": "apps/wiki/app/db/schema/pages.ts",
-      "sha256": "99e89894a96c1d001a9a53e230bcb682b8c4fe458eee439f8b8013132bc41392",
+      "sha256": "da189b9352c42ad462950b6a53c557ee17564dee2e4512536f079f128bee1c63",
       "role": "schema"
     },
     {
       "path": "apps/wiki/app/db/schema/sources.ts",
-      "sha256": "3cc111e95c5445304679b4f45acc61b809d43b631d2901726bcc1c9d188385e9",
+      "sha256": "e9c702bdf0b8353e8f134a0996aa925e66c908bc510a4859f1926d6517ea3c00",
       "role": "schema"
     },
     {
       "path": "apps/wiki/app/db/schema/spaces.ts",
-      "sha256": "97fe54ed32f0439fba5745c60eccccea8db21b5b2e25681d0340af193f670e6f",
+      "sha256": "6b391b5f5b56bc4edaaecbb0789b1815bff57fbdc8357d58605a0938b02254e8",
       "role": "schema"
     },
     {
       "path": "apps/wiki/app/db/schema/tags.ts",
-      "sha256": "4c2d6e1ba1b98303cbd5fef0dbd738b81cd718a28ce5cfed20c7e7b31b1740bb",
+      "sha256": "e74656e4b0bff49e47fa75318ee7deeb570d42bb7c2b28a127a119a39962355e",
       "role": "schema"
     },
     {
       "path": "apps/wiki/app/db/schema/tasks.ts",
-      "sha256": "a8f654aa28e943f4c0d2b101ef25e7c56f08dfa9fab26c8fac25ed1464de618d",
+      "sha256": "6e16e3c4492740d04975fb80b029832ddd73a12d39c1437ce44cce088f84527f",
       "role": "schema"
     },
     {
@@ -177,32 +177,32 @@
     },
     {
       "path": "apps/wiki/app/db/schema/user.ts",
-      "sha256": "c41029f3d594a1557dc3da5413d1843c21e0a7ee415421b443815df77cfbcac6",
+      "sha256": "833d57ca7c784b352cd72527dd376f24b05f597afcc38e982907f18dd8372d2a",
       "role": "schema"
     },
     {
       "path": "apps/wiki/app/features/agent-api/runner-identity.server.ts",
-      "sha256": "305e96cfec5fa556a429cbf4d632178634526f4c3f0aed393d31a5af2e435912",
+      "sha256": "63003b857fe1ca88a736d192a90acd96abca0b0cca883dc584ae69b30ccfd1f8",
       "role": "wire-authentication"
     },
     {
       "path": "apps/wiki/app/features/jobs/answer.server.test.ts",
-      "sha256": "1e6910d1559b1f6cb84389f55f875381c7c3362858905b2e8cd68e74973f78f1",
+      "sha256": "d5ce97a20e9998e5c6c01aa04a74ed5379e17badbdcdc8bd2e2a73343c8d561e",
       "role": "oracle"
     },
     {
       "path": "apps/wiki/app/features/jobs/answer.server.ts",
-      "sha256": "e524c78ee3dc2eb12843eeef24fe6384ceedf52dd31d8f1300a3d725969fb16d",
+      "sha256": "7f0985880b87419162628ad140a6512fa988cc6dc314497bc28724b823f3e857",
       "role": "production"
     },
     {
       "path": "apps/wiki/app/features/jobs/enqueue.server.test.ts",
-      "sha256": "e040abc6a3eb74b8988afb357fe314b1595ebdfa28b1ffd82c1551d395d40a7d",
+      "sha256": "343ecd4866d46750a147e14f6cee6bfb8198e2aa18220a494a4c25dd1549f067",
       "role": "oracle"
     },
     {
       "path": "apps/wiki/app/features/jobs/enqueue.server.ts",
-      "sha256": "249b57a77743e0f4da3c250c23896b80c6d9ceddc6469b4779cbaa24662ed029",
+      "sha256": "75c10d2fc7ade0cce79545604c5936f149f0b76744f59cb662a2fba1d59deb09",
       "role": "production"
     },
     {
@@ -217,17 +217,17 @@
     },
     {
       "path": "apps/wiki/app/features/jobs/runner-routes.server.ts",
-      "sha256": "49983ea054b738fd148a691e034bb4cf3ccafe618db2318f2e75666d058f830c",
+      "sha256": "b21764985baa16df0cc9382fa1e4bb791e710182cf47bfb1dc3bd343548f4a6a",
       "role": "production"
     },
     {
       "path": "apps/wiki/app/features/jobs/runner.server.test.ts",
-      "sha256": "117a5a8d59e6d7ef9b4bc3d0fa143ac3c660bad6a648c82143431545ad9b23a1",
+      "sha256": "3d304a0adb9bd5d1e5f1431bc4bcfc537c0bad7f79c82092fa334b6b81ba07e5",
       "role": "oracle"
     },
     {
       "path": "apps/wiki/app/features/jobs/runner.server.ts",
-      "sha256": "b23988ae2e74ab757f36c527b60bb32deb807b678a43fe06bf2bfc02618eaca7",
+      "sha256": "de930c6eeafc5f43d466abc6a62f05f1841843d1b358317ac1001fb740191da3",
       "role": "production"
     },
     {
@@ -242,7 +242,7 @@
     },
     {
       "path": "apps/wiki/app/features/jobs/shared.ts",
-      "sha256": "a2e56d40809b3d7f038dcbe152370d283ca2d95a2dd8b35922ea83e3a687ec5b",
+      "sha256": "2e9292ea73fb13432225fd48ce0510a6c08ce470dfea3f93cc5d32138e9419d6",
       "role": "production"
     },
     {
@@ -252,12 +252,12 @@
     },
     {
       "path": "apps/wiki/app/features/jobs/translate.server.ts",
-      "sha256": "a1432717b8606d208e98c1398dca268b17f0273a59b7d4ccc633e682385b26f8",
+      "sha256": "baab62f7cc7060cd3825af508298423f1c7f2e16c2393a15562be412433c9339",
       "role": "production"
     },
     {
       "path": "apps/wiki/app/features/spaces/test-db.ts",
-      "sha256": "efad1987e7d2aaf76d5d506c96c91de83211083454d37c2b2b26881ed8c6f7cf",
+      "sha256": "2780af887fb0756ffcb635de6668fe62df32a815b5e7f4d7cc01af43882f4ec3",
       "role": "sqlite-transaction-adapter"
     },
     {
@@ -267,12 +267,12 @@
     },
     {
       "path": "apps/wiki/app/routes/api/runner/jobs-heartbeat.ts",
-      "sha256": "990a9262cb7f6d56c7cea1e7a6cbf0d5bea27d7993a925b0ef5cda295e2a789a",
+      "sha256": "e786b73ca37fd59286716d07e90edbc5a6e35e3ea0a22cc7fd09dbb342838bc9",
       "role": "production"
     },
     {
       "path": "apps/wiki/app/routes/api/runner/jobs-next.ts",
-      "sha256": "dd42e16979e7ef9645083da44ec7d7ab94d6f8838ed389aafb16b5c9c9b4a7c9",
+      "sha256": "30e620cf9d1686cefe61f9793a6a391bec5b5b38e687b608661b2937c4c0b96e",
       "role": "production"
     },
     {
@@ -282,7 +282,7 @@
     },
     {
       "path": "apps/wiki/app/routes/api/runner/jobs-result.ts",
-      "sha256": "341035efc31cdcdf9cf68003709ace14653957dec3544a237134b2d64d7b3184",
+      "sha256": "1c91d3c5f92bbf3c842277f4c547ac44cf73076934d184d3096bff5db5db702c",
       "role": "production"
     },
     {
@@ -297,7 +297,7 @@
     },
     {
       "path": "apps/wiki/package.json",
-      "sha256": "4d01ec5210e991d7d4a71cda363001fd1024460f4a7949872cb3e58ebaf7041e",
+      "sha256": "bb686b7fd74faeb51c5b7ad885c1c2e6415561530f976c9306ffc86c411d7914",
       "role": "tool-config"
     },
     {
@@ -317,7 +317,7 @@
     },
     {
       "path": "pnpm-lock.yaml",
-      "sha256": "29dbd09f3af553197af4a09e02ec66f6e4a86c27a460ecc817fc884ddde76efb",
+      "sha256": "5faa5e2533f0401afeb30f624dc01ad0ec9edf0be886547a4f58399b5a6cf561",
       "role": "tool-config"
     },
     {

@@ -31,13 +31,6 @@ export type MirrorSource = {
   addedBy: string;
 };
 
-/**
- * Audience of one span: readers must be able to read EVERY cited source, so the answer is
- * the narrowest cited audience when it contains all the others. Anything else (incomparable
- * chapters, a private source mixed with others, an unknown source) is ambiguous: it is left
- * out of the index and flagged for review rather than guessed — a guess either hides text
- * from readers who may see it or, worse, shows it to readers who may not.
- */
 export function spanAudience(
   srcIds: readonly string[],
   sources: ReadonlyMap<string, MirrorSource>,
@@ -80,14 +73,6 @@ function frontMatter(page: MirrorPage, title: string): string {
   ].join("\n");
 }
 
-/**
- * Items mirroring one page into the index, per language:
- * - `pages/<id>.<lang>.md` — body with every `<acl>` span REMOVED (no placeholder either),
- *   audience "page";
- * - `acl/<audience>/<id>.<lang>.md` — the bodies of the spans of that audience.
- * Span text therefore never shares an item with text of a wider audience, and the search
- * filter on `audience` is enough to keep it from readers who may not see it.
- */
 export function buildPageMirror(
   page: MirrorPage,
   sources: ReadonlyMap<string, MirrorSource>,

@@ -30,19 +30,6 @@ function longestStreak(idxs: readonly number[]): number {
   return longest;
 }
 
-/**
- * §5.7 / docs/roster/06-solver.md Design §6 — evaluates ANY assignments map
- * against the demand, independent of how it was produced. `solve()`'s step
- * ⑦ calls this on its own output, but Stage 07's manual-edit flow and
- * Stage 08's history comparison both re-run this same function on
- * hand-edited or historical assignments — this file must not import
- * anything from solve.ts (or hold any state) so that stays true.
- *
- * Shortages ("not filled") and violations ("filled, but breaking a rule")
- * are kept in separate arrays — index.md §5.7 is explicit that mixing them
- * makes it impossible to turn a report into a recruiting call to action
- * ("配信経験者を募集中" needs to know it's a LEAD shortage, not a headcount one).
- */
 export function evaluate(input: SolverInput, assignments: Assignments): Report {
   const appsById = new Map(input.applications.map((a) => [a.id, a]));
   const slotIdxById = new Map(input.slots.map((s) => [s.id, s.idx]));
@@ -85,7 +72,7 @@ export function evaluate(input: SolverInput, assignments: Assignments): Report {
   let leadShortageTotal = 0;
 
   for (const [key, demand] of input.demands) {
-    if (demand.ideal === 0) continue; // no row and ideal=0 are the same "not needed"
+    if (demand.ideal === 0) continue;
     const { slotId, trackId, roleId } = parseDemandKey(key);
     const members = membersByCell.get(key) ?? [];
 

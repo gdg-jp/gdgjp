@@ -25,7 +25,6 @@ export function PushNotificationToggle() {
       return;
     }
 
-    // Check server for current status
     fetch("/api/fcm-tokens")
       .then((res) => res.json())
       .then((data) => {

@@ -1,8 +1,6 @@
-// Local stand-in for gdgjp-img's ImageUploadService (vite.config.ts auxiliaryWorkers, dev only).
 import { WorkerEntrypoint } from "cloudflare:workers";
 import type { ImageUploadInput, ImageUploadResult } from "@gdgjp/gdg-lib";
 
-// Ids stay unique across dev-server restarts (pr keeps them in D1).
 const RUN = Date.now().toString(36);
 const uploads: {
   id: string;

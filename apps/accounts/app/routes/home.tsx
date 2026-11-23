@@ -18,7 +18,6 @@ export async function loader({ request, context }: Route.LoaderArgs) {
   throw redirect("/dashboard");
 }
 
-/** @deprecated Prefer loader; kept for unit tests of the unauthenticated branch. */
 export function homeRedirect(isAuthenticated: boolean): "/dashboard" | "/signin" {
   return isAuthenticated ? "/dashboard" : "/signin";
 }

@@ -10,12 +10,6 @@ import {
   demandKey,
 } from "./types";
 
-// local-search.ts operates purely on `EngineState` + `Movers`, both of which
-// solve.ts deliberately does not export the constructors for (see solve.ts's
-// module doc comment on why mutation is dependency-injected). This tiny
-// harness reproduces just enough of solve.ts's bookkeeping to drive
-// localSearch directly and inspect the result, without going through the
-// full 7-step `solve()` flow.
 function buildState(input: SolverInput, seed: number): EngineState {
   return {
     input,
@@ -143,7 +137,6 @@ describe("localSearch", () => {
 
     expect(state.load.get("heavy")).toBe(2);
     expect(state.load.get("light")).toBe(1);
-    // Total assignments preserved — this was a move, not a net change in headcount.
     expect(state.assignments.size).toBe(3);
   });
 
@@ -164,8 +157,6 @@ describe("localSearch", () => {
   });
 
   it("does not move a shift if it would break the destination cell's leadMin", () => {
-    // 3 cells, each leadMin=1, and "lead" is the sole lead in all 3 — moving
-    // any one of them to "exp" (not a lead) would break that cell's leadMin.
     const lead = app("lead", {
       availability: availAll(3),
       skills: { [ROLE]: { level: "lead", pref: 2 } },
@@ -183,15 +174,11 @@ describe("localSearch", () => {
 
     localSearch(state, costCtxOf(state), movers);
 
-    // No valid recipient exists (the only other pool member would break
-    // leadMin no matter which of the 3 assignments gets picked) — untouched.
     expect(state.load.get("lead")).toBe(3);
     expect(state.load.get("exp") ?? 0).toBe(0);
   });
 
   it("does not move a shift if it would exceed the destination cell's newMax", () => {
-    // 3 cells, each newMax=0 — moving any of "exp"'s shifts to "newbie"
-    // (level "new") would push that cell's newcomer count over newMax.
     const expStaff = app("exp", {
       availability: availAll(3),
       skills: { [ROLE]: { level: "exp", pref: 2 } },

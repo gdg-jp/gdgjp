@@ -1,7 +1,3 @@
-/**
- * ブラウザへ共有してよいチャプターの基本情報。
- * チャプターメンバーのメールアドレス等の個人情報はクライアント向け型に一切含めない。
- */
 export type ChapterSummary = {
   id: number;
   slug: string;
@@ -12,10 +8,6 @@ export type ChapterSummary = {
 
 const MAX_AVATAR_URL_LENGTH = 2048;
 
-/**
- * 招待者アバター URL として安全な `https:` URL のみを通し、それ以外は `null` を返す。
- * `javascript:` / `data:` / `http:` / 資格情報付き URL を拒否する。
- */
 export function sanitizeAvatarUrl(raw: string | null | undefined): string | null {
   if (typeof raw !== "string") return null;
   const trimmed = raw.trim();

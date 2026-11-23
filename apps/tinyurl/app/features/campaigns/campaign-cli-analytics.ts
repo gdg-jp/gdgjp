@@ -52,14 +52,6 @@ export type CampaignAnalytics = {
   acquisition: CampaignAnalyticsAcquisition | null;
 };
 
-/**
- * `Date.parse`/`new Date(string)` silently normalizes out-of-range calendar
- * fields (e.g. Feb 30 rolls into Mar) and accepts many non-instant partial
- * strings, so it can't stand in for validation on its own. Requires the
- * `Z`-suffixed instant form (matching how every other window in this app is
- * UTC), and re-checks the parsed components against the input to reject
- * rollover.
- */
 const ISO_INSTANT_RE = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.\d{1,3})?Z$/;
 
 export function parseIsoInstant(value: string): Date | null {
@@ -99,12 +91,6 @@ export function aggregateAcquisition(
   };
 }
 
-/**
- * The CLI contract takes `from`/`to` as ISO instants, but the shared
- * Analytics Engine window helpers only support whole-UTC-day custom ranges
- * (matching the dashboard's date-picker windows) — instants are validated
- * for correctness here, then truncated to their UTC date for the query.
- */
 export async function getCampaignAnalyticsForActor(
   env: Env,
   actor: CampaignServiceActor,
@@ -171,9 +157,6 @@ export async function getCampaignAnalyticsForActor(
     name: channel.name,
   }));
 
-  // Acquisition comes from the D1 participant snapshot, not Analytics
-  // Engine, so it's independent of whether this campaign has any links (or
-  // any clicks) — it must not be skipped just because linkIds is empty.
   if (linkIds.length === 0) {
     const snapshot = await getCampaignParticipantAnalytics(env.DB, campaignId);
     return {

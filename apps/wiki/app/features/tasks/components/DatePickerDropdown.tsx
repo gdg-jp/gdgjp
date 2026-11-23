@@ -41,7 +41,6 @@ export default function DatePickerDropdown({ value, onChange }: DatePickerDropdo
   const menuRef = useRef<HTMLDivElement>(null);
   const savedFocusRef = useRef<Element | null>(null);
 
-  // Sync view to new value when it changes externally
   useEffect(() => {
     if (value) {
       const d = new Date(`${value}T00:00:00`);
@@ -64,7 +63,6 @@ export default function DatePickerDropdown({ value, onChange }: DatePickerDropdo
     setOpen(true);
   }
 
-  // Focus management: move focus into dialog when opened, restore when closed
   useEffect(() => {
     if (open) {
       menuRef.current?.focus();
@@ -76,7 +74,6 @@ export default function DatePickerDropdown({ value, onChange }: DatePickerDropdo
     }
   }, [open]);
 
-  // Close on outside click
   useEffect(() => {
     if (!open) return;
     function handleOutside(e: MouseEvent) {
@@ -88,7 +85,6 @@ export default function DatePickerDropdown({ value, onChange }: DatePickerDropdo
     return () => document.removeEventListener("mousedown", handleOutside);
   }, [open]);
 
-  // Close on Escape
   useEffect(() => {
     if (!open) return;
     function handleKey(e: KeyboardEvent) {
@@ -98,7 +94,6 @@ export default function DatePickerDropdown({ value, onChange }: DatePickerDropdo
     return () => document.removeEventListener("keydown", handleKey);
   }, [open]);
 
-  // Reposition on scroll
   useEffect(() => {
     if (!open) return;
     function handleScroll() {
@@ -136,7 +131,6 @@ export default function DatePickerDropdown({ value, onChange }: DatePickerDropdo
 
   const dayLabels = t("tasks.calendar_days_short", { returnObjects: true }) as string[];
 
-  // Flatten weeks and assign stable keys based on position
   const flatCells = weeks.flat();
 
   const menu =
@@ -151,7 +145,6 @@ export default function DatePickerDropdown({ value, onChange }: DatePickerDropdo
             onClick={(e) => e.stopPropagation()}
             onKeyDown={(e) => e.stopPropagation()}
           >
-            {/* Header */}
             <div className="mb-2 flex items-center justify-between">
               <button
                 type="button"
@@ -172,7 +165,6 @@ export default function DatePickerDropdown({ value, onChange }: DatePickerDropdo
               </button>
             </div>
 
-            {/* Day-of-week headers */}
             <div className="mb-1 grid grid-cols-7">
               {dayLabels.map((d) => (
                 <div key={d} className="text-center text-[11px] font-medium text-muted">
@@ -181,7 +173,6 @@ export default function DatePickerDropdown({ value, onChange }: DatePickerDropdo
               ))}
             </div>
 
-            {/* Day grid */}
             <div className="grid grid-cols-7 gap-y-0.5">
               {flatCells.map((cell, i) => {
                 const key = cell ?? `empty-${i}`;
@@ -210,7 +201,6 @@ export default function DatePickerDropdown({ value, onChange }: DatePickerDropdo
               })}
             </div>
 
-            {/* Footer */}
             <div className="mt-2 border-t border-border pt-2">
               <button
                 type="button"

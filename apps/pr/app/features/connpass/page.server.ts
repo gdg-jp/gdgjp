@@ -6,16 +6,11 @@ import type { ConnpassPageContent } from "~/features/pages/render";
 import { createItem, listItems, updateItem } from "~/features/schedule/item.repository.server";
 import { NO_EVENT, connpassEventOf, submitConnpass } from "./submit.server";
 
-/** Approving a connpass page needs somewhere to put it. */
 export function pageApprovalBlockers(access: CampaignAccess, draft: Draft): string[] {
   if (draft.kind !== "connpass_page" && draft.kind !== "connpass_mail") return [];
   return connpassEventOf(access.campaign) ? [] : [NO_EVENT];
 }
 
-/**
- * The approved page goes to connpass as one update_event job (title, description, the
- * participants-only info), as the approver. The rendered HTML is the only description sent.
- */
 export async function publishApprovedPage(env: Env, access: CampaignAccess, draft: Draft) {
   const event = connpassEventOf(access.campaign);
   const content = (await latestVersion(env.DB, draft.id))?.content as ConnpassPageContent | null;

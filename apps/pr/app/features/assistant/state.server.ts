@@ -43,7 +43,6 @@ export type CampaignState = {
   now: string;
 };
 
-/** One read of a campaign for the assistant's bundle and the event page's status panel. */
 export async function campaignState(
   env: Env,
   campaign: Campaign,

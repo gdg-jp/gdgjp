@@ -39,7 +39,6 @@ async function shareWithoutNotification(
   );
   if (!res.ok) {
     const body = await res.text();
-    // Ignore already-shared conflicts.
     if (!body.includes("alreadyExists")) {
       throw new Error(`Drive share failed ${res.status}: ${body}`);
     }

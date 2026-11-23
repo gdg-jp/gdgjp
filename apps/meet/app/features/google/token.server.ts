@@ -18,7 +18,6 @@ export type GoogleTokenEnv = GoogleEncryptionEnv & {
 
 export type GoogleConnectionErrorCode = "not_connected" | "invalid_grant" | "refresh_failed";
 
-/** 共有 Google アカウント接続やトークン更新に関するドメインエラー。 */
 export class GoogleConnectionError extends Error {
   readonly code: GoogleConnectionErrorCode;
 
@@ -45,7 +44,6 @@ type InFlightRefresh = {
 let cachedToken: CachedToken | null = null;
 let inFlightRefresh: InFlightRefresh | null = null;
 
-/** Isolate 内のアクセストークンキャッシュを破棄する（再接続時・テスト用）。 */
 export function resetGoogleAccessTokenCache(): void {
   cachedToken = null;
   inFlightRefresh = null;
@@ -129,7 +127,6 @@ async function refreshAccessToken(env: GoogleTokenEnv, fetchFn: typeof fetch): P
     );
   }
 
-  // 鍵バージョンが古い場合は次回リフレッシュ時に現在の鍵で再暗号化する。
   await reencryptGoogleConnectionIfStale(env, env.DB, connection, refreshToken);
 
   cachedToken = {
@@ -140,12 +137,6 @@ async function refreshAccessToken(env: GoogleTokenEnv, fetchFn: typeof fetch): P
   return body.access_token;
 }
 
-/**
- * 共有 Google ホストアカウントの有効なアクセストークンを返す。
- * - 有効期限まで 60 秒以上残っていれば Isolate 内キャッシュを再利用する
- * - 並行リフレッシュは single-flight で 1 本に合流させる
- * - `invalid_grant` 等を検知した場合は D1 を `disconnected` へ遷移させる
- */
 export async function getGoogleAccessToken(
   env: GoogleTokenEnv,
   fetchFn: typeof fetch = globalThis.fetch,

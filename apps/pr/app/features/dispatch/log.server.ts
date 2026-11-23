@@ -1,4 +1,3 @@
-/** One row per outward call (sns, tinyurl, Discord), success or not. Never secrets. */
 export async function logDispatch(
   db: D1Database,
   entry: {

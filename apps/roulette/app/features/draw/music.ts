@@ -1,12 +1,5 @@
 import { context, noise, tone } from "./feedback";
 
-/**
- * The spin page's background music: a bouncy four-bar loop (C, Am, F, G),
- * synthesized so there is no audio file to load or license. A look-ahead
- * scheduler queues each 16th note on the AudioContext clock. Browsers only
- * allow sound after a tap, so the page starts it on the first one.
- */
-
 export type Mood = "idle" | "spin" | "quiet";
 
 const BPM = 132;
@@ -18,7 +11,6 @@ const VOLUME: Record<Mood, number> = { idle: 0.55, spin: 0.75, quiet: 0 };
 const C3 = 130.81;
 const note = (semitones: number) => C3 * 2 ** (semitones / 12);
 
-/** Semitones above C3: root, third, fifth of C, Am, F, G. */
 const chords = [
   [0, 4, 7],
   [-3, 0, 4],
@@ -26,7 +18,6 @@ const chords = [
   [-5, -1, 2],
 ];
 const arpeggio = [0, 1, 2, 1];
-/** One note per 8th (null rests), an octave above the chord. */
 const melody = [
   [24, null, 19, 21, 24, null, 26, 28],
   [24, null, 21, null, 19, 21, 24, null],
@@ -68,7 +59,6 @@ function play(step: number, at: number) {
 function schedule() {
   const ctx = context();
   if (!ctx || !state.playing) return;
-  // After the tab sleeps, pick up from now rather than replaying what was missed.
   if (state.next < ctx.currentTime) state.next = ctx.currentTime + 0.05;
   while (state.next < ctx.currentTime + LOOKAHEAD) {
     play(state.step, state.next - ctx.currentTime);
@@ -87,7 +77,6 @@ function fade(volume: number, seconds: number) {
 }
 
 export const music = {
-  /** Start the loop. Call from a tap; does nothing while sound is off or already playing. */
   start() {
     const ctx = context();
     if (!ctx || state.playing) return;
@@ -110,7 +99,6 @@ export const music = {
     window.setTimeout(() => fader?.disconnect(), 400);
     state.fader = null;
   },
-  /** Louder, with double-time hats, while spinning; silent through staged finishes and fanfares. */
   setMood(mood: Mood) {
     if (state.mood === mood) return;
     state.mood = mood;

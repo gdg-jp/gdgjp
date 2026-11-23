@@ -1,12 +1,4 @@
 #!/usr/bin/env node
-// Builds a development variant of the prototype and verifies it in headless Chromium: renders the
-// board and every frame, plays every flow in the App, and reports console errors, layout problems
-// and design-rule warnings as it goes. Screenshots are saved for review.
-//
-//   node check.mjs <dir> [--dark] [--fonts] [--no-typecheck]
-//
-// Screenshots go to <dir>/shots/. Exits with 1 when anything logs an error or a flow step fails.
-// To look by hand, open <dir>/.build/check/check.html#solo=<frame id>&theme=dark, or #view=play.
 
 import { mkdir, realpath, rm } from "node:fs/promises";
 import { createRequire } from "node:module";
@@ -56,7 +48,6 @@ try {
 
 const viewports = { desktop: { width: 1280, height: 800 }, mobile: { width: 390, height: 844 } };
 const STEP_TIMEOUT = 15_000;
-// React logs through printf-style format strings; drop the leading "%o %s" placeholders.
 const clip = (raw) => {
   const text = raw.replace(/^(%[a-zA-Z]\s*)+/, "");
   return text.length > 600 ? `${text.slice(0, 600)}…` : text;
@@ -76,7 +67,6 @@ function newIssues() {
   return { errors: new Set(), warnings: new Set(), notes: new Set() };
 }
 
-/** Prints one result as soon as it is known, so a slow or stuck page is visible while running. */
 function report(label, file, issues, started) {
   const mark = issues.errors.size ? "✗" : issues.warnings.size ? "!" : "✓";
   errorCount += issues.errors.size;
@@ -89,7 +79,6 @@ function report(label, file, issues, started) {
   for (const note of issues.notes) console.log(`    note: ${indent(note)}`);
 }
 
-/** Opens a page, recording what it logs. Retries once, since a loaded machine can stall a page. */
 async function open(hash, viewport, issues) {
   for (let attempt = 1; ; attempt++) {
     const page = await browser.newPage({ viewport });
@@ -105,7 +94,6 @@ async function open(hash, viewport, issues) {
         10_000,
         "fonts",
       );
-      // Dialogs and sheets animate in over 250-280ms.
       await page.waitForTimeout(500);
       return page;
     } catch (error) {
@@ -115,7 +103,6 @@ async function open(hash, viewport, issues) {
   }
 }
 
-/** Layout facts the screenshots alone do not make obvious. Runs in the page. */
 function inspect() {
   const shown = (element) => {
     const box = element.getBoundingClientRect();
@@ -132,7 +119,6 @@ function inspect() {
   const dialogs = [...document.querySelectorAll("[role=dialog], [role=alertdialog]")].filter(shown);
   const dialog = dialogs.length > 0;
 
-  // A primary action inside an open dialog must be reachable without scrolling.
   const hiddenActions = [];
   for (const button of dialogs.flatMap((item) => [
     ...item.querySelectorAll(".gdg-button-primary, .gdg-button-danger"),
@@ -150,8 +136,6 @@ function inspect() {
     if (box.bottom > bottom + 1 || box.top < top - 1) hiddenActions.push(button.textContent.trim());
   }
 
-  // Short headings that wrap read badly in Japanese (「受付でき／ません」). Longer ones are
-  // usually data such as page titles, where wrapping is fine.
   const wrapped = [];
   for (const heading of document.querySelectorAll(
     "h1, h2, h3, h4, .gdg-alert strong, [role=dialog] h2, [role=alertdialog] h2",
@@ -173,7 +157,6 @@ function inspect() {
 
   const root = document.documentElement;
   let below = root.scrollHeight - innerHeight;
-  // App shells often scroll their main region instead of the document.
   for (const element of document.querySelectorAll("body *")) {
     const overflow = getComputedStyle(element).overflowY;
     if (
@@ -210,7 +193,6 @@ async function checkLayout(page, issues, { height } = {}) {
       `短い見出しが折り返しています: ${facts.wrapped.join("、")}。1 行に収まる文言にする`,
     );
   if (facts.wrappedTabs) issues.warnings.add("タブが折り返しています。タブの文言を短くする");
-  // A long list running past the frame is expected; a small cut-off usually hides a footer.
   if (height && facts.below > 8 && facts.below < height && !facts.dialog)
     issues.notes.add(
       `内容がフレームの下に ${facts.below}px 続いています。見せたいなら height: ${height + facts.below}`,
@@ -237,7 +219,6 @@ async function firstVisible(candidates) {
   return (await firstVisibleMatch(candidates))?.locator ?? null;
 }
 
-/** The first candidate with visible matches, how many it matched, and whether it was exact. */
 async function firstVisibleMatch(candidates) {
   for (const [index, candidate] of candidates.entries()) {
     const locator = candidate.filter({ visible: true });
@@ -344,7 +325,6 @@ async function shoot(page, file, options) {
   await withTimeout(page.screenshot({ path: file, ...options }), 30_000, "screenshot");
 }
 
-// 1. The board, which also tells us the frames, controls and flows.
 let meta = null;
 {
   const issues = newIssues();
@@ -380,7 +360,6 @@ let meta = null;
     );
 }
 
-// 2. Every frame at its own size, exactly as the board crops it.
 const themes = options.dark ? ["light", "dark"] : ["light"];
 for (const frame of meta?.frames ?? []) {
   for (const theme of themes) {
@@ -405,7 +384,6 @@ for (const frame of meta?.frames ?? []) {
   }
 }
 
-// 3. Every flow, step by step, in the interactive App.
 const initial = Object.fromEntries(
   (meta?.controls ?? []).map((control) => [control.id, control.options[0]?.value ?? ""]),
 );
@@ -446,7 +424,6 @@ if (meta && !meta.flows.length)
     "! flows がありません\n    note: 主要フローを definePrototype の flows に書くと、check が App を操作して確かめます",
   );
 
-// 4. The App's first screen at both widths.
 for (const [name, viewport] of Object.entries(viewports)) {
   const issues = newIssues();
   const started = Date.now();

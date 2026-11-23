@@ -29,12 +29,6 @@ import { DiscordChannelChecklist } from "./DiscordChannelChecklist";
 
 import { Icons } from "@gdgjp/design-system";
 
-/**
- * Discord server picker: stages ONE `discord-guild` source per server — the whole server by
- * default, or the chosen categories / channels (one visibility per server — register the
- * server again for a category that needs a narrower visibility). `error` is owned by the
- * parent so a duplicate-source message survives the dialog closing.
- */
 export function DiscordChannelDialog({
   open,
   onOpenChange,
@@ -197,7 +191,6 @@ export function DiscordChannelDialog({
     });
   }
 
-  /** A whole category: its current channels, and (with auto-discover) later ones too. */
   function toggleCategory(categoryId: string, channelIds: string[]) {
     const selecting = !selectedCategoryIds.has(categoryId);
     setSelectedCategoryIds((current) => {
@@ -230,7 +223,6 @@ export function DiscordChannelDialog({
     channelIds: selectedDiscordChannelIds,
     groups: discordChannelGroups,
   };
-  // The channel list loading is what proves the bot is in the server.
   const canStage =
     !guildAlreadyRegistered &&
     discordChannelGroups.length > 0 &&

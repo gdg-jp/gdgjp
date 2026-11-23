@@ -62,7 +62,6 @@ export default function NewTaskRow({
   const { t } = useTranslation();
   const [titleDraft, setTitleDraft] = useState("");
   const [descDraft, setDescDraft] = useState("");
-  // Empty string = unset (shows "—" placeholder via DropdownMenu)
   const [status, setStatus] = useState("");
   const [type, setType] = useState("");
   const [dueDate, setDueDate] = useState<string | null>(null);
@@ -88,7 +87,6 @@ export default function NewTaskRow({
     ...teams.map((tm) => ({ value: tm.id, label: tm.name, dot: tm.color ?? "#6b7280" })), // design-token-policy: allow-dynamic-color
   ];
 
-  // Accepts explicit field values to work around async state updates after setX calls
   function commitWith(fields: CommitFields) {
     const lines = titleDraft
       .split("\n")
@@ -121,7 +119,6 @@ export default function NewTaskRow({
     setDependencies([]);
   }
 
-  // Current state snapshot — passed when a non-title field triggers creation
   function current(): CommitFields {
     return { status, type, dueDate, assigneeId, assigneeName, teamId, dependencies };
   }
@@ -134,10 +131,8 @@ export default function NewTaskRow({
 
   return (
     <tr className="bg-background/50" onBlur={handleRowBlur}>
-      {/* # */}
       <td className="whitespace-nowrap px-3 py-2 text-sm italic text-muted/70">#{number}</td>
 
-      {/* Status */}
       <td className="overflow-hidden px-3 py-2">
         <DropdownMenu
           value={status}
@@ -151,7 +146,6 @@ export default function NewTaskRow({
         />
       </td>
 
-      {/* Due Date */}
       <td className="overflow-hidden px-3 py-2">
         <DatePickerDropdown
           value={dueDate}
@@ -162,7 +156,6 @@ export default function NewTaskRow({
         />
       </td>
 
-      {/* Assignee */}
       <td className="overflow-hidden px-3 py-2">
         <AssigneeCell
           assigneeId={assigneeId}
@@ -180,7 +173,6 @@ export default function NewTaskRow({
         />
       </td>
 
-      {/* Team */}
       <td className="overflow-hidden px-3 py-2">
         {teams.length > 0 ? (
           <DropdownMenu
@@ -197,7 +189,6 @@ export default function NewTaskRow({
         )}
       </td>
 
-      {/* Dependencies */}
       <td
         className="overflow-hidden px-3 py-2"
         onClick={(e) => e.stopPropagation()}
@@ -214,7 +205,6 @@ export default function NewTaskRow({
         />
       </td>
 
-      {/* Type */}
       <td className="overflow-hidden px-3 py-2">
         <DropdownMenu
           value={type}
@@ -228,7 +218,6 @@ export default function NewTaskRow({
         />
       </td>
 
-      {/* Title */}
       <td
         className="break-words px-3 py-2 text-sm"
         onClick={(e) => e.stopPropagation()}
@@ -254,7 +243,6 @@ export default function NewTaskRow({
         />
       </td>
 
-      {/* Description */}
       <td
         className="break-words px-3 py-2 text-sm"
         onClick={(e) => e.stopPropagation()}

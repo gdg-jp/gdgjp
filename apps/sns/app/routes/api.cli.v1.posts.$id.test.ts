@@ -41,7 +41,6 @@ function postRow(over: Row = {}): Row {
   };
 }
 
-/** Minimal `posts`/`post_media` fake covering only `deleteDraft`'s statements. */
 function makeDb(seed: Row | null) {
   const post = seed ? { ...seed } : null;
   let deleteAttempted = false;

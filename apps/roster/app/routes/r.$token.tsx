@@ -4,11 +4,6 @@ import { buildPublicRosterData } from "~/features/public-roster/public-roster.se
 import { getDb } from "~/lib/db.server";
 import type { Route } from "./+types/r.$token";
 
-/**
- * `/r/:viewToken` is the fully public compatibility view. The token alone
- * resolves the event; unpublished schedules return the builder's safe empty
- * variant instead of turning a known token into a 404.
- */
 export function meta({ data }: Route.MetaArgs) {
   const name = data ? (data.published ? data.data.event.name : data.event.name) : "roster";
   return [{ title: `${name} — シフト表 — roster` }];

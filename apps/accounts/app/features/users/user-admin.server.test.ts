@@ -64,7 +64,6 @@ function testDb(
     },
   };
 
-  // Preserve SQL and bindings for D1's otherwise opaque PreparedStatement objects.
   const originalPrepare = db.prepare.bind(db);
   db.prepare = ((sql: string) => {
     const statement = originalPrepare(sql) as unknown as {

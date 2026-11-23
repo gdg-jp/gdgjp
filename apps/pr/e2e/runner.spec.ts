@@ -20,7 +20,6 @@ function runnerToken(): string {
 
 const headers = () => ({ authorization: `Bearer ${runnerToken()}`, "x-runner-host": "e2e-runner" });
 
-/** Plays the OCI runner over HTTP: lease the next copy job and return `output` for it. */
 async function runOneJob(request: APIRequestContext, output: unknown) {
   const next = await request.get("/api/runner/jobs/next?types=copy&wait=0", { headers: headers() });
   expect(next.status()).toBe(200);
@@ -69,7 +68,6 @@ test("a runner's copy goes through review and approval; a failing draft gets one
   await page.getByRole("button", { name: "コピーを作る" }).click();
   await expect(page.getByText("コピーのジョブを積みました")).toBeVisible();
 
-  // A copy whose connpass title is only the series name fails a MUST rule → one fix job.
   const bad = structuredClone(copyOutput);
   bad.candidates[0].connpassTitle = "DevFest Kansai 2026";
   const first = await runOneJob(request, bad);
@@ -94,7 +92,6 @@ test("a runner's copy goes through review and approval; a failing draft gets one
   await page.getByRole("button", { name: "承認", exact: true }).click();
   await expect(page.getByText("承認済み", { exact: true })).toBeVisible();
 
-  // A human edit makes a new version and sends it back to review.
   await page.getByLabel("JSON").fill(JSON.stringify({ ...copyOutput, notes: "人が直した" }));
   await page.getByRole("button", { name: "新しい版として保存" }).click();
   await expect(page.getByText("版 3 を保存しました")).toBeVisible();

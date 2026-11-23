@@ -110,7 +110,6 @@ describe("searchForReader", () => {
         instance_id: "gdg-jp",
         item: { key: "pages/secret.ja.md", metadata: { layer: "page", audience: "page" } },
       },
-      // An organizer item the filter should have excluded: the port drops it anyway.
       {
         id: "c3",
         score: 0.7,

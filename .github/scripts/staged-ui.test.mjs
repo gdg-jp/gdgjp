@@ -60,13 +60,11 @@ test("staged UI selection expands committed gitlinks, ignoring later and unstage
     git(root, ["update-index", "--cacheinfo", "160000", staged, "packages/design-system"]);
     const index = join(root, "selected.index");
     copyFileSync(join(root, ".git/index"), index);
-    // A newer submodule HEAD and working-tree edit must not widen the staged selection.
     writeFileSync(join(ui, "src/value.ts"), "export const value = 2;\n");
     git(ui, ["add", "src/value.ts"]);
     commit(ui);
     writeFileSync(join(ui, "src/value.ts"), "export const value = 3;\n");
     assert.deepEqual(read(index), ["packages/design-system/src/value.test.ts"]);
-    // Missing history must preserve full validation, never silently skip the UI.
     git(root, ["update-index", "--cacheinfo", "160000", "a".repeat(40), "packages/design-system"]);
     assert.deepEqual(read(join(root, ".git/index")), ["packages/design-system"]);
   } finally {

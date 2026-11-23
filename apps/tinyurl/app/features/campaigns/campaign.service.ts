@@ -51,12 +51,6 @@ function validateCode(code: string): FeatureFailure | null {
   }
 }
 
-/**
- * Mirrors the dashboard's create/update validation: an empty string clears
- * the default (same as `null`), and any non-empty value must resolve to a
- * public http(s) URL — matching `validatePublicHttpUrl`'s rejection of
- * non-http(s) schemes and private/loopback addresses.
- */
 async function validateDefaultDestinationUrl(
   value: string | null,
 ): Promise<{ ok: true; value: string | null } | FeatureFailure> {
@@ -67,8 +61,6 @@ async function validateDefaultDestinationUrl(
   }
   return { ok: true, value: validation.url.toString() };
 }
-
-// ---------- Campaigns ----------
 
 export async function createCampaignForActor(
   db: D1Database,
@@ -196,8 +188,6 @@ export async function restoreCampaignForActor(
   return { ok: true, campaign };
 }
 
-// ---------- Channels ----------
-
 async function loadCampaignChannelForActor(
   db: D1Database,
   actor: CampaignServiceActor,
@@ -301,8 +291,6 @@ export async function restoreCampaignChannelForActor(
   if (!channel) return featureFailure("not_found", "Channel not found.");
   return { ok: true, channel };
 }
-
-// ---------- Sources ----------
 
 async function loadCampaignChannelSourceForActor(
   db: D1Database,

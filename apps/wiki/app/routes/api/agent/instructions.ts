@@ -8,10 +8,6 @@ import { getDb } from "~/lib/db.server";
 
 const QUERY_HEADINGS = ["## Sensitive information", "### Citations"] as const;
 
-/**
- * GET /api/agent/instructions?profile=query — AGENTS.md slice for the filing pass.
- * Fail closed: missing headings → 503 so filing skips rather than writing without rules.
- */
 export async function loader({ request, context }: LoaderFunctionArgs) {
   const { env } = context.cloudflare;
   const resolved = await resolveAgentWorkspace(request, env);

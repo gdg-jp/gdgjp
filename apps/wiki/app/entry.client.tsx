@@ -13,7 +13,6 @@ import { defaultNS, fallbackLng, supportedLngs } from "./i18n";
 import enCommon from "./locales/en/common.json";
 import jaCommon from "./locales/ja/common.json";
 
-// Configure md-editor-rt to use mermaid for diagram rendering and add remote cursor extensions
 mdEditorConfig({
   editorExtensions: { mermaid: { instance: mermaid } },
   codeMirrorExtensions(extensions, { editorId }) {
@@ -25,7 +24,6 @@ mdEditorConfig({
   },
 });
 
-// Initialize with the SSR locale so hydration matches the server-rendered HTML.
 i18next
   .use(initReactI18next)
   .init({
@@ -46,7 +44,6 @@ i18next
       );
     });
 
-    // After hydration, apply any localStorage preference that differs from the SSR locale.
     const savedLang = localStorage.getItem("ui_lang");
     if (savedLang && savedLang !== i18next.language) {
       i18next.changeLanguage(savedLang);

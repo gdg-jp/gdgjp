@@ -22,12 +22,6 @@ export interface CreateInlineSourceInput {
   chapters: readonly Membership[];
 }
 
-/**
- * Persist an already-captured conversation log as a raw source. Unlike URL sources,
- * this path never queues a fetch: the supplied body is the canonical raw document.
- * The source remains `fetching` until both R2 and D1 have the document, so a retry
- * can repair a partial write without ever returning a falsely-ready source.
- */
 export async function createInlineSource(
   env: Env,
   input: CreateInlineSourceInput,
@@ -78,7 +72,6 @@ export async function createInlineSource(
           eq(schema.sources.addedBy, input.user.id),
           eq(schema.sources.kind, "conversation"),
           eq(schema.sources.externalId, externalId),
-          // Inline (conversation) sources always live in the default space.
           eq(schema.sources.spaceId, "gdg-jp"),
         ),
       )
@@ -108,8 +101,6 @@ export async function createInlineSource(
         });
         source = await db.select().from(schema.sources).where(eq(schema.sources.id, id)).get();
       } catch (error) {
-        // A concurrent caller can win the owner-scoped unique key between the
-        // read and insert. Resolve it once, then follow the normal idempotency path.
         try {
           source = await findExisting();
         } catch (lookupError) {
@@ -118,9 +109,6 @@ export async function createInlineSource(
         }
         const uniqueCollision = isInlineSourceUniqueConstraintError(error);
         if (source && uniqueCollision) {
-          // A row found with the owner-scoped key is the only safe evidence that
-          // this was a concurrent idempotency collision. Follow its normal repair
-          // path; never return a different owner's row.
           continue;
         }
         if (!uniqueCollision || insertAttempt >= 1) {
@@ -135,8 +123,6 @@ export async function createInlineSource(
       if (!source) return { ok: false, error: "conflict", status: 409 };
     }
 
-    // A non-ready row is a recoverable partial write. Claim it for this repair;
-    // the owner/kind/external-id lookup above prevents cross-user overwrites.
     await db
       .update(schema.sources)
       .set({
@@ -217,14 +203,11 @@ export async function createInlineSource(
       try {
         await enqueueSynthesizeForSource(db, ready.id);
       } catch (error) {
-        // The hourly sweep re-queues anything this misses.
         console.error("[sources] synthesize enqueue failed", ready.id, error);
       }
       return { ok: true, source: inlineSourceResponse(ready) };
     } catch (error) {
       console.error("[sources] inline source persistence failed", source.id, error);
-      // Deliberately leave the row fetching. The next request with this externalId
-      // enters the repair path and can safely retry R2/document persistence.
       return { ok: false, error: "persist_failed", status: 503 };
     }
   }

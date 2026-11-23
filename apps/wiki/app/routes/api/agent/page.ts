@@ -10,11 +10,6 @@ import { getWikiCanonicalSlugPath } from "~/features/pages/wiki-page-path.server
 import { requireSpaceForIdentity } from "~/features/spaces/access.server";
 import { getDb } from "~/lib/db.server";
 
-/**
- * GET /api/agent/page?space=…&slug=… — one page for an agent reader, redacted for that
- * reader. This is the ONLY source of page bodies in answer bundles and MCP reads (Stage 05).
- * Missing, forbidden and other-space pages are all 404.
- */
 export async function loader({ request, context }: LoaderFunctionArgs) {
   const { env } = context.cloudflare;
   const db = getDb(env);

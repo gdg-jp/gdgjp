@@ -12,16 +12,11 @@ import (
 	"time"
 )
 
-// broker is the render broker (skills/pr-playbook/scripts/render/broker.mjs) running outside the
-// agent's sandbox: Codex's sandbox cannot start Chromium, so the agent writes a page under
-// <job>/.render and the broker, started here with the VM's Playwright, writes the PNG back.
 type broker struct {
 	cmd  *exec.Cmd
 	done chan struct{}
 }
 
-// startBroker runs the broker from the bundle's own script with GDG_RENDER_DIR's Playwright and
-// waits until it reports "ready" (the browser is up).
 func startBroker(ctx context.Context, dir string, cfg Config, logger *log.Logger) (*broker, error) {
 	script := filepath.Join(dir, "skills", "pr-playbook", "scripts", "render", "broker.mjs")
 	if _, err := os.Stat(script); err != nil {

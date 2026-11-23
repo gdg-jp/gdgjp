@@ -1,6 +1,5 @@
 import { useLayoutEffect, useRef } from "react";
 
-/** Animates a container's height to match its content on resize. */
 export function useHeightTransition() {
   const containerRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);

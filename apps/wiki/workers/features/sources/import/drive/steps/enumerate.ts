@@ -149,7 +149,6 @@ function enumerateFile(
   throw new Error(`Unsupported Google Drive MIME type: ${file.mime_type}`);
 }
 
-/** A single-file source imports just itself, at the source root (no path prefix). */
 function ensureSourceFile(ctx: SourceImportTickContext, current: CurrentSourceImport): void {
   const mimeType = metaGet(ctx.sql, "drive_mime_type");
   if (!mimeType || mimeType === FOLDER_MIME) return;

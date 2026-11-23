@@ -89,9 +89,6 @@ export type UpdateEventInput = {
   slots: { dayOfWeek: number; startTime: string }[];
 };
 
-// Returns the updated event + slots, or null if the event is missing or not owned by `ownerUserId`.
-// Slots whose (day, time) match the new set are kept (preserving participant availabilities);
-// the rest are deleted (cascading their availabilities) and new ones are inserted.
 export async function updateEventForOwner(
   db: D1Database,
   id: string,

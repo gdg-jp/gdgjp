@@ -8,10 +8,6 @@ import {
 
 export type ChoiceOption = { value: string; label: string; disabled?: boolean };
 
-/**
- * The design-system Select for a flat list of options. `name` posts the value
- * with a surrounding form (Radix renders a hidden native select for that).
- */
 export function Choice({
   value,
   defaultValue,

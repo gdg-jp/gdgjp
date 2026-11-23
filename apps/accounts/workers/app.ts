@@ -42,7 +42,6 @@ function seedE2eClients(env: Env): Promise<void> {
   return e2eSeedPromise;
 }
 
-/** meet.gdgs.jp 向け service binding（`entrypoint = "MeetDirectoryService"`）の RPC エントリポイント。 */
 export class MeetDirectoryService
   extends WorkerEntrypoint<Env>
   implements MeetDirectoryServiceContract
@@ -67,8 +66,6 @@ export default {
     ctx.waitUntil(warmAuth(env));
     if (env.E2E_TEST_MODE === "true") await seedE2eClients(env);
     const response = await requestHandler(request, { cloudflare: { env, ctx } });
-    // A failed hint update only costs relying parties a re-check; never fail
-    // the IdP response itself.
     return reconcileSsoCookie(env, request, response).catch((error: unknown) => {
       console.warn("SSO cookie reconciliation failed", error);
       return response;

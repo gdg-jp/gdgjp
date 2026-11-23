@@ -1,6 +1,3 @@
-// Package mcp is `gdg wiki mcp`: a stdio MCP server the runner gives Codex during an
-// `answer` job. Its two tools call the wiki's agent read APIs with the job's token, so
-// every result is already limited and redacted to the asker's permissions.
 package mcp
 
 import (
@@ -18,11 +15,9 @@ import (
 )
 
 type Server struct {
-	BaseURL string
-	Token   string
-	Spaces  []string
-	// URLLog, when set, receives every page / source URL a tool returned (one per line).
-	// The runner allows citations only from the bundle and this log.
+	BaseURL    string
+	Token      string
+	Spaces     []string
 	URLLog     string
 	HTTPClient *http.Client
 
@@ -75,7 +70,6 @@ var tools = []map[string]any{
 	},
 }
 
-// Serve speaks newline-delimited JSON-RPC 2.0 on in/out until in closes.
 func (s *Server) Serve(ctx context.Context, in io.Reader, out io.Writer) error {
 	scanner := bufio.NewScanner(in)
 	scanner.Buffer(make([]byte, 64<<10), 8<<20)
@@ -89,7 +83,7 @@ func (s *Server) Serve(ctx context.Context, in io.Reader, out io.Writer) error {
 		if err := json.Unmarshal([]byte(line), &req); err != nil {
 			continue
 		}
-		if len(req.ID) == 0 { // notification
+		if len(req.ID) == 0 {
 			continue
 		}
 		result, rpcErr := s.handle(ctx, req)

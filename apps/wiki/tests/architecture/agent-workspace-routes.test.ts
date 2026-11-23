@@ -315,7 +315,6 @@ describe("GET /api/agent/cat", () => {
   });
 
   it("rejects leading double-slash style absolute paths that fail normalisation", async () => {
-    // Backslash / NUL are rejected by the normaliser (raw `//` is collapsed).
     const response = await catLoader(loaderArgs("/api/agent/cat", "?path=/wiki\\secret"));
     expect(response.status).toBe(400);
     expect(await response.json()).toEqual({ error: "invalid_path" });

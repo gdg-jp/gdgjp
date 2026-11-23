@@ -9,7 +9,7 @@ import { Icons } from "@gdgjp/design-system";
 function playChime() {
   try {
     const ctx = new AudioContext();
-    const freqs = [587.33, 880]; // D5, A5
+    const freqs = [587.33, 880];
     let t = ctx.currentTime;
     for (const freq of freqs) {
       const osc = ctx.createOscillator();
@@ -24,9 +24,7 @@ function playChime() {
       osc.stop(t + 0.08);
       t += 0.1;
     }
-  } catch {
-    // ignore – autoplay policy or unsupported
-  }
+  } catch {}
 }
 
 function AutoDismiss({ onDismiss }: { onDismiss: () => void }) {
@@ -96,12 +94,9 @@ export default function NotificationBell({ initialCount }: { initialCount: numbe
         if (newest) setChipNotification(newest);
       }
       prevUnreadRef.current = newCount;
-    } catch {
-      // ignore fetch errors
-    }
+    } catch {}
   }, []);
 
-  // Polling: 30s background, 5s when open; also fetch immediately on each interval reset
   useEffect(() => {
     fetchNotifications();
     const interval = open ? 5_000 : 30_000;
@@ -112,18 +107,15 @@ export default function NotificationBell({ initialCount }: { initialCount: numbe
     };
   }, [open, fetchNotifications]);
 
-  // Fetch immediately when dropdown opens
   useEffect(() => {
     if (open) fetchNotifications();
   }, [open, fetchNotifications]);
 
-  // Sync initialCount on server re-renders
   useEffect(() => {
     setUnreadCount(initialCount);
   }, [initialCount]);
 
   async function markAsRead(notificationId: string) {
-    // Optimistic update
     setNotifications((prev) =>
       prev.map((n) => (n.id === notificationId ? { ...n, readAt: new Date().toISOString() } : n)),
     );
@@ -136,7 +128,6 @@ export default function NotificationBell({ initialCount }: { initialCount: numbe
       });
       if (!res.ok) fetchNotifications();
     } catch {
-      // revert on failure
       fetchNotifications();
     }
   }
