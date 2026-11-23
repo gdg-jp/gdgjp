@@ -1,17 +1,18 @@
 import { spawn } from "node:child_process";
+import { createHmac, timingSafeEqual } from "node:crypto";
 import { appendFile, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 
-import { GitHubClient, readAuthSecrets, redact } from "./codex-auth.mjs";
+import { AppTokenSource, GitHubClient, readAuthSecrets, redact } from "./codex-auth.mjs";
 
 export const LABEL = "E-code-review";
 export const STATUS_CONTEXT = "ai-review";
 export const BOT_LOGIN = "gdg-chan";
 export const DOCS_URL = "https://github.com/gdg-jp/gdgjp/blob/main/docs/engineering/ai-review.md";
 const AGENT_FAILED = "Codex agent failed";
-const TRIGGER = /(^|\s)(@gdg-chan\b|\/codex\b)/i;
+const TRIGGER = /(^|\s)(@gdg-chan\b|\/ai-review\b)/i;
 const MARKER = /<!-- codex-review:(\w+)((?: [\w-]+=[^\s>]+)*) -->/g;
 const TRUSTED_ROLES = new Set(["admin", "maintain", "write"]);
 const PRIORITIES = ["P0", "P1", "P2", "P3"];
@@ -29,12 +30,47 @@ export function markers(body) {
   return found;
 }
 
+let signingKey = null;
+
+export function setSigningKey(key) {
+  if (!key || key.length < 32) {
+    throw new Error("AI_REVIEW_SIGNING_KEY must be a random value of at least 32 characters");
+  }
+  signingKey = key;
+}
+
+function signature(kind, fields) {
+  if (!signingKey) throw new Error("The marker signing key is not configured");
+  const payload = [
+    kind,
+    ...Object.keys(fields)
+      .filter((key) => key !== "sig")
+      .sort()
+      .map((key) => `${key}=${fields[key]}`),
+  ].join("\n");
+  return createHmac("sha256", signingKey).update(payload).digest("hex").slice(0, 32);
+}
+
 export function marker(kind, fields) {
-  const pairs = Object.entries(fields)
-    .filter(([, value]) => value !== undefined && value !== "")
+  const present = Object.fromEntries(
+    Object.entries(fields)
+      .filter(([, value]) => value !== undefined && value !== null)
+      .map(([key, value]) => [key, String(value)])
+      .filter(([, value]) => value !== ""),
+  );
+  const signed = { ...present, sig: signature(kind, present) };
+  const pairs = Object.entries(signed)
     .map(([key, value]) => ` ${key}=${encodeURIComponent(value)}`)
     .join("");
   return `<!-- codex-review:${kind}${pairs} -->`;
+}
+
+export function authentic(item, number) {
+  if (!item?.sig || item.pr !== String(number)) return false;
+  const { kind, ...fields } = item;
+  const expected = Buffer.from(signature(kind, fields));
+  const actual = Buffer.from(item.sig);
+  return expected.length === actual.length && timingSafeEqual(expected, actual);
 }
 
 function isBot(author) {
@@ -57,18 +93,22 @@ function reactionClaims(reactions) {
 }
 
 export function parsePullRequest(raw) {
+  const trailing = (body) => {
+    const item = markers(body).at(-1);
+    return item && authentic(item, raw.number) ? item : null;
+  };
   const reviews = [];
   for (const review of raw.reviews?.nodes ?? []) {
     if (!isBot(review.author)) continue;
-    for (const found of markers(review.body)) {
-      if (found.kind === "review") {
-        reviews.push({
-          at: review.createdAt,
-          requested: found.requested ?? review.createdAt,
-          head: found.head,
-          url: review.url,
-        });
-      }
+    const found = trailing(review.body);
+    if (found?.kind === "review") {
+      reviews.push({
+        at: review.createdAt,
+        requested: found.requested ?? review.createdAt,
+        head: found.head,
+        findings: (found.findings ?? "").split(",").filter(Boolean),
+        url: review.url,
+      });
     }
   }
 
@@ -80,12 +120,12 @@ export function parsePullRequest(raw) {
   for (const thread of raw.reviewThreads?.nodes ?? []) {
     const [first, ...replies] = thread.comments?.nodes ?? [];
     if (!first || !isBot(first.author)) continue;
-    const found = markers(first.body).find((item) => item.kind === "finding");
-    if (!found) continue;
+    const found = trailing(first.body);
+    if (found?.kind !== "finding") continue;
     const claims = reactionClaims(first.reactions);
     for (const reply of replies) {
       if (isBot(reply.author)) {
-        const item = markers(reply.body).at(-1);
+        const item = trailing(reply.body);
         if (item?.kind === "verdict" && item.id === found.id) {
           verdicts.push({ ...item, at: reply.createdAt });
         }
@@ -116,7 +156,7 @@ export function parsePullRequest(raw) {
 
   for (const comment of raw.comments?.nodes ?? []) {
     if (isBot(comment.author)) {
-      const item = markers(comment.body).at(-1);
+      const item = trailing(comment.body);
       if (item?.kind === "finding") {
         findings.set(item.id, {
           id: item.id,
@@ -250,39 +290,49 @@ export function evaluate(pr, trusted, { sharedWith = [] } = {}) {
 
   const verifications = findings.filter((finding) => finding.claims.length > 0);
   const unresolved = findings.filter((finding) => !finding.resolved);
+  const present = new Set(findings.map((finding) => finding.id));
+  const missing = pr.reviews.flatMap((review) => review.findings).filter((id) => !present.has(id));
+  const threadsToSync = findings.filter(
+    (finding) => finding.kind === "thread" && finding.resolved && !finding.threadResolved,
+  );
 
   let gate;
-  if (sharedWith.length > 0) {
+  if (missing.length > 0) {
+    gate = {
+      state: "failure",
+      description: `${missing.length} GDG-chan finding comments were deleted or altered; a maintainer must review and bypass`,
+    };
+  } else if (sharedWith.length > 0) {
     gate = sharedGate(sharedWith);
   } else if (pr.isCrossRepository) {
     gate = {
       state: "failure",
-      description: "Codex review does not run on fork PRs; a ruleset bypass is required",
+      description: "GDG-chan does not review fork PRs; a ruleset bypass is required",
     };
   } else if (reviewRequested) {
-    gate = { state: "pending", description: "Codex review is queued or running" };
+    gate = { state: "pending", description: "GDG-chan review is queued or running" };
   } else if (pr.reviews.length === 0) {
     gate = {
       state: "pending",
-      description: `Add the ${LABEL} label to request the required Codex review`,
+      description: `Add the ${LABEL} label to request the required GDG-chan review`,
     };
   } else if (unresolved.length === 0) {
     gate = {
       state: "success",
       description:
         findings.length === 0
-          ? "Codex review found no issues"
-          : `All ${findings.length} Codex findings are resolved`,
+          ? "GDG-chan review found no issues"
+          : `All ${findings.length} GDG-chan findings are resolved`,
     };
   } else if (verifications.length > 0) {
     gate = {
       state: "pending",
-      description: `Codex is checking ${verifications.length} responded findings`,
+      description: `GDG-chan is checking ${verifications.length} responded findings`,
     };
   } else {
     gate = {
       state: "failure",
-      description: `${unresolved.length} of ${findings.length} Codex findings are unresolved`,
+      description: `${unresolved.length} of ${findings.length} GDG-chan findings are unresolved`,
     };
   }
 
@@ -293,6 +343,8 @@ export function evaluate(pr, trusted, { sharedWith = [] } = {}) {
     verifications: pr.isCrossRepository ? [] : verifications,
     pendingMentions: pr.isCrossRepository ? [] : pendingMentions,
     unresolved,
+    missing,
+    threadsToSync,
   };
 }
 
@@ -327,24 +379,25 @@ export function anchor(finding, files) {
   return { kind: "file", path: finding.path };
 }
 
-export function findingBody(finding, { id, head, index, issue }) {
+export function findingBody(finding, { pr, id, head, index, issue }) {
   const location =
     issue && finding.path ? `\`${finding.path}${finding.line ? `:${finding.line}` : ""}\`\n\n` : "";
   const howTo = issue
-    ? "対応したらこのコメントにリアクションするか、`/codex` を含むコメントで確認を依頼してください。"
+    ? "対応したらこのコメントにリアクションするか、`/ai-review` を含むコメントで確認を依頼してください。"
     : "対応したらこのコメントにリアクションするか返信してください。";
   return [
     `**[${finding.priority}] ${finding.title}**`,
     "",
     `${location}${finding.body.trim()}`,
     "",
-    `<sub>Codex finding ${index} · ${howTo}エージェントが修正を確認すると解決になります。</sub>`,
+    `<sub>GDG-chan finding ${index} · ${howTo}GDG-chan が修正を確認すると解決になります。</sub>`,
     "",
-    marker("finding", { id, head, path: issue ? finding.path : undefined }),
+    marker("finding", { pr, id, head, path: issue ? finding.path : undefined }),
   ].join("\n");
 }
 
-export function reviewBody(result, { head, requested, findingCount, model }) {
+export function reviewBody(result, { pr, head, requested, ids, model }) {
+  const findingCount = ids.length;
   const lines = [
     "## GDG-chan review",
     "",
@@ -352,16 +405,16 @@ export function reviewBody(result, { head, requested, findingCount, model }) {
     "",
     findingCount === 0
       ? "指摘事項はありません。"
-      : `指摘事項は ${findingCount} 件です。各指摘にリアクションするか返信すると、エージェントが修正を確認して解決にします。PR に \`/codex\` とコメントすると未解決の指摘をまとめて確認します。`,
+      : `指摘事項は ${findingCount} 件です。各指摘にリアクションするか返信すると、GDG-chan が修正を確認して解決にします。PR に \`/ai-review\` とコメントすると未解決の指摘をまとめて確認します。`,
     "",
     `<sub>${model} · ${head.slice(0, 7)} · [AI review gate](${DOCS_URL})</sub>`,
     "",
-    marker("review", { head, requested }),
+    marker("review", { pr, head, requested, findings: ids.join(",") }),
   ];
   return lines.join("\n");
 }
 
-export function verdictBody(verdict, { id, seen, head }) {
+export function verdictBody(verdict, { pr, id, seen, head }) {
   const heading = verdict.resolved
     ? "✅ 解決を確認しました。"
     : "❌ まだ解決していません。修正したら、もう一度返信するかリアクションしてください。";
@@ -371,6 +424,7 @@ export function verdictBody(verdict, { id, seen, head }) {
     verdict.reply.trim(),
     "",
     marker("verdict", {
+      pr,
       id,
       status: verdict.resolved ? "resolved" : "unresolved",
       seen,
@@ -513,7 +567,7 @@ Findings:
 ${JSON.stringify(items, null, 2)}`;
 }
 
-export function mentionReply(mention, outcomes) {
+export function mentionReply(pr, mention, outcomes) {
   const lines = outcomes.length
     ? outcomes.map(
         (outcome) =>
@@ -525,7 +579,7 @@ export function mentionReply(mention, outcomes) {
     "",
     ...lines,
     "",
-    marker("ack", { comment: mention.id }),
+    marker("ack", { pr, comment: mention.id }),
   ].join("\n");
 }
 
@@ -592,7 +646,7 @@ const OPEN_PULL_REQUESTS_QUERY = `query($owner: String!, $name: String!, $cursor
   repository(owner: $owner, name: $name) {
     pullRequests(states: OPEN, first: 100, after: $cursor) {
       pageInfo { hasNextPage endCursor }
-      nodes { number headRefOid }
+      nodes { number headRefOid isCrossRepository }
     }
   }
 }`;
@@ -659,7 +713,9 @@ export class ReviewRepository {
         cursor,
       });
       const page = data.repository.pullRequests;
-      for (const node of page.nodes) heads.set(node.number, node.headRefOid);
+      for (const node of page.nodes) {
+        if (!node.isCrossRepository) heads.set(node.number, node.headRefOid);
+      }
       if (!page.pageInfo.hasNextPage) break;
       cursor = page.pageInfo.endCursor;
     }
@@ -759,16 +815,22 @@ export class ReviewRepository {
     }));
     const inline = prepared.filter((item) => item.anchor.kind === "line");
     const body = reviewBody(result, {
+      pr: pr.number,
       head: pr.headSha,
       requested,
-      findingCount: prepared.length,
+      ids: prepared.map((item) => item.id),
       model,
     });
     const comments = inline.map((item) => ({
       path: item.anchor.path,
       line: item.anchor.line,
       side: "RIGHT",
-      body: findingBody(item.finding, { id: item.id, head: pr.headSha, index: item.index }),
+      body: findingBody(item.finding, {
+        pr: pr.number,
+        id: item.id,
+        head: pr.headSha,
+        index: item.index,
+      }),
     }));
     for (const item of prepared) {
       if (!inline.includes(item)) await this.postStandaloneFinding(pr, item);
@@ -799,7 +861,12 @@ export class ReviewRepository {
             ...(item.anchor.kind === "line"
               ? { line: item.anchor.line, side: "RIGHT" }
               : { subject_type: "file" }),
-            body: findingBody(item.finding, { id: item.id, head: pr.headSha, index: item.index }),
+            body: findingBody(item.finding, {
+              pr: pr.number,
+              id: item.id,
+              head: pr.headSha,
+              index: item.index,
+            }),
           },
         });
         return;
@@ -811,6 +878,7 @@ export class ReviewRepository {
       method: "POST",
       body: {
         body: findingBody(item.finding, {
+          pr: pr.number,
           id: item.id,
           head: pr.headSha,
           index: item.index,
@@ -821,22 +889,14 @@ export class ReviewRepository {
   }
 
   async postVerdict(pr, finding, verdict, seen) {
-    const body = verdictBody(verdict, { id: finding.id, seen, head: pr.headSha });
+    const body = verdictBody(verdict, { pr: pr.number, id: finding.id, seen, head: pr.headSha });
     if (finding.kind === "thread") {
       await this.github.request(
         `/repos/${this.repository}/pulls/${pr.number}/comments/${finding.commentId}/replies`,
         { method: "POST", body: { body } },
       );
       if (verdict.resolved !== finding.threadResolved) {
-        const mutation = verdict.resolved ? "resolveReviewThread" : "unresolveReviewThread";
-        try {
-          await this.github.graphql(
-            `mutation($id: ID!) { ${mutation}(input: { threadId: $id }) { thread { id } } }`,
-            { id: finding.threadId },
-          );
-        } catch (error) {
-          console.log(`Could not ${mutation} for ${finding.id}: ${error.message}`);
-        }
+        await this.setThreadResolved(finding, verdict.resolved);
       }
       return;
     }
@@ -846,10 +906,26 @@ export class ReviewRepository {
     });
   }
 
+  async setThreadResolved(finding, resolved) {
+    const mutation = resolved ? "resolveReviewThread" : "unresolveReviewThread";
+    try {
+      await this.github.graphql(
+        `mutation($id: ID!) { ${mutation}(input: { threadId: $id }) { thread { id } } }`,
+        { id: finding.threadId },
+      );
+    } catch (error) {
+      console.log(`Could not ${mutation} for ${finding.id}: ${error.message}`);
+    }
+  }
+
+  async syncThreads(evaluation) {
+    for (const finding of evaluation.threadsToSync) await this.setThreadResolved(finding, true);
+  }
+
   async postMentionReply(pr, mention, outcomes) {
     await this.github.request(`/repos/${this.repository}/issues/${pr.number}/comments`, {
       method: "POST",
-      body: { body: mentionReply(mention, outcomes) },
+      body: { body: mentionReply(pr.number, mention, outcomes) },
     });
   }
 
@@ -1001,27 +1077,28 @@ const ATTEMPTS = 3;
 export async function processPullRequest({ repo, codex, worktrees, number, runId, runUrl, model }) {
   for (let attempt = 1; attempt <= ATTEMPTS; attempt += 1) {
     const { pr, evaluation } = await repo.evaluate(number);
+    await repo.syncThreads(evaluation);
     if (pr.state !== "OPEN" || !hasWork(evaluation)) {
       await repo.publishGate(pr, evaluation.gate);
       return;
     }
-    await repo.publishGate(pr, { state: "pending", description: "Codex agent is running" }, runUrl);
+    await repo.publishGate(pr, { state: "pending", description: "GDG-chan is working" }, runUrl);
     const tree = await worktrees.prepare(pr);
-    let stale = false;
     try {
-      stale = !(await handleWork({ repo, codex, tree, pr, evaluation, runId, model }));
+      await handleWork({ repo, codex, tree, pr, evaluation, runId, model });
     } finally {
       await worktrees.remove(tree.dir);
     }
-    if (!stale) break;
-    console.log(`#${number} moved past ${pr.headSha} during verification; checking again.`);
   }
   const after = await repo.evaluate(number);
   await repo.publishGate(after.pr, after.evaluation.gate);
 }
 
+export function latestClaim(finding) {
+  return new Date(Math.max(...finding.claims.map((claim) => time(claim.at)))).toISOString();
+}
+
 async function handleWork({ repo, codex, tree, pr, evaluation, runId, model }) {
-  const seen = new Date().toISOString();
   const outcomes = new Map();
   if (evaluation.verifications.length > 0) {
     const result = sanitize(
@@ -1033,14 +1110,17 @@ async function handleWork({ repo, codex, tree, pr, evaluation, runId, model }) {
       codex.secrets,
     );
     const current = await repo.pullRequest(pr.number);
-    if (current.headSha !== pr.headSha) return false;
+    if (current.headSha !== pr.headSha) {
+      console.log(`#${pr.number} moved past ${pr.headSha} during verification; checking again.`);
+      return;
+    }
     const verdicts = new Map(result.verdicts.map((verdict) => [verdict.id, verdict]));
     for (const finding of evaluation.verifications) {
       const verdict = verdicts.get(finding.id) ?? {
         resolved: false,
         reply: "この指摘について判定を返せませんでした。もう一度返信して確認を依頼してください。",
       };
-      await repo.postVerdict(pr, finding, verdict, seen);
+      await repo.postVerdict(pr, finding, verdict, latestClaim(finding));
       outcomes.set(finding.id, verdict.resolved);
     }
   }
@@ -1068,7 +1148,7 @@ async function handleWork({ repo, codex, tree, pr, evaluation, runId, model }) {
         prompt: reviewPrompt(pr, {
           mergeBase: tree.mergeBase,
           files,
-          previous: evaluation.findings.map((finding) => ({
+          previous: evaluation.unresolved.map((finding) => ({
             path: finding.path,
             line: finding.line,
             title: findingTitle(finding),
@@ -1078,14 +1158,20 @@ async function handleWork({ repo, codex, tree, pr, evaluation, runId, model }) {
       }),
       codex.secrets,
     );
+    const current = await repo.pullRequest(pr.number);
+    if (current.headSha !== pr.headSha) {
+      console.log(`#${pr.number} moved past ${pr.headSha} during the review; reviewing again.`);
+      return;
+    }
     await repo.postReview(pr, result, { runId, model, requested });
-    await repo.removeLabel(pr.number);
+    const latestLabel = Math.max(...current.labeledAt.map((value) => Date.parse(value)), 0);
+    if (latestLabel <= Date.parse(requested)) await repo.removeLabel(pr.number);
   }
-  return true;
 }
 
 function eventPullRequest(event) {
-  return event?.pull_request?.number ?? (event?.issue?.pull_request ? event.issue.number : null);
+  const requested = Number(event?.inputs?.pr);
+  return Number.isInteger(requested) && requested > 0 ? requested : null;
 }
 
 async function writeOutput(name, value) {
@@ -1100,13 +1186,14 @@ export async function plan({ repo, event, authAvailable }) {
   for (const number of numbers) {
     const { pr, evaluation } = await repo.evaluate(number);
     if (pr.state !== "OPEN") continue;
+    await repo.syncThreads(evaluation);
     const failedBefore =
       pr.status?.state === "ERROR" && pr.status.description.startsWith(AGENT_FAILED);
     if (hasWork(evaluation) && (target !== null || !failedBefore)) {
       if (!(await authAvailable())) {
         await repo.publishGate(pr, {
           state: "error",
-          description: "Codex is not signed in; run the Codex login workflow",
+          description: "Codex is not signed in; run the AI login workflow",
         });
         continue;
       }
@@ -1135,16 +1222,28 @@ export async function checkSandbox(codexHome) {
   if (await allowed(["touch", join(process.cwd(), ".codex-sandbox-probe")])) {
     throw new Error("The Codex sandbox can write to the checkout");
   }
-  console.log("The Codex sandbox reads the checkout, cannot read the login, and cannot write.");
+  if (await allowed(["cat", `/proc/${process.pid}/environ`])) {
+    throw new Error("The Codex sandbox can read the agent's environment");
+  }
+  console.log(
+    "The Codex sandbox reads the checkout but cannot read the login or the agent's environment, and cannot write.",
+  );
 }
 
 async function main() {
   const [command, ...args] = process.argv.slice(2);
-  const github = new GitHubClient({ token: process.env.GDG_CHAN_TOKEN });
-  const actions = new GitHubClient({ token: process.env.GITHUB_TOKEN });
   const repository = process.env.GITHUB_REPOSITORY;
+  const tokens = new AppTokenSource({
+    appId: process.env.GDG_CHAN_APP_ID,
+    privateKey: process.env.GDG_CHAN_PRIVATE_KEY,
+    repository,
+  });
+  const github = new GitHubClient({ tokens });
+  const actions = new GitHubClient({ token: process.env.GITHUB_TOKEN });
   const repo = new ReviewRepository({ github, repository });
   const runUrl = `${process.env.GITHUB_SERVER_URL}/${repository}/actions/runs/${process.env.GITHUB_RUN_ID}`;
+
+  if (command === "plan" || command === "agent") setSigningKey(process.env.AI_REVIEW_SIGNING_KEY);
 
   if (command === "plan") {
     const event = process.env.GITHUB_EVENT_PATH
@@ -1179,8 +1278,9 @@ async function main() {
       codexHome,
       model,
       effort: process.env.CODEX_EFFORT,
-      secrets: await readAuthSecrets(join(codexHome, "auth.json")),
+      secrets: [...(await readAuthSecrets(join(codexHome, "auth.json"))), ...tokens.issued],
     });
+    tokens.onIssue = (token) => codex.secrets.push(token);
     const root = join(tmpdir(), "codex-review-worktrees");
     await mkdir(root, { recursive: true });
     const worktrees = new Worktrees({ root });
@@ -1206,7 +1306,7 @@ async function main() {
               pr,
               {
                 state: "error",
-                description: `${AGENT_FAILED}; comment /codex or re-add the label to retry`,
+                description: `${AGENT_FAILED}; comment /ai-review or re-add the label to retry`,
               },
               runUrl,
             )

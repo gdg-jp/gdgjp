@@ -1,5 +1,12 @@
 import { execFile } from "node:child_process";
-import { createCipheriv, createDecipheriv, createHash, randomBytes, scryptSync } from "node:crypto";
+import {
+  createCipheriv,
+  createDecipheriv,
+  createHash,
+  createSign,
+  randomBytes,
+  scryptSync,
+} from "node:crypto";
 import { appendFile, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -13,10 +20,71 @@ export const ENCRYPTED_FILE = "codex-auth.enc";
 const KEPT_ARTIFACTS = 3;
 const MIN_SECRET_LENGTH = 20;
 
-export class GitHubClient {
-  constructor({ token, fetchImpl = fetch }) {
-    this.token = token;
+const TOKEN_MARGIN_MS = 10 * 60 * 1000;
+const TRUSTED_BRANCHES = ["main"];
+const TRUSTED_WORKFLOWS = [".github/workflows/ai-review.yml", ".github/workflows/ai-login.yml"];
+
+export function appJwt(appId, privateKey, now = Date.now()) {
+  const encode = (value) => Buffer.from(JSON.stringify(value)).toString("base64url");
+  const issuedAt = Math.floor(now / 1000) - 60;
+  const unsigned = `${encode({ alg: "RS256", typ: "JWT" })}.${encode({
+    iat: issuedAt,
+    exp: issuedAt + 540,
+    iss: String(appId),
+  })}`;
+  const signature = createSign("RSA-SHA256").update(unsigned).sign(privateKey, "base64url");
+  return `${unsigned}.${signature}`;
+}
+
+export class AppTokenSource {
+  constructor({ appId, privateKey, repository, fetchImpl = fetch, now = () => Date.now() }) {
+    this.appId = appId;
+    this.privateKey = privateKey;
+    this.repository = repository;
     this.fetchImpl = fetchImpl;
+    this.now = now;
+    this.current = null;
+    this.issued = [];
+    this.onIssue = null;
+  }
+
+  async call(path, method) {
+    const response = await this.fetchImpl(`${API_URL}${path}`, {
+      method,
+      headers: {
+        Accept: "application/vnd.github+json",
+        Authorization: `Bearer ${appJwt(this.appId, this.privateKey, this.now())}`,
+        "X-GitHub-Api-Version": API_VERSION,
+        "User-Agent": "gdgjp-ai-review",
+      },
+    });
+    if (!response.ok) {
+      throw new Error(`GitHub App ${method} ${path} failed with ${response.status}`);
+    }
+    return response.json();
+  }
+
+  async token() {
+    if (this.current && Date.parse(this.current.expires_at) - this.now() > TOKEN_MARGIN_MS) {
+      return this.current.token;
+    }
+    if (!this.appId || !this.privateKey) {
+      throw new Error("GDG_CHAN_APP_ID and GDG_CHAN_PRIVATE_KEY must be set");
+    }
+    this.installation ??= (await this.call(`/repos/${this.repository}/installation`, "GET")).id;
+    this.current = await this.call(`/app/installations/${this.installation}/access_tokens`, "POST");
+    this.issued.push(this.current.token);
+    this.onIssue?.(this.current.token);
+    return this.current.token;
+  }
+}
+
+export class GitHubClient {
+  constructor({ token, tokens, fetchImpl = fetch }) {
+    this.token = token;
+    this.tokens = tokens;
+    this.fetchImpl = fetchImpl;
+    this.runPaths = new Map();
   }
 
   async raw(path, { method = "GET", body, redirect = "follow" } = {}) {
@@ -24,7 +92,7 @@ export class GitHubClient {
       method,
       headers: {
         Accept: "application/vnd.github+json",
-        Authorization: `Bearer ${this.token}`,
+        Authorization: `Bearer ${this.tokens ? await this.tokens.token() : this.token}`,
         "X-GitHub-Api-Version": API_VERSION,
         "User-Agent": "gdgjp-codex-review",
       },
@@ -64,12 +132,27 @@ export class GitHubClient {
     return result.data;
   }
 
-  async artifacts(name) {
+  async runPath(id) {
+    if (!this.runPaths.has(id)) {
+      const repository = process.env.GITHUB_REPOSITORY;
+      const run = await this.request(`/repos/${repository}/actions/runs/${id}`);
+      this.runPaths.set(id, run.path);
+    }
+    return this.runPaths.get(id);
+  }
+
+  async artifacts(name, trust = trustedSources()) {
     const repository = process.env.GITHUB_REPOSITORY;
     const result = await this.request(
       `/repos/${repository}/actions/artifacts?name=${encodeURIComponent(name)}&per_page=100`,
     );
-    return newestFirst(result.artifacts.filter((artifact) => !artifact.expired));
+    const trusted = [];
+    for (const artifact of newestFirst(result.artifacts.filter((item) => !item.expired))) {
+      if (!trust.branches.includes(artifact.workflow_run?.head_branch)) continue;
+      if (!trust.workflows.includes(await this.runPath(artifact.workflow_run.id))) continue;
+      trusted.push(artifact);
+    }
+    return trusted;
   }
 
   async latestArtifact(name) {
@@ -85,6 +168,20 @@ export class GitHubClient {
     }
     return Buffer.from(await response.arrayBuffer());
   }
+}
+
+export function trustedSources(env = process.env) {
+  const list = (value, fallback) =>
+    value
+      ? value
+          .split(",")
+          .map((item) => item.trim())
+          .filter(Boolean)
+      : fallback;
+  return {
+    branches: list(env.AI_REVIEW_TRUSTED_BRANCHES, TRUSTED_BRANCHES),
+    workflows: list(env.AI_REVIEW_TRUSTED_WORKFLOWS, TRUSTED_WORKFLOWS),
+  };
 }
 
 export function newestFirst(artifacts) {
@@ -190,7 +287,7 @@ async function setOutput(name, value) {
 async function restore({ github, codexHome, secret, account }) {
   const artifact = await github.latestArtifact(ARTIFACT_NAME);
   if (!artifact) {
-    throw new Error("No Codex login is stored. Run the Codex login workflow first.");
+    throw new Error("No trusted Codex login is stored. Run the AI login workflow on main first.");
   }
   const scratch = await mkdtemp(join(tmpdir(), "codex-auth-"));
   try {

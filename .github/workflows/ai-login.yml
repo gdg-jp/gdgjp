@@ -16,8 +16,10 @@ env:
 jobs:
   login:
     name: Sign in to Codex
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     timeout-minutes: 25
+    environment: ai-review
     permissions:
       actions: write
       contents: read

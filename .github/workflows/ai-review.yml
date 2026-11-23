@@ -10,6 +10,11 @@ on:
   schedule:
     - cron: "*/10 * * * *"
   workflow_dispatch:
+    inputs:
+      pr:
+        description: Pull request number to process; empty processes every open pull request
+        required: false
+        type: string
 
 permissions: {}
 
@@ -18,10 +23,13 @@ env:
   CODEX_VERSION: "0.171.0"
 
 jobs:
-  plan:
-    name: Plan
+  dispatch:
+    name: Hand off to main
     if: >-
-      github.event.sender.type != 'Bot'
+      (github.event_name == 'pull_request'
+        || github.event_name == 'pull_request_review_comment'
+        || github.event_name == 'issue_comment')
+      && github.event.sender.type != 'Bot'
       && (github.event.pull_request == null
         || github.event.pull_request.head.repo.full_name == github.repository)
       && (github.event_name != 'pull_request'
@@ -29,21 +37,33 @@ jobs:
         || github.event.label.name == 'E-code-review')
       && (github.event_name != 'issue_comment'
         || (github.event.issue.pull_request
-          && (contains(github.event.comment.body, '/codex')
+          && (contains(github.event.comment.body, '/ai-review')
             || contains(github.event.comment.body, '@gdg-chan'))))
     runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      actions: write
+    steps:
+      - env:
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+          PR: ${{ github.event.pull_request.number || github.event.issue.number }}
+        run: gh workflow run ai-review.yml --repo "$REPOSITORY" --ref main -f pr="$PR"
+
+  plan:
+    name: Plan
+    if: >-
+      (github.event_name == 'workflow_dispatch' || github.event_name == 'schedule')
+      && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
     timeout-minutes: 10
+    environment: ai-review
     permissions:
       actions: read
       contents: read
     outputs:
       numbers: ${{ steps.plan.outputs.numbers }}
     steps:
-      - id: gdg-chan
-        uses: actions/create-github-app-token@v2
-        with:
-          app-id: ${{ vars.GDG_CHAN_APP_ID }}
-          private-key: ${{ secrets.GDG_CHAN_PRIVATE_KEY }}
       - uses: actions/checkout@v4
         with:
           sparse-checkout: .github/scripts
@@ -53,8 +73,10 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
       - id: plan
         env:
-          GDG_CHAN_TOKEN: ${{ steps.gdg-chan.outputs.token }}
           GITHUB_TOKEN: ${{ github.token }}
+          GDG_CHAN_APP_ID: ${{ vars.GDG_CHAN_APP_ID }}
+          GDG_CHAN_PRIVATE_KEY: ${{ secrets.GDG_CHAN_PRIVATE_KEY }}
+          AI_REVIEW_SIGNING_KEY: ${{ secrets.AI_REVIEW_SIGNING_KEY }}
         run: node .github/scripts/codex-review.mjs plan
 
   agent:
@@ -63,6 +85,7 @@ jobs:
     if: needs.plan.outputs.numbers != ''
     runs-on: ubuntu-latest
     timeout-minutes: 90
+    environment: ai-review
     concurrency:
       group: codex-auth
       cancel-in-progress: false
@@ -70,11 +93,6 @@ jobs:
       actions: write
       contents: read
     steps:
-      - id: gdg-chan
-        uses: actions/create-github-app-token@v2
-        with:
-          app-id: ${{ vars.GDG_CHAN_APP_ID }}
-          private-key: ${{ secrets.GDG_CHAN_PRIVATE_KEY }}
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
@@ -101,7 +119,9 @@ jobs:
         run: node .github/scripts/codex-review.mjs sandbox-check
       - name: Run Codex agent
         env:
-          GDG_CHAN_TOKEN: ${{ steps.gdg-chan.outputs.token }}
+          GDG_CHAN_APP_ID: ${{ vars.GDG_CHAN_APP_ID }}
+          GDG_CHAN_PRIVATE_KEY: ${{ secrets.GDG_CHAN_PRIVATE_KEY }}
+          AI_REVIEW_SIGNING_KEY: ${{ secrets.AI_REVIEW_SIGNING_KEY }}
           CODEX_MODEL: ${{ vars.CODEX_REVIEW_MODEL || 'gpt-6.2-astra' }}
           CODEX_EFFORT: ${{ vars.CODEX_REVIEW_EFFORT || 'medium' }}
           NUMBERS: ${{ needs.plan.outputs.numbers }}
