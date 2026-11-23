@@ -44,6 +44,7 @@ function identity(): BearerIdentity {
       isAdmin: false,
     },
     chapters: [{ chapterId: 1, chapterSlug: "osaka", role: "member" }],
+    client: { id: "gdg-cli", firstParty: true },
   };
 }
 
@@ -87,6 +88,16 @@ describe("POST /api/agent/notes", () => {
       }),
     );
     expect(response.status).toBe(401);
+    expect(createOrReplaceMock).not.toHaveBeenCalled();
+  });
+
+  it("refuses a developer app's token without creating a note", async () => {
+    getBearerIdentityMock.mockResolvedValue({
+      ...identity(),
+      client: { id: "dev-app", firstParty: false },
+    });
+    const response = await action(actionArgs({ slug: "a", title: "A" }));
+    expect(response.status).toBe(403);
     expect(createOrReplaceMock).not.toHaveBeenCalled();
   });
 

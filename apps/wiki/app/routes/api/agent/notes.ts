@@ -1,6 +1,7 @@
 import type { ActionFunctionArgs } from "react-router";
 import { createOrReplaceAnswerNote } from "~/features/agent-api/notes.server";
 import { agentUnauthorized, resolveAgentWorkspace } from "~/features/agent-api/workspace.server";
+import { developerAppWriteRefused, writesAllowed } from "~/features/agent-api/write-access.server";
 
 export async function action({ request, context }: ActionFunctionArgs) {
   if (request.method !== "POST") {
@@ -10,6 +11,7 @@ export async function action({ request, context }: ActionFunctionArgs) {
   const { env } = context.cloudflare;
   const resolved = await resolveAgentWorkspace(request, env);
   if (!resolved) return agentUnauthorized();
+  if (!writesAllowed(resolved.identity.client)) return developerAppWriteRefused();
 
   const body = await request.json().catch(() => null);
   const result = await createOrReplaceAnswerNote(env, resolved, body);

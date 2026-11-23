@@ -8,6 +8,7 @@ const mocks = vi.hoisted(() => ({
   identity: {
     user: { id: "oidc-subject-1", email: "admin@example.com", isAdmin: true as boolean },
     chapters: [] as Array<{ chapterId: string; role: string }>,
+    client: { id: "gdg-cli", firstParty: true } as { id: string; firstParty: boolean },
   },
 }));
 
@@ -213,6 +214,7 @@ beforeEach(() => {
   mocks.identity = {
     user: { id: "oidc-subject-1", email: "admin@example.com", isAdmin: true },
     chapters: [],
+    client: { id: "gdg-cli", firstParty: true },
   };
   vi.mocked(getAgentInstructions).mockResolvedValue({
     content: "existing instructions",
@@ -221,6 +223,19 @@ beforeEach(() => {
 });
 
 describe("Wiki CLI sync action", () => {
+  it("refuses a developer app's token before reading the body", async () => {
+    const client = mocks.identity.client;
+    mocks.identity.client = { id: "dev-app", firstParty: false };
+    try {
+      const { args, batch } = actionArgs([]);
+      const response = await action(args);
+      expect(response.status).toBe(403);
+      expect(batch).not.toHaveBeenCalled();
+    } finally {
+      mocks.identity.client = client;
+    }
+  });
+
   it("creates a client-ID parent and child in one D1 batch", async () => {
     const parent = page("parent-client-id", "parent", null);
     const child = page("child-client-id", "child", parent.id);
@@ -414,6 +429,7 @@ describe("Wiki CLI sync action", () => {
     mocks.identity = {
       user: { id: "member-1", email: "member@example.com", isAdmin: false },
       chapters: [{ chapterId: "tokyo", role: "member" }],
+      client: { id: "gdg-cli", firstParty: true },
     };
     mocks.allResults = [
       [

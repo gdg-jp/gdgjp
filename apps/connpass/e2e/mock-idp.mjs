@@ -3,6 +3,8 @@ import { createServer } from "node:http";
 const PORT = Number(process.env.CONNPASS_E2E_IDP_PORT ?? (process.env.CI ? 6181 : 5181));
 const CHAPTERS_CLAIM = "https://gdgs.jp/claims/chapters";
 const IS_ADMIN_CLAIM = "https://gdgs.jp/claims/is_admin";
+const CLIENT_CLAIM = "https://gdgs.jp/claims/client";
+const FIRST_PARTY = { id: "gdg-cli", first_party: true };
 
 const identities = {
   "e2e-admin": {
@@ -11,6 +13,7 @@ const identities = {
     name: "E2E Admin",
     [IS_ADMIN_CLAIM]: true,
     [CHAPTERS_CLAIM]: [],
+    [CLIENT_CLAIM]: FIRST_PARTY,
   },
   "e2e-organizer": {
     sub: "e2e-organizer-user",
@@ -18,6 +21,7 @@ const identities = {
     name: "E2E Organizer",
     [IS_ADMIN_CLAIM]: false,
     [CHAPTERS_CLAIM]: [{ chapterId: 10, chapterSlug: "e2e-chapter", role: "organizer" }],
+    [CLIENT_CLAIM]: FIRST_PARTY,
   },
   "e2e-member": {
     sub: "e2e-member-user",
@@ -25,6 +29,7 @@ const identities = {
     name: "E2E Member",
     [IS_ADMIN_CLAIM]: false,
     [CHAPTERS_CLAIM]: [{ chapterId: 10, chapterSlug: "e2e-chapter", role: "member" }],
+    [CLIENT_CLAIM]: FIRST_PARTY,
   },
   "e2e-outsider": {
     sub: "e2e-outsider-user",
@@ -32,6 +37,15 @@ const identities = {
     name: "E2E Outsider",
     [IS_ADMIN_CLAIM]: false,
     [CHAPTERS_CLAIM]: [{ chapterId: 99, chapterSlug: "other-chapter", role: "organizer" }],
+    [CLIENT_CLAIM]: FIRST_PARTY,
+  },
+  "e2e-developer-app-organizer": {
+    sub: "e2e-organizer-user",
+    email: "organizer@e2e.local",
+    name: "E2E Organizer",
+    [IS_ADMIN_CLAIM]: false,
+    [CHAPTERS_CLAIM]: [{ chapterId: 10, chapterSlug: "e2e-chapter", role: "organizer" }],
+    [CLIENT_CLAIM]: { id: "dev-app", first_party: false },
   },
 };
 

@@ -1,5 +1,6 @@
 import type { ActionFunctionArgs } from "react-router";
 import { resolveAgentReader } from "~/features/agent-api/agent-reader.server";
+import { developerAppWriteRefused, writesAllowed } from "~/features/agent-api/write-access.server";
 import { requireSpaceForIdentity } from "~/features/spaces/access.server";
 import { upsertSpaceMember } from "~/features/spaces/members.server";
 import { getDb } from "~/lib/db.server";
@@ -10,6 +11,7 @@ export async function action({ request, context, params }: ActionFunctionArgs) {
   const reader = await resolveAgentReader(request, env, db);
   if (!reader || reader.via !== "user")
     return Response.json({ error: "invalid_token" }, { status: 401 });
+  if (!writesAllowed(reader.client)) return developerAppWriteRefused();
   let space: Awaited<ReturnType<typeof requireSpaceForIdentity>>["space"];
   try {
     ({ space } = await requireSpaceForIdentity(db, reader.identity, params.space ?? "", "owner"));

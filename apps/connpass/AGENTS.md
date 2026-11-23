@@ -2,7 +2,12 @@
 
 Machine API for connpass group admin automation via Cloudflare Browser Run.
 
-- Auth: Bearer GDG Accounts access token (CLI / agents)
+- Auth: Bearer GDG Accounts access token (CLI / agents), resolved by `connpassIdentity`
+  (`app/features/auth/bearer.server.ts`). Reads follow chapter membership for any client. Writes and
+  admin APIs also require a first-party client (`client.firstParty` from Accounts' client claim), so
+  a developer-owned app's token cannot write even for an organizer or admin. `POST /api/checkin`
+  additionally trusts the developer client IDs in `CHECKIN_CLIENT_IDS` (`wrangler.toml` vars,
+  comma-separated; the live-checkin QR app).
 - Reads/writes: Playwright against connpass.com (shared bot email/password). Official connpass API is not used.
 - HTML fixtures for selectors: `fixtures/html/`
 - Luma check-in (`POST /api/checkin` with a `luma.com/check-in/…?pk=…` URL) uses api.luma.com over

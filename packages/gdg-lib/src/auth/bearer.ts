@@ -1,7 +1,13 @@
-import { CHAPTERS_CLAIM, IS_ADMIN_CLAIM } from "./claims";
+import { CHAPTERS_CLAIM, CLIENT_CLAIM, IS_ADMIN_CLAIM } from "./claims";
 import type { AuthUser, ChapterRole, UserChapter } from "./index";
 
-export type BearerIdentity = { user: AuthUser; chapters: UserChapter[] };
+export type BearerClient = { id: string; firstParty: boolean };
+
+export type BearerIdentity = {
+  user: AuthUser;
+  chapters: UserChapter[];
+  client: BearerClient | null;
+};
 
 export async function getBearerIdentity(
   request: Request,
@@ -32,7 +38,16 @@ export async function getBearerIdentity(
       isAdmin: value[IS_ADMIN_CLAIM] === true,
     },
     chapters,
+    client: parseClient(value[CLIENT_CLAIM]),
   };
+}
+
+function parseClient(value: unknown): BearerClient | null {
+  if (!value) return null;
+  const client = value as Record<string, unknown>;
+  if (typeof client.id !== "string" || !client.id) return null;
+  if (typeof client.first_party !== "boolean") return null;
+  return { id: client.id, firstParty: client.first_party };
 }
 
 export async function getCliIdentity(
@@ -60,7 +75,7 @@ export async function getCliIdentity(
     chapters.push(chapter);
   }
 
-  return { user, chapters };
+  return { user, chapters, client: { id: "gdg-cli", firstParty: true } };
 }
 
 function parseChapter(entry: unknown): UserChapter | null {

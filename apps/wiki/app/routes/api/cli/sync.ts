@@ -14,6 +14,7 @@ import {
 } from "~/features/agent-api/cli-sync.server";
 import { getCliOrRunnerIdentity } from "~/features/agent-api/runner-identity.server";
 import { partitionRunnerOperations } from "~/features/agent-api/runner-sync.server";
+import { developerAppWriteRefused, writesAllowed } from "~/features/agent-api/write-access.server";
 import { canonicalMarkdown } from "~/features/editor/content-format";
 import { scheduleKnowledgeSync } from "~/features/knowledge/sync.server";
 import {
@@ -33,6 +34,7 @@ export async function action({ request, context }: ActionFunctionArgs) {
   const { env } = context.cloudflare;
   const identity = await getCliOrRunnerIdentity(request, env);
   if (!identity) return Response.json({ error: "invalid_token" }, { status: 401 });
+  if (!writesAllowed(identity.client)) return developerAppWriteRefused();
   const parsed = SyncBody.safeParse(await request.json());
   if (!parsed.success)
     return Response.json(

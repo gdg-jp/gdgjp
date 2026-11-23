@@ -15,8 +15,6 @@ export async function groupForPrActor(
 ): Promise<AllowedGroup | null> {
   const group = await getAllowedGroup(db, resolveGroupSlug(rawGroupSlug));
   if (!group) return null;
-  const identity = { user: actor.user, chapters: actor.chapters } as Parameters<
-    typeof canReadGroup
-  >[0];
+  const identity = { user: actor.user, chapters: actor.chapters, mayWrite: true };
   return (write ? canWriteGroup(identity, group) : canReadGroup(identity, group)) ? group : null;
 }

@@ -1,14 +1,13 @@
-import { getBearerIdentity } from "@gdgjp/gdg-lib";
 import type { LoaderFunctionArgs } from "react-router";
-import { accountsBaseUrl } from "./accounts-url.server";
 import { canReadGroup, canWriteGroup, getAllowedGroup, resolveGroupSlug } from "./authorize.server";
+import { connpassIdentity } from "./bearer.server";
 
 export async function authorizeEventRoute(
   args: Pick<LoaderFunctionArgs, "request" | "context" | "params">,
   write: boolean,
 ) {
   const { env, ctx } = args.context.cloudflare;
-  const identity = await getBearerIdentity(args.request, accountsBaseUrl(env));
+  const identity = await connpassIdentity(args.request, env);
   if (!identity) return { error: Response.json({ error: "invalid_token" }, { status: 401 }) };
   const groupSlug = resolveGroupSlug(args.params.groupId ?? "");
   const group = await getAllowedGroup(env.DB, groupSlug);

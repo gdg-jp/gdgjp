@@ -44,6 +44,7 @@
     "oauthConsent": "Authorize application — GDG Japan Accounts",
     "device": "Sign in to the CLI — GDG Japan Accounts",
     "googleWorkspace": "Google Workspace — GDG Japan Accounts",
+    "connectedApps": "Connected apps — GDG Japan Accounts",
     "invites": "Invite links — GDG Japan Accounts",
     "invite": "Chapter invite — GDG Japan Accounts"
   },
@@ -63,6 +64,7 @@
       "oidcLink": "Manage OIDC clients"
     },
     "googleWorkspaceLink": "Connect Google Workspace",
+    "connectedAppsLink": "Apps with access to your account",
     "noChapter": {
       "title": "No chapter yet",
       "description": "Pick a GDG or GDGoC chapter to request membership. An organizer will approve your request.",
@@ -318,7 +320,7 @@
       "demoteTitle": "Remove admin access from {{name}}?",
       "demoteDescription": "They will return to a regular user and lose access to administration tools.",
       "revokeTitle": "Revoke every session for {{name}}?",
-      "revokeDescription": "They will be signed out of Accounts and connected apps, and must sign in again.",
+      "revokeDescription": "They will be signed out of Accounts and connected apps, and must sign in again. Every access they granted to developer apps is also removed, so they must approve each app again.",
       "changeChapterTitle": "Change {{name}}'s chapter?",
       "changeChapterDescription": "Select every chapter they should belong to. Memberships for unselected chapters will be removed."
     },
@@ -534,17 +536,21 @@
       "title": "Authorize {{appName}}?",
       "unknownApp": "this application",
       "description": "Review what this application wants to access before continuing.",
+      "owner": "Developed by {{ownerName}}",
       "website": "Application website",
       "permissions": "Requested permissions",
       "noPermissions": "Basic account access",
       "allow": "Allow and continue",
       "deny": "Cancel",
       "privacy": "Only approve applications you trust. You can revoke access by contacting the application owner.",
+      "privacyDeveloper": "Only approve applications you trust. You can remove access at any time from Connected apps in your account.",
+      "invalidRequest": "This authorization request is invalid or has expired. Go back to the app and try again.",
       "scope": {
         "openid": "Confirm your identity",
         "email": "View your email address",
         "profile": "View your name and profile image",
         "offline_access": "Keep access when you are away",
+        "offlineAccessUntilRemoved": "Keep access after you sign out, until you remove it",
         "chapters": "View your active chapter memberships and roles",
         "unknown": "Request additional account access"
       }
@@ -588,6 +594,21 @@
       "disconnectConfirmDescription": "The GDG agent will no longer be able to access your Google Drive. You can reconnect at any time.",
       "toastConnected": "Google Workspace connected.",
       "toastError": "Couldn't connect Google Workspace ({{reason}})."
+    },
+    "connectedApps": {
+      "title": "Connected apps",
+      "description": "Apps built by chapter members that you allowed to use your GDG Japan account. They keep access after you sign out, until you remove it here.",
+      "empty": "No apps have access to your account.",
+      "disabled": "Turned off by its developer",
+      "permissions": "Access",
+      "grantedAt": "Access granted",
+      "lastTokenAt": "Last token issued",
+      "notRecorded": "Not recorded",
+      "remove": "Remove access",
+      "removeConfirmTitle": "Remove access for {{appName}}?",
+      "removeConfirmDescription": "The app can no longer use your account. If you sign in through it again, you will be asked to allow access again.",
+      "cancel": "Cancel",
+      "removed": "Access removed."
     }
   },
   "errors": {

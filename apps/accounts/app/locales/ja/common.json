@@ -44,6 +44,7 @@
     "oauthConsent": "アプリケーションを認可 — GDG Japan Accounts",
     "device": "CLI にサインイン — GDG Japan Accounts",
     "googleWorkspace": "Google Workspace — GDG Japan Accounts",
+    "connectedApps": "連携中のアプリ — GDG Japan Accounts",
     "invites": "招待リンク — GDG Japan Accounts",
     "invite": "チャプターへの招待 — GDG Japan Accounts"
   },
@@ -63,6 +64,7 @@
       "oidcLink": "OIDC クライアントを管理"
     },
     "googleWorkspaceLink": "Google Workspace を連携",
+    "connectedAppsLink": "アカウントにアクセスできるアプリ",
     "noChapter": {
       "title": "チャプター未所属",
       "description": "GDG または GDGoC のチャプターを選んで参加リクエストを送ってください。オーガナイザーが承認します。",
@@ -318,7 +320,7 @@
       "demoteTitle": "{{name}} を管理者から外しますか？",
       "demoteDescription": "通常ユーザーに戻り、管理機能へアクセスできなくなります。",
       "revokeTitle": "{{name}} の全セッションを失効しますか？",
-      "revokeDescription": "Accounts と連携アプリからサインアウトされます。再利用するにはサインインが必要です。",
+      "revokeDescription": "Accounts と連携アプリからサインアウトされます。開発者アプリへの許可もすべて削除されるため、そのユーザーは各アプリをもう一度承認する必要があります。再利用するにはサインインが必要です。",
       "changeChapterTitle": "{{name}} の所属チャプターを変更しますか？",
       "changeChapterDescription": "所属させるチャプターを選択してください。選択を外したチャプターの所属は解除されます。"
     },
@@ -533,17 +535,21 @@
       "title": "{{appName}} を認可しますか？",
       "unknownApp": "このアプリケーション",
       "description": "続行する前に、このアプリケーションが求めるアクセス権を確認してください。",
+      "owner": "開発者: {{ownerName}}",
       "website": "アプリケーションのウェブサイト",
       "permissions": "リクエストされた権限",
       "noPermissions": "基本的なアカウントアクセス",
       "allow": "許可して続行",
       "deny": "キャンセル",
       "privacy": "信頼できるアプリケーションだけを許可してください。アクセス権を取り消す場合は、アプリケーションの提供者へお問い合わせください。",
+      "privacyDeveloper": "信頼できるアプリケーションだけを許可してください。許可したアクセスは、アカウントの「連携中のアプリ」からいつでも削除できます。",
+      "invalidRequest": "この認可リクエストは無効か期限切れです。アプリに戻ってもう一度お試しください。",
       "scope": {
         "openid": "本人確認を行う",
         "email": "メールアドレスを表示する",
         "profile": "名前とプロフィール画像を表示する",
         "offline_access": "離席中もアクセスを継続する",
+        "offlineAccessUntilRemoved": "サインアウト後も、削除するまでアクセスを続ける",
         "chapters": "アクティブな所属チャプターとロールを表示する",
         "unknown": "追加のアカウントアクセスをリクエストする"
       }
@@ -587,6 +593,21 @@
       "disconnectConfirmDescription": "GDG エージェントはあなたの Google ドライブにアクセスできなくなります。いつでも再連携できます。",
       "toastConnected": "Google Workspace を連携しました。",
       "toastError": "Google Workspace の連携に失敗しました（{{reason}}）。"
+    },
+    "connectedApps": {
+      "title": "連携中のアプリ",
+      "description": "チャプターのメンバーが開発したアプリのうち、GDG Japan アカウントの利用を許可したものです。サインアウトしてもアクセスは続き、ここで削除するまで有効です。",
+      "empty": "アカウントにアクセスできるアプリはありません。",
+      "disabled": "開発者が無効にしています",
+      "permissions": "許可している内容",
+      "grantedAt": "許可した日時",
+      "lastTokenAt": "最後にトークンを発行した日時",
+      "notRecorded": "記録なし",
+      "remove": "アクセスを削除",
+      "removeConfirmTitle": "{{appName}} のアクセスを削除しますか？",
+      "removeConfirmDescription": "このアプリはあなたのアカウントを使えなくなります。再びこのアプリからサインインすると、もう一度許可を求められます。",
+      "cancel": "キャンセル",
+      "removed": "アクセスを削除しました。"
     }
   },
   "errors": {

@@ -1,5 +1,16 @@
 import type { BearerIdentity } from "@gdgjp/gdg-lib";
 
+export type ConnpassIdentity = Omit<BearerIdentity, "client"> & { mayWrite: boolean };
+
+export function withWriteAuthority(
+  identity: BearerIdentity,
+  trustedClientIds: readonly string[] = [],
+): ConnpassIdentity {
+  const { client, ...rest } = identity;
+  const mayWrite = client !== null && (client.firstParty || trustedClientIds.includes(client.id));
+  return { ...rest, mayWrite };
+}
+
 export type AllowedGroup = {
   groupSlug: string;
   groupId: number | null;
@@ -82,7 +93,7 @@ export async function getAllowedLumaCalendar(
   return { calendarApiId: row.calendarApiId, chapterId: row.chapterId, enabled: row.enabled === 1 };
 }
 
-export function canReadGroup(identity: BearerIdentity, group: AllowedGroup): boolean {
+export function canReadGroup(identity: ConnpassIdentity, group: AllowedGroup): boolean {
   if (!group.enabled) return false;
   if (identity.user.isAdmin) return true;
   if (!group.chapterId) return identity.user.isAdmin;
@@ -90,10 +101,10 @@ export function canReadGroup(identity: BearerIdentity, group: AllowedGroup): boo
 }
 
 export function canWriteGroup(
-  identity: BearerIdentity,
+  identity: ConnpassIdentity,
   group: Pick<AllowedGroup, "chapterId" | "enabled">,
 ): boolean {
-  if (!group.enabled) return false;
+  if (!identity.mayWrite || !group.enabled) return false;
   if (identity.user.isAdmin) return true;
   if (!group.chapterId) return false;
   return identity.chapters.some(
@@ -101,7 +112,11 @@ export function canWriteGroup(
   );
 }
 
-export async function canWriteAnyGroup(db: D1Database, identity: BearerIdentity): Promise<boolean> {
+export async function canWriteAnyGroup(
+  db: D1Database,
+  identity: ConnpassIdentity,
+): Promise<boolean> {
+  if (!identity.mayWrite) return false;
   if (identity.user.isAdmin) return true;
   const chapterIds = identity.chapters
     .filter((c) => c.role === "organizer")
@@ -117,6 +132,6 @@ export async function canWriteAnyGroup(db: D1Database, identity: BearerIdentity)
   return row != null;
 }
 
-export function requireAdmin(identity: BearerIdentity): boolean {
-  return identity.user.isAdmin;
+export function requireAdmin(identity: ConnpassIdentity): boolean {
+  return identity.mayWrite && identity.user.isAdmin;
 }

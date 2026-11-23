@@ -83,6 +83,7 @@ function workspaceCtx(chapterIds: string[]): AgentWorkspaceContext {
         chapterSlug: chapterId,
         role: "member",
       })),
+      client: null,
     },
     workspace: {} as never,
     chapterIds,

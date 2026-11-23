@@ -3,11 +3,19 @@ import type { AuthUser } from "@gdgjp/gdg-lib";
 import { betterAuth } from "better-auth";
 import { jwt } from "better-auth/plugins";
 import { listActiveChaptersForUser } from "~/features/memberships/repository.server";
+import { refuseDeveloperClientResource } from "~/features/oauth/developer-client-resource.server";
+import {
+  grantRemovedDuringIssuance,
+  inactiveIntrospection,
+  introspectsDeveloperClientJwt,
+  refuseDeveloperClientUserInfo,
+} from "~/features/oauth/developer-client-tokens.server";
 
 export const CHAPTERS_SCOPE = "https://gdgs.jp/scopes/chapters";
 export const CLI_SCOPE = "https://gdgs.jp/scopes/cli";
 export const CHAPTERS_CLAIM = "https://gdgs.jp/claims/chapters";
 export const IS_ADMIN_CLAIM = "https://gdgs.jp/claims/is_admin";
+export const CLIENT_CLAIM = "https://gdgs.jp/claims/client";
 export const OAUTH_STATE_STORAGE = "cookie" as const;
 export const SESSION_LOOKUP_TIMEOUT_MS = 5_000;
 export const AUTH_HANDLER_TIMEOUT_MS = 10_000;
@@ -106,12 +114,29 @@ export async function withAuthTimeout<T>(operation: Promise<T>, onTimeout: () =>
   }
 }
 
-export function runAuthHandler(
+export async function runAuthHandler(
   env: Env,
   request: Request,
   onTimeout: () => Response = authUnavailableResponse,
 ): Promise<Response> {
-  return withAuthTimeout(getAuth(env).handler(request), onTimeout);
+  try {
+    return await withAuthTimeout(handleAuthRequest(env, request), onTimeout);
+  } catch (error) {
+    const refusal = grantRemovedDuringIssuance(request, error);
+    if (refusal) return refusal;
+    console.error("Better Auth request failed", error);
+    return new Response(null, { status: 500, statusText: "Internal Server Error" });
+  }
+}
+
+async function handleAuthRequest(env: Env, request: Request): Promise<Response> {
+  const refusal =
+    (await refuseDeveloperClientResource(env, request)) ??
+    (await refuseDeveloperClientUserInfo(env.DB, request));
+  if (refusal) return refusal;
+  const concealIntrospection = await introspectsDeveloperClientJwt(env.DB, request);
+  const response = await getAuth(env).handler(request);
+  return concealIntrospection && response.ok ? inactiveIntrospection() : response;
 }
 
 export async function requireUser(env: Env, request: Request): Promise<AuthUser> {
@@ -141,6 +166,7 @@ function buildAuth(env: Env) {
     basePath: "/api/auth",
     secret: env.BETTER_AUTH_SECRET,
     database: env.DB,
+    onAPIError: { throw: true },
     advanced: {
       cookiePrefix: "gdgjp-accounts",
       database: { generateId: "uuid" },
@@ -216,17 +242,19 @@ function buildAuth(env: Env) {
           return membership?.ok === 1;
         },
         advertisedMetadata: {
-          claims_supported: [CHAPTERS_CLAIM, IS_ADMIN_CLAIM],
+          claims_supported: [CHAPTERS_CLAIM, IS_ADMIN_CLAIM, CLIENT_CLAIM],
         },
         cachedTrustedClients: new Set<string>(trustedClientIds),
         accessTokenExpiresIn: 60 * 60,
         refreshTokenExpiresIn: 60 * 60 * 24 * 30,
         grantTypes: ["authorization_code", "refresh_token"],
         silenceWarnings: { oauthAuthServerConfig: true, openidConfig: true },
-        customUserInfoClaims: async ({ user, scopes }) =>
-          scopes.includes(CHAPTERS_SCOPE) ? chapterClaims(env.DB, user.id, user) : {},
+        customUserInfoClaims: async ({ user, scopes, jwt }) => ({
+          ...(grants(scopes, CHAPTERS_SCOPE) ? await chapterClaims(env.DB, user.id, user) : {}),
+          ...(await clientClaim(env.DB, jwt)),
+        }),
         customIdTokenClaims: async ({ user, scopes }) =>
-          scopes.includes(CHAPTERS_SCOPE) ? chapterClaims(env.DB, user.id, user) : {},
+          grants(scopes, CHAPTERS_SCOPE) ? chapterClaims(env.DB, user.id, user) : {},
       }),
     ],
   });
@@ -246,6 +274,23 @@ async function chapterClaims(
     })),
     [IS_ADMIN_CLAIM]: user.isAdmin === true,
   };
+}
+
+async function clientClaim(
+  db: D1Database,
+  jwt: Record<string, unknown> | undefined,
+): Promise<Record<string, unknown>> {
+  const id = typeof jwt?.client_id === "string" ? jwt.client_id : jwt?.azp;
+  if (typeof id !== "string" || id.length === 0) return {};
+  const client = await db
+    .prepare(`SELECT "userId" IS NULL AS firstParty FROM "oauthClient" WHERE "clientId" = ?`)
+    .bind(id)
+    .first<{ firstParty: number }>();
+  return client ? { [CLIENT_CLAIM]: { id, first_party: client.firstParty === 1 } } : {};
+}
+
+function grants(scopes: readonly string[], scope: string): boolean {
+  return scopes.some((granted) => granted === scope);
 }
 
 function trimTrailing(value: string): string {

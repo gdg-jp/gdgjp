@@ -1,3 +1,4 @@
+import type { BearerClient } from "@gdgjp/gdg-lib";
 import { getBearerIdentity } from "@gdgjp/gdg-lib";
 import { and, eq, gt, isNull } from "drizzle-orm";
 import * as schema from "~/db/schema";
@@ -22,6 +23,7 @@ export type AgentReader = {
   extraPrincipals: ExtraPrincipal[];
   via: "user" | "principal" | "anonymous" | "job" | "eval";
   jobId?: string;
+  client?: BearerClient | null;
 };
 
 export const EVAL_SPACE_PREFIX = "e2e-";
@@ -155,6 +157,7 @@ export async function resolveAgentReader(
     },
     extraPrincipals: [],
     via: "user",
+    client: identity.client,
   };
 }
 

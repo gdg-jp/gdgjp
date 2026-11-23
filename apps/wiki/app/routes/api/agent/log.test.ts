@@ -40,6 +40,7 @@ function identity(
       isAdmin: false,
     },
     chapters,
+    client: { id: "gdg-cli", firstParty: true },
   };
 }
 
@@ -73,6 +74,17 @@ describe("POST /api/agent/log", () => {
     getBearerIdentityMock.mockResolvedValue(null);
     const response = await action(actionArgs({ subject: "q", lines: ["a"] }));
     expect(response.status).toBe(401);
+    expect(appendLogEntryMock).not.toHaveBeenCalled();
+  });
+
+  it("refuses a developer app's token before appending", async () => {
+    getBearerIdentityMock.mockResolvedValue({
+      ...identity(),
+      client: { id: "dev-app", firstParty: false },
+    });
+    const response = await action(actionArgs({ subject: "q", lines: ["a"] }));
+    expect(response.status).toBe(403);
+    expect(await response.json()).toMatchObject({ error: "forbidden" });
     expect(appendLogEntryMock).not.toHaveBeenCalled();
   });
 

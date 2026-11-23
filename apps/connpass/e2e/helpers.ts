@@ -7,6 +7,7 @@ export const TOKENS = {
   organizer: "e2e-organizer",
   member: "e2e-member",
   outsider: "e2e-outsider",
+  developerAppOrganizer: "e2e-developer-app-organizer",
 } as const;
 
 export const E2E_CHAPTER_ID = "10";

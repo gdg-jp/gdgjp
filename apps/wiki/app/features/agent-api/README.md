@@ -4,6 +4,10 @@ Server logic behind the CLI / agent read APIs (`/api/cli/wiki/*`, `/api/agent/*`
 permission-aware; never touches Vectorize or embeddings (`app/routes/api/agent/architecture.test.ts`).
 
 - `workspace.server.ts` — `resolveAgentWorkspace`: bearer-token → chapter/admin claims → bounded wiki workspace.
+- `write-access.server.ts` — writes (`/api/cli/sync`, attachment PUT/DELETE, agent `log` / `notes` /
+  `sources` / `sources/inline` / space members) require a first-party client from Accounts' client
+  claim (`BearerIdentity.client`) and answer 403 otherwise; reads accept any client. The runner
+  identity counts as first-party.
 - `notes.server.ts` — agent notes: parse, access-floor, create-or-replace.
 - `cli-wiki-human.server.ts` / `cli-wiki-raw-content.server.ts` / `cli-wiki-source-path.server.ts` — `gdg wiki` read helpers.
 - `agents-md.server.ts` — `AGENTS.md` instruction sections. `cli-sync-helpers.ts` — sync-plan diffing for `/api/cli/wiki/sync`.

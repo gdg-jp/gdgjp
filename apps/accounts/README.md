@@ -28,7 +28,16 @@ separately since the plugin doesn't support it natively); PKCE S256 is required 
 registration is disabled. First-party clients (the trusted RPs above) get `skipConsent` and
 `enableEndSession` via the admin seeding flow below. Active chapter members can additionally
 self-register individually owned confidential clients through `/developers/apps`, gated by
-`app/features/developer-apps/oauth-clients.server.ts`.
+`app/features/developer-apps/oauth-clients.server.ts`. Those clients show a consent page, their
+grants survive sign-out, and each user removes them from `/settings/connected-apps`. The consent
+row is the grant: deleting it by any path, including Better Auth's own `oauth2/delete-consent`,
+deletes that user's tokens and pending codes for the app, and an administrator's "revoke sessions"
+deletes the user's developer-client consents. Only first-party clients may use the `resource`
+parameter, so developer clients' access tokens are revocable rows; a developer client's JWT access
+token, such as one issued before this rule, is refused at UserInfo and reported inactive at
+introspection. Migration 0025 deletes every developer-client token and pending code issued before
+it, keeping consent rows; affected users consent (or, with a consent row, are simply signed in
+again) at their next sign-in through the app.
 
 Chapter membership is exposed to RPs only under the dedicated
 `https://gdgs.jp/scopes/chapters` scope, which adds `https://gdgs.jp/claims/chapters` and

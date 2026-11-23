@@ -2,6 +2,7 @@ import { eq } from "drizzle-orm";
 import type { ActionFunctionArgs, LoaderFunctionArgs } from "react-router";
 import * as schema from "~/db/schema";
 import { getCliOrRunnerIdentity } from "~/features/agent-api/runner-identity.server";
+import { developerAppWriteRefused, writesAllowed } from "~/features/agent-api/write-access.server";
 import { getEffectivePagePermissions } from "~/features/pages/access.server";
 import { requirePageSpace } from "~/features/spaces/access.server";
 import { getDb } from "~/lib/db.server";
@@ -14,6 +15,7 @@ type OkResponse = components["schemas"]["SyncResult"] extends { ok: infer TOk }
 async function permitted(request: Request, env: Env, attachmentId: string, write: boolean) {
   const identity = await getCliOrRunnerIdentity(request, env);
   if (!identity) return { error: new Response(null, { status: 401 }) };
+  if (write && !writesAllowed(identity.client)) return { error: developerAppWriteRefused() };
   const db = getDb(env);
   const attachment = await db
     .select({

@@ -175,6 +175,13 @@ export async function revokeUserSessions(
   if (!target) return { status: "not_found" };
 
   await db.batch([
+    db
+      .prepare(
+        `DELETE FROM "oauthConsent"
+         WHERE "userId" = ?
+           AND "clientId" IN (SELECT "clientId" FROM "oauthClient" WHERE "userId" IS NOT NULL)`,
+      )
+      .bind(input.targetId),
     db.prepare('DELETE FROM "oauthAccessToken" WHERE "userId" = ?').bind(input.targetId),
     db.prepare('DELETE FROM "oauthRefreshToken" WHERE "userId" = ?').bind(input.targetId),
     db.prepare('DELETE FROM "session" WHERE "userId" = ?').bind(input.targetId),

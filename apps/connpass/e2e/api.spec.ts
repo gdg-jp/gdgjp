@@ -196,6 +196,28 @@ test.describe("authorization and validation (no connpass.com)", () => {
     expect(conference.status()).toBe(403);
   });
 
+  test("an organizer's developer-app token cannot write", async ({ request }) => {
+    const groupSlug = uniqueGroupSlug();
+    await upsertGroup(request, groupSlug);
+    const headers = auth(TOKENS.developerAppOrganizer);
+
+    const publish = await request.post(`/api/groups/${groupSlug}/events/1/publish`, {
+      headers,
+      data: {},
+    });
+    expect(publish.status()).toBe(403);
+    const create = await request.post(`/api/groups/${groupSlug}/events`, {
+      headers,
+      data: { title: "should not enqueue" },
+    });
+    expect(create.status()).toBe(403);
+    const checkin = await request.post("/api/checkin", {
+      headers,
+      data: { url: "https://connpass.com/event/1/qr_checkin/2/3/" },
+    });
+    expect(checkin.status()).toBe(403);
+  });
+
   test("write endpoints reject invalid bodies before enqueueing", async ({ request }) => {
     const groupSlug = uniqueGroupSlug();
     await upsertGroup(request, groupSlug);

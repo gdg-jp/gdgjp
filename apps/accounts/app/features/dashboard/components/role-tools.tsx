@@ -38,6 +38,21 @@ export function GoogleWorkspaceLink() {
   );
 }
 
+export function ConnectedAppsLink() {
+  const { t } = useTranslation();
+  return (
+    <div className="mt-4 text-sm text-muted">
+      <Link
+        to="/settings/connected-apps"
+        prefetch="intent"
+        className="inline-flex items-center gap-1 font-medium text-foreground underline-offset-4 hover:underline"
+      >
+        {t("dashboard.connectedAppsLink")} <Icons name="ArrowRight" size={14} aria-hidden="true" />
+      </Link>
+    </div>
+  );
+}
+
 export function RoleToolsSection({
   user,
   canRegisterApps,

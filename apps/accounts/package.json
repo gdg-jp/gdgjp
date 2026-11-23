@@ -20,8 +20,9 @@
   },
   "dependencies": {
     "@better-auth/oauth-provider": "1.7.26",
-    "@gdgjp/gdg-lib": "workspace:*",
+    "@better-auth/utils": "0.5.1",
     "@gdgjp/design-system": "workspace:*",
+    "@gdgjp/gdg-lib": "workspace:*",
     "@react-router/cloudflare": "~7.14.2",
     "better-auth": "1.7.27",
     "i18next": "^26.0.8",
