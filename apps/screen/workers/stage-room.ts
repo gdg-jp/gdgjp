@@ -1,5 +1,10 @@
 import { DurableObject } from "cloudflare:workers";
 import {
+  type DurableObjectSnapshot,
+  exportDurableObjectStorage,
+  restoreDurableObject,
+} from "@gdgjp/gdg-lib/staging-snapshot";
+import {
   CLOSE_DELETED,
   CLOSE_REPLACED,
   CLOSE_REVOKED,
@@ -86,6 +91,14 @@ export class StageRoom extends DurableObject<Env> {
     }
     this.ctx.storage.kv.delete("room");
     this.ctx.storage.kv.delete("meta");
+  }
+
+  async exportStagingSnapshot(): Promise<DurableObjectSnapshot> {
+    return exportDurableObjectStorage(this.ctx.storage);
+  }
+
+  async importStagingSnapshot(snapshot: DurableObjectSnapshot): Promise<void> {
+    await restoreDurableObject(this.ctx, this.env, snapshot);
   }
 
   async fetch(request: Request): Promise<Response> {

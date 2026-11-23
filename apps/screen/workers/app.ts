@@ -99,3 +99,4 @@ export default {
 } satisfies ExportedHandler<Env>;
 
 export { StageRoom } from "./stage-room";
+export { StagingSnapshot } from "./staging-snapshot";
