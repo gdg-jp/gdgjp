@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { applicationBody } from "../../scripts/staging/access.mjs";
 import {
   classifySchema,
   composeImport,
@@ -512,4 +513,22 @@ test("copied relying-party identities follow the slot's issuer", () => {
   assert.deepEqual(issuerRewriteSql(columns.slice(0, 1), "stg-2"), [
     `UPDATE "user" SET "oidc_issuer" = 'https://accounts.stg2.gdgs.jp' WHERE "oidc_issuer" = 'https://accounts.gdgs.jp';`,
   ]);
+});
+
+test("each slot sits behind one Access application for gdg-jp members and CI", () => {
+  const body = applicationBody({ slot: "stg-2", identityProviderId: "idp", serviceTokenId: "tok" });
+  assert.equal(body.name, "GDG staging stg2");
+  assert.deepEqual(
+    body.destinations.map(({ uri }) => uri),
+    ["*.stg2.gdgs.jp", "stg2.gdgs.jp"],
+  );
+  assert.deepEqual(body.allowed_idps, ["idp"]);
+  assert.deepEqual(
+    body.policies.map(({ decision, include }) => [decision, Object.keys(include[0])[0]]),
+    [
+      ["non_identity", "service_token"],
+      ["allow", "github_organization"],
+    ],
+  );
+  assert.equal(body.policies[1].include[0].github_organization.name, "gdg-jp");
 });

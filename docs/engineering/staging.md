@@ -48,6 +48,31 @@ Cloudflare API tokens cannot be limited to some Workers, so the staging token co
 deploy production Workers. Only reviewed code on `main` ever holds it. Changes under
 `.github/` and `scripts/staging/` require the code owner's approval.
 
+## Who can reach a slot
+
+Every slot sits behind Cloudflare Access (team domain `gdgjp.cloudflareaccess.com`,
+Zero Trust Free). One self-hosted application per slot covers `*.stgN.gdgs.jp` and
+`stgN.gdgs.jp`. A browser must sign in with GitHub and belong to the `gdg-jp`
+organization before any staging Worker runs, so a PR whose own authentication is broken
+still cannot expose the copied data to the internet. The staging deploy's sign-in E2E
+passes with the `gdgjp-staging-e2e` service token (`STAGING_ACCESS_CLIENT_ID` and
+`STAGING_ACCESS_CLIENT_SECRET` in the `staging` environment).
+
+Free plan seats are consumed only by people who sign in, and a seat is released after a
+month without sign-in. Past 50 concurrent users the plan must move to Standard.
+
+Access does not change Worker-to-Worker traffic over service bindings, which carries all
+relying-party OIDC calls and the Wiki and SNS directory lookups. Clients outside
+Cloudflare (the CLI, the OCI runner, Vercel's tinyurl-gateway, Google Pub/Sub pushes) cannot
+reach a slot without a service token.
+
+`node scripts/staging/access.mjs` (re)creates the GitHub identity provider, the service
+token, and the three applications. It needs `CLOUDFLARE_ACCESS_API_TOKEN` (Access apps,
+service tokens, and identity providers edit), `CLOUDFLARE_ACCOUNT_ID`, and the GitHub OAuth
+App credentials `STAGING_ACCESS_GITHUB_CLIENT_ID` and `STAGING_ACCESS_GITHUB_CLIENT_SECRET`
+(app "GDG Japan Staging Access" in the gdg-jp organization). It writes a new service token to
+GitHub only when it creates one; pass `--rotate-service-token` to replace it.
+
 ## Secrets
 
 Staging never receives a production secret. [scripts/staging/secrets.mjs](../../scripts/staging/secrets.mjs)
