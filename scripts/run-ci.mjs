@@ -112,6 +112,15 @@ const workspaces = new Map(
   }),
 );
 
+const workspacesWithTests = new Set(
+  [...workspaces].flatMap(([directory, name]) => {
+    const { scripts } = JSON.parse(
+      readFileSync(join(repositoryRoot, directory, "package.json"), "utf8"),
+    );
+    return scripts?.test ? [name] : [];
+  }),
+);
+
 const uiAppDirectories = new Set(
   existsSync("apps")
     ? readdirSync("apps").filter((directory) => {
@@ -511,6 +520,7 @@ export function changedSteps(mode, files) {
       }
       continue;
     }
+    if (!workspacesWithTests.has(workspace)) continue;
     // Staged paths select checks; Vitest resolves their imports against the
     // current working tree, like the other local checks.
     steps.push([

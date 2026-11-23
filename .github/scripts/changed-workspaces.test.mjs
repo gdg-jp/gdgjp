@@ -301,3 +301,13 @@ test("CI runner and pstack edits select their own regression coverage", async ()
     assert.ok(command?.includes(expected), file);
   }
 });
+
+test("staged unit tests skip workspaces without a test script", async () => {
+  const { changedSteps } = await import("../../scripts/run-ci.mjs");
+  const names = changedSteps("staged", [
+    "apps/live-checkin/app/page.tsx",
+    "apps/wiki/app/root.tsx",
+  ]).map(([step]) => step);
+  assert.ok(!names.includes("test:@gdgjp/live-checkin"));
+  assert.ok(names.includes("test:@gdgjp/wiki"));
+});
