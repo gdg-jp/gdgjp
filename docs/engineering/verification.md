@@ -19,6 +19,8 @@ the repository's required validation commands remain in [AGENTS.md](../../AGENTS
 | Seeded UI sequences | Wiki `tests/e2e/ui-properties.spec.ts`, through the isolated E2E runner | Two seeds and two viewports execute page switches, sharing, display persistence, and authorization invariants | Forty-eight generated actions are a bounded regression sample, not all interactions |
 | ACL bounded verification | `node .agents/skills/verify-acl-boundaries/scripts/verify.mjs --mutation-proof` | Independent audience properties over the enumerated inputs, with six deliberate production-expression mutations rejected | Not an unbounded formal proof or HTTP authorization audit |
 | Runner lifecycle verification | `node .agents/skills/verify-job-lifecycle/scripts/verify.mjs --mutation-proof` | Real SQL against an independent bounded state machine, targeted races, Go wire tests, and ten deliberate production mutations | Assumes D1's transaction contract; does not prove arbitrary sequences or deployed behavior |
+| PR approval model | `node .agents/skills/verify-pr-approval/scripts/verify.mjs --mutation-proof` | An Alloy 6 model of pr.gdgs.jp draft approval, target approval, and sending, checked over every interleaving within its bounds, with five deliberate model mutations rejected | Checks a hand-written model tied to the code by hashes and anchors, not the TypeScript; reports four open findings; needs Java; not run by CI |
+| Accounts client revocation model | `node .agents/skills/verify-accounts-client-revocation/scripts/verify.mjs --mutation-proof` | An Alloy 6 model of the membership triggers, the developer console, and token issuance, checked over every interleaving within its bounds, with three deliberate model mutations rejected | Checks a hand-written model tied to the code by hashes and anchors; assumes Better Auth behavior read from the installed version; reports two open findings; needs Java; not run by CI |
 
 The local CI entry points are `pnpm ci:quick`, `pnpm ci:full`, and
 `pnpm ci:staged`. The staged command selects work from the index but runs against
@@ -84,6 +86,18 @@ The separate runner-lifecycle job runs the verifier's own negative regressions,
 the real-code bounded checks, Go race tests, and the mutation proof. Quick local
 checks omit mutations; full and hosted checks include them. Selection includes
 every source named in the reviewed coverage record. Source drift is a failure.
+
+Two verifiers model-check a design with Alloy 6:
+[PR approval](../../.agents/skills/verify-pr-approval/SKILL.md) and
+[Accounts client revocation](../../.agents/skills/verify-accounts-client-revocation/SKILL.md).
+Each skill gives its properties, bounds, and assumptions, and its `references/findings.md`
+lists breaks of the product code that the model found. `scripts/verification/alloy.mjs`
+pins Alloy by version and SHA-256, downloads it to `local_data/pstack/tools/`, and parses
+its results. `scripts/verification/alloy-skill.mjs` holds what the two share: source
+hashes, code anchors, call-site counts, expected results, model mutations, and the
+`--record` step. A new Alloy model needs a model file, a `coverage.json`, and a script
+that supplies its mutations and its narration of a trace. Both verifiers exit 2 without
+running when covered code changed, and no local or hosted CI step runs them yet.
 
 Hosted E2E delegates to the same isolated runner used locally and uploads its
 retained evidence tree. Fixture variables, migrations, and builds have one owner.

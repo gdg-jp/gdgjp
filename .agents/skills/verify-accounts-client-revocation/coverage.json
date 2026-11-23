@@ -1,0 +1,175 @@
+{
+  "syncedCommit": "ced0bbd11e2965350f7952042510195f15a26fa7",
+  "bounds": "2 chapters, 2 users, 2 developer clients, 3 tokens, 2 overlapping developer-console requests; every trace of up to 14 states",
+  "sources": {
+    "apps/accounts/app/features/developer-apps/oauth-clients.server.ts": "1afc007aa40ae8c7b060852de1a60dc3cef4364dd8d53b9af4cfc00398a5c940",
+    "apps/accounts/migrations/0014_disable_owned_clients_without_membership.sql": "de45e36c65b5a820b5630bacac2e0f9ecaa8bf8cd15a9aff498dbe9cc4a89528"
+  },
+  "packages": {
+    "@better-auth/oauth-provider": {
+      "from": "apps/accounts",
+      "version": "1.7.26"
+    }
+  },
+  "censusRoots": [
+    "apps/accounts/app",
+    "apps/accounts/workers"
+  ],
+  "guardedWrites": [
+    "UPDATE oauthClient",
+    "INSERT INTO oauthClient",
+    "DELETE FROM oauthClient",
+    "disabled = 0",
+    "disabled = ?"
+  ],
+  "callSites": {
+    "UPDATE oauthClient": {
+      "apps/accounts/app/features/developer-apps/oauth-clients.server.ts": 3
+    },
+    "INSERT INTO oauthClient": {
+      "apps/accounts/app/features/developer-apps/oauth-clients.server.ts": 1,
+      "apps/accounts/app/features/oauth/seed-clients.server.ts": 1
+    },
+    "DELETE FROM oauthClient": {
+      "apps/accounts/app/features/developer-apps/oauth-clients.server.ts": 1
+    },
+    "disabled = 0": {
+      "apps/accounts/app/features/oauth/seed-clients.server.ts": 1
+    },
+    "disabled = ?": {
+      "apps/accounts/app/features/developer-apps/oauth-clients.server.ts": 1
+    }
+  },
+  "anchors": [
+    {
+      "file": "apps/accounts/migrations/0014_disable_owned_clients_without_membership.sql",
+      "text": "CREATE TRIGGER disable_owned_oauth_clients_after_membership_delete\nAFTER DELETE ON memberships\nWHEN OLD.status = 'active'",
+      "model": "membershipChange"
+    },
+    {
+      "file": "apps/accounts/migrations/0014_disable_owned_clients_without_membership.sql",
+      "text": "CREATE TRIGGER disable_owned_oauth_clients_after_membership_deactivation\nAFTER UPDATE OF status ON memberships\nWHEN OLD.status = 'active'\n  AND NEW.status <> 'active'",
+      "model": "membershipChange"
+    },
+    {
+      "file": "apps/accounts/migrations/0014_disable_owned_clients_without_membership.sql",
+      "text": "    WHERE user_id = OLD.user_id AND status = 'active'\n  )",
+      "model": "membershipChange: the trigger fires only when no active membership remains"
+    },
+    {
+      "file": "apps/accounts/migrations/0014_disable_owned_clients_without_membership.sql",
+      "text": "  UPDATE oauthClient\n  SET disabled = 1,",
+      "model": "membershipChange"
+    },
+    {
+      "file": "apps/accounts/migrations/0014_disable_owned_clients_without_membership.sql",
+      "text": "  DELETE FROM oauthAccessToken\n  WHERE clientId IN (",
+      "model": "membershipChange"
+    },
+    {
+      "file": "apps/accounts/migrations/0014_disable_owned_clients_without_membership.sql",
+      "text": "  DELETE FROM oauthRefreshToken\n  WHERE clientId IN (",
+      "model": "membershipChange"
+    },
+    {
+      "file": "apps/accounts/schema.sql",
+      "text": "CREATE TRIGGER disable_owned_oauth_clients_after_membership_delete",
+      "model": "membershipChange: the trigger is still installed"
+    },
+    {
+      "file": "apps/accounts/schema.sql",
+      "text": "CREATE TRIGGER disable_owned_oauth_clients_after_membership_deactivation",
+      "model": "membershipChange: the trigger is still installed"
+    },
+    {
+      "file": "apps/accounts/app/features/developer-apps/oauth-clients.server.ts",
+      "text": "\"SELECT 1 AS ok FROM memberships WHERE user_id = ? AND status = 'active' LIMIT 1\",",
+      "model": "admit"
+    },
+    {
+      "file": "apps/accounts/app/features/developer-apps/oauth-clients.server.ts",
+      "text": "if (membership?.ok !== 1) throw new Response(\"Forbidden\", { status: 403 });",
+      "model": "admit"
+    },
+    {
+      "file": "apps/accounts/app/features/developer-apps/oauth-clients.server.ts",
+      "text": "const row = await env.DB.prepare(`${developerClientColumns()} WHERE clientId = ? AND userId = ?`)",
+      "model": "find"
+    },
+    {
+      "file": "apps/accounts/app/features/developer-apps/oauth-clients.server.ts",
+      "text": ") VALUES (?, ?, ?, 0, 1, 1, 'public', ?, ?, ?, ?, ?, ?, ?, ?, 'client_secret_basic', ?, ?, 'web', 0, 'web', 1)`,",
+      "model": "create: the row is inserted enabled"
+    },
+    {
+      "file": "apps/accounts/app/features/developer-apps/oauth-clients.server.ts",
+      "text": "\"UPDATE oauthClient SET disabled = ?, updatedAt = ? WHERE clientId = ? AND userId = ?\",",
+      "model": "enable, disable"
+    },
+    {
+      "file": "apps/accounts/app/features/developer-apps/oauth-clients.server.ts",
+      "text": "if (!enabled) {",
+      "model": "disable: tokens are deleted in the same batch"
+    },
+    {
+      "file": "apps/accounts/app/features/developer-apps/oauth-clients.server.ts",
+      "text": "if (!sameStringArray(parseStringArray(current.scopes), normalized.scopes)) {",
+      "model": "update"
+    },
+    {
+      "file": "apps/accounts/app/features/developer-apps/oauth-clients.server.ts",
+      "text": ".prepare(\"DELETE FROM oauthClient WHERE clientId = ? AND userId = ?\")",
+      "model": "delete"
+    },
+    {
+      "file": "apps/accounts/schema.sql",
+      "text": "\"clientId\" TEXT NOT NULL REFERENCES \"oauthClient\" (\"clientId\") ON DELETE CASCADE,",
+      "model": "delete, issueRejected"
+    },
+    {
+      "file": "apps/accounts/app/features/auth/auth.server.ts",
+      "text": "allowDynamicClientRegistration: false,",
+      "model": "create: clients are created only through oauth-clients.server.ts"
+    }
+  ],
+  "checks": [
+    {
+      "name": "EnabledClientHasMemberOwner",
+      "expect": "finding",
+      "property": "An enabled developer client belongs to someone with an active chapter membership.",
+      "harm": "Someone who left or was removed from every chapter keeps a working OAuth client that skips consent, so people who sign in through it hand over their identity and chapter claims.",
+      "finding": "A1"
+    },
+    {
+      "name": "EnabledClientHasMemberOwnerWhenSerial",
+      "expect": "holds",
+      "property": "When requests do not overlap, an enabled developer client belongs to someone with an active chapter membership.",
+      "harm": "Someone who left or was removed from every chapter keeps a working OAuth client that skips consent, so people who sign in through it hand over their identity and chapter claims."
+    },
+    {
+      "name": "RevokedTokenStaysDead",
+      "expect": "finding",
+      "property": "When developer-console requests do not overlap anything, a token issued before its client's owner lost membership never works again.",
+      "harm": "A grant that was revoked when the client's owner lost membership works again without the end user authorizing again.",
+      "finding": "A2"
+    },
+    {
+      "name": "RevokedTokenStaysDeadWhenSerial",
+      "expect": "holds",
+      "property": "When requests and sign-ins do not overlap, a token issued before its client's owner lost membership never works again.",
+      "harm": "A grant that was revoked when the client's owner lost membership works again without the end user authorizing again."
+    },
+    {
+      "name": "TokenWorks",
+      "expect": "reachable"
+    },
+    {
+      "name": "MembershipLossRevokes",
+      "expect": "reachable"
+    },
+    {
+      "name": "OwnerReenablesAfterReturning",
+      "expect": "reachable"
+    }
+  ]
+}
