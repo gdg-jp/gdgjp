@@ -255,6 +255,13 @@ function allResults() {
   };
 }
 
+const cliContractInputs = new Set([
+  "apps/tinyurl/app/features/campaigns/campaign-cli-analytics.ts",
+  "apps/wiki/app/features/spaces/shared.ts",
+  "apps/wiki/app/features/jobs/answer.server.ts",
+  "skills",
+]);
+
 export function classifyChanges(files, { forceAll = false } = {}) {
   if (forceAll) {
     return allResults();
@@ -367,6 +374,7 @@ export function classifyChanges(files, { forceAll = false } = {}) {
         (file) =>
           file.startsWith("apps/cli/") ||
           file.startsWith("packages/gdg-lib/src/acl/") ||
+          cliContractInputs.has(file) ||
           file === "scripts/run-go-ci.mjs",
       ),
     designSource: normalizedFiles.some((file) => isDesignSourceFile(file)),

@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "syncedBaseCommit": "c14af669",
+  "syncedBaseCommit": "1dc4ab39",
   "method": "Bounded exhaustive execution of production TypeScript and SQL in SQLite, with targeted adversarial request interleavings and production-expression mutations.",
   "tools": {
     "node": "v26.3.1",
@@ -237,7 +237,7 @@
     },
     {
       "path": "apps/wiki/app/features/jobs/runner.server.verification.test.ts",
-      "sha256": "756620cebe0b618b70636d6e5ecaae9bb7c53c75637c2bdbe74ade1c1fab372f",
+      "sha256": "5d5b85cd7f0b950a05875ec7d6d7737be3b0a86f18bd25ab17011f9e09331473",
       "role": "oracle"
     },
     {

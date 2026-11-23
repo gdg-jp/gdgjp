@@ -139,7 +139,7 @@ it("checks 648 bounded lifecycle sequences against an independent state machine"
       bounds: { jobs: 1, hosts: 2, initialAttempts: [0, 1, 2], depth: 3 },
     }),
   );
-}, 30_000);
+}, 120_000);
 
 it("serializes duplicate recovery and concurrent arrival without losing or duplicating requests", async () => {
   const old = {

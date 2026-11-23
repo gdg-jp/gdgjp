@@ -251,6 +251,14 @@ test("gates the CLI Go job on cli/ changes", () => {
   assert.equal(classifyChanges(["apps/cli/internal/command/wiki.go"]).cli, true);
   assert.equal(classifyChanges(["packages/gdg-lib/src/acl/agent.ts"]).cli, true);
   assert.equal(classifyChanges(["scripts/run-go-ci.mjs"]).cli, true);
+  for (const file of [
+    "apps/tinyurl/app/features/campaigns/campaign-cli-analytics.ts",
+    "apps/wiki/app/features/spaces/shared.ts",
+    "apps/wiki/app/features/jobs/answer.server.ts",
+    "skills",
+  ]) {
+    assert.equal(classifyChanges([file]).cli, true, file);
+  }
   assert.equal(classifyChanges(["docs/operations.md"]).cli, false);
   assert.equal(classifyChanges(["pnpm-lock.yaml"]).cli, true);
 });
