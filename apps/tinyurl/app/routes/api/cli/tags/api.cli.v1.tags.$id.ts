@@ -1,4 +1,4 @@
-import { type AuthUser, type UserChapter, isSuperAdmin } from "@gdgjp/gdg-lib";
+import { isSuperAdmin } from "@gdgjp/gdg-lib";
 import { requireCliActor } from "~/features/auth/cli-auth.server";
 import {
   cliError,
@@ -6,22 +6,11 @@ import {
   cliMethodNotAllowed,
   parseCliJsonBody,
 } from "~/features/cli-api/cli-http.server";
-import { deleteTag, getTagById, updateTag } from "~/features/tags";
+import { type TagActor, deleteTag, updateTag } from "~/features/tags";
 import type { Route } from "./+types/api.cli.v1.tags.$id";
 function id(raw: string | undefined) {
   const value = Number(raw);
   return Number.isInteger(value) && value > 0 ? value : null;
-}
-function canManageTag(
-  tag: { ownerUserId: string | null; ownerChapterId: number | null },
-  auth: { actor: { user: AuthUser; chapters: UserChapter[] } },
-) {
-  return (
-    isSuperAdmin(auth.actor.user) ||
-    tag.ownerUserId === auth.actor.user.id ||
-    (tag.ownerChapterId !== null &&
-      auth.actor.chapters.some((chapter) => chapter.chapterId === tag.ownerChapterId))
-  );
 }
 export async function action(args: Route.ActionArgs) {
   const env = args.context.cloudflare.env;
@@ -29,12 +18,15 @@ export async function action(args: Route.ActionArgs) {
   if (!auth.ok) return auth.response;
   const tagId = id(args.params.id);
   if (tagId === null) return cliError("not_found", 404);
-  const tag = await getTagById(env.DB, tagId);
-  if (!tag) return cliError("not_found", 404);
-  if (!canManageTag(tag, auth)) return cliError("forbidden", 403);
+  const actor: TagActor = {
+    userId: auth.actor.user.id,
+    chapterIds: auth.actor.chapters.map((chapter) => chapter.chapterId),
+    isSuperAdmin: isSuperAdmin(auth.actor.user),
+  };
   if (args.request.method === "DELETE") {
-    await deleteTag(env.DB, tagId);
-    return cliJson({ id: tagId, deleted: true });
+    return (await deleteTag(env.DB, { id: tagId, actor }))
+      ? cliJson({ id: tagId, deleted: true })
+      : cliError("not_found", 404);
   }
   if (args.request.method !== "PATCH") return cliMethodNotAllowed();
   const parsed = await parseCliJsonBody<Record<string, unknown>>(args.request);
@@ -51,6 +43,8 @@ export async function action(args: Route.ActionArgs) {
     id: tagId,
     name: name.trim(),
     color: typeof color === "string" ? color : null,
+    actor,
   });
-  return result.ok ? cliJson({ tag: result.tag }) : cliError("conflict", 409);
+  if (result.ok) return cliJson({ tag: result.tag });
+  return result.reason === "not_found" ? cliError("not_found", 404) : cliError("conflict", 409);
 }

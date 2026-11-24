@@ -101,28 +101,47 @@ export async function createTag(db: D1Database, input: CreateTagInput): Promise<
   }
 }
 
-export async function deleteTag(db: D1Database, id: number): Promise<void> {
-  await db.prepare("DELETE FROM tags WHERE id = ?").bind(id).run();
+export type TagActor = { userId: string; chapterIds: number[]; isSuperAdmin: boolean };
+
+const TAG_ACCESS_SQL =
+  "(? = 1 OR owner_user_id = ? OR owner_chapter_id IN (SELECT value FROM json_each(?)))";
+
+function tagAccessBindings(actor: TagActor): (string | number)[] {
+  return [actor.isSuperAdmin ? 1 : 0, actor.userId, JSON.stringify(actor.chapterIds)];
+}
+
+export async function deleteTag(
+  db: D1Database,
+  input: { id: number; actor: TagActor },
+): Promise<boolean> {
+  const result = await db
+    .prepare(`DELETE FROM tags WHERE id = ? AND ${TAG_ACCESS_SQL}`)
+    .bind(input.id, ...tagAccessBindings(input.actor))
+    .run();
+  return (result.meta.changes ?? 0) > 0;
 }
 
 export type UpdateTagInput = {
   id: number;
   name: string;
   color?: string | null;
+  actor: TagActor;
 };
 
-export type UpdateTagResult = { ok: true; tag: Tag } | { ok: false; reason: "duplicate" };
+export type UpdateTagResult =
+  | { ok: true; tag: Tag }
+  | { ok: false; reason: "duplicate" | "not_found" };
 
 export async function updateTag(db: D1Database, input: UpdateTagInput): Promise<UpdateTagResult> {
   try {
     const row = await db
       .prepare(
-        `UPDATE tags SET name = ?, color = ? WHERE id = ?
+        `UPDATE tags SET name = ?, color = ? WHERE id = ? AND ${TAG_ACCESS_SQL}
          RETURNING ${TAG_COLS}`,
       )
-      .bind(input.name, input.color ?? null, input.id)
+      .bind(input.name, input.color ?? null, input.id, ...tagAccessBindings(input.actor))
       .first<TagRow>();
-    if (!row) throw new Error("Update returned no row");
+    if (!row) return { ok: false, reason: "not_found" };
     return { ok: true, tag: toTag(row) };
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
@@ -165,33 +184,15 @@ export async function listTagsForChapterWithCounts(
   return results.map(toTagWithCount);
 }
 
-export async function getTagById(db: D1Database, id: number): Promise<Tag | null> {
-  const row = await db
-    .prepare(`SELECT ${TAG_COLS} FROM tags WHERE id = ?`)
-    .bind(id)
-    .first<TagRow>();
-  return row ? toTag(row) : null;
-}
-
 export async function listTagsForActorPage(
   db: D1Database,
-  input: {
-    userId: string;
-    chapterIds: number[];
-    isSuperAdmin: boolean;
-    limit: number;
-    offset: number;
-  },
+  input: TagActor & { limit: number; offset: number },
 ): Promise<{ tags: Tag[]; nextCursor: string | null }> {
-  const visibility = input.isSuperAdmin
-    ? "1 = 1"
-    : "(owner_user_id = ? OR owner_chapter_id IN (SELECT value FROM json_each(?)))";
-  const values: (string | number)[] = input.isSuperAdmin
-    ? []
-    : [input.userId, JSON.stringify(input.chapterIds)];
   const { results } = await db
-    .prepare(`SELECT ${TAG_COLS} FROM tags WHERE ${visibility} ORDER BY name, id LIMIT ? OFFSET ?`)
-    .bind(...values, input.limit + 1, input.offset)
+    .prepare(
+      `SELECT ${TAG_COLS} FROM tags WHERE ${TAG_ACCESS_SQL} ORDER BY name, id LIMIT ? OFFSET ?`,
+    )
+    .bind(...tagAccessBindings(input), input.limit + 1, input.offset)
     .all<TagRow>();
   const tags = results.map(toTag);
   return {

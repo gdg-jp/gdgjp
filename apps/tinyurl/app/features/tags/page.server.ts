@@ -1,5 +1,8 @@
+import { isSuperAdmin } from "@gdgjp/gdg-lib";
+import { data } from "react-router";
 import { requireUserWithChapter } from "~/features/auth/auth-redirect";
 import {
+  type TagActor,
   createTag,
   deleteTag,
   listTagsForChapterWithCounts,
@@ -11,8 +14,8 @@ import type { PageRequestArgs } from "~/http/request";
 
 export async function requireAuthAndChapter(args: PageRequestArgs) {
   const env = args.context.cloudflare.env;
-  const { user, chapter } = await requireUserWithChapter(env, args.request);
-  return { env, user, chapter };
+  const { user, chapter, chapters } = await requireUserWithChapter(env, args.request);
+  return { env, user, chapter, chapters };
 }
 
 export async function loader(args: PageRequestArgs) {
@@ -31,15 +34,26 @@ export async function loader(args: PageRequestArgs) {
 
 export type ActionData = { ok: true } | { error: string };
 
-export async function action(args: PageRequestArgs): Promise<ActionData | null> {
-  const { env, user, chapter } = await requireAuthAndChapter(args);
+function tagNotFound() {
+  return data<ActionData>({ error: "Tag not found." }, { status: 404 });
+}
+
+export async function action(
+  args: PageRequestArgs,
+): Promise<ActionData | ReturnType<typeof tagNotFound>> {
+  const { env, user, chapter, chapters } = await requireAuthAndChapter(args);
+  const actor: TagActor = {
+    userId: user.id,
+    chapterIds: chapters.map((item) => item.chapterId),
+    isSuperAdmin: isSuperAdmin(user),
+  };
   const form = await args.request.formData();
   const intent = form.get("intent");
 
   if (intent === "delete") {
     const id = Number(form.get("id"));
     if (!Number.isInteger(id) || id <= 0) return { error: "Invalid tag id." };
-    await deleteTag(env.DB, id);
+    if (!(await deleteTag(env.DB, { id, actor }))) return tagNotFound();
     return { ok: true };
   }
 
@@ -75,9 +89,11 @@ export async function action(args: PageRequestArgs): Promise<ActionData | null> 
     if (!Number.isInteger(id) || id <= 0) return { error: "Invalid tag id." };
     if (!name) return { error: "Name is required." };
     if (name.length > 32) return { error: "Name must be 32 characters or less." };
-    const result = await updateTag(env.DB, { id, name, color });
-    if (!result.ok) return { error: `Tag "${name}" already exists.` };
-    return { ok: true };
+    const result = await updateTag(env.DB, { id, name, color, actor });
+    if (result.ok) return { ok: true };
+    return result.reason === "not_found"
+      ? tagNotFound()
+      : { error: `Tag "${name}" already exists.` };
   }
 
   return { error: "Unknown action." };

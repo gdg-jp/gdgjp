@@ -28,7 +28,7 @@ import {
 } from "@gdgjp/design-system";
 import { useValueChange } from "@gdgjp/gdg-lib/react";
 import { type ReactNode, useState } from "react";
-import { Form, useFetcher } from "react-router";
+import { useFetcher } from "react-router";
 import { GdgMark } from "~/components/gdg-mark";
 import type { ActionData } from "~/features/tags/page.server";
 import { TAG_COLORS } from "~/features/tags/tag-colors";
@@ -333,6 +333,12 @@ export function EditTagForm({ tag, onDone }: { tag: TagRow; onDone: () => void }
 }
 
 export function DeleteTagAlert({ tag, onClose }: { tag: TagRow | null; onClose: () => void }) {
+  const fetcher = useFetcher<ActionData>();
+
+  useValueChange(fetcher.data, (data) => {
+    if (data && "error" in data) toast.error(data.error);
+  });
+
   return (
     <AlertDialog open={tag !== null} onOpenChange={(open) => !open && onClose()}>
       <AlertDialogContent>
@@ -359,15 +365,16 @@ export function DeleteTagAlert({ tag, onClose }: { tag: TagRow | null; onClose: 
             <Button variant="outline">Cancel</Button>
           </AlertDialogCancel>
           {tag ? (
-            <Form method="post" onSubmit={onClose}>
-              <input type="hidden" name="intent" value="delete" />
-              <input type="hidden" name="id" value={tag.id} />
-              <AlertDialogAction asChild>
-                <Button variant="danger" type="submit">
-                  Delete
-                </Button>
-              </AlertDialogAction>
-            </Form>
+            <AlertDialogAction asChild>
+              <Button
+                variant="danger"
+                onClick={() =>
+                  fetcher.submit({ intent: "delete", id: String(tag.id) }, { method: "post" })
+                }
+              >
+                Delete
+              </Button>
+            </AlertDialogAction>
           ) : null}
         </div>
       </AlertDialogContent>
