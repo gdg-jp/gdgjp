@@ -6,6 +6,7 @@ import {
 } from "@gdgjp/gdg-lib";
 import { redirect } from "react-router";
 import { getAuth } from "~/features/auth/auth.server";
+import { forbidden } from "~/features/auth/forbidden";
 
 export function buildSignInRedirect(request: Request): Response {
   const url = new URL(request.url);
@@ -39,7 +40,7 @@ export async function requireMember(
     throw e;
   }
   if (claims.chapters.length === 0) {
-    throw new Response("チャプターのメンバーシップが必要です", { status: 403 });
+    throw forbidden("no-chapter");
   }
   return { user, claims, chapters: claims.chapters };
 }

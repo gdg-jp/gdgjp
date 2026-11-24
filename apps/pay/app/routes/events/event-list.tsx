@@ -7,6 +7,7 @@ import { formatYen } from "~/features/claims/money";
 import { getOptionalUser, requireMember } from "~/features/auth/session.server";
 
 import { eventTotal, listClaimsForEvent } from "~/features/claims/repository.server";
+import { canViewEventTotal } from "~/features/events/permissions";
 import { listEvents } from "~/features/events/repository.server";
 import type { Route } from "./+types/event-list";
 
@@ -23,13 +24,14 @@ export async function loader({ request, context }: Route.LoaderArgs) {
       events: [] as Array<{
         id: string;
         title: string;
-        total: number;
+        total: number | null;
         claimCount: number;
         createdAt: number;
       }>,
     };
   }
-  const { user } = await requireMember(env, request);
+  const { user, chapters } = await requireMember(env, request);
+  const actor = { userId: user.id, chapters };
   const events = await listEvents(env.DB);
   const enriched = await Promise.all(
     events.map(async (event) => {
@@ -37,7 +39,7 @@ export async function loader({ request, context }: Route.LoaderArgs) {
       return {
         id: event.id,
         title: event.title,
-        total: eventTotal(claims),
+        total: canViewEventTotal(actor, event) ? eventTotal(claims) : null,
         claimCount: claims.length,
         createdAt: event.createdAt,
       };
@@ -104,7 +106,13 @@ export default function HomePage({ loaderData }: Route.ComponentProps) {
                           </Link>
                         </td>
                         <td>{event.claimCount}</td>
-                        <td>{formatYen(event.total)}</td>
+                        <td>
+                          {event.total === null ? (
+                            <span className="text-muted">非公開</span>
+                          ) : (
+                            formatYen(event.total)
+                          )}
+                        </td>
                       </tr>
                     ))}
                   </tbody>

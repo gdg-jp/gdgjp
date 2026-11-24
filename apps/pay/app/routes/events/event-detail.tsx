@@ -9,7 +9,11 @@ import { GoogleConnectionCard } from "~/features/google/components/google-connec
 import { requireMember } from "~/features/auth/session.server";
 
 import { eventTotal, getSelfClaim, listClaimsForEvent } from "~/features/claims/repository.server";
-import { canProxyForEvent, canViewAllClaims } from "~/features/events/permissions";
+import {
+  canProxyForEvent,
+  canViewAllClaims,
+  canViewEventTotal,
+} from "~/features/events/permissions";
 import { getEvent } from "~/features/events/repository.server";
 
 import { getGoogleOAuthToken } from "~/features/google/repository.server";
@@ -46,7 +50,7 @@ export async function loader({ request, context, params }: Route.LoaderArgs) {
     canProxy,
     hasProfile: Boolean(profile),
     selfClaimId: selfClaim?.id ?? null,
-    total: eventTotal(claims),
+    total: canViewEventTotal(actor, event) ? eventTotal(claims) : null,
     google: {
       adminUserId: event.googleAdminUserId,
       adminEmail: googleToken?.googleEmail ?? null,
@@ -79,7 +83,7 @@ export default function EventDetailPage({ loaderData }: Route.ComponentProps) {
       <main className="mx-auto max-w-3xl space-y-6 px-4 py-6 sm:py-8">
         <PageHeader
           title={event.title}
-          description={<>合計 {formatYen(total)}</>}
+          description={total === null ? undefined : <>合計 {formatYen(total)}</>}
           back={
             <Link to="/" className="text-sm text-link hover:underline">
               イベント一覧

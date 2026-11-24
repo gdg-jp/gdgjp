@@ -15,7 +15,7 @@ evidence belong in [coverage.json](../coverage.json). Every journey starts as
 | `pay-claim-self` | [Self and proxy claims](claims.md) | `claimant` |
 | `pay-claim-proxy` | [Self and proxy claims](claims.md) | `coorganizer`, `member`, `outsider` |
 | `pay-claim-access`, `pay-claim-items` | [Claim detail](claim-detail.md) | `coorganizer`, `organizer`, `member`, `outsider` |
-| `pay-claim-sync-unconnected`, `pay-claim-email-unconfigured` | [Claim detail](claim-detail.md) | `claimant`, `coorganizer`, `member` |
+| `pay-claim-sync-unconnected`, `pay-claim-email-unconfigured`, `pay-receipt-upload-manual` | [Claim detail](claim-detail.md) | `claimant`, `coorganizer`, `member` |
 | `pay-receipt-access` | [Receipt viewing](receipts.md) | `member`, `organizer`, `claimant`, `outsider`, anonymous |
 | `pay-google-card-states`, `pay-google-connect-redirect`, `pay-google-callback-errors`, `pay-google-settings-guards` | [Google connection](google.md) | `organizer`, `coorganizer`, `member` |
 | `pay-signout` | [Sign-in and membership gate](auth.md) | `member` |
@@ -68,7 +68,7 @@ then pass `-b "$JAR"`. Run D1 checks from the scratch `apps/pay` directory with
    They quote the seeded totals (`¥6,500`, `¥4,500`, `¥2,000`).
 3. Run the claimant chain in order: the profile-gate step of `pay-claim-self`, then
    `pay-profile-save`, then the rest of `pay-claim-self`, then the empty-claim step of
-   `pay-claim-sync-unconnected`.
+   `pay-claim-sync-unconnected`, then `pay-receipt-upload-manual`.
 4. Run `pay-event-create`, `pay-claim-proxy`, then `pay-claim-items` (update before delete), then the C1 step
    of `pay-claim-sync-unconnected`, then `pay-claim-email-unconfigured`.
 5. Run the HTTP-only Google journeys in any order after step 2.
@@ -76,8 +76,9 @@ then pass `-b "$JAR"`. Run D1 checks from the scratch `apps/pay` directory with
 
 ## Not covered
 
-- Receipt upload (**アップロードして抽出**). It always posts the file to the Gemini API, and
-  there is no local fake. Item creation is exercised only through seeded rows.
+- Gemini receipt extraction. Upload with a nonblank `GEMINI_API_KEY` posts the file to
+  the Gemini API, and there is no local fake; `pay-receipt-upload-manual` covers upload
+  without a key.
 - Successful **スプレッドシートに反映**, which copies the template and writes to Google Drive and
   Sheets, and every Google step after the redirect: consent, token exchange and refresh,
   the Drive Picker, template grant, and folder selection.

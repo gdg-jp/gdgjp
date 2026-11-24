@@ -39,7 +39,8 @@ for journeys that need Accounts. Start it first with
 callback and post-logout URLs on the Accounts OAuth client before the app starts; Accounts
 caches trusted clients after first use, so attach a fresh verify-platform stack rather than
 one an earlier app already used. Accounts' dev registry can lose its entry when other stacks
-stop; if `/api/auth/signin` answers 500, restart verify-platform and the app.
+stop; if `/api/auth/signin` answers 503 (**サインインサービスに接続できませんでした**), restart
+verify-platform and the app.
 
 ## Doctor
 
@@ -77,5 +78,5 @@ Do not kill by process name or delete another run's scratch directory.
 
 `scripts/verification/app-stack.mjs` serves `pr`, `pay`, `sns`, `connpass`, `scheduler`,
 and `tinyurl`; its tests are `node --test scripts/verification/app-stack.test.mjs`.
-Outside this map: Receipt upload (always calls Gemini), Google OAuth consent, Drive, Sheets and the Picker, real email, and real Accounts sign-in. Use `/maintain-verification-skill` when routes or
+Outside this map: Gemini receipt extraction (the helper refuses a `GEMINI_API_KEY`), Google OAuth consent, Drive, Sheets and the Picker, real email, and real Accounts sign-in. Use `/maintain-verification-skill` when routes or
 controls change.

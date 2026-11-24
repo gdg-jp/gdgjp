@@ -47,11 +47,14 @@ the helper started with `--platform <verify-platform ready.json>` so that `http:
   Do not choose **Continue with Google** or any Google control. Evidence: sanitized
   network list (no state or verifier values), Accounts snapshot.
 - Missing membership (`pay-no-membership`). In a fresh profile navigate to
-  `/dev/login?as=nochapter&chapter=0:none:member&return_to=/`. Require HTTP 403 for `/`
-  and a page whose level-1 heading starts with `403`. Navigate to `/profile` and
-  `/events/new` and require 403 for each. Independent check with a curl cookie jar
-  (see the README) for the same identity: `GET /` returns `403`. Evidence: network
-  status for each navigation, screenshot of one 403 page.
+  `/dev/login?as=nochapter&chapter=0:none:member&return_to=/`. Require HTTP 403 for `/`,
+  the level-1 heading **GDG チャプターへの参加が必要です**, text stating that the signed-in
+  account belongs to no chapter, a **チャプターに参加する** link to Accounts `/onboarding`,
+  and a **別のアカウントでサインイン** link to `/auth/signout` (do not follow either).
+  Navigate to `/profile` and `/events/new` and require 403 with the same heading for each.
+  Independent check with a curl cookie jar (see the README) for the same identity:
+  `GET /` returns `403`. Evidence: network status for each navigation, screenshot of one
+  403 page.
 - Sign-out (`pay-signout`, run last). Sign in as
   `/dev/login?as=member&chapter=1:gdg-tokyo:member&return_to=/`. Require the region
   **イベント一覧**. Choose **アカウント**, require the menu label `member (dev)` and
@@ -75,11 +78,11 @@ the helper started with `--platform <verify-platform ready.json>` so that `http:
   covered by this map.
 - `chapter=0:none:member` parses to an empty chapter list. Omitting `chapter` gives a
   default organizer of chapter `1:dev-chapter`, which is not a missing-membership case.
-- The application has no error boundary. Thrown 403 and 404 responses render React
-  Router's fallback page (title `Unhandled Thrown Response!`, heading `403` or `404`).
-  The Japanese body `チャプターのメンバーシップが必要です` is never shown to the user;
-  assert the HTTP status and the heading, and report the missing message as a product
-  observation rather than a journey failure.
+- The root error boundary renders 403 and 404 pages with the Pay mark, `エラー <status>`,
+  a level-1 heading naming the reason, an explanation, and a next-step link. Pages that
+  refuse a signed-in user state why: no chapter, not a manager of the event (proxy form),
+  or not allowed to open or edit the claim. Resource routes (`/receipts/*`,
+  `/events/<id>/google`, `/google/*`) still answer plain-text or JSON errors.
 - The header link says **Sign in** in English while the page button says **サインイン**.
   Quote both exactly.
 - Never follow the Accounts page into Google sign-in.

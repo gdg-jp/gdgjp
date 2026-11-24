@@ -154,6 +154,14 @@
       "result": "RESEND_API_KEY absent; alert names it; email_sent_at stays NULL."
     },
     {
+      "id": "pay-receipt-upload-manual",
+      "map": "features/claim-detail.md",
+      "status": "NOT VERIFIED",
+      "observedAt": null,
+      "evidence": [],
+      "result": null
+    },
+    {
       "id": "pay-receipt-access",
       "map": "features/receipts.md",
       "status": "VERIFIED",
@@ -218,7 +226,7 @@
     }
   ],
   "outsideTheMap": [
-    "pay-receipt-upload: upload always posts the file to generativelanguage.googleapis.com (Gemini), even with no key. Executed only at module level with a stubbed fetch (no network): one POST to …:generateContent?key=<EMPTY> carrying the file as inlineData. Defect confirmed; the runtime upload stays outside the map.",
+    "Gemini receipt extraction with a nonblank GEMINI_API_KEY: no local fake. Upload without a key is pay-receipt-upload-manual.",
     "Google OAuth consent and code exchange, Drive, Sheets and the Picker: no local fake."
   ],
   "exclusions": [

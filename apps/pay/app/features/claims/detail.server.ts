@@ -1,3 +1,4 @@
+import { forbidden } from "~/features/auth/forbidden";
 import { requireMember } from "~/features/auth/session.server";
 import { sendClaimReviewEmail } from "~/features/claims/email.server";
 import {
@@ -26,7 +27,7 @@ import {
   GoogleNotConnectedError,
 } from "~/features/google/oauth.server";
 import { syncClaimToGoogle } from "~/features/google/sheets.server";
-import { extractReceiptFields } from "~/features/receipts/extraction.server";
+import { type ReceiptFile, receiptExtractor } from "~/features/receipts/extraction.server";
 import {
   MAX_RECEIPT_BYTES,
   isAllowedReceiptType,
@@ -45,12 +46,53 @@ async function assertClaimAccess(env: Env, request: Request, eventId: string, cl
   const actor = { userId: user.id, chapters };
   const canManage = canViewAllClaims(actor, event);
   const isOwner = claim.user_id === user.id || claim.created_by === user.id;
-  if (!canManage && !isOwner) throw new Response("Forbidden", { status: 403 });
+  if (!canManage && !isOwner) throw forbidden("not-claim-viewer");
   const canEdit =
     claim.kind === "self"
       ? claim.user_id === user.id
       : canProxyForEvent(actor, event) || claim.created_by === user.id;
   return { user, chapters, event, claim, canManage, canEdit };
+}
+
+async function readReceipt(env: Env, file: ReceiptFile) {
+  const manual = {
+    spentOn: todayJstDate(),
+    amountYen: 0,
+    category: "その他",
+    description: file.filename,
+  };
+  const extract = receiptExtractor(env);
+  if (!extract) {
+    return {
+      extraction: manual,
+      extractionJson: null,
+      message:
+        "領収書を追加しました。自動読み取りは設定されていないため、月日・種別・品目・金額を入力して保存してください。",
+    };
+  }
+  try {
+    const extracted = await extract(file);
+    return {
+      extraction: {
+        spentOn: extracted.spentOn ?? manual.spentOn,
+        amountYen: extracted.amountYen ?? manual.amountYen,
+        category: extracted.category ?? manual.category,
+        description: extracted.description ?? manual.description,
+      },
+      extractionJson: JSON.stringify(extracted),
+      message: "領収書を追加しました。内容を確認して保存してください。",
+    };
+  } catch (error) {
+    console.error("Receipt extraction failed", error);
+    return {
+      extraction: manual,
+      extractionJson: JSON.stringify({
+        error: error instanceof Error ? error.message : "extraction failed",
+      }),
+      message:
+        "領収書を追加しましたが、自動読み取りに失敗しました。月日・種別・品目・金額を手入力してください。",
+    };
+  }
 }
 
 export async function loadClaimDetail(
@@ -96,11 +138,11 @@ export async function actOnClaimDetail(
   claimId: string,
 ) {
   const { event, claim, canEdit } = await assertClaimAccess(env, request, eventId, claimId);
+  if (!canEdit) throw forbidden("not-claim-editor");
   const form = await request.formData();
   const intent = String(form.get("intent") ?? "");
 
   if (intent === "upload") {
-    if (!canEdit) throw new Response("Forbidden", { status: 403 });
     const file = form.get("receipt");
     if (!(file instanceof File) || file.size === 0) {
       return { error: "領収書ファイルを選択してください" };
@@ -114,34 +156,11 @@ export async function actOnClaimDetail(
     }
     const filename = sanitizeFilename(file.name);
     const bytes = await file.arrayBuffer();
-    let extraction = {
-      spentOn: todayJstDate(),
-      amountYen: 0,
-      category: "その他",
-      description: filename,
-    };
-    let extractionJson: string | null = null;
-    let extractionFailed = false;
-    try {
-      const extracted = await extractReceiptFields(env, {
-        bytes,
-        mimeType: contentType,
-        filename,
-      });
-      extractionJson = JSON.stringify(extracted);
-      extraction = {
-        spentOn: extracted.spentOn ?? todayJstDate(),
-        amountYen: extracted.amountYen ?? 0,
-        category: extracted.category ?? "その他",
-        description: extracted.description ?? filename,
-      };
-    } catch (error) {
-      extractionFailed = true;
-      console.error("Receipt extraction failed", error);
-      extractionJson = JSON.stringify({
-        error: error instanceof Error ? error.message : "extraction failed",
-      });
-    }
+    const { extraction, extractionJson, message } = await readReceipt(env, {
+      bytes,
+      mimeType: contentType,
+      filename,
+    });
     const key = receiptObjectKey(claim.id, filename);
     await env.RECEIPTS.put(key, bytes, {
       httpMetadata: { contentType },
@@ -161,18 +180,10 @@ export async function actOnClaimDetail(
       sortOrder: items.length,
     });
     await recalculateClaimTotal(env.DB, claim.id);
-    if (extractionFailed) {
-      return {
-        ok: true,
-        message:
-          "領収書を追加しましたが、自動読み取りに失敗しました。月日・種別・品目・金額を手入力してください。",
-      };
-    }
-    return { ok: true, message: "領収書を追加しました。内容を確認して保存してください。" };
+    return { ok: true, message };
   }
 
   if (intent === "update-item") {
-    if (!canEdit) throw new Response("Forbidden", { status: 403 });
     const itemId = String(form.get("itemId") ?? "");
     const item = await getClaimItem(env.DB, itemId);
     if (!item || item.claim_id !== claim.id) return { error: "明細が見つかりません" };
@@ -189,7 +200,6 @@ export async function actOnClaimDetail(
   }
 
   if (intent === "delete-item") {
-    if (!canEdit) throw new Response("Forbidden", { status: 403 });
     const itemId = String(form.get("itemId") ?? "");
     const item = await getClaimItem(env.DB, itemId);
     if (!item || item.claim_id !== claim.id) return { error: "明細が見つかりません" };
@@ -202,7 +212,6 @@ export async function actOnClaimDetail(
   }
 
   if (intent === "sync-sheets") {
-    if (!canEdit) throw new Response("Forbidden", { status: 403 });
     const freshClaim = await getClaim(env.DB, claim.id);
     if (!freshClaim) throw new Response("Not Found", { status: 404 });
     const items = await listClaimItems(env.DB, claim.id);
@@ -250,7 +259,6 @@ export async function actOnClaimDetail(
   }
 
   if (intent === "send-email") {
-    if (!canEdit) throw new Response("Forbidden", { status: 403 });
     const freshClaim = await getClaim(env.DB, claim.id);
     if (!freshClaim?.sheet_url) {
       return { error: "先にスプレッドシートへ同期してください" };

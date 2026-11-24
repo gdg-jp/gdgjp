@@ -1,13 +1,13 @@
 # Event list, event registration, and event detail
 
-A chapter member sees every event with its claim count and total, registers a new
-event for their chapters, and opens an event page whose controls depend on whether
-they own or organize it.
+A chapter member sees every event with its claim count, and its total when they own
+the event or belong to one of its chapters. They register a new event for their
+chapters and open an event page whose controls depend on whether they own or organize it.
 
 ## Sub-features
 
 - `pay-events-empty` shows the empty event list on an unseeded launch.
-- `pay-events-list` lists seeded and newly created events, newest first, with claim counts and totals.
+- `pay-events-list` lists seeded and newly created events, newest first, with claim counts and totals (`非公開` for other chapters' events).
 - `pay-event-create` registers an event from **イベント登録**, rejects a blank title, and snapshots the creator's chapters.
 - `pay-event-roles` shows owner, chapter organizer, plain member, and other-chapter views of one event, plus 404 for unknown or malformed IDs.
 
@@ -37,7 +37,8 @@ profile per identity.
   `/dev/login?as=member&chapter=1:gdg-tokyo:member&return_to=/`. Require a table with
   column headers **イベント**, **申請数**, **合計**, a row `Verify Google Seed Event | 0 | ¥0`
   above a row `Verify Seed Event | 2 | ¥6,500`. Require links **口座情報** and
-  **イベント登録**. Independent check:
+  **イベント登録**. Sign in as `outsider` and require the row
+  `Verify Seed Event | 2 | 非公開`. Independent check:
   `pnpm exec wrangler d1 execute gdgjp-pay-db --local --command "SELECT e.title, COUNT(c.id) AS n, COALESCE(SUM(c.total_amount),0) AS total FROM events e LEFT JOIN claims c ON c.event_id = e.id GROUP BY e.id ORDER BY e.created_at DESC"`.
   Evidence: snapshot, screenshot.
 - Blank title (`pay-event-create`). Sign in with
@@ -71,7 +72,9 @@ profile per identity.
 - Other-chapter organizer view (`pay-event-roles`). Sign in with
   `/dev/login?as=outsider&chapter=2:gdg-osaka:organizer&return_to=/`. Require both seeded
   events on `/`. Open the seeded event and require heading **自分の申請**,
-  `まだ申請がありません。`, no **代行登録**, and no **Google連携** card.
+  `まだ申請がありません。`, no **代行登録**, no **Google連携** card, and no `合計` description
+  under the heading. Independent check: the page HTML from a curl jar for `outsider`
+  does not contain `6500` or `6,500`.
 - Not found (`pay-event-roles`). As `member`, navigate to `/events/not-an-id` and to
   `/events/evt_0000000000000000000000ZZZZ`. Require HTTP 404 for both. Evidence for the
   role views: one snapshot per identity and the network status of each navigation.
@@ -81,9 +84,11 @@ profile per identity.
 - The seed makes the empty state unreachable. Run `pay-events-empty` on a separate,
   unseeded launch, or record it as not reachable in this run. Do not delete rows to
   fake it.
-- The list shows every event to every member of any chapter, and the event page shows
-  the full event total to members who can see only their own claim. These are current
-  product behaviors; record them, and do not treat a member seeing all events as a failure.
+- The list shows every event to every member of any chapter. The event total is shown
+  only to the event's owner and to members (any role) of the chapters the event
+  snapshotted, so a plain member of the event's chapter sees the full total while
+  seeing only their own claim. Members of other chapters see `非公開` in the list and no
+  total on the event page.
 - A new event snapshots all of the creator's chapters, including ones where the creator is
   only a member. Organizers of those chapters gain management of the event.
 - Do not choose **自分のGoogleアカウントで連携する** on the event page. It navigates to

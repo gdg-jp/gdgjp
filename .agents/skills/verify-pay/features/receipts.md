@@ -47,6 +47,6 @@ Receipt URL: `/receipts/claims/clm_0000000000000000000000SEC2/fixture-receipt.pn
   blocked by its precondition.
 - The route looks up the object before checking permission, so a missing object returns
   404 to anyone signed in. Only an existing object distinguishes 403 from 404.
-- Real receipts arrive through upload, which calls Gemini and is outside this map.
+- Uploaded receipts are covered by `pay-receipt-upload-manual` in [claim detail](claim-detail.md).
 - If `pay-claim-items` deleted an item with a receipt, its object is gone. The seeded
   receipt belongs to C2, which no mutation journey deletes.
