@@ -87,8 +87,11 @@ export function renderHandler(browser) {
           }),
         );
       } catch (error) {
+        console.error(error);
         response.writeHead(500, { "content-type": "application/json" });
-        response.end(JSON.stringify({ success: false, errors: [String(error)] }));
+        response.end(
+          JSON.stringify({ success: false, errors: ["Rendering failed; see the companion's log"] }),
+        );
       }
     });
   };

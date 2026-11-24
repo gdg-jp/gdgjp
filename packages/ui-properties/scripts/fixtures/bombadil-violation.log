@@ -1,0 +1,30 @@
+00:00.000 Clicking <button> (x: 27.9, y: 90.4, content: "Add")
+00:00.020 Clicking <a> (x: 51.7, y: 89.9, content: "x")
+00:00.092 Clicking <button> (x: 27.9, y: 90.4, content: "Add")
+00:00.166 Clicking <a> (x: 51.7, y: 89.9, content: "x")
+00:00.203 Clicking <button> (x: 27.9, y: 90.4, content: "Add")
+00:00.232 Clicking <button> (x: 27.9, y: 90.4, content: "Add")
+
+noUncaughtExceptions was violated:
+
+as of 00:00.000, it should always be the case that:
+
+() => uncaughtExceptions.current.every((e) => !e.startsWith("Uncaught") 
+  || e.startsWith("Uncaught (in promise)"))
+
+however at 00:00.266:
+
+uncaughtExceptions = 
+  - "Uncaught Error: boom at 4\n    at document.getElementById.onclick (file:///tmp/bombadil/page.html:16:8)"
+
+
+Test finished, finding 1 violation!
+
+Inspect the test results using:
+
+  bombadil browser inspect /tmp/bombadil/trace.bin
+
+Reproduce this test using:
+
+  bombadil browser test 'file:///tmp/bombadil/page.html' --headless --reproduce /tmp/bombadil/trace.bin
+

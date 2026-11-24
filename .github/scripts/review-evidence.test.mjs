@@ -346,6 +346,7 @@ test("hosted CI publishes the summary the gate reads, and the gate can read it f
   const review = parse(
     readFileSync(new URL("../workflows/ai-review.yml", import.meta.url), "utf8"),
   );
+  assert.deepEqual(ci.permissions, { contents: "read" });
   const job = ci.jobs["verification-summary"];
   assert.deepEqual(
     [...job.needs, "verification-summary"].sort(),

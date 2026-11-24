@@ -37,6 +37,7 @@ session-list-output/
 
 # Logs
 *.log
+!packages/ui-properties/scripts/fixtures/*.log
 npm-debug.log*
 pnpm-debug.log*
 yarn-debug.log*

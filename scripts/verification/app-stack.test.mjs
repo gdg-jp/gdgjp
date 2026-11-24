@@ -176,8 +176,9 @@ test("readiness needs the real sign-in cookie and the expected signed-in text", 
   const server = await listen((request, response) => {
     const url = new URL(request.url, "http://127.0.0.1");
     if (url.pathname === "/dev/login") {
+      const back = new URL(url.searchParams.get("return_to") ?? "/", url.origin);
       response.writeHead(302, {
-        location: url.searchParams.get("return_to"),
+        location: back.origin === url.origin ? `${back.pathname}${back.search}` : "/",
         "set-cookie": [`gdgjp-pay-session=${url.searchParams.get("as")}; Path=/; HttpOnly`],
       });
       return response.end();
