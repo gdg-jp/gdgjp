@@ -80,7 +80,7 @@ function property(browser: Browser, target: Target) {
     invariants: [
       invariant("Access never asks the fuzzer to sign in", async (world) => {
         const host = new URL(world.page.url()).hostname;
-        if (host.endsWith("cloudflareaccess.com"))
+        if (host === "cloudflareaccess.com" || host.endsWith(".cloudflareaccess.com"))
           throw new PropertyViolation(
             "setup",
             "Access never asks the fuzzer to sign in",

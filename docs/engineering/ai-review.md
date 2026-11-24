@@ -43,6 +43,53 @@ no event for reactions, so a scheduled run picks them up within about ten minute
 | error, "Codex is not signed in" | Run the AI login workflow. |
 | error, "Codex agent failed" | Read the linked run; comment `/ai-review` or re-add the label to retry. |
 
+## Checking the app in a browser
+
+When GDG-chan reviews a pull request or checks responses to its findings, and the pull
+request changes, renames, or deletes files under one of the apps that has a Playwright E2E suite
+(`accounts`, `tinyurl`, `wiki`, `img`, `scheduler`, `sns`, `pay`, `ost`, `roster`, `mc`,
+`screen`, `deck`, `roulette`, `meet`), GDG-chan starts that app from the pull request
+head first, and Codex can open it in a headless browser. If several apps changed, it picks
+the one with the most changed files. The review footer says "apps/X のプレビューを用意" when
+the preview was running for Codex, or that it could not start; then the review is from the
+code only. The summary says whether Codex reached it.
+
+The preview is the same disposable stack as `pnpm test:e2e --workspace @gdgjp/X`: the
+app and Accounts on their CI ports, freshly migrated local databases, the E2E global setup's
+fixtures, and deterministic test credentials. It never holds staging or production data.
+Codex signs in the way that app's E2E specs do, through `/dev/login` or the storage states
+the global setup writes (Wiki's `admin`, `author`, and `member`). Starting it adds about two
+minutes per pull request. `pr`, `connpass`, and `website` are not previewed: `pr`'s E2E setup
+downloads fonts from the internet, and the other two run a fixed list of spec files.
+
+[`ai-review-preview.mjs`](../../.github/scripts/ai-review-preview.mjs) runs it in two
+containers on the agent runner:
+
+- The **app container** (`mcr.microsoft.com/playwright`, pinned by digest) receives a
+  `git archive` of the head and the pinned submodule commits. While it has network access it
+  runs only code and configuration that do not come from the pull request: apt, Git fetching
+  the submodules from their fixed URLs, npm installing the pnpm version pinned in `main`'s
+  `package.json`, and `pnpm fetch` in an empty directory that holds only the pull request's
+  lockfile, with the registry fixed to `registry.npmjs.org` and no user config or pnpmfile.
+  The agent first checks the lockfile line by line against the plain format pnpm writes
+  (keys, single-quoted or plain scalars, one-line `engines` maps and lists, `deprecated` block
+  text) and requires every `resolution` to be `{integrity: ...}` alone; anything else, such as
+  a tarball, Git, or directory resolution, a quoted or escaped key, an anchor, a tag, or a
+  merge key, skips the preview. The container then leaves the
+  Docker network, so only loopback remains, and only then runs the pull request's code:
+  `pnpm install --offline` with its install scripts, and the app's Playwright config with a
+  test that holds the servers open. It gets no secret, no environment variable from the
+  runner, and no host directory. The agent reads at most 1 MiB from any container command
+  and accepts only a loopback base URL and plain file names from its `ready.json`.
+- The **browser container** (`mcr.microsoft.com/playwright/mcp`, pinned by digest) is the
+  Codex `browser` MCP server. It joins the app container's network namespace, so
+  `localhost` is the preview and nothing else is reachable, and it mounts the storage states
+  read-only. `file://` URLs, arbitrary Playwright code, and file uploads are disabled.
+
+Codex itself still runs in the read-only sandbox without network; it reaches the browser
+only through MCP tool calls, which Codex starts outside the sandbox. The sandbox check also
+confirms that the sandbox cannot connect to the Docker socket.
+
 GDG-chan gates only pull requests into `main`, the branch the ruleset protects. Pull
 requests into other branches get no status and no review. Fork pull requests do not get
 GDG-chan reviews; a bypass actor merges them after a human review.
@@ -90,6 +137,15 @@ verifier script). For each item that is not PRESENT, GDG-chan reports a P2 findi
 pull request description supplies the evidence for this commit. A note that a check was not
 run is not evidence. If CI was still running, the finding says so.
 
+When GDG-chan's own [browser preview](#checking-the-app-in-a-browser) of an app is running,
+missing UI evidence for that app's files becomes CHECK IN PREVIEW instead of MISSING: Codex
+exercises the changed screens there and reports what it saw, and does not ask the author for
+screenshots. It reports a missing-evidence finding for those files only when it could not reach
+or exercise the screens. UI files of other apps, and every file when the preview did not start,
+keep the MISSING rule. The preview is the pull request's own code, so what it shows is untrusted
+output: it can confirm or rule out behavior, but it is not a verifier result, and it never
+satisfies a verifier or state-diagram item.
+
 To clear such a finding, add the evidence (rerun CI, or attach it to the description) and
 reply or react as for any finding. GDG-chan verifies against the summary and description for
 the current head. It also resolves the finding when you show that the change does not need the
@@ -114,7 +170,7 @@ The environment holds:
 | Secret | Use |
 | --- | --- |
 | `GDG_CHAN_PRIVATE_KEY` | Private key of the GDG-chan GitHub App (app ID: repository variable `GDG_CHAN_APP_ID`). |
-| `AI_REVIEW_SIGNING_KEY` | HMAC key for the hidden markers that record reviews, findings, and verdicts. |
+| `AI_REVIEW_SIGNING_KEY` | HMAC key for the hidden markers that record reviews, findings, and verdicts, and the source of the key that seals stored Codex sessions. |
 | `CODEX_AUTH_KEY` | AES-256-GCM key for the stored Codex login. |
 | `CODEX_ACCOUNT_SHA256` | SHA-256 of the lowercase email of the only ChatGPT account the login may use. |
 
@@ -122,10 +178,32 @@ GDG-chan is a GitHub App owned by the gdg-jp organization and installed only on 
 repository, with write access to code, commit statuses, issues, and pull requests. The
 scripts create installation tokens from its private key and refresh them before they
 expire, so long runs keep working. `GITHUB_TOKEN` is used only for dispatching and for
-the login artifacts. The Agent job also uses `GITHUB_TOKEN` (`actions: read`) to find the
-CI run and download the verification summary; Codex never receives it, and posted output
-redacts it. Change the name or icon in the app's settings under the
+the login and session artifacts. The Agent job also uses `GITHUB_TOKEN` (`actions: read`)
+to find the CI run and download the verification summary; Codex never receives it, and posted
+output redacts it. Change the name or icon in the app's settings under the
 organization's GitHub Apps.
+
+## One Codex session per pull request
+
+Every review and verification of a pull request continues the same Codex session with
+`codex exec resume`, so Codex keeps what it already read and the repeated prefix is served
+from the prompt cache. Sessions run with `model_context_window=500000`; Codex compacts the
+history when it fills. A resumed turn starts with a note that the checkout and preview were
+replaced and that earlier instructions no longer apply.
+
+After each run the agent job uploads every open pull request's session as the
+`codex-sessions` artifact (30-day retention, two newest kept), and the next run restores the
+newest one uploaded by a `workflow_dispatch` or `schedule` run of `ai-review.yml` on `main`.
+The artifact always holds `generation.json`, so a run that drops the last session still
+replaces the previous bundle. When the restore fails, the run neither uploads nor prunes,
+so the stored sessions of other pull requests survive. Failing to save a session only logs
+a warning; the review is posted anyway. A session file holds
+the prompts, tool output, and the ChatGPT account's identifiers, so each one is sealed with
+AES-256-GCM under a key derived from `AI_REVIEW_SIGNING_KEY` and bound to its pull request
+number. A pull request starts a new session when it has none, when `CODEX_REVIEW_MODEL`
+changed, when resuming fails, or when the compressed session outgrows 48 MiB. Rotating the
+signing key discards every session. A session also carries what earlier heads of the pull
+request said into later checks, which a fresh session would not see.
 
 ## Trust model
 
@@ -148,7 +226,8 @@ organization's GitHub Apps.
   filesystem, denies the Codex home that holds the login, and allows no writes. Before
   each run, `codex-review.mjs sandbox-check` confirms through `codex sandbox` that the
   sandbox can read the checkout but cannot read `auth.json`, the agent's `/proc` environment,
-  or write, and the job stops otherwise. The workflow posts only the JSON that Codex returns,
+  reach the Docker daemon, or write, and the job stops otherwise. The pull request's own code
+  runs only in the preview containers described above. The workflow posts only the JSON that Codex returns,
   after redacting the login's values and every issued GDG-chan token and neutralizing
   `<!--`.
 - The verification summary is written by CI code that the pull request can change, so it is
@@ -206,8 +285,9 @@ Changes to `ai-review.yml`, `codex-review.mjs`, `review-evidence.mjs`, or
 only `main` runs the Plan and Agent jobs. A pull request cannot exercise its own gate change.
 After merging the verification-evidence flow:
 
-1. Open a pull request into `main` that changes a UI file, for example a `.tsx` route, and
-   leave its description without screenshots.
+1. Open a pull request into `main` that changes a UI file of an app without a preview (for
+   example `apps/website/`, or `apps/pr/`), and leave its description without screenshots.
+   A UI change in a previewed app (such as `apps/wiki/`) shows CHECK IN PREVIEW instead.
 2. Wait for the CI run to finish. Its run summary shows **Verification summary**, and the run
    has a `verification-summary` artifact whose `verification-summary.json` names the head
    commit.
@@ -230,6 +310,10 @@ the review itself still runs.
 - [`ai-login.yml`](../../.github/workflows/ai-login.yml): the device-code sign-in.
 - [`codex-review.mjs`](../../.github/scripts/codex-review.mjs): gate evaluation, markers,
   prompts, and GitHub writes.
+- [`ai-review-preview.mjs`](../../.github/scripts/ai-review-preview.mjs): the app preview and
+  the browser MCP server.
+- [`ai-review-sessions.mjs`](../../.github/scripts/ai-review-sessions.mjs): sealing, restoring,
+  and pruning the per-PR Codex sessions.
 - [`codex-auth.mjs`](../../.github/scripts/codex-auth.mjs): login encryption, restore,
   refresh storage, redaction, and GDG-chan tokens.
 - [`review-evidence.mjs`](../../.github/scripts/review-evidence.mjs): finding and reading the

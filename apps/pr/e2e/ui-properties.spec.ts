@@ -103,6 +103,7 @@ async function submitted(world: PrWorld, page: Page, click: () => Promise<void>)
   await click();
   await response;
   await page.waitForLoadState("load");
+  await page.waitForLoadState("networkidle", { timeout: 10_000 }).catch(() => undefined);
 }
 
 const onDraft = (world: PrWorld, actor: ActorName) =>
@@ -196,6 +197,7 @@ const property = (browser: Browser): UiProperty<PrWorld> => ({
       },
       run: async (world, input) => {
         const page = world.pages[input.actor];
+        if ((await reserveButton(page, input.chapter).count()) === 0) return;
         const seen = world.model.seen[input.actor] ?? 0;
         predictTargetApproval(world.model, input.actor, input.chapter, seen);
         await submitted(world, page, () => world.ui.click(reserveButton(page, input.chapter)));

@@ -165,15 +165,40 @@ export function requirementState(requirement, unreliable) {
   return unreliable ? "UNRELIABLE" : "PRESENT";
 }
 
-export function reviewEvidence({ files, coverage, found }) {
+export function previewedApp(preview) {
+  return preview?.app && !preview.error ? preview.app : null;
+}
+
+function splitForPreview(requirement, app) {
+  if (requirement.id !== "ui" || requirement.state === "PRESENT" || !app) return [requirement];
+  const inApp = (path) => path.startsWith(`apps/${app}/`);
+  const previewed = requirement.paths.filter(inApp);
+  if (previewed.length === 0) return [requirement];
+  const rest = requirement.paths.filter((path) => !inApp(path));
+  return [
+    {
+      ...requirement,
+      id: "ui-preview",
+      label: `Exercise the changed screens of apps/${app} in GDG-chan's own preview and take screenshots there`,
+      paths: previewed,
+      state: "CHECK IN PREVIEW",
+    },
+    ...(rest.length ? [{ ...requirement, paths: rest }] : []),
+  ];
+}
+
+export function reviewEvidence({ files, coverage, found, preview = null }) {
   const summary = found.state === "available" ? found.summary : null;
   const producers = producersChanged(files);
   const changes = classifyChangedFiles(files, coverage);
-  const requirements = evidenceRequirements(changes, summary).map((requirement) => ({
-    ...requirement,
-    state: requirementState(requirement, producers.length > 0),
-  }));
-  return { ...found, summary, producers, requirements };
+  const app = previewedApp(preview);
+  const requirements = evidenceRequirements(changes, summary)
+    .map((requirement) => ({
+      ...requirement,
+      state: requirementState(requirement, producers.length > 0),
+    }))
+    .flatMap((requirement) => splitForPreview(requirement, app));
+  return { ...found, summary, producers, previewApp: app, requirements };
 }
 
 export class EvidenceLoader {
@@ -183,7 +208,7 @@ export class EvidenceLoader {
     this.root = root;
   }
 
-  async load(pr, files) {
+  async load(pr, files, { preview = null } = {}) {
     let found;
     try {
       found = await fetchVerificationSummary({
@@ -194,7 +219,7 @@ export class EvidenceLoader {
     } catch (error) {
       found = { state: "unavailable", reason: text(error.message, 300) };
     }
-    return reviewEvidence({ files, coverage: verifierCoverage(this.root), found });
+    return reviewEvidence({ files, coverage: verifierCoverage(this.root), found, preview });
   }
 }
 
@@ -232,7 +257,8 @@ The gate computed this checklist from GitHub's list of changed files and the ver
 records on main. PRESENT means the hosted verification summary for this exact commit holds the
 evidence; MISSING means it does not; ATTACH TO PR means no tool records it and only the PR
 description can supply it; UNRELIABLE means the summary claims it but this PR changes the code that
-writes the summary.
+writes the summary; CHECK IN PREVIEW means GDG-chan's own preview of that app is running, so you
+gather the evidence yourself in the browser instead of asking the author for it.
 
 ${checklist}
 ${producers}
@@ -250,9 +276,14 @@ PRESENT, and do not report missing evidence for changes outside the checklist. G
 finding priority P2, a title saying which evidence is missing, a body naming the command or journey
 that would produce it and where to attach it, and the first listed path with a line the PR
 changes. If the hosted summary is PENDING, say that CI had not finished and that a reply after it
-finishes asks GDG-chan to check again.`;
+finishes asks GDG-chan to check again. For an item whose state is CHECK IN PREVIEW, do not ask the
+author for screenshots: open the changed screens in the browser preview, exercise the behavior the
+change touches, and say in the summary what you observed. Report a missing-evidence finding for it
+only when you could not reach or exercise those screens there, and say why.`;
 
 export const VERIFY_EVIDENCE_RULE = `A finding about missing verification evidence is resolved when its checklist item is now
 PRESENT, when the current PR description supplies that evidence, or when the person shows that the
-change does not need it and you confirm that in the code. Otherwise it is not resolved; say which
-evidence is still missing and how to produce it.`;
+change does not need it and you confirm that in the code. When the item is CHECK IN PREVIEW, it is
+also resolved once you exercise those screens in the preview yourself and they behave as the change
+intends; say what you observed. Otherwise it is not resolved; say which evidence is still missing
+and how to produce it.`;
