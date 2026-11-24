@@ -1,5 +1,5 @@
 {
-  "syncedCommit": "1c0569f355bf990c689a5174ed4910488ddfbf23",
+  "syncedCommit": "fbded48853727b995a1ebbfae962eb1facf34a7d",
   "bounds": "2 chapters, 2 users, 2 developer clients, 3 tokens, 2 overlapping developer-console requests; every trace of up to 14 states",
   "sources": {
     "apps/accounts/app/features/developer-apps/oauth-clients.server.ts": "d302898e5c59b0b1ddb6e7642b7f03a6ac0e36ec9fe4247c5316041aa0dec04a",
