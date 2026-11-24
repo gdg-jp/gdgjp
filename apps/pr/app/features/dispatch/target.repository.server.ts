@@ -66,23 +66,34 @@ export async function ensureTargets(
     .run();
 }
 
-export async function dueMailTargets(db: D1Database, now: number, limit = 20) {
+type ApprovedRow = Row & {
+  actor_snapshot: string | null;
+  draft_id: number;
+  approved_version: number;
+};
+
+async function approvedTargets(db: D1Database, where: string, params: unknown[]) {
   const { results } = await db
     .prepare(
       `${SELECT.replace("SELECT t.*,", "SELECT t.*, d.id AS draft_id,")}
        JOIN schedule_items i ON i.id = t.schedule_item_id
        JOIN drafts d ON d.schedule_item_id = i.id AND d.status = 'approved'
          AND d.approved_version = t.approved_version AND d.current_version = t.approved_version
-       WHERE i.kind = 'connpass_mail' AND t.status = 'approved' AND i.due_at <= ? LIMIT ?`,
+       WHERE t.status = 'approved' AND ${where} LIMIT 20`,
     )
-    .bind(now, limit)
-    .all<Row & { actor_snapshot: string | null; draft_id: number }>();
+    .bind(...params)
+    .all<ApprovedRow>();
   return results.map((r) => ({
     ...toTarget(r),
     actorSnapshot: r.actor_snapshot,
-    draftId: r.draft_id,
+    at: { targetId: r.id, draftId: r.draft_id, version: r.approved_version },
   }));
 }
+
+export const dueMailTargets = (db: D1Database, now: number) =>
+  approvedTargets(db, "i.kind = 'connpass_mail' AND i.due_at <= ?", [now]);
+
+export const unclaimedPostTargets = (db: D1Database) => approvedTargets(db, "a.kind = 'x'", []);
 
 export async function listTargets(db: D1Database, itemId: number): Promise<DispatchTarget[]> {
   const { results } = await db

@@ -22,7 +22,7 @@ README.
 Preconditions: a fresh isolated profile with no cookies.
 
 - Gate. Navigate to `/`. Record the final URL. With no `--platform`, `/api/auth/signin`
-  answers 500 (`Unexpected Server Error`) because no Accounts is reachable; that is the
+  answers the 503 page **サインインサービスに接続できませんでした** because no Accounts is reachable; that is the
   IdP boundary, not part of this journey. Record the chain with
   `curl -s -o /dev/null -w '%{http_code} %{redirect_url}'` for `/`, `/signin?return_to=%2F`,
   and `/c/none`: require 302 to `/signin?return_to=...` and then 302 to `/api/auth/signin`.

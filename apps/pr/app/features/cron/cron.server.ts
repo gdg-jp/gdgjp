@@ -2,6 +2,7 @@ import { enqueueWeeklyAnalyses } from "~/features/analyze/analyze.server";
 import { flagDeadlines, morningDigest, queueDueDrafts } from "~/features/assistant/cron.server";
 import { sendDueMails } from "~/features/connpass/mail.server";
 import { pollConnpassJobs } from "~/features/connpass/poll.server";
+import { sendApprovedPosts } from "~/features/dispatch/dispatch.server";
 import { pollScheduledPosts } from "~/features/dispatch/poll.server";
 import { sweepReminders } from "~/features/dispatch/reminders.server";
 import { requeueExpired } from "~/features/jobs/job.repository.server";
@@ -31,6 +32,7 @@ export async function runCron(env: Env, cron: string): Promise<Record<string, un
               requeue: () => requeueExpired(env.DB),
               reminders: () => sweepReminders(env),
               mails: () => sendDueMails(env),
+              posts: () => sendApprovedPosts(env),
             }
           : {};
   const out: Record<string, unknown> = {};

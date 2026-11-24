@@ -51,6 +51,26 @@ async function setUp(page: Page, slug: string) {
   await expect(page.getByText("版 1 を保存しました")).toBeVisible();
 }
 
+test("only a super admin opens /admin/runner", async ({ browser }) => {
+  const visits = [
+    ["as=runner-member&chapter=1:gdg-kwansai:member", 404],
+    ["as=runner-organizer&chapter=1:gdg-kwansai:organizer", 404],
+    ["as=runner-admin&chapter=1:gdg-kwansai:member&admin=1", 200],
+  ] as const;
+  for (const [login, status] of visits) {
+    const context = await browser.newContext();
+    const page = await context.newPage();
+    await page.goto(`/dev/login?${login}&return_to=/settings`);
+    await expect
+      .soft(page.getByRole("link", { name: "詳しく" }), login)
+      .toHaveCount(status === 200 ? 1 : 0);
+    const response = await page.goto("/admin/runner");
+    expect.soft(response?.status(), login).toBe(status);
+    if (status === 200) await expect(page.getByRole("heading", { name: "キュー" })).toBeVisible();
+    await context.close();
+  }
+});
+
 test("the runner API rejects a wrong token", async ({ request }) => {
   const response = await request.get("/api/runner/jobs/next?types=copy", {
     headers: { authorization: "Bearer nope" },

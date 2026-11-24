@@ -37,6 +37,15 @@ export async function requireUserWithChapter(
   return { user, chapter, chapters: resolved.all };
 }
 
+export async function requireSuperAdmin(
+  env: Env,
+  request: Request,
+): ReturnType<typeof requireUserWithChapter> {
+  const signedIn = await requireUserWithChapter(env, request);
+  if (!signedIn.user.isAdmin) throw new Response(null, { status: 404 });
+  return signedIn;
+}
+
 export async function getOptionalUser(env: Env, request: Request): Promise<AuthUser | null> {
   return getAuth(env).getSessionUser(request);
 }

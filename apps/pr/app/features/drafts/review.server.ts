@@ -12,7 +12,13 @@ import {
 } from "~/features/playbook/playbook";
 import type { Draft } from "./draft";
 import { DRAFT_KINDS } from "./draft-kinds";
-import { addReview, appendVersion, latestVersion, setDraftStatus } from "./draft.repository.server";
+import {
+  addReview,
+  appendMediaVersion,
+  appendVersion,
+  latestVersion,
+  setDraftStatus,
+} from "./draft.repository.server";
 import {
   type Actor,
   type ReviewAction,
@@ -123,6 +129,25 @@ export async function editDraft(
       afterChecks: report.results,
       userId: access.user.id,
     });
+  return { ok: true, version };
+}
+
+export async function setDraftMedia(
+  db: D1Database,
+  access: CampaignAccess,
+  draft: Draft,
+  mediaUrl: string | null,
+): Promise<{ ok: true; version: number | null } | { ok: false; errors: string[] }> {
+  const latest = await latestVersion(db, draft.id);
+  if (!latest) return { ok: false, errors: ["版がありません"] };
+  if (latest.mediaUrl === mediaUrl) return { ok: true, version: null };
+  const status = statusAfterEdit(draft.status);
+  const version = await appendMediaVersion(db, draft.id, {
+    userId: access.user.id,
+    mediaUrl,
+    status,
+    itemStatus: itemStatusFor(status),
+  });
   return { ok: true, version };
 }
 

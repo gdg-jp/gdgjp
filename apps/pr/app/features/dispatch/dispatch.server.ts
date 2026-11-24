@@ -2,12 +2,13 @@ import type { PrActor } from "@gdgjp/gdg-lib";
 import { latestBrief } from "~/features/briefs/brief.repository.server";
 import type { CampaignAccess } from "~/features/campaigns/access.server";
 import type { Campaign } from "~/features/campaigns/campaign";
+import { getCampaignById } from "~/features/campaigns/campaign.repository.server";
 import { pageApprovalBlockers } from "~/features/connpass/page.server";
 import { type Draft, approvedForSending } from "~/features/drafts/draft";
 import { getDraft } from "~/features/drafts/draft.repository.server";
 import { getVersion } from "~/features/drafts/draft.repository.server";
 import { STALE_VERSION } from "~/features/drafts/review.server";
-import { actorOf, callRpc, snsService } from "~/features/integrations/bindings.server";
+import { actorOf, callRpc, parseActor, snsService } from "~/features/integrations/bindings.server";
 import { ensureShortlink } from "~/features/links/create.server";
 import { withShortlink } from "~/features/links/slug";
 import { listingApprovalBlockers } from "~/features/listings/listing.server";
@@ -24,12 +25,14 @@ import {
   getTarget,
   listTargets,
   moveTarget,
+  unclaimedPostTargets,
 } from "./target.repository.server";
 
 export type DispatchResult = { ok: true; message: string } | { ok: false; error: string };
 
 async function deliverable(env: Env, draftId: number, version: number) {
-  return deliverablePost((await getVersion(env.DB, draftId, version))?.content ?? null);
+  const saved = await getVersion(env.DB, draftId, version);
+  return { post: deliverablePost(saved?.content ?? null), mediaUrl: saved?.mediaUrl ?? null };
 }
 
 const fallbackUrl = async (env: Env, campaignId: number) =>
@@ -47,9 +50,9 @@ export async function prepareDraftApproval(
   ];
   if (connpass.length) return { ok: false, errors: connpass };
   if (!draft.scheduleItemId) return { ok: true };
-  const post = await deliverable(env, draft.id, version);
+  const { post, mediaUrl } = await deliverable(env, draft.id, version);
   const fallback = await fallbackUrl(env, access.campaign.id);
-  const blockers = approvalBlockers(post, fallback, draft.dispatchMediaUrl);
+  const blockers = approvalBlockers(post, fallback, mediaUrl);
   if (blockers.length) return { ok: false, errors: blockers };
   const item = await getItem(env.DB, access.campaign.id, draft.scheduleItemId);
   if (post && item && post.text.includes("{{shortlink}}")) {
@@ -107,7 +110,7 @@ export async function approveTarget(
       ok: true,
       message: `${target.account.label} への送信を版 ${version} で承認しました。予定の時刻に送ります`,
     };
-  return dispatchTarget(env, access.campaign, draft, at, actor);
+  return dispatchTarget(env, access.campaign, at, actor);
 }
 
 async function refusal(
@@ -125,27 +128,67 @@ async function refusal(
 async function dispatchTarget(
   env: Env,
   campaign: Campaign,
-  draft: Draft,
   at: ApprovedVersion,
   actor: PrActor,
 ): Promise<DispatchResult> {
-  const targetId = at.targetId;
   if (!(await claimApprovedTarget(env.DB, at))) {
     const now = await getDraft(env.DB, campaign.id, at.draftId);
     return now?.currentVersion === at.version && approvedForSending(now)
       ? { ok: true, message: "この配信先はもう配信中です" }
       : { ok: false, error: STALE_VERSION };
   }
-  const target = await getTarget(env.DB, targetId);
-  const item = draft.scheduleItemId
-    ? await getItem(env.DB, campaign.id, draft.scheduleItemId)
-    : null;
-  const post = await deliverable(env, at.draftId, at.version);
-  const fail = async (error: string) => {
-    await moveTarget(env.DB, targetId, ["dispatching"], "failed", { error });
-    if (item) await rollup(env, item.id);
-    return { ok: false as const, error };
-  };
+  return sendClaimedPost(env, campaign, at, actor);
+}
+
+export async function sendApprovedPosts(env: Env): Promise<{ sent: number; failed: number }> {
+  let sent = 0;
+  let failed = 0;
+  for (const target of await unclaimedPostTargets(env.DB)) {
+    if (!(await claimApprovedTarget(env.DB, target.at))) continue;
+    const campaign = await getCampaignById(env.DB, target.account.campaignId);
+    const actor = parseActor(target.actorSnapshot);
+    const result =
+      campaign && actor
+        ? await sendClaimedPost(env, campaign, target.at, actor)
+        : await withoutActor(env, target.account.campaignId, target.scheduleItemId, target.id);
+    if (result.ok) sent++;
+    else failed++;
+  }
+  return { sent, failed };
+}
+
+async function withoutActor(env: Env, campaignId: number, itemId: number, targetId: number) {
+  await logDispatch(env.DB, {
+    campaignId,
+    itemId,
+    action: "sns_create",
+    ok: false,
+    detail: "no_actor",
+  });
+  return failClaimed(env, targetId, itemId, "承認者の情報がありません");
+}
+
+async function failClaimed(
+  env: Env,
+  targetId: number,
+  itemId: number | null,
+  error: string,
+): Promise<DispatchResult> {
+  await moveTarget(env.DB, targetId, ["dispatching"], "failed", { error });
+  if (itemId !== null) await rollup(env, itemId);
+  return { ok: false, error };
+}
+
+async function sendClaimedPost(
+  env: Env,
+  campaign: Campaign,
+  at: ApprovedVersion,
+  actor: PrActor,
+): Promise<DispatchResult> {
+  const target = await getTarget(env.DB, at.targetId);
+  const item = target ? await getItem(env.DB, campaign.id, target.scheduleItemId) : null;
+  const { post, mediaUrl } = await deliverable(env, at.draftId, at.version);
+  const fail = (error: string) => failClaimed(env, at.targetId, item?.id ?? null, error);
   if (!target || !item || !post) return fail("配信する本文がありません");
   const text = await textForDelivery(env, actor, campaign, item, post);
   if (!text.ok) return fail(text.error);
@@ -170,7 +213,7 @@ async function dispatchTarget(
       : `${target.account.label}: ${created.code} ${created.message ?? ""}`,
   });
   if (!created.ok) return fail(`sns に予約できませんでした（${created.code}）`);
-  if (draft.dispatchMediaUrl)
+  if (mediaUrl)
     await attachImage(
       env,
       actor,
@@ -178,9 +221,9 @@ async function dispatchTarget(
       item,
       target.account.chapterId,
       created.post.id,
-      draft.dispatchMediaUrl,
+      mediaUrl,
     );
-  await moveTarget(env.DB, targetId, ["dispatching"], "scheduled", {
+  await moveTarget(env.DB, at.targetId, ["dispatching"], "scheduled", {
     externalRef: { snsPostId: created.post.id },
     error: null,
   });

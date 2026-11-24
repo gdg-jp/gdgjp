@@ -22,9 +22,8 @@ export async function staffReminderText(env: Env, campaign: Campaign, item: Sche
     ? await getItem(env.DB, campaign.id, item.derivedFromItemId)
     : null;
   const draft = parent ? await draftForItem(env.DB, parent.id) : null;
-  const post = draft
-    ? deliverablePost((await latestVersion(env.DB, draft.id))?.content ?? null)
-    : null;
+  const latest = draft ? await latestVersion(env.DB, draft.id) : null;
+  const post = deliverablePost(latest?.content ?? null);
   const link = parent ? await linkForItem(env.DB, parent.id) : null;
   const vars = {
     mention: await handleOf(env, campaign.id, item.assigneeUserId),
@@ -32,7 +31,7 @@ export async function staffReminderText(env: Env, campaign: Campaign, item: Sche
     headline: post
       ? withShortlink(post.text, link?.shortUrl ?? null).split("\n")[0]
       : parent?.title,
-    image: draft?.dispatchMediaUrl ?? "",
+    image: latest?.mediaUrl ?? "",
     url: `${env.APP_URL}/c/${campaign.slug}/schedule`,
   };
   if (item.purpose === "story") return template("story", vars);

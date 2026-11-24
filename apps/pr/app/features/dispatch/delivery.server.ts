@@ -1,7 +1,12 @@
 import type { CampaignAccess } from "~/features/campaigns/access.server";
 import { type Draft, approvedForSending, seenVersion } from "~/features/drafts/draft";
-import { latestVersion, setDispatchMedia } from "~/features/drafts/draft.repository.server";
-import { STALE_VERSION, currentContent, editDraft } from "~/features/drafts/review.server";
+import { latestVersion } from "~/features/drafts/draft.repository.server";
+import {
+  STALE_VERSION,
+  currentContent,
+  editDraft,
+  setDraftMedia,
+} from "~/features/drafts/review.server";
 import { enqueueAsset } from "~/features/jobs/enqueue.server";
 import { linkForItem } from "~/features/links/link.repository.server";
 import { getItem } from "~/features/schedule/item.repository.server";
@@ -41,7 +46,8 @@ export async function deliveryView(
   if (!draft.scheduleItemId || !isDispatchKind(draft.kind)) return null;
   const item = await getItem(env.DB, access.campaign.id, draft.scheduleItemId);
   if (!item) return null;
-  const post = deliverablePost((await latestVersion(env.DB, draft.id))?.content ?? null);
+  const latest = await latestVersion(env.DB, draft.id);
+  const post = deliverablePost(latest?.content ?? null);
   const viewer = {
     chapters: access.chapters,
     isMember: access.members.some((m) => m.userId === access.user.id),
@@ -57,7 +63,7 @@ export async function deliveryView(
     linkUrl: post?.linkUrl ?? null,
     ogImage: post?.ogImage ?? null,
     attachmentKind: post?.attachmentKind ?? "none",
-    mediaUrl: draft.dispatchMediaUrl,
+    mediaUrl: latest?.mediaUrl ?? null,
     targets: (await listTargets(env.DB, item.id)).map((t) => ({
       id: t.id,
       label: t.account.label,
@@ -107,8 +113,13 @@ export async function deliveryAction(
     const url = String(form.get("mediaUrl") ?? "").trim();
     if (url && !/^https?:\/\//.test(url))
       return { ok: false, errors: ["画像の URL を入れてください"] };
-    await setDispatchMedia(env.DB, draft.id, url || null);
-    return { ok: true, message: url ? "画像を付けました" : "画像を外しました" };
+    const saved = await setDraftMedia(env.DB, access, draft, url || null);
+    if (!saved.ok) return { ok: false, errors: saved.errors };
+    if (saved.version === null) return { ok: true, message: "画像は変わっていません" };
+    return {
+      ok: true,
+      message: `${url ? "画像を付けて" : "画像を外して"}版 ${saved.version} を保存しました（レビューに戻ります）`,
+    };
   }
   if (intent === "link") return editLink(env, access, draft, form);
   if (intent === "make-image") {

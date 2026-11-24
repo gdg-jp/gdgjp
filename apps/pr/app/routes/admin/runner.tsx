@@ -1,5 +1,5 @@
 import { Badge, Card, Heading, PageHeader, Stack, Table, Text } from "@gdgjp/design-system";
-import { requireUserWithChapter } from "~/features/auth/access.server";
+import { requireSuperAdmin } from "~/features/auth/access.server";
 import { jobCounts, listJobs, runnerStatuses } from "~/features/jobs/job.repository.server";
 import { jstDate, jstTime } from "~/features/schedule/calendar";
 import { AppLayout } from "~/layouts/AppLayout";
@@ -11,7 +11,7 @@ export function meta() {
 
 export async function loader({ request, context }: Route.LoaderArgs) {
   const env = context.cloudflare.env;
-  const { user } = await requireUserWithChapter(env, request);
+  const { user } = await requireSuperAdmin(env, request);
   const [runners, counts, recent] = await Promise.all([
     runnerStatuses(env.DB),
     jobCounts(env.DB),
