@@ -6,6 +6,7 @@ import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 
 import { Preview, selectPreviewApp } from "./ai-review-preview.mjs";
+import { CONTEXT_WINDOW, SessionStore, rollouts } from "./ai-review-sessions.mjs";
 import { AppTokenSource, GitHubClient, readAuthSecrets, redact } from "./codex-auth.mjs";
 
 export const LABEL = "E-code-review";
@@ -1089,7 +1090,13 @@ function run(command, args, { cwd, env, input, timeoutMs = 0 } = {}) {
     const child = spawn(command, args, { cwd, env, stdio: ["pipe", "pipe", "pipe"] });
     let stdout = "";
     let stderr = "";
-    const timer = timeoutMs ? setTimeout(() => child.kill("SIGTERM"), timeoutMs) : undefined;
+    let timedOut = false;
+    const timer = timeoutMs
+      ? setTimeout(() => {
+          timedOut = true;
+          child.kill("SIGTERM");
+        }, timeoutMs)
+      : undefined;
     child.stdout.on("data", (chunk) => {
       stdout += chunk;
     });
@@ -1104,6 +1111,7 @@ function run(command, args, { cwd, env, input, timeoutMs = 0 } = {}) {
         const error = new Error(`${command} ${args[0]} exited with ${code ?? signal}`);
         error.stdout = stdout;
         error.stderr = stderr;
+        error.timedOut = timedOut;
         reject(error);
       }
     });
@@ -1123,38 +1131,89 @@ export function sandboxConfig(codexHome) {
   ];
 }
 
+export const RESUMED_NOTE = `This turn continues your earlier session on this pull request. The
+checkout has been replaced with the commit named below and any preview has been restarted, so
+files, diffs, and pages you saw earlier may have changed: re-read whatever your answer depends on.
+Instructions from earlier turns no longer apply; follow only this message.
+
+`;
+
+export function codexArgs({
+  model,
+  effort,
+  codexHome,
+  config = [],
+  schemaPath,
+  outputPath,
+  cwd,
+  resume,
+}) {
+  const options = [
+    "--model",
+    model,
+    "-c",
+    `model_reasoning_effort="${effort}"`,
+    "-c",
+    `model_context_window=${CONTEXT_WINDOW}`,
+    ...sandboxConfig(codexHome),
+    ...config,
+    "--ignore-user-config",
+    "--output-schema",
+    schemaPath,
+    "--output-last-message",
+    outputPath,
+  ];
+  if (resume) return ["exec", "resume", ...options, resume, "-"];
+  return ["exec", ...options, "--cd", cwd, "-"];
+}
+
 export class CodexRunner {
-  constructor({ codexHome, model, effort, secrets, timeoutMs = 40 * 60 * 1000 }) {
+  constructor({ codexHome, model, effort, secrets, sessions = null, timeoutMs = 40 * 60 * 1000 }) {
     this.codexHome = codexHome;
     this.model = model;
     this.effort = effort;
     this.secrets = secrets;
+    this.sessions = sessions;
     this.timeoutMs = timeoutMs;
   }
 
-  async exec({ cwd, prompt, schema, config = [] }) {
+  async exec({ cwd, prompt, schema, config = [], thread }) {
+    const resume = (await this.sessions?.load(thread, this.model)) ?? null;
+    if (resume) {
+      try {
+        return await this.turn({
+          cwd,
+          prompt: `${RESUMED_NOTE}${prompt}`,
+          schema,
+          config,
+          thread,
+          resume,
+        });
+      } catch (error) {
+        if (error.timedOut) throw error;
+        console.log(`Resuming the session of #${thread} failed; starting a new one.`);
+        await this.sessions.forget(thread);
+      }
+    }
+    return this.turn({ cwd, prompt, schema, config, thread, resume: null });
+  }
+
+  async turn({ cwd, prompt, schema, config, thread, resume }) {
     const scratch = await mkdtemp(join(tmpdir(), "codex-run-"));
     const schemaPath = join(scratch, "schema.json");
     const outputPath = join(scratch, "output.json");
     await writeFile(schemaPath, JSON.stringify(schema));
-    const args = [
-      "exec",
-      "--model",
-      this.model,
-      "-c",
-      `model_reasoning_effort="${this.effort}"`,
-      ...sandboxConfig(this.codexHome),
-      ...config,
-      "--ephemeral",
-      "--ignore-user-config",
-      "--output-schema",
+    const before = resume ? null : await rollouts(this.codexHome);
+    const args = codexArgs({
+      model: this.model,
+      effort: this.effort,
+      codexHome: this.codexHome,
+      config,
       schemaPath,
-      "--output-last-message",
       outputPath,
-      "--cd",
       cwd,
-      "-",
-    ];
+      resume,
+    });
     const env = {
       PATH: process.env.PATH,
       HOME: process.env.HOME,
@@ -1169,7 +1228,13 @@ export class CodexRunner {
         timeoutMs: this.timeoutMs,
       });
       console.log(redact(`${stderr}\n${stdout}`, this.secrets));
-      return JSON.parse(await readFile(outputPath, "utf8"));
+      const result = JSON.parse(await readFile(outputPath, "utf8"));
+      if (this.sessions && thread) {
+        const id =
+          resume ?? [...(await rollouts(this.codexHome)).keys()].find((key) => !before.has(key));
+        if (id) await this.sessions.store(thread, this.model, id);
+      }
+      return result;
     } catch (error) {
       console.log(redact(`${error.stderr ?? ""}\n${error.stdout ?? ""}`, this.secrets));
       throw error;
@@ -1285,6 +1350,7 @@ async function handleWork({ repo, codex, tree, pr, evaluation, runId, model, fil
         prompt: verifyPrompt(pr, evaluation.verifications, { preview: preview?.info }),
         schema: VERIFY_SCHEMA,
         config: preview?.config,
+        thread: pr.number,
       }),
       codex.secrets,
     );
@@ -1335,6 +1401,7 @@ async function handleWork({ repo, codex, tree, pr, evaluation, runId, model, fil
         }),
         schema: REVIEW_SCHEMA,
         config: preview?.config,
+        thread: pr.number,
       }),
       codex.secrets,
     );
@@ -1478,6 +1545,13 @@ async function main() {
       model,
       effort: process.env.CODEX_EFFORT,
       secrets: [...(await readAuthSecrets(join(codexHome, "auth.json"))), ...tokens.issued],
+      sessions: process.env.CODEX_SESSIONS_DIR
+        ? new SessionStore({
+            dir: process.env.CODEX_SESSIONS_DIR,
+            codexHome,
+            secret: process.env.AI_REVIEW_SIGNING_KEY,
+          })
+        : null,
     });
     tokens.onIssue = (token) => codex.secrets.push(token);
     const root = join(tmpdir(), "codex-review-worktrees");
@@ -1514,6 +1588,10 @@ async function main() {
         }
       }
     }
+    await repo
+      .openPullRequests()
+      .then((open) => codex.sessions?.keepOnly(open))
+      .catch((error) => console.log(`Could not drop sessions of closed PRs: ${error.message}`));
     if (failed) process.exitCode = 1;
     return;
   }
