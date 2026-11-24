@@ -19,6 +19,7 @@ export function GDGAccounts(
     wellKnown: `${accountsUrl()}/.well-known/openid-configuration`,
     clientId: process.env.GDG_CLIENT_ID,
     clientSecret: process.env.GDG_CLIENT_SECRET,
+    idToken: false,
     authorization: {
       params: {
         scope: "openid profile email https://gdgs.jp/scopes/chapters",

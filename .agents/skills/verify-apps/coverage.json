@@ -718,15 +718,13 @@
       "id": "live-checkin-settings",
       "app": "live-checkin",
       "map": "features/live-checkin/README.md",
-      "feature": "Blocking settings modal when events cannot be fetched, **再読み込み**",
+      "feature": "First-run settings modal when events cannot be fetched: failure reason, **再読み込み**, and closing it",
       "identity": "`kwansai`",
       "inMap": true,
-      "status": "VERIFIED",
-      "observedAt": "2026-11-24T11:40:00Z",
-      "evidence": [
-        "local_data/pstack/apps/2026-11-24T10-59-13-126Z-aa5e7e89/journeys.json"
-      ],
-      "result": "dialog 受付設定 open; イベントの取得に失敗しました 再読み込み; 保存 disabled, no close control"
+      "status": "NOT VERIFIED",
+      "observedAt": null,
+      "evidence": [],
+      "result": null
     },
     {
       "id": "live-checkin-scanner-shell",

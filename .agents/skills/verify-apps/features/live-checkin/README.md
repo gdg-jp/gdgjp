@@ -40,11 +40,11 @@ be set again in a new profile.
 | --- | --- | --- | --- |
 | `/` | Anyone (signed-in users are not redirected) | **GDG Accounts でログイン** (Auth.js `signIn("gdg-accounts")`, callback `/checkin`) | h1 **GDG 受付システム**, GDG Japan Connpass・Luma API Mode, 連続受付を開始するには GDG Accounts でのログインが必要です。 |
 | `/checkin` | `kwansai` only; anonymous 307 to `/`, other chapters 307 to `/forbidden` (`proxy.ts`) | **受付設定** (opens modal), **カメラを切り替え**, 人参加予定 number input, **イベントページの管理** (connpass link), **次に進む** after a scan | `Loading...` until the session loads; h1 **connpass 連続受付システム**; idle overlay QRコードをフレーム内にかざしてください; 出席確認済み `---` 未対応; 連続受付アクティブ; result overlays 受付完了！ / 既に受付済みです / errors |
-| Settings modal (on `/checkin`) | `kwansai` | event radio list, **保存**, **キャンセル** / **閉じる** / Escape (only once an event is configured), **再読み込み** | dialog **受付設定**; イベントを取得中...; イベントの取得に失敗しました; 選択可能なイベントがありません |
+| Settings modal (on `/checkin`) | `kwansai` | event radio list, **保存**, **キャンセル** / **閉じる** / Escape / backdrop (once an event is configured, or when no event can be chosen because the list failed or is empty), **再読み込み** | dialog **受付設定**; イベントを取得中...; イベントの取得に失敗しました with the API's error text; 選択可能なイベントがありません |
 | `/forbidden` | Anyone | **ログアウト** (server action `signOut({ redirectTo: "/" })`) | h1 **利用できません**, この受付システムは GDG Greater Kwansai 所属メンバー専用です。… |
 | `/api/auth/*` | Auth.js plumbing (`session`, `csrf`, `providers`, `signin/gdg-accounts`, `callback/gdg-accounts`, `signout`, `error`) | none | `/api/auth/error?error=Configuration` renders Auth.js **Server error** |
 | `/api/events` (GET) | `kwansai` | none | 401 / 403 / upstream result; locally 500 |
-| `/api/checkin` (POST `{ url }`) | `kwansai` | none | 401 / 403 / upstream result; locally 500 |
+| `/api/checkin` (POST `{ url }`) | `kwansai` | none | 401 / 403; 400 for a URL outside the connpass reception QR / Luma ticket allowlist, never forwarded; otherwise upstream result, locally 500 |
 
 ## Journeys
 
@@ -54,7 +54,7 @@ be set again in a new profile.
 | `live-checkin-signin-start` | **GDG Accounts でログイン** starts Auth.js sign-in; locally it ends on the Configuration error | Anonymous | [access.md](access.md) | In map |
 | `live-checkin-gate` | `/checkin` gate: anonymous to `/`, other chapter to `/forbidden`, `gdg-kwansai` allowed | Anonymous, `outsider`, `kwansai` | [access.md](access.md) | In map |
 | `live-checkin-forbidden-signout` | Forbidden page and its **ログアウト** | `outsider` | [access.md](access.md) | In map |
-| `live-checkin-settings` | Blocking settings modal when events cannot be fetched, **再読み込み** | `kwansai` | [checkin.md](checkin.md) | In map |
+| `live-checkin-settings` | First-run settings modal when events cannot be fetched: failure reason, **再読み込み**, and closing it | `kwansai` | [checkin.md](checkin.md) | In map |
 | `live-checkin-scanner-shell` | Scanner screen with a stored event: idle overlay, reopen and close settings, expected-count progress, event link | `kwansai` | [checkin.md](checkin.md) | In map |
 | `live-checkin-api-proxy` | `/api/events` and `/api/checkin` auth gate and unreachable-upstream error | Anonymous, `outsider`, `kwansai` (HTTP) | [checkin.md](checkin.md) | In map |
 | `live-checkin-event-select` | Choosing an event from the connpass list and **保存** | `kwansai` | none | Outside: the list comes from connpass (`/api/groups/gdgkwansai/events`), which is unreachable by design; **保存** stays disabled without a listed event |
