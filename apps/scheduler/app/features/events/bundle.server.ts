@@ -28,7 +28,9 @@ export async function getEventBundle(db: D1Database, id: string): Promise<EventB
         .bind(id),
       db
         .prepare(
-          `SELECT ${PARTICIPANT_COLS} FROM event_participants WHERE event_id = ? ORDER BY created_at`,
+          `SELECT ${PARTICIPANT_COLS} FROM event_participants
+           WHERE event_id = ? AND deleted_at IS NULL
+           ORDER BY created_at, id`,
         )
         .bind(id),
       db
@@ -36,7 +38,7 @@ export async function getEventBundle(db: D1Database, id: string): Promise<EventB
           `SELECT a.participant_id, a.slot_id
            FROM event_availabilities a
            JOIN event_participants p ON p.id = a.participant_id
-           WHERE p.event_id = ?`,
+           WHERE p.event_id = ? AND p.deleted_at IS NULL`,
         )
         .bind(id),
     ]);

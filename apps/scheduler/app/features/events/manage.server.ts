@@ -1,4 +1,4 @@
-import { redirect } from "react-router";
+import { data, redirect } from "react-router";
 import { getOptionalUser, requireUser } from "../auth/auth-redirect.server";
 import { deriveDayRanges } from "../scheduling/slots";
 import { getEventBundle } from "./bundle.server";
@@ -14,7 +14,7 @@ export async function createEvent(env: Env, request: Request) {
   const form = await request.formData();
   const parsed = parseEventForm(form);
   if (!parsed.ok) {
-    return new Response(parsed.errors.join("\n"), { status: 400 });
+    return data({ errors: parsed.errors }, { status: 400 });
   }
   const user = await getOptionalUser(env, request);
   const { event } = await createEventWithSlots(env.DB, {
@@ -46,7 +46,7 @@ export async function editEvent(env: Env, request: Request, eventId: string) {
   const form = await request.formData();
   const parsed = parseEventForm(form);
   if (!parsed.ok) {
-    return new Response(parsed.errors.join("\n"), { status: 400 });
+    return data({ errors: parsed.errors }, { status: 400 });
   }
   const result = await updateEventForOwner(env.DB, eventId, user.id, {
     title: parsed.value.title,

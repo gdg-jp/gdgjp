@@ -31,7 +31,7 @@ CREATE TABLE event_participants (
   edit_token_hash TEXT,
   created_at      INTEGER NOT NULL DEFAULT (unixepoch()),
   updated_at      INTEGER NOT NULL DEFAULT (unixepoch())
-);
+, deleted_at INTEGER);
 CREATE INDEX event_participants_event_id_idx ON event_participants (event_id);
 CREATE UNIQUE INDEX event_participants_user_unique
   ON event_participants (event_id, user_id) WHERE user_id IS NOT NULL;

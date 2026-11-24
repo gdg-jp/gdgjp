@@ -68,7 +68,8 @@ export async function listEventsForUser(
     .prepare(
       `SELECT e.id, e.title, e.description, e.slot_minutes, e.owner_user_id, e.created_at, e.updated_at, e.deleted_at,
               (SELECT COUNT(*) FROM event_slots s WHERE s.event_id = e.id) AS slot_count,
-              (SELECT COUNT(*) FROM event_participants p WHERE p.event_id = e.id) AS participant_count
+              (SELECT COUNT(*) FROM event_participants p
+               WHERE p.event_id = e.id AND p.deleted_at IS NULL) AS participant_count
        FROM events e
        WHERE e.owner_user_id = ? AND e.deleted_at IS NULL
        ORDER BY e.created_at DESC`,

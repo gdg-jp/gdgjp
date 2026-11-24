@@ -107,7 +107,7 @@ function InteractiveGrid({
             const count = totals.get(slot.id) ?? 0;
             const isChecked = selected.has(slot.id);
             return (
-              <label key={key} className="block cursor-pointer">
+              <label key={key} className="relative block cursor-pointer">
                 <input
                   type="checkbox"
                   name="slot_id"
