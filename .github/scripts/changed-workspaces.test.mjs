@@ -317,13 +317,13 @@ test("CI runner and pstack edits select their own regression coverage", async ()
   }
 });
 
-test("staged unit tests skip workspaces without a test script", async () => {
+test("staged unit tests run the test script of each changed workspace", async () => {
   const { changedSteps } = await import("../../scripts/run-ci.mjs");
   const names = changedSteps("staged", [
     "apps/live-checkin/app/page.tsx",
     "apps/wiki/app/root.tsx",
   ]).map(([step]) => step);
-  assert.ok(!names.includes("test:@gdgjp/live-checkin"));
+  assert.ok(names.includes("test:@gdgjp/live-checkin"));
   assert.ok(names.includes("test:@gdgjp/wiki"));
 });
 
