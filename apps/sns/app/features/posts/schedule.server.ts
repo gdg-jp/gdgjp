@@ -150,6 +150,13 @@ export async function submitSchedule(request: Request, env: Env) {
           { error: "画像は4枚まで、1枚5MB以下の画像ファイルを指定してください。" },
           { status: 400 },
         );
+      if (error.code === "tag_handle_not_found")
+        return data(
+          {
+            error: "タグ付けする X ユーザーが見つかりませんでした。ユーザー名を確認してください。",
+          },
+          { status: 400 },
+        );
       if (
         error.code === "invalid_text" ||
         error.code === "invalid_schedule" ||

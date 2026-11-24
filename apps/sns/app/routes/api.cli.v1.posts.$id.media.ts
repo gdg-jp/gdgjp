@@ -1,6 +1,11 @@
 import { requireCliSnsAccess } from "~/features/auth/cli-access.server";
 import { cliAccessErrorAsNotFound, postDraftErrorResponse } from "~/features/cli-api/errors.server";
-import { cliError, cliJson, cliMethodNotAllowed } from "~/features/cli-api/http.server";
+import {
+  cliError,
+  cliJson,
+  cliMethodNotAllowed,
+  parseNonNegativeIntField,
+} from "~/features/cli-api/http.server";
 import { postDraftDepsFromEnv } from "~/features/posts/post-draft.deps.server";
 import { PostDraftError, attachMedia } from "~/features/posts/post-draft.service.server";
 import { getPost } from "~/features/posts/post.repository.server";
@@ -31,8 +36,8 @@ export async function action(args: Route.ActionArgs) {
   const file = form.get("file");
   if (!(file instanceof File) || file.size === 0) return cliError("invalid_request", 400);
 
-  const sortOrder = Number(form.get("sortOrder"));
-  if (!Number.isInteger(sortOrder) || sortOrder < 0) return cliError("invalid_request", 400);
+  const sortOrder = parseNonNegativeIntField(form.get("sortOrder"));
+  if (sortOrder === null) return cliError("invalid_request", 400);
 
   const altTextRaw = form.get("altText");
   const altText = typeof altTextRaw === "string" ? altTextRaw : undefined;

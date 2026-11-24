@@ -5,6 +5,7 @@ const accountsPort = process.env.CI ? 6173 : 5173;
 
 export default defineConfig({
   testDir: "./e2e",
+  globalSetup: "./e2e/global-setup.ts",
   forbidOnly: !!process.env.CI,
   workers: 1,
   use: { baseURL: `http://localhost:${port}`, trace: "retain-on-failure" },

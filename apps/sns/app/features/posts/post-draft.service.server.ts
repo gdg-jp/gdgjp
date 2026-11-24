@@ -15,14 +15,15 @@ import {
   isValidScheduledAt,
   normalizeTagHandles,
   recomputeDraftStatus,
+  validateMediaSortOrder,
   validateNewMedia,
 } from "./post-policy";
 import {
   deletePostRow,
   getPost,
-  insertPost,
-  replacePostMediaTags,
-  updatePostFields,
+  insertPostStatement,
+  replacePostMediaTagsStatements,
+  updatePostFieldsStatement,
   updatePostStatus,
 } from "./post.repository.server";
 import type {
@@ -44,6 +45,9 @@ export type PostDraftErrorCode =
   | "too_many_images"
   | "image_too_large"
   | "not_image"
+  | "invalid_sort_order"
+  | "sort_order_taken"
+  | "tag_handle_not_found"
   | "media_storage_cleanup_failed";
 
 export class PostDraftError extends Error {
@@ -89,14 +93,21 @@ async function assertActiveChapterAccount(
 async function resolveTags(
   deps: PostDraftDependencies,
   xAccountId: string,
-  handles: string[],
-): Promise<{ xUserId: string; username: string }[]> {
-  const resolved: { xUserId: string; username: string }[] = [];
+  handles: string[] | undefined,
+): Promise<{ xUserId: string; username: string }[] | null> {
+  if (handles === undefined) return null;
+  const resolved = new Map<string, { xUserId: string; username: string }>();
   for (const handle of normalizeTagHandles(handles)) {
-    const user = await deps.resolveTagHandle(xAccountId, handle);
-    resolved.push({ xUserId: user.id, username: user.username });
+    const user = await deps.resolveTagHandle(xAccountId, handle).catch((error: unknown) => {
+      throw new PostDraftError(
+        "tag_handle_not_found",
+        error instanceof Error ? error.message : `X user ${handle} was not found`,
+      );
+    });
+    if (!resolved.has(user.id))
+      resolved.set(user.id, { xUserId: user.id, username: user.username });
   }
-  return resolved;
+  return [...resolved.values()];
 }
 
 async function reconcileStatusForMediaCount(
@@ -123,30 +134,26 @@ export async function createDraft(
   if (!isValidScheduledAt(input.scheduledAt)) throw new PostDraftError("invalid_schedule");
   if (!isValidCondition(input.condition)) throw new PostDraftError("invalid_condition");
   await assertActiveChapterAccount(deps, input.chapterId, input.xAccountId);
+  const tags = await resolveTags(deps, input.xAccountId, input.tagHandles);
 
   const id = crypto.randomUUID();
   const now = nowIso();
   const linkPreview = await derivePreview(deps, input.text);
-  await insertPost(deps.db, {
-    id,
-    chapterId: input.chapterId,
-    xAccountId: input.xAccountId,
-    text: input.text,
-    scheduledAt: input.scheduledAt,
-    condition: input.condition,
-    status: recomputeDraftStatus(input.condition, 0),
-    createdByUserId: input.createdByUserId,
-    linkPreview,
-    now,
-  });
-
-  if (input.tagHandles !== undefined) {
-    await replacePostMediaTags(
-      deps.db,
+  await deps.db.batch([
+    insertPostStatement(deps.db, {
       id,
-      await resolveTags(deps, input.xAccountId, input.tagHandles),
-    );
-  }
+      chapterId: input.chapterId,
+      xAccountId: input.xAccountId,
+      text: input.text,
+      scheduledAt: input.scheduledAt,
+      condition: input.condition,
+      status: recomputeDraftStatus(input.condition, 0),
+      createdByUserId: input.createdByUserId,
+      linkPreview,
+      now,
+    }),
+    ...(tags ? replacePostMediaTagsStatements(deps.db, id, tags) : []),
+  ]);
   return reloadPost(deps, id);
 }
 
@@ -168,6 +175,7 @@ export async function updateDraft(
   if (!isValidScheduledAt(scheduledAt)) throw new PostDraftError("invalid_schedule");
   if (!isValidCondition(condition)) throw new PostDraftError("invalid_condition");
   await assertActiveChapterAccount(deps, existing.chapterId, xAccountId);
+  const tags = await resolveTags(deps, xAccountId, patch.tagHandles);
 
   const mediaCount = (await listMediaForPost(deps.db, id)).length;
   const linkPreview =
@@ -180,19 +188,18 @@ export async function updateDraft(
         }
       : await derivePreview(deps, text);
 
-  await updatePostFields(deps.db, id, {
-    xAccountId,
-    text,
-    scheduledAt,
-    condition,
-    status: recomputeDraftStatus(condition, mediaCount),
-    linkPreview,
-    now: nowIso(),
-  });
-
-  if (patch.tagHandles !== undefined) {
-    await replacePostMediaTags(deps.db, id, await resolveTags(deps, xAccountId, patch.tagHandles));
-  }
+  await deps.db.batch([
+    updatePostFieldsStatement(deps.db, id, {
+      xAccountId,
+      text,
+      scheduledAt,
+      condition,
+      status: recomputeDraftStatus(condition, mediaCount),
+      linkPreview,
+      now: nowIso(),
+    }),
+    ...(tags ? replacePostMediaTagsStatements(deps.db, id, tags) : []),
+  ]);
   return reloadPost(deps, id);
 }
 
@@ -230,9 +237,14 @@ export async function attachMedia(
   if (!isEditableStatus(post.status)) throw new PostDraftError("not_editable");
 
   const existing = await listMediaForPost(deps.db, postId);
-  const invalid = validateNewMedia(existing.length, [
-    { size: file.bytes.byteLength, contentType: file.contentType },
-  ]);
+  const invalid =
+    validateNewMedia(existing.length, [
+      { size: file.bytes.byteLength, contentType: file.contentType },
+    ]) ??
+    validateMediaSortOrder(
+      existing.map((media) => media.sortOrder),
+      file.sortOrder,
+    );
   if (invalid) throw new PostDraftError(invalid);
 
   const r2Key = `${post.chapterId}/${post.id}/${crypto.randomUUID()}`;

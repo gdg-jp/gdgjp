@@ -1,13 +1,15 @@
-import { isSuperAdmin } from "@gdgjp/gdg-lib";
+import { ClaimsUnavailableError, isSuperAdmin } from "@gdgjp/gdg-lib";
 import { requireSnsAccess } from "~/features/auth/access.server";
 import { getAuth } from "~/features/auth/auth.server";
 import { canAdministerContributors } from "~/features/contributors/contributor-policy";
+import type {
+  ContributorCandidate,
+  ContributorCandidateSearch,
+} from "~/features/contributors/contributor.types";
 
-type UserRow = {
-  email: string;
-  name: string;
-  image: string | null;
-};
+function candidateResponse(search: ContributorCandidateSearch, status = 200): Response {
+  return Response.json(search, { status });
+}
 
 export async function searchContributorCandidates(request: Request, env: Env) {
   const access = await requireSnsAccess(env, request);
@@ -20,45 +22,62 @@ export async function searchContributorCandidates(request: Request, env: Env) {
     throw new Response("Forbidden", { status: 403 });
 
   const query = new URL(request.url).searchParams.get("q")?.trim().slice(0, 120) ?? "";
-  if (!query) return Response.json({ candidates: [] });
+  if (!query) return candidateResponse({ candidates: [], error: null });
 
-  const [accessToken, contributorRows] = await Promise.all([
-    getAuth(env).getAccessToken(request),
-    env.DB.prepare("SELECT user_email FROM sns_contributors WHERE chapter_id = ?")
-      .bind(access.chapter.chapterId)
-      .all<{ user_email: string }>(),
-  ]);
-  const url = new URL("/api/users/search", env.ACCOUNTS_URL);
-  url.searchParams.set("q", query);
-  const response = await env.ACCOUNTS.fetch(url.toString(), {
-    headers: { Authorization: `Bearer ${accessToken}` },
-  });
-  if (!response.ok) {
-    console.error("Accounts user search failed", response.status);
-    throw new Response("Unable to search Accounts users", { status: 502 });
+  let accessToken: string;
+  try {
+    accessToken = await getAuth(env).getAccessToken(request);
+  } catch (error) {
+    if (error instanceof ClaimsUnavailableError)
+      return candidateResponse({ candidates: [], error: "accounts_sign_in_required" }, 401);
+    throw error;
   }
-  const payload: unknown = await response.json();
-  const users = parseUsers(payload);
+  const users = await searchAccountsUsers(env, accessToken, query);
+  if (!users) return candidateResponse({ candidates: [], error: "accounts_search_failed" }, 502);
+  const contributorRows = await env.DB.prepare(
+    "SELECT user_email FROM sns_contributors WHERE chapter_id = ?",
+  )
+    .bind(access.chapter.chapterId)
+    .all<{ user_email: string }>();
   const contributors = new Set(contributorRows.results.map((row) => row.user_email.toLowerCase()));
 
-  return Response.json({
-    candidates: users
-      .filter((user) => !contributors.has(user.email.toLowerCase()))
-      .map((user) => ({
-        email: user.email,
-        name: user.name,
-        image: user.image,
-      })),
+  return candidateResponse({
+    candidates: users.filter((user) => !contributors.has(user.email.toLowerCase())),
+    error: null,
   });
 }
 
-function parseUsers(payload: unknown): UserRow[] {
+async function searchAccountsUsers(
+  env: Env,
+  accessToken: string,
+  query: string,
+): Promise<ContributorCandidate[] | null> {
+  const url = new URL("/api/users/search", env.ACCOUNTS_URL);
+  url.searchParams.set("q", query);
+  try {
+    const response = await env.ACCOUNTS.fetch(url.toString(), {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+    if (!response.ok) {
+      console.error("Accounts user search failed", response.status);
+      return null;
+    }
+    const users = parseUsers(await response.json());
+    if (!users) console.error("Accounts user search returned an invalid response");
+    return users;
+  } catch (error) {
+    console.error("Accounts user search failed", error);
+    return null;
+  }
+}
+
+function parseUsers(payload: unknown): ContributorCandidate[] | null {
   if (
     !payload ||
     typeof payload !== "object" ||
     !Array.isArray((payload as { users?: unknown }).users)
   ) {
-    throw new Response("Invalid Accounts user search response", { status: 502 });
+    return null;
   }
   return (payload as { users: unknown[] }).users.flatMap((user) => {
     if (!user || typeof user !== "object") return [];

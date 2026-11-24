@@ -86,6 +86,10 @@ export function parsePositiveIntParam(raw: string | null): number | null {
   return Number.isInteger(value) && value > 0 ? value : null;
 }
 
+export function parseNonNegativeIntField(raw: FormDataEntryValue | null): number | null {
+  return typeof raw === "string" && /^\d+$/.test(raw) ? Number(raw) : null;
+}
+
 export function parseLimitParam(raw: string | null, fallback = 50): number | null {
   if (raw === null || raw === "") return fallback;
   const value = Number(raw);

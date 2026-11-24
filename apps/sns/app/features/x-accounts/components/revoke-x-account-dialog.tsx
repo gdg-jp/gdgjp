@@ -1,12 +1,14 @@
 import { AlertDialog as AlertDialogPrimitive } from "radix-ui";
 import { useState } from "react";
-import { Form } from "react-router";
+import { Form, useNavigation } from "react-router";
 
 export function RevokeXAccountDialog({
   accountId,
   xUserId,
 }: { accountId: string; xUserId: string }) {
   const [confirmation, setConfirmation] = useState("");
+  const navigation = useNavigation();
+  const submitting = navigation.state !== "idle" && navigation.formData?.get("id") === accountId;
   const confirmed = confirmation === xUserId;
 
   return (
@@ -30,7 +32,6 @@ export function RevokeXAccountDialog({
           <Form method="post" action="/settings/x" className="grid gap-4">
             <input type="hidden" name="id" value={accountId} />
             <input type="hidden" name="intent" value="revoke" />
-            <input type="hidden" name="xUserId" value={confirmation} />
             <label
               className="grid gap-1.5 text-sm font-medium"
               htmlFor={`x-account-id-${accountId}`}
@@ -38,6 +39,7 @@ export function RevokeXAccountDialog({
               X Account ID
               <input
                 id={`x-account-id-${accountId}`}
+                name="xUserId"
                 value={confirmation}
                 onChange={(event) => setConfirmation(event.target.value)}
                 autoComplete="off"
@@ -53,15 +55,13 @@ export function RevokeXAccountDialog({
                   キャンセル
                 </button>
               </AlertDialogPrimitive.Cancel>
-              <AlertDialogPrimitive.Action asChild>
-                <button
-                  type="submit"
-                  disabled={!confirmed}
-                  className="rounded-full bg-destructive px-5 py-2 font-bold text-destructive-foreground hover:bg-destructive/90 disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  削除する
-                </button>
-              </AlertDialogPrimitive.Action>
+              <button
+                type="submit"
+                disabled={!confirmed || submitting}
+                className="rounded-full bg-destructive px-5 py-2 font-bold text-destructive-foreground hover:bg-destructive/90 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                削除する
+              </button>
             </div>
           </Form>
         </AlertDialogPrimitive.Content>
