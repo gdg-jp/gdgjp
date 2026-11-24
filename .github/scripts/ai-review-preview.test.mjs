@@ -173,21 +173,15 @@ test("readyInfo accepts only a loopback URL and plain storage state names", () =
 });
 
 test("runCommand stops a command that writes more than its output limit", async () => {
+  const sh = (script, options) => runCommand("sh", ["-c", script], options);
+  await assert.rejects(sh("printf 'x%.0s' $(seq 4096)", { maxOutput: 1024 }), /wrote too much/);
   await assert.rejects(
-    runCommand(process.execPath, ["-e", "process.stdout.write('x'.repeat(4096))"], {
-      maxOutput: 1024,
+    sh("for i in 1 2 3 4 5 6 7 8; do printf 'あ%.0s' $(seq 100); sleep 0.01; done", {
+      maxOutput: 2000,
     }),
     /wrote too much/,
   );
-  await assert.rejects(
-    runCommand(
-      process.execPath,
-      ["-e", "for (let i = 0; i < 8; i++) process.stdout.write('あ'.repeat(100))"],
-      { maxOutput: 2000 },
-    ),
-    /wrote too much/,
-  );
-  const { stdout } = await runCommand(process.execPath, ["-e", "process.stdout.write('ok')"]);
+  const { stdout } = await sh("printf ok");
   assert.equal(stdout, "ok");
 });
 
@@ -319,10 +313,13 @@ test("registryLockfile accepts only npm registry resolutions in pnpm's plain for
     "    x: &a {tarball: http://169.254.169.254/}",
     "    x: !!map {tarball: http://169.254.169.254/}",
     "---",
+    "    deprecated: |-\n      text\r    resolution: {tarball: http://169.254.169.254/}",
+    "    deprecated: |-\n      text\u0085    resolution: {tarball: http://169.254.169.254/}",
+    "    deprecated: |-\n      text\u2028    resolution: {tarball: http://169.254.169.254/}",
   ]) {
     assert.throws(
       () => registryLockfile(`${ok}  '@c/d@1.0.0':\n${lines}\n`),
-      /outside the npm registry|pnpm's plain format/,
+      /outside the npm registry|pnpm's plain format|line break other than LF/,
       lines,
     );
   }

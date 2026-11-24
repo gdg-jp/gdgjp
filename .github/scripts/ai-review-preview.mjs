@@ -230,6 +230,18 @@ function blockScalar(value) {
 }
 
 export function registryLockfile(text) {
+  for (const character of text) {
+    const code = character.codePointAt(0);
+    if (
+      (code < 0x20 && code !== 0x0a) ||
+      (code >= 0x7f && code <= 0x9f) ||
+      code === 0x2028 ||
+      code === 0x2029 ||
+      code === 0xfeff
+    ) {
+      throw new Error("the lockfile has a line break other than LF or a control character");
+    }
+  }
   let block = null;
   const lines = text.split("\n");
   for (const [index, line] of lines.entries()) {
