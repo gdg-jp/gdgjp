@@ -101,6 +101,9 @@ it("captures failure before destroying the session and rethrows for queue retry"
     "failure.png",
   );
   expect(browser.captureFailureArtifact.mock.invocationCallOrder[0]).toBeLessThan(
+    repository.markJobFailed.mock.invocationCallOrder[0],
+  );
+  expect(repository.markJobFailed.mock.invocationCallOrder[0]).toBeLessThan(
     session.destroy.mock.invocationCallOrder[0],
   );
   expect(session.release).not.toHaveBeenCalled();
