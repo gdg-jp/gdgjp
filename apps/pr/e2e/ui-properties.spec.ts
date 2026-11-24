@@ -154,11 +154,11 @@ const property = (browser: Browser): UiProperty<PrWorld> => ({
       input: () => ({ actor: "lead" }),
       run: async (world, input) => {
         const page = world.pages[input.actor];
+        const approve = page.getByRole("button", { name: "承認", exact: true });
+        if ((await approve.count()) === 0) return;
         const seen = world.model.seen[input.actor] ?? 0;
         const expected = predictDraftApproval(world.model, input.actor, seen);
-        await submitted(world, page, () =>
-          world.ui.click(page.getByRole("button", { name: "承認", exact: true })),
-        );
+        await submitted(world, page, () => world.ui.click(approve));
         if (expected) await targetId(world, 1);
         world.model.seen[input.actor] = current(world.model);
       },
@@ -193,7 +193,9 @@ const property = (browser: Browser): UiProperty<PrWorld> => ({
           for (const chapter of CHAPTERS)
             if (onDraft(world, actor) && (await reserveButton(world.pages[actor], chapter).count()))
               options.push({ actor, chapter });
-        return random.pick(options);
+        return options.length
+          ? random.pick(options)
+          : { actor: random.pick(ACTOR_NAMES), chapter: random.pick(CHAPTERS) };
       },
       run: async (world, input) => {
         const page = world.pages[input.actor];
