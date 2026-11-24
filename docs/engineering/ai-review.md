@@ -39,6 +39,40 @@ no event for reactions, so a scheduled run picks them up within about ten minute
 | error, "Codex is not signed in" | Run the AI login workflow. |
 | error, "Codex agent failed" | Read the linked run; comment `/ai-review` or re-add the label to retry. |
 
+## Checking the app in a browser
+
+When a pull request changes files under one of the apps that has a Playwright E2E suite
+(`accounts`, `tinyurl`, `wiki`, `img`, `scheduler`, `sns`, `pay`, `ost`, `roster`, `mc`,
+`screen`, `deck`, `roulette`, `pr`, `meet`), GDG-chan starts that app from the pull request
+head before it reviews or verifies, and Codex can open it in a headless browser. If several
+apps changed, it picks the one with the most changed files. The review footer says
+"apps/X をブラウザで確認", or that the preview could not start; then the review is from the
+code only.
+
+The preview is the same disposable stack as `pnpm test:e2e --workspace @gdgjp/X`: the
+app and Accounts on their CI ports, freshly migrated local databases, the E2E global setup's
+fixtures, and deterministic test credentials. It never holds staging or production data.
+Codex signs in the way that app's E2E specs do, through `/dev/login` or the storage states
+the global setup writes (Wiki's `admin`, `author`, and `member`). Starting it adds about two
+minutes per pull request, more when Accounts must also be built.
+
+[`ai-review-preview.mjs`](../../.github/scripts/ai-review-preview.mjs) runs it in two
+containers on the agent runner:
+
+- The **app container** (`mcr.microsoft.com/playwright`, pinned by digest) receives a
+  `git archive` of the head and the pinned submodule commits, and installs dependencies with
+  network access. It then leaves the Docker network, so only loopback remains, and runs
+  the app's Playwright config with a test that holds the servers open. It gets no secret,
+  no environment variable from the runner, and no host directory.
+- The **browser container** (`mcr.microsoft.com/playwright/mcp`, pinned by digest) is the
+  Codex `browser` MCP server. It joins the app container's network namespace, so
+  `localhost` is the preview and nothing else is reachable, and it mounts the storage states
+  read-only. `file://` URLs, arbitrary Playwright code, and file uploads are disabled.
+
+Codex itself still runs in the read-only sandbox without network; it reaches the browser
+only through MCP tool calls, which Codex starts outside the sandbox. The sandbox check also
+confirms that the sandbox cannot connect to the Docker socket.
+
 GDG-chan gates only pull requests into `main`, the branch the ruleset protects. Pull
 requests into other branches get no status and no review. Fork pull requests do not get
 GDG-chan reviews; a bypass actor merges them after a human review.
@@ -94,7 +128,8 @@ organization's GitHub Apps.
   filesystem, denies the Codex home that holds the login, and allows no writes. Before
   each run, `codex-review.mjs sandbox-check` confirms through `codex sandbox` that the
   sandbox can read the checkout but cannot read `auth.json`, the agent's `/proc` environment,
-  or write, and the job stops otherwise. The workflow posts only the JSON that Codex returns,
+  reach the Docker daemon, or write, and the job stops otherwise. The pull request's own code
+  runs only in the preview containers described above. The workflow posts only the JSON that Codex returns,
   after redacting the login's values and every issued GDG-chan token and neutralizing
   `<!--`.
 - The status must come from the GDG-chan app (the ruleset pins the app as the check's
@@ -143,5 +178,7 @@ pull request is waiting on GDG-chan.
 - [`ai-login.yml`](../../.github/workflows/ai-login.yml): the device-code sign-in.
 - [`codex-review.mjs`](../../.github/scripts/codex-review.mjs): gate evaluation, markers,
   prompts, and GitHub writes.
+- [`ai-review-preview.mjs`](../../.github/scripts/ai-review-preview.mjs): the app preview and
+  the browser MCP server.
 - [`codex-auth.mjs`](../../.github/scripts/codex-auth.mjs): login encryption, restore,
   refresh storage, redaction, and GDG-chan tokens.
