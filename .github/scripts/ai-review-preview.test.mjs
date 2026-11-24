@@ -14,6 +14,7 @@ import {
   holdConfig,
   holdSpec,
   readyInfo,
+  registryLockfile,
   runCommand,
   selectPreviewApp,
 } from "./ai-review-preview.mjs";
@@ -34,6 +35,9 @@ function fakeDocker({ ready = { baseURL: "http://localhost:6185", states: [] }, 
   const run = async (command, args, options = {}) => {
     calls.push({ command, args, input: options.input });
     const script = args.at(-1);
+    if (command === "git" && args.includes("show")) {
+      return { stdout: "  /a@1.0.0:\n    resolution: {integrity: sha512-AAAA+/==}\n" };
+    }
     if (command === "git") {
       return {
         stdout: args.includes("packages/design-system")
@@ -72,6 +76,16 @@ test("selectPreviewApp picks the previewable app with the most changed files", (
   );
   assert.equal(selectPreviewApp(["apps/website/src/index.ts", "packages/gdg-lib/x.ts"]), null);
   assert.equal(selectPreviewApp([".github/scripts/codex-review.mjs"]), null);
+  assert.equal(
+    selectPreviewApp([
+      ["apps/wiki/app/b.tsx", "apps/wiki/app/a.tsx"],
+      ["apps/wiki/app/d.tsx", "apps/wiki/app/c.tsx"],
+      ["apps/ost/app/x.tsx"],
+      ["apps/ost/app/y.tsx"],
+      ["apps/ost/app/z.tsx"],
+    ]),
+    "ost",
+  );
 });
 
 test("every preview app has a Playwright config and an E2E script that forwards arguments", () => {
@@ -110,15 +124,17 @@ test("the preview runs no PR code until the app container is off the network", a
   const index = (predicate) => dockerCalls.findIndex(predicate);
   const submodules = index((call) => script(call).includes("design-system.git"));
   const pnpm = index((call) => script(call).startsWith("npm install --global"));
-  const fetch = index((call) => script(call).startsWith("pnpm install"));
+  const lockfile = index((call) => script(call).includes("cat > /deps/pnpm-lock.yaml"));
+  const fetch = index((call) => script(call).includes("pnpm fetch"));
   const disconnect = index(
     (call) => call.args.join(" ") === "network disconnect bridge gdg-preview-7",
   );
-  const rebuild = index((call) => script(call).startsWith("pnpm rebuild"));
+  const rebuild = index((call) => script(call).startsWith("pnpm install --offline"));
   const serve = index((call) =>
     script(call).includes("run-isolated-e2e.mjs --workspace @gdgjp/wiki"),
   );
-  assert.ok(submodules >= 0 && submodules < pnpm && pnpm < fetch && fetch < disconnect);
+  assert.ok(submodules >= 0 && submodules < pnpm && pnpm < lockfile && lockfile < fetch);
+  assert.ok(fetch < disconnect);
   assert.ok(disconnect < rebuild && rebuild < serve);
   assert.match(script(dockerCalls[submodules]), /fetch -q --depth 1 .*design-system\.git' a{40}/);
   assert.equal(
@@ -127,12 +143,13 @@ test("the preview runs no PR code until the app container is off the network", a
     "npm must not read the pull request's .npmrc",
   );
   assert.match(script(dockerCalls[pnpm]), new RegExp(`pnpm@${PNPM.replaceAll(".", "\\.")}$`));
-  assert.match(script(dockerCalls[fetch]), /--ignore-scripts --ignore-pnpmfile/);
-  assert.ok(
-    !dockerCalls
-      .slice(0, disconnect)
-      .some((call) => /corepack|pnpm (run|exec|rebuild)/.test(script(call))),
+  assert.equal(dockerCalls[fetch].args[dockerCalls[fetch].args.indexOf("-w") + 1], "/deps");
+  assert.match(
+    script(dockerCalls[fetch]),
+    /^npm_config_userconfig=\/dev\/null pnpm fetch --ignore-pnpmfile --config\.registry=https:\/\/registry\.npmjs\.org\/ /,
   );
+  const online = dockerCalls.slice(0, disconnect).map(script);
+  assert.ok(!online.some((text) => /corepack|\bpnpm (install|run|exec|rebuild)/.test(text)));
 });
 
 test("readyInfo accepts only a loopback URL and plain storage state names", () => {
@@ -143,6 +160,9 @@ test("readyInfo accepts only a loopback URL and plain storage state names", () =
   for (const text of [
     "nope",
     '{"baseURL":"https://evil.example"}',
+    '{"baseURL":"http://localhost:99999"}',
+    '{"baseURL":"http://localhost:0"}',
+    `{"baseURL":"http://localhost:6185","pad":"${"あ".repeat(22000)}"}`,
     '{"baseURL":"http://localhost:6185@evil.example"}',
     '{"baseURL":"http://localhost:6185","states":"a.json"}',
     '{"baseURL":"http://localhost:6185","states":["../auth.json"]}',
@@ -157,6 +177,14 @@ test("runCommand stops a command that writes more than its output limit", async 
     runCommand(process.execPath, ["-e", "process.stdout.write('x'.repeat(4096))"], {
       maxOutput: 1024,
     }),
+    /wrote too much/,
+  );
+  await assert.rejects(
+    runCommand(
+      process.execPath,
+      ["-e", "for (let i = 0; i < 8; i++) process.stdout.write('あ'.repeat(100))"],
+      { maxOutput: 2000 },
+    ),
     /wrote too much/,
   );
   const { stdout } = await runCommand(process.execPath, ["-e", "process.stdout.write('ok')"]);
@@ -262,8 +290,21 @@ test("changedPaths includes deleted files and the old name of renamed files", as
   };
   const repo = new ReviewRepository({ github, repository: "gdg-jp/gdgjp" });
   assert.deepEqual(await repo.changedPaths(7), [
-    "apps/wiki/app/routes/old.tsx",
-    "apps/ost/app/b.tsx",
-    "apps/ost/app/a.tsx",
+    ["apps/wiki/app/routes/old.tsx"],
+    ["apps/ost/app/b.tsx", "apps/ost/app/a.tsx"],
   ]);
+});
+
+test("registryLockfile accepts only npm registry resolutions", () => {
+  const ok = "  /a@1.0.0:\n    resolution: {integrity: sha512-AAAA+/==}\n";
+  assert.equal(registryLockfile(ok), ok);
+  assert.ok(registryLockfile(readFileSync(join(root, "pnpm-lock.yaml"), "utf8")).length > 0);
+  for (const line of [
+    "    resolution: {tarball: http://169.254.169.254/latest}",
+    "    resolution: {integrity: sha512-AA==, tarball: https://evil.example/a.tgz}",
+    "    resolution: {type: git, repo: https://evil.example/a.git, commit: abc}",
+    "    resolution:",
+  ]) {
+    assert.throws(() => registryLockfile(`${ok}${line}\n`), /outside the npm registry/);
+  }
 });

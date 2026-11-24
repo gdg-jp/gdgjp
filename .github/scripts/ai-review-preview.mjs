@@ -20,7 +20,6 @@ export const PREVIEW_APPS = [
   "screen",
   "deck",
   "roulette",
-  "pr",
   "meet",
 ];
 export const SUBMODULES = [
@@ -34,16 +33,21 @@ const MAX_READY = 64 * 1024;
 export const PNPM = /^pnpm@(\d+\.\d+\.\d+)$/.exec(
   JSON.parse(readFileSync(new URL("../../package.json", import.meta.url), "utf8")).packageManager,
 )?.[1];
-const PNPM_FLAGS = "--config.manage-package-manager-versions=false --reporter=silent";
+const REGISTRY = "https://registry.npmjs.org/";
+const STORE = "/pnpm-store";
+const PNPM_FLAGS = `--config.manage-package-manager-versions=false --store-dir=${STORE} --reporter=silent`;
 const READY_TIMEOUT_MS = 25 * 60 * 1000;
 
 export function selectPreviewApp(files) {
   const counts = new Map();
   for (const file of files) {
-    const match = /^apps\/([^/]+)\//.exec(file);
-    if (match && PREVIEW_APPS.includes(match[1])) {
-      counts.set(match[1], (counts.get(match[1]) ?? 0) + 1);
-    }
+    const apps = new Set(
+      [file]
+        .flat()
+        .map((path) => /^apps\/([^/]+)\//.exec(path)?.[1])
+        .filter((app) => PREVIEW_APPS.includes(app)),
+    );
+    for (const app of apps) counts.set(app, (counts.get(app) ?? 0) + 1);
   }
   let best = null;
   for (const [app, count] of counts) {
@@ -115,37 +119,30 @@ export function runCommand(
 ) {
   return new Promise((resolve, reject) => {
     const child = spawn(command, args, { stdio: ["pipe", "pipe", "pipe"] });
-    let stdout = "";
-    let stderr = "";
+    const chunks = { stdout: [], stderr: [] };
+    let bytes = 0;
     let overflow = false;
     const timer = setTimeout(() => child.kill("SIGKILL"), timeoutMs);
-    const collect = (append) => (data) => {
+    const collect = (name) => (data) => {
       if (overflow) return;
-      if (stdout.length + stderr.length + data.length > maxOutput) {
+      bytes += data.length;
+      if (bytes > maxOutput) {
         overflow = true;
         child.kill("SIGKILL");
         return;
       }
-      append(String(data));
+      chunks[name].push(data);
     };
-    child.stdout.on(
-      "data",
-      collect((text) => {
-        stdout += text;
-      }),
-    );
-    child.stderr.on(
-      "data",
-      collect((text) => {
-        stderr += text;
-      }),
-    );
+    child.stdout.on("data", collect("stdout"));
+    child.stderr.on("data", collect("stderr"));
     child.on("error", (error) => {
       clearTimeout(timer);
       reject(error);
     });
     child.on("close", (code, signal) => {
       clearTimeout(timer);
+      const stdout = Buffer.concat(chunks.stdout).toString("utf8");
+      const stderr = Buffer.concat(chunks.stderr).toString("utf8");
       if (overflow) reject(new Error(`${command} ${args.slice(0, 2).join(" ")} wrote too much`));
       else if (code === 0) resolve({ stdout, stderr });
       else {
@@ -164,7 +161,8 @@ export function runCommand(
 }
 
 export function readyInfo(text) {
-  if (text.length > MAX_READY) throw new Error("the preview's ready.json is too large");
+  if (Buffer.byteLength(text, "utf8") > MAX_READY)
+    throw new Error("the preview's ready.json is too large");
   let ready;
   try {
     ready = JSON.parse(text);
@@ -172,10 +170,10 @@ export function readyInfo(text) {
     throw new Error("the preview's ready.json is not JSON");
   }
   const baseURL = ready?.baseURL;
-  if (
-    typeof baseURL !== "string" ||
-    !/^http:\/\/(localhost|127\.0\.0\.1):\d{2,5}\/?$/.test(baseURL)
-  ) {
+  const port = /^http:\/\/(?:localhost|127\.0\.0\.1):(\d{1,5})\/?$/.exec(
+    typeof baseURL === "string" ? baseURL : "",
+  )?.[1];
+  if (!port || Number(port) < 1 || Number(port) > 65535) {
     throw new Error("the preview's base URL is not a loopback http URL");
   }
   const states = ready.states ?? [];
@@ -187,6 +185,18 @@ export function readyInfo(text) {
     throw new Error("the preview's storage states are not a list of file names");
   }
   return { baseURL, states };
+}
+
+export function registryLockfile(text) {
+  const resolutions = text.split("\n").filter((line) => /\bresolution:/.test(line));
+  const allowed = /^\s+resolution: \{integrity: [A-Za-z0-9+/=-]+\}$/;
+  const offending = resolutions.find((line) => !allowed.test(line));
+  if (offending !== undefined) {
+    throw new Error(
+      `the lockfile resolves a package outside the npm registry: ${offending.trim().slice(0, 200)}`,
+    );
+  }
+  return text;
 }
 
 function shellQuote(value) {
@@ -284,8 +294,17 @@ export class Preview {
     await this.exec(`npm install --global --userconfig=/dev/null --silent pnpm@${PNPM}`, {
       cwd: "/",
     });
+    const { stdout: lockfile } = await this.run("git", ["-C", dir, "show", "HEAD:pnpm-lock.yaml"], {
+      maxOutput: 32 * MAX_OUTPUT,
+    });
+    await this.exec("mkdir -p /deps && cat > /deps/pnpm-lock.yaml", {
+      cwd: "/",
+      stdin: true,
+      input: registryLockfile(lockfile),
+    });
     await this.exec(
-      `pnpm install --frozen-lockfile --ignore-scripts --ignore-pnpmfile ${PNPM_FLAGS}`,
+      `npm_config_userconfig=/dev/null pnpm fetch --ignore-pnpmfile --config.registry=${REGISTRY} ${PNPM_FLAGS}`,
+      { cwd: "/deps" },
     );
     await this.exec(
       `mkdir -p apps/${app}/.ai-review-preview && cat > apps/${app}/ai-review-preview.config.ts`,
@@ -299,7 +318,7 @@ export class Preview {
       input: holdSpec(),
     });
     await this.run("docker", ["network", "disconnect", "bridge", this.container]);
-    await this.exec(`pnpm rebuild ${PNPM_FLAGS}`);
+    await this.exec(`pnpm install --offline --frozen-lockfile ${PNPM_FLAGS}`);
     await this.run("docker", [
       "exec",
       "-d",

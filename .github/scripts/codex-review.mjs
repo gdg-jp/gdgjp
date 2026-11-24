@@ -921,7 +921,7 @@ export class ReviewRepository {
 
   async changedPaths(number) {
     const files = await this.github.list(`/repos/${this.repository}/pulls/${number}/files`);
-    return files.flatMap((file) => [file.filename, file.previous_filename].filter(Boolean));
+    return files.map((file) => [file.filename, file.previous_filename].filter(Boolean));
   }
 
   async changedFiles(number) {
