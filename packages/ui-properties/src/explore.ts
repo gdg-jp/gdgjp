@@ -119,11 +119,17 @@ async function use(world: ExploreWorld, input: ControlInput): Promise<void> {
   previous.set(world, input);
   const control = await locate(world.page, input);
   if ((await control.count()) === 0) return;
-  if (!(await control.isVisible())) await control.focus();
-  if (input.kind === "fill") await world.ui.fill(control, input.value ?? "");
-  else if (input.kind === "select" && input.value !== null)
-    await world.ui.select(control, input.value);
-  else await world.ui.click(control);
+  try {
+    if (!(await control.isVisible())) await control.focus();
+    if (input.kind === "fill") await world.ui.fill(control, input.value ?? "");
+    else if (input.kind === "select" && input.value !== null)
+      await world.ui.select(control, input.value);
+    else await world.ui.click(control);
+  } catch (error) {
+    if (error instanceof PropertyViolation) throw error;
+    if ((await control.count().catch(() => 0)) === 0) return;
+    throw error;
+  }
   await world.page.waitForLoadState("domcontentloaded").catch(() => undefined);
   await world.page.waitForLoadState("networkidle", { timeout: 3_000 }).catch(() => undefined);
   await onApp(world);
