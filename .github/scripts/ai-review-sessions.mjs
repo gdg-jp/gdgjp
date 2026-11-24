@@ -113,7 +113,7 @@ export class SessionStore {
     const keep = new Set(numbers.map(Number));
     for (const name of await readdir(this.dir).catch(() => [])) {
       const match = SESSION_FILE.exec(name);
-      if (!match || !keep.has(Number(match[1]))) await rm(join(this.dir, name), { force: true });
+      if (match && !keep.has(Number(match[1]))) await rm(join(this.dir, name), { force: true });
     }
   }
 }

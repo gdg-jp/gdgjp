@@ -71,13 +71,15 @@ test("an unreadable or misplaced session is dropped", async () => {
   }
 });
 
-test("keepOnly drops the sessions of closed pull requests", async () => {
+test("keepOnly drops closed pull requests' sessions but keeps the generation marker", async () => {
   const { root, home, dir } = await scratch();
   try {
     await mkdir(dir, { recursive: true });
-    for (const name of ["pr-1.enc", "pr-2.enc", "other.txt"]) await writeFile(join(dir, name), "x");
-    await new SessionStore({ dir, codexHome: home, secret: SECRET }).keepOnly([2]);
-    assert.deepEqual(await readdir(dir), ["pr-2.enc"]);
+    for (const name of ["pr-1.enc", "pr-2.enc", GENERATION_FILE]) {
+      await writeFile(join(dir, name), "x");
+    }
+    await new SessionStore({ dir, codexHome: home, secret: SECRET }).keepOnly([]);
+    assert.deepEqual(await readdir(dir), [GENERATION_FILE]);
   } finally {
     await rm(root, { recursive: true, force: true });
   }
