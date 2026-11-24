@@ -24,7 +24,7 @@ identity (`mc-anon`, `mc-operator`, `mc-outsider`, `mc-nochapter`) and pin each 
   http://localhost:6187/` must print `302 http://localhost:6187/signin?return_to=%2F`. In the
   `mc-anon` profile, start capture and `goto` `http://localhost:6187/`. Require the network log
   to show `/` 302 then `/signin?return_to=%2F` 302 then `/api/auth/signin?return_to=%2F`.
-  Stop there. Without `--accounts`, `/api/auth/signin` answers 500 because OIDC discovery against `localhost:6173` fails; assert only the `/` 302 and `/signin` 302 hops.
+  Stop there. Without `--accounts`, `/api/auth/signin` answers the 503 page **サインインサービスに接続できませんでした** because OIDC discovery against `localhost:6173` fails; assert only the `/` 302 and `/signin` 302 hops.
   Evidence: sanitized network list (drop `state`, `code_challenge`, `nonce`).
 - Clip writes without a session. `curl -s -X POST -H 'content-type: application/json' -d '{}'
   http://localhost:6187/api/clips` must return 401 `{"error":"unauthorized"}`. Repeat for

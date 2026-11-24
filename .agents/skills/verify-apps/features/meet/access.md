@@ -33,7 +33,7 @@ identity. No seed rows are needed.
   `GET /api/auth/me`; require 200 and body `{"user":null}`. In Orca, `goto http://localhost:6193/`
   and record the final URL with `orca eval "location.href"`: it leaves for `/signin`, then
   `/api/auth/signin`. Without `--accounts` that request fails OIDC discovery through the
-  missing `ACCOUNTS` binding and ends on a server error, not a Meet screen.
+  missing `ACCOUNTS` binding and ends on the 503 page **サインインサービスに接続できませんでした**, not a Meet screen.
 - Chapter gate. `goto /dev/login?as=verify-meet-nochapter&chapter=none&return_to=/`. Require
   URL `/`, heading **GDG Japan Meet**, **まだ会議がありません**, and no link **新しい会議** in
   `orca snapshot --interactive`. `goto /meetings/new`; require the URL to end in `/no-chapter`,

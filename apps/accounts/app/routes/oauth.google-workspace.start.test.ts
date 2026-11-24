@@ -5,24 +5,25 @@ vi.mock("~/features/auth/auth.server", () => ({ getSessionUser: authMock.getSess
 
 import { loader } from "./oauth.google-workspace.start";
 
-function testContext() {
+function testContext(db = fakeDb()) {
   return {
     cloudflare: {
       env: {
         APP_URL: "https://accounts.example",
         GOOGLE_CLIENT_ID: "google-client",
         GOOGLE_CLIENT_SECRET: "google-secret",
-        DB: fakeDb(),
+        DB: db,
       },
     },
   };
 }
 
-function fakeDb() {
+function fakeDb(stored: unknown[][] = []) {
   return {
     prepare(sql: string) {
       const statement = {
-        bind() {
+        bind(...values: unknown[]) {
+          if (sql.includes("INSERT INTO googleWorkspaceOauthState")) stored.push(values);
           return statement;
         },
         async run() {
@@ -67,5 +68,22 @@ describe("Google Workspace connect start", () => {
     expect(location.searchParams.get("prompt")).toBe("consent");
     expect(location.searchParams.get("state")).toBeTruthy();
     expect(location.searchParams.get("code_challenge")).toBeTruthy();
+  });
+
+  it.each([
+    ["/settings/google-workspace?tab=1", "/settings/google-workspace?tab=1"],
+    ["/\t/evil.example", "/dashboard"],
+    ["https://wiki.gdgs.jp/settings", "/dashboard"],
+    ["//evil.example", "/dashboard"],
+  ])("stores the return target %j as %j", async (returnTo, expected) => {
+    authMock.getSessionUser.mockResolvedValueOnce({ id: "user-1", email: "a@b.com" });
+    const stored: unknown[][] = [];
+    const request = new Request(
+      `https://accounts.example/oauth/google-workspace/start?return_to=${encodeURIComponent(returnTo)}`,
+    );
+
+    await loader({ request, context: testContext(fakeDb(stored)) } as never);
+
+    expect(stored.map((values) => values[3])).toEqual([expected]);
   });
 });

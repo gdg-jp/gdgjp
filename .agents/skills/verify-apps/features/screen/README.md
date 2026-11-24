@@ -32,7 +32,7 @@ Any chapter member is an operator; stages are not scoped to a chapter.
 | `/:invite` (`/<stageId>/`) | anyone | language **日本語** / **English**, device menus, **お名前**, **参加**; in the room **送信** chat, **画面を共有**, **ミニ表示**, **退出**, cue **OK** | `リンクが無効です` for an unknown stage; alert `お名前を入力してください`; chips ON AIR (`data-tone` idle/onair) and connection; slot badge; cue alert; `このステージは削除されました`; `PC のブラウザで開いてください` on mobile UA |
 | `/join/:token` | anyone | none | 301 to `/<token>/` |
 | `/out/:stageId/:slot/:kind?t=` | OBS | none (transparent page); `&debug=1` shows a JSON status block | `.sc-out-frame` opacity 0 when nothing is wanted; with a wrong token the socket stays `offline` and `peer` is null |
-| `/signin`, `/api/auth/*`, `/auth/signout`, `/no-chapter`, `/dev/login` | plumbing | none | without Accounts, `/api/auth/signin` answers 500 |
+| `/signin`, `/api/auth/*`, `/auth/signout`, `/no-chapter`, `/dev/login` | plumbing | none | without Accounts, `/api/auth/signin` answers a 503 retry page |
 
 ## Journeys
 

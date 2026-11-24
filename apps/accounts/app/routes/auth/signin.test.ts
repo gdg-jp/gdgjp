@@ -50,4 +50,36 @@ describe("sign-in loader", () => {
 
     expect(response.headers.get("Location")).toBe("/chapters/tokyo");
   });
+
+  it("sends a signed-in visitor to the dashboard instead of another origin", async () => {
+    const response = await redirectFrom(
+      "http://localhost:5173/signin?return_to=%2F%09%2Fevil.example",
+    );
+
+    expect(response.headers.get("Location")).toBe("/dashboard");
+  });
+
+  it("offers only a same-origin return target on the sign-in form", async () => {
+    authMock.getSessionUser.mockResolvedValue(null);
+    const load = (returnTo: string) =>
+      loader({
+        request: new Request(
+          `http://localhost:5173/signin?return_to=${encodeURIComponent(returnTo)}`,
+        ),
+        context: { cloudflare: { env: {} } },
+      } as never);
+
+    expect(await load("/invite/abc?x=1")).toEqual({
+      title: "meta.signin",
+      returnTo: "/invite/abc?x=1",
+    });
+    expect(await load("/\t/evil.example")).toEqual({
+      title: "meta.signin",
+      returnTo: "/dashboard",
+    });
+    expect(await load("http://localhost:5173/chapters")).toEqual({
+      title: "meta.signin",
+      returnTo: "/chapters",
+    });
+  });
 });

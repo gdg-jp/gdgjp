@@ -1,28 +1,11 @@
+import { safeReturnTo } from "@gdgjp/gdg-lib/auth/return-to";
 import { redirect } from "react-router";
 
-export function safeReturnTo(value: string | null | undefined): string | null {
-  if (!value) return null;
-  if (value.startsWith("/") && !value.startsWith("//")) {
-    if (value.includes("\\") || value.includes("\r") || value.includes("\n")) return null;
-    return value;
+export function signedInDestination(url: URL): string {
+  if (url.searchParams.has("client_id")) {
+    return `/api/auth/oauth2/authorize?${url.searchParams.toString()}`;
   }
-  try {
-    const url = new URL(value);
-    if (
-      url.protocol === "https:" &&
-      (url.hostname === "gdgs.jp" || url.hostname.endsWith(".gdgs.jp"))
-    ) {
-      return value;
-    }
-  } catch {}
-  return null;
-}
-
-export function signedInDestination(searchParams: URLSearchParams): string {
-  if (searchParams.has("client_id")) {
-    return `/api/auth/oauth2/authorize?${searchParams.toString()}`;
-  }
-  return safeReturnTo(searchParams.get("return_to")) ?? "/dashboard";
+  return safeReturnTo(url.searchParams.get("return_to"), url.origin) ?? "/dashboard";
 }
 
 export function buildSignInRedirect(request: Request): Response {

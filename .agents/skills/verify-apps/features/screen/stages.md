@@ -18,7 +18,7 @@ hold **名前を変更** and **削除**.
 
 - Gate: start network capture in a fresh profile and `goto http://localhost:6188/`. Require
   `/` 302 to `/signin?return_to=%2F` then `/api/auth/signin`. Without Accounts that request
-  answers 500; record it, it is not a product failure of the gate.
+  answers the 503 page **サインインサービスに接続できませんでした**; record it, it is not a product failure of the gate.
 - Create: open the operator fixture login URL. Click **ステージを作成**, fill **名前**
   `Verify Stage`, focus **ID**, clear it, `type` `VERIFY-STAGE`. Require the field to read
   `verify-stage`. Click **作成**, `wait --url /stages/verify-stage`, snapshot: **ON AIR**,

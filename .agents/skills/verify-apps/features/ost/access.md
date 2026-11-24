@@ -29,6 +29,6 @@ Organizers open `/`. Participants open `/<slug>` from a QR code.
 
 ## Gotchas
 
-Without Accounts the sign-in redirect ends at `/api/auth/signin` with HTTP 500. The
+Without Accounts the sign-in redirect ends at `/api/auth/signin` with the 503 page **サインインサービスに接続できませんでした**. The
 `outsider` probe text is the chapter slug in loader data, because the dashboard renders on
 the client.
