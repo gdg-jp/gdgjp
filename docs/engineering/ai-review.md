@@ -130,7 +130,11 @@ replaced and that earlier instructions no longer apply.
 
 After each run the agent job uploads every open pull request's session as the
 `codex-sessions` artifact (30-day retention, two newest kept), and the next run restores the
-newest one uploaded by `ai-review.yml` on `main`, as with the login. A session file holds
+newest one uploaded by a `workflow_dispatch` or `schedule` run of `ai-review.yml` on `main`.
+The artifact always holds `generation.json`, so a run that drops the last session still
+replaces the previous bundle. When the restore fails, the run neither uploads nor prunes,
+so the stored sessions of other pull requests survive. Failing to save a session only logs
+a warning; the review is posted anyway. A session file holds
 the prompts, tool output, and the ChatGPT account's identifiers, so each one is sealed with
 AES-256-GCM under a key derived from `AI_REVIEW_SIGNING_KEY` and bound to its pull request
 number. A pull request starts a new session when it has none, when `CODEX_REVIEW_MODEL`

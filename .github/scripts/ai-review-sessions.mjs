@@ -1,6 +1,6 @@
 import { execFile } from "node:child_process";
 import { createCipheriv, createDecipheriv, hkdfSync, randomBytes } from "node:crypto";
-import { mkdir, mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
+import { appendFile, mkdir, mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { pathToFileURL } from "node:url";
@@ -118,27 +118,36 @@ export class SessionStore {
   }
 }
 
-async function restore({ github, dir }) {
+export const SESSION_SOURCES = {
+  branches: ["main"],
+  workflows: [".github/workflows/ai-review.yml"],
+  events: ["workflow_dispatch", "schedule"],
+};
+export const GENERATION_FILE = "generation.json";
+
+export async function restore({ github, dir }) {
+  await rm(dir, { recursive: true, force: true });
   await mkdir(dir, { recursive: true });
-  const artifact = await github.latestArtifact(SESSIONS_ARTIFACT);
-  if (!artifact) {
-    console.log("No saved Codex sessions; every pull request starts a new one.");
-    return;
-  }
-  const scratch = await mkdtemp(join(tmpdir(), "codex-sessions-"));
-  try {
-    const zip = join(scratch, "artifact.zip");
-    await writeFile(zip, await github.download(artifact));
-    await promisify(execFile)("unzip", ["-o", "-q", zip, "pr-*.enc", "-d", dir]);
+  const [artifact] = await github.artifacts(SESSIONS_ARTIFACT, SESSION_SOURCES);
+  if (artifact) {
+    const scratch = await mkdtemp(join(tmpdir(), "codex-sessions-"));
+    try {
+      const zip = join(scratch, "artifact.zip");
+      await writeFile(zip, await github.download(artifact));
+      await promisify(execFile)("unzip", ["-o", "-q", zip, "-d", dir]);
+    } finally {
+      await rm(scratch, { recursive: true, force: true });
+    }
     console.log(`Restored the Codex sessions saved at ${artifact.created_at}.`);
-  } finally {
-    await rm(scratch, { recursive: true, force: true });
+  } else {
+    console.log("No saved Codex sessions; every pull request starts a new one.");
   }
+  await writeFile(join(dir, GENERATION_FILE), JSON.stringify({ from: artifact?.id ?? null }));
 }
 
 async function prune({ github }) {
   const repository = process.env.GITHUB_REPOSITORY;
-  const artifacts = await github.artifacts(SESSIONS_ARTIFACT);
+  const artifacts = await github.artifacts(SESSIONS_ARTIFACT, SESSION_SOURCES);
   for (const artifact of artifacts.slice(KEPT_ARTIFACTS)) {
     await github.request(`/repos/${repository}/actions/artifacts/${artifact.id}`, {
       method: "DELETE",
@@ -150,10 +159,15 @@ async function main() {
   const [command, dir] = process.argv.slice(2);
   const github = new GitHubClient({ token: process.env.GITHUB_TOKEN });
   try {
-    if (command === "restore") return await restore({ github, dir });
+    if (command === "restore") {
+      await restore({ github, dir });
+      if (process.env.GITHUB_OUTPUT) await appendFile(process.env.GITHUB_OUTPUT, "restored=true\n");
+      return;
+    }
     if (command === "prune") return await prune({ github });
   } catch (error) {
     console.log(`::warning::Codex sessions: ${command} failed: ${error.message}`);
+    if (command === "restore") await rm(dir, { recursive: true, force: true });
     return;
   }
   throw new Error("Usage: node .github/scripts/ai-review-sessions.mjs restore DIR | prune");

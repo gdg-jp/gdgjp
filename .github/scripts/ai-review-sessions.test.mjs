@@ -1,9 +1,19 @@
 import assert from "node:assert/strict";
+import { execFile } from "node:child_process";
 import { chmod, mkdir, mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
-import { SessionStore, openSession, rollouts, sealSession } from "./ai-review-sessions.mjs";
+import { promisify } from "node:util";
+import {
+  GENERATION_FILE,
+  SESSION_SOURCES,
+  SessionStore,
+  openSession,
+  restore,
+  rollouts,
+  sealSession,
+} from "./ai-review-sessions.mjs";
 import { CodexRunner, RESUMED_NOTE, codexArgs } from "./codex-review.mjs";
 
 const SECRET = "s".repeat(40);
@@ -168,5 +178,71 @@ test("a session that cannot be resumed is replaced by a new one", async () => {
       [null, first.id, null],
     );
     assert.equal(await sessions.load(7, "m"), second.id);
+  });
+});
+
+test("restore marks an empty generation and reads only ai-review runs on main", async () => {
+  const { root, dir } = await scratch();
+  try {
+    const asked = [];
+    const github = {
+      artifacts: async (name, trust) => {
+        asked.push([name, trust]);
+        return [];
+      },
+    };
+    await mkdir(dir, { recursive: true });
+    await writeFile(join(dir, "pr-9.enc"), "stale");
+    await restore({ github, dir });
+    assert.deepEqual(asked, [["codex-sessions", SESSION_SOURCES]]);
+    assert.deepEqual(SESSION_SOURCES.workflows, [".github/workflows/ai-review.yml"]);
+    assert.deepEqual(await readdir(dir), [GENERATION_FILE]);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("restore unpacks the newest trusted bundle", async () => {
+  const { root, dir } = await scratch();
+  try {
+    const source = join(root, "source");
+    await mkdir(source, { recursive: true });
+    await writeFile(join(source, "pr-3.enc"), "sealed");
+    await writeFile(join(source, GENERATION_FILE), "{}");
+    await promisify(execFile)("zip", [
+      "-q",
+      "-j",
+      join(root, "a.zip"),
+      join(source, "pr-3.enc"),
+      join(source, GENERATION_FILE),
+    ]);
+    const zip = await readFile(join(root, "a.zip"));
+    const github = {
+      artifacts: async () => [{ id: 5, created_at: "2026-11-24T00:00:00Z" }],
+      download: async () => zip,
+    };
+    const log = console.log;
+    console.log = () => {};
+    await restore({ github, dir }).finally(() => {
+      console.log = log;
+    });
+    assert.equal(await readFile(join(dir, "pr-3.enc"), "utf8"), "sealed");
+    assert.deepEqual(JSON.parse(await readFile(join(dir, GENERATION_FILE), "utf8")), { from: 5 });
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("a review result survives a failure to save its session", async () => {
+  await withRunner({}, async ({ root, home }) => {
+    const runner = new CodexRunner({
+      codexHome: home,
+      model: "m",
+      effort: "low",
+      secrets: [],
+      sessions: { load: async () => null, store: async () => Promise.reject(new Error("ENOSPC")) },
+    });
+    const result = await runner.exec({ cwd: root, prompt: "a", schema: {}, thread: 7 });
+    assert.ok(result.id);
   });
 });

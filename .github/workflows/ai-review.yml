@@ -114,6 +114,7 @@ jobs:
           echo "CODEX_HOME=$RUNNER_TEMP/codex-home" >> "$GITHUB_ENV"
           node .github/scripts/codex-auth.mjs restore "$RUNNER_TEMP/codex-home"
       - name: Restore review sessions
+        id: sessions
         env:
           GITHUB_TOKEN: ${{ github.token }}
         run: |
@@ -133,15 +134,15 @@ jobs:
           NUMBERS: ${{ needs.plan.outputs.numbers }}
         run: node .github/scripts/codex-review.mjs agent "$NUMBERS"
       - name: Store review sessions
-        if: always() && env.CODEX_SESSIONS_DIR != ''
+        if: always() && steps.sessions.outputs.restored == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: codex-sessions
-          path: ${{ env.CODEX_SESSIONS_DIR }}/pr-*.enc
+          path: ${{ env.CODEX_SESSIONS_DIR }}
           retention-days: 30
-          if-no-files-found: ignore
+          if-no-files-found: error
       - name: Delete older review sessions
-        if: always() && env.CODEX_SESSIONS_DIR != ''
+        if: always() && steps.sessions.outputs.restored == 'true'
         env:
           GITHUB_TOKEN: ${{ github.token }}
         run: node .github/scripts/ai-review-sessions.mjs prune

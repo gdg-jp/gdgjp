@@ -1232,7 +1232,13 @@ export class CodexRunner {
       if (this.sessions && thread) {
         const id =
           resume ?? [...(await rollouts(this.codexHome)).keys()].find((key) => !before.has(key));
-        if (id) await this.sessions.store(thread, this.model, id);
+        if (id) {
+          await this.sessions
+            .store(thread, this.model, id)
+            .catch((error) =>
+              console.log(`::warning::Could not save the session of #${thread}: ${error.message}`),
+            );
+        }
       }
       return result;
     } catch (error) {
