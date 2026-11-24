@@ -109,7 +109,7 @@ The environment holds:
 | Secret | Use |
 | --- | --- |
 | `GDG_CHAN_PRIVATE_KEY` | Private key of the GDG-chan GitHub App (app ID: repository variable `GDG_CHAN_APP_ID`). |
-| `AI_REVIEW_SIGNING_KEY` | HMAC key for the hidden markers that record reviews, findings, and verdicts. |
+| `AI_REVIEW_SIGNING_KEY` | HMAC key for the hidden markers that record reviews, findings, and verdicts, and the source of the key that seals stored Codex sessions. |
 | `CODEX_AUTH_KEY` | AES-256-GCM key for the stored Codex login. |
 | `CODEX_ACCOUNT_SHA256` | SHA-256 of the lowercase email of the only ChatGPT account the login may use. |
 
@@ -117,8 +117,30 @@ GDG-chan is a GitHub App owned by the gdg-jp organization and installed only on 
 repository, with write access to code, commit statuses, issues, and pull requests. The
 scripts create installation tokens from its private key and refresh them before they
 expire, so long runs keep working. `GITHUB_TOKEN` is used only for dispatching and for
-the login artifacts. Change the name or icon in the app's settings under the
+the login and session artifacts. Change the name or icon in the app's settings under the
 organization's GitHub Apps.
+
+## One Codex session per pull request
+
+Every review and verification of a pull request continues the same Codex session with
+`codex exec resume`, so Codex keeps what it already read and the repeated prefix is served
+from the prompt cache. Sessions run with `model_context_window=500000`; Codex compacts the
+history when it fills. A resumed turn starts with a note that the checkout and preview were
+replaced and that earlier instructions no longer apply.
+
+After each run the agent job uploads every open pull request's session as the
+`codex-sessions` artifact (30-day retention, two newest kept), and the next run restores the
+newest one uploaded by a `workflow_dispatch` or `schedule` run of `ai-review.yml` on `main`.
+The artifact always holds `generation.json`, so a run that drops the last session still
+replaces the previous bundle. When the restore fails, the run neither uploads nor prunes,
+so the stored sessions of other pull requests survive. Failing to save a session only logs
+a warning; the review is posted anyway. A session file holds
+the prompts, tool output, and the ChatGPT account's identifiers, so each one is sealed with
+AES-256-GCM under a key derived from `AI_REVIEW_SIGNING_KEY` and bound to its pull request
+number. A pull request starts a new session when it has none, when `CODEX_REVIEW_MODEL`
+changed, when resuming fails, or when the compressed session outgrows 48 MiB. Rotating the
+signing key discards every session. A session also carries what earlier heads of the pull
+request said into later checks, which a fresh session would not see.
 
 ## Trust model
 
@@ -193,5 +215,7 @@ pull request is waiting on GDG-chan.
   prompts, and GitHub writes.
 - [`ai-review-preview.mjs`](../../.github/scripts/ai-review-preview.mjs): the app preview and
   the browser MCP server.
+- [`ai-review-sessions.mjs`](../../.github/scripts/ai-review-sessions.mjs): sealing, restoring,
+  and pruning the per-PR Codex sessions.
 - [`codex-auth.mjs`](../../.github/scripts/codex-auth.mjs): login encryption, restore,
   refresh storage, redaction, and GDG-chan tokens.
