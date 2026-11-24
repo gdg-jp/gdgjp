@@ -67,8 +67,11 @@ containers on the agent runner:
   the submodules from their fixed URLs, npm installing the pnpm version pinned in `main`'s
   `package.json`, and `pnpm fetch` in an empty directory that holds only the pull request's
   lockfile, with the registry fixed to `registry.npmjs.org` and no user config or pnpmfile.
-  The agent first checks that every lockfile entry resolves by integrity from the registry;
-  a tarball, Git, or directory resolution skips the preview. The container then leaves the
+  The agent first checks the lockfile line by line against the plain format pnpm writes
+  (keys, single-quoted or plain scalars, one-line `engines` maps and lists, `deprecated` block
+  text) and requires every `resolution` to be `{integrity: ...}` alone; anything else, such as
+  a tarball, Git, or directory resolution, a quoted or escaped key, an anchor, a tag, or a
+  merge key, skips the preview. The container then leaves the
   Docker network, so only loopback remains, and only then runs the pull request's code:
   `pnpm install --offline` with its install scripts, and the app's Playwright config with a
   test that holds the servers open. It gets no secret, no environment variable from the

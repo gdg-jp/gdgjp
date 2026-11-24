@@ -295,16 +295,35 @@ test("changedPaths includes deleted files and the old name of renamed files", as
   ]);
 });
 
-test("registryLockfile accepts only npm registry resolutions", () => {
-  const ok = "  /a@1.0.0:\n    resolution: {integrity: sha512-AAAA+/==}\n";
+test("registryLockfile accepts only npm registry resolutions in pnpm's plain format", () => {
+  const ok =
+    "packages:\n\n  '@a/b@1.0.0':\n    resolution: {integrity: sha512-AAAA+/==}\n    engines: {node: '>=18'}\n    deprecated: |-\n      text: with \"anything\" \\ #\n";
   assert.equal(registryLockfile(ok), ok);
   assert.ok(registryLockfile(readFileSync(join(root, "pnpm-lock.yaml"), "utf8")).length > 0);
-  for (const line of [
+  for (const lines of [
     "    resolution: {tarball: http://169.254.169.254/latest}",
     "    resolution: {integrity: sha512-AA==, tarball: https://evil.example/a.tgz}",
     "    resolution: {type: git, repo: https://evil.example/a.git, commit: abc}",
-    "    resolution:",
+    "    resolution:\n      tarball: http://169.254.169.254/",
+    "    'resolution': {tarball: http://169.254.169.254/}",
+    "    'resolutio''n': {tarball: http://169.254.169.254/}",
+    '    "resolution": {tarball: http://169.254.169.254/}',
+    '    "\\x72esolution": {tarball: http://169.254.169.254/}',
+    "    resolution : {tarball: http://169.254.169.254/}",
+    "    ? resolution\n    : {tarball: http://169.254.169.254/}",
+    "  '@c/d@1.0.0': {resolution: {tarball: http://169.254.169.254/}}",
+    "    <<: *evil",
+    "    <<: {tarball: http://169.254.169.254/}",
+    "    engines: {node: '>=18', resolution: {tarball: x}}",
+    "    cpu: [{resolution: x}]",
+    "    x: &a {tarball: http://169.254.169.254/}",
+    "    x: !!map {tarball: http://169.254.169.254/}",
+    "---",
   ]) {
-    assert.throws(() => registryLockfile(`${ok}${line}\n`), /outside the npm registry/);
+    assert.throws(
+      () => registryLockfile(`${ok}  '@c/d@1.0.0':\n${lines}\n`),
+      /outside the npm registry|pnpm's plain format/,
+      lines,
+    );
   }
 });

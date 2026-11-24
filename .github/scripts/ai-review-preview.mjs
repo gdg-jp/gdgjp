@@ -187,14 +187,79 @@ export function readyInfo(text) {
   return { baseURL, states };
 }
 
-export function registryLockfile(text) {
-  const resolutions = text.split("\n").filter((line) => /\bresolution:/.test(line));
-  const allowed = /^\s+resolution: \{integrity: [A-Za-z0-9+/=-]+\}$/;
-  const offending = resolutions.find((line) => !allowed.test(line));
-  if (offending !== undefined) {
-    throw new Error(
-      `the lockfile resolves a package outside the npm registry: ${offending.trim().slice(0, 200)}`,
+const INTEGRITY = /^\{integrity: [A-Za-z0-9+/=-]+\}$/;
+const SCALAR = /^(?:'(?:[^']|'')*'|[^\s'"&*!|>%@`{}[\],#?-][^"{}[\],#]*|-?\d[\w.+-]*)$/;
+
+function lockfileKey(rest) {
+  if (rest.startsWith("'")) {
+    const match = /^'((?:[^']|'')*)':(?: (.*))?$/.exec(rest);
+    return match && { key: match[1].replaceAll("''", "'"), value: match[2] ?? "" };
+  }
+  const match = /^([^\s'"&*!|>%@`{}[\],#?:-][^"{}[\],#:]*):(?: (.*))?$/.exec(rest);
+  return match && { key: match[1].trim(), value: match[2] ?? "" };
+}
+
+function lockfileValue(key, value) {
+  if (key === "resolution") return INTEGRITY.test(value);
+  if (key.startsWith("<<") || /tarball/i.test(key)) return false;
+  if (value === "" || value === "{}" || value === "[]") return true;
+  if (/resolution|tarball/i.test(value)) return false;
+  if (value.startsWith("[")) {
+    return (
+      /^\[[^[\]{}"]*\]$/.test(value) &&
+      value
+        .slice(1, -1)
+        .split(", ")
+        .every((item) => SCALAR.test(item))
     );
+  }
+  if (value.startsWith("{")) {
+    if (key !== "engines" || !/^\{[^{}[\]"]*\}$/.test(value)) return false;
+    return value
+      .slice(1, -1)
+      .split(", ")
+      .every((pair) => /^[\w-]+: /.test(pair) && SCALAR.test(pair.slice(pair.indexOf(": ") + 2)));
+  }
+  if (value === "|-" || value === "|") return key === "deprecated";
+  return blockScalar(value);
+}
+
+function blockScalar(value) {
+  if (value.startsWith("'")) return /^'(?:[^']|'')*'$/.test(value);
+  return /^[^\s'"&*!|>%@`{}[\],#?:-]/.test(value) && !/: | #|"/.test(value) && !value.endsWith(":");
+}
+
+export function registryLockfile(text) {
+  let block = null;
+  const lines = text.split("\n");
+  for (const [index, line] of lines.entries()) {
+    const indent = /^ */.exec(line)[0].length;
+    const rest = line.slice(indent);
+    if (block !== null) {
+      if (rest === "" || indent > block) continue;
+      block = null;
+    }
+    if (rest === "") continue;
+    if (/[\t"\\]/.test(line) || /^(---|\.\.\.)/.test(line)) {
+      throw new Error(`the lockfile is not in pnpm's plain format at line ${index + 1}`);
+    }
+    if (rest.startsWith("- ")) {
+      if (!blockScalar(rest.slice(2)) || /resolution|tarball/i.test(rest)) {
+        throw new Error(`the lockfile is not in pnpm's plain format at line ${index + 1}`);
+      }
+      continue;
+    }
+    const entry = lockfileKey(rest);
+    if (!entry) throw new Error(`the lockfile is not in pnpm's plain format at line ${index + 1}`);
+    if (/resolution/i.test(entry.key) && entry.key !== "resolution") {
+      throw new Error(`the lockfile is not in pnpm's plain format at line ${index + 1}`);
+    }
+    if (!lockfileValue(entry.key, entry.value)) {
+      throw new Error(
+        `the lockfile resolves a package outside the npm registry or is not in pnpm's plain format at line ${index + 1}`,
+      );
+    }
+    if (entry.value === "|-" || entry.value === "|") block = indent;
   }
   return text;
 }
