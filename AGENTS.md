@@ -38,6 +38,8 @@ For agent-driven runtime verification, use Orca Browser. Read the `orca-cli` ski
 version-matched browser reference before driving a tab. Existing Playwright specs may supply
 journeys and assertions; project verification skills must drive the browser through Orca.
 Keep test servers and data isolated from development state.
+The exception is GDG-chan's CI review, which drives its own network-less preview through a
+Playwright MCP container; see [the AI review gate](docs/engineering/ai-review.md).
 
 ## Style, security, and review
 
