@@ -443,7 +443,7 @@ export function previewNote(preview) {
   if (!preview) return null;
   return preview.error
     ? `apps/${preview.app} のプレビューを起動できませんでした`
-    : `apps/${preview.app} をブラウザで確認`;
+    : `apps/${preview.app} のプレビューを用意`;
 }
 
 export function reviewBody(
@@ -919,6 +919,11 @@ export class ReviewRepository {
     return true;
   }
 
+  async changedPaths(number) {
+    const files = await this.github.list(`/repos/${this.repository}/pulls/${number}/files`);
+    return files.flatMap((file) => [file.filename, file.previous_filename].filter(Boolean));
+  }
+
   async changedFiles(number) {
     const files = await this.github.list(`/repos/${this.repository}/pulls/${number}/files`);
     return new Map(
@@ -1213,13 +1218,17 @@ class Worktrees {
 
 const ATTEMPTS = 3;
 
+export function needsCodex(evaluation) {
+  return evaluation.reviewRequested || evaluation.verifications.length > 0;
+}
+
 export async function startPreview(previews, pr, dir, files) {
   const app = selectPreviewApp(files);
   if (!previews || !app) return null;
   const preview = previews(pr);
   try {
     const ready = await preview.start({ dir, app });
-    return { info: { app, ...ready }, config: preview.codexConfig(), stop: () => preview.stop() };
+    return { info: { ...ready, app }, config: preview.codexConfig(), stop: () => preview.stop() };
   } catch (error) {
     console.log(`::warning::The preview of apps/${app} for #${pr.number} did not start`);
     await preview.stop().catch(() => undefined);
@@ -1250,7 +1259,9 @@ export async function processPullRequest({
     let preview = null;
     try {
       const files = [...(await repo.changedFiles(pr.number)).keys()];
-      preview = await startPreview(previews, pr, tree.dir, files);
+      if (needsCodex(evaluation)) {
+        preview = await startPreview(previews, pr, tree.dir, await repo.changedPaths(pr.number));
+      }
       await handleWork({ repo, codex, tree, pr, evaluation, runId, model, files, preview });
     } finally {
       await preview?.stop().catch(() => undefined);

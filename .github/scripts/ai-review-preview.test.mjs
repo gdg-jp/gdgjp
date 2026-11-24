@@ -8,13 +8,18 @@ import {
   APP_IMAGE,
   BROWSER_IMAGE,
   DISABLED_TOOLS,
+  PNPM,
   PREVIEW_APPS,
   Preview,
   holdConfig,
   holdSpec,
+  readyInfo,
+  runCommand,
   selectPreviewApp,
 } from "./ai-review-preview.mjs";
 import {
+  ReviewRepository,
+  needsCodex,
   previewSection,
   reviewBody,
   reviewPrompt,
@@ -84,38 +89,78 @@ test("every preview app has a Playwright config and an E2E script that forwards 
   }
 });
 
-test("the preview cuts the app container off the network before running the PR's servers", async () => {
+test("the preview runs no PR code until the app container is off the network", async () => {
   const docker = fakeDocker({
-    ready: { baseURL: "http://localhost:6177", states: ["admin.json"] },
+    ready: { baseURL: "http://localhost:6177", states: ["admin.json"], app: "x](y)" },
   });
   const ready = await preview(docker).start({ dir: "/work/pr-7", app: "wiki" });
-  assert.deepEqual(ready, {
-    app: "wiki",
-    baseURL: "http://localhost:6177",
-    states: ["admin.json"],
-  });
+  assert.deepEqual(ready, { baseURL: "http://localhost:6177", states: ["admin.json"] });
   const dockerCalls = docker.calls.filter((call) => call.command === "docker");
   const created = dockerCalls.find((call) => call.args[0] === "run");
   assert.ok(created.args.includes(APP_IMAGE));
   assert.deepEqual(
     created.args.filter((arg, index) => created.args[index - 1] === "-e"),
-    ["CI=true", "COREPACK_ENABLE_DOWNLOAD_PROMPT=0"],
+    ["CI=true"],
   );
   assert.deepEqual(
     created.args.filter((arg, index) => created.args[index - 1] === "-v"),
     ["gdg-preview-7:/preview"],
   );
-  const install = dockerCalls.findIndex((call) =>
-    String(call.args.at(-1)).includes("pnpm install"),
-  );
-  const disconnect = dockerCalls.findIndex(
+  const script = (call) => String(call.args.at(-1));
+  const index = (predicate) => dockerCalls.findIndex(predicate);
+  const submodules = index((call) => script(call).includes("design-system.git"));
+  const pnpm = index((call) => script(call).startsWith("npm install --global"));
+  const fetch = index((call) => script(call).startsWith("pnpm install"));
+  const disconnect = index(
     (call) => call.args.join(" ") === "network disconnect bridge gdg-preview-7",
   );
-  const serve = dockerCalls.findIndex((call) =>
-    String(call.args.at(-1)).includes("run-isolated-e2e.mjs --workspace @gdgjp/wiki"),
+  const rebuild = index((call) => script(call).startsWith("pnpm rebuild"));
+  const serve = index((call) =>
+    script(call).includes("run-isolated-e2e.mjs --workspace @gdgjp/wiki"),
   );
-  assert.ok(install >= 0 && install < disconnect && disconnect < serve);
-  assert.match(dockerCalls[install].args.at(-1), /fetch -q --depth 1 .*design-system\.git' a{40}/);
+  assert.ok(submodules >= 0 && submodules < pnpm && pnpm < fetch && fetch < disconnect);
+  assert.ok(disconnect < rebuild && rebuild < serve);
+  assert.match(script(dockerCalls[submodules]), /fetch -q --depth 1 .*design-system\.git' a{40}/);
+  assert.equal(
+    dockerCalls[pnpm].args[dockerCalls[pnpm].args.indexOf("-w") + 1],
+    "/",
+    "npm must not read the pull request's .npmrc",
+  );
+  assert.match(script(dockerCalls[pnpm]), new RegExp(`pnpm@${PNPM.replaceAll(".", "\\.")}$`));
+  assert.match(script(dockerCalls[fetch]), /--ignore-scripts --ignore-pnpmfile/);
+  assert.ok(
+    !dockerCalls
+      .slice(0, disconnect)
+      .some((call) => /corepack|pnpm (run|exec|rebuild)/.test(script(call))),
+  );
+});
+
+test("readyInfo accepts only a loopback URL and plain storage state names", () => {
+  assert.deepEqual(readyInfo('{"baseURL":"http://127.0.0.1:6185/","states":["a.json"]}'), {
+    baseURL: "http://127.0.0.1:6185/",
+    states: ["a.json"],
+  });
+  for (const text of [
+    "nope",
+    '{"baseURL":"https://evil.example"}',
+    '{"baseURL":"http://localhost:6185@evil.example"}',
+    '{"baseURL":"http://localhost:6185","states":"a.json"}',
+    '{"baseURL":"http://localhost:6185","states":["../auth.json"]}',
+    `{"baseURL":"http://localhost:6185","pad":"${"x".repeat(70000)}"}`,
+  ]) {
+    assert.throws(() => readyInfo(text), /preview/);
+  }
+});
+
+test("runCommand stops a command that writes more than its output limit", async () => {
+  await assert.rejects(
+    runCommand(process.execPath, ["-e", "process.stdout.write('x'.repeat(4096))"], {
+      maxOutput: 1024,
+    }),
+    /wrote too much/,
+  );
+  const { stdout } = await runCommand(process.execPath, ["-e", "process.stdout.write('ok')"]);
+  assert.equal(stdout, "ok");
 });
 
 test("the preview reports the log tail when the servers stop before they are ready", async () => {
@@ -184,5 +229,41 @@ test("prompts and the review footer describe the preview", () => {
     { summary: "ok", findings: [] },
     { pr: 7, head: "abc1234def", requested: "r", ids: [], model: "m", preview: ready },
   );
-  assert.match(body, /m · abc1234 · apps\/ost をブラウザで確認 · \[AI review gate\]/);
+  assert.match(body, /m · abc1234 · apps\/ost のプレビューを用意 · \[AI review gate\]/);
+});
+
+test("startPreview keeps the host's app name over the preview's", async () => {
+  const fake = {
+    start: async () => ({ baseURL: "http://localhost:6185", states: [] }),
+    stop: async () => {},
+    codexConfig: () => ["-c", "x"],
+  };
+  const result = await startPreview(() => fake, { number: 7 }, "/w", ["apps/ost/a.tsx"]);
+  assert.deepEqual(result.info, { baseURL: "http://localhost:6185", states: [], app: "ost" });
+  assert.deepEqual(result.config, ["-c", "x"]);
+});
+
+test("the preview starts only when Codex has a review or a verification to run", () => {
+  assert.equal(needsCodex({ reviewRequested: true, verifications: [] }), true);
+  assert.equal(needsCodex({ reviewRequested: false, verifications: [{}] }), true);
+  assert.equal(needsCodex({ reviewRequested: false, verifications: [] }), false);
+});
+
+test("changedPaths includes deleted files and the old name of renamed files", async () => {
+  const github = {
+    list: async () => [
+      { filename: "apps/wiki/app/routes/old.tsx", status: "removed" },
+      {
+        filename: "apps/ost/app/b.tsx",
+        previous_filename: "apps/ost/app/a.tsx",
+        status: "renamed",
+      },
+    ],
+  };
+  const repo = new ReviewRepository({ github, repository: "gdg-jp/gdgjp" });
+  assert.deepEqual(await repo.changedPaths(7), [
+    "apps/wiki/app/routes/old.tsx",
+    "apps/ost/app/b.tsx",
+    "apps/ost/app/a.tsx",
+  ]);
 });

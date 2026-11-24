@@ -41,13 +41,14 @@ no event for reactions, so a scheduled run picks them up within about ten minute
 
 ## Checking the app in a browser
 
-When a pull request changes files under one of the apps that has a Playwright E2E suite
+When GDG-chan reviews a pull request or checks responses to its findings, and the pull
+request changes, renames, or deletes files under one of the apps that has a Playwright E2E suite
 (`accounts`, `tinyurl`, `wiki`, `img`, `scheduler`, `sns`, `pay`, `ost`, `roster`, `mc`,
 `screen`, `deck`, `roulette`, `pr`, `meet`), GDG-chan starts that app from the pull request
-head before it reviews or verifies, and Codex can open it in a headless browser. If several
-apps changed, it picks the one with the most changed files. The review footer says
-"apps/X をブラウザで確認", or that the preview could not start; then the review is from the
-code only.
+head first, and Codex can open it in a headless browser. If several apps changed, it picks
+the one with the most changed files. The review footer says "apps/X のプレビューを用意" when
+the preview was running for Codex, or that it could not start; then the review is from the
+code only. The summary says whether Codex reached it.
 
 The preview is the same disposable stack as `pnpm test:e2e --workspace @gdgjp/X`: the
 app and Accounts on their CI ports, freshly migrated local databases, the E2E global setup's
@@ -60,10 +61,14 @@ minutes per pull request, more when Accounts must also be built.
 containers on the agent runner:
 
 - The **app container** (`mcr.microsoft.com/playwright`, pinned by digest) receives a
-  `git archive` of the head and the pinned submodule commits, and installs dependencies with
-  network access. It then leaves the Docker network, so only loopback remains, and runs
-  the app's Playwright config with a test that holds the servers open. It gets no secret,
-  no environment variable from the runner, and no host directory.
+  `git archive` of the head and the pinned submodule commits. With network access it runs
+  only code that does not come from the pull request: Git, npm installing the pnpm version
+  pinned in `main`'s `package.json`, and `pnpm install --ignore-scripts --ignore-pnpmfile`.
+  It then leaves the Docker network, so only loopback remains, and only then runs the
+  pull request's code: `pnpm rebuild` for install scripts, and the app's Playwright config
+  with a test that holds the servers open. It gets no secret, no environment variable from
+  the runner, and no host directory. The agent reads at most 1 MiB from any container
+  command and accepts only a loopback base URL and plain file names from its `ready.json`.
 - The **browser container** (`mcr.microsoft.com/playwright/mcp`, pinned by digest) is the
   Codex `browser` MCP server. It joins the app container's network namespace, so
   `localhost` is the preview and nothing else is reachable, and it mounts the storage states
