@@ -8,6 +8,7 @@ import {
   classifyChangedFiles,
   evidenceRequirements,
   producersChanged,
+  validWorkspace,
   verifierCoverage,
 } from "../../scripts/verification-summary.mjs";
 
@@ -87,12 +88,17 @@ export function parseSummary(raw, headSha) {
         status: STATUSES.includes(item?.status) ? item.status : "INCONCLUSIVE",
         details: text(item?.details, LIMITS.details),
         evidence: text(item?.evidence, LIMITS.path),
+        workspaces: (Array.isArray(item?.workspaces) ? item.workspaces : [])
+          .map(validWorkspace)
+          .filter(Boolean)
+          .slice(0, LIMITS.entries),
       }));
     return { id, label, found: entries.length > 0, entries };
   });
   const media = (Array.isArray(raw.media) ? raw.media : []).slice(0, LIMITS.media).map((item) => ({
     path: text(item?.path, LIMITS.path),
     kind: item?.kind === "recording" ? "recording" : "screenshot",
+    workspace: validWorkspace(item?.workspace),
   }));
   return {
     commit: headSha,
@@ -169,22 +175,20 @@ export function previewedApp(preview) {
   return preview?.app && !preview.error ? preview.app : null;
 }
 
-function splitForPreview(requirement, app) {
-  if (requirement.id !== "ui" || requirement.state === "PRESENT" || !app) return [requirement];
-  const inApp = (path) => path.startsWith(`apps/${app}/`);
-  const previewed = requirement.paths.filter(inApp);
-  if (previewed.length === 0) return [requirement];
-  const rest = requirement.paths.filter((path) => !inApp(path));
-  return [
-    {
-      ...requirement,
-      id: "ui-preview",
-      label: `Exercise the changed screens of apps/${app} in GDG-chan's own preview and take screenshots there`,
-      paths: previewed,
-      state: "CHECK IN PREVIEW",
-    },
-    ...(rest.length ? [{ ...requirement, paths: rest }] : []),
-  ];
+function previewState(requirement, app) {
+  if (
+    requirement.kind !== "ui" ||
+    requirement.state === "PRESENT" ||
+    !app ||
+    requirement.workspace !== `apps/${app}`
+  ) {
+    return requirement;
+  }
+  return {
+    ...requirement,
+    label: `Exercise the changed screens of apps/${app} in GDG-chan's own preview and take screenshots there`,
+    state: "CHECK IN PREVIEW",
+  };
 }
 
 export function reviewEvidence({ files, coverage, found, preview = null }) {
@@ -197,7 +201,7 @@ export function reviewEvidence({ files, coverage, found, preview = null }) {
       ...requirement,
       state: requirementState(requirement, producers.length > 0),
     }))
-    .flatMap((requirement) => splitForPreview(requirement, app));
+    .map((requirement) => previewState(requirement, app));
   return { ...found, summary, producers, previewApp: app, requirements };
 }
 
@@ -254,11 +258,14 @@ ${JSON.stringify(evidence.summary, null, 2)}
   return `## Verification evidence for ${pr.headSha}
 
 The gate computed this checklist from GitHub's list of changed files and the verifier coverage
-records on main. PRESENT means the hosted verification summary for this exact commit holds the
-evidence; MISSING means it does not; ATTACH TO PR means no tool records it and only the PR
-description can supply it; UNRELIABLE means the summary claims it but this PR changes the code that
-writes the summary; CHECK IN PREVIEW means GDG-chan's own preview of that app is running, so you
-gather the evidence yourself in the browser instead of asking the author for it.
+records on main, with one UI item per changed app or package. PRESENT means the hosted
+verification summary for this exact commit holds evidence attributed to that app or package;
+evidence of another app, or evidence the summary could not attribute, never counts. MISSING means
+it does not; ATTACH TO PR means no tool records it and only the PR description can supply it;
+UNRELIABLE means the summary claims it but this PR changes the code that writes the summary;
+CHECK IN PREVIEW means GDG-chan's own preview of that app is running, so you gather the evidence
+yourself in the browser instead of asking the author for it. A preview of one app never covers
+another app's or a shared package's item.
 
 ${checklist}
 ${producers}
@@ -269,14 +276,15 @@ ${data}`;
 export const REVIEW_EVIDENCE_RULE = `Verification evidence: a UI or state-machine change must come with evidence that it works.
 For each checklist item whose state is MISSING, UNRELIABLE, or ATTACH TO PR, report one finding
 unless the PR description supplies that evidence for this commit: screenshots or recordings of the
-changed screens for UI, a state diagram (for example a Mermaid stateDiagram) of the changed states
-and transitions for a state machine, and a VERIFIED result of the named verifier for code it
-covers. A statement that a check was not run is not evidence. Do not report an item whose state is
-PRESENT, and do not report missing evidence for changes outside the checklist. Give each such
-finding priority P2, a title saying which evidence is missing, a body naming the command or journey
-that would produce it and where to attach it, and the first listed path with a line the PR
-changes. If the hosted summary is PENDING, say that CI had not finished and that a reply after it
-finishes asks GDG-chan to check again. For an item whose state is CHECK IN PREVIEW, do not ask the
+changed screens of the item's app for UI (screens of another app do not count), a state diagram
+(for example a Mermaid stateDiagram) of the changed states and transitions for a state machine,
+and a VERIFIED result of the named verifier for code it covers. A statement that a check was not
+run is not evidence. Do not report an item whose state is PRESENT, and do not report missing
+evidence for changes outside the checklist. Give each such finding priority P2, a title saying
+which evidence is missing, a body naming the command or journey that would produce it and where to
+attach it, and the first listed path with a line the PR changes. If the hosted summary is
+PENDING, say that CI had not finished and that a reply after it finishes asks GDG-chan to check
+again. For an item whose state is CHECK IN PREVIEW, do not ask the
 author for screenshots: open the changed screens in the browser preview, exercise the behavior the
 change touches, and say in the summary what you observed. Report a missing-evidence finding for it
 only when you could not reach or exercise those screens there, and say why.`;

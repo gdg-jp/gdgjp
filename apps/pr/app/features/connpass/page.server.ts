@@ -1,6 +1,6 @@
 import type { CampaignAccess } from "~/features/campaigns/access.server";
 import type { Draft } from "~/features/drafts/draft";
-import { latestVersion } from "~/features/drafts/draft.repository.server";
+import { approvedContent } from "~/features/drafts/draft.repository.server";
 import { actorOf, connpassService } from "~/features/integrations/bindings.server";
 import type { ConnpassPageContent } from "~/features/pages/render";
 import { createItem, listItems, updateItem } from "~/features/schedule/item.repository.server";
@@ -13,7 +13,7 @@ export function pageApprovalBlockers(access: CampaignAccess, draft: Draft): stri
 
 export async function publishApprovedPage(env: Env, access: CampaignAccess, draft: Draft) {
   const event = connpassEventOf(access.campaign);
-  const content = (await latestVersion(env.DB, draft.id))?.content as ConnpassPageContent | null;
+  const content = (await approvedContent(env.DB, draft)) as ConnpassPageContent | null;
   if (!event || !content?.html) return { ok: false as const, error: NO_EVENT };
   const items = await listItems(env.DB, access.campaign.id);
   const open = items.find(

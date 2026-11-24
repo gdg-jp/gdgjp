@@ -9,8 +9,8 @@ import {
 } from "~/features/dispatch/target.repository.server";
 import { getVersion } from "~/features/drafts/draft.repository.server";
 import { connpassService, parseActor } from "~/features/integrations/bindings.server";
-import { linkForItem } from "~/features/links/link.repository.server";
-import { withShortlink } from "~/features/links/slug";
+import { versionText } from "~/features/links/create.server";
+import { getItem } from "~/features/schedule/item.repository.server";
 import { connpassEventOf, submitConnpass } from "./submit.server";
 
 export async function sendDueMails(env: Env): Promise<{ sent: number; failed: number }> {
@@ -47,8 +47,12 @@ export async function sendDueMails(env: Env): Promise<{ sent: number; failed: nu
       await fail("このグループのメンバー宛のメールはまだ送れません。依頼に回してください");
       continue;
     }
-    const link = await linkForItem(env.DB, target.scheduleItemId);
-    const body = withShortlink(post.text, link?.shortUrl ?? null);
+    const item = await getItem(env.DB, campaign.id, target.scheduleItemId);
+    const body = item ? await versionText(env, actor, campaign, item, at) : null;
+    if (!body?.ok) {
+      await fail(body?.error ?? "送る本文がありません");
+      continue;
+    }
     const subject = content.subject;
     const result = await submitConnpass(env, {
       actor,
@@ -56,7 +60,7 @@ export async function sendDueMails(env: Env): Promise<{ sent: number; failed: nu
       itemId: target.scheduleItemId,
       targetId: target.id,
       kind: "send_event_message",
-      call: () => connpassService(env).sendMessage({ actor, ...event, subject, body }),
+      call: () => connpassService(env).sendMessage({ actor, ...event, subject, body: body.text }),
     });
     if (!result.ok) {
       await fail(result.error);

@@ -6,10 +6,13 @@ import {
   PropertyViolation,
   Ui,
   type UiProperty,
+  accessToken,
   checkUiProperty,
   exploreActions,
   invariant,
+  routeThroughAccess,
   runPlan,
+  slotHosts,
 } from "../src/index";
 
 type Target = { app: string; url: string };
@@ -31,20 +34,9 @@ const targets = parseTargets(process.env.UI_FUZZ_TARGETS ?? "");
 const accounts = process.env.UI_FUZZ_ACCOUNTS_URL;
 const sessionFile = process.env.UI_FUZZ_SESSION_FILE;
 const domain = process.env.UI_FUZZ_DOMAIN;
-const accessHeaders: Record<string, string> =
-  process.env.CF_ACCESS_CLIENT_ID && process.env.CF_ACCESS_CLIENT_SECRET
-    ? {
-        "CF-Access-Client-Id": process.env.CF_ACCESS_CLIENT_ID,
-        "CF-Access-Client-Secret": process.env.CF_ACCESS_CLIENT_SECRET,
-      }
-    : {};
+const token = accessToken(process.env);
 const plan = runPlan({ seeds: [4242, 8675], steps: 150, minutes: 6 });
-
-const inSlot = (url: string) => {
-  if (!domain) return false;
-  const host = new URL(url).hostname;
-  return host === domain || host.endsWith(`.${domain}`);
-};
+const inSlot = slotHosts(domain);
 
 function property(browser: Browser, target: Target) {
   const origins = [target.url, ...(accounts ? [new URL(accounts).origin] : [])];
@@ -55,11 +47,7 @@ function property(browser: Browser, target: Target) {
         ...(sessionFile ? { storageState: JSON.parse(readFileSync(sessionFile, "utf8")) } : {}),
         locale: "ja-JP",
       });
-      await context.route("**/*", (route) => {
-        const request = route.request();
-        if (!inSlot(request.url())) return route.continue();
-        return route.continue({ headers: { ...request.headers(), ...accessHeaders } });
-      });
+      await routeThroughAccess(context, inSlot, token);
       monitor.watchContext(context);
       const page = await context.newPage();
       if (target.app !== "accounts" && sessionFile)

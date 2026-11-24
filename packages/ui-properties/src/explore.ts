@@ -1,6 +1,6 @@
 import type { Locator, Page } from "@playwright/test";
 import { type Action, PropertyViolation, action } from "./engine";
-import { accessibleControl } from "./monitor";
+import { readControl } from "./monitor";
 import type { UiPropertyWorld } from "./run";
 
 export type ExploreWorld = UiPropertyWorld & {
@@ -77,6 +77,10 @@ async function candidates(page: Page): Promise<Candidate[]> {
 }
 
 async function locate(page: Page, target: Target): Promise<Locator> {
+  if (!target.role) {
+    await candidates(page);
+    return page.locator(`[${MARK}="${target.nth}"]`);
+  }
   return page
     .getByRole(target.role as Parameters<Page["getByRole"]>[0], {
       name: target.name,
@@ -85,9 +89,11 @@ async function locate(page: Page, target: Target): Promise<Locator> {
     .nth(target.nth);
 }
 
-async function describe(page: Page, candidate: Candidate): Promise<Target> {
+async function describe(page: Page, candidate: Candidate): Promise<Target | null> {
   const marked = page.locator(`[${MARK}="${candidate.id}"]`);
-  const control = await accessibleControl(marked);
+  const control = await readControl(marked).catch(() => undefined);
+  if (control === undefined) return null;
+  if (control === null) return { role: "", name: "", nth: candidate.id };
   const matches = page.getByRole(control.role as Parameters<Page["getByRole"]>[0], {
     name: control.name,
     exact: true,
@@ -145,7 +151,7 @@ export function exploreActions<W extends ExploreWorld>(): Action<W>[] {
         const found = await candidates(world.page);
         const candidate = random.pick(found);
         const target = await describe(world.page, candidate);
-        if (world.avoid.test(target.name))
+        if (!target || world.avoid.test(target.name))
           return { kind: "click", role: "none", name: "", nth: 0, value: null };
         let value: string | null = null;
         if (candidate.kind === "fill") value = random.text();

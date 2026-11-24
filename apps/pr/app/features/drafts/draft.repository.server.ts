@@ -238,6 +238,14 @@ export async function getVersion(
   return row ? toVersion(row) : null;
 }
 
+export async function approvedContent(
+  db: D1Database,
+  draft: Pick<Draft, "id" | "approvedVersion">,
+): Promise<unknown> {
+  if (draft.approvedVersion === null) return null;
+  return (await getVersion(db, draft.id, draft.approvedVersion))?.content ?? null;
+}
+
 export async function setDraftStatus(
   db: D1Database,
   draftId: number,

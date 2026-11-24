@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { createHmac } from "node:crypto";
-import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
@@ -8,6 +8,7 @@ import {
   FORBIDDEN_PATHS,
   LABEL,
   accessCookie,
+  cleanup,
   dedupe,
   existingSignature,
   fileIssues,
@@ -17,6 +18,7 @@ import {
   issueTitle,
   readRecords,
   reviewChanges,
+  session,
   sessionSql,
   storageState,
   summarize,
@@ -141,6 +143,96 @@ test("maps relying-party URLs to app names and rejects unknown apps", () => {
   assert.throws(() => targetsFor(environment, ["tinyurl"], []), /does not match/);
 });
 
+const slot = {
+  environment: {
+    E2E_ACCOUNTS_URL: "https://accounts.stg1.gdgs.jp",
+    E2E_RP_URLS: "https://url.stg1.gdgs.jp,https://wiki.stg1.gdgs.jp",
+    E2E_ACCOUNTS_D1: "remote:gdgjp-accounts-db-stg-1",
+    E2E_BETTER_AUTH_SECRET: "derived",
+  },
+  relyingParties: ["tinyurl", "wiki"],
+};
+
+function fakeD1(fail = () => false) {
+  const calls = [];
+  return {
+    calls,
+    exec: async (database, sql) => {
+      calls.push({ database, sql });
+      if (fail(sql)) throw new Error("wrangler d1 execute exited with 1");
+    },
+  };
+}
+
+const inserted = (calls) => /VALUES \('([0-9a-f-]{36})'/.exec(calls[0].sql)[1];
+
+test("an unknown fuzz app stops the session before anything is written to D1", async () => {
+  const out = join(mkdtempSync(join(tmpdir(), "ui-fuzz-session-")), "state");
+  const d1 = fakeD1();
+  await assert.rejects(
+    session(
+      { slot: "stg-1", out, apps: ["wiki", "nope"] },
+      { slot: async () => slot, d1: d1.exec },
+    ),
+    /Unknown fuzz app: nope/,
+  );
+  assert.deepEqual(d1.calls, []);
+  await cleanup({ out }, { d1: d1.exec });
+  assert.deepEqual(d1.calls, []);
+});
+
+test("a session that fails while inserting still leaves cleanup what it needs", async () => {
+  const out = join(mkdtempSync(join(tmpdir(), "ui-fuzz-session-")), "state");
+  const d1 = fakeD1((sql) => sql.startsWith("INSERT"));
+  await assert.rejects(
+    session({ slot: "stg-1", out, apps: [] }, { slot: async () => slot, d1: d1.exec }),
+    /exited with 1/,
+  );
+  assert.equal(existsSync(join(out, "storage-state.json")), false);
+  const userId = inserted(d1.calls);
+  await cleanup({ out }, { d1: d1.exec });
+  assert.equal(d1.calls.length, 2);
+  assert.equal(d1.calls[1].database, "gdgjp-accounts-db-stg-1");
+  assert.match(d1.calls[1].sql, new RegExp(`DELETE FROM "user" WHERE "id" = '${userId}'`));
+  assert.match(d1.calls[1].sql, new RegExp(`DELETE FROM "session" WHERE "userId" = '${userId}'`));
+});
+
+test("cleanup state is on disk before the fuzz user reaches D1", async () => {
+  const out = join(mkdtempSync(join(tmpdir(), "ui-fuzz-session-")), "state");
+  const d1 = fakeD1();
+  const exec = async (database, sql) => {
+    const saved = JSON.parse(readFileSync(join(out, "fuzz.json"), "utf8"));
+    assert.equal(saved.database, database);
+    assert.match(sql, new RegExp(`'${saved.userId}'`));
+    return d1.exec(database, sql);
+  };
+  await session({ slot: "stg-1", out, apps: ["wiki"] }, { slot: async () => slot, d1: exec });
+  const saved = JSON.parse(readFileSync(join(out, "fuzz.json"), "utf8"));
+  assert.equal(saved.userId, inserted(d1.calls));
+  assert.equal(saved.targets, "wiki=https://wiki.stg1.gdgs.jp");
+  assert.equal(saved.domain, "stg1.gdgs.jp");
+  assert.ok(existsSync(join(out, "storage-state.json")));
+  await assert.rejects(
+    session(
+      { slot: "stg-1", out: join(out, "again"), apps: [] },
+      {
+        slot: async () => ({
+          ...slot,
+          environment: { ...slot.environment, E2E_BETTER_AUTH_SECRET: undefined },
+        }),
+        d1: d1.exec,
+      },
+    ),
+    /STAGING_ROOT_SECRET/,
+  );
+  assert.equal(d1.calls.length, 1);
+  writeFileSync(join(out, "fuzz.json"), JSON.stringify({ ...saved, userId: "x'; DROP" }));
+  await assert.rejects(cleanup({ out }, { d1: d1.exec }), /invalid user id/);
+  writeFileSync(join(out, "fuzz.json"), JSON.stringify({ ...saved, database: "--remote" }));
+  await assert.rejects(cleanup({ out }, { d1: d1.exec }), /invalid database/);
+  assert.equal(d1.calls.length, 1);
+});
+
 test("scopes the Access credential to a cookie for one host", async () => {
   const headers = new Headers();
   headers.append("set-cookie", "CF_Authorization=abc.def; Path=/; Secure; HttpOnly");
@@ -225,4 +317,54 @@ test("the fuzz workflow is manual, keeps secrets out of the browser step, and ne
   assert.match(fixJob, /inputs\.open_fix_prs/);
   assert.match(fixJob, /environment: ai-review/);
   assert.match(fixJob, /group: codex-auth/);
+});
+
+const jobs = (text) => {
+  const body = text.slice(text.indexOf("\njobs:\n") + 7);
+  const starts = [...body.matchAll(/^ {2}([\w-]+):\n/gm)];
+  return starts.map((match, index) => ({
+    name: match[1],
+    text: body.slice(match.index, starts[index + 1]?.index ?? body.length),
+  }));
+};
+
+test("every fuzz job that installs the workspace initializes the design system first", () => {
+  const installing = jobs(workflow).filter((job) => job.text.includes("pnpm install"));
+  assert.deepEqual(
+    installing.map((job) => job.name),
+    ["fuzz"],
+  );
+  for (const job of jobs(workflow)) {
+    const install = job.text.indexOf("pnpm install");
+    if (install < 0) continue;
+    const submodule = job.text.indexOf("git submodule update --init packages/design-system");
+    assert.ok(submodule >= 0 && submodule < install, `${job.name} installs before the submodule`);
+  }
+});
+
+test("the Access token reaches only the slot's hosts and never the browser", () => {
+  const source = (path) =>
+    readFileSync(new URL(`../../packages/ui-properties/${path}`, import.meta.url), "utf8");
+  const spec = source("fuzz/staging.fuzz.ts");
+  assert.match(spec, /routeThroughAccess\(context, inSlot, token\)/);
+  assert.doesNotMatch(
+    spec,
+    /CF-Access-Client|extraHTTPHeaders|setExtraHTTPHeaders|route\.continue\(/,
+  );
+  const access = source("src/access.ts");
+  assert.match(access, /maxRedirects: 0/);
+  assert.doesNotMatch(access, /continue\(\s*\{/);
+  assert.match(source("fuzz/playwright.config.ts"), /env: browserEnvironment\(process\.env\)/);
+  const check = workflow.indexOf("- name: Check that the Access token stays on the slot's hosts");
+  const explore = workflow.indexOf("- name: Explore the slot");
+  assert.ok(check >= 0 && check < explore);
+  const checkStep = workflow.slice(check, workflow.indexOf("- name: Mint a throwaway fuzz user"));
+  assert.match(checkStep, /UI_PROPERTIES_REQUIRE_BROWSER: "1"/);
+  assert.match(checkStep, /src\/access\.test\.ts/);
+  assert.doesNotMatch(checkStep, /secrets\./);
+  const exploreStep = workflow.slice(explore, workflow.indexOf("- name: Explore the slot with"));
+  assert.deepEqual(
+    [...exploreStep.matchAll(/secrets\.(\w+)/g)].map((match) => match[1]),
+    ["STAGING_ACCESS_CLIENT_ID", "STAGING_ACCESS_CLIENT_SECRET"],
+  );
 });

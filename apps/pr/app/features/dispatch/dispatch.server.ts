@@ -1,19 +1,16 @@
 import type { PrActor } from "@gdgjp/gdg-lib";
-import { latestBrief } from "~/features/briefs/brief.repository.server";
 import type { CampaignAccess } from "~/features/campaigns/access.server";
 import type { Campaign } from "~/features/campaigns/campaign";
 import { pageApprovalBlockers } from "~/features/connpass/page.server";
 import { type Draft, approvedForSending } from "~/features/drafts/draft";
-import { getDraft } from "~/features/drafts/draft.repository.server";
-import { getVersion } from "~/features/drafts/draft.repository.server";
+import { getDraft, getVersion } from "~/features/drafts/draft.repository.server";
 import { STALE_VERSION } from "~/features/drafts/review.server";
 import { actorOf, callRpc, snsService } from "~/features/integrations/bindings.server";
-import { ensureShortlink } from "~/features/links/create.server";
-import { withShortlink } from "~/features/links/slug";
+import { NO_CONTENT, fallbackUrl, versionText } from "~/features/links/create.server";
 import { listingApprovalBlockers } from "~/features/listings/listing.server";
 import type { ScheduleItem } from "~/features/schedule/item";
 import { getItem, transitionItem } from "~/features/schedule/item.repository.server";
-import { type DeliverablePost, approvalBlockers, deliverablePost, isoAt } from "./content";
+import { approvalBlockers, deliverablePost, isoAt } from "./content";
 import { logDispatch } from "./log.server";
 import { canApproveTarget, isDispatchKind, rollupItemStatus, targetAccountKind } from "./target";
 import {
@@ -28,40 +25,45 @@ import {
 
 export type DispatchResult = { ok: true; message: string } | { ok: false; error: string };
 
-async function deliverable(env: Env, draftId: number, version: number) {
-  return deliverablePost((await getVersion(env.DB, draftId, version))?.content ?? null);
-}
-
-const fallbackUrl = async (env: Env, campaignId: number) =>
-  (await latestBrief(env.DB, campaignId))?.brief.event.connpassUrl ?? null;
-
-export async function prepareDraftApproval(
+export async function draftApprovalBlockers(
   env: Env,
   access: CampaignAccess,
   draft: Draft,
   version: number,
-): Promise<{ ok: true } | { ok: false; errors: string[] }> {
+): Promise<string[]> {
+  if (version !== draft.currentVersion) return [STALE_VERSION];
   const connpass = [
     ...pageApprovalBlockers(access, draft),
     ...(await listingApprovalBlockers(env, access, draft)),
   ];
-  if (connpass.length) return { ok: false, errors: connpass };
-  if (!draft.scheduleItemId) return { ok: true };
-  const post = await deliverable(env, draft.id, version);
-  const fallback = await fallbackUrl(env, access.campaign.id);
-  const blockers = approvalBlockers(post, fallback, draft.dispatchMediaUrl);
-  if (blockers.length) return { ok: false, errors: blockers };
-  const item = await getItem(env.DB, access.campaign.id, draft.scheduleItemId);
-  if (post && item && post.text.includes("{{shortlink}}")) {
-    const link = await ensureShortlink(env, actorOf(access), access.campaign, item, post, fallback);
-    if (!link.ok) return { ok: false, errors: [link.error] };
-  }
-  return { ok: true };
+  if (connpass.length || !draft.scheduleItemId) return connpass;
+  const post = deliverablePost((await getVersion(env.DB, draft.id, version))?.content ?? null);
+  return approvalBlockers(post, {
+    fallbackUrl: await fallbackUrl(env.DB, access.campaign.id),
+    mediaUrl: draft.dispatchMediaUrl,
+    tinyurlActive: access.campaign.tinyurlCampaignId !== null,
+  });
 }
 
-export async function afterDraftApproval(env: Env, campaign: Campaign, draft: Draft) {
-  if (!draft.scheduleItemId || !isDispatchKind(draft.kind)) return;
-  await ensureTargets(env.DB, campaign.id, draft.scheduleItemId, targetAccountKind(draft.kind));
+export async function afterDraftApproval(
+  env: Env,
+  access: CampaignAccess,
+  draft: Draft,
+  version: number,
+): Promise<string | null> {
+  if (!draft.scheduleItemId) return null;
+  if (isDispatchKind(draft.kind))
+    await ensureTargets(
+      env.DB,
+      access.campaign.id,
+      draft.scheduleItemId,
+      targetAccountKind(draft.kind),
+    );
+  const item = await getItem(env.DB, access.campaign.id, draft.scheduleItemId);
+  if (!item) return null;
+  const at = { draftId: draft.id, version };
+  const text = await versionText(env, actorOf(access), access.campaign, item, at);
+  return text.ok || text.error === NO_CONTENT ? null : text.error;
 }
 
 export async function rollup(env: Env, itemId: number) {
@@ -140,14 +142,13 @@ async function dispatchTarget(
   const item = draft.scheduleItemId
     ? await getItem(env.DB, campaign.id, draft.scheduleItemId)
     : null;
-  const post = await deliverable(env, at.draftId, at.version);
   const fail = async (error: string) => {
     await moveTarget(env.DB, targetId, ["dispatching"], "failed", { error });
     if (item) await rollup(env, item.id);
     return { ok: false as const, error };
   };
-  if (!target || !item || !post) return fail("配信する本文がありません");
-  const text = await textForDelivery(env, actor, campaign, item, post);
+  if (!target || !item) return fail(NO_CONTENT);
+  const text = await versionText(env, actor, campaign, item, at);
   if (!text.ok) return fail(text.error);
   const created = await callRpc(() =>
     snsService(env).createScheduledPost({
@@ -187,25 +188,6 @@ async function dispatchTarget(
   await transitionItem(env.DB, item.id, ["approved", "failed"], "dispatching");
   await rollup(env, item.id);
   return { ok: true, message: `${target.account.label} に予約しました` };
-}
-
-async function textForDelivery(
-  env: Env,
-  actor: PrActor,
-  campaign: Campaign,
-  item: ScheduleItem,
-  post: DeliverablePost,
-): Promise<{ ok: true; text: string } | { ok: false; error: string }> {
-  if (!post.text.includes("{{shortlink}}")) return { ok: true, text: post.text };
-  const link = await ensureShortlink(
-    env,
-    actor,
-    campaign,
-    item,
-    post,
-    await fallbackUrl(env, campaign.id),
-  );
-  return link.ok ? { ok: true, text: withShortlink(post.text, link.link.shortUrl) } : link;
 }
 
 async function attachImage(

@@ -8,7 +8,7 @@ import {
   connpassService,
   tinyurlService,
 } from "~/features/integrations/bindings.server";
-import { linkForItem } from "~/features/links/link.repository.server";
+import { approvedLinkForItem } from "~/features/links/link.repository.server";
 import { type ConnpassPageContent, setSectionImages } from "~/features/pages/render";
 import type { Asset } from "./asset";
 import { moveAsset, setPublished } from "./asset.repository.server";
@@ -82,7 +82,7 @@ async function handOff(
     return result.ok ? "connpass にサムネイルを上げるジョブを積みました" : result.error;
   }
   if (asset.templateId === "ogp-1200x630" && asset.forScheduleItemId) {
-    const link = await linkForItem(env.DB, asset.forScheduleItemId);
+    const link = await approvedLinkForItem(env.DB, asset.forScheduleItemId);
     if (!link) return "短縮リンクがまだ無いので、OGP は投稿の承認時に使われます";
     const updated = await callRpc(() =>
       tinyurlService(env).updateLink({ actor, linkId: link.tinyurlLinkId, ogImageUrl: url }),

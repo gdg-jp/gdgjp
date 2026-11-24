@@ -9,8 +9,12 @@ const KIND_ABBR: Record<string, string> = {
 export const SHORTLINK_PLACEHOLDER = "{{shortlink}}";
 const MAX = 40;
 
-export function shortlinkSlug(campaignSlug: string, kind: string, itemId: number): string {
-  const tail = `-${KIND_ABBR[kind] ?? "p"}-${itemId}`;
+export function shortlinkSlug(
+  campaignSlug: string,
+  kind: string,
+  at: { draftId: number; version: number },
+): string {
+  const tail = `-${KIND_ABBR[kind] ?? "p"}-${at.draftId}v${at.version}`;
   const head = campaignSlug.slice(0, Math.max(1, MAX - tail.length)).replace(/-+$/, "");
   return `${head}${tail}`;
 }

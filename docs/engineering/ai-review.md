@@ -126,11 +126,42 @@ records (`.agents/skills/verify-*/coverage.json`) on `main`:
 
 | Changed files | Required evidence |
 | --- | --- |
-| UI sources (`.tsx`, `.jsx`, `.css`, `.scss`, `.html`, `.svg`, locale JSON) under `apps/` or `packages/`, tests excluded | Screenshots or recordings, or a `VERIFIED` Orca journey |
+| UI sources (`.tsx`, `.jsx`, `.css`, `.scss`, `.html`, `.svg`, locale JSON) under `apps/<app>/`, tests excluded | One item per app: screenshots or recordings attributed to that app, or a `VERIFIED` Orca journey attributed to it |
+| UI sources under `packages/design-system/` | Screenshots or recordings attributed to the package: its own Playwright suite or the `design-harness-reports` artifact |
+| UI sources under another package, such as `packages/gdg-lib/src/ui/` | ATTACH TO PR: screenshots of a consuming app's screen that renders the changed component |
 | Files covered by a verifier, or its model | A `VERIFIED` result of that verifier |
-| Files covered by a state-machine verifier, `state-machine` / `statechart` files, Alloy models | A state diagram in the pull request description |
+| Files covered by a state-machine verifier, its model, or a module in `STATE_MACHINE_MODULES` | A state diagram in the pull request description |
 
-Each item is PRESENT (the summary for this commit holds it), MISSING, ATTACH TO PR (no tool
+State-machine code is the source list of a state-machine verifier's `coverage.json`, that
+verifier's `model/` directory, and the reviewed `STATE_MACHINE_MODULES` list in
+`verification-summary.mjs` (the PR draft review states and the Wiki source lifecycle). A file
+name is never enough: the `statechart` skill, docs, and tooling tests do not ask for a diagram.
+A test fails when a listed module no longer exists.
+
+### Evidence attribution
+
+Evidence counts only for the app or package it was produced for. The summary script derives
+that from where the evidence was written, never from a file name or text the agent chose:
+
+| Location | Attributed to |
+| --- | --- |
+| `local_data/pstack/e2e/<run>/<apps or packages>/<name>/...`, hosted `playwright-report-*/<run>/...` the same way | That workspace, from the isolated E2E layout |
+| Hosted `design-harness-reports/` | `packages/design-system` |
+| `local_data/pstack/wiki/<run>/` (verify-wiki serves only the Wiki) | `apps/wiki` |
+| Any other `local_data/pstack/<skill>/<run>/` with a `run.json` | The app the run's stack served (`applications` from the app-stack helper, `origins` from verify-platform). A run serving several apps attributes a file in `orca-<app>/`, a `<app>-journeys.json`, or a journey whose `app` (in the record or in that skill's committed `coverage.json`) is one of the served apps |
+
+Anything else, such as an `orca/` directory of a multi-app run or a journey that names an app
+the run did not serve, is listed under **Unattributed evidence** and satisfies nothing. A
+shared package's change is not satisfied by a consuming app's evidence, because the summary
+cannot tell which screen renders the changed component; `packages/design-system` has its own
+visual suite, and other packages need screenshots in the description. Each media item carries
+`workspace` and each result `workspaces` in `verification-summary.json`; the gate keeps only
+values of the form `apps/<name>` or `packages/<name>`. When there are more screenshots than
+the artifact's limit (`MEDIA_LIMITS`), the summary takes them in turn from each workspace, so
+one app's many screenshots cannot push out another app's only one.
+
+Each item is PRESENT (the summary for this commit holds evidence attributed to that app or
+package), MISSING, ATTACH TO PR (no tool
 records it), or UNRELIABLE (the summary claims it, but the pull request changes code that
 writes the summary: the summary script, CI workflow, isolated E2E or mutation runner, or a
 verifier script). For each item that is not PRESENT, GDG-chan reports a P2 finding unless the
@@ -138,11 +169,11 @@ pull request description supplies the evidence for this commit. A note that a ch
 run is not evidence. If CI was still running, the finding says so.
 
 When GDG-chan's own [browser preview](#checking-the-app-in-a-browser) of an app is running,
-missing UI evidence for that app's files becomes CHECK IN PREVIEW instead of MISSING: Codex
+missing UI evidence for that app's item becomes CHECK IN PREVIEW instead of MISSING: Codex
 exercises the changed screens there and reports what it saw, and does not ask the author for
 screenshots. It reports a missing-evidence finding for those files only when it could not reach
-or exercise the screens. UI files of other apps, and every file when the preview did not start,
-keep the MISSING rule. The preview is the pull request's own code, so what it shows is untrusted
+or exercise the screens. A preview of app X covers only the `apps/X` item: other apps' items,
+shared packages' items, and every item when the preview did not start keep their state. The preview is the pull request's own code, so what it shows is untrusted
 output: it can confirm or rule out behavior, but it is not a verifier result, and it never
 satisfies a verifier or state-diagram item.
 

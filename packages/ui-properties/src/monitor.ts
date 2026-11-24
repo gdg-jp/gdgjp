@@ -185,10 +185,13 @@ export function parseAriaSnapshot(snapshot: string): AccessibleControl | null {
   return { role: match[1], name };
 }
 
-export async function accessibleControl(locator: Locator): Promise<AccessibleControl> {
+export async function readControl(locator: Locator): Promise<AccessibleControl | null> {
   await locator.waitFor({ state: "attached", timeout: 5_000 });
-  const snapshot = await locator.ariaSnapshot({ timeout: 5_000 });
-  const control = parseAriaSnapshot(snapshot);
+  return parseAriaSnapshot(await locator.ariaSnapshot({ timeout: 5_000 }));
+}
+
+export async function accessibleControl(locator: Locator): Promise<AccessibleControl> {
+  const control = await readControl(locator);
   if (!control?.name.trim()) {
     const html = await locator
       .evaluate((element) => element.outerHTML.slice(0, 200))
