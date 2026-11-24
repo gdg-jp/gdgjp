@@ -9,7 +9,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@gdgjp/design-system";
-import { type FormEvent, useEffect, useState } from "react";
+import { type FormEvent, useState } from "react";
 import { useSearchParams } from "react-router";
 import {
   type TimeBucketUnit,
@@ -34,12 +34,13 @@ export function AnalyticsGraphInterval({
   const [unit, setUnit] = useState<TimeBucketUnit>(initial?.unit ?? defaultUnit);
   const [error, setError] = useState("");
 
-  useEffect(() => {
-    const parsed = parseTimeBucket(value);
-    setAmount(parsed ? String(parsed.amount) : "");
-    setUnit(parsed?.unit ?? defaultUnit);
+  const [source, setSource] = useState({ value, defaultUnit });
+  if (source.value !== value || source.defaultUnit !== defaultUnit) {
+    setSource({ value, defaultUnit });
+    setAmount(initial ? String(initial.amount) : "");
+    setUnit(initial?.unit ?? defaultUnit);
     setError("");
-  }, [value, defaultUnit]);
+  }
 
   function applyInterval(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();

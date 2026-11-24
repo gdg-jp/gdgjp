@@ -9,7 +9,7 @@ import {
   Inline,
   Stack,
 } from "@gdgjp/design-system";
-import { useEffect, useRef } from "react";
+import { useRef } from "react";
 
 interface ConfirmDialogProps {
   open: boolean;
@@ -33,10 +33,6 @@ export default function ConfirmDialog({
   onCancel,
 }: ConfirmDialogProps) {
   const closeIntent = useRef<"cancel" | "confirm" | null>(null);
-
-  useEffect(() => {
-    if (open) closeIntent.current = null;
-  }, [open]);
 
   return (
     <AlertDialog

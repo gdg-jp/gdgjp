@@ -1,5 +1,6 @@
 import { Skeleton } from "@gdgjp/design-system";
 import { useRef, useState } from "react";
+import { flushSync } from "react-dom";
 import { useSearchParams } from "react-router";
 import type { BlobTrendPoint, TopBlob, TopRow } from "~/features/analytics/analytics-engine";
 import {
@@ -83,11 +84,11 @@ export function AnalyticsContent({
       : trendFromRows(trendRows, focus?.name);
 
   function selectGraphItem(dimension: Exclude<AnalyticsTrendDimension, "total">, row: TopRow) {
-    setBreakdown(dimension);
-    setFocus({ name: row.name, label: row.name });
-    requestAnimationFrame(() =>
-      chartRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" }),
-    );
+    flushSync(() => {
+      setBreakdown(dimension);
+      setFocus({ name: row.name, label: row.name });
+    });
+    chartRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
   }
 
   function isolateTrend(dimension: Exclude<TopBlob, "source" | "slug">, row: TopRow) {

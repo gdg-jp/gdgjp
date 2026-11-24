@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useState } from "react";
+import { useMountEffect, useValueChange } from "@gdgjp/gdg-lib/react";
+import { useCallback, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link, useFetcher } from "react-router";
 import ConfirmDialog from "~/components/ConfirmDialog";
@@ -42,13 +43,13 @@ export default function ArchivedContent({ open, onClose, lang }: ArchivedContent
     listFetcher.load("/api/archived");
   }, [listFetcher.load]);
 
-  useEffect(() => {
+  useMountEffect(() => {
     if (open) loadArchived();
-  }, [open, loadArchived]);
+  });
 
-  useEffect(() => {
-    if (actionFetcher.data?.ok) loadArchived();
-  }, [actionFetcher.data, loadArchived]);
+  useValueChange(actionFetcher.data, (result) => {
+    if (result?.ok) loadArchived();
+  });
 
   const data = cachedArchived;
   const isFirstLoad = listFetcher.state === "loading" && !data;

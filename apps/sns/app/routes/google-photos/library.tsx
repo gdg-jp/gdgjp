@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from "react";
+import { useValueChange } from "@gdgjp/gdg-lib/react";
+import { useCallback, useState } from "react";
 import { Form, useFetcher } from "react-router";
 import { GooglePhotoButton } from "~/features/google-photos/components/google-photo-button";
 import { attachLibraryPhotos, loadPhotoLibrary } from "~/features/google-photos/library.server";
@@ -18,35 +19,35 @@ export default function GooglePhotosLibrary({ loaderData, actionData }: Route.Co
   const [media, setMedia] = useState(loaderData.media);
   const [nextCursor, setNextCursor] = useState(loaderData.nextCursor);
   const moreMedia = useFetcher<Pick<typeof loaderData, "media" | "nextCursor">>();
-  const loadMoreRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    const loadedMedia = moreMedia.data;
+  useValueChange(moreMedia.data, (loadedMedia) => {
     if (!loadedMedia) return;
     setMedia((current) => {
       const known = new Set(current.map((item) => item.id));
       return [...current, ...loadedMedia.media.filter((item) => !known.has(item.id))];
     });
     setNextCursor(loadedMedia.nextCursor);
-  }, [moreMedia.data]);
+  });
 
-  useEffect(() => {
-    const target = loadMoreRef.current;
-    if (!target || !nextCursor) return;
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        if (!entry.isIntersecting || moreMedia.state !== "idle") return;
-        const params = new URLSearchParams({
-          postId: loaderData.post.id,
-          cursor: nextCursor,
-        });
-        moreMedia.load(`/google/photos/library?${params}`);
-      },
-      { rootMargin: "400px" },
-    );
-    observer.observe(target);
-    return () => observer.disconnect();
-  }, [loaderData.post.id, moreMedia, nextCursor]);
+  const loadMoreRef = useCallback(
+    (target: HTMLDivElement | null) => {
+      if (!target || !nextCursor) return;
+      const observer = new IntersectionObserver(
+        ([entry]) => {
+          if (!entry.isIntersecting || moreMedia.state !== "idle") return;
+          const params = new URLSearchParams({
+            postId: loaderData.post.id,
+            cursor: nextCursor,
+          });
+          moreMedia.load(`/google/photos/library?${params}`);
+        },
+        { rootMargin: "400px" },
+      );
+      observer.observe(target);
+      return () => observer.disconnect();
+    },
+    [loaderData.post.id, moreMedia, nextCursor],
+  );
 
   function toggleSelection(mediaId: string) {
     setSelectedIds((current) => {

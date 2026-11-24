@@ -1,6 +1,7 @@
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@gdgjp/design-system";
 
-import { Suspense, useEffect, useRef, useState } from "react";
+import { useHydrated } from "@gdgjp/gdg-lib/react";
+import { Suspense, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { Await, useFetcher, useLocation } from "react-router";
@@ -55,8 +56,7 @@ export function PageActionsMenu({
   const [moveOpen, setMoveOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [message, setMessage] = useState("");
-  const [hydrated, setHydrated] = useState(false);
-  useEffect(() => setHydrated(true), []);
+  const hydrated = useHydrated();
   const triggerRef = useRef<HTMLButtonElement>(null);
   const pendingDialogAction = useRef<(() => void) | null>(null);
   const busy = mutation.state !== "idle";

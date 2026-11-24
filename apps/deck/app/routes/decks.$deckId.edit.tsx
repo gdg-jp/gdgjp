@@ -11,7 +11,8 @@ import {
   Input,
   toast,
 } from "@gdgjp/design-system";
-import { type CSSProperties, useCallback, useEffect, useMemo, useState } from "react";
+import { useEventListener } from "@gdgjp/gdg-lib/react";
+import { type CSSProperties, useCallback, useMemo, useState } from "react";
 import { Link } from "react-router";
 import { Choice } from "~/components/Choice";
 import { requireDeck } from "~/features/deck/access.server";
@@ -88,22 +89,18 @@ export default function Editor({ loaderData }: Route.ComponentProps) {
   const obs = room?.dockOnline ? room.obs : null;
   const name = room?.deck.name ?? deck.name;
 
-  useEffect(() => {
-    if (!room || room.deck.version <= baseVersion) return;
-    if (dirty) {
-      setStale(true);
-    } else {
+  if (room && room.deck.version > baseVersion) {
+    if (!dirty) {
       setDraft(room.layout);
       setBaseVersion(room.deck.version);
+    } else if (!stale) {
+      setStale(true);
     }
-  }, [room, baseVersion, dirty]);
+  }
 
-  useEffect(() => {
-    if (!dirty) return;
-    const warn = (e: BeforeUnloadEvent) => e.preventDefault();
-    window.addEventListener("beforeunload", warn);
-    return () => window.removeEventListener("beforeunload", warn);
-  }, [dirty]);
+  useEventListener("window", "beforeunload", (e) => {
+    if (dirty) e.preventDefault();
+  });
 
   const edit = (next: DeckLayout) => {
     setDraft(next);

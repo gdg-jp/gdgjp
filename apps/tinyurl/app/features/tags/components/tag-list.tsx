@@ -26,7 +26,8 @@ import {
   cn,
   toast,
 } from "@gdgjp/design-system";
-import { type ReactNode, useEffect, useRef, useState } from "react";
+import { useValueChange } from "@gdgjp/gdg-lib/react";
+import { type ReactNode, useState } from "react";
 import { Form, useFetcher } from "react-router";
 import { GdgMark } from "~/components/gdg-mark";
 import type { ActionData } from "~/features/tags/page.server";
@@ -179,19 +180,16 @@ export function CreateTagForm({
   const [color, setColor] = useState<TagColor>("gray");
   const [scope, setScope] = useState<"user" | "chapter">("user");
   const submitting = fetcher.state !== "idle";
-  const lastDataRef = useRef<unknown>(null);
 
-  useEffect(() => {
-    const data = fetcher.data;
-    if (!data || data === lastDataRef.current) return;
-    lastDataRef.current = data;
+  useValueChange(fetcher.data, (data) => {
+    if (!data) return;
     if ("ok" in data && data.ok) {
       toast.success(`Tag "${name}" created`);
       onDone();
     } else if ("error" in data && data.error) {
       toast.error(data.error);
     }
-  }, [fetcher.data, name, onDone]);
+  });
 
   return (
     <FormShell
@@ -278,19 +276,16 @@ export function EditTagForm({ tag, onDone }: { tag: TagRow; onDone: () => void }
   const [name, setName] = useState(tag.name);
   const [color, setColor] = useState<TagColor>(normalizeColor(tag.color));
   const submitting = fetcher.state !== "idle";
-  const lastDataRef = useRef<unknown>(null);
 
-  useEffect(() => {
-    const data = fetcher.data;
-    if (!data || data === lastDataRef.current) return;
-    lastDataRef.current = data;
+  useValueChange(fetcher.data, (data) => {
+    if (!data) return;
     if ("ok" in data && data.ok) {
       toast.success(`Tag "${name}" updated`);
       onDone();
     } else if ("error" in data && data.error) {
       toast.error(data.error);
     }
-  }, [fetcher.data, name, onDone]);
+  });
 
   return (
     <FormShell title="Edit tag" description="Update the tag name or color.">

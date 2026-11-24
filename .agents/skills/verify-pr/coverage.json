@@ -1,0 +1,278 @@
+{
+  "schemaVersion": 1,
+  "scope": "Local pr journeys (Orca Browser and HTTP) from features/README.md",
+  "sourceBaseCommit": "1c0569f3 (working tree with uncommitted changes; exact file hashes are in each run.json)",
+  "journeys": [
+    {
+      "id": "pr-signin-gate",
+      "map": "features/access.md",
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T15:39:38.536073+00:00",
+      "evidence": [
+        "local_data/pstack/pr/2026-11-24T07-54-56-571Z-5b25ad49/http/anon-gate.txt",
+        "local_data/pstack/pr/2026-11-24T07-54-56-571Z-5b25ad49/snapshots/00-anon.txt"
+      ],
+      "result": "Anonymous / and /c/<slug> redirect to /signin and /api/auth/signin; lead dev login lands on イベント."
+    },
+    {
+      "id": "pr-runner-token",
+      "map": "features/access.md",
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T15:39:38.536073+00:00",
+      "evidence": [
+        "local_data/pstack/pr/2026-11-24T07-54-56-571Z-5b25ad49/http/anon-gate.txt"
+      ],
+      "result": "Wrong runner bearer returns 401."
+    },
+    {
+      "id": "pr-accounts-signin",
+      "map": "features/access.md",
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T15:39:38.536073+00:00",
+      "evidence": [
+        "local_data/pstack/pr/2026-11-24T15-33-30-824Z-96b86ddc/http/accounts-continuation.json",
+        "local_data/pstack/pr/2026-11-24T15-33-30-824Z-96b86ddc/http/accounts-oidc.json",
+        "local_data/pstack/pr/2026-11-24T15-33-30-824Z-96b86ddc/screenshots/accounts-signin.png"
+      ],
+      "result": "With --platform, anonymous /events reaches Accounts /signin with client_id=pr, the 6161 callback, S256 and state; with the Accounts session the OIDC round trip completes and /api/auth/me returns platform-oidc@test.local (no chapter, so /no-chapter)."
+    },
+    {
+      "id": "pr-events-empty",
+      "map": "features/campaigns.md",
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T15:39:38.536073+00:00",
+      "evidence": [
+        "local_data/pstack/pr/2026-11-24T07-54-56-571Z-5b25ad49/screenshots/01-events-empty.png"
+      ],
+      "result": "Fresh chapter shows イベントがありません and イベントを追加."
+    },
+    {
+      "id": "pr-campaign-brief",
+      "map": "features/campaigns.md",
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T15:39:38.536073+00:00",
+      "evidence": [
+        "local_data/pstack/pr/2026-11-24T07-54-56-571Z-5b25ad49/d1/briefs.json"
+      ],
+      "result": "Event created through the dialog; JSON load saved 版 1 and 保存 saved 版 2; D1 has 2 versions by dev-user-lead."
+    },
+    {
+      "id": "pr-cohost-access",
+      "map": "features/campaigns.md",
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T15:39:38.536073+00:00",
+      "evidence": [
+        "local_data/pstack/pr/2026-11-24T07-54-56-571Z-5b25ad49/screenshots/02-cohost-brief-readonly.png",
+        "local_data/pstack/pr/2026-11-24T07-54-56-571Z-5b25ad49/http/outsider-404.txt"
+      ],
+      "result": "Co-host added; chapter 2 sees the event and 閲覧のみ; chapter 3 gets 404."
+    },
+    {
+      "id": "pr-schedule-derived",
+      "map": "features/schedule.md",
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T15:39:38.536073+00:00",
+      "evidence": [
+        "local_data/pstack/pr/2026-11-24T07-54-56-571Z-5b25ad49/http/schedule-rows.json",
+        "local_data/pstack/pr/2026-11-24T07-54-56-571Z-5b25ad49/http/schedule-rows-after-edit.json"
+      ],
+      "result": "Post with blocked-by condition derives a reminder one hour earlier; moving the post moves the reminder."
+    },
+    {
+      "id": "pr-delivery-setup",
+      "map": "features/delivery.md",
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T15:39:38.536073+00:00",
+      "evidence": [
+        "local_data/pstack/pr/2026-11-24T07-54-56-571Z-5b25ad49/http/webhook-masked.txt",
+        "local_data/pstack/pr/2026-11-24T07-54-56-571Z-5b25ad49/http/mocks.log"
+      ],
+      "result": "Webhook masked after reload; each chapter adds its own X account; 有効化 creates one tinyurl campaign in the fake; sns calls 0."
+    },
+    {
+      "id": "pr-no-send-before-approval",
+      "map": "features/delivery.md",
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T15:39:38.536073+00:00",
+      "evidence": [
+        "local_data/pstack/pr/2026-11-24T07-54-56-571Z-5b25ad49/screenshots/04-approval-blocked-ogp.png",
+        "local_data/pstack/pr/2026-11-24T07-54-56-571Z-5b25ad49/http/approved-delivery.txt",
+        "local_data/pstack/pr/2026-11-24T07-54-56-571Z-5b25ad49/http/mocks.log"
+      ],
+      "result": "sns calls stay 0 through draft creation, a Playbook-blocked approval (OGP-ON-SHORTLINK), and draft approval; the co-host account shows そのチャプターのメンバーが承認します to the lead."
+    },
+    {
+      "id": "pr-stale-version-refused",
+      "map": "features/delivery.md",
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T15:39:38.536073+00:00",
+      "evidence": [
+        "local_data/pstack/pr/2026-11-24T07-54-56-571Z-5b25ad49/http/stale-refusal-text.txt",
+        "local_data/pstack/pr/2026-11-24T07-54-56-571Z-5b25ad49/screenshots/05b-stale-version-refused.png",
+        "local_data/pstack/pr/2026-11-24T07-54-56-571Z-5b25ad49/d1/targets-after-stale.json"
+      ],
+      "result": "Draft approval and target 予約 from pages showing an older version are both refused with 新しい版が保存されています…; no review row, targets stay pending, sns calls 0."
+    },
+    {
+      "id": "pr-target-own-chapter",
+      "map": "features/delivery.md",
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T15:39:38.536073+00:00",
+      "evidence": [
+        "local_data/pstack/pr/2026-11-24T07-54-56-571Z-5b25ad49/d1/targets-after-2.json",
+        "local_data/pstack/pr/2026-11-24T07-54-56-571Z-5b25ad49/screenshots/07-target2-osaka.png"
+      ],
+      "result": "Each chapter approves only its own account; one post per account with actor dev-user-lead / dev-user-osaka, approved_version 5, short link substituted."
+    },
+    {
+      "id": "pr-target-double-press",
+      "map": "features/delivery.md",
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T15:39:38.536073+00:00",
+      "evidence": [
+        "local_data/pstack/pr/2026-11-24T10-59-11-371Z-4a270d73/http/mocks-before-dup.json",
+        "local_data/pstack/pr/2026-11-24T10-59-11-371Z-4a270d73/http/mocks-after-dup.json",
+        "local_data/pstack/pr/2026-11-24T10-59-11-371Z-4a270d73/http/dup-pages.txt"
+      ],
+      "result": "Two tabs pressing @chapter1 で予約 at once: sns calls 0 -> 1, one post; the other tab shows この配信先はもう処理されています."
+    },
+    {
+      "id": "pr-status-and-alerts",
+      "map": "features/delivery.md",
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T15:39:38.536073+00:00",
+      "evidence": [
+        "local_data/pstack/pr/2026-11-24T07-54-56-571Z-5b25ad49/http/messages-final.json"
+      ],
+      "result": "Fake publish + hourly cron shows 投稿済み; two hourly runs send exactly one リンク切れ Discord message."
+    },
+    {
+      "id": "pr-mail-waits-for-time",
+      "map": "features/connpass.md",
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T15:39:38.536073+00:00",
+      "evidence": [
+        "local_data/pstack/pr/2026-11-24T10-59-11-371Z-4a270d73/http/mail-before-due.txt",
+        "local_data/pstack/pr/2026-11-24T10-59-11-371Z-4a270d73/http/mail-after-due.txt",
+        "local_data/pstack/pr/2026-11-24T10-59-11-371Z-4a270d73/http/mocks-after-mail.json"
+      ],
+      "result": "Approved mail target shows 予定の時刻に送ります; minute cron before the time sends nothing; after moving the item into the past two cron runs add exactly one send_event_message with the runner subject."
+    },
+    {
+      "id": "pr-connpass-page",
+      "map": "features/connpass.md",
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T15:39:38.536073+00:00",
+      "evidence": [
+        "local_data/pstack/pr/2026-11-24T10-59-11-371Z-4a270d73/http/mocks-after-page-approve.json",
+        "local_data/pstack/pr/2026-11-24T10-59-11-371Z-4a270d73/screenshots/pr-page-preview.png",
+        "local_data/pstack/pr/2026-11-24T10-59-11-371Z-4a270d73/http/connpass-jobs.log"
+      ],
+      "result": "Page draft previewed from slots; image slot creates 版 2; approval queues one update_event in the fake with the description and image and no border-radius; finished job shows succeeded; 1 MB+ thumbnail refused; sub-event job queued."
+    },
+    {
+      "id": "pr-assistant-source",
+      "map": "features/assistant.md",
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T15:39:38.536073+00:00",
+      "evidence": [
+        "local_data/pstack/pr/2026-11-24T10-59-11-371Z-4a270d73/http/assist-runner.json",
+        "local_data/pstack/pr/2026-11-24T10-59-11-371Z-4a270d73/http/assist-thread.txt",
+        "local_data/pstack/pr/2026-11-24T10-59-11-371Z-4a270d73/http/assist-notifications.txt",
+        "local_data/pstack/pr/2026-11-24T10-59-11-371Z-4a270d73/screenshots/pr-assistant-thread.png"
+      ],
+      "result": "Pasted loopback page and memo collected; bundle has the page text with the email masked, the timetable image as binary, the memo and the URL in THREAD.md; thread shows the reply, brief version, question, in-app link only, and the started plan; 通知 shows the question and plan."
+    },
+    {
+      "id": "pr-assets-kit",
+      "map": "features/assets.md",
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T15:39:38.536073+00:00",
+      "evidence": [
+        "local_data/pstack/pr/2026-11-24T10-59-11-371Z-4a270d73/http/asset-bundles.txt",
+        "local_data/pstack/pr/2026-11-24T10-59-11-371Z-4a270d73/http/thumbnail-image.txt",
+        "local_data/pstack/pr/2026-11-24T10-59-11-371Z-4a270d73/http/mocks-after-asset.json",
+        "local_data/pstack/pr/2026-11-24T10-59-11-371Z-4a270d73/http/kit-revision.txt",
+        "local_data/pstack/pr/2026-11-24T10-59-11-371Z-4a270d73/screenshots/pr-kit-card.png"
+      ],
+      "result": "Template thumbnail: first output fails a MUST, retry passes with PREVIOUS/CHECKS; PNG 109 KB; 承認して配る uploads to the img fake and queues one image/jpeg ≤1 MB connpass upload. Kit: two directions, one adopted, session card carries KIT.json/KIT.html, approved, revision bundle carries the request and PREVIOUS.png."
+    },
+    {
+      "id": "pr-live-posts",
+      "map": "features/assets.md",
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T15:39:38.536073+00:00",
+      "evidence": [
+        "local_data/pstack/pr/2026-11-24T10-59-11-371Z-4a270d73/http/live-order.txt",
+        "local_data/pstack/pr/2026-11-24T10-59-11-371Z-4a270d73/http/live-page.txt",
+        "local_data/pstack/pr/2026-11-24T10-59-11-371Z-4a270d73/http/live-first.txt",
+        "local_data/pstack/pr/2026-11-24T10-59-11-371Z-4a270d73/screenshots/pr-live.png"
+      ],
+      "result": "タイムテーブルから作る creates 64 posts (32 session starts), in time order; a second run updates 64 and creates 0; first post carries #DevFestKansai. The brief yields 0 cards."
+    },
+    {
+      "id": "pr-listings",
+      "map": "features/operations.md",
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T15:39:38.536073+00:00",
+      "evidence": [
+        "local_data/pstack/pr/2026-11-24T10-59-11-371Z-4a270d73/http/listing-rows.json",
+        "local_data/pstack/pr/2026-11-24T10-59-11-371Z-4a270d73/http/connpass-jobs.log"
+      ],
+      "result": "Findy approval asks for manual listing and marks 掲載済み; a second Findy draft says もう送っています; Luma approval queues one create_listing in the connpass fake."
+    },
+    {
+      "id": "pr-metrics-budget",
+      "map": "features/operations.md",
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T15:39:38.536073+00:00",
+      "evidence": [
+        "local_data/pstack/pr/2026-11-24T10-59-11-371Z-4a270d73/http/metrics-dashboard.txt",
+        "local_data/pstack/pr/2026-11-24T10-59-11-371Z-4a270d73/http/messages-metrics.json",
+        "local_data/pstack/pr/2026-11-24T10-59-11-371Z-4a270d73/http/analyze-applied.txt"
+      ],
+      "result": "Dashboard shows 312 件 and X（投稿） from the fakes; flight added; CSV import twice reports 12,000 円 and one 予算超過 Discord alert; ads table 12,000 円; analysis job run and the schedule proposal applied (学生展示ブースの紹介). The METRICS.json bundle check was not read (bundle request lacked the runner host header)."
+    },
+    {
+      "id": "pr-learning-export",
+      "map": "features/operations.md",
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T15:39:38.536073+00:00",
+      "evidence": [
+        "local_data/pstack/pr/2026-11-24T10-59-11-371Z-4a270d73/http/retro-bundle-check.txt",
+        "local_data/pstack/pr/2026-11-24T10-59-11-371Z-4a270d73/http/retro-wiki-update.txt",
+        "local_data/pstack/pr/2026-11-24T10-59-11-371Z-4a270d73/http/export-headers.txt",
+        "local_data/pstack/pr/2026-11-24T10-59-11-371Z-4a270d73/http/feedback-writeback.json"
+      ],
+      "result": "Human copy edit recorded; retro bundle has the edit group, KPT notes and Playbook files; Wiki update shows 大阪大学; proposal adopted, export downloads proposals-<date>.json with foldThreshold, feedback.mjs writes weighted 280 provisional false in a temp copy; a Tip is added."
+    },
+    {
+      "id": "pr-chapter-switch",
+      "map": "features/operations.md",
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T15:39:38.536073+00:00",
+      "evidence": [
+        "local_data/pstack/pr/2026-11-24T10-59-11-371Z-4a270d73/http/chapter-switch.txt"
+      ],
+      "result": "チャプターを切り替える to GDG Kyoto lands on /events with イベントがありません."
+    },
+    {
+      "id": "pr-admin-runner",
+      "map": "features/operations.md",
+      "status": "FAILED",
+      "observedAt": "2026-11-24T15:39:38.536073+00:00",
+      "evidence": [
+        "local_data/pstack/pr/2026-11-24T10-59-11-371Z-4a270d73/http/admin-runner.txt",
+        "local_data/pstack/pr/2026-11-24T10-59-11-371Z-4a270d73/screenshots/pr-admin-runner.png"
+      ],
+      "result": "Defect: /admin/runner only requires a signed-in chapter user. A chapter member and an organizer both get 200 and see every chapter's runner jobs (ids, types, errors)."
+    }
+  ],
+  "outsideTheMap": [
+    "Real sns, tinyurl, connpass, img, X, Discord; the OCI runner (journeys post runner results over HTTP as a fixture step); Wiki contacts import."
+  ],
+  "exclusions": [
+    "Real external services (X, Discord, connpass.com, Luma, Google, Gemini, Resend, Vercel)",
+    "Deployed Cloudflare behavior"
+  ]
+}

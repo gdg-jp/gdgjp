@@ -21,6 +21,7 @@ import {
   toast,
 } from "@gdgjp/design-system";
 import { MAX_IMAGE_UPLOAD_BYTES } from "@gdgjp/gdg-lib";
+import { useValueChange } from "@gdgjp/gdg-lib/react";
 import { QRCodeSVG } from "qrcode.react";
 import {
   type ChangeEvent,
@@ -169,27 +170,19 @@ function CreateLinkForm({
   const [shareRole, setShareRole] = useState<"viewer" | "editor">("viewer");
   const [pendingShares, setPendingShares] = useState<PendingShare[]>([]);
 
-  const lastOgpRef = useRef<unknown>(null);
   const prefetchedDefaultDestinationUrlRef = useRef<string | null>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
-  useEffect(() => {
-    const data = ogpFetcher.data;
+  useValueChange(ogpFetcher.data, (data) => {
     if (!data || !("ogp" in data) || !data.ogp) return;
-    if (data === lastOgpRef.current) return;
-    lastOgpRef.current = data;
     const { title: t, description: d, image } = data.ogp;
     if (t) setTitle(t);
     if (d) setDescription(d);
     if (image) setOgImageUrl(image);
-  }, [ogpFetcher.data]);
+  });
 
-  const lastCreateRef = useRef<unknown>(null);
-  useEffect(() => {
-    const data = createFetcher.data;
-    if (!data || lastCreateRef.current === data) return;
-    lastCreateRef.current = data;
-    if ("error" in data && data.error) toast.error(data.error);
-  }, [createFetcher.data]);
+  useValueChange(createFetcher.data, (data) => {
+    if (data && "error" in data && data.error) toast.error(data.error);
+  });
 
   const navigation = useNavigation();
   const isSubmitting = createFetcher.state !== "idle" || navigation.state === "loading";

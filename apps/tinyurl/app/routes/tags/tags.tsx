@@ -8,7 +8,8 @@ import {
   PageHeader,
   Stack,
 } from "@gdgjp/design-system";
-import { useEffect, useMemo, useState } from "react";
+import { useEventListener } from "@gdgjp/gdg-lib/react";
+import { useMemo, useState } from "react";
 import type { TagRow } from "~/features/tags/components/tag-list";
 import { TagListItem } from "~/features/tags/components/tag-list";
 import { EmptyState } from "~/features/tags/components/tag-list";
@@ -61,21 +62,17 @@ export default function Tags({ loaderData }: Route.ComponentProps) {
   const pageEnd = Math.min(pageStart + PAGE_SIZE, filtered.length);
   const visible = filtered.slice(pageStart, pageEnd);
 
-  useEffect(() => {
-    function onKey(e: KeyboardEvent) {
-      if (e.key !== "c" && e.key !== "C") return;
-      if (e.metaKey || e.ctrlKey || e.altKey) return;
-      const target = e.target as HTMLElement | null;
-      if (target) {
-        const tag = target.tagName;
-        if (tag === "INPUT" || tag === "TEXTAREA" || target.isContentEditable) return;
-      }
-      e.preventDefault();
-      setCreateOpen(true);
+  useEventListener("window", "keydown", (e) => {
+    if (e.key !== "c" && e.key !== "C") return;
+    if (e.metaKey || e.ctrlKey || e.altKey) return;
+    const target = e.target as HTMLElement | null;
+    if (target) {
+      const tag = target.tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA" || target.isContentEditable) return;
     }
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, []);
+    e.preventDefault();
+    setCreateOpen(true);
+  });
 
   return (
     <DashboardShell user={user}>

@@ -1,24 +1,25 @@
 import { decode } from "blurhash";
-import { useEffect, useRef } from "react";
+import { useCallback } from "react";
 
 export function BlurhashPlaceholder({
   hash,
   isSelected,
 }: { hash: string | null; isSelected: boolean }) {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-
-  useEffect(() => {
-    if (!hash || !canvasRef.current) return;
-    try {
-      const width = 32;
-      const pixels = decode(hash, width, width);
-      const context = canvasRef.current.getContext("2d");
-      if (!context) return;
-      const image = new ImageData(width, width);
-      image.data.set(pixels);
-      context.putImageData(image, 0, 0);
-    } catch {}
-  }, [hash]);
+  const canvasRef = useCallback(
+    (canvas: HTMLCanvasElement | null) => {
+      if (!hash || !canvas) return;
+      try {
+        const width = 32;
+        const pixels = decode(hash, width, width);
+        const context = canvas.getContext("2d");
+        if (!context) return;
+        const image = new ImageData(width, width);
+        image.data.set(pixels);
+        context.putImageData(image, 0, 0);
+      } catch {}
+    },
+    [hash],
+  );
 
   return hash ? (
     <canvas

@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useValueChange } from "@gdgjp/gdg-lib/react";
+import { useMemo, useRef, useState } from "react";
 import { useFetcher, useRevalidator } from "react-router";
 import { REGISTRATIONS, sourceKindSpec } from "~/features/sources/kinds";
 import { MAX_BATCH_CANDIDATES, titleFromUrl } from "~/features/sources/staged-candidates";
@@ -29,7 +30,6 @@ export function useSourceStaging(
   }, [sources, candidates]);
 
   const queue = useRef<{ rest: StagedSource[]; fields: BatchFields } | null>(null);
-  const handled = useRef<unknown>(null);
   const [chunking, setChunking] = useState(false);
 
   function submitChunk(chunk: StagedSource[], fields: BatchFields) {
@@ -47,11 +47,8 @@ export function useSourceStaging(
     submitChunk(candidates.slice(0, MAX_BATCH_CANDIDATES), fields);
   }
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: runs once per batch response.
-  useEffect(() => {
-    const data = batchFetcher.data;
-    if (!data || handled.current === data) return;
-    handled.current = data;
+  useValueChange(batchFetcher.data, (data) => {
+    if (!data) return;
     if (!data.ok || !("addedIds" in data) || !data.failed) {
       queue.current = null;
       setChunking(false);
@@ -74,7 +71,7 @@ export function useSourceStaging(
       queue.current = null;
       setChunking(false);
     }
-  }, [batchFetcher.data, revalidator]);
+  });
 
   function addCandidates(next: StagedSource[]): boolean {
     const fresh: StagedSource[] = [];

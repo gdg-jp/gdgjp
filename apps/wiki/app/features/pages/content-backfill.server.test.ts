@@ -1,10 +1,7 @@
 import { DatabaseSync, type SQLInputValue } from "node:sqlite";
 import { describe, expect, it } from "vitest";
-import {
-  type ContentBackfillDatabase,
-  backfillMarkdownContent,
-  tiptapJsonToMarkdown,
-} from "./content-backfill.server";
+import { legacyTiptapToMarkdown } from "~/features/editor/content-format";
+import { type ContentBackfillDatabase, backfillMarkdownContent } from "./content-backfill.server";
 
 function createDatabase(): { sqlite: DatabaseSync; d1: ContentBackfillDatabase } {
   const sqlite = new DatabaseSync(":memory:");
@@ -48,10 +45,10 @@ const tiptapDocument = JSON.stringify({
 
 describe("Markdown content backfill", () => {
   it("recognizes only TipTap documents and preserves other JSON and invalid JSON", () => {
-    expect(tiptapJsonToMarkdown(tiptapDocument)).toBe("# Title");
-    expect(tiptapJsonToMarkdown('{"hello":"world"}')).toBeNull();
-    expect(tiptapJsonToMarkdown("{not json")).toBeNull();
-    expect(tiptapJsonToMarkdown("# Existing markdown")).toBeNull();
+    expect(legacyTiptapToMarkdown(tiptapDocument)).toBe("# Title");
+    expect(legacyTiptapToMarkdown('{"hello":"world"}')).toBeNull();
+    expect(legacyTiptapToMarkdown("{not json")).toBeNull();
+    expect(legacyTiptapToMarkdown("# Existing markdown")).toBeNull();
   });
 
   it("converts pages and version history, without changing Markdown-like JSON", async () => {

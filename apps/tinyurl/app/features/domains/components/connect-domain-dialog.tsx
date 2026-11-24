@@ -13,7 +13,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@gdgjp/design-system";
-import { useEffect, useState } from "react";
+import { useDebouncedValue, useValueChange } from "@gdgjp/gdg-lib/react";
+import { useState } from "react";
 import type { ReactNode } from "react";
 import { Form, useFetcher, useRevalidator } from "react-router";
 import type { DomainDetection } from "~/features/domains/domain-detection";
@@ -38,23 +39,23 @@ export function ConnectDomainDialog({
   const [hostname, setHostname] = useState("");
   const [requestedHostname, setRequestedHostname] = useState("");
   const [chapterId, setChapterId] = useState(String(organizers[0]?.chapterId ?? ""));
-  const inspectSubmit = inspector.submit;
+  const settledHostname = useDebouncedValue(hostname, 500);
 
-  useEffect(() => {
-    if (!open || hostname.trim().length < 4) return;
-    const timer = window.setTimeout(() => {
-      setRequestedHostname(hostname.trim().toLowerCase().replace(/\.$/, ""));
-      inspectSubmit({ intent: "inspect", hostname }, { method: "post" });
-    }, 500);
-    return () => window.clearTimeout(timer);
-  }, [hostname, inspectSubmit, open]);
+  useValueChange(
+    open && settledHostname === hostname && hostname.trim().length >= 4 ? hostname : null,
+    (requested) => {
+      if (requested === null) return;
+      setRequestedHostname(requested.trim().toLowerCase().replace(/\.$/, ""));
+      inspector.submit({ intent: "inspect", hostname: requested }, { method: "post" });
+    },
+  );
 
-  useEffect(() => {
-    if (creator.state !== "idle" || !creator.data || !("ok" in creator.data)) return;
+  useValueChange(creator.state === "idle" ? creator.data : undefined, (data) => {
+    if (!data || !("ok" in data)) return;
     onOpenChange(false);
     setHostname("");
     revalidator.revalidate();
-  }, [creator.data, creator.state, onOpenChange, revalidator]);
+  });
 
   const inspection: DomainDetection | null =
     inspector.data && "inspection" in inspector.data ? (inspector.data.inspection ?? null) : null;

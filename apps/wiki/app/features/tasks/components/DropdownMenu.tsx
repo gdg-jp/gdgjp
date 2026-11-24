@@ -43,7 +43,7 @@ export default function DropdownMenu({
   labelClass,
 }: DropdownMenuProps) {
   const { triggerRef, menuRef, searchInputRef, pos, open, search, setSearch, openMenu, close } =
-    useAnchoredMenu({ searchable });
+    useAnchoredMenu();
 
   const selected = options.find((o) => o.value === value);
 

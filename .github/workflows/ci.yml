@@ -19,6 +19,7 @@ jobs:
     outputs:
       engineering: ${{ steps.changes.outputs.engineering }}
       job-lifecycle: ${{ steps.changes.outputs.job-lifecycle }}
+      alloy: ${{ steps.changes.outputs.alloy }}
       ci: ${{ steps.changes.outputs.ci }}
       build: ${{ steps.changes.outputs.build }}
       e2e: ${{ steps.changes.outputs.e2e }}
@@ -67,6 +68,10 @@ jobs:
         run: node scripts/check-docs.mjs
       - name: Check workspace import boundaries
         run: node scripts/check-workspace-boundaries.mjs
+      - name: Check application conventions
+        run: node scripts/check-app-conventions.mjs
+      - name: Reject new effects and imperative timers
+        run: node scripts/check-effects.mjs
       - name: Reject new code comments
         env:
           BASE_SHA: ${{ needs.changes.outputs.base }}
@@ -95,6 +100,14 @@ jobs:
       - run: pnpm typecheck:node-scripts
       - run: node scripts/pstack.mjs doctor
       - run: node .agents/skills/verify-acl-boundaries/scripts/verify.mjs --mutation-proof
+      - name: Upload ACL verification evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: acl-boundaries
+          path: local_data/pstack/acl-boundaries/
+          if-no-files-found: warn
+          retention-days: 7
 
   job-lifecycle:
     name: Runner lifecycle verification
@@ -128,6 +141,53 @@ jobs:
         with:
           name: job-lifecycle-verification
           path: local_data/pstack/job-lifecycle/
+          if-no-files-found: warn
+          retention-days: 7
+
+  alloy:
+    name: Alloy model check (${{ matrix.skill }})
+    needs: changes
+    if: needs.changes.outputs.alloy != '[]'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        skill: ${{ fromJSON(needs.changes.outputs.alloy) }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: false
+      - name: Initialize shared UI submodule
+        run: git submodule update --init packages/design-system
+      - name: Initialize Playbook submodule
+        run: git submodule update --init skills
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+      - name: Cache Alloy
+        uses: actions/cache@v4
+        with:
+          path: local_data/pstack/tools/
+          key: alloy-${{ hashFiles('scripts/verification/alloy.mjs') }}
+      - run: pnpm install --frozen-lockfile
+      - name: Run the model check with mutation proof
+        env:
+          SKILL: ${{ matrix.skill }}
+        run: node ".agents/skills/$SKILL/scripts/verify.mjs" --mutation-proof
+      - name: Upload model-check evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: alloy-${{ matrix.skill }}
+          path: |
+            local_data/pstack/
+            !local_data/pstack/tools/
           if-no-files-found: warn
           retention-days: 7
 
@@ -190,7 +250,7 @@ jobs:
           go-version: "1.23"
       - run: pnpm install --frozen-lockfile
       - run: go build -C apps/cli -o /tmp/gdg-ci ./cmd/gdg
-      - run: node --test .github/scripts/*.test.mjs
+      - run: node --test .github/scripts/*.test.mjs scripts/verification/*.test.mjs .agents/skills/verify-apps/scripts/*.test.mjs
         env:
           GDG_BIN: /tmp/gdg-ci
 
@@ -504,7 +564,7 @@ jobs:
 
   required:
     name: Required checks
-    needs: [changes, code-comments, engineering, job-lifecycle, lint, script-tests, openapi, cli, design-harness, typecheck, test, mutation, build, e2e]
+    needs: [changes, code-comments, engineering, job-lifecycle, alloy, lint, script-tests, openapi, cli, design-harness, typecheck, test, mutation, build, e2e, verification-summary]
     if: always()
     runs-on: ubuntu-latest
     steps:
@@ -513,9 +573,54 @@ jobs:
           RESULTS: ${{ toJSON(needs) }}
         run: jq -e 'all(.[]; .result == "success" or .result == "skipped")' <<<"$RESULTS"
 
+  verification-summary:
+    name: Verification summary
+    needs: [changes, code-comments, engineering, job-lifecycle, alloy, lint, script-tests, openapi, cli, design-harness, typecheck, test, mutation, build, e2e]
+    if: always() && github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          submodules: false
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      - name: Download this run's evidence
+        continue-on-error: true
+        uses: actions/download-artifact@v4
+        with:
+          path: verification-inputs
+      - name: Summarize verification evidence
+        env:
+          NEEDS: ${{ toJSON(needs) }}
+          BASE_SHA: ${{ needs.changes.outputs.base }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          printf '%s' "$NEEDS" > "$RUNNER_TEMP/needs.json"
+          args=(--commit "$HEAD_SHA" --hosted-jobs "$RUNNER_TEMP/needs.json" --run-url "$RUN_URL")
+          if [[ -n "$BASE_SHA" ]]; then
+            args+=(--base "$BASE_SHA")
+          fi
+          node scripts/verification-summary.mjs "${args[@]}" \
+            --evidence verification-inputs --output local_data/pstack/verification-summary/hosted
+          cat local_data/pstack/verification-summary/hosted/verification-summary.md >> "$GITHUB_STEP_SUMMARY"
+      - name: Upload verification summary
+        uses: actions/upload-artifact@v4
+        with:
+          name: verification-summary
+          path: local_data/pstack/verification-summary/hosted/
+          if-no-files-found: error
+          retention-days: 14
+
   observations:
     name: Engineering observations
-    needs: [changes, code-comments, engineering, job-lifecycle, lint, script-tests, openapi, cli, design-harness, typecheck, test, mutation, build, e2e]
+    needs: [changes, code-comments, engineering, job-lifecycle, alloy, lint, script-tests, openapi, cli, design-harness, typecheck, test, mutation, build, e2e, verification-summary]
     if: always()
     runs-on: ubuntu-latest
     permissions:
@@ -529,12 +634,18 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
+      - name: Choose observation window
+        run: |
+          {
+            printf 'OBSERVATION_SINCE=%s\n' "$(date -u -d '30 days ago' +%Y-%m-%dT%H:%M:%SZ)"
+            printf 'OBSERVATION_UNTIL=%s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          } >> "$GITHUB_ENV"
       - name: Collect deployment attempts
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           mkdir -p local_data/pstack/engineering-health
-          since=$(date -u -d '30 days ago' +%Y-%m-%dT%H:%M:%SZ)
+          since=${OBSERVATION_SINCE:-$(date -u -d '30 days ago' +%Y-%m-%dT%H:%M:%SZ)}
           if ! gh api --paginate --slurp "repos/${GITHUB_REPOSITORY}/actions/workflows/deploy.yml/runs?created=>=${since}&per_page=100" > local_data/pstack/engineering-health/deploy-pages.json; then
             printf '%s\n' '{"status":"unavailable","reason":"GitHub deployment history collection failed"}' > local_data/pstack/engineering-health/deploy-collection.json
             exit 1
@@ -558,13 +669,36 @@ jobs:
             workflow_runs, total_count, complete,
           }, null, 2));
           NODE
+      - name: Collect production RUM
+        if: always() && github.event_name == 'push' && github.ref == 'refs/heads/main'
+        env:
+          CLOUDFLARE_RUM_API_TOKEN: ${{ secrets.CLOUDFLARE_RUM_API_TOKEN }}
+          CLOUDFLARE_RUM_ACCOUNT_ID: ${{ vars.CLOUDFLARE_RUM_ACCOUNT_ID }}
+          CLOUDFLARE_RUM_SITE_TAGS: ${{ vars.CLOUDFLARE_RUM_SITE_TAGS }}
+        run: |
+          directory=local_data/pstack/engineering-health
+          mkdir -p "$directory"
+          if test -z "$CLOUDFLARE_RUM_API_TOKEN" || test -z "$CLOUDFLARE_RUM_ACCOUNT_ID"; then
+            printf '%s\n' '{"status":"unavailable","reason":"Cloudflare RUM token or account is not configured"}' > "$directory/production-rum-collection.json"
+            exit 0
+          fi
+          if ! node .github/scripts/collect-production-rum.mjs --since "$OBSERVATION_SINCE" --until "$OBSERVATION_UNTIL" --output "$directory/production-rum.json"; then
+            printf '%s\n' '{"status":"unavailable","reason":"Cloudflare RUM collection failed"}' > "$directory/production-rum-collection.json"
+            exit 1
+          fi
       - name: Record engineering observations
         if: always()
         run: |
-          since=$(date -u -d '30 days ago' +%Y-%m-%dT%H:%M:%SZ)
+          since=${OBSERVATION_SINCE:-$(date -u -d '30 days ago' +%Y-%m-%dT%H:%M:%SZ)}
           set --
+          if test -n "${OBSERVATION_UNTIL:-}"; then
+            set -- --until "$OBSERVATION_UNTIL"
+          fi
           if test -f local_data/pstack/engineering-health/deploy-runs.json; then
-            set -- --deploy-runs local_data/pstack/engineering-health/deploy-runs.json
+            set -- "$@" --deploy-runs local_data/pstack/engineering-health/deploy-runs.json
+          fi
+          if test -f local_data/pstack/engineering-health/production-rum.json; then
+            set -- "$@" --production-rum local_data/pstack/engineering-health/production-rum.json
           fi
           node scripts/engineering-health.mjs --since "$since" "$@" --output local_data/pstack/engineering-health/hosted.json
       - name: Upload engineering observations

@@ -1,3 +1,4 @@
+import { useClientValue } from "@gdgjp/gdg-lib/react";
 import { useEffect, useRef, useState } from "react";
 import type { DenoiseSetting, DenoiseState } from "~/features/stage/protocol";
 import { DenoisePipeline, denoiseSupported, loadDenoiseAssets } from "./engine";
@@ -9,7 +10,7 @@ export function useDenoise(
   setting: DenoiseSetting,
   setBrowserSuppression: (on: boolean) => void,
 ): { track: MediaStreamTrack | null; state: DenoiseState } {
-  const [supported, setSupported] = useState<boolean | null>(null);
+  const supported = useClientValue<boolean | null>(denoiseSupported, null);
   const [pipeline, setPipeline] = useState<DenoisePipeline | null>(null);
   const [failed, setFailed] = useState(false);
   const [running, setRunning] = useState(false);
@@ -19,8 +20,6 @@ export function useDenoise(
   attenRef.current = setting.attenDb;
   const pipelineRef = useRef<DenoisePipeline | null>(null);
   const mounted = useRef(false);
-
-  useEffect(() => setSupported(denoiseSupported()), []);
 
   const wanted = setting.on && supported === true;
   // biome-ignore lint/correctness/useExhaustiveDependencies: attempt forces a retry

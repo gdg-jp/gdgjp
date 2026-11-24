@@ -1,5 +1,5 @@
 import { Button, Icons } from "@gdgjp/design-system";
-import { useEffect, useRef } from "react";
+import { useCallback } from "react";
 import { reducedMotion } from "../feedback";
 
 export function SpinButton({
@@ -19,10 +19,9 @@ export function SpinButton({
   onChargeCancel?: () => void;
   onSpin?: () => void;
 }) {
-  const halo = useRef<HTMLSpanElement>(null);
-  useEffect(() => {
-    if (!pulse || reducedMotion()) return;
-    const animation = halo.current?.animate(
+  const halo = useCallback((element: HTMLSpanElement | null) => {
+    if (!element || reducedMotion()) return;
+    const animation = element.animate(
       [
         { scale: "1 1", opacity: 0.45 },
         { scale: "1.05 1.6", opacity: 0 },
@@ -33,8 +32,8 @@ export function SpinButton({
         easing: "cubic-bezier(0.23, 1, 0.32, 1)",
       },
     );
-    return () => animation?.cancel();
-  }, [pulse]);
+    return () => animation.cancel();
+  }, []);
   return (
     <div className="relative">
       {pulse && (

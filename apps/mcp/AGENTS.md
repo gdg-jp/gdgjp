@@ -2,7 +2,7 @@
 
 Read `README.md` and `ARCHITECTURE.md`. Rules that keep this Worker safe:
 
-- No LLM: no `[ai]` binding, no model SDKs, no LLM keys.
+- No LLM (`pnpm check:apps`).
 - Never decide permissions here. Tools call the owning app's API as the signed-in person; the app
   decides what they may see or change.
 - Never return or log the Accounts tokens in `props`, and never accept an Accounts token as an MCP

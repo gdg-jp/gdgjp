@@ -6,6 +6,12 @@ import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 
 import { AppTokenSource, GitHubClient, readAuthSecrets, redact } from "./codex-auth.mjs";
+import {
+  EvidenceLoader,
+  REVIEW_EVIDENCE_RULE,
+  VERIFY_EVIDENCE_RULE,
+  evidenceSection,
+} from "./review-evidence.mjs";
 
 export const LABEL = "E-code-review";
 export const STATUS_CONTEXT = "ai-review";
@@ -536,7 +542,7 @@ export const VERIFY_SCHEMA = {
   },
 };
 
-export function reviewPrompt(pr, { mergeBase, files, previous }) {
+export function reviewPrompt(pr, { mergeBase, files, previous, evidence = null }) {
   return `You are the required code reviewer for pull request #${pr.number} in the gdg-jp/gdgjp repository.
 
 Title: ${pr.title}
@@ -558,6 +564,9 @@ realistic failure cases, missing or wrong tests for changed behavior, and violat
 repository rules in AGENTS.md. Do not report style preferences, speculative concerns you could
 not confirm in the code, or praise. Each finding must be independently fixable.
 
+${evidenceSection(pr, evidence)}
+${REVIEW_EVIDENCE_RULE}
+
 For each finding give:
 - priority: P0 (must not ship, breaks production or security), P1 (serious bug), P2 (real but
   contained defect), P3 (minor but worth fixing)
@@ -578,7 +587,7 @@ ${
 Return an empty findings array when you find nothing that meets this bar.`;
 }
 
-export function verifyPrompt(pr, findings) {
+export function verifyPrompt(pr, findings, evidence = null) {
   const items = findings.map((finding) => ({
     id: finding.id,
     reported_on_commit: finding.head ?? null,
@@ -612,6 +621,12 @@ Write reply in Japanese Markdown. When resolved, name what you confirmed (file a
 not resolved, state precisely what remains and what change would clear it. Answer any question
 the person asked. Return exactly one verdict for every id below.
 
+${VERIFY_EVIDENCE_RULE}
+
+Current PR description, written by the author:
+${pr.body.trim() || "(none)"}
+
+${evidenceSection(pr, evidence)}
 Findings:
 ${JSON.stringify(items, null, 2)}`;
 }
@@ -1174,7 +1189,16 @@ class Worktrees {
 
 const ATTEMPTS = 3;
 
-export async function processPullRequest({ repo, codex, worktrees, number, runId, runUrl, model }) {
+export async function processPullRequest({
+  repo,
+  codex,
+  worktrees,
+  evidence = null,
+  number,
+  runId,
+  runUrl,
+  model,
+}) {
   for (let attempt = 1; attempt <= ATTEMPTS; attempt += 1) {
     const { pr, evaluation } = await repo.evaluate(number);
     if (!GATED_BASES.includes(pr.baseRef)) return;
@@ -1186,7 +1210,7 @@ export async function processPullRequest({ repo, codex, worktrees, number, runId
     await repo.publishGate(pr, { state: "pending", description: "GDG-chan is working" }, runUrl);
     const tree = await worktrees.prepare(pr);
     try {
-      await handleWork({ repo, codex, tree, pr, evaluation, runId, model });
+      await handleWork({ repo, codex, tree, pr, evaluation, evidence, runId, model });
     } finally {
       await worktrees.remove(tree.dir);
     }
@@ -1199,13 +1223,23 @@ export function latestClaim(finding) {
   return new Date(Math.max(...finding.claims.map((claim) => time(claim.at)))).toISOString();
 }
 
-async function handleWork({ repo, codex, tree, pr, evaluation, runId, model }) {
+async function handleWork({ repo, codex, tree, pr, evaluation, evidence, runId, model }) {
   const outcomes = new Map();
+  let changed;
+  const changedFiles = async () => {
+    changed ??= [...(await repo.changedFiles(pr.number)).keys()];
+    return changed;
+  };
+  let loaded;
+  const loadEvidence = async () => {
+    loaded ??= evidence ? await evidence.load(pr, await changedFiles()) : null;
+    return loaded;
+  };
   if (evaluation.verifications.length > 0) {
     const result = sanitize(
       await codex.exec({
         cwd: tree.dir,
-        prompt: verifyPrompt(pr, evaluation.verifications),
+        prompt: verifyPrompt(pr, evaluation.verifications, await loadEvidence()),
         schema: VERIFY_SCHEMA,
       }),
       codex.secrets,
@@ -1239,7 +1273,7 @@ async function handleWork({ repo, codex, tree, pr, evaluation, runId, model }) {
     await repo.postMentionReply(pr, mention, handled);
   }
   if (evaluation.reviewRequested) {
-    const files = [...(await repo.changedFiles(pr.number)).keys()];
+    const files = await changedFiles();
     const requested = new Date(
       Math.max(...pr.labeledAt.map((value) => Date.parse(value)), 0) || Date.now(),
     ).toISOString();
@@ -1249,6 +1283,7 @@ async function handleWork({ repo, codex, tree, pr, evaluation, runId, model }) {
         prompt: reviewPrompt(pr, {
           mergeBase: tree.mergeBase,
           files,
+          evidence: await loadEvidence(),
           previous: evaluation.unresolved.map((finding) => ({
             path: finding.path,
             line: finding.line,
@@ -1387,12 +1422,17 @@ async function main() {
       codexHome,
       model,
       effort: process.env.CODEX_EFFORT,
-      secrets: [...(await readAuthSecrets(join(codexHome, "auth.json"))), ...tokens.issued],
+      secrets: [
+        ...(await readAuthSecrets(join(codexHome, "auth.json"))),
+        ...tokens.issued,
+        ...(process.env.GITHUB_TOKEN ? [process.env.GITHUB_TOKEN] : []),
+      ],
     });
     tokens.onIssue = (token) => codex.secrets.push(token);
     const root = join(tmpdir(), "codex-review-worktrees");
     await mkdir(root, { recursive: true });
     const worktrees = new Worktrees({ root });
+    const evidence = new EvidenceLoader({ actions, repository, root: process.cwd() });
     let failed = false;
     for (const number of numbers) {
       try {
@@ -1400,6 +1440,7 @@ async function main() {
           repo,
           codex,
           worktrees,
+          evidence,
           number,
           runId: `${process.env.GITHUB_RUN_ID}-${process.env.GITHUB_RUN_ATTEMPT ?? "1"}`,
           runUrl,

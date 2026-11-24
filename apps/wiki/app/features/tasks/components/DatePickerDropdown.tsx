@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from "react";
+import { useEventListener } from "@gdgjp/gdg-lib/react";
+import { useCallback, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import { formatDueDate } from "../task-utils";
@@ -41,13 +42,26 @@ export default function DatePickerDropdown({ value, onChange }: DatePickerDropdo
   const menuRef = useRef<HTMLDivElement>(null);
   const savedFocusRef = useRef<Element | null>(null);
 
-  useEffect(() => {
+  const [viewedValue, setViewedValue] = useState(value);
+  if (viewedValue !== value) {
+    setViewedValue(value);
     if (value) {
       const d = new Date(`${value}T00:00:00`);
       setViewYear(d.getFullYear());
       setViewMonth(d.getMonth());
     }
-  }, [value]);
+  }
+
+  const attachMenu = useCallback((menu: HTMLDivElement | null) => {
+    menuRef.current = menu;
+    if (!menu) return;
+    menu.focus();
+    return () => {
+      menuRef.current = null;
+      if (savedFocusRef.current instanceof HTMLElement) savedFocusRef.current.focus();
+      savedFocusRef.current = null;
+    };
+  }, []);
 
   function openPicker(e: React.MouseEvent) {
     e.stopPropagation();
@@ -63,46 +77,27 @@ export default function DatePickerDropdown({ value, onChange }: DatePickerDropdo
     setOpen(true);
   }
 
-  useEffect(() => {
-    if (open) {
-      menuRef.current?.focus();
-    } else {
-      if (savedFocusRef.current instanceof HTMLElement) {
-        savedFocusRef.current.focus();
-      }
-      savedFocusRef.current = null;
-    }
-  }, [open]);
-
-  useEffect(() => {
+  useEventListener("document", "mousedown", (e) => {
     if (!open) return;
-    function handleOutside(e: MouseEvent) {
-      const target = e.target as Node;
-      if (triggerRef.current?.contains(target) || menuRef.current?.contains(target)) return;
-      setOpen(false);
-    }
-    document.addEventListener("mousedown", handleOutside);
-    return () => document.removeEventListener("mousedown", handleOutside);
-  }, [open]);
+    const target = e.target as Node;
+    if (triggerRef.current?.contains(target) || menuRef.current?.contains(target)) return;
+    setOpen(false);
+  });
 
-  useEffect(() => {
-    if (!open) return;
-    function handleKey(e: KeyboardEvent) {
-      if (e.key === "Escape") setOpen(false);
-    }
-    document.addEventListener("keydown", handleKey);
-    return () => document.removeEventListener("keydown", handleKey);
-  }, [open]);
+  useEventListener("document", "keydown", (e) => {
+    if (open && e.key === "Escape") setOpen(false);
+  });
 
-  useEffect(() => {
-    if (!open) return;
-    function handleScroll() {
+  useEventListener(
+    "window",
+    "scroll",
+    () => {
+      if (!open) return;
       const rect = triggerRef.current?.getBoundingClientRect();
       if (rect) setPos({ top: rect.bottom + window.scrollY + 4, left: rect.left + window.scrollX });
-    }
-    window.addEventListener("scroll", handleScroll, true);
-    return () => window.removeEventListener("scroll", handleScroll, true);
-  }, [open]);
+    },
+    { capture: true },
+  );
 
   function prevMonth() {
     if (viewMonth === 0) {
@@ -137,7 +132,7 @@ export default function DatePickerDropdown({ value, onChange }: DatePickerDropdo
     open && pos
       ? createPortal(
           <div
-            ref={menuRef}
+            ref={attachMenu}
             aria-label={t("tasks.calendar_label")}
             tabIndex={-1}
             style={{ position: "absolute", top: pos.top, left: pos.left }}

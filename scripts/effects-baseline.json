@@ -1,0 +1,625 @@
+{
+  "version": 1,
+  "entries": [
+    {
+      "path": "apps/accounts/app/features/auth/auth.server.ts",
+      "api": "setTimeout",
+      "count": 1
+    },
+    {
+      "path": "apps/accounts/app/features/chapters/components/chapter-row.tsx",
+      "api": "useEffect",
+      "count": 1
+    },
+    {
+      "path": "apps/accounts/app/features/developer-apps/components/developer-apps.tsx",
+      "api": "setTimeout",
+      "count": 1
+    },
+    {
+      "path": "apps/accounts/app/features/invites/components/invite-manager.tsx",
+      "api": "setTimeout",
+      "count": 1
+    },
+    {
+      "path": "apps/accounts/app/features/invites/components/invite-manager.tsx",
+      "api": "useEffect",
+      "count": 2
+    },
+    {
+      "path": "apps/accounts/app/features/memberships/components/member-rows.tsx",
+      "api": "useEffect",
+      "count": 1
+    },
+    {
+      "path": "apps/accounts/app/features/memberships/components/request-row.tsx",
+      "api": "useEffect",
+      "count": 1
+    },
+    {
+      "path": "apps/accounts/app/features/onboarding/components/onboarding-wizard.tsx",
+      "api": "useEffect",
+      "count": 2
+    },
+    {
+      "path": "apps/accounts/app/features/users/components/user-actions.tsx",
+      "api": "useEffect",
+      "count": 1
+    },
+    {
+      "path": "apps/accounts/app/root.tsx",
+      "api": "useEffect",
+      "count": 1
+    },
+    {
+      "path": "apps/accounts/app/routes/chapters/admin.chapters.tsx",
+      "api": "useEffect",
+      "count": 1
+    },
+    {
+      "path": "apps/accounts/app/routes/google-workspace/settings.google-workspace.tsx",
+      "api": "useEffect",
+      "count": 1
+    },
+    {
+      "path": "apps/accounts/app/routes/oauth/settings.connected-apps.tsx",
+      "api": "useEffect",
+      "count": 1
+    },
+    {
+      "path": "apps/deck/app/features/dock/dock-engine.ts",
+      "api": "setTimeout",
+      "count": 2
+    },
+    {
+      "path": "apps/deck/app/features/obs/obs-client.ts",
+      "api": "setTimeout",
+      "count": 2
+    },
+    {
+      "path": "apps/deck/app/features/room/reliable-socket.ts",
+      "api": "setInterval",
+      "count": 1
+    },
+    {
+      "path": "apps/deck/app/features/room/reliable-socket.ts",
+      "api": "setTimeout",
+      "count": 3
+    },
+    {
+      "path": "apps/deck/app/features/room/use-deck-room.ts",
+      "api": "useEffect",
+      "count": 1
+    },
+    {
+      "path": "apps/img/app/features/images/components/url-builder-card.tsx",
+      "api": "useEffect",
+      "count": 1
+    },
+    {
+      "path": "apps/live-checkin/app/checkin/_components/SettingsModal.tsx",
+      "api": "useEffect",
+      "count": 1
+    },
+    {
+      "path": "apps/live-checkin/app/checkin/page.tsx",
+      "api": "requestAnimationFrame",
+      "count": 2
+    },
+    {
+      "path": "apps/live-checkin/app/checkin/page.tsx",
+      "api": "useEffect",
+      "count": 7
+    },
+    {
+      "path": "apps/mc/app/features/playback/ack-tracker.ts",
+      "api": "setTimeout",
+      "count": 1
+    },
+    {
+      "path": "apps/mc/app/features/playback/components/ClipEditor.tsx",
+      "api": "useEffect",
+      "count": 1
+    },
+    {
+      "path": "apps/mc/app/features/playback/components/CommonShelf.tsx",
+      "api": "useEffect",
+      "count": 1
+    },
+    {
+      "path": "apps/mc/app/features/playback/components/NowPlayingBar.tsx",
+      "api": "useEffect",
+      "count": 1
+    },
+    {
+      "path": "apps/mc/app/features/playback/components/RemainingTime.tsx",
+      "api": "useEffect",
+      "count": 1
+    },
+    {
+      "path": "apps/mc/app/features/playback/components/ScrollingText.tsx",
+      "api": "useEffect",
+      "count": 1
+    },
+    {
+      "path": "apps/mc/app/features/playback/components/SeekBar.tsx",
+      "api": "useEffect",
+      "count": 1
+    },
+    {
+      "path": "apps/mc/app/features/playback/player-engine.ts",
+      "api": "setInterval",
+      "count": 1
+    },
+    {
+      "path": "apps/mc/app/features/playback/player-engine.ts",
+      "api": "setTimeout",
+      "count": 4
+    },
+    {
+      "path": "apps/mc/app/features/playback/reliable-socket.ts",
+      "api": "setInterval",
+      "count": 1
+    },
+    {
+      "path": "apps/mc/app/features/playback/reliable-socket.ts",
+      "api": "setTimeout",
+      "count": 3
+    },
+    {
+      "path": "apps/mc/app/features/playback/use-controller-room.ts",
+      "api": "setInterval",
+      "count": 2
+    },
+    {
+      "path": "apps/mc/app/features/playback/use-controller-room.ts",
+      "api": "useEffect",
+      "count": 1
+    },
+    {
+      "path": "apps/mc/app/lib/frame.ts",
+      "api": "requestAnimationFrame",
+      "count": 2
+    },
+    {
+      "path": "apps/mc/app/routes/controller.tsx",
+      "api": "useLayoutEffect",
+      "count": 2
+    },
+    {
+      "path": "apps/mc/app/routes/play.tsx",
+      "api": "setInterval",
+      "count": 1
+    },
+    {
+      "path": "apps/mc/app/routes/play.tsx",
+      "api": "useEffect",
+      "count": 1
+    },
+    {
+      "path": "apps/mc/workers/mc-room.ts",
+      "api": "setTimeout",
+      "count": 1
+    },
+    {
+      "path": "apps/ost/app/features/board/use-live-board.ts",
+      "api": "setTimeout",
+      "count": 1
+    },
+    {
+      "path": "apps/ost/app/features/board/use-live-board.ts",
+      "api": "useEffect",
+      "count": 1
+    },
+    {
+      "path": "apps/pr/app/features/assistant/components/Composer.tsx",
+      "api": "useEffect",
+      "count": 1
+    },
+    {
+      "path": "apps/pr/app/features/assistant/components/Thread.tsx",
+      "api": "useEffect",
+      "count": 1
+    },
+    {
+      "path": "apps/pr/app/features/notify/discord.server.ts",
+      "api": "setTimeout",
+      "count": 1
+    },
+    {
+      "path": "apps/pr/app/root.tsx",
+      "api": "useEffect",
+      "count": 1
+    },
+    {
+      "path": "apps/pr/app/routes/api/runner/jobs-next.ts",
+      "api": "setTimeout",
+      "count": 1
+    },
+    {
+      "path": "apps/pr/app/routes/campaigns/thread.tsx",
+      "api": "setInterval",
+      "count": 1
+    },
+    {
+      "path": "apps/pr/app/routes/campaigns/thread.tsx",
+      "api": "useEffect",
+      "count": 1
+    },
+    {
+      "path": "apps/pr/app/routes/notifications/list.tsx",
+      "api": "setInterval",
+      "count": 1
+    },
+    {
+      "path": "apps/pr/app/routes/notifications/list.tsx",
+      "api": "useEffect",
+      "count": 1
+    },
+    {
+      "path": "apps/pr/app/routes/schedule/calendar.tsx",
+      "api": "useEffect",
+      "count": 1
+    },
+    {
+      "path": "apps/roster/app/features/applications/components/ProxyAddDialog.tsx",
+      "api": "useEffect",
+      "count": 1
+    },
+    {
+      "path": "apps/roster/app/features/applications/components/StaffDrawer.tsx",
+      "api": "useEffect",
+      "count": 2
+    },
+    {
+      "path": "apps/roster/app/features/demand/components/DemandDrawer.tsx",
+      "api": "useEffect",
+      "count": 1
+    },
+    {
+      "path": "apps/roster/app/features/events/components/ApplyLinkCard.tsx",
+      "api": "setTimeout",
+      "count": 1
+    },
+    {
+      "path": "apps/roster/app/features/events/components/ShareCard.tsx",
+      "api": "setTimeout",
+      "count": 1
+    },
+    {
+      "path": "apps/roster/app/features/roster-sheets/components/NewRosterSheetDialog.tsx",
+      "api": "useEffect",
+      "count": 1
+    },
+    {
+      "path": "apps/roster/app/features/roster/components/CellDrawer.tsx",
+      "api": "useEffect",
+      "count": 2
+    },
+    {
+      "path": "apps/roster/app/features/roster/components/DemandCellDrawer.tsx",
+      "api": "useEffect",
+      "count": 2
+    },
+    {
+      "path": "apps/roster/app/features/roster/components/GridSearch.tsx",
+      "api": "useEffect",
+      "count": 1
+    },
+    {
+      "path": "apps/roster/app/features/roster/use-roster-drawers.ts",
+      "api": "useEffect",
+      "count": 1
+    },
+    {
+      "path": "apps/roster/app/root.tsx",
+      "api": "useEffect",
+      "count": 1
+    },
+    {
+      "path": "apps/roster/app/routes/e.$id.staff.tsx",
+      "api": "useEffect",
+      "count": 1
+    },
+    {
+      "path": "apps/roulette/app/features/draw/components/Celebration.tsx",
+      "api": "requestAnimationFrame",
+      "count": 2
+    },
+    {
+      "path": "apps/roulette/app/features/draw/feedback.ts",
+      "api": "setTimeout",
+      "count": 1
+    },
+    {
+      "path": "apps/roulette/app/features/draw/music.ts",
+      "api": "setInterval",
+      "count": 1
+    },
+    {
+      "path": "apps/roulette/app/features/draw/music.ts",
+      "api": "setTimeout",
+      "count": 1
+    },
+    {
+      "path": "apps/roulette/app/features/draw/use-spin.ts",
+      "api": "requestAnimationFrame",
+      "count": 4
+    },
+    {
+      "path": "apps/roulette/app/features/draw/use-spin.ts",
+      "api": "setInterval",
+      "count": 2
+    },
+    {
+      "path": "apps/roulette/app/features/draw/use-spin.ts",
+      "api": "setTimeout",
+      "count": 1
+    },
+    {
+      "path": "apps/roulette/app/features/draw/use-spin.ts",
+      "api": "useEffect",
+      "count": 1
+    },
+    {
+      "path": "apps/screen/app/features/rtc/components/TrackVideo.tsx",
+      "api": "useEffect",
+      "count": 3
+    },
+    {
+      "path": "apps/screen/app/features/rtc/denoise/engine.ts",
+      "api": "setTimeout",
+      "count": 1
+    },
+    {
+      "path": "apps/screen/app/features/rtc/denoise/use-denoise.ts",
+      "api": "setTimeout",
+      "count": 1
+    },
+    {
+      "path": "apps/screen/app/features/rtc/denoise/use-denoise.ts",
+      "api": "useEffect",
+      "count": 7
+    },
+    {
+      "path": "apps/screen/app/features/rtc/receive-stats.ts",
+      "api": "setInterval",
+      "count": 1
+    },
+    {
+      "path": "apps/screen/app/features/rtc/receive-stats.ts",
+      "api": "useEffect",
+      "count": 1
+    },
+    {
+      "path": "apps/screen/app/features/rtc/sfu-client.ts",
+      "api": "setTimeout",
+      "count": 1
+    },
+    {
+      "path": "apps/screen/app/features/rtc/sfu-manager.ts",
+      "api": "setTimeout",
+      "count": 2
+    },
+    {
+      "path": "apps/screen/app/features/rtc/test-tone.ts",
+      "api": "setTimeout",
+      "count": 1
+    },
+    {
+      "path": "apps/screen/app/features/rtc/use-level.ts",
+      "api": "setInterval",
+      "count": 1
+    },
+    {
+      "path": "apps/screen/app/features/rtc/use-level.ts",
+      "api": "useEffect",
+      "count": 1
+    },
+    {
+      "path": "apps/screen/app/features/rtc/use-local-media.ts",
+      "api": "useEffect",
+      "count": 8
+    },
+    {
+      "path": "apps/screen/app/features/rtc/use-sfu.ts",
+      "api": "useEffect",
+      "count": 1
+    },
+    {
+      "path": "apps/screen/app/features/stage/components/control/OperatorName.tsx",
+      "api": "useEffect",
+      "count": 1
+    },
+    {
+      "path": "apps/screen/app/features/stage/components/speaker/MiniWindow.tsx",
+      "api": "useEffect",
+      "count": 1
+    },
+    {
+      "path": "apps/screen/app/features/stage/components/speaker/SpeakerRoom.tsx",
+      "api": "setInterval",
+      "count": 1
+    },
+    {
+      "path": "apps/screen/app/features/stage/components/speaker/SpeakerRoom.tsx",
+      "api": "useEffect",
+      "count": 3
+    },
+    {
+      "path": "apps/screen/app/features/stage/reliable-socket.ts",
+      "api": "setInterval",
+      "count": 1
+    },
+    {
+      "path": "apps/screen/app/features/stage/reliable-socket.ts",
+      "api": "setTimeout",
+      "count": 3
+    },
+    {
+      "path": "apps/screen/app/features/stage/use-publisher.ts",
+      "api": "setInterval",
+      "count": 1
+    },
+    {
+      "path": "apps/screen/app/features/stage/use-publisher.ts",
+      "api": "useEffect",
+      "count": 7
+    },
+    {
+      "path": "apps/screen/app/features/stage/use-stage-room.ts",
+      "api": "useEffect",
+      "count": 1
+    },
+    {
+      "path": "apps/screen/app/routes/out.$stageId.$slot.$kind.tsx",
+      "api": "setTimeout",
+      "count": 1
+    },
+    {
+      "path": "apps/screen/app/routes/out.$stageId.$slot.$kind.tsx",
+      "api": "useEffect",
+      "count": 2
+    },
+    {
+      "path": "apps/screen/app/routes/stages.$stageId.tsx",
+      "api": "useEffect",
+      "count": 1
+    },
+    {
+      "path": "apps/sns/app/routes/posts/schedule.tsx",
+      "api": "useEffect",
+      "count": 2
+    },
+    {
+      "path": "apps/sns/google-photos-importer/server.mjs",
+      "api": "setTimeout",
+      "count": 1
+    },
+    {
+      "path": "apps/tinyurl-gateway/src/origin-proxy.ts",
+      "api": "setTimeout",
+      "count": 1
+    },
+    {
+      "path": "apps/tinyurl/app/features/links/components/create-link-dialog.tsx",
+      "api": "useEffect",
+      "count": 1
+    },
+    {
+      "path": "apps/tinyurl/app/routes/dashboard/dashboard.tsx",
+      "api": "useEffect",
+      "count": 1
+    },
+    {
+      "path": "apps/tinyurl/app/routes/folders/folders.$id.tsx",
+      "api": "useEffect",
+      "count": 1
+    },
+    {
+      "path": "apps/wiki/app/components/SidebarPopover.tsx",
+      "api": "requestAnimationFrame",
+      "count": 1
+    },
+    {
+      "path": "apps/wiki/app/components/SidebarPopover.tsx",
+      "api": "useEffect",
+      "count": 1
+    },
+    {
+      "path": "apps/wiki/app/features/editor/use-collab-editor.ts",
+      "api": "setTimeout",
+      "count": 1
+    },
+    {
+      "path": "apps/wiki/app/features/editor/use-collab-editor.ts",
+      "api": "useEffect",
+      "count": 1
+    },
+    {
+      "path": "apps/wiki/app/features/google/components/GoogleDocumentImportDialog.tsx",
+      "api": "useEffect",
+      "count": 1
+    },
+    {
+      "path": "apps/wiki/app/features/notifications/components/PushNotificationToggle.tsx",
+      "api": "useEffect",
+      "count": 1
+    },
+    {
+      "path": "apps/wiki/app/features/pages/components/PageEditor.tsx",
+      "api": "setInterval",
+      "count": 1
+    },
+    {
+      "path": "apps/wiki/app/features/pages/components/PageEditor.tsx",
+      "api": "useEffect",
+      "count": 2
+    },
+    {
+      "path": "apps/wiki/app/features/pages/components/ShareDialog/chips.tsx",
+      "api": "setTimeout",
+      "count": 1
+    },
+    {
+      "path": "apps/wiki/app/features/pages/components/ShareDialog/chips.tsx",
+      "api": "useEffect",
+      "count": 1
+    },
+    {
+      "path": "apps/wiki/app/features/pages/components/ShareDialog/use-descendant-sync.ts",
+      "api": "useEffect",
+      "count": 1
+    },
+    {
+      "path": "apps/wiki/app/features/pages/components/ShareDialog/use-height-transition.ts",
+      "api": "useLayoutEffect",
+      "count": 1
+    },
+    {
+      "path": "apps/wiki/app/features/pages/components/ShareDialog/use-share-dialog.ts",
+      "api": "setTimeout",
+      "count": 1
+    },
+    {
+      "path": "apps/wiki/app/features/pages/components/ShareDialog/use-share-dialog.ts",
+      "api": "useEffect",
+      "count": 3
+    },
+    {
+      "path": "apps/wiki/app/features/pages/components/WikiRightSidebar.tsx",
+      "api": "useEffect",
+      "count": 1
+    },
+    {
+      "path": "apps/wiki/app/routes/_app.tsx",
+      "api": "setInterval",
+      "count": 1
+    },
+    {
+      "path": "apps/wiki/app/routes/_app.tsx",
+      "api": "useEffect",
+      "count": 2
+    },
+    {
+      "path": "apps/wiki/app/routes/admin/_components/TagDialog.tsx",
+      "api": "useEffect",
+      "count": 4
+    },
+    {
+      "path": "apps/wiki/app/routes/sources/_components/DiscordChannelDialog.tsx",
+      "api": "useEffect",
+      "count": 1
+    },
+    {
+      "path": "apps/wiki/app/routes/wiki/_components/WikiPageBody.tsx",
+      "api": "requestAnimationFrame",
+      "count": 1
+    },
+    {
+      "path": "apps/wiki/app/routes/wiki/_components/WikiPageView.tsx",
+      "api": "useEffect",
+      "count": 1
+    }
+  ]
+}

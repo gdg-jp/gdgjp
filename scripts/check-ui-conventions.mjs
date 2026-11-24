@@ -2,6 +2,7 @@ import { spawnSync } from "node:child_process";
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { basename, extname, join, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
+import { compareCounts, countBy } from "./count-baseline.mjs";
 
 const repositoryRoot = process.cwd();
 const sourceExtensionPattern = /\.(?:ts|tsx|js|jsx|css)$/;
@@ -47,6 +48,24 @@ const sharedStyleImports = [
 const baselineRelativePath = (app) => `${app}/tests/architecture/ui-conventions-baseline.json`;
 
 export const RULE_IDS = [...knownRuleIds];
+
+export const RULE_FIXES = {
+  "legacy-import":
+    "import the equivalent component, icon, or utility from @gdgjp/design-system instead of the underlying library",
+  "private-ui-import":
+    "import from a public @gdgjp/design-system entry; if the export is missing, add it in the design-system repository",
+  "semantic-color":
+    "use a semantic token class such as text-foreground, bg-background, or border-border so light and dark themes follow the design system",
+  "literal-color":
+    "use a design token class or var(--gdg-*) value; mark a runtime-computed color with design-token-policy: allow-dynamic-color",
+  "stack-align": 'use <Stack align="start | center | end | stretch"> instead of an items-* class',
+  "button-full-width": "use <Button fullWidth> instead of a w-full class",
+  "form-field-hide-label": "use <FormField hideLabel> instead of gdg-sr-only on the label",
+};
+
+function fixFor(ruleId) {
+  return RULE_FIXES[ruleId] ? `; fix: ${RULE_FIXES[ruleId]}` : "";
+}
 
 function lineNumber(source, index) {
   return source.slice(0, index).split("\n").length;
@@ -350,7 +369,9 @@ function applyAllowances(source, findings) {
         candidate.line === allowance.line + 1,
     );
     if (index < 0) {
-      errors.push(`line ${allowance.line}: stale allowance for ${allowance.ruleId}`);
+      errors.push(
+        `line ${allowance.line}: stale allowance for ${allowance.ruleId}; delete it, since the next line no longer violates the rule`,
+      );
       continue;
     }
     usedFindings.add(index);
@@ -501,34 +522,34 @@ function baselineKey(path, violation) {
 function applyBaseline(snapshots, baseline) {
   const errors = [];
   const warnings = [];
-  const counts = new Map();
-  for (const { path, findings } of snapshots) {
-    for (const violation of findings) {
-      const key = baselineKey(path, violation);
-      counts.set(key, (counts.get(key) ?? 0) + 1);
-    }
-  }
-  const entries = new Map(baseline.entries.map((entry) => [baselineKey(entry.path, entry), entry]));
-  for (const [key, count] of counts) {
-    const entry = entries.get(key);
-    if (!entry) {
-      const [path, ruleId, fingerprint] = key.split("\0");
-      errors.push(`${path}: ${ruleId} '${fingerprint}' is not in the migration baseline`);
-    } else if (count > entry.count) {
-      errors.push(
-        `${entry.path}: ${entry.ruleId} '${entry.fingerprint}' increased from ${entry.count} to ${count}`,
-      );
-    }
-  }
+  const actual = countBy(
+    snapshots.flatMap(({ path, findings }) => findings.map((violation) => ({ path, violation }))),
+    ({ path, violation }) => baselineKey(path, violation),
+  );
+  const expected = new Map(
+    baseline.entries.map((entry) => [baselineKey(entry.path, entry), entry.count]),
+  );
   const inspectedPaths = new Set(snapshots.map(({ path }) => path));
-  for (const entry of baseline.entries) {
-    if (!inspectedPaths.has(entry.path)) continue;
-    const count = counts.get(baselineKey(entry.path, entry)) ?? 0;
-    if (count < entry.count) {
-      warnings.push(
-        `${entry.path}: baseline entry ${entry.ruleId}/${entry.fingerprint} shrank from ${entry.count} to ${count}; update the baseline`,
-      );
-    }
+  const { added, increased, shrunk } = compareCounts(actual, expected, (key) =>
+    inspectedPaths.has(key.split("\0")[0]),
+  );
+  for (const { key } of added) {
+    const [path, ruleId, fingerprint] = key.split("\0");
+    errors.push(
+      `${path}: ${ruleId} '${fingerprint}' is not in the migration baseline${fixFor(ruleId)}`,
+    );
+  }
+  for (const { key, count, allowed } of increased) {
+    const [path, ruleId, fingerprint] = key.split("\0");
+    errors.push(
+      `${path}: ${ruleId} '${fingerprint}' increased from ${allowed} to ${count}${fixFor(ruleId)}`,
+    );
+  }
+  for (const { key, count, allowed } of shrunk) {
+    const [path, ruleId, fingerprint] = key.split("\0");
+    warnings.push(
+      `${path}: baseline entry ${ruleId}/${fingerprint} shrank from ${allowed} to ${count}; lower its count in the baseline`,
+    );
   }
   return { errors, warnings };
 }
@@ -549,16 +570,26 @@ function checkStylesheet(source, path, app) {
     );
   });
   if (first?.trim() !== expectedLayerDeclaration) {
-    errors.push(`${path}: layer-order must be the first non-comment line`);
+    errors.push(
+      `${path}: layer-order must be the first non-comment line; start the file with ${expectedLayerDeclaration}`,
+    );
   }
   for (const importPath of sharedStyleImports) {
     const count = source.split(importPath).length - 1;
-    if (count !== 1) errors.push(`${path}: expected exactly one ${importPath} (found ${count})`);
+    if (count !== 1)
+      errors.push(
+        `${path}: expected exactly one ${importPath} (found ${count}); keep a single copy after the @layer line`,
+      );
   }
-  if (source.includes("@theme")) errors.push(`${path}: app.css must not define an @theme block`);
+  if (source.includes("@theme"))
+    errors.push(
+      `${path}: app.css must not define an @theme block; add tokens to @gdgjp/design-system and use them from there`,
+    );
   const imports = [...source.matchAll(/@import\s+[^;]+;/g)].map((match) => match[0]);
   if (imports.join("\n") !== sharedStyleImports.join("\n")) {
-    errors.push(`${path}: shared CSS imports must appear once in the documented order`);
+    errors.push(
+      `${path}: shared CSS imports must appear once in the documented order: ${sharedStyleImports.join(" ")}`,
+    );
   }
   if (basename(app) !== "wiki") return errors;
   const withoutComments = source.replace(/\/\*[\s\S]*?\*\//g, "");
@@ -568,7 +599,7 @@ function checkStylesheet(source, path, app) {
     for (const selector of selectorText.split(",")) {
       if (!cssSelectorAllowed(selector)) {
         errors.push(
-          `${path}:${lineNumber(source, match.index)}: selector is outside the app-local CSS bridge`,
+          `${path}:${lineNumber(source, match.index)}: selector is outside the app-local CSS bridge; style the element with design-system components or utility classes in TSX`,
         );
       }
     }
@@ -580,7 +611,8 @@ function checkRoot(source, path) {
   const errors = [];
   const providerCount = (source.match(/<ThemeProvider\b/g) ?? []).length;
   const toasterCount = (source.match(/<Toaster\b/g) ?? []).length;
-  if (!source.includes("export function Layout")) errors.push(`${path}: shared Layout is missing`);
+  if (!source.includes("export function Layout"))
+    errors.push(`${path}: shared Layout is missing; export function Layout that renders <html>`);
   if (providerCount !== 1)
     errors.push(`${path}: expected one ThemeProvider JSX element (found ${providerCount})`);
   if (toasterCount !== 1)
@@ -594,11 +626,15 @@ function checkRoot(source, path) {
   if ((source.match(/<html\b/g) ?? []).length !== 1)
     errors.push(`${path}: document must contain one <html>`);
   if (source.includes("themeInitScript") || source.includes("theme-init.js")) {
-    errors.push(`${path}: legacy theme bootstrap must not be used`);
+    errors.push(
+      `${path}: legacy theme bootstrap must not be used; the design-system ThemeProvider applies the theme`,
+    );
   }
   const errorBoundaryStart = source.indexOf("export function ErrorBoundary");
   if (errorBoundaryStart >= 0 && source.slice(errorBoundaryStart).includes("<html")) {
-    errors.push(`${path}: ErrorBoundary must render inside the shared Layout`);
+    errors.push(
+      `${path}: ErrorBoundary must render inside the shared Layout; return page content, not <html>`,
+    );
   }
   return errors;
 }
@@ -660,7 +696,9 @@ function checkApp(app, { mode, cwd = repositoryRoot } = {}) {
     ? indexPaths(legacyPrefix, cwd).length > 0
     : existsSync(join(cwd, app, "app", "components", "ui"));
   if (legacyExists)
-    errors.push(`${app}/app/components/ui: legacy component directory must not exist`);
+    errors.push(
+      `${app}/app/components/ui: legacy component directory must not exist; import these components from @gdgjp/design-system and delete the directory`,
+    );
 
   const selectedPaths = staged
     ? changedPaths.filter((path) => sourceExtensionPattern.test(path))

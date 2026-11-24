@@ -1,6 +1,6 @@
 import { AnimatePresence, motion } from "motion/react";
 import { Dialog } from "radix-ui";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { useFetcher } from "react-router";
 import { AnimatedCount } from "~/components/motion";
 import { listItem, transitions } from "~/components/motion-presets";
@@ -23,9 +23,11 @@ export function VoteDialog({
   const fetcher = useFetcher();
   const [myVotes, setMyVotes] = useState<Set<string>>(() => new Set(initialMyVotes));
 
-  useEffect(() => {
+  const [synced, setSynced] = useState({ open, initialMyVotes });
+  if (synced.open !== open || synced.initialMyVotes !== initialMyVotes) {
+    setSynced({ open, initialMyVotes });
     if (open) setMyVotes(new Set(initialMyVotes));
-  }, [open, initialMyVotes]);
+  }
 
   const sorted = useMemo(
     () => [...topics].sort((a, b) => (voteCounts[b.id] ?? 0) - (voteCounts[a.id] ?? 0)),

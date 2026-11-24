@@ -16,7 +16,8 @@ import {
   Stack,
   cn,
 } from "@gdgjp/design-system";
-import { useEffect, useMemo, useState } from "react";
+import { useValueChange } from "@gdgjp/gdg-lib/react";
+import { useMemo, useState } from "react";
 import { useFetcher } from "react-router";
 import { validateParticipantImport } from "~/features/campaigns/campaign-participant-import-validation";
 export type CampaignChannelOption = {
@@ -69,14 +70,13 @@ export function CampaignParticipantImportWizard({
   const [analyzing, setAnalyzing] = useState(false);
   const [validationAttempted, setValidationAttempted] = useState(false);
 
-  useEffect(() => {
-    if (fetcher.data?.ok) {
-      setFile(null);
-      setDraft(null);
-      setError(null);
-      onSaved?.();
-    }
-  }, [fetcher.data, onSaved]);
+  useValueChange(fetcher.data, (data) => {
+    if (!data?.ok) return;
+    setFile(null);
+    setDraft(null);
+    setError(null);
+    onSaved?.();
+  });
 
   async function runAnalysis(nextFile: File) {
     setAnalyzing(true);

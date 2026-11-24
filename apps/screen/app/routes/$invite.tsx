@@ -1,5 +1,6 @@
 import { Button } from "@gdgjp/design-system";
-import { useEffect, useState } from "react";
+import { useMountEffect } from "@gdgjp/gdg-lib/react";
+import { useState } from "react";
 import { Help } from "~/components/Help";
 import { LogIn } from "~/components/icons";
 import { I18nProvider, useI18n } from "~/features/i18n/i18n";
@@ -49,7 +50,7 @@ function participantId(): string {
 export default function Join({ loaderData }: Route.ComponentProps) {
   return (
     <I18nProvider initial={loaderData.lang as Lang}>
-      <JoinPage {...loaderData} />
+      <JoinPage key={loaderData.token} {...loaderData} />
     </I18nProvider>
   );
 }
@@ -69,17 +70,15 @@ function JoinPage({
   const [pid, setPid] = useState("");
   const media = useLocalMedia(stage !== null && !mobile && phase !== "left");
 
-  useEffect(() => {
+  useMountEffect(() => {
     document.documentElement.lang = lang;
-  }, [lang]);
-  useEffect(() => {
     setPid(participantId());
     try {
       const saved = localStorage.getItem(NAME_KEY) ?? "";
       setName(saved);
       if (saved && sessionStorage.getItem(joinedKey(token)) === "1") setPhase("room");
     } catch {}
-  }, [token]);
+  });
 
   if (!stage) return <Notice text={MESSAGES[lang].invalid} />;
   if (mobile) return <Notice text={t("useDesktop")} />;

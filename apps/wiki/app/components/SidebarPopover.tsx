@@ -1,3 +1,4 @@
+import { useEventListener } from "@gdgjp/gdg-lib/react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
@@ -49,26 +50,17 @@ export default function SidebarPopover({
     };
   }, [open, updatePosition]);
 
-  useEffect(() => {
-    if (!open) return;
-    function onKeyDown(e: KeyboardEvent) {
-      if (e.key === "Escape") onClose();
-    }
-    document.addEventListener("keydown", onKeyDown);
-    return () => document.removeEventListener("keydown", onKeyDown);
-  }, [open, onClose]);
+  useEventListener("document", "keydown", (e) => {
+    if (open && e.key === "Escape") onClose();
+  });
 
-  useEffect(() => {
+  useEventListener("document", "mousedown", (e) => {
     if (!open) return;
-    function onMouseDown(e: MouseEvent) {
-      const target = e.target as Node;
-      if (panelRef.current?.contains(target)) return;
-      if (anchorRef.current?.contains(target)) return;
-      onClose();
-    }
-    document.addEventListener("mousedown", onMouseDown);
-    return () => document.removeEventListener("mousedown", onMouseDown);
-  }, [open, onClose, anchorRef]);
+    const target = e.target as Node;
+    if (panelRef.current?.contains(target)) return;
+    if (anchorRef.current?.contains(target)) return;
+    onClose();
+  });
 
   if (!open || !pos) return null;
 

@@ -1,6 +1,6 @@
-import { type Ref, useEffect, useState } from "react";
+import { useInterval, useMediaQuery } from "@gdgjp/gdg-lib/react";
+import { type Ref, useState } from "react";
 import type { Segment, SegmentTone } from "~/features/prizes/odds";
-import { reducedMotion } from "../feedback";
 
 const RIM = 200;
 const FACE = 176;
@@ -48,13 +48,10 @@ export type LightMode = "idle" | "spin" | "tension" | "celebrate" | "off";
 
 function Lights({ mode }: { mode: LightMode }) {
   const [phase, setPhase] = useState(0);
-  useEffect(() => {
-    if (mode === "off" || reducedMotion()) return;
-    const interval =
-      mode === "spin" ? 70 : mode === "tension" ? 110 : mode === "celebrate" ? 160 : 420;
-    const timer = setInterval(() => setPhase((value) => value + 1), interval);
-    return () => clearInterval(timer);
-  }, [mode]);
+  const reduced = useMediaQuery("(prefers-reduced-motion: reduce)");
+  const interval =
+    mode === "spin" ? 70 : mode === "tension" ? 110 : mode === "celebrate" ? 160 : 420;
+  useInterval(() => setPhase((value) => value + 1), mode === "off" || reduced ? null : interval);
   return (
     <g>
       {Array.from({ length: BULBS }, (_, i) => {

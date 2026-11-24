@@ -19,11 +19,32 @@ const mutations = [
     replace: "    Db.disabled' = Db.disabled + ownedBy[u]\n    Db.live' = Db.live",
   },
   {
-    id: "admit-without-membership",
-    kills: "EnabledClientHasMemberOwnerWhenSerial",
-    code: "oauth-clients.server.ts requireDeveloperAccess: drop the membership?.ok !== 1 check",
-    find: "  r.pc = Idle\n  isMember[u]\n",
-    replace: "  r.pc = Idle\n",
+    id: "membership-loss-leaves-grant-records",
+    kills: "RevokedTokenStaysDead",
+    code: "migration 0026: drop the developerClientGrantCode DELETE from the oauthClient trigger that the membership triggers fire",
+    find: "    Db.grants' = Db.grants - client.(ownedBy[u])\n",
+    replace: "    Db.grants' = Db.grants\n",
+  },
+  {
+    id: "disable-leaves-grant-records",
+    kills: "RevokedTokenStaysDead",
+    code: "migration 0026: drop the developerClientGrantCode DELETE from the oauthClient trigger that setDeveloperClientEnabled(false) fires",
+    find: "  Db.grants' = Db.grants - client.(r.subject)\n  Db.issuing' = Db.issuing\n  Ghost.preRevocation'",
+    replace: "  Db.grants' = Db.grants\n  Db.issuing' = Db.issuing\n  Ghost.preRevocation'",
+  },
+  {
+    id: "create-without-membership",
+    kills: "EnabledClientHasMemberOwner",
+    code: "oauth-clients.server.ts createDeveloperClient: drop WHERE EXISTS (active membership) from the INSERT",
+    find: "  isMember[r.by]\n  Db.clients' = Db.clients + c\n",
+    replace: "  Db.clients' = Db.clients + c\n",
+  },
+  {
+    id: "enable-without-membership",
+    kills: "EnabledClientHasMemberOwner",
+    code: "oauth-clients.server.ts setDeveloperClientEnabled: drop the active-membership EXISTS from the UPDATE",
+    find: "  isMember[r.by]\n  Db.disabled' = Db.disabled - (r.subject & Db.clients)\n",
+    replace: "  Db.disabled' = Db.disabled - (r.subject & Db.clients)\n",
   },
 ];
 
@@ -75,7 +96,7 @@ const enabledWithoutMember = (s) => {
 const revivedToken = (s) => {
   const bad = s.preRevocation.find((t) => s.live.includes(t) && s.enabled(s.clientOf(t)));
   return bad
-    ? `${bad} was issued before ${s.ownerOf(s.clientOf(bad))} lost membership, and it works again through ${s.clientOf(bad)}.`
+    ? `${bad} was issued before ${s.clientOf(bad)} was revoked, and it works again through it.`
     : null;
 };
 const violations = {
@@ -105,20 +126,20 @@ function narrate(states, name) {
       : "";
     const revoked =
       s.user && before.actives(s.user).length > 0 && s.actives(s.user).length === 0
-        ? " The trigger disables their clients and deletes those clients' tokens."
+        ? " The triggers disable their clients and delete those clients' tokens and grant records."
         : "";
     const sentences = {
       MembershipChange: `A membership statement runs: ${memberships}.${revoked}`,
       Admit: `${s.user} asks to ${operation}${s.client ? ` ${s.client}` : ""}. requireDeveloperAccess lets the request in.`,
       Find: `The request finds ${s.client} owned by ${s.user}.`,
-      Create: `The request inserts ${s.client}, enabled, owned by ${s.user}.`,
-      Enable: `The request writes disabled = 0 on ${s.client}.`,
-      Disable: `The request writes disabled = 1 on ${s.client} and deletes its tokens.`,
+      Create: `The request inserts ${s.client}, enabled, owned by ${s.user}, who is still a member.`,
+      Enable: `The request writes disabled = 0 on ${s.client}; its owner is still a member.`,
+      Disable: `The request writes disabled = 1 on ${s.client}; the trigger deletes its tokens and grant records.`,
       Update: `The request updates ${s.client}.`,
       Delete: `The request deletes ${s.client}; its tokens go with it.`,
       IssueBegin: `Someone signs in through ${s.client}. The token endpoint finds the client enabled.`,
       IssueFinish: `The token endpoint inserts ${s.token} for ${s.client}.`,
-      IssueRejected: `The token insert for ${s.client} fails because the client row is gone.`,
+      IssueRejected: `The token insert for ${s.client} fails: the client row or the grant record is gone.`,
       Abort: `${s.user}'s request stops without another write.`,
     };
     const sentence = sentences[s.event.slice(1)];

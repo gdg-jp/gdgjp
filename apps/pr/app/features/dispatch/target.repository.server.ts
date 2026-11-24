@@ -8,6 +8,7 @@ type Row = {
   status: TargetStatus;
   approved_by: string | null;
   approved_at: number | null;
+  approved_version: number | null;
   external_ref: string | null;
   error: string | null;
   campaign_id: number;
@@ -33,6 +34,7 @@ const toTarget = (r: Row): DispatchTarget => ({
   status: r.status,
   approvedBy: r.approved_by,
   approvedAt: r.approved_at,
+  approvedVersion: r.approved_version,
   externalRef: parseRef(r.external_ref),
   error: r.error,
   account: {
@@ -67,13 +69,19 @@ export async function ensureTargets(
 export async function dueMailTargets(db: D1Database, now: number, limit = 20) {
   const { results } = await db
     .prepare(
-      `${SELECT} JOIN schedule_items i ON i.id = t.schedule_item_id
+      `${SELECT.replace("SELECT t.*,", "SELECT t.*, d.id AS draft_id,")}
+       JOIN schedule_items i ON i.id = t.schedule_item_id
        JOIN drafts d ON d.schedule_item_id = i.id AND d.status = 'approved'
+         AND d.approved_version = t.approved_version AND d.current_version = t.approved_version
        WHERE i.kind = 'connpass_mail' AND t.status = 'approved' AND i.due_at <= ? LIMIT ?`,
     )
     .bind(now, limit)
-    .all<Row & { actor_snapshot: string | null }>();
-  return results.map((r) => ({ ...toTarget(r), actorSnapshot: r.actor_snapshot }));
+    .all<Row & { actor_snapshot: string | null; draft_id: number }>();
+  return results.map((r) => ({
+    ...toTarget(r),
+    actorSnapshot: r.actor_snapshot,
+    draftId: r.draft_id,
+  }));
 }
 
 export async function listTargets(db: D1Database, itemId: number): Promise<DispatchTarget[]> {
@@ -97,24 +105,62 @@ export async function getTarget(db: D1Database, id: number): Promise<DispatchTar
   return row ? toTarget(row) : null;
 }
 
+const DRAFT_APPROVED_AT = `EXISTS (SELECT 1 FROM drafts d
+  WHERE d.id = ? AND d.schedule_item_id = dispatch_targets.schedule_item_id
+    AND d.status = 'approved' AND d.approved_version = ? AND d.current_version = ?)`;
+
+export type ApprovedVersion = { targetId: number; draftId: number; version: number };
+
+export async function approveTargetVersion(
+  db: D1Database,
+  at: ApprovedVersion,
+  by: { userId: string; actorSnapshot: string },
+): Promise<boolean> {
+  const result = await db
+    .prepare(
+      `UPDATE dispatch_targets SET status = 'approved', approved_version = ?,
+         approved_by = ?, approved_at = unixepoch(), actor_snapshot = ?, error = NULL,
+         updated_at = unixepoch()
+       WHERE id = ?
+         AND (status IN ('pending','failed')
+           OR (status = 'approved' AND approved_version IS NOT ?))
+         AND ${DRAFT_APPROVED_AT}`,
+    )
+    .bind(
+      at.version,
+      by.userId,
+      by.actorSnapshot,
+      at.targetId,
+      at.version,
+      at.draftId,
+      at.version,
+      at.version,
+    )
+    .run();
+  return (result.meta.changes ?? 0) > 0;
+}
+
+export async function claimApprovedTarget(db: D1Database, at: ApprovedVersion): Promise<boolean> {
+  const result = await db
+    .prepare(
+      `UPDATE dispatch_targets SET status = 'dispatching', updated_at = unixepoch()
+       WHERE id = ? AND status = 'approved' AND approved_version = ? AND ${DRAFT_APPROVED_AT}`,
+    )
+    .bind(at.targetId, at.version, at.draftId, at.version, at.version)
+    .run();
+  return (result.meta.changes ?? 0) > 0;
+}
+
 export async function moveTarget(
   db: D1Database,
   id: number,
   from: TargetStatus[],
-  to: TargetStatus,
-  patch: {
-    approvedBy?: string;
-    actorSnapshot?: string;
-    externalRef?: TargetRef;
-    error?: string | null;
-  } = {},
+  to: Exclude<TargetStatus, "approved" | "dispatching">,
+  patch: { externalRef?: TargetRef; error?: string | null } = {},
 ): Promise<boolean> {
   const result = await db
     .prepare(
       `UPDATE dispatch_targets SET status = ?,
-         approved_by = COALESCE(?, approved_by),
-         approved_at = CASE WHEN ? IS NULL THEN approved_at ELSE unixepoch() END,
-         actor_snapshot = COALESCE(?, actor_snapshot),
          external_ref = COALESCE(?, external_ref),
          error = CASE WHEN ? THEN ? ELSE error END,
          updated_at = unixepoch()
@@ -122,9 +168,6 @@ export async function moveTarget(
     )
     .bind(
       to,
-      patch.approvedBy ?? null,
-      patch.approvedBy ?? null,
-      patch.actorSnapshot ?? null,
       patch.externalRef ? JSON.stringify(patch.externalRef) : null,
       patch.error !== undefined ? 1 : 0,
       patch.error ?? null,

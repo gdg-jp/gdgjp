@@ -3,8 +3,10 @@ import { latestBrief } from "~/features/briefs/brief.repository.server";
 import type { CampaignAccess } from "~/features/campaigns/access.server";
 import type { Campaign } from "~/features/campaigns/campaign";
 import { pageApprovalBlockers } from "~/features/connpass/page.server";
-import type { Draft } from "~/features/drafts/draft";
-import { latestVersion } from "~/features/drafts/draft.repository.server";
+import { type Draft, approvedForSending } from "~/features/drafts/draft";
+import { getDraft } from "~/features/drafts/draft.repository.server";
+import { getVersion } from "~/features/drafts/draft.repository.server";
+import { STALE_VERSION } from "~/features/drafts/review.server";
 import { actorOf, callRpc, snsService } from "~/features/integrations/bindings.server";
 import { ensureShortlink } from "~/features/links/create.server";
 import { withShortlink } from "~/features/links/slug";
@@ -14,13 +16,20 @@ import { getItem, transitionItem } from "~/features/schedule/item.repository.ser
 import { type DeliverablePost, approvalBlockers, deliverablePost, isoAt } from "./content";
 import { logDispatch } from "./log.server";
 import { canApproveTarget, isDispatchKind, rollupItemStatus, targetAccountKind } from "./target";
-import { ensureTargets, getTarget, listTargets, moveTarget } from "./target.repository.server";
+import {
+  type ApprovedVersion,
+  approveTargetVersion,
+  claimApprovedTarget,
+  ensureTargets,
+  getTarget,
+  listTargets,
+  moveTarget,
+} from "./target.repository.server";
 
 export type DispatchResult = { ok: true; message: string } | { ok: false; error: string };
 
-async function deliverable(env: Env, draft: Draft) {
-  const version = await latestVersion(env.DB, draft.id);
-  return deliverablePost(version?.content ?? null);
+async function deliverable(env: Env, draftId: number, version: number) {
+  return deliverablePost((await getVersion(env.DB, draftId, version))?.content ?? null);
 }
 
 const fallbackUrl = async (env: Env, campaignId: number) =>
@@ -30,6 +39,7 @@ export async function prepareDraftApproval(
   env: Env,
   access: CampaignAccess,
   draft: Draft,
+  version: number,
 ): Promise<{ ok: true } | { ok: false; errors: string[] }> {
   const connpass = [
     ...pageApprovalBlockers(access, draft),
@@ -37,7 +47,7 @@ export async function prepareDraftApproval(
   ];
   if (connpass.length) return { ok: false, errors: connpass };
   if (!draft.scheduleItemId) return { ok: true };
-  const post = await deliverable(env, draft);
+  const post = await deliverable(env, draft.id, version);
   const fallback = await fallbackUrl(env, access.campaign.id);
   const blockers = approvalBlockers(post, fallback, draft.dispatchMediaUrl);
   if (blockers.length) return { ok: false, errors: blockers };
@@ -70,8 +80,8 @@ export async function approveTarget(
   access: CampaignAccess,
   draft: Draft,
   targetId: number,
+  version: number,
 ): Promise<DispatchResult> {
-  if (draft.status !== "approved") return { ok: false, error: "下書きを先に承認してください" };
   const target = await getTarget(env.DB, targetId);
   if (!target || target.scheduleItemId !== draft.scheduleItemId)
     return { ok: false, error: "配信先が見つかりません" };
@@ -86,34 +96,51 @@ export async function approveTarget(
       error: `${target.account.label} はそのチャプターのメンバーだけが承認できます`,
     };
   const actor = actorOf(access);
-  const approved = await moveTarget(env.DB, target.id, ["pending", "failed"], "approved", {
-    approvedBy: access.user.id,
+  const at = { targetId: target.id, draftId: draft.id, version };
+  const approved = await approveTargetVersion(env.DB, at, {
+    userId: access.user.id,
     actorSnapshot: JSON.stringify(actor),
-    error: null,
   });
-  if (!approved) return { ok: true, message: "この配信先はもう処理されています" };
+  if (!approved) return refusal(env, access, draft.id, at);
   if (draft.kind === "connpass_mail")
     return {
       ok: true,
-      message: `${target.account.label} への送信を承認しました。予定の時刻に送ります`,
+      message: `${target.account.label} への送信を版 ${version} で承認しました。予定の時刻に送ります`,
     };
-  return dispatchTarget(env, access.campaign, draft, target.id, actor);
+  return dispatchTarget(env, access.campaign, draft, at, actor);
+}
+
+async function refusal(
+  env: Env,
+  access: CampaignAccess,
+  draftId: number,
+  at: ApprovedVersion,
+): Promise<DispatchResult> {
+  const now = await getDraft(env.DB, access.campaign.id, draftId);
+  if (!now || now.currentVersion !== at.version) return { ok: false, error: STALE_VERSION };
+  if (!approvedForSending(now)) return { ok: false, error: "下書きを先に承認してください" };
+  return { ok: true, message: "この配信先はもう処理されています" };
 }
 
 async function dispatchTarget(
   env: Env,
   campaign: Campaign,
   draft: Draft,
-  targetId: number,
+  at: ApprovedVersion,
   actor: PrActor,
 ): Promise<DispatchResult> {
-  if (!(await moveTarget(env.DB, targetId, ["approved"], "dispatching")))
-    return { ok: true, message: "この配信先はもう配信中です" };
+  const targetId = at.targetId;
+  if (!(await claimApprovedTarget(env.DB, at))) {
+    const now = await getDraft(env.DB, campaign.id, at.draftId);
+    return now?.currentVersion === at.version && approvedForSending(now)
+      ? { ok: true, message: "この配信先はもう配信中です" }
+      : { ok: false, error: STALE_VERSION };
+  }
   const target = await getTarget(env.DB, targetId);
   const item = draft.scheduleItemId
     ? await getItem(env.DB, campaign.id, draft.scheduleItemId)
     : null;
-  const post = await deliverable(env, draft);
+  const post = await deliverable(env, at.draftId, at.version);
   const fail = async (error: string) => {
     await moveTarget(env.DB, targetId, ["dispatching"], "failed", { error });
     if (item) await rollup(env, item.id);

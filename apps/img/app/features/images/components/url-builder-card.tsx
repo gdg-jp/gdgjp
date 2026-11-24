@@ -13,7 +13,8 @@ import {
   SelectValue,
   Text,
 } from "@gdgjp/design-system";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useTransientValue } from "@gdgjp/gdg-lib/react";
+import { useEffect, useMemo, useState } from "react";
 import { WIDTH_LADDER, resolveDelivery } from "~/features/images/img-transform";
 import { type TransformOpts, deliveryUrl } from "~/features/images/img-url";
 
@@ -38,8 +39,8 @@ export function UrlBuilderCard({ image, appUrl }: { image: BuilderImage; appUrl:
   const [variant, setVariant] = useState("default");
   const [afterBytes, setAfterBytes] = useState<number | null>(null);
   const [natural, setNatural] = useState<{ width: number; height: number } | null>(null);
-  const [copied, setCopied] = useState(false);
-  const timerRef = useRef<ReturnType<typeof setTimeout>>(null);
+  const [copiedFlag, showCopied, clearCopied] = useTransientValue<true>(1800);
+  const copied = copiedFlag !== null;
 
   const opts = useMemo<TransformOpts>(() => {
     if (format === "original") return { f: "original" };
@@ -90,21 +91,13 @@ export function UrlBuilderCard({ image, appUrl }: { image: BuilderImage; appUrl:
       });
     return () => controller.abort();
   }, [builtUrl]);
-  useEffect(
-    () => () => {
-      if (timerRef.current) clearTimeout(timerRef.current);
-    },
-    [],
-  );
 
   async function copy() {
     try {
       await navigator.clipboard.writeText(builtUrl);
-      setCopied(true);
-      if (timerRef.current) clearTimeout(timerRef.current);
-      timerRef.current = setTimeout(() => setCopied(false), 1800);
+      showCopied(true);
     } catch {
-      setCopied(false);
+      clearCopied();
     }
   }
   const previewUrl = `${builtUrl}${builtUrl.includes("?") ? "&" : "?"}v=${image.updatedAt}`;

@@ -13,7 +13,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@gdgjp/design-system";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useFetcher } from "react-router";
 import type { action } from "../page";
@@ -60,13 +60,24 @@ export function ChatSenderDialog({
   const selectedSamples = samples.filter((sample) => sample.resourceName === senderId).slice(0, 10);
   const saving = fetcher.state !== "idle";
 
-  useEffect(() => {
-    if (!open) return;
-    const first = senderIds[0] ?? "";
-    setSenderId(first);
-    setDisplayName(profileById.get(first)?.displayName ?? "");
-    setExpanded({});
-  }, [open, profileById, senderIds]);
+  const [resetFor, setResetFor] = useState<{
+    open: boolean;
+    profileById: typeof profileById;
+    senderIds: typeof senderIds;
+  } | null>(null);
+  if (
+    resetFor?.open !== open ||
+    resetFor.profileById !== profileById ||
+    resetFor.senderIds !== senderIds
+  ) {
+    setResetFor({ open, profileById, senderIds });
+    if (open) {
+      const first = senderIds[0] ?? "";
+      setSenderId(first);
+      setDisplayName(profileById.get(first)?.displayName ?? "");
+      setExpanded({});
+    }
+  }
 
   function selectSender(nextId: string) {
     setSenderId(nextId);

@@ -167,7 +167,7 @@ CREATE TABLE drafts (
   approved_at         INTEGER,
   created_at          INTEGER NOT NULL DEFAULT (unixepoch()),
   updated_at          INTEGER NOT NULL DEFAULT (unixepoch())
-, dispatch_media_url TEXT);
+, dispatch_media_url TEXT, approved_version INTEGER);
 CREATE INDEX drafts_campaign ON drafts (campaign_id, status, kind);
 CREATE INDEX drafts_item ON drafts (schedule_item_id);
 CREATE TABLE draft_versions (
@@ -215,7 +215,7 @@ CREATE TABLE dispatch_targets (
   actor_snapshot   TEXT,
   external_ref     TEXT,
   error            TEXT,
-  updated_at       INTEGER NOT NULL DEFAULT (unixepoch()),
+  updated_at       INTEGER NOT NULL DEFAULT (unixepoch()), approved_version INTEGER,
   UNIQUE (schedule_item_id, account_id)
 );
 CREATE TABLE chapter_settings (

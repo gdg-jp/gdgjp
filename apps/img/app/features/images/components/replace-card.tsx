@@ -13,7 +13,8 @@ import {
   Inline,
   Text,
 } from "@gdgjp/design-system";
-import { useEffect, useRef, useState } from "react";
+import { useTransientValue } from "@gdgjp/gdg-lib/react";
+import { useRef, useState } from "react";
 import { useNavigate } from "react-router";
 
 export function ReplaceCard({
@@ -32,24 +33,16 @@ export function ReplaceCard({
 }) {
   const navigate = useNavigate();
   const inputRef = useRef<HTMLInputElement>(null);
-  const timerRef = useRef<ReturnType<typeof setTimeout>>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [copied, setCopied] = useState(false);
+  const [copiedFlag, showCopied] = useTransientValue<true>(1800);
+  const copied = copiedFlag !== null;
   const [refreshKey, setRefreshKey] = useState(0);
-  useEffect(
-    () => () => {
-      if (timerRef.current) clearTimeout(timerRef.current);
-    },
-    [],
-  );
 
   async function copy() {
     try {
       await navigator.clipboard.writeText(publicUrl);
-      setCopied(true);
-      if (timerRef.current) clearTimeout(timerRef.current);
-      timerRef.current = setTimeout(() => setCopied(false), 1800);
+      showCopied(true);
     } catch {
       setError("Could not copy the URL. Please copy it from the field.");
     }

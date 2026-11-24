@@ -27,8 +27,6 @@ export interface ContentBackfillResult {
   alreadyCompleted: boolean;
 }
 
-export const tiptapJsonToMarkdown = legacyTiptapToMarkdown;
-
 export async function backfillMarkdownContent(
   db: ContentBackfillDatabase,
   batchSize = DEFAULT_BATCH_SIZE,

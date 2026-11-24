@@ -1,6 +1,6 @@
 import { Button, FormField, Input, Textarea } from "@gdgjp/design-system";
 import { Dialog, DialogContent, DialogTitle } from "@gdgjp/design-system";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import DropdownMenu, { type DropdownOption } from "./DropdownMenu";
 
@@ -57,16 +57,19 @@ export default function TaskCreateDialog({
   const [assigneeId, setAssigneeId] = useState(initial?.assigneeId ?? "");
   const [teamId, setTeamId] = useState(initial?.teamId ?? "");
 
-  useEffect(() => {
-    if (!open) return;
-    setTitle(initial?.title ?? "");
-    setDescription(initial?.description ?? "");
-    setStatus(initial?.status ?? "todo");
-    setType(initial?.type ?? "task");
-    setDueDate(initial?.dueDate ?? "");
-    setAssigneeId(initial?.assigneeId ?? "");
-    setTeamId(initial?.teamId ?? "");
-  }, [open, initial]);
+  const [resetFor, setResetFor] = useState({ open, initial });
+  if (resetFor.open !== open || resetFor.initial !== initial) {
+    setResetFor({ open, initial });
+    if (open) {
+      setTitle(initial?.title ?? "");
+      setDescription(initial?.description ?? "");
+      setStatus(initial?.status ?? "todo");
+      setType(initial?.type ?? "task");
+      setDueDate(initial?.dueDate ?? "");
+      setAssigneeId(initial?.assigneeId ?? "");
+      setTeamId(initial?.teamId ?? "");
+    }
+  }
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();

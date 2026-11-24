@@ -1,6 +1,6 @@
 import { ThemeProvider } from "@gdgjp/design-system";
-import { installSignedOutReload } from "@gdgjp/gdg-lib/auth/signed-out-reload";
-import { type ReactNode, useEffect } from "react";
+import { useSignedOutReload } from "@gdgjp/gdg-lib/auth/signed-out-reload";
+import type { ReactNode } from "react";
 import { Links, Meta, Outlet, Scripts, ScrollRestoration, useNavigation } from "react-router";
 import type { Route } from "./+types/root";
 import stylesheet from "./app.css?url";
@@ -36,7 +36,7 @@ export function Layout({ children }: { children: ReactNode }) {
 }
 
 export default function App() {
-  useEffect(() => installSignedOutReload(), []);
+  useSignedOutReload();
   const navigation = useNavigation();
   const isNavigating = navigation.state === "loading";
 

@@ -11,7 +11,15 @@ const TONE: Record<string, "success" | "warning" | "danger" | "neutral"> = {
   skipped: "neutral",
 };
 
-export function DeliveryCard({ view, busy }: { view: DeliveryView; busy: boolean }) {
+export function DeliveryCard({
+  view,
+  version,
+  busy,
+}: {
+  view: DeliveryView;
+  version: number;
+  busy: boolean;
+}) {
   return (
     <Card>
       <Stack>
@@ -34,10 +42,13 @@ export function DeliveryCard({ view, busy }: { view: DeliveryView; busy: boolean
                 <Badge tone={TONE[t.status] ?? "neutral"}>{t.statusLabel}</Badge>
                 {t.snsPostId ? <Text tone="muted">sns: {t.snsPostId}</Text> : null}
                 {t.error ? <Badge tone="danger">{t.error}</Badge> : null}
-                {t.status === "pending" || t.status === "failed" ? (
+                {t.needsApproval ? (
                   <Form method="post" className="ml-auto flex gap-2">
                     <input type="hidden" name="target" value={t.id} />
-                    {t.canApprove ? (
+                    <input type="hidden" name="version" value={version} />
+                    {view.approvedVersion === null ? (
+                      <Text tone="muted">今の版の下書きを承認すると予約できます</Text>
+                    ) : t.canApprove ? (
                       <Button
                         type="submit"
                         name="intent"
@@ -50,26 +61,30 @@ export function DeliveryCard({ view, busy }: { view: DeliveryView; busy: boolean
                     ) : (
                       <Text tone="muted">そのチャプターのメンバーが承認します</Text>
                     )}
-                    <Button
-                      type="submit"
-                      name="intent"
-                      value="target-delegate"
-                      variant="outline"
-                      size="sm"
-                      loading={busy}
-                    >
-                      依頼に回す
-                    </Button>
-                    <Button
-                      type="submit"
-                      name="intent"
-                      value="target-skip"
-                      variant="ghost"
-                      size="sm"
-                      loading={busy}
-                    >
-                      見送る
-                    </Button>
+                    {t.status === "pending" || t.status === "failed" ? (
+                      <>
+                        <Button
+                          type="submit"
+                          name="intent"
+                          value="target-delegate"
+                          variant="outline"
+                          size="sm"
+                          loading={busy}
+                        >
+                          依頼に回す
+                        </Button>
+                        <Button
+                          type="submit"
+                          name="intent"
+                          value="target-skip"
+                          variant="ghost"
+                          size="sm"
+                          loading={busy}
+                        >
+                          見送る
+                        </Button>
+                      </>
+                    ) : null}
                   </Form>
                 ) : null}
               </li>

@@ -5,7 +5,8 @@ import {
   DropdownMenuTrigger,
 } from "@gdgjp/design-system";
 
-import { useEffect, useRef, useState } from "react";
+import { useMountEffect } from "@gdgjp/gdg-lib/react";
+import { useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { ChapterSelect, VisibilitySelect } from "~/features/sources/components/source-selects";
 import { isSourceVisibility, sourceVisibilityNeedsChapter } from "~/features/sources/shared";
@@ -64,11 +65,11 @@ export function AddSourceSection({
     visibility && (!needsChapter || chapter) && candidates.length > 0 && urlCandidatesValid,
   );
 
-  useEffect(() => {
+  useMountEffect(() => {
     if (chatSpacesLoadStarted.current) return;
     chatSpacesLoadStarted.current = true;
     void loadChatSpaces();
-  }, []);
+  });
 
   async function loadChatSpaces() {
     setChatError(null);

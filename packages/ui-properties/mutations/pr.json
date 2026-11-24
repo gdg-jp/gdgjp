@@ -1,0 +1,26 @@
+[
+  {
+    "id": "pr-target-ignores-draft-version",
+    "description": "Target approval and the send claim accept any draft version, approved or not",
+    "workspace": "@gdgjp/pr",
+    "spec": "e2e/ui-properties.spec.ts",
+    "file": "apps/pr/app/features/dispatch/target.repository.server.ts",
+    "find": "    AND d.status = 'approved' AND d.approved_version = ? AND d.current_version = ?)`;",
+    "replace": "    AND (? IS NOT NULL OR ? IS NOT NULL))`;",
+    "expect": {
+      "property": "pr sends only the approved version"
+    }
+  },
+  {
+    "id": "pr-send-previous-version",
+    "description": "The send delivers the version before the one that was approved",
+    "workspace": "@gdgjp/pr",
+    "spec": "e2e/ui-properties.spec.ts",
+    "file": "apps/pr/app/features/dispatch/dispatch.server.ts",
+    "find": "  const post = await deliverable(env, at.draftId, at.version);",
+    "replace": "  const post = await deliverable(env, at.draftId, Math.max(1, at.version - 1));",
+    "expect": {
+      "property": "pr sends only the approved version"
+    }
+  }
+]

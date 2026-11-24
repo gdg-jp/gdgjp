@@ -1,6 +1,6 @@
 import { DropdownMenuItem } from "@gdgjp/design-system";
 
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Await, Link, useFetcher } from "react-router";
 import { Skeleton } from "~/components/Skeleton";
@@ -25,9 +25,11 @@ function StarButton({ pageId, initialStarred }: { pageId: string; initialStarred
   const favFetcher = useFetcher<{ ok: boolean; starred: boolean }>();
   const [currentStarred, setCurrentStarred] = useState(initialStarred);
 
-  useEffect(() => {
+  const [syncedStarred, setSyncedStarred] = useState(initialStarred);
+  if (syncedStarred !== initialStarred) {
+    setSyncedStarred(initialStarred);
     setCurrentStarred(initialStarred);
-  }, [initialStarred]);
+  }
 
   const optimisticStarred = favFetcher.state !== "idle" ? !currentStarred : currentStarred;
   const starStyle = optimisticStarred
@@ -64,9 +66,11 @@ function MobileStarButton({
   const favFetcher = useFetcher<{ ok: boolean; starred: boolean }>();
   const [currentStarred, setCurrentStarred] = useState(initialStarred);
 
-  useEffect(() => {
+  const [syncedStarred, setSyncedStarred] = useState(initialStarred);
+  if (syncedStarred !== initialStarred) {
+    setSyncedStarred(initialStarred);
     setCurrentStarred(initialStarred);
-  }, [initialStarred]);
+  }
 
   const optimisticStarred = favFetcher.state !== "idle" ? !currentStarred : currentStarred;
   const starStyle = optimisticStarred

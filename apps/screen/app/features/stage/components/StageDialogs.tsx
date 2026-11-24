@@ -21,7 +21,8 @@ import {
   ToggleGroupItem,
   toast,
 } from "@gdgjp/design-system";
-import { type ReactNode, useEffect, useState } from "react";
+import { useClientValue } from "@gdgjp/gdg-lib/react";
+import { type ReactNode, useState } from "react";
 import { Form, useFetcher, useSubmit } from "react-router";
 import { Help } from "~/components/Help";
 import {
@@ -57,13 +58,13 @@ export function CreateStageDialog({ trigger }: { trigger: ReactNode }) {
   const [open, setOpen] = useState(false);
   const [id, setId] = useState("");
   const [slots, setSlots] = useState("2");
-  const [origin, setOrigin] = useState("");
+  const origin = useClientValue(() => window.location.origin, "");
   const [submitted, setSubmitted] = useState("");
   const fetcher = useFetcher<{ ok: false; error: string }>();
-  useEffect(() => {
-    if (open) setId(generateStageId());
-  }, [open]);
-  useEffect(() => setOrigin(window.location.origin), []);
+  const changeOpen = (next: boolean) => {
+    if (next) setId(generateStageId());
+    setOpen(next);
+  };
   const valid = isStageId(id);
   const idError = !id
     ? "ID を入力してください"
@@ -73,7 +74,7 @@ export function CreateStageDialog({ trigger }: { trigger: ReactNode }) {
         ? "この ID はすでに使われています"
         : undefined;
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={changeOpen}>
       <DialogTrigger asChild>{trigger}</DialogTrigger>
       <DialogContent className="sc-dialog" aria-describedby={undefined}>
         <DialogTitle>ステージを作成</DialogTitle>
@@ -150,8 +151,7 @@ export function ObsDialog({
   onOpenChange: (open: boolean) => void;
 }) {
   const fetcher = useFetcher();
-  const [origin, setOrigin] = useState("");
-  useEffect(() => setOrigin(window.location.origin), []);
+  const origin = useClientValue(() => window.location.origin, "");
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sc-dialog sc-obs" aria-describedby={undefined}>

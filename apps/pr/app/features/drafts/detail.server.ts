@@ -8,9 +8,9 @@ import { EnqueueError, enqueueCopy, enqueuePosts } from "~/features/jobs/enqueue
 import { afterListingApproval, markListedByHand } from "~/features/listings/listing.server";
 import { type ConnpassPageContent, setSectionImages } from "~/features/pages/render";
 import { autoFold } from "./content";
-import type { Draft } from "./draft";
+import { type Draft, seenVersion } from "./draft";
 import { getDraft, latestVersion, updateDraftPeople } from "./draft.repository.server";
-import { currentContent, editDraft, reviewDraft } from "./review.server";
+import { STALE_VERSION, currentContent, editDraft, reviewDraft } from "./review.server";
 
 export type DetailActionResult = { ok: boolean; message?: string; errors?: string[] };
 
@@ -35,14 +35,16 @@ export async function draftAction(
     intent === "approve" ||
     intent === "reject"
   ) {
+    const version = seenVersion(form);
+    if (version === null) return { ok: false, errors: [STALE_VERSION] };
     if (intent === "approve") {
-      const ready = await prepareDraftApproval(env, access, draft);
+      const ready = await prepareDraftApproval(env, access, draft, version);
       if (!ready.ok) return { ok: false, errors: ready.errors };
     }
-    const result = await reviewDraft(env.DB, access, draft, intent, comment);
+    const result = await reviewDraft(env.DB, access, draft, intent, version, comment);
     if (!result.ok) return { ok: false, errors: [result.error] };
     if (intent === "approve") {
-      const approved = { ...draft, status: "approved" as const };
+      const approved = { ...draft, status: "approved" as const, approvedVersion: version };
       await afterDraftApproval(env, access.campaign, approved);
       if (draft.kind === "listing") {
         const listed = await afterListingApproval(env, access, approved);

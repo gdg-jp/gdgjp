@@ -1,4 +1,5 @@
 import { SidebarProvider } from "@gdgjp/design-system";
+import { useClientValue, useMediaQuery } from "@gdgjp/gdg-lib/react";
 import { and, eq, isNull, sql } from "drizzle-orm";
 import { Suspense, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -32,7 +33,6 @@ import { CurrentSpaceProvider } from "~/features/spaces/components/current-space
 import { resolveShellSpaces } from "~/features/spaces/shell.server";
 import { loadViewerContext } from "~/features/spaces/viewer.server";
 import ZipImportDialog from "~/features/zip-import/components/ZipImportDialog";
-import { useMediaQuery } from "~/hooks/useMediaQuery";
 import { getDb } from "~/lib/db.server";
 
 export function shouldRevalidate({
@@ -104,6 +104,15 @@ export async function loader({ request, context, params }: LoaderFunctionArgs) {
   };
 }
 
+function readPersistedSidebarOpen(): boolean | null {
+  try {
+    const persisted = localStorage.getItem("gdg-sidebar-open");
+    return persisted === null ? null : persisted === "true";
+  } catch {
+    return null;
+  }
+}
+
 export default function AppLayout() {
   const { user, pageTree, unreadNotificationCount, spaces, currentSpace, hideAgentPages } =
     useLoaderData<typeof loader>();
@@ -116,24 +125,13 @@ export default function AppLayout() {
 
   const isMobile = useMediaQuery("(max-width: 767px)");
 
-  const [desktopOpen, setDesktopOpen] = useState(true);
+  const persistedDesktopOpen = useClientValue(readPersistedSidebarOpen, null);
+  const [desktopOpenOverride, setDesktopOpenOverride] = useState<boolean | null>(null);
+  const desktopOpen = desktopOpenOverride ?? persistedDesktopOpen ?? true;
   const [mobileOpen, setMobileOpen] = useState(false);
   const [googleDocumentImportOpen, setGoogleDocumentImportOpen] = useState(false);
   const [zipImportOpen, setZipImportOpen] = useState(false);
   const importProgressRef = useRef("");
-
-  useEffect(() => {
-    try {
-      const persisted = localStorage.getItem("gdg-sidebar-open");
-      if (persisted !== null) setDesktopOpen(persisted === "true");
-    } catch {}
-  }, []);
-
-  useEffect(() => {
-    try {
-      localStorage.setItem("gdg-sidebar-open", String(desktopOpen));
-    } catch {}
-  }, [desktopOpen]);
 
   useEffect(() => {
     const storageKey = "gdg-google-document-import-jobs";
@@ -213,21 +211,32 @@ export default function AppLayout() {
     navigate(`${location.pathname}${query ? `?${query}` : ""}`, { replace: true });
   }, [location.pathname, location.search, navigate]);
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: intentional trigger on pathname change
-  useEffect(() => {
+  const [panelPathname, setPanelPathname] = useState(location.pathname);
+  if (panelPathname !== location.pathname) {
+    setPanelPathname(location.pathname);
     setMobileOpen(false);
     setActivePanel(null);
-  }, [location.pathname]);
+  }
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: intentional trigger on isMobile change
-  useEffect(() => {
+  const [panelIsMobile, setPanelIsMobile] = useState(isMobile);
+  if (panelIsMobile !== isMobile) {
+    setPanelIsMobile(isMobile);
     setActivePanel(null);
-  }, [isMobile]);
+  }
 
   function toggleSidebar() {
     if (isMobile) {
       setMobileOpen((v) => !v);
-    } else setDesktopOpen((v) => !v);
+      return;
+    }
+    changeDesktopOpen(!desktopOpen);
+  }
+
+  function changeDesktopOpen(next: boolean) {
+    setDesktopOpenOverride(next);
+    try {
+      localStorage.setItem("gdg-sidebar-open", String(next));
+    } catch {}
   }
 
   const sidebarOpen = isMobile ? mobileOpen : desktopOpen;
@@ -252,7 +261,7 @@ export default function AppLayout() {
 
   return (
     <CurrentSpaceProvider value={currentSpace}>
-      <SidebarProvider open={desktopOpen} onOpenChange={setDesktopOpen} className="flex-col">
+      <SidebarProvider open={desktopOpen} onOpenChange={changeDesktopOpen} className="flex-col">
         <a className="gdg-skip-link" href="#wiki-main">
           {t("nav.skip_to_content")}
         </a>

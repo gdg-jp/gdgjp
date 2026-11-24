@@ -6,6 +6,7 @@ import {
   DialogTitle,
   toast,
 } from "@gdgjp/design-system";
+import { useNow, useValueChange } from "@gdgjp/gdg-lib/react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Help } from "~/components/Help";
 import { RoundToggle } from "~/components/RoundToggle";
@@ -61,13 +62,9 @@ function operatorRefs(operators: Peer[]): RemoteRef[] {
 
 function useDisconnectedFor(connected: boolean): number {
   const [since, setSince] = useState<number | null>(null);
-  const [, tick] = useState(0);
-  useEffect(() => {
-    if (connected) return setSince(null);
-    setSince((s) => s ?? Date.now());
-    const timer = setInterval(() => tick((n) => n + 1), 1000);
-    return () => clearInterval(timer);
-  }, [connected]);
+  if (connected && since !== null) setSince(null);
+  if (!connected && since === null) setSince(Date.now());
+  useNow(connected ? null : 1000);
   return since === null ? 0 : Date.now() - since;
 }
 
@@ -135,13 +132,13 @@ export function SpeakerRoom({
       if (Notification.permission === "default") void Notification.requestPermission();
     }
   };
-  useEffect(() => {
-    if (!media.screenEndedByBrowser) return;
+  useValueChange(media.screenEndedByBrowser, (ended) => {
+    if (!ended) return;
     toast(t("shareStopped"), {
       action: { label: t("reshare"), onClick: () => void media.shareScreen() },
       duration: 10_000,
     });
-  }, [media.screenEndedByBrowser, media.shareScreen, t]);
+  });
 
   const denied = media.problem.mic === "denied" || media.problem.camera === "denied";
 

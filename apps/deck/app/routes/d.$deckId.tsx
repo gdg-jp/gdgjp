@@ -9,7 +9,8 @@ import {
   Slider,
   toast,
 } from "@gdgjp/design-system";
-import { type CSSProperties, useEffect, useMemo, useRef, useState } from "react";
+import { useNow, useTimeout, useValueChange } from "@gdgjp/gdg-lib/react";
+import { type CSSProperties, useMemo, useRef, useState } from "react";
 import { Link } from "react-router";
 import { requireDeck } from "~/features/deck/access.server";
 import { ControllerKey } from "~/features/deck/components/ControllerKey";
@@ -31,16 +32,6 @@ export async function loader({ request, params, context }: Route.LoaderArgs) {
 }
 
 type Nav = { stack: string[]; page: Record<string, number> };
-
-function useNow(active: boolean, offset: number): number {
-  const [now, setNow] = useState(() => Date.now() + offset);
-  useEffect(() => {
-    if (!active) return;
-    const timer = setInterval(() => setNow(Date.now() + offset), 1000);
-    return () => clearInterval(timer);
-  }, [active, offset]);
-  return now;
-}
 
 function StatusChips({ room, online }: { room: DeckRoomState | null; online: boolean }) {
   if (!online || !room)
@@ -93,17 +84,17 @@ export default function Controller({ loaderData }: Route.ComponentProps) {
 
   const online = status === "open";
   const obs = room?.obs;
-  const now = useNow(!!(obs?.streaming || obs?.recording), clockOffset);
+  const now = useNow(obs?.streaming || obs?.recording ? 1000 : null) + clockOffset;
 
-  useEffect(() => {
-    if (!room) return;
-    for (const entry of room.log) {
+  useValueChange(room, (next) => {
+    if (!next) return;
+    for (const entry of next.log) {
       if (entry.status !== "error" || seenErrors.current.has(entry.id)) continue;
       seenErrors.current.add(entry.id);
       const at = pressedAt.current.get(entry.keyId);
       if (at && Date.now() - at < 10_000) toast.error(entry.error ?? "失敗しました");
     }
-  }, [room]);
+  });
 
   const layout = room?.layout;
   const boardId = nav.stack[nav.stack.length - 1] ?? ROOT_BOARD;
@@ -112,9 +103,7 @@ export default function Controller({ loaderData }: Route.ComponentProps) {
   const pageIndex = Math.min(nav.page[board?.id ?? ROOT_BOARD] ?? 0, pageCount - 1);
   const page = board?.pages[pageIndex];
 
-  useEffect(() => {
-    if (layout && !layout.boards[boardId]) setNav({ stack: [ROOT_BOARD], page: {} });
-  }, [layout, boardId]);
+  if (layout && !layout.boards[boardId]) setNav({ stack: [ROOT_BOARD], page: {} });
 
   const setPage = (index: number) => {
     if (!board) return;
@@ -297,22 +286,20 @@ function VolumeDialog({
   const live = action && room ? actionVolumeDb(action, room.obs) : null;
   const [value, setValue] = useState<number | null>(null);
   const lastSent = useRef(0);
-  const pending = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const pending = useTimeout();
 
-  useEffect(() => {
-    if (!keyDef) setValue(null);
-  }, [keyDef]);
+  if (!keyDef && value !== null) setValue(null);
 
   const shown = value ?? Math.max(VOLUME_MIN_DB, live ?? VOLUME_MIN_DB);
 
   const push = (db: number) => {
-    clearTimeout(pending.current);
+    pending.cancel();
     const wait = SLIDER_SEND_MS - (Date.now() - lastSent.current);
     if (wait <= 0) {
       lastSent.current = Date.now();
       onChange(db);
     } else {
-      pending.current = setTimeout(() => {
+      pending.start(() => {
         lastSent.current = Date.now();
         onChange(db);
       }, wait);

@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useState } from "react";
+import { useMountEffect, useValueChange } from "@gdgjp/gdg-lib/react";
+import { useCallback, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link, useFetcher } from "react-router";
 import { ListSkeleton } from "~/components/Skeleton";
@@ -52,19 +53,16 @@ export default function StarredContent({
     listFetcher.load("/api/favorites");
   }, [listFetcher.load]);
 
-  useEffect(() => {
-    if (open) {
-      loadFavorites();
-      setQuery("");
-    }
-  }, [open, loadFavorites]);
+  useMountEffect(() => {
+    if (open) loadFavorites();
+  });
 
-  useEffect(() => {
-    if (toggleFetcher.data?.ok) {
-      onStarChange?.(toggleFetcher.data.starred);
+  useValueChange(toggleFetcher.data, (result) => {
+    if (result?.ok) {
+      onStarChange?.(result.starred);
       loadFavorites();
     }
-  }, [toggleFetcher.data, onStarChange, loadFavorites]);
+  });
 
   const data = cachedFavorites;
   const isFirstLoad = listFetcher.state === "loading" && !data;

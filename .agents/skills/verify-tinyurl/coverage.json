@@ -1,0 +1,290 @@
+{
+  "schemaVersion": 1,
+  "scope": "Local tinyurl journeys (Orca Browser and HTTP) from features/README.md",
+  "sourceBaseCommit": "1c0569f3 (working tree with uncommitted changes; exact file hashes are in each run.json)",
+  "journeys": [
+    {
+      "id": "tinyurl-access",
+      "map": "features/access.md",
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T15:39:38.536073+00:00",
+      "evidence": [
+        "local_data/pstack/tinyurl/2026-11-24T08-19-10-070Z-5d2a1390/http/cli-401.txt",
+        "local_data/pstack/tinyurl/2026-11-24T11-28-33-361Z-b7dcadd6/http/signout.txt"
+      ],
+      "result": "Anonymous /links to sign-in; nochapter to /no-chapter; CLI without token 401; ログアウト clears the session (/api/auth/me null)."
+    },
+    {
+      "id": "tinyurl-accounts-continuation",
+      "map": "features/access.md",
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T15:39:38.536073+00:00",
+      "evidence": [
+        "local_data/pstack/tinyurl/2026-11-24T15-32-50-793Z-1a235467/http/accounts-continuation.json",
+        "local_data/pstack/tinyurl/2026-11-24T15-32-50-793Z-1a235467/http/accounts-oidc.json"
+      ],
+      "result": "With --platform, /links reaches Accounts /signin with client_id=tinyurl, the 6169 callback, S256 and state; OIDC completes (no chapter, /no-chapter)."
+    },
+    {
+      "id": "tinyurl-links-empty",
+      "map": "features/links.md",
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T15:39:38.536073+00:00",
+      "evidence": [
+        "local_data/pstack/tinyurl/2026-11-24T11-28-33-361Z-b7dcadd6/receipts"
+      ],
+      "result": "No links yet; the seeded private link is absent."
+    },
+    {
+      "id": "tinyurl-link-create",
+      "map": "features/redirects.md",
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T15:39:38.536073+00:00",
+      "evidence": [
+        "local_data/pstack/tinyurl/2026-11-24T08-19-10-070Z-5d2a1390/d1/link.json",
+        "local_data/pstack/tinyurl/2026-11-24T08-19-10-070Z-5d2a1390/d1/link-tag.json"
+      ],
+      "result": "verify-first with tag and comment; D1 rows match."
+    },
+    {
+      "id": "tinyurl-link-validation",
+      "map": "features/links.md",
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T15:39:38.536073+00:00",
+      "evidence": [
+        "local_data/pstack/tinyurl/2026-11-24T11-28-33-361Z-b7dcadd6/d1/no-invalid.json"
+      ],
+      "result": "Reserved slug, taken slug, private destination and private image URL each refused; no rows."
+    },
+    {
+      "id": "tinyurl-link-edit",
+      "map": "features/redirects.md",
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T15:39:38.536073+00:00",
+      "evidence": [
+        "local_data/pstack/tinyurl/2026-11-24T11-28-33-361Z-b7dcadd6/d1/edited.json",
+        "local_data/pstack/tinyurl/2026-11-24T11-28-33-361Z-b7dcadd6/d1/comments.json",
+        "local_data/pstack/tinyurl/2026-11-24T11-28-33-361Z-b7dcadd6/http/edit-redirects.txt"
+      ],
+      "result": "Discard restores; save updates destination, description and comment (replaced); slug rename redirects; old slug 404; private destination refused."
+    },
+    {
+      "id": "tinyurl-link-archive-delete",
+      "map": "features/links.md",
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T15:39:38.536073+00:00",
+      "evidence": [
+        "local_data/pstack/tinyurl/2026-11-24T11-28-33-361Z-b7dcadd6/d1/archived.json",
+        "local_data/pstack/tinyurl/2026-11-24T11-28-33-361Z-b7dcadd6/d1/restored.json",
+        "local_data/pstack/tinyurl/2026-11-24T11-28-33-361Z-b7dcadd6/d1/deleted.json",
+        "local_data/pstack/tinyurl/2026-11-24T11-28-33-361Z-b7dcadd6/http/deleted-slug.txt"
+      ],
+      "result": "Archive hides the card, Show archived shows it, Restore clears archived_at; typed confirmation deletes; slug 404."
+    },
+    {
+      "id": "tinyurl-qr",
+      "map": "features/links.md",
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T15:39:38.536073+00:00",
+      "evidence": [
+        "local_data/pstack/tinyurl/2026-11-24T11-28-33-361Z-b7dcadd6/screenshots/qr-detail.png",
+        "local_data/pstack/tinyurl/2026-11-24T11-28-33-361Z-b7dcadd6/screenshots/qr-dialog.png"
+      ],
+      "result": "QR SVG and payload text on the dialog and the detail page (not decoded)."
+    },
+    {
+      "id": "tinyurl-link-preview",
+      "map": "features/links.md",
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T15:39:38.536073+00:00",
+      "evidence": [
+        "local_data/pstack/tinyurl/2026-11-24T11-28-33-361Z-b7dcadd6/receipts"
+      ],
+      "result": "Fetch for a loopback URL shows the OGP failure; non-image refused; SVG upload shows the img-unavailable message."
+    },
+    {
+      "id": "tinyurl-dashboard-view",
+      "map": "features/dashboard.md",
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T15:39:38.536073+00:00",
+      "evidence": [
+        "local_data/pstack/tinyurl/2026-11-24T11-28-33-361Z-b7dcadd6/http/dashboard-search.txt",
+        "local_data/pstack/tinyurl/2026-11-24T11-28-33-361Z-b7dcadd6/http/dashboard-display.txt"
+      ],
+      "result": "Search by slug and title, no-match message, Shared with me empty, footer count matches D1, rows + oldest persist via Set as default (localStorage), destination property toggles."
+    },
+    {
+      "id": "tinyurl-redirect",
+      "map": "features/redirects.md",
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T15:39:38.536073+00:00",
+      "evidence": [
+        "local_data/pstack/tinyurl/2026-11-24T08-19-10-070Z-5d2a1390/http/redirects.txt"
+      ],
+      "result": "Browser UA 302 with no-store; bot UA 200 preview; unknown 404; private link redirects. /r/<slug> is unreachable when APP_URL equals SHORT_URL_BASE."
+    },
+    {
+      "id": "tinyurl-link-sharing",
+      "map": "features/sharing.md",
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T15:39:38.536073+00:00",
+      "evidence": [
+        "local_data/pstack/tinyurl/2026-11-24T11-28-33-361Z-b7dcadd6/d1/perms2.json",
+        "local_data/pstack/tinyurl/2026-11-24T11-28-33-361Z-b7dcadd6/d1/peer-title.json",
+        "local_data/pstack/tinyurl/2026-11-24T11-28-33-361Z-b7dcadd6/http/share-removed.txt",
+        "local_data/pstack/tinyurl/2026-11-24T11-28-33-361Z-b7dcadd6/http/public-visibility.txt"
+      ],
+      "result": "Email share as viewer, duplicate refused, peer read-only, role to editor lets peer edit, remove gives peer 403; public visibility read-only for another chapter. Not run: dialog-staged share, pre-sign-in share, chapter co-ownership."
+    },
+    {
+      "id": "tinyurl-link-forbidden",
+      "map": "features/sharing.md",
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T15:39:38.536073+00:00",
+      "evidence": [
+        "local_data/pstack/tinyurl/2026-11-24T08-19-10-070Z-5d2a1390/http/link-forbidden.txt"
+      ],
+      "result": "Owner 403 on another owner's private link; malformed 404; admin 200."
+    },
+    {
+      "id": "tinyurl-tags",
+      "map": "features/tags.md",
+      "status": "FAILED",
+      "observedAt": "2026-11-24T15:39:38.536073+00:00",
+      "evidence": [
+        "local_data/pstack/tinyurl/2026-11-24T11-28-33-361Z-b7dcadd6/d1/tag1-after.json",
+        "local_data/pstack/tinyurl/2026-11-24T11-28-33-361Z-b7dcadd6/http/tags-visibility.txt"
+      ],
+      "result": "Defect: Delete tag? → Delete sends no request (the Radix AlertDialogAction closes the dialog and unmounts the form before submit); the tag remains. Create (C key and button), duplicate, search, rename, chapter scope visibility all pass."
+    },
+    {
+      "id": "tinyurl-tag-ownership",
+      "map": "features/tags.md",
+      "status": "FAILED",
+      "observedAt": "2026-11-24T15:39:38.536073+00:00",
+      "evidence": [
+        "local_data/pstack/tinyurl/2026-11-24T11-28-33-361Z-b7dcadd6/http/tag-ownership.txt",
+        "local_data/pstack/tinyurl/2026-11-24T11-28-33-361Z-b7dcadd6/d1/tag2-after.json"
+      ],
+      "result": "Defect (re-run, same failure): an organizer of another chapter deletes the owner's tag with POST /tags intent=delete (200; row gone)."
+    },
+    {
+      "id": "tinyurl-folders",
+      "map": "features/folders.md",
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T15:39:38.536073+00:00",
+      "evidence": [
+        "local_data/pstack/tinyurl/2026-11-24T11-28-33-361Z-b7dcadd6/d1/child.json",
+        "local_data/pstack/tinyurl/2026-11-24T11-28-33-361Z-b7dcadd6/d1/infolder.json"
+      ],
+      "result": "Create, duplicate refused, rename, empty folder, child folder with parent id, link created in folder."
+    },
+    {
+      "id": "tinyurl-folder-sharing",
+      "map": "features/folders.md",
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T15:39:38.536073+00:00",
+      "evidence": [
+        "local_data/pstack/tinyurl/2026-11-24T11-28-33-361Z-b7dcadd6/d1/fperms.json",
+        "local_data/pstack/tinyurl/2026-11-24T11-28-33-361Z-b7dcadd6/d1/peerlink.json",
+        "local_data/pstack/tinyurl/2026-11-24T11-28-33-361Z-b7dcadd6/d1/peerperm.json",
+        "local_data/pstack/tinyurl/2026-11-24T11-28-33-361Z-b7dcadd6/http/folder-outsider.txt"
+      ],
+      "result": "Folder shared to peer as editor; peer sees it and creates a link owned by the folder owner with inherited editor permission; outsider 404."
+    },
+    {
+      "id": "tinyurl-campaigns",
+      "map": "features/campaigns.md",
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T15:39:38.536073+00:00",
+      "evidence": [
+        "local_data/pstack/tinyurl/2026-11-24T11-28-33-361Z-b7dcadd6/d1/campaigns.json",
+        "local_data/pstack/tinyurl/2026-11-24T11-28-33-361Z-b7dcadd6/d1/cname.json",
+        "local_data/pstack/tinyurl/2026-11-24T11-28-33-361Z-b7dcadd6/http/campaign-outsider.txt"
+      ],
+      "result": "Empty state, create with default channel and chapter 101, duplicate code and private destination refused, edit, archive/restore, outsider 403."
+    },
+    {
+      "id": "tinyurl-campaign-channels",
+      "map": "features/campaigns.md",
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T15:39:38.536073+00:00",
+      "evidence": [
+        "local_data/pstack/tinyurl/2026-11-24T11-28-33-361Z-b7dcadd6/d1/vt26x.json",
+        "local_data/pstack/tinyurl/2026-11-24T11-28-33-361Z-b7dcadd6/d1/assigned.json",
+        "local_data/pstack/tinyurl/2026-11-24T11-28-33-361Z-b7dcadd6/d1/sources.json"
+      ],
+      "result": "Channel X added, source GDG Tokyo, vt26x link in channel X chapter-owned, Verify random assigned, Clicks view at zero."
+    },
+    {
+      "id": "tinyurl-campaign-acquisition",
+      "map": "features/campaigns.md",
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T15:39:38.536073+00:00",
+      "evidence": [
+        "local_data/pstack/tinyurl/2026-11-24T11-28-33-361Z-b7dcadd6/d1/acq.json",
+        "local_data/pstack/tinyurl/2026-11-24T11-28-33-361Z-b7dcadd6/d1/acqn.json",
+        "local_data/pstack/tinyurl/2026-11-24T11-28-33-361Z-b7dcadd6/screenshots/acquisition-summary.png"
+      ],
+      "result": "CSV parsed (4 participants); unmapped option alert; mapped save shows the summary; D1 has 9100001 and 4 participants."
+    },
+    {
+      "id": "tinyurl-domains",
+      "map": "features/domains.md",
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T15:39:38.536073+00:00",
+      "evidence": [
+        "local_data/pstack/tinyurl/2026-11-24T11-28-33-361Z-b7dcadd6/http/domains.txt",
+        "local_data/pstack/tinyurl/2026-11-24T11-28-33-361Z-b7dcadd6/d1/domains.json"
+      ],
+      "result": "Organizer sees system and custom domains and connect; invalid apex refused; member has no connect and inspect POST 403; domains unchanged."
+    },
+    {
+      "id": "tinyurl-analytics-empty",
+      "map": "features/analytics.md",
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T15:39:38.536073+00:00",
+      "evidence": [
+        "local_data/pstack/tinyurl/2026-11-24T11-28-33-361Z-b7dcadd6/http/analytics-empty.txt"
+      ],
+      "result": "No links yet / Create a link to start collecting analytics."
+    },
+    {
+      "id": "tinyurl-analytics",
+      "map": "features/analytics.md",
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T15:39:38.536073+00:00",
+      "evidence": [
+        "local_data/pstack/tinyurl/2026-11-24T11-28-33-361Z-b7dcadd6/http/analytics.txt"
+      ],
+      "result": "Zero-data cards, link focus and clear, 404/404/403 for bad ids. Date range sheet not exercised."
+    },
+    {
+      "id": "tinyurl-gateway",
+      "map": "features/gateway.md",
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T15:39:38.536073+00:00",
+      "evidence": [
+        "local_data/pstack/tinyurl/2026-11-24T11-28-33-361Z-b7dcadd6/http/gateway.txt"
+      ],
+      "result": "Unsigned 401; resolve 302; unknown slug 404; unknown host 421; POST 405; wrong secret 502; cross-domain 404."
+    }
+  ],
+  "outsideTheMap": [
+    "tinyurl-click-analytics: see features/README.md",
+    "tinyurl-ogp-fetch-success: see features/README.md",
+    "tinyurl-image-upload-success: see features/README.md",
+    "tinyurl-domain-connect: see features/README.md",
+    "tinyurl-domain-sync: see features/README.md",
+    "tinyurl-domain-remove: see features/README.md",
+    "tinyurl-gateway-origin-first: see features/README.md",
+    "tinyurl-cli-api: see features/README.md",
+    "tinyurl-cli-installer: see features/README.md",
+    "tinyurl-pr-service: see features/README.md",
+    "tinyurl-oidc-signin: see features/README.md"
+  ],
+  "exclusions": [
+    "Real external services (X, Discord, connpass.com, Luma, Google, Gemini, Resend, Vercel)",
+    "Deployed Cloudflare behavior"
+  ]
+}

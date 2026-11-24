@@ -2,8 +2,12 @@ import { getCampaignById } from "~/features/campaigns/campaign.repository.server
 import { deliverablePost } from "~/features/dispatch/content";
 import { rollup } from "~/features/dispatch/dispatch.server";
 import { logDispatch } from "~/features/dispatch/log.server";
-import { dueMailTargets, moveTarget } from "~/features/dispatch/target.repository.server";
-import { draftForItem, latestVersion } from "~/features/drafts/draft.repository.server";
+import {
+  claimApprovedTarget,
+  dueMailTargets,
+  moveTarget,
+} from "~/features/dispatch/target.repository.server";
+import { getVersion } from "~/features/drafts/draft.repository.server";
 import { connpassService, parseActor } from "~/features/integrations/bindings.server";
 import { linkForItem } from "~/features/links/link.repository.server";
 import { withShortlink } from "~/features/links/slug";
@@ -13,7 +17,9 @@ export async function sendDueMails(env: Env): Promise<{ sent: number; failed: nu
   let sent = 0;
   let failed = 0;
   for (const target of await dueMailTargets(env.DB, Math.floor(Date.now() / 1000))) {
-    if (!(await moveTarget(env.DB, target.id, ["approved"], "dispatching"))) continue;
+    if (!target.approvedVersion) continue;
+    const at = { targetId: target.id, draftId: target.draftId, version: target.approvedVersion };
+    if (!(await claimApprovedTarget(env.DB, at))) continue;
     const fail = async (error: string) => {
       failed++;
       await moveTarget(env.DB, target.id, ["dispatching"], "failed", { error });
@@ -21,10 +27,9 @@ export async function sendDueMails(env: Env): Promise<{ sent: number; failed: nu
     };
     const campaign = await getCampaignById(env.DB, target.account.campaignId);
     const actor = parseActor(target.actorSnapshot);
-    const draft = await draftForItem(env.DB, target.scheduleItemId);
-    const content = draft
-      ? ((await latestVersion(env.DB, draft.id))?.content as { subject?: string } | null)
-      : null;
+    const content = (await getVersion(env.DB, at.draftId, at.version))?.content as {
+      subject?: string;
+    } | null;
     const post = deliverablePost(content);
     if (!campaign || !actor || !post || !content?.subject) {
       await logDispatch(env.DB, {

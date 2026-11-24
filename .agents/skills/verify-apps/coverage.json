@@ -1,0 +1,2253 @@
+{
+  "schemaVersion": 1,
+  "scope": "Local Orca journeys for screen, OST, MC, Deck, Roulette, Img, Meet, website, Live Check-in, and Roster",
+  "sourceBaseCommit": "1c0569f3",
+  "runEvidence": [
+    "local_data/pstack/apps/2026-11-24T04-14-37-532Z-7bf1da76",
+    "local_data/pstack/apps/2026-11-24T07-45-55-534Z-4e5bf204",
+    "local_data/pstack/apps/2026-11-24T10-59-13-126Z-aa5e7e89",
+    "local_data/pstack/apps/2026-11-24T11-19-52-520Z-94960bfb",
+    "local_data/pstack/apps/2026-11-24T11-33-20-351Z-32b14892",
+    "local_data/pstack/apps/2026-11-24T13-28-30-097Z-b484b37e"
+  ],
+  "journeys": [
+    {
+      "id": "deck-access",
+      "app": "deck",
+      "map": "features/deck/README.md",
+      "feature": "Sign-in gate, chapterless gate, cross-chapter 404 on pages, APIs, and images",
+      "identity": "Anonymous, `no-chapter`, `outsider`, `member`",
+      "inMap": true,
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T11:40:00Z",
+      "evidence": [
+        "local_data/pstack/apps/2026-11-24T10-59-13-126Z-aa5e7e89/journeys.json"
+      ],
+      "result": "editor 404, phone page 404; anonymous 302 (earlier run)"
+    },
+    {
+      "id": "deck-signout",
+      "app": "deck",
+      "map": "features/deck/README.md",
+      "feature": "**Account menu** → **ログアウト** clears the session",
+      "identity": "`member`",
+      "inMap": true,
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T11:40:00Z",
+      "evidence": [
+        "local_data/pstack/apps/2026-11-24T10-59-13-126Z-aa5e7e89/journeys.json"
+      ],
+      "result": "/api/auth/me null"
+    },
+    {
+      "id": "deck-create",
+      "app": "deck",
+      "map": "features/deck/README.md",
+      "feature": "Empty home, create dialog, redirect to the editor, home row and chip",
+      "identity": "`member`",
+      "inMap": true,
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T08:05:00Z",
+      "evidence": [
+        "local_data/pstack/apps/2026-11-24T07-45-55-534Z-4e5bf204/journeys.json"
+      ],
+      "result": "/decks/H7kmMyGzx8MAPBDV/edit"
+    },
+    {
+      "id": "deck-rename",
+      "app": "deck",
+      "map": "features/deck/README.md",
+      "feature": "Rename from the menu; phone and home follow",
+      "identity": "`member`",
+      "inMap": true,
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T11:40:00Z",
+      "evidence": [
+        "local_data/pstack/apps/2026-11-24T10-59-13-126Z-aa5e7e89/journeys.json"
+      ],
+      "result": "title Verify Deck Renamed を編集 after reload"
+    },
+    {
+      "id": "deck-duplicate",
+      "app": "deck",
+      "map": "features/deck/README.md",
+      "feature": "Duplicate with keys and images, new dock token",
+      "identity": "`member`",
+      "inMap": true,
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T11:40:00Z",
+      "evidence": [
+        "local_data/pstack/apps/2026-11-24T10-59-13-126Z-aa5e7e89/journeys.json"
+      ],
+      "result": "new editor 「… のコピー」 with キー: 休憩 and キー: 終了"
+    },
+    {
+      "id": "deck-delete",
+      "app": "deck",
+      "map": "features/deck/README.md",
+      "feature": "Delete; open phone and dock are told",
+      "identity": "`member`, Anonymous dock",
+      "inMap": true,
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T11:40:00Z",
+      "evidence": [
+        "local_data/pstack/apps/2026-11-24T10-59-13-126Z-aa5e7e89/journeys.json"
+      ],
+      "result": "URL /; deleted editor 404; original 200"
+    },
+    {
+      "id": "deck-key-edit",
+      "app": "deck",
+      "map": "features/deck/README.md",
+      "feature": "Add, configure, save, and delete keys; incomplete keys block saving",
+      "identity": "`member`",
+      "inMap": true,
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T08:05:00Z",
+      "evidence": [
+        "local_data/pstack/apps/2026-11-24T07-45-55-534Z-4e5bf204/journeys.json"
+      ],
+      "result": "toast 設定が足りないキーが 1 個あります（赤い印）; POST layout 200"
+    },
+    {
+      "id": "deck-key-look",
+      "app": "deck",
+      "map": "features/deck/README.md",
+      "feature": "Colors, icons, on-look, and image upload",
+      "identity": "`member`, `outsider`",
+      "inMap": true,
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T12:00:00Z",
+      "evidence": [
+        "local_data/pstack/apps/2026-11-24T11-33-20-351Z-32b14892/journeys.json"
+      ],
+      "result": "赤 aria-pressed true; image /images/<deck>/<img>; on-look switch true; POST images 200, layout 200; GET image 200 image/webp, outsider 404; persists after reload"
+    },
+    {
+      "id": "deck-folders-pages",
+      "app": "deck",
+      "map": "features/deck/README.md",
+      "feature": "Folders, folder/back keys, pages, grid resize",
+      "identity": "`member`",
+      "inMap": true,
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T12:00:00Z",
+      "evidence": [
+        "local_data/pstack/apps/2026-11-24T11-33-20-351Z-32b14892/journeys.json"
+      ],
+      "result": "folder board has キー: 戻る; home keys 休憩 and その他 after reload; dismiss kept tabs 1,2; accept left tab 1"
+    },
+    {
+      "id": "deck-save-conflict",
+      "app": "deck",
+      "map": "features/deck/README.md",
+      "feature": "A stale save gets 409 and the stale alert; discard reloads",
+      "identity": "`member`, `member2`",
+      "inMap": true,
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T12:00:00Z",
+      "evidence": [
+        "local_data/pstack/apps/2026-11-24T11-33-20-351Z-32b14892/journeys.json"
+      ],
+      "result": "B showed 休憩A live; alert ほかの人がこのデッキを保存しました; B save POST 409 with toast ほかの人が先に保存しました; discard loaded 休憩A2; stale API save 409"
+    },
+    {
+      "id": "deck-dock-connect",
+      "app": "deck",
+      "map": "features/deck/README.md",
+      "feature": "Dock URL, first-run settings, connect to OBS, editor and home status",
+      "identity": "`member`, Anonymous dock",
+      "inMap": true,
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T08:05:00Z",
+      "evidence": [
+        "local_data/pstack/apps/2026-11-24T07-45-55-534Z-4e5bf204/journeys.json"
+      ],
+      "result": "dock OBS接続 (32.2.2); editor OBS 32.2.2 ・ シーン 3"
+    },
+    {
+      "id": "deck-dock-token",
+      "app": "deck",
+      "map": "features/deck/README.md",
+      "feature": "Wrong token, reissue disconnects the dock, a second dock replaces the first",
+      "identity": "`member`, Anonymous dock",
+      "inMap": true,
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T08:05:00Z",
+      "evidence": [
+        "local_data/pstack/apps/2026-11-24T07-45-55-534Z-4e5bf204/journeys.json"
+      ],
+      "result": "この URL は使えません。デッキの編集画面から新しいドックの URL をコピーしてください。"
+    },
+    {
+      "id": "deck-dock-obs-offline",
+      "app": "deck",
+      "map": "features/deck/README.md",
+      "feature": "Wrong obs-websocket URL shows 未接続 and help; keys disable",
+      "identity": "Anonymous dock, `member`",
+      "inMap": true,
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T12:00:00Z",
+      "evidence": [
+        "local_data/pstack/apps/2026-11-24T11-33-20-351Z-32b14892/journeys.json"
+      ],
+      "result": "dock OBS未接続 with the WebSocket server help text; editor chip OBS 未接続; reconnecting to 4467 restored 接続 (32.2.2)"
+    },
+    {
+      "id": "deck-press-scene",
+      "app": "deck",
+      "map": "features/deck/README.md",
+      "feature": "Scene key switches the program scene and lights up",
+      "identity": "`member`",
+      "inMap": true,
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T08:05:00Z",
+      "evidence": [
+        "local_data/pstack/apps/2026-11-24T07-45-55-534Z-4e5bf204/journeys.json"
+      ],
+      "result": "GetSceneList before Main, after Break; dock log 休憩 — verify-deck (dev); key aria-pressed true"
+    },
+    {
+      "id": "deck-press-confirm",
+      "app": "deck",
+      "map": "features/deck/README.md",
+      "feature": "Hold-to-fire stream key, double-tap record key",
+      "identity": "`member`",
+      "inMap": true,
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T12:00:00Z",
+      "evidence": [
+        "local_data/pstack/apps/2026-11-24T11-33-20-351Z-32b14892/journeys.json"
+      ],
+      "result": "stream False after click, True after real pointer hold; 録画 first tap shows もう一度 with recording False, second tap recording True and aria-pressed true"
+    },
+    {
+      "id": "deck-press-momentary",
+      "app": "deck",
+      "map": "features/deck/README.md",
+      "feature": "Push-to-talk unmutes while held",
+      "identity": "`member`",
+      "inMap": true,
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T12:00:00Z",
+      "evidence": [
+        "local_data/pstack/apps/2026-11-24T11-33-20-351Z-32b14892/journeys.json"
+      ],
+      "result": "muted False before and while held, True after release (fake OBS GetInputMute)"
+    },
+    {
+      "id": "deck-press-multi",
+      "app": "deck",
+      "map": "features/deck/README.md",
+      "feature": "Multi action runs scene then source-hide in order",
+      "identity": "`member`",
+      "inMap": true,
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T12:00:00Z",
+      "evidence": [
+        "local_data/pstack/apps/2026-11-24T11-33-20-351Z-32b14892/journeys.json"
+      ],
+      "result": "program Ending; Main items Camera True, Logo False; dock log 締め"
+    },
+    {
+      "id": "deck-folder-nav",
+      "app": "deck",
+      "map": "features/deck/README.md",
+      "feature": "Folder opens, hotkey key reaches OBS, back returns",
+      "identity": "`member`",
+      "inMap": true,
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T12:00:00Z",
+      "evidence": [
+        "local_data/pstack/apps/2026-11-24T11-33-20-351Z-32b14892/journeys.json"
+      ],
+      "result": "戻る and ホットキー shown; dock log ホットキー — verify-deck (dev); 休憩 back"
+    },
+    {
+      "id": "deck-volume",
+      "app": "deck",
+      "map": "features/deck/README.md",
+      "feature": "Volume slider key opens a dialog and sets the input volume",
+      "identity": "`member`",
+      "inMap": true,
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T12:00:00Z",
+      "evidence": [
+        "local_data/pstack/apps/2026-11-24T11-33-20-351Z-32b14892/journeys.json"
+      ],
+      "result": "dialog マイク音量 -6.0 dB -> -5.0 dB; fake OBS inputVolumeDb -5"
+    },
+    {
+      "id": "deck-live-layout",
+      "app": "deck",
+      "map": "features/deck/README.md",
+      "feature": "An editor save reaches an open phone without reload",
+      "identity": "`member`, `member2`",
+      "inMap": true,
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T11:40:00Z",
+      "evidence": [
+        "local_data/pstack/apps/2026-11-24T10-59-13-126Z-aa5e7e89/journeys.json"
+      ],
+      "result": "phone shows 休憩 and 終了"
+    },
+    {
+      "id": "deck-phone-layout",
+      "app": "deck",
+      "map": "features/deck/README.md",
+      "feature": "Portrait phone: no header, grid rotated to 2 × 4, fills the screen",
+      "identity": "`member`",
+      "inMap": true,
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T12:00:00Z",
+      "evidence": [
+        "local_data/pstack/apps/2026-11-24T11-33-20-351Z-32b14892/journeys.json"
+      ],
+      "result": "buttons 休憩, 配信（0.8 秒長押し）, トーク（押している間）, 締め, その他, マイク音量, 録画（2 回タップ）; layout POST 200 version 7"
+    },
+    {
+      "id": "deck-oidc-signin",
+      "app": "deck",
+      "map": "features/deck/README.md",
+      "feature": "Real sign-in through Accounts OIDC",
+      "identity": "Accounts session",
+      "inMap": true,
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T11:22:00Z",
+      "evidence": [
+        "local_data/pstack/apps/2026-11-24T11-19-52-520Z-94960bfb/journeys.json"
+      ],
+      "result": "deck authorize callback=302 final=/no-chapter me=platform-oidc@test.local"
+    },
+    {
+      "id": "deck-real-obs",
+      "app": "deck",
+      "map": "features/deck/README.md",
+      "feature": "A real OBS: dock inside OBS, actual scene switch, stream, screenshot files",
+      "identity": "OBS operator",
+      "inMap": false,
+      "exclusion": "Outside: needs OBS Studio; the fake OBS covers the wire protocol only",
+      "status": "NOT VERIFIED",
+      "observedAt": null,
+      "evidence": [],
+      "result": null
+    },
+    {
+      "id": "deck-obs-auth",
+      "app": "deck",
+      "map": "features/deck/README.md",
+      "feature": "**パスワードが違います** on a wrong obs-websocket password",
+      "identity": "Anonymous dock",
+      "inMap": false,
+      "exclusion": "Outside until the fake OBS companion is started with a password; with no password any password connects",
+      "status": "NOT VERIFIED",
+      "observedAt": null,
+      "evidence": [],
+      "result": null
+    },
+    {
+      "id": "deck-key-reorder",
+      "app": "deck",
+      "map": "features/deck/README.md",
+      "feature": "Drag a key onto another slot",
+      "identity": "`member`",
+      "inMap": false,
+      "exclusion": "Outside: HTML5 drag and drop needs `dragstart`/`drop`, which Orca's `mouse` commands do not reliably produce; `moveKey` has unit tests",
+      "status": "NOT VERIFIED",
+      "observedAt": null,
+      "evidence": [],
+      "result": null
+    },
+    {
+      "id": "deck-pwa",
+      "app": "deck",
+      "map": "features/deck/README.md",
+      "feature": "Add to home screen, wake lock, haptics",
+      "identity": "`member` on a phone",
+      "inMap": false,
+      "exclusion": "Outside: needs a real mobile browser and device APIs",
+      "status": "NOT VERIFIED",
+      "observedAt": null,
+      "evidence": [],
+      "result": null
+    },
+    {
+      "id": "deck-screenshot-action",
+      "app": "deck",
+      "map": "features/deck/README.md",
+      "feature": "Screenshot key saving into the dock's folder",
+      "identity": "`member`",
+      "inMap": false,
+      "exclusion": "Outside: the fake OBS does not implement `SaveSourceScreenshot`, so the step fails by design",
+      "status": "NOT VERIFIED",
+      "observedAt": null,
+      "evidence": [],
+      "result": null
+    },
+    {
+      "id": "img-upload",
+      "app": "img",
+      "map": "features/img/README.md",
+      "feature": "Upload from the library, open the detail page, gallery tile",
+      "identity": "`member`",
+      "inMap": true,
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T11:40:00Z",
+      "evidence": [
+        "local_data/pstack/apps/2026-11-24T10-59-13-126Z-aa5e7e89/journeys.json"
+      ],
+      "result": "/i/J0VzSKnI, red.png image/png 800.5 KB, preview naturalWidth 640; anonymous original sha256 equals fixture"
+    },
+    {
+      "id": "img-upload-errors",
+      "app": "img",
+      "map": "features/img/README.md",
+      "feature": "Non-image and over-10-MiB uploads",
+      "identity": "`member`",
+      "inMap": true,
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T11:40:00Z",
+      "evidence": [
+        "local_data/pstack/apps/2026-11-24T10-59-13-126Z-aa5e7e89/journeys.json"
+      ],
+      "result": "alert Please choose an image file. (no POST); POST /api/upload 413, alert file too large, URL stays /"
+    },
+    {
+      "id": "img-replace",
+      "app": "img",
+      "map": "features/img/README.md",
+      "feature": "Replace bytes, same URL, new ETag",
+      "identity": "`member`",
+      "inMap": true,
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T11:40:00Z",
+      "evidence": [
+        "local_data/pstack/apps/2026-11-24T10-59-13-126Z-aa5e7e89/journeys.json"
+      ],
+      "result": "ETag ...-1795518020-orig -> ...-1795518059-orig; downloaded bytes equal blue.png"
+    },
+    {
+      "id": "img-custom-slug",
+      "app": "img",
+      "map": "features/img/README.md",
+      "feature": "Custom URL save, validation, duplicate, clear",
+      "identity": "`member`",
+      "inMap": true,
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T11:40:00Z",
+      "evidence": [
+        "local_data/pstack/apps/2026-11-24T10-59-13-126Z-aa5e7e89/journeys.json"
+      ],
+      "result": "Public URL /verify-red, GET 200 image/png; alert \"That custom URL isn't allowed...\" and slug unchanged"
+    },
+    {
+      "id": "img-mobile-variant",
+      "app": "img",
+      "map": "features/img/README.md",
+      "feature": "Upload, serve, and remove the mobile image",
+      "identity": "`member`, anonymous",
+      "inMap": true,
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T11:40:00Z",
+      "evidence": [
+        "local_data/pstack/apps/2026-11-24T10-59-13-126Z-aa5e7e89/journeys.json"
+      ],
+      "result": "card: Mobile devices now receive this image.; iPhone UA 631332 bytes (green-tall), desktop UA 853179 (blue)"
+    },
+    {
+      "id": "img-delete",
+      "app": "img",
+      "map": "features/img/README.md",
+      "feature": "Delete an image; public URL and detail return 404",
+      "identity": "`member`, anonymous",
+      "inMap": true,
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T11:40:00Z",
+      "evidence": [
+        "local_data/pstack/apps/2026-11-24T10-59-13-126Z-aa5e7e89/journeys.json"
+      ],
+      "result": "URL /, GET /QdGmuBU1 404"
+    },
+    {
+      "id": "img-folders",
+      "app": "img",
+      "map": "features/img/README.md",
+      "feature": "Create, filter, upload into, move, rename, delete folders; duplicate name",
+      "identity": "`member`",
+      "inMap": true,
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T12:00:00Z",
+      "evidence": [
+        "local_data/pstack/apps/2026-11-24T11-33-20-351Z-32b14892/journeys.json"
+      ],
+      "result": "duplicate alert A folder with that name already exists.; uploaded image combobox Verify Event; POST /api/move 200; folder filter both, unfiled none; renamed 2 images in Verify Event 2; delete dialog Delete “Verify Event 2”?; URL / with no chip; both images unfiled; public URL still 200"
+    },
+    {
+      "id": "img-public-delivery",
+      "app": "img",
+      "map": "features/img/README.md",
+      "feature": "Public GET: original, format negotiation, width and DPR, too-small passthrough, ETag 304, 404",
+      "identity": "anonymous",
+      "inMap": true,
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T11:40:00Z",
+      "evidence": [
+        "local_data/pstack/apps/2026-11-24T10-59-13-126Z-aa5e7e89/journeys.json"
+      ],
+      "result": "original 200 image/png; Accept avif,webp with w=200 -> 200 image/avif; missing 404"
+    },
+    {
+      "id": "img-url-builder",
+      "app": "img",
+      "map": "features/img/README.md",
+      "feature": "Optimization URL builder: built URL, Before / After, preview",
+      "identity": "`member`",
+      "inMap": true,
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T11:40:00Z",
+      "evidence": [
+        "local_data/pstack/apps/2026-11-24T10-59-13-126Z-aa5e7e89/journeys.json"
+      ],
+      "result": "Built image URL ...?h=120&fit=scale-down&f=auto; GET 200, 39727 bytes"
+    },
+    {
+      "id": "img-chapter-sharing",
+      "app": "img",
+      "map": "features/img/README.md",
+      "feature": "Chapter visibility, peer access, re-share to another chapter clears the folder",
+      "identity": "`member`, `peer`, `multi`, `outsider`",
+      "inMap": true,
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T11:40:00Z",
+      "evidence": [
+        "local_data/pstack/apps/2026-11-24T10-59-13-126Z-aa5e7e89/journeys.json"
+      ],
+      "result": "peer sees both images; outsider 0 tiles and /i/<id> 403 Forbidden"
+    },
+    {
+      "id": "img-super-admin",
+      "app": "img",
+      "map": "features/img/README.md",
+      "feature": "Super admin opens an image of another chapter",
+      "identity": "`admin`",
+      "inMap": true,
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T11:40:00Z",
+      "evidence": [
+        "local_data/pstack/apps/2026-11-24T10-59-13-126Z-aa5e7e89/journeys.json"
+      ],
+      "result": "Image details rendered for J0VzSKnI"
+    },
+    {
+      "id": "img-access",
+      "app": "img",
+      "map": "features/img/README.md",
+      "feature": "Anonymous gate, no-chapter page, 403 / 404 detail",
+      "identity": "anonymous, `outsider`, `nochapter`",
+      "inMap": true,
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T11:40:00Z",
+      "evidence": [
+        "local_data/pstack/apps/2026-11-24T10-59-13-126Z-aa5e7e89/journeys.json"
+      ],
+      "result": "302 /signin?return_to=%2F; chapterless lands on /no-chapter; outsider 403 on detail"
+    },
+    {
+      "id": "img-signout",
+      "app": "img",
+      "map": "features/img/README.md",
+      "feature": "Sign out from the account menu",
+      "identity": "`member`",
+      "inMap": true,
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T11:40:00Z",
+      "evidence": [
+        "local_data/pstack/apps/2026-11-24T10-59-13-126Z-aa5e7e89/journeys.json"
+      ],
+      "result": "ended at /api/auth/signin; /api/auth/me {\"user\":null}"
+    },
+    {
+      "id": "img-oidc-signin",
+      "app": "img",
+      "map": "features/img/README.md",
+      "feature": "Real sign-in through Accounts",
+      "identity": "Accounts user",
+      "inMap": true,
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T11:22:00Z",
+      "evidence": [
+        "local_data/pstack/apps/2026-11-24T11-19-52-520Z-94960bfb/journeys.json"
+      ],
+      "result": "img authorize callback=302 final=/no-chapter me=platform-oidc@test.local"
+    },
+    {
+      "id": "img-cli-api",
+      "app": "img",
+      "map": "features/img/README.md",
+      "feature": "`api/cli/v1/images` and `folders` with a Bearer token",
+      "identity": "CLI user",
+      "inMap": false,
+      "exclusion": "Outside: `getCliIdentity` asks Accounts `/api/cli/v1/identity`; no local token exists without Accounts. Only the 401 without a token is checkable (recorded in [access.md](access.md))",
+      "status": "NOT VERIFIED",
+      "observedAt": null,
+      "evidence": [],
+      "result": null
+    },
+    {
+      "id": "img-transform-fidelity",
+      "app": "img",
+      "map": "features/img/README.md",
+      "feature": "`fit=cover/crop/pad`, `q`, `radius` corner transparency, production byte sizes",
+      "identity": "anonymous",
+      "inMap": false,
+      "exclusion": "Outside: the local Images emulation ignores fit, quality, and draw overlays; needs real Cloudflare Images",
+      "status": "NOT VERIFIED",
+      "observedAt": null,
+      "evidence": [],
+      "result": null
+    },
+    {
+      "id": "img-auto-max-width",
+      "app": "img",
+      "map": "features/img/README.md",
+      "feature": "Plain URLs scaled to `IMG_AUTO_MAX_WIDTH`",
+      "identity": "anonymous",
+      "inMap": false,
+      "exclusion": "Outside: the var is `0` locally and in the current production config",
+      "status": "NOT VERIFIED",
+      "observedAt": null,
+      "evidence": [],
+      "result": null
+    },
+    {
+      "id": "img-rendition-lifecycle",
+      "app": "img",
+      "map": "features/img/README.md",
+      "feature": "30-day `DERIVED` expiry and edge cache behavior",
+      "identity": "none",
+      "inMap": false,
+      "exclusion": "Outside: production R2 lifecycle and Cloudflare cache",
+      "status": "NOT VERIFIED",
+      "observedAt": null,
+      "evidence": [],
+      "result": null
+    },
+    {
+      "id": "img-upload-rpc",
+      "app": "img",
+      "map": "features/img/README.md",
+      "feature": "`ImageUploadService` RPC from other Workers",
+      "identity": "other apps",
+      "inMap": false,
+      "exclusion": "Outside: not user-facing; the local `/api/internal/upload` stand-in is unauthenticated test plumbing",
+      "status": "NOT VERIFIED",
+      "observedAt": null,
+      "evidence": [],
+      "result": null
+    },
+    {
+      "id": "img-drag-drop",
+      "app": "img",
+      "map": "features/img/README.md",
+      "feature": "Drop a file on the upload zone",
+      "identity": "`member`",
+      "inMap": false,
+      "exclusion": "Outside: Orca Browser cannot synthesize an OS file drag; the same `upload()` path is covered through \"Choose image\"",
+      "status": "NOT VERIFIED",
+      "observedAt": null,
+      "evidence": [],
+      "result": null
+    },
+    {
+      "id": "live-checkin-login-page",
+      "app": "live-checkin",
+      "map": "features/live-checkin/README.md",
+      "feature": "Login page content",
+      "identity": "Anonymous",
+      "inMap": true,
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T08:05:00Z",
+      "evidence": [
+        "local_data/pstack/apps/2026-11-24T07-45-55-534Z-4e5bf204/journeys.json"
+      ],
+      "result": "/ with GDG 受付システム, 連続受付を開始するには GDG Accounts でのログインが必要です。, GDG Accounts でログイン"
+    },
+    {
+      "id": "live-checkin-signin-start",
+      "app": "live-checkin",
+      "map": "features/live-checkin/README.md",
+      "feature": "**GDG Accounts でログイン** starts Auth.js sign-in; locally it ends on the Configuration error",
+      "identity": "Anonymous",
+      "inMap": true,
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T12:00:00Z",
+      "evidence": [
+        "local_data/pstack/apps/2026-11-24T11-33-20-351Z-32b14892/journeys.json"
+      ],
+      "result": "GET providers, csrf; POST /api/auth/signin/gdg-accounts 200; 302 to localhost:6173 authorize (another verifier's local Accounts was listening, which answered invalid_client)"
+    },
+    {
+      "id": "live-checkin-gate",
+      "app": "live-checkin",
+      "map": "features/live-checkin/README.md",
+      "feature": "`/checkin` gate: anonymous to `/`, other chapter to `/forbidden`, `gdg-kwansai` allowed",
+      "identity": "Anonymous, `outsider`, `kwansai`",
+      "inMap": true,
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T08:05:00Z",
+      "evidence": [
+        "local_data/pstack/apps/2026-11-24T07-45-55-534Z-4e5bf204/journeys.json"
+      ],
+      "result": "anonymous / with GDG Accounts でログイン; outsider /forbidden 利用できません; kwansai /checkin connpass 連続受付システム with 受付設定"
+    },
+    {
+      "id": "live-checkin-forbidden-signout",
+      "app": "live-checkin",
+      "map": "features/live-checkin/README.md",
+      "feature": "Forbidden page and its **ログアウト**",
+      "identity": "`outsider`",
+      "inMap": true,
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T11:40:00Z",
+      "evidence": [
+        "local_data/pstack/apps/2026-11-24T10-59-13-126Z-aa5e7e89/journeys.json"
+      ],
+      "result": "URL /, /api/auth/session null"
+    },
+    {
+      "id": "live-checkin-settings",
+      "app": "live-checkin",
+      "map": "features/live-checkin/README.md",
+      "feature": "Blocking settings modal when events cannot be fetched, **再読み込み**",
+      "identity": "`kwansai`",
+      "inMap": true,
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T11:40:00Z",
+      "evidence": [
+        "local_data/pstack/apps/2026-11-24T10-59-13-126Z-aa5e7e89/journeys.json"
+      ],
+      "result": "dialog 受付設定 open; イベントの取得に失敗しました 再読み込み; 保存 disabled, no close control"
+    },
+    {
+      "id": "live-checkin-scanner-shell",
+      "app": "live-checkin",
+      "map": "features/live-checkin/README.md",
+      "feature": "Scanner screen with a stored event: idle overlay, reopen and close settings, expected-count progress, event link",
+      "identity": "`kwansai`",
+      "inMap": true,
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T12:00:00Z",
+      "evidence": [
+        "local_data/pstack/apps/2026-11-24T11-33-20-351Z-32b14892/journeys.json"
+      ],
+      "result": "no dialog; connpass 連続受付システム, idle overlay, ---出席確認済み未対応, 連続受付アクティブ; manage link https://connpass.com/event/123456/; camera toggle keeps /checkin and overlay"
+    },
+    {
+      "id": "live-checkin-api-proxy",
+      "app": "live-checkin",
+      "map": "features/live-checkin/README.md",
+      "feature": "`/api/events` and `/api/checkin` auth gate and unreachable-upstream error",
+      "identity": "Anonymous, `outsider`, `kwansai` (HTTP)",
+      "inMap": true,
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T08:05:00Z",
+      "evidence": [
+        "local_data/pstack/apps/2026-11-24T07-45-55-534Z-4e5bf204/journeys.json"
+      ],
+      "result": "401 認証が必要です; 403 このチャプターのメンバーのみ利用できます。; 500 サーバー間リクエストでエラーが発生しました"
+    },
+    {
+      "id": "live-checkin-event-select",
+      "app": "live-checkin",
+      "map": "features/live-checkin/README.md",
+      "feature": "Choosing an event from the connpass list and **保存**",
+      "identity": "`kwansai`",
+      "inMap": false,
+      "exclusion": "Outside: the list comes from connpass (`/api/groups/gdgkwansai/events`), which is unreachable by design; **保存** stays disabled without a listed event",
+      "status": "NOT VERIFIED",
+      "observedAt": null,
+      "evidence": [],
+      "result": null
+    },
+    {
+      "id": "live-checkin-qr-scan",
+      "app": "live-checkin",
+      "map": "features/live-checkin/README.md",
+      "feature": "Camera QR decode, QR validation, check-in result overlays, promo code, sound",
+      "identity": "`kwansai`",
+      "inMap": false,
+      "exclusion": "Outside: needs a camera stream and a live connpass check-in; the page has no manual URL entry, so `validateCheckInURL` (対象外のQRコードです) is reachable only through a decoded QR",
+      "status": "NOT VERIFIED",
+      "observedAt": null,
+      "evidence": [],
+      "result": null
+    },
+    {
+      "id": "live-checkin-oidc-signin",
+      "app": "live-checkin",
+      "map": "features/live-checkin/README.md",
+      "feature": "Completing sign-in through GDG Accounts and chapter claims",
+      "identity": "Accounts session",
+      "inMap": true,
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T13:29:45Z",
+      "evidence": [
+        "local_data/pstack/apps/2026-11-24T13-28-30-097Z-b484b37e/journeys.json"
+      ],
+      "result": "POST signin/gdg-accounts; 6173 authorize 302; callback/gdg-accounts 302; /checkin 307 -> /forbidden (fixture user has no chapter); session holds accessToken, chapters [], isAdmin true, but no name or email",
+      "sourceSnapshot": "local_data/pstack/apps/2026-11-24T13-28-30-097Z-b484b37e/run.json"
+    },
+    {
+      "id": "mc-access",
+      "app": "mc",
+      "map": "features/mc/README.md",
+      "feature": "Sign-in gate, chapterless gate, other-chapter access, API 401",
+      "identity": "Anonymous, `no-chapter`, `outsider`, `operator`",
+      "inMap": true,
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T08:05:00Z",
+      "evidence": [
+        "local_data/pstack/apps/2026-11-24T07-45-55-534Z-4e5bf204/journeys.json"
+      ],
+      "result": "302 /signin; POST /api/clips 401; /no-chapter GDG チャプターへの参加が必要です; operator sees tracks A/B/C and 共通の音声を追加"
+    },
+    {
+      "id": "mc-signout",
+      "app": "mc",
+      "map": "features/mc/README.md",
+      "feature": "`/auth/signout` clears the session",
+      "identity": "`operator`",
+      "inMap": true,
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T12:00:00Z",
+      "evidence": [
+        "local_data/pstack/apps/2026-11-24T11-33-20-351Z-32b14892/journeys.json"
+      ],
+      "result": "ended at /api/auth/signin; /api/auth/me {\"user\":null}"
+    },
+    {
+      "id": "mc-player-url",
+      "app": "mc",
+      "map": "features/mc/README.md",
+      "feature": "診断 sheet Player URL per track, copy",
+      "identity": "`operator`",
+      "inMap": true,
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T11:40:00Z",
+      "evidence": [
+        "local_data/pstack/apps/2026-11-24T10-59-13-126Z-aa5e7e89/journeys.json"
+      ],
+      "result": "matches http://localhost:6187/play?track=A&t=<64 hex> (token not retained)"
+    },
+    {
+      "id": "mc-player-url-reissue",
+      "app": "mc",
+      "map": "features/mc/README.md",
+      "feature": "Two-step reissue; old URL stops counting",
+      "identity": "`operator`, Anonymous player",
+      "inMap": true,
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T12:00:00Z",
+      "evidence": [
+        "local_data/pstack/apps/2026-11-24T11-33-20-351Z-32b14892/journeys.json"
+      ],
+      "result": "cancel same=true; second dialog warns 配信されません; after confirm URL changed and 64-hex, lamp down, log Player URL 再発行; old URL reload stays down; new URL lamp ok"
+    },
+    {
+      "id": "mc-playback",
+      "app": "mc",
+      "map": "features/mc/README.md",
+      "feature": "Play is acknowledged, remaining time counts down, stop asks first, resume",
+      "identity": "`operator`, Anonymous player",
+      "inMap": true,
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T11:40:00Z",
+      "evidence": [
+        "local_data/pstack/apps/2026-11-24T10-59-13-126Z-aa5e7e89/journeys.json"
+      ],
+      "result": "playing 0:22 -> 0:20; dialog 再生を停止しますか？; paused 0:10 -> 0:10"
+    },
+    {
+      "id": "mc-restart-seek-switch",
+      "app": "mc",
+      "map": "features/mc/README.md",
+      "feature": "最初から再生, seek, switching clip while audible, cue while idle",
+      "identity": "`operator`, Anonymous player",
+      "inMap": true,
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T12:00:00Z",
+      "evidence": [
+        "local_data/pstack/apps/2026-11-24T11-33-20-351Z-32b14892/journeys.json"
+      ],
+      "result": "seek aria-valuenow 0 -> 6; switch made card 4 playing and cleared card 3; restart dialog 最初から再生しますか？ accepted. The remaining-time proof of restart could not be read: the player engine reported clock \"stalled\" (audio not advancing) in this Orca session"
+    },
+    {
+      "id": "mc-played-marks",
+      "app": "mc",
+      "map": "features/mc/README.md",
+      "feature": "再生済み toggle persists in the room; reset",
+      "identity": "`operator`",
+      "inMap": true,
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T12:00:00Z",
+      "evidence": [
+        "local_data/pstack/apps/2026-11-24T11-33-20-351Z-32b14892/journeys.json"
+      ],
+      "result": "tab 1 card 3 became false without reload; reset dialog 再生済みをリセットしますか？; after reload all false in both tabs"
+    },
+    {
+      "id": "mc-loop",
+      "app": "mc",
+      "map": "features/mc/README.md",
+      "feature": "Loop toggle, loop gap, gap countdown, ループを停止しますか？",
+      "identity": "`operator`, Anonymous player",
+      "inMap": true,
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T12:00:00Z",
+      "evidence": [
+        "local_data/pstack/apps/2026-11-24T11-33-20-351Z-32b14892/journeys.json"
+      ],
+      "result": "ループ aria-pressed true; interval 0 -> 5, still 5 after reload; set back to 0. The gap countdown could not be observed because the player clock was stalled"
+    },
+    {
+      "id": "mc-common-clips",
+      "app": "mc",
+      "map": "features/mc/README.md",
+      "feature": "共通 chips play on the selected track's player",
+      "identity": "`operator`, Anonymous player",
+      "inMap": true,
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T12:00:00Z",
+      "evidence": [
+        "local_data/pstack/apps/2026-11-24T11-33-20-351Z-32b14892/journeys.json"
+      ],
+      "result": "bar 再生中 shows 登壇準備中; 診断 playing · X-01. Its end (ended) was not observed because the player clock was stalled"
+    },
+    {
+      "id": "mc-no-player",
+      "app": "mc",
+      "map": "features/mc/README.md",
+      "feature": "Command with no player fails at once",
+      "identity": "`operator`",
+      "inMap": true,
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T08:05:00Z",
+      "evidence": [
+        "local_data/pstack/apps/2026-11-24T07-45-55-534Z-4e5bf204/journeys.json"
+      ],
+      "result": "配信PCが接続されていません while a wrong-token player tab was open"
+    },
+    {
+      "id": "mc-player-lost",
+      "app": "mc",
+      "map": "features/mc/README.md",
+      "feature": "Closed player flagged within seconds; reopened player recovers",
+      "identity": "`operator`, Anonymous player",
+      "inMap": true,
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T12:00:00Z",
+      "evidence": [
+        "local_data/pstack/apps/2026-11-24T11-33-20-351Z-32b14892/journeys.json"
+      ],
+      "result": "closed: down with strip 配信PCが接続されていません; reopened: ok, no strip"
+    },
+    {
+      "id": "mc-wrong-token",
+      "app": "mc",
+      "map": "features/mc/README.md",
+      "feature": "Wrong token never connects",
+      "identity": "`operator`, Anonymous player",
+      "inMap": true,
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T12:00:00Z",
+      "evidence": [
+        "local_data/pstack/apps/2026-11-24T11-33-20-351Z-32b14892/journeys.json"
+      ],
+      "result": "lamp down, strip 配信PCが接続されていません after 5 s (the /ws upgrade is not listed in Orca network capture)"
+    },
+    {
+      "id": "mc-multi-player",
+      "app": "mc",
+      "map": "features/mc/README.md",
+      "feature": "Two players on one track show multi",
+      "identity": "`operator`, Anonymous player",
+      "inMap": true,
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T12:00:00Z",
+      "evidence": [
+        "local_data/pstack/apps/2026-11-24T11-33-20-351Z-32b14892/journeys.json"
+      ],
+      "result": "multi | 配信PCが複数接続されています | 2, then ok"
+    },
+    {
+      "id": "mc-player-diagnostics",
+      "app": "mc",
+      "map": "features/mc/README.md",
+      "feature": "Player-side diagnostics (preload, autoplay, visibility) reach the controller",
+      "identity": "`operator`, Anonymous player",
+      "inMap": true,
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T12:00:00Z",
+      "evidence": [
+        "local_data/pstack/apps/2026-11-24T11-33-20-351Z-32b14892/journeys.json"
+      ],
+      "result": "preload 16/16, autoplay ok, volume 100%, visible, clock ok, UA string; player loaded 16 /audio/ resources; hidden player showed visibility hidden and clock stalled"
+    },
+    {
+      "id": "mc-autoplay-unlock",
+      "app": "mc",
+      "map": "features/mc/README.md",
+      "feature": "Blocked autoplay shows 音声を有効にする; clicking it unlocks",
+      "identity": "Anonymous player",
+      "inMap": false,
+      "exclusion": "Outside: Orca Browser allows autoplay (診断 autoplay `ok`), so the unlock prompt never appears; it needs a browser that blocks autoplay, such as a fresh OBS Browser Source",
+      "status": "NOT VERIFIED",
+      "observedAt": null,
+      "evidence": [],
+      "result": null
+    },
+    {
+      "id": "mc-track-channels",
+      "app": "mc",
+      "map": "features/mc/README.md",
+      "feature": "Tab switch asks first; each track is its own channel and token",
+      "identity": "`operator`, Anonymous players",
+      "inMap": true,
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T12:00:00Z",
+      "evidence": [
+        "local_data/pstack/apps/2026-11-24T11-33-20-351Z-32b14892/journeys.json"
+      ],
+      "result": "cancel kept A; B selected with first card B-01 and lamp down although the A player stayed open; track B token differs; back to A lamp ok"
+    },
+    {
+      "id": "mc-clip-upload",
+      "app": "mc",
+      "map": "features/mc/README.md",
+      "feature": "Upload, register, play, edit, delete an uploaded clip; player preloads it",
+      "identity": "`operator`, Anonymous player",
+      "inMap": true,
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T11:40:00Z",
+      "evidence": [
+        "local_data/pstack/apps/2026-11-24T10-59-13-126Z-aa5e7e89/journeys.json"
+      ],
+      "result": "POST upload 200, POST /api/clips 200; card persists after reload; player fetched /media/U-b4b5e5357a; media 200 audio/mpeg, Range 206; DELETE 200 then media 404"
+    },
+    {
+      "id": "mc-common-upload",
+      "app": "mc",
+      "map": "features/mc/README.md",
+      "feature": "Upload into 共通 from **共通の音声を追加**",
+      "identity": "`operator`",
+      "inMap": true,
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T12:00:00Z",
+      "evidence": [
+        "local_data/pstack/apps/2026-11-24T11-33-20-351Z-32b14892/journeys.json"
+      ],
+      "result": "POST upload 200 and /api/clips 200; chip verify common after reload and in a second tab"
+    },
+    {
+      "id": "mc-oidc-signin",
+      "app": "mc",
+      "map": "features/mc/README.md",
+      "feature": "Real sign-in through Accounts OIDC",
+      "identity": "Accounts session",
+      "inMap": true,
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T11:22:00Z",
+      "evidence": [
+        "local_data/pstack/apps/2026-11-24T11-19-52-520Z-94960bfb/journeys.json"
+      ],
+      "result": "mc authorize callback=302 final=/no-chapter me=platform-oidc@test.local"
+    },
+    {
+      "id": "mc-obs-audio",
+      "app": "mc",
+      "map": "features/mc/README.md",
+      "feature": "Audible output in the OBS mixer, Browser Source settings",
+      "identity": "OBS operator",
+      "inMap": false,
+      "exclusion": "Outside: needs a real OBS and audio device. Observable here only as player state reported to the controller (card `data-status`, remaining time, 診断 status · clipId, clock ok)",
+      "status": "NOT VERIFIED",
+      "observedAt": null,
+      "evidence": [],
+      "result": null
+    },
+    {
+      "id": "mc-transcribe",
+      "app": "mc",
+      "map": "features/mc/README.md",
+      "feature": "Gemini transcription of an uploaded clip",
+      "identity": "`operator`",
+      "inMap": false,
+      "exclusion": "Outside: needs `GEMINI_API_KEY` and an external API; the stack runs without it (`transcribeError: \"no-key\"`, text typed by hand)",
+      "status": "NOT VERIFIED",
+      "observedAt": null,
+      "evidence": [],
+      "result": null
+    },
+    {
+      "id": "mc-self-offline",
+      "app": "mc",
+      "map": "features/mc/README.md",
+      "feature": "司会PCがオフラインです and controller reconnect",
+      "identity": "`operator`",
+      "inMap": false,
+      "exclusion": "Outside: Orca Browser has no network-offline control; reconnect logic is covered by `reliable-socket.test.ts`",
+      "status": "NOT VERIFIED",
+      "observedAt": null,
+      "evidence": [],
+      "result": null
+    },
+    {
+      "id": "mc-muted-stalled",
+      "app": "mc",
+      "map": "features/mc/README.md",
+      "feature": "配信PCでミュートされています, 配信PCで音声が進んでいません, 配信PCで再生エラーが発生しました",
+      "identity": "Anonymous player",
+      "inMap": false,
+      "exclusion": "Outside: the player's `Audio` element is detached from the DOM and the page has no mute control; stalls and media errors need a failing audio device or corrupt media",
+      "status": "NOT VERIFIED",
+      "observedAt": null,
+      "evidence": [],
+      "result": null
+    },
+    {
+      "id": "mc-clip-dropzone",
+      "app": "mc",
+      "map": "features/mc/README.md",
+      "feature": "Drag-and-drop a file onto the dropzone",
+      "identity": "`operator`",
+      "inMap": false,
+      "exclusion": "Outside: Orca sets files through `upload`, not an OS drag; the file-picker path is covered by `mc-clip-upload`",
+      "status": "NOT VERIFIED",
+      "observedAt": null,
+      "evidence": [],
+      "result": null
+    },
+    {
+      "id": "meet-access",
+      "app": "meet",
+      "map": "features/meet/README.md",
+      "feature": "Anonymous gate, chapter gate, `/no-chapter` both ways, sign-out",
+      "identity": "Anonymous, `no-chapter`, `member`",
+      "inMap": true,
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T11:40:00Z",
+      "evidence": [
+        "local_data/pstack/apps/2026-11-24T10-59-13-126Z-aa5e7e89/journeys.json"
+      ],
+      "result": "302 /signin; chapterless / without 新しい会議 and /meetings/new -> /no-chapter; member /no-chapter -> /; sign-out /api/auth/me null"
+    },
+    {
+      "id": "meet-admin-gate",
+      "app": "meet",
+      "map": "features/meet/README.md",
+      "feature": "Non-admin 403 on `/admin/google` and its callback",
+      "identity": "`member`",
+      "inMap": true,
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T11:40:00Z",
+      "evidence": [
+        "local_data/pstack/apps/2026-11-24T10-59-13-126Z-aa5e7e89/journeys.json"
+      ],
+      "result": "403"
+    },
+    {
+      "id": "meet-home",
+      "app": "meet",
+      "map": "features/meet/README.md",
+      "feature": "Empty list, unconnected alert, **新しい会議** visibility, theme toggle, static logos",
+      "identity": "`member`, `no-chapter`",
+      "inMap": true,
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T11:40:00Z",
+      "evidence": [
+        "local_data/pstack/apps/2026-11-24T10-59-13-126Z-aa5e7e89/journeys.json"
+      ],
+      "result": "共有 Google アカウントが未接続です; まだ会議がありません; 新しい会議 link"
+    },
+    {
+      "id": "meet-create-form",
+      "app": "meet",
+      "map": "features/meet/README.md",
+      "feature": "Create form defaults, 自動記録設定 toggles, disabled submit, add-chapter row",
+      "identity": "`member`",
+      "inMap": true,
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T11:40:00Z",
+      "evidence": [
+        "local_data/pstack/apps/2026-11-24T10-59-13-126Z-aa5e7e89/journeys.json"
+      ],
+      "result": "文字起こし/Gemini Notes on, 録画 off, 制限付き selected, 会議を作成 disabled"
+    },
+    {
+      "id": "meet-invitee-preview",
+      "app": "meet",
+      "map": "features/meet/README.md",
+      "feature": "**人数を確認** counts and validation errors; directory-failure message",
+      "identity": "`member`",
+      "inMap": true,
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T11:40:00Z",
+      "evidence": [
+        "local_data/pstack/apps/2026-11-24T10-59-13-126Z-aa5e7e89/journeys.json"
+      ],
+      "result": "メールアドレスの形式が正しくありません: not-an-email; then チャプターメンバーの取得に失敗しました (no ACCOUNTS_DIRECTORY locally)"
+    },
+    {
+      "id": "meet-meeting-list",
+      "app": "meet",
+      "map": "features/meet/README.md",
+      "feature": "Seeded upcoming and past meetings on `/` with badges and fallbacks",
+      "identity": "`member`",
+      "inMap": true,
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T11:40:00Z",
+      "evidence": [
+        "local_data/pstack/apps/2026-11-24T10-59-13-126Z-aa5e7e89/journeys.json"
+      ],
+      "result": "有効 / 取り消し済み / 作成失敗 badges, 過去の会議 section; 非公開 not listed"
+    },
+    {
+      "id": "meet-meeting-detail",
+      "app": "meet",
+      "map": "features/meet/README.md",
+      "feature": "Seeded meeting detail, invitees, disabled Google actions, status alerts, 404",
+      "identity": "`member`, `participant`",
+      "inMap": true,
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T11:40:00Z",
+      "evidence": [
+        "local_data/pstack/apps/2026-11-24T10-59-13-126Z-aa5e7e89/journeys.json"
+      ],
+      "result": "record settings shown; 再同期 and 取り消す disabled; nope and hidden 404; participant detail 200"
+    },
+    {
+      "id": "meet-meeting-edit",
+      "app": "meet",
+      "map": "features/meet/README.md",
+      "feature": "Edit form prefill, disabled save, participant 403, canceled 409",
+      "identity": "`member`, `participant`",
+      "inMap": true,
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T11:40:00Z",
+      "evidence": [
+        "local_data/pstack/apps/2026-11-24T10-59-13-126Z-aa5e7e89/journeys.json"
+      ],
+      "result": "title prefilled, 変更を保存 disabled; participant 403; canceled meeting 409"
+    },
+    {
+      "id": "meet-admin-google",
+      "app": "meet",
+      "map": "features/meet/README.md",
+      "feature": "Admin connection page in the unconfigured state, callback error flashes",
+      "identity": "`admin`",
+      "inMap": true,
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T11:40:00Z",
+      "evidence": [
+        "local_data/pstack/apps/2026-11-24T10-59-13-126Z-aa5e7e89/journeys.json"
+      ],
+      "result": "Google OAuth 環境変数が未設定です; 未接続; connect and subscription buttons disabled"
+    },
+    {
+      "id": "meet-create-meeting",
+      "app": "meet",
+      "map": "features/meet/README.md",
+      "feature": "Actually creating a meeting (Meet space, Calendar event, member sync)",
+      "identity": "`member`",
+      "inMap": false,
+      "exclusion": "Outside: needs a connected shared Google account and live Meet/Calendar APIs; submit is disabled locally",
+      "status": "NOT VERIFIED",
+      "observedAt": null,
+      "evidence": [],
+      "result": null
+    },
+    {
+      "id": "meet-edit-resync-cancel",
+      "app": "meet",
+      "map": "features/meet/README.md",
+      "feature": "Saving edits, chapter resync, cancellation",
+      "identity": "cohost",
+      "inMap": false,
+      "exclusion": "Outside: every path calls Google Calendar/Meet; buttons are disabled while unconnected",
+      "status": "NOT VERIFIED",
+      "observedAt": null,
+      "evidence": [],
+      "result": null
+    },
+    {
+      "id": "meet-google-connect",
+      "app": "meet",
+      "map": "features/meet/README.md",
+      "feature": "Shared host OAuth connection and token refresh",
+      "identity": "`admin`",
+      "inMap": false,
+      "exclusion": "Outside: real Google OAuth; OAuth is not configured locally, so the button is disabled",
+      "status": "NOT VERIFIED",
+      "observedAt": null,
+      "evidence": [],
+      "result": null
+    },
+    {
+      "id": "meet-workspace-events",
+      "app": "meet",
+      "map": "features/meet/README.md",
+      "feature": "Pub/Sub Push to `/api/google/events`, subscription create/renew",
+      "identity": "none",
+      "inMap": false,
+      "exclusion": "Outside: requires a Google-signed OIDC JWT and the Workspace Events API",
+      "status": "NOT VERIFIED",
+      "observedAt": null,
+      "evidence": [],
+      "result": null
+    },
+    {
+      "id": "meet-simulate-event",
+      "app": "meet",
+      "map": "features/meet/README.md",
+      "feature": "`/dev/simulate-event` envelope handling",
+      "identity": "HTTP only",
+      "inMap": false,
+      "exclusion": "Outside: no UI; it skips only Pub/Sub delivery and JWT verification, and every conference or artifact event then calls the Meet API with the (missing) Google token (see [admin-google.md](admin-google.md) Gotchas)",
+      "status": "NOT VERIFIED",
+      "observedAt": null,
+      "evidence": [],
+      "result": null
+    },
+    {
+      "id": "meet-artifacts-share",
+      "app": "meet",
+      "map": "features/meet/README.md",
+      "feature": "Artifact fetch, Drive sharing, Calendar attachment, **再試行**",
+      "identity": "`admin`",
+      "inMap": false,
+      "exclusion": "Outside: Meet and Drive APIs; queue jobs fail without a Google token",
+      "status": "NOT VERIFIED",
+      "observedAt": null,
+      "evidence": [],
+      "result": null
+    },
+    {
+      "id": "meet-conference-stats",
+      "app": "meet",
+      "map": "features/meet/README.md",
+      "feature": "Attendance and speaker statistics",
+      "identity": "invitee",
+      "inMap": false,
+      "exclusion": "Outside: collected from the Meet API by queue jobs; only the empty card is local (covered in `meet-meeting-detail`)",
+      "status": "NOT VERIFIED",
+      "observedAt": null,
+      "evidence": [],
+      "result": null
+    },
+    {
+      "id": "meet-oidc-signin",
+      "app": "meet",
+      "map": "features/meet/README.md",
+      "feature": "Real sign-in through Accounts OIDC",
+      "identity": "Accounts session",
+      "inMap": true,
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T11:22:00Z",
+      "evidence": [
+        "local_data/pstack/apps/2026-11-24T11-19-52-520Z-94960bfb/journeys.json"
+      ],
+      "result": "authorize 302 -> callback 302 -> / (meet home needs no chapter); /api/auth/me platform-oidc@test.local"
+    },
+    {
+      "id": "ost-gate",
+      "app": "ost",
+      "map": "features/ost/README.md",
+      "feature": "Admin pages need sign-in",
+      "identity": "anonymous",
+      "inMap": true,
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T04:20:00Z",
+      "evidence": [
+        "local_data/pstack/apps/2026-11-24T04-14-37-532Z-7bf1da76/journeys.json"
+      ],
+      "result": "302 /signin?return_to=%2Fverify-ost%2Fscreen; browser ended at /api/auth/signin (500 without Accounts)"
+    },
+    {
+      "id": "ost-chapter-isolation",
+      "app": "ost",
+      "map": "features/ost/README.md",
+      "feature": "Another chapter cannot see or open the event",
+      "identity": "outsider",
+      "inMap": true,
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T04:20:00Z",
+      "evidence": [
+        "local_data/pstack/apps/2026-11-24T04-14-37-532Z-7bf1da76/journeys.json"
+      ],
+      "result": "まだイベントがありません; browser 403 Forbidden; HTTP 403 for edit, screen, tables"
+    },
+    {
+      "id": "ost-unknown-event",
+      "app": "ost",
+      "map": "features/ost/README.md",
+      "feature": "Unknown slug is 404",
+      "identity": "anonymous",
+      "inMap": true,
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T04:20:00Z",
+      "evidence": [
+        "local_data/pstack/apps/2026-11-24T04-14-37-532Z-7bf1da76/journeys.json"
+      ],
+      "result": "404 (HTTP only)"
+    },
+    {
+      "id": "ost-dashboard",
+      "app": "ost",
+      "map": "features/ost/README.md",
+      "feature": "Create an event, duplicate slug",
+      "identity": "owner",
+      "inMap": true,
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T04:20:00Z",
+      "evidence": [
+        "local_data/pstack/apps/2026-11-24T04-14-37-532Z-7bf1da76/journeys.json"
+      ],
+      "result": "Verify Created listed after reload; URL「verify-created」は既に使われています。"
+    },
+    {
+      "id": "ost-submit-topic",
+      "app": "ost",
+      "map": "features/ost/README.md",
+      "feature": "Submit a topic, seen live on the screen",
+      "identity": "participant, owner",
+      "inMap": true,
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T04:20:00Z",
+      "evidence": [
+        "local_data/pstack/apps/2026-11-24T04-14-37-532Z-7bf1da76/journeys.json"
+      ],
+      "result": "valueMissing true; 送信しました 🎉; screen showed Verify topic alpha without reload (ライブ) POST /verify-ost.data text= -> ok false テーマを入力してください（200文字以内）。"
+    },
+    {
+      "id": "ost-vote",
+      "app": "ost",
+      "map": "features/ost/README.md",
+      "feature": "Vote, retract, persist per device",
+      "identity": "participant, owner",
+      "inMap": true,
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T04:20:00Z",
+      "evidence": [
+        "local_data/pstack/apps/2026-11-24T04-14-37-532Z-7bf1da76/journeys.json"
+      ],
+      "result": "screen hint alpha 0 票 then 1 票; after participant reload aria-pressed true for alpha"
+    },
+    {
+      "id": "ost-screen-merge",
+      "app": "ost",
+      "map": "features/ost/README.md",
+      "feature": "Merge, spread and ungroup cards",
+      "identity": "owner",
+      "inMap": true,
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T04:20:00Z",
+      "evidence": [
+        "local_data/pstack/apps/2026-11-24T04-14-37-532Z-7bf1da76/journeys.json"
+      ],
+      "result": "2 Verify topic alpha まとめて 1 票 after reload; after ungroup and reload two separate cards"
+    },
+    {
+      "id": "ost-screen-delete",
+      "app": "ost",
+      "map": "features/ost/README.md",
+      "feature": "Delete one topic, clear all",
+      "identity": "owner",
+      "inMap": true,
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T11:40:00Z",
+      "evidence": [
+        "local_data/pstack/apps/2026-11-24T10-59-13-126Z-aa5e7e89/journeys.json"
+      ],
+      "result": "2 -> 1 テーマ after reload; confirm すべてのテーマを削除します。よろしいですか？ then 0 テーマ テーマを募集中…"
+    },
+    {
+      "id": "ost-layout-editor",
+      "app": "ost",
+      "map": "features/ost/README.md",
+      "feature": "Add and resize desks, persist",
+      "identity": "owner",
+      "inMap": true,
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T04:20:00Z",
+      "evidence": [
+        "local_data/pstack/apps/2026-11-24T04-14-37-532Z-7bf1da76/journeys.json"
+      ],
+      "result": "two POST edit.data 200; desk 160x100 -> 260x160, same after reload"
+    },
+    {
+      "id": "ost-desk-rotate",
+      "app": "ost",
+      "map": "features/ost/README.md",
+      "feature": "Rotate a desk",
+      "identity": "owner",
+      "inMap": true,
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T11:40:00Z",
+      "evidence": [
+        "local_data/pstack/apps/2026-11-24T10-59-13-126Z-aa5e7e89/journeys.json"
+      ],
+      "result": "0 -> 45.7 deg, center 452,402 unchanged; 46 deg after reload"
+    },
+    {
+      "id": "ost-auto-assign",
+      "app": "ost",
+      "map": "features/ost/README.md",
+      "feature": "Auto-assign by votes, tables view",
+      "identity": "owner",
+      "inMap": true,
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T04:20:00Z",
+      "evidence": [
+        "local_data/pstack/apps/2026-11-24T04-14-37-532Z-7bf1da76/journeys.json"
+      ],
+      "result": "tables: desk 1 Verify topic alpha, desk 2 Verify topic beta"
+    },
+    {
+      "id": "ost-oidc-signin",
+      "app": "ost",
+      "map": "features/ost/README.md",
+      "feature": "Real Accounts sign-in",
+      "identity": "owner",
+      "inMap": true,
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T11:22:00Z",
+      "evidence": [
+        "local_data/pstack/apps/2026-11-24T11-19-52-520Z-94960bfb/journeys.json"
+      ],
+      "result": "/signin 302 -> /api/auth/signin 302 -> 6173 authorize 302 -> callback 302 -> / -> /no-chapter; /api/auth/me Platform OIDC Admin"
+    },
+    {
+      "id": "roster-access",
+      "app": "roster",
+      "map": "features/roster/README.md",
+      "feature": "Sign-in gate, chapter gate, cross-chapter 403, sign-out",
+      "identity": "Anonymous, `no-chapter`, `outsider`, `owner`",
+      "inMap": true,
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T11:40:00Z",
+      "evidence": [
+        "local_data/pstack/apps/2026-11-24T10-59-13-126Z-aa5e7e89/journeys.json"
+      ],
+      "result": "302 /signin; outsider /e/<id> 403 and list omits the event; chapterless 302 /no-chapter"
+    },
+    {
+      "id": "roster-event-create",
+      "app": "roster",
+      "map": "features/roster/README.md",
+      "feature": "Create an event and land on its default sheet design",
+      "identity": "`owner`",
+      "inMap": true,
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T11:40:00Z",
+      "evidence": [
+        "local_data/pstack/apps/2026-11-24T10-59-13-126Z-aa5e7e89/journeys.json"
+      ],
+      "result": "empty name blocked by the browser required field; redirected to /e/<id>/s/default:<id>/design"
+    },
+    {
+      "id": "roster-sheet-design",
+      "app": "roster",
+      "map": "features/roster/README.md",
+      "feature": "Roles, custom role, track, phase, demand on a sheet",
+      "identity": "`owner`",
+      "inMap": true,
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T11:40:00Z",
+      "evidence": [
+        "local_data/pstack/apps/2026-11-24T10-59-13-126Z-aa5e7e89/journeys.json"
+      ],
+      "result": "after reload 受付 checked, setting unchecked, cell 最小1、理想1"
+    },
+    {
+      "id": "roster-sheets",
+      "app": "roster",
+      "map": "features/roster/README.md",
+      "feature": "Add a second sheet, publish toggle, archive",
+      "identity": "`owner`",
+      "inMap": true,
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T12:00:00Z",
+      "evidence": [
+        "local_data/pstack/apps/2026-11-24T11-33-20-351Z-32b14892/journeys.json"
+      ],
+      "result": "2件のシフト表; card 懇親会 2030-06-01 19:00–21:00 非公開; HTTP page lists it"
+    },
+    {
+      "id": "roster-staff-apply",
+      "app": "roster",
+      "map": "features/roster/README.md",
+      "feature": "Open registration, anonymous overview, self-registration, closed message",
+      "identity": "`owner`, Anonymous, `staff`",
+      "inMap": true,
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T11:40:00Z",
+      "evidence": [
+        "local_data/pstack/apps/2026-11-24T10-59-13-126Z-aa5e7e89/journeys.json"
+      ],
+      "result": "募集は終了しました before; after 募集中 form, 登録内容を更新/辞退する; owner staff list shows verify-roster-staff (dev) 受付 · 初参加"
+    },
+    {
+      "id": "roster-staff-proxy",
+      "app": "roster",
+      "map": "features/roster/README.md",
+      "feature": "Owner proxy-adds by email; that person's sign-in claims the entry",
+      "identity": "`owner`, `staff2`",
+      "inMap": true,
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T12:00:00Z",
+      "evidence": [
+        "local_data/pstack/apps/2026-11-24T11-33-20-351Z-32b14892/journeys.json"
+      ],
+      "result": "owner row Proxy Staff2; staff2 sees 表示名 Proxy Staff2 and 登録内容を更新"
+    },
+    {
+      "id": "roster-generate",
+      "app": "roster",
+      "map": "features/roster/README.md",
+      "feature": "Auto-generate, metrics, determinism, three views, history",
+      "identity": "`owner`",
+      "inMap": true,
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T11:40:00Z",
+      "evidence": [
+        "local_data/pstack/apps/2026-11-24T10-59-13-126Z-aa5e7e89/journeys.json"
+      ],
+      "result": "未充足 0名; staff assigned 09:00–10:00 受付"
+    },
+    {
+      "id": "roster-manual-edit",
+      "app": "roster",
+      "map": "features/roster/README.md",
+      "feature": "Add a candidate into a slot, warn-and-allow on 稼働不可, undo",
+      "identity": "`owner`",
+      "inMap": true,
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T12:00:00Z",
+      "evidence": [
+        "local_data/pstack/apps/2026-11-24T11-33-20-351Z-32b14892/journeys.json"
+      ],
+      "result": "candidate verify-roster-staff 稼働不可 added; スタッフ別 shows 稼働× and history 手動編集; undo removed it, redo restored"
+    },
+    {
+      "id": "roster-public-view",
+      "app": "roster",
+      "map": "features/roster/README.md",
+      "feature": "Share page, unpublished message, publish, no PII, views, 404",
+      "identity": "`owner`, Anonymous",
+      "inMap": true,
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T11:40:00Z",
+      "evidence": [
+        "local_data/pstack/apps/2026-11-24T10-59-13-126Z-aa5e7e89/journeys.json"
+      ],
+      "result": "before: シフト表はまだ公開されていません; after: 1件公開中 and public page lists verify-roster-staff 09:00–10:00 受付"
+    },
+    {
+      "id": "roster-oidc-signin",
+      "app": "roster",
+      "map": "features/roster/README.md",
+      "feature": "Real sign-in through Accounts OIDC",
+      "identity": "Accounts session",
+      "inMap": true,
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T11:22:00Z",
+      "evidence": [
+        "local_data/pstack/apps/2026-11-24T11-19-52-520Z-94960bfb/journeys.json"
+      ],
+      "result": "roster authorize callback=302 final=/no-chapter me=platform-oidc@test.local"
+    },
+    {
+      "id": "roster-party",
+      "app": "roster",
+      "map": "features/roster/README.md",
+      "feature": "懇親会 field and public 懇親会 view",
+      "identity": "any",
+      "inMap": false,
+      "exclusion": "Outside: no screen sets `events.has_party` (default 0), so the field and the view never render",
+      "status": "NOT VERIFIED",
+      "observedAt": null,
+      "evidence": [],
+      "result": null
+    },
+    {
+      "id": "roster-cross-sheet-conflict",
+      "app": "roster",
+      "map": "features/roster/README.md",
+      "feature": "Same-date sheet overlap: solver exclusion and **重複を承知で割り当てる** confirmation",
+      "identity": "`owner`",
+      "inMap": false,
+      "exclusion": "Outside for the PoC: needs two same-date overlapping sheets with assignments; covered by `app/routes/e.$id.s.$sheetId.roster.test.ts`",
+      "status": "NOT VERIFIED",
+      "observedAt": null,
+      "evidence": [],
+      "result": null
+    },
+    {
+      "id": "roster-slot-loss-confirm",
+      "app": "roster",
+      "map": "features/roster/README.md",
+      "feature": "Changing a sheet's time grid after demand exists asks 時間枠の設定変更を確認",
+      "identity": "`owner`",
+      "inMap": false,
+      "exclusion": "Outside for the PoC: covered by `app/routes/e.$id.design.test.ts`; add a recipe when the design screen stabilises",
+      "status": "NOT VERIFIED",
+      "observedAt": null,
+      "evidence": [],
+      "result": null
+    },
+    {
+      "id": "roulette-projects",
+      "app": "roulette",
+      "map": "features/roulette/README.md",
+      "feature": "Empty list, create project, form errors, duplicate URL",
+      "identity": "`organizer`",
+      "inMap": true,
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T08:05:00Z",
+      "evidence": [
+        "local_data/pstack/apps/2026-11-24T07-45-55-534Z-4e5bf204/journeys.json"
+      ],
+      "result": "POST 200 with プロジェクト名を入れてください (no 500); redirected to /admin/verify-spin"
+    },
+    {
+      "id": "roulette-project-chapter",
+      "app": "roulette",
+      "map": "features/roulette/README.md",
+      "feature": "Chapter picker for a two-chapter organizer",
+      "identity": "`multi`",
+      "inMap": true,
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T11:40:00Z",
+      "evidence": [
+        "local_data/pstack/apps/2026-11-24T10-59-13-126Z-aa5e7e89/journeys.json"
+      ],
+      "result": "チャプター select with dev-chapter, other-chapter"
+    },
+    {
+      "id": "roulette-prize-settings",
+      "app": "roulette",
+      "map": "features/roulette/README.md",
+      "feature": "Prize rows, modes, validation, save, odds preview",
+      "identity": "`organizer`",
+      "inMap": true,
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T08:05:00Z",
+      "evidence": [
+        "local_data/pstack/apps/2026-11-24T07-45-55-534Z-4e5bf204/journeys.json"
+      ],
+      "result": "after reload row 1 Verify Prize x1, row 2 ハズレ ∞"
+    },
+    {
+      "id": "roulette-evil-mode",
+      "app": "roulette",
+      "map": "features/roulette/README.md",
+      "feature": "Excluded prize shown but never drawn",
+      "identity": "`organizer`, visitor",
+      "inMap": true,
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T11:40:00Z",
+      "evidence": [
+        "local_data/pstack/apps/2026-11-24T10-59-13-126Z-aa5e7e89/journeys.json"
+      ],
+      "result": "settings persisted; 5 results all ハズレ"
+    },
+    {
+      "id": "roulette-open-toggle",
+      "app": "roulette",
+      "map": "features/roulette/README.md",
+      "feature": "抽選を受け付ける on and off, URL copy and open",
+      "identity": "`organizer`, visitor",
+      "inMap": true,
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T08:05:00Z",
+      "evidence": [
+        "local_data/pstack/apps/2026-11-24T07-45-55-534Z-4e5bf204/journeys.json"
+      ],
+      "result": "switch checked after reload; public page offers ルーレットを回す"
+    },
+    {
+      "id": "roulette-spin",
+      "app": "roulette",
+      "map": "features/roulette/README.md",
+      "feature": "Visitor win, loss, result card, no stock shown",
+      "identity": "visitor",
+      "inMap": true,
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T08:05:00Z",
+      "evidence": [
+        "local_data/pstack/apps/2026-11-24T07-45-55-534Z-4e5bf204/journeys.json"
+      ],
+      "result": "ハズレ おしい…！; prize list shows 1 等 · Verify Prize without counts"
+    },
+    {
+      "id": "roulette-one-per-device",
+      "app": "roulette",
+      "map": "features/roulette/README.md",
+      "feature": "Second spin refused, new device allowed, `/dev/reset`",
+      "identity": "visitor",
+      "inMap": true,
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T08:05:00Z",
+      "evidence": [
+        "local_data/pstack/apps/2026-11-24T07-45-55-534Z-4e5bf204/journeys.json"
+      ],
+      "result": "この端末ではもう抽選しました; no spin button"
+    },
+    {
+      "id": "roulette-closed-soldout",
+      "app": "roulette",
+      "map": "features/roulette/README.md",
+      "feature": "Closed and sold-out visitor states, stock floor error",
+      "identity": "visitor, `organizer`",
+      "inMap": true,
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T11:40:00Z",
+      "evidence": [
+        "local_data/pstack/apps/2026-11-24T10-59-13-126Z-aa5e7e89/journeys.json"
+      ],
+      "result": "いまは抽選を受け付けていません; ルーレットを回す disabled"
+    },
+    {
+      "id": "roulette-invalid-slug",
+      "app": "roulette",
+      "map": "features/roulette/README.md",
+      "feature": "404 for unknown, reserved and malformed slugs",
+      "identity": "visitor, `organizer`",
+      "inMap": true,
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T08:05:00Z",
+      "evidence": [
+        "local_data/pstack/apps/2026-11-24T07-45-55-534Z-4e5bf204/journeys.json"
+      ],
+      "result": "404; admin page 302 to /signin"
+    },
+    {
+      "id": "roulette-draw-log",
+      "app": "roulette",
+      "map": "features/roulette/README.md",
+      "feature": "Live log, CSV download, CSV over HTTP",
+      "identity": "`organizer`",
+      "inMap": true,
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T08:05:00Z",
+      "evidence": [
+        "local_data/pstack/apps/2026-11-24T07-45-55-534Z-4e5bf204/journeys.json"
+      ],
+      "result": "HTTP 200; row 1 ハズレ"
+    },
+    {
+      "id": "roulette-reset",
+      "app": "roulette",
+      "map": "features/roulette/README.md",
+      "feature": "抽選結果をリセット from the admin menu",
+      "identity": "`organizer`, visitor",
+      "inMap": true,
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T11:40:00Z",
+      "evidence": [
+        "local_data/pstack/apps/2026-11-24T10-59-13-126Z-aa5e7e89/journeys.json"
+      ],
+      "result": "five consecutive spins succeeded after each reset"
+    },
+    {
+      "id": "roulette-access",
+      "app": "roulette",
+      "map": "features/roulette/README.md",
+      "feature": "Anonymous gate, other chapter, member role, no chapter",
+      "identity": "all signed-in labels",
+      "inMap": true,
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T12:00:00Z",
+      "evidence": [
+        "local_data/pstack/apps/2026-11-24T11-33-20-351Z-32b14892/journeys.json"
+      ],
+      "result": "anonymous 302 /signin; chapterless 302 /no-chapter; outsider admin 403, draws.csv 403, list omits the project"
+    },
+    {
+      "id": "roulette-signout",
+      "app": "roulette",
+      "map": "features/roulette/README.md",
+      "feature": "ログアウト ends the dev session",
+      "identity": "`organizer`",
+      "inMap": true,
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T12:00:00Z",
+      "evidence": [
+        "local_data/pstack/apps/2026-11-24T11-33-20-351Z-32b14892/journeys.json"
+      ],
+      "result": "real pointer click opened the menu (Manage your account, ログアウト); sign-out /api/auth/me null; orca element click on the same control opened nothing: an Orca click effect, not a product defect"
+    },
+    {
+      "id": "roulette-oidc-signin",
+      "app": "roulette",
+      "map": "features/roulette/README.md",
+      "feature": "Real sign-in through Accounts",
+      "identity": "Accounts user",
+      "inMap": true,
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T11:22:00Z",
+      "evidence": [
+        "local_data/pstack/apps/2026-11-24T11-19-52-520Z-94960bfb/journeys.json"
+      ],
+      "result": "roulette authorize callback=302 final=/no-chapter me=platform-oidc@test.local"
+    },
+    {
+      "id": "roulette-spin-effects",
+      "app": "roulette",
+      "map": "features/roulette/README.md",
+      "feature": "CHANCE cut-in colors, 連打 / 押せ, おしい…！ staging",
+      "identity": "visitor",
+      "inMap": false,
+      "exclusion": "Outside: randomized presentation; the only forcing hook (`?demo=`) exists only in Vite dev, not in this built preview. A spin journey still records whatever staging appeared",
+      "status": "NOT VERIFIED",
+      "observedAt": null,
+      "evidence": [],
+      "result": null
+    },
+    {
+      "id": "roulette-sound-haptics",
+      "app": "roulette",
+      "map": "features/roulette/README.md",
+      "feature": "BGM, sound effects, vibration, iOS switch haptics",
+      "identity": "visitor",
+      "inMap": false,
+      "exclusion": "Outside: audio output and vibration are not observable through Orca Browser; the 音を消す toggle's label change is covered in `roulette-spin`",
+      "status": "NOT VERIFIED",
+      "observedAt": null,
+      "evidence": [],
+      "result": null
+    },
+    {
+      "id": "roulette-save-conflict",
+      "app": "roulette",
+      "map": "features/roulette/README.md",
+      "feature": "「保存中に抽選が進みました…」 when a spin races a save",
+      "identity": "`organizer`, visitor",
+      "inMap": false,
+      "exclusion": "Outside: needs a spin to commit between the client's validation and the D1 batch; not reproducible by hand",
+      "status": "NOT VERIFIED",
+      "observedAt": null,
+      "evidence": [],
+      "result": null
+    },
+    {
+      "id": "roulette-busy-retry",
+      "app": "roulette",
+      "map": "features/roulette/README.md",
+      "feature": "「混み合っています。もう一度回してください。」",
+      "identity": "visitor",
+      "inMap": false,
+      "exclusion": "Outside: appears only after repeated D1 batch contention",
+      "status": "NOT VERIFIED",
+      "observedAt": null,
+      "evidence": [],
+      "result": null
+    },
+    {
+      "id": "screen-operator-gate",
+      "app": "screen",
+      "map": "features/screen/README.md",
+      "feature": "Operator pages need sign-in",
+      "identity": "anonymous",
+      "inMap": true,
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T04:20:00Z",
+      "evidence": [
+        "local_data/pstack/apps/2026-11-24T04-14-37-532Z-7bf1da76/journeys.json"
+      ],
+      "result": "/ 302 -> /signin 302 -> /api/auth/signin 500 (no Accounts in this run)"
+    },
+    {
+      "id": "screen-stage-create",
+      "app": "screen",
+      "map": "features/screen/README.md",
+      "feature": "Create a stage with a custom ID",
+      "identity": "operator",
+      "inMap": true,
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T04:20:00Z",
+      "evidence": [
+        "local_data/pstack/apps/2026-11-24T04-14-37-532Z-7bf1da76/journeys.json"
+      ],
+      "result": "ID field showed verify-stage; URL /stages/verify-stage with ON AIR, slots A/B"
+    },
+    {
+      "id": "screen-stage-id-rules",
+      "app": "screen",
+      "map": "features/screen/README.md",
+      "feature": "Duplicate and reserved IDs",
+      "identity": "operator",
+      "inMap": true,
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T04:20:00Z",
+      "evidence": [
+        "local_data/pstack/apps/2026-11-24T04-14-37-532Z-7bf1da76/journeys.json"
+      ],
+      "result": "この ID はすでに使われています; 作成 disabled for stages"
+    },
+    {
+      "id": "screen-stage-rename-delete",
+      "app": "screen",
+      "map": "features/screen/README.md",
+      "feature": "Rename and delete, seen by a speaker",
+      "identity": "operator, speaker",
+      "inMap": true,
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T04:20:00Z",
+      "evidence": [
+        "local_data/pstack/apps/2026-11-24T04-14-37-532Z-7bf1da76/journeys.json"
+      ],
+      "result": "renamed after reload on both; speaker reload stayed in room; after delete URL /, speaker shows このステージは削除されました, stage .data 404"
+    },
+    {
+      "id": "screen-invalid-invite",
+      "app": "screen",
+      "map": "features/screen/README.md",
+      "feature": "Unknown invite link",
+      "identity": "anonymous",
+      "inMap": true,
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T08:05:00Z",
+      "evidence": [
+        "local_data/pstack/apps/2026-11-24T07-45-55-534Z-4e5bf204/journeys.json"
+      ],
+      "result": "URL /not-a-token/; \"This link is not valid\" (English, Orca Accept-Language)"
+    },
+    {
+      "id": "screen-speaker-lobby",
+      "app": "screen",
+      "map": "features/screen/README.md",
+      "feature": "Language, name check, join",
+      "identity": "speaker",
+      "inMap": true,
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T04:20:00Z",
+      "evidence": [
+        "local_data/pstack/apps/2026-11-24T04-14-37-532Z-7bf1da76/journeys.json"
+      ],
+      "result": "English by Accept-Language, switched to Japanese; alert お名前を入力してください; room with 退出 and chat camera:denied, microphone:denied in Orca isolated profile"
+    },
+    {
+      "id": "screen-slot-assignment",
+      "app": "screen",
+      "map": "features/screen/README.md",
+      "feature": "Assign and clear an output slot",
+      "identity": "operator, speaker",
+      "inMap": true,
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T04:20:00Z",
+      "evidence": [
+        "local_data/pstack/apps/2026-11-24T04-14-37-532Z-7bf1da76/journeys.json"
+      ],
+      "result": "participant row Verify Speaker; speaker .sc-slot-badge A; after unassign badge none and output peer null"
+    },
+    {
+      "id": "screen-on-air-cues",
+      "app": "screen",
+      "map": "features/screen/README.md",
+      "feature": "ON AIR, cue cards, timer",
+      "identity": "operator, speaker",
+      "inMap": true,
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T04:20:00Z",
+      "evidence": [
+        "local_data/pstack/apps/2026-11-24T04-14-37-532Z-7bf1da76/journeys.json"
+      ],
+      "result": "chip tone onair; alert 残り 5 分です / 5 minutes left; 0 alerts after OK; verify custom cue shown; 20:00 -> 19:57; unacknowledged cue survived speaker reload"
+    },
+    {
+      "id": "screen-chat",
+      "app": "screen",
+      "map": "features/screen/README.md",
+      "feature": "Speaker to operator chat",
+      "identity": "speaker, operator",
+      "inMap": true,
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T04:20:00Z",
+      "evidence": [
+        "local_data/pstack/apps/2026-11-24T04-14-37-532Z-7bf1da76/journeys.json"
+      ],
+      "result": "verify chat from speaker present in operator chat"
+    },
+    {
+      "id": "screen-obs-outputs",
+      "app": "screen",
+      "map": "features/screen/README.md",
+      "feature": "OBS URLs, tokens, reissue",
+      "identity": "operator, OBS",
+      "inMap": true,
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T04:20:00Z",
+      "evidence": [
+        "local_data/pstack/apps/2026-11-24T04-14-37-532Z-7bf1da76/journeys.json"
+      ],
+      "result": "toast A カメラの URL をコピーしました; valid: socket open, peer Verify Speaker; wrong: socket offline, peer null; after reissue old token peer null, new token peer Verify Speaker navigator.clipboard.readText timed out in Orca; token read from the stage loader over HTTP instead"
+    },
+    {
+      "id": "screen-operator-name",
+      "app": "screen",
+      "map": "features/screen/README.md",
+      "feature": "Name shown to speakers",
+      "identity": "operator, speaker",
+      "inMap": true,
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T11:40:00Z",
+      "evidence": [
+        "local_data/pstack/apps/2026-11-24T10-59-13-126Z-aa5e7e89/journeys.json"
+      ],
+      "result": "operator button 配信ヤマダ; speaker page text includes it"
+    },
+    {
+      "id": "screen-stage-reset",
+      "app": "screen",
+      "map": "features/screen/README.md",
+      "feature": "Reset chat, cues, slots, ON AIR",
+      "identity": "operator",
+      "inMap": true,
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T11:40:00Z",
+      "evidence": [
+        "local_data/pstack/apps/2026-11-24T10-59-13-126Z-aa5e7e89/journeys.json"
+      ],
+      "result": "before badge A, onair, 1 alert; after badge null, idle, 0 alerts"
+    },
+    {
+      "id": "screen-media",
+      "app": "screen",
+      "map": "features/screen/README.md",
+      "feature": "Camera, mic, screen tracks reach OBS and the control room",
+      "identity": "operator, speaker, OBS",
+      "inMap": false,
+      "exclusion": "outside: needs the Realtime SFU and media devices",
+      "status": "NOT VERIFIED",
+      "observedAt": null,
+      "evidence": [],
+      "result": null
+    },
+    {
+      "id": "screen-talkback",
+      "app": "screen",
+      "map": "features/screen/README.md",
+      "feature": "Push-to-talk while ON AIR",
+      "identity": "operator",
+      "inMap": false,
+      "exclusion": "outside: needs a microphone and the SFU",
+      "status": "NOT VERIFIED",
+      "observedAt": null,
+      "evidence": [],
+      "result": null
+    },
+    {
+      "id": "screen-denoise",
+      "app": "screen",
+      "map": "features/screen/README.md",
+      "feature": "DeepFilterNet noise suppression",
+      "identity": "operator, speaker",
+      "inMap": false,
+      "exclusion": "outside: assets are not built, needs audio",
+      "status": "NOT VERIFIED",
+      "observedAt": null,
+      "evidence": [],
+      "result": null
+    },
+    {
+      "id": "screen-mini-window",
+      "app": "screen",
+      "map": "features/screen/README.md",
+      "feature": "Document Picture-in-Picture mini window",
+      "identity": "speaker",
+      "inMap": false,
+      "exclusion": "outside: Orca cannot open a PiP window",
+      "status": "NOT VERIFIED",
+      "observedAt": null,
+      "evidence": [],
+      "result": null
+    },
+    {
+      "id": "screen-oidc-signin",
+      "app": "screen",
+      "map": "features/screen/README.md",
+      "feature": "Real Accounts sign-in",
+      "identity": "operator",
+      "inMap": true,
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T11:22:00Z",
+      "evidence": [
+        "local_data/pstack/apps/2026-11-24T11-19-52-520Z-94960bfb/journeys.json"
+      ],
+      "result": "screen authorize callback=302 final=/no-chapter me=platform-oidc@test.local"
+    },
+    {
+      "id": "website-home",
+      "app": "website",
+      "map": "features/website/README.md",
+      "feature": "Hero, metadata, application directory links",
+      "identity": "Anonymous",
+      "inMap": true,
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T08:05:00Z",
+      "evidence": [
+        "local_data/pstack/apps/2026-11-24T07-45-55-534Z-4e5bf204/journeys.json"
+      ],
+      "result": "title GDG Japan; h1 コミュニティの活動を、もっと身近に。; TinyURL=https://url.gdgs.jp/, Wiki=https://wiki.gdgs.jp/"
+    },
+    {
+      "id": "website-policies",
+      "app": "website",
+      "map": "features/website/README.md",
+      "feature": "Header and footer navigation between home, privacy, and terms",
+      "identity": "Anonymous",
+      "inMap": true,
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T08:05:00Z",
+      "evidence": [
+        "local_data/pstack/apps/2026-11-24T07-45-55-534Z-4e5bf204/journeys.json"
+      ],
+      "result": "/privacy プライバシーポリシー | GDG Japan; /terms 利用規約 | GDG Japan; / hero"
+    },
+    {
+      "id": "website-shortlink-delegation",
+      "app": "website",
+      "map": "features/website/README.md",
+      "feature": "Non-site apex paths handed to TinyURL",
+      "identity": "Anonymous",
+      "inMap": false,
+      "exclusion": "Outside: Vite dev bypasses `workers/app.ts`, and the `TINYURL` Worker is not running; the routing table is covered by `workers/apex-routing.test.ts` only",
+      "status": "NOT VERIFIED",
+      "observedAt": null,
+      "evidence": [],
+      "result": null
+    },
+    {
+      "id": "website-app-icons",
+      "app": "website",
+      "map": "features/website/README.md",
+      "feature": "Application card icons",
+      "identity": "Anonymous",
+      "inMap": false,
+      "exclusion": "Outside: icons load from production hosts (`https://<app>.gdgs.jp/app-icon.png`, GitHub, `learn.gdgs.jp`), so their rendering depends on the external network; the map checks labels and `href`s only",
+      "status": "NOT VERIFIED",
+      "observedAt": null,
+      "evidence": [],
+      "result": null
+    }
+  ],
+  "exclusions": [
+    "Cloudflare Realtime SFU media, cameras, microphones, and audio output",
+    "OBS Studio (deck uses the repository's fake obs-websocket)",
+    "Google APIs, connpass, TinyURL delegation, and Gemini",
+    "Real Google sign-in; real Accounts OIDC only with --accounts",
+    "Deployed Cloudflare behavior and production RUM",
+    "Every locale, viewport, and failure mode"
+  ]
+}

@@ -32,9 +32,7 @@ export function log(
 }
 
 export function fetchWithTimeout(url: string, init: RequestInit): Promise<Response> {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), CHAT_TIMEOUT_MS);
-  return fetch(url, { ...init, signal: controller.signal }).finally(() => clearTimeout(timer));
+  return fetch(url, { ...init, signal: AbortSignal.timeout(CHAT_TIMEOUT_MS) });
 }
 
 export function spaceNameOf(source: typeof schema.sources.$inferSelect): string {

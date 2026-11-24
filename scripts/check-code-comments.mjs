@@ -255,7 +255,7 @@ function main() {
   if (failures.length) {
     console.error(failures.join("\n"));
     console.error(
-      "Remove narration and workaround justifications. Express the constraint in code, types, an API, or a test. For necessary legal, external-contract, or public-API explanations, add an exact reviewed exception to scripts/code-comment-exceptions.json with reason and evidence.",
+      "Delete the comment and move what it says into code: a precise name, a type that rules out the bad state, an API that owns the constraint, or a test that fails without it. A workaround comment marks a cause to fix, not text to keep. For necessary legal, external-contract, or public-API explanations, add an exact reviewed exception to scripts/code-comment-exceptions.json with reason and evidence (docs/engineering/comments.md).",
     );
     process.exitCode = 1;
   } else {

@@ -24,6 +24,10 @@ variable `CODEX_REVIEW_MODEL` (default `gpt-6.2-astra`) at the reasoning effort 
 4. To ask GDG-chan to check every unresolved finding at once, comment `/ai-review` (or
    mention `@gdg-chan`) on the pull request.
 
+GDG-chan also reads the [verification evidence](#verification-evidence) that CI published
+for the head commit. A UI or state-machine change without evidence gets a finding like any
+other, and it resolves the same way.
+
 Replies, labels, and `/ai-review` comments start GDG-chan within a minute. GitHub sends
 no event for reactions, so a scheduled run picks them up within about ten minutes.
 
@@ -42,6 +46,54 @@ no event for reactions, so a scheduled run picks them up within about ten minute
 GDG-chan gates only pull requests into `main`, the branch the ruleset protects. Pull
 requests into other branches get no status and no review. Fork pull requests do not get
 GDG-chan reviews; a bypass actor merges them after a human review.
+
+## Verification evidence
+
+Review reads verification artifacts instead of every line. The
+[pull request template](../../.github/pull_request_template.md) asks for the verification
+table, screenshots or recordings for UI changes, a state diagram for state-machine changes,
+checks not run, and the binding, migration, deployment, and `.dev.vars.example` callouts.
+
+For every pull request, the CI workflow's **Verification summary** job runs after the other
+jobs, including failed ones. It downloads the run's artifacts (Playwright evidence, ACL and
+runner lifecycle results, mutation reports, design reports) and runs
+[`verification-summary.mjs`](../../scripts/verification-summary.mjs). The job writes the
+Markdown to its job summary and uploads the `verification-summary` artifact:
+`verification-summary.json`, `verification-summary.md`, and the screenshots and recordings it
+found under `media/`. Each result keeps the `VERIFIED` / `NOT VERIFIED` / `INCONCLUSIVE`
+vocabulary of [the verification reference](verification.md). A source that produced nothing
+is listed as missing, and a skipped job as `NOT VERIFIED`. The hosted jobs test GitHub's merge
+commit for the head; the summary names the head commit. The job is part of **Required checks**,
+so a summary that fails to build blocks the merge until it is rerun.
+
+Locally, `pnpm verification:summary` builds the same files from `.turbo/ci-metrics/`,
+`local_data/pstack/` (isolated E2E, verifiers, mutation reports, Orca journeys, and their
+screenshots) and the diff against `origin/main`. Those files stay on your machine; paste the
+Markdown into the pull request and attach the screenshots it lists.
+
+When GDG-chan reviews or verifies, the Agent job looks up this repository's newest
+`.github/workflows/ci.yml` pull request run for the exact head commit and reads only
+`verification-summary.json` out of its artifact. It does not extract or open anything else.
+It then builds a checklist from GitHub's list of changed files and the verifier coverage
+records (`.agents/skills/verify-*/coverage.json`) on `main`:
+
+| Changed files | Required evidence |
+| --- | --- |
+| UI sources (`.tsx`, `.jsx`, `.css`, `.scss`, `.html`, `.svg`, locale JSON) under `apps/` or `packages/`, tests excluded | Screenshots or recordings, or a `VERIFIED` Orca journey |
+| Files covered by a verifier, or its model | A `VERIFIED` result of that verifier |
+| Files covered by a state-machine verifier, `state-machine` / `statechart` files, Alloy models | A state diagram in the pull request description |
+
+Each item is PRESENT (the summary for this commit holds it), MISSING, ATTACH TO PR (no tool
+records it), or UNRELIABLE (the summary claims it, but the pull request changes code that
+writes the summary: the summary script, CI workflow, isolated E2E or mutation runner, or a
+verifier script). For each item that is not PRESENT, GDG-chan reports a P2 finding unless the
+pull request description supplies the evidence for this commit. A note that a check was not
+run is not evidence. If CI was still running, the finding says so.
+
+To clear such a finding, add the evidence (rerun CI, or attach it to the description) and
+reply or react as for any finding. GDG-chan verifies against the summary and description for
+the current head. It also resolves the finding when you show that the change does not need the
+evidence and it confirms that in the code.
 
 ## How it runs
 
@@ -70,7 +122,9 @@ GDG-chan is a GitHub App owned by the gdg-jp organization and installed only on 
 repository, with write access to code, commit statuses, issues, and pull requests. The
 scripts create installation tokens from its private key and refresh them before they
 expire, so long runs keep working. `GITHUB_TOKEN` is used only for dispatching and for
-the login artifacts. Change the name or icon in the app's settings under the
+the login artifacts. The Agent job also uses `GITHUB_TOKEN` (`actions: read`) to find the
+CI run and download the verification summary; Codex never receives it, and posted output
+redacts it. Change the name or icon in the app's settings under the
 organization's GitHub Apps.
 
 ## Trust model
@@ -97,6 +151,15 @@ organization's GitHub Apps.
   or write, and the job stops otherwise. The workflow posts only the JSON that Codex returns,
   after redacting the login's values and every issued GDG-chan token and neutralizing
   `<!--`.
+- The verification summary is written by CI code that the pull request can change, so it is
+  untrusted input to the reviewer, never instructions. The agent accepts it only from a
+  pull request run of `ci.yml` in this repository for the exact head commit, reads a single
+  JSON entry of at most 1 MiB from the zip, keeps only known sources, statuses, and bounded
+  strings, and gives it to Codex inside a block labeled as untrusted data. The checklist of
+  required evidence comes from GitHub's file list and `main`'s coverage records, not from the
+  summary. The summary bears only on missing-evidence findings, so a forged one could at
+  most hide such a finding; a pull request that changes the summary's producers gets
+  UNRELIABLE items instead of PRESENT ones.
 - The status must come from the GDG-chan app (the ruleset pins the app as the check's
   source), and its key exists only in the `main`-only environment, so a branch workflow
   cannot forge the status.
@@ -136,6 +199,30 @@ printf '%s' 'agent-account@example.com' | shasum -a 256 | cut -d' ' -f1 | gh sec
 Rotating `AI_REVIEW_SIGNING_KEY` invalidates every existing marker, so do it only when no
 pull request is waiting on GDG-chan.
 
+## Trying a gate change after merge
+
+Changes to `ai-review.yml`, `codex-review.mjs`, `review-evidence.mjs`, or
+`verification-summary.mjs` take effect for the gate only once they are on `main`, because
+only `main` runs the Plan and Agent jobs. A pull request cannot exercise its own gate change.
+After merging the verification-evidence flow:
+
+1. Open a pull request into `main` that changes a UI file, for example a `.tsx` route, and
+   leave its description without screenshots.
+2. Wait for the CI run to finish. Its run summary shows **Verification summary**, and the run
+   has a `verification-summary` artifact whose `verification-summary.json` names the head
+   commit.
+3. Add the `E-code-review` label, or start the review from `main` directly:
+   `gh workflow run ai-review.yml --repo gdg-jp/gdgjp --ref main -f pr=<number>`.
+4. In the Agent job log, the review prompt's "Verification evidence" section shows
+   `[MISSING] Screenshots or recordings ...`, and GDG-chan posts a P2 finding about the
+   missing evidence.
+5. Attach a screenshot to the description, reply to the finding, and confirm that the next
+   verification resolves it. Remove the label or close the pull request when done.
+
+Repeat step 3 before CI finishes to see the PENDING wording. If the Agent job cannot reach
+the Actions API, the checklist reports the summary as UNAVAILABLE and no item as PRESENT;
+the review itself still runs.
+
 ## Files
 
 - [`ai-review.yml`](../../.github/workflows/ai-review.yml): the handoff, plan, and agent
@@ -145,3 +232,9 @@ pull request is waiting on GDG-chan.
   prompts, and GitHub writes.
 - [`codex-auth.mjs`](../../.github/scripts/codex-auth.mjs): login encryption, restore,
   refresh storage, redaction, and GDG-chan tokens.
+- [`review-evidence.mjs`](../../.github/scripts/review-evidence.mjs): finding and reading the
+  verification summary, the evidence checklist, and its prompt text.
+- [`verification-summary.mjs`](../../scripts/verification-summary.mjs): building the
+  summary from local or hosted evidence, and classifying changed files.
+- [`pull_request_template.md`](../../.github/pull_request_template.md): the evidence a pull
+  request description supplies.

@@ -1,0 +1,1 @@
+This file is not an image. The event image endpoint must reject it with invalid_event_image.

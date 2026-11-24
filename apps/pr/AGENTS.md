@@ -9,10 +9,9 @@ One campaign per event. A brief (the event's facts, meta-themes, sessions, speak
 a schedule of posts, mails, asks and reminders. Later stages add runner-written drafts, review and
 approval, delivery through sns / tinyurl / connpass, images, metrics and a learning loop.
 
-- **The Worker never calls an LLM.** Drafts come from the OCI runner (`gdg pr runner`, Stage 02).
+- **The Worker never calls an LLM** (`pnpm check:apps`). Drafts come from the OCI runner (`gdg pr runner`).
 - **The Playbook is bundled from `skills/pr-playbook`** (gdg-jp/skills submodule): rules, constants,
-  guides and the checker (`app/features/playbook/`). The build fails without the submodule.
-  Do not copy Playbook rules into TS; read `constants` / `rules`.
+  guides and the checker (`app/features/playbook/`). Do not copy Playbook rules into TS; read `constants` / `rules`.
 - **Contacts' source of truth is the Wiki** page `WIKI_OUTREACH_TITLE`, read AS the signed-in user
   through the `WIKI` binding (`/api/agent/search`, `/api/agent/cat` only). pr never writes the Wiki.
 
@@ -39,9 +38,13 @@ GDG_PR_URL=http://localhost:5191 RUNNER_TOKEN=<.dev.vars value> YOMIYASU_DIR=…
 
 ## Delivery
 
-Nothing goes out without approval. A post's draft is approved once; then each X account
-(`campaign_accounts`, per chapter) is a dispatch target approved by a member of **that account's
-chapter**, and only that approval calls `SNS.createScheduledPost` as the approver. `{{shortlink}}`
+Nothing goes out without approval, and every approval names a draft version. A post's draft is
+approved for the version on screen; then each X account (`campaign_accounts`, per chapter) is a
+dispatch target approved for that version by a member of **that account's chapter**, and only that
+approval calls `SNS.createScheduledPost` as the approver. A send claims its target only while the
+draft and the target are approved for the same version and it is still the latest, in one `UPDATE`,
+and sends exactly that version. A new version clears the draft's approval, so people approve again.
+See [the approval lifecycle](docs/approval-lifecycle.md). `{{shortlink}}`
 becomes a url.gdgs.jp link (`TINYURL.createLink`) created at draft approval. Crons follow sns status,
 send staff reminders / review requests / follow-ups to the chapter's Discord webhook
 (`/settings/chapter`, encrypted with `SETTINGS_ENCRYPTION_KEY`) and check link health. Locally,
@@ -79,14 +82,7 @@ either can see and edit the schedule. Brief, settings, co-hosts and members need
 
 ## Dev
 
-```sh
-pnpm --filter @gdgjp/pr migrate:local
-pnpm --filter @gdgjp/pr dev          # :5191; /dev/login?as=x&chapter=1:slug:organizer
-pnpm --filter @gdgjp/pr test
-pnpm --filter @gdgjp/pr test:e2e     # needs the skills submodule (brief fixture)
-```
-
-`.dev.vars` from `.dev.vars.example`. Dev-login sessions have no access token, so the Wiki import
+Sign in locally with `/dev/login?as=x&chapter=1:slug:organizer`. Dev-login sessions have no access token, so the Wiki import
 needs a real sign-in through a local accounts server.
 
 `test:e2e` creates fresh temporary D1/R2 state and a private service registry, uses local

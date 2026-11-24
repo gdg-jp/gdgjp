@@ -1,0 +1,188 @@
+{
+  "schemaVersion": 1,
+  "scope": "Local connpass journeys (Orca Browser and HTTP) from features/README.md",
+  "sourceBaseCommit": "1c0569f3 (working tree with uncommitted changes; exact file hashes are in each run.json)",
+  "journeys": [
+    {
+      "id": "connpass-home",
+      "map": "features/home.md",
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T15:39:38.536073+00:00",
+      "evidence": [
+        "local_data/pstack/connpass/2026-11-24T08-06-44-302Z-d2e20766/screenshots/01-home.png"
+      ],
+      "result": "Home page renders the API description and routes."
+    },
+    {
+      "id": "connpass-accounts-bearer",
+      "map": "features/authentication.md",
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T15:39:38.536073+00:00",
+      "evidence": [
+        "local_data/pstack/connpass/2026-11-24T15-34-22-111Z-7103cfcd/http/accounts-bearer.txt"
+      ],
+      "result": "With --platform, a real Accounts token for a chapter-1 organizer gets 404 not_found for a missing job and 403 on admin routes; a mock IdP token gets 401."
+    },
+    {
+      "id": "connpass-auth-required",
+      "map": "features/authentication.md",
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T15:39:38.536073+00:00",
+      "evidence": [
+        "local_data/pstack/connpass/2026-11-24T08-06-44-302Z-d2e20766/http/api-journeys.txt"
+      ],
+      "result": "Anonymous requests return 401 invalid_token."
+    },
+    {
+      "id": "connpass-auth-invalid",
+      "map": "features/authentication.md",
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T15:39:38.536073+00:00",
+      "evidence": [
+        "local_data/pstack/connpass/2026-11-24T08-06-44-302Z-d2e20766/http/api-journeys.txt"
+      ],
+      "result": "Unknown bearer and Basic scheme return 401."
+    },
+    {
+      "id": "connpass-method-guard",
+      "map": "features/authentication.md",
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T15:39:38.536073+00:00",
+      "evidence": [
+        "local_data/pstack/connpass/2026-11-24T11-19-21-454Z-bfe643e9/http/connpass-battery.json"
+      ],
+      "result": "Six wrong methods return 405."
+    },
+    {
+      "id": "connpass-admin-groups",
+      "map": "features/admin-allowlist.md",
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T15:39:38.536073+00:00",
+      "evidence": [
+        "local_data/pstack/connpass/2026-11-24T11-19-21-454Z-bfe643e9/http/admin-allowlists.txt"
+      ],
+      "result": "Seeded groups listed; Verify-Upsert stored as verify-upsert; second upsert clears numericGroupId."
+    },
+    {
+      "id": "connpass-admin-luma",
+      "map": "features/admin-allowlist.md",
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T15:39:38.536073+00:00",
+      "evidence": [
+        "local_data/pstack/connpass/2026-11-24T11-19-21-454Z-bfe643e9/http/admin-allowlists.txt",
+        "local_data/pstack/connpass/2026-11-24T11-19-21-454Z-bfe643e9/d1/luma.json"
+      ],
+      "result": "Empty list, upsert 200, invalid id 400, disable, listed disabled."
+    },
+    {
+      "id": "connpass-admin-forbidden",
+      "map": "features/admin-allowlist.md",
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T15:39:38.536073+00:00",
+      "evidence": [
+        "local_data/pstack/connpass/2026-11-24T11-19-21-454Z-bfe643e9/http/connpass-battery.json",
+        "local_data/pstack/connpass/2026-11-24T11-19-21-454Z-bfe643e9/http/relogin.txt"
+      ],
+      "result": "Organizer, member and developer-app get 403 on every admin read, write and relogin."
+    },
+    {
+      "id": "connpass-job-read",
+      "map": "features/jobs.md",
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T15:39:38.536073+00:00",
+      "evidence": [
+        "local_data/pstack/connpass/2026-11-24T08-06-44-302Z-d2e20766/http/api-journeys.txt"
+      ],
+      "result": "Readers get the redacted job; outsider and non-reader 403; job count unchanged."
+    },
+    {
+      "id": "connpass-job-missing",
+      "map": "features/jobs.md",
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T15:39:38.536073+00:00",
+      "evidence": [
+        "local_data/pstack/connpass/2026-11-24T08-06-44-302Z-d2e20766/http/api-journeys.txt"
+      ],
+      "result": "404 not_found for admin and member."
+    },
+    {
+      "id": "connpass-relogin-job",
+      "map": "features/jobs.md",
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T15:39:38.536073+00:00",
+      "evidence": [
+        "local_data/pstack/connpass/2026-11-24T11-19-21-454Z-bfe643e9/http/relogin.txt"
+      ],
+      "result": "Non-admins 403; admin 202; the job reaches failed (with the local Chromium launch error in this environment); members cannot read it; no connpass session log line."
+    },
+    {
+      "id": "connpass-read-deny",
+      "map": "features/group-access.md",
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T15:39:38.536073+00:00",
+      "evidence": [
+        "local_data/pstack/connpass/2026-11-24T11-19-21-454Z-bfe643e9/http/connpass-battery.json",
+        "local_data/pstack/connpass/2026-11-24T11-19-21-454Z-bfe643e9/d1/jobs-after.json"
+      ],
+      "result": "All 11 read routes x 6 identity/group cases return 403; no new jobs; no connpass session."
+    },
+    {
+      "id": "connpass-write-deny",
+      "map": "features/group-access.md",
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T15:39:38.536073+00:00",
+      "evidence": [
+        "local_data/pstack/connpass/2026-11-24T11-19-21-454Z-bfe643e9/http/connpass-battery.json"
+      ],
+      "result": "All 16 writes for member, outsider and developer-app, and organizer on unwritable groups, return 403; no jobs."
+    },
+    {
+      "id": "connpass-write-validation",
+      "map": "features/write-validation.md",
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T15:39:38.536073+00:00",
+      "evidence": [
+        "local_data/pstack/connpass/2026-11-24T11-19-21-454Z-bfe643e9/http/connpass-battery.json"
+      ],
+      "result": "24 invalid bodies return the mapped 400 errors; no jobs."
+    },
+    {
+      "id": "connpass-checkin-validation",
+      "map": "features/checkin.md",
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T15:39:38.536073+00:00",
+      "evidence": [
+        "local_data/pstack/connpass/2026-11-24T11-19-21-454Z-bfe643e9/http/connpass-battery.json"
+      ],
+      "result": "Seven bad URLs return 400 invalid_checkin_url."
+    },
+    {
+      "id": "connpass-checkin-deny",
+      "map": "features/checkin.md",
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T15:39:38.536073+00:00",
+      "evidence": [
+        "local_data/pstack/connpass/2026-11-24T11-19-21-454Z-bfe643e9/http/connpass-battery.json"
+      ],
+      "result": "Member, outsider and developer-app get 403 for a connpass check-in URL."
+    },
+    {
+      "id": "connpass-checkin-luma-unconfigured",
+      "map": "features/checkin.md",
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T15:39:38.536073+00:00",
+      "evidence": [
+        "local_data/pstack/connpass/2026-11-24T11-19-21-454Z-bfe643e9/http/connpass-battery.json"
+      ],
+      "result": "200 checkedIn false reason error; log luma_bot_credentials_missing; no Luma request."
+    }
+  ],
+  "outsideTheMap": [
+    "Every authorized request that reaches connpass.com or Luma (positive reads, valid writes, publish, copy, cancel, deletes, check-in as organizer, Luma with credentials) and PrService: see features/connpass-operations.md.",
+    "connpass-job-stuck-running: executed in a disposable snapshot with vitest (browser launch mocked to fail): the job is marked running and never marked failed or succeeded. Defect confirmed; a runtime reproduction would start a browser job that could reach connpass.com, so it is not run against the stack."
+  ],
+  "exclusions": [
+    "Real external services (X, Discord, connpass.com, Luma, Google, Gemini, Resend, Vercel)",
+    "Deployed Cloudflare behavior"
+  ]
+}

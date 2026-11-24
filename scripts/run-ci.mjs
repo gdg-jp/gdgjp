@@ -12,9 +12,14 @@ import {
 import { availableParallelism, machine, release, tmpdir } from "node:os";
 import { basename, delimiter, dirname, isAbsolute, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { classifyChanges, isE2EHarnessInput } from "../.github/scripts/changed-workspaces.mjs";
+import {
+  ALLOY_VERIFIERS,
+  classifyChanges,
+  isE2EHarnessInput,
+} from "../.github/scripts/changed-workspaces.mjs";
 import { isCommentSource } from "./check-code-comments.mjs";
 import { isDesignSourceFile } from "./check-design-harness.mjs";
+import { isEffectSource } from "./check-effects.mjs";
 import {
   isolatedE2EMetrics,
   playwrightMetrics,
@@ -25,10 +30,17 @@ import {
 const jobLifecycleCheck =
   "node --test .agents/skills/verify-job-lifecycle/scripts/verify.test.mjs && node .agents/skills/verify-job-lifecycle/scripts/verify.mjs";
 
+const alloyStep = (skill) => [
+  `alloy:${skill}`,
+  `node .agents/skills/${skill}/scripts/verify.mjs --mutation-proof`,
+];
+
 const quickSteps = [
   ["docs", "node scripts/check-docs.mjs"],
   ["code-comments", "node scripts/check-code-comments.mjs"],
   ["workspace-boundaries", "node scripts/check-workspace-boundaries.mjs"],
+  ["app-conventions", "node scripts/check-app-conventions.mjs"],
+  ["effects", "node scripts/check-effects.mjs"],
   ["typecheck:node-scripts", "pnpm typecheck:node-scripts"],
   ["pstack", "node scripts/pstack.mjs doctor"],
   [
@@ -36,10 +48,14 @@ const quickSteps = [
     "node .agents/skills/verify-acl-boundaries/scripts/verify.mjs --mutation-proof",
   ],
   ["job-lifecycle", jobLifecycleCheck],
+  ...ALLOY_VERIFIERS.map(alloyStep),
   ["lint", "pnpm exec biome check . --reporter=github"],
   ["ui-conventions", "node scripts/check-ui-conventions.mjs"],
   ["typecheck+build", "pnpm exec turbo typecheck build --concurrency=6 --output-logs=errors-only"],
-  ["test:scripts", "node --test --test-reporter=dot .github/scripts/*.test.mjs"],
+  [
+    "test:scripts",
+    "node --test --test-reporter=dot .github/scripts/*.test.mjs scripts/verification/*.test.mjs .agents/skills/verify-apps/scripts/*.test.mjs",
+  ],
   [
     "test",
     "pnpm exec turbo test --concurrency=6 --output-logs=errors-only -- --reporter=minimal --pool=threads --maxWorkers=2",
@@ -316,6 +332,15 @@ export function changedSteps(mode, files) {
     steps.push(["workspace-boundaries", "node scripts/check-workspace-boundaries.mjs"]);
   }
   if (
+    files.some((file) =>
+      /^(?:apps\/|packages\/gdg-lib\/|scripts\/(?:check-app-conventions\.mjs|app-conventions\.json|dump-schema\.sh)$|\.gitmodules$)/.test(
+        file,
+      ),
+    )
+  ) {
+    steps.push(["app-conventions", "node scripts/check-app-conventions.mjs"]);
+  }
+  if (
     files.some((file) => file.startsWith("docs/")) ||
     files.includes("scripts/check-docs.mjs") ||
     files.includes("scripts/docs-moves.json") ||
@@ -325,6 +350,16 @@ export function changedSteps(mode, files) {
   }
   if (files.some(isCommentSource) || files.includes("scripts/code-comment-exceptions.json")) {
     steps.push(["code-comments", "node scripts/check-code-comments.mjs --staged"]);
+  }
+  if (
+    files.some(isEffectSource) ||
+    files.some((file) =>
+      /^scripts\/(?:check-effects\.mjs|count-baseline\.mjs|effects-(?:policy|baseline)\.json)$/.test(
+        file,
+      ),
+    )
+  ) {
+    steps.push(["effects", "node scripts/check-effects.mjs"]);
   }
   if (classifyChanges(files).engineering) {
     steps.push(
@@ -343,6 +378,10 @@ export function changedSteps(mode, files) {
       `${jobLifecycleCheck}${mode === "full" ? " --mutation-proof" : ""}`,
       nodeEnvironment(),
     ]);
+  }
+
+  for (const skill of classifyChanges(files).alloy) {
+    steps.push([...alloyStep(skill), nodeEnvironment()]);
   }
 
   if (checksNodeScripts) {
@@ -563,6 +602,15 @@ export function changedSteps(mode, files) {
         file.startsWith("apps/pay/e2e/"),
     )) {
       e2eWorkspaces.set(workspace, null);
+    }
+    if (relevantFiles.some((file) => file.startsWith("packages/ui-properties/"))) {
+      for (const [directory, workspace] of workspaces) {
+        const spec = ["e2e/ui-properties.spec.ts", "tests/e2e/ui-properties.spec.ts"].find((path) =>
+          existsSync(`${directory}/${path}`),
+        );
+        if (!spec || e2eWorkspaces.get(workspace) === null) continue;
+        e2eWorkspaces.set(workspace, [...new Set([...(e2eWorkspaces.get(workspace) ?? []), spec])]);
+      }
     }
     for (const [workspace, e2eFiles] of e2eWorkspaces) {
       if (workspace === "@gdgjp/design-system" && !relevantFiles.some(isE2EHarnessInput)) continue;

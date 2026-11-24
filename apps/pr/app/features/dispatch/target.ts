@@ -38,6 +38,7 @@ export type DispatchTarget = {
   status: TargetStatus;
   approvedBy: string | null;
   approvedAt: number | null;
+  approvedVersion: number | null;
   externalRef: TargetRef | null;
   error: string | null;
   account: CampaignAccount;

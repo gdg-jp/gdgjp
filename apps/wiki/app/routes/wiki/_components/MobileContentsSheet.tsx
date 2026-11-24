@@ -1,4 +1,5 @@
-import { useEffect, useRef } from "react";
+import { useEventListener } from "@gdgjp/gdg-lib/react";
+
 import { useTranslation } from "react-i18next";
 import TagChip from "~/features/pages/components/TagChip";
 import type { TocItem } from "~/features/pages/components/WikiRightSidebar";
@@ -14,6 +15,14 @@ type WikiPageSlice = {
 type Tag = { tagSlug: string; labelJa: string; labelEn: string; color: string };
 type Source = { url: string; title: string };
 type Attachment = { r2Key: string; fileName: string; mimeType: string };
+
+function focusFirstFocusable(sheet: HTMLDivElement | null) {
+  if (!sheet) return;
+  const firstFocusable = sheet.querySelector<HTMLElement>(
+    'button:not([disabled]), a[href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
+  );
+  (firstFocusable ?? sheet).focus();
+}
 
 export function MobileContentsSheet({
   page,
@@ -35,24 +44,10 @@ export function MobileContentsSheet({
   onClose: () => void;
 }) {
   const { t } = useTranslation("common");
-  const sheetRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-    };
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [onClose]);
-
-  useEffect(() => {
-    const sheet = sheetRef.current;
-    if (!sheet) return;
-    const firstFocusable = sheet.querySelector<HTMLElement>(
-      'button:not([disabled]), a[href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
-    );
-    (firstFocusable ?? sheet).focus();
-  }, []);
+  useEventListener("window", "keydown", (e) => {
+    if (e.key === "Escape") onClose();
+  });
 
   return (
     <>
@@ -63,7 +58,7 @@ export function MobileContentsSheet({
         aria-hidden="true"
       />
       <div
-        ref={sheetRef}
+        ref={focusFirstFocusable}
         tabIndex={-1}
         className="fixed bottom-0 left-0 right-0 z-50 max-h-[70vh] overflow-y-auto rounded-t-xl bg-surface shadow-xl md:hidden"
       >

@@ -1,0 +1,27 @@
+[
+  {
+    "id": "wiki-display-shared-across-pages",
+    "description": "Page display settings are stored per user instead of per user and page",
+    "workspace": "@gdgjp/wiki",
+    "spec": "tests/e2e/ui-properties.spec.ts",
+    "grep": "seed 1701 .* on desktop",
+    "file": "apps/wiki/app/features/pages/use-page-display.ts",
+    "find": "JSON.stringify([userId, pageId])",
+    "replace": "JSON.stringify([userId])",
+    "expect": {
+      "property": "wiki page display and access",
+      "violation": "invariant:each actor sees its own display settings for the page it is on"
+    }
+  },
+  {
+    "id": "wiki-sharing-without-manage-permission",
+    "description": "The page-access API lets any viewer change sharing",
+    "workspace": "@gdgjp/wiki",
+    "spec": "tests/e2e/ui-properties.spec.ts",
+    "grep": "seed 1701 .* on desktop",
+    "file": "apps/wiki/app/features/pages/page-access-api.server.ts",
+    "find": "  if (!permissions.canManageSharing) return new Response(\"Forbidden\", { status: 403 });\n\n  if (intent === \"batchGrant\"",
+    "replace": "\n  if (intent === \"batchGrant\"",
+    "expect": { "property": "wiki page display and access" }
+  }
+]

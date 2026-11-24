@@ -9,7 +9,7 @@ import {
   Input,
   Spinner,
 } from "@gdgjp/design-system";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useFetcher } from "react-router";
 export type LinkAction = "archive" | "restore" | "delete";
 
@@ -36,9 +36,11 @@ export function LinkActionDialog({
   const [confirmation, setConfirmation] = useState("");
   const deleteConfirmed = confirmation === linkSlug;
 
-  useEffect(() => {
+  const [wasOpen, setWasOpen] = useState(open);
+  if (wasOpen !== open) {
+    setWasOpen(open);
     if (open) setConfirmation("");
-  }, [open]);
+  }
 
   let favicon: string | null = null;
   try {

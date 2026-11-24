@@ -1,0 +1,228 @@
+{
+  "schemaVersion": 1,
+  "scope": "Local pay journeys (Orca Browser and HTTP) from features/README.md",
+  "sourceBaseCommit": "1c0569f3 (working tree with uncommitted changes; exact file hashes are in each run.json)",
+  "journeys": [
+    {
+      "id": "pay-anon-home",
+      "map": "features/auth.md",
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T15:39:38.536073+00:00",
+      "evidence": [
+        "local_data/pstack/pay/2026-11-24T08-06-43-853Z-33fa9a68/screenshots/01-anon-home.png",
+        "local_data/pstack/pay/2026-11-24T08-06-43-853Z-33fa9a68/http/access-matrix.txt",
+        "local_data/pstack/pay/2026-11-24T11-14-32-956Z-9039a90e/http/anon-gate.txt"
+      ],
+      "result": "Anonymous / shows 利用案内 and サインイン; /profile and receipts redirect to sign-in; return_to=//evil.example falls back to /."
+    },
+    {
+      "id": "pay-signin-continuation",
+      "map": "features/auth.md",
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T15:39:38.536073+00:00",
+      "evidence": [
+        "local_data/pstack/pay/2026-11-24T15-32-10-785Z-853903d6/http/accounts-continuation.json",
+        "local_data/pstack/pay/2026-11-24T15-32-10-785Z-853903d6/http/accounts-oidc.json"
+      ],
+      "result": "With --platform, anonymous /profile reaches Accounts /signin with client_id=pay, the 6164 callback, S256 and state; with the Accounts session OIDC completes and /api/auth/me returns platform-oidc@test.local."
+    },
+    {
+      "id": "pay-no-membership",
+      "map": "features/auth.md",
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T15:39:38.536073+00:00",
+      "evidence": [
+        "local_data/pstack/pay/2026-11-24T08-06-43-853Z-33fa9a68/http/access-matrix.txt",
+        "local_data/pstack/pay/2026-11-24T08-06-43-853Z-33fa9a68/screenshots/02-nochapter-403.png"
+      ],
+      "result": "nochapter gets 403 on /, /profile, /events/new; the page is a bare \"403 Forbidden\"."
+    },
+    {
+      "id": "pay-events-empty",
+      "map": "features/events.md",
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T15:39:38.536073+00:00",
+      "evidence": [
+        "local_data/pstack/pay/2026-11-24T11-18-08-063Z-51398334/screenshots/events-empty.png",
+        "local_data/pstack/pay/2026-11-24T11-18-08-063Z-51398334/d1/events-count.json"
+      ],
+      "result": "Unseeded launch: まだイベントがありません。最初のイベントを登録してください。; events count 0."
+    },
+    {
+      "id": "pay-events-list",
+      "map": "features/events.md",
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T15:39:38.536073+00:00",
+      "evidence": [
+        "local_data/pstack/pay/2026-11-24T08-06-43-853Z-33fa9a68/http/member-events-table.json"
+      ],
+      "result": "Member sees both seeded events with counts and totals."
+    },
+    {
+      "id": "pay-event-create",
+      "map": "features/events.md",
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T15:39:38.536073+00:00",
+      "evidence": [
+        "local_data/pstack/pay/2026-11-24T11-14-32-956Z-9039a90e/d1/created-event.json"
+      ],
+      "result": "Blank title refused; Verify Created Event created; owner_chapter_ids [1,3] includes the chapter where the creator is only a member."
+    },
+    {
+      "id": "pay-event-roles",
+      "map": "features/events.md",
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T15:39:38.536073+00:00",
+      "evidence": [
+        "local_data/pstack/pay/2026-11-24T08-06-43-853Z-33fa9a68/http/roles-organizer.txt",
+        "local_data/pstack/pay/2026-11-24T08-06-43-853Z-33fa9a68/http/roles-member.txt",
+        "local_data/pstack/pay/2026-11-24T08-06-43-853Z-33fa9a68/http/roles-outsider.txt"
+      ],
+      "result": "Owner sees all claims, 代行登録 and Google連携; member only own claim; other-chapter organizer no claims; unknown ids 404. Members of any chapter see the event total."
+    },
+    {
+      "id": "pay-profile-save",
+      "map": "features/claims.md",
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T15:39:38.536073+00:00",
+      "evidence": [
+        "local_data/pstack/pay/2026-11-24T08-06-43-853Z-33fa9a68/d1/profile.json"
+      ],
+      "result": "Whitespace refused; save persists after reload; account number stored encrypted."
+    },
+    {
+      "id": "pay-claim-self",
+      "map": "features/claim-detail.md",
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T15:39:38.536073+00:00",
+      "evidence": [
+        "local_data/pstack/pay/2026-11-24T11-14-32-956Z-9039a90e/d1/self-claims.json"
+      ],
+      "result": "Disabled 経費を申請 and redirect to /profile before a profile; after saving, one self claim at ¥0; /claims/new redirects to it."
+    },
+    {
+      "id": "pay-claim-proxy",
+      "map": "features/claims.md",
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T15:39:38.536073+00:00",
+      "evidence": [
+        "local_data/pstack/pay/2026-11-24T11-14-32-956Z-9039a90e/http/proxy-denied.txt",
+        "local_data/pstack/pay/2026-11-24T11-14-32-956Z-9039a90e/d1/proxy.json"
+      ],
+      "result": "Member and outsider get 403 on GET and POST; validation alert; proxy row with user_id NULL and created_by dev-user-coorganizer."
+    },
+    {
+      "id": "pay-claim-access",
+      "map": "features/claim-detail.md",
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T15:39:38.536073+00:00",
+      "evidence": [
+        "local_data/pstack/pay/2026-11-24T08-06-43-853Z-33fa9a68/http/access-matrix.txt"
+      ],
+      "result": "Coorganizer edits C1; organizer reads C2; member on C1 and outsider on C2 get 403; mismatched event 404."
+    },
+    {
+      "id": "pay-claim-items",
+      "map": "features/claim-detail.md",
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T15:39:38.536073+00:00",
+      "evidence": [
+        "local_data/pstack/pay/2026-11-24T08-06-43-853Z-33fa9a68/d1/claim-items.json",
+        "local_data/pstack/pay/2026-11-24T08-06-43-853Z-33fa9a68/screenshots/05-claim-items.png"
+      ],
+      "result": "abc refused; ¥3,300 saved; deleting the second item leaves total ¥3,300 in UI and D1."
+    },
+    {
+      "id": "pay-claim-sync-unconnected",
+      "map": "features/claim-detail.md",
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T15:39:38.536073+00:00",
+      "evidence": [
+        "local_data/pstack/pay/2026-11-24T08-06-43-853Z-33fa9a68/d1/claim-status.json",
+        "local_data/pstack/pay/2026-11-24T11-14-32-956Z-9039a90e/d1/self-after-sync.json"
+      ],
+      "result": "Empty claim shows 明細がありません; C1 shows the not-connected message; both stay draft."
+    },
+    {
+      "id": "pay-claim-email-unconfigured",
+      "map": "features/claim-detail.md",
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T15:39:38.536073+00:00",
+      "evidence": [
+        "local_data/pstack/pay/2026-11-24T08-06-43-853Z-33fa9a68/d1/email-sent.json"
+      ],
+      "result": "RESEND_API_KEY absent; alert names it; email_sent_at stays NULL."
+    },
+    {
+      "id": "pay-receipt-access",
+      "map": "features/receipts.md",
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T15:39:38.536073+00:00",
+      "evidence": [
+        "local_data/pstack/pay/2026-11-24T08-06-43-853Z-33fa9a68/http/access-matrix.txt"
+      ],
+      "result": "200 for claimant member and organizer, 403 outsider, 302 anonymous, 404 missing object."
+    },
+    {
+      "id": "pay-google-card-states",
+      "map": "features/google.md",
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T15:39:38.536073+00:00",
+      "evidence": [
+        "local_data/pstack/pay/2026-11-24T11-14-32-956Z-9039a90e/http/google-card-states.txt",
+        "local_data/pstack/pay/2026-11-24T11-14-32-956Z-9039a90e/screenshots/google-organizer.png"
+      ],
+      "result": "Not connected, connected by me, connected by someone else, and hidden for member all render as mapped."
+    },
+    {
+      "id": "pay-google-connect-redirect",
+      "map": "features/google.md",
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T15:39:38.536073+00:00",
+      "evidence": [
+        "local_data/pstack/pay/2026-11-24T11-14-32-956Z-9039a90e/http/google-http.txt",
+        "local_data/pstack/pay/2026-11-24T11-14-32-956Z-9039a90e/d1/oauth-tx.json"
+      ],
+      "result": "302 to accounts.google.com with the 6164 callback, offline, consent, state and S256 (not followed); oauth_transactions row live; member 403; bogus 404."
+    },
+    {
+      "id": "pay-google-callback-errors",
+      "map": "features/google.md",
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T15:39:38.536073+00:00",
+      "evidence": [
+        "local_data/pstack/pay/2026-11-24T11-14-32-956Z-9039a90e/http/google-http.txt",
+        "local_data/pstack/pay/2026-11-24T11-14-32-956Z-9039a90e/d1/google-after.json"
+      ],
+      "result": "400 Missing Google OAuth response; 400 Invalid or expired Google OAuth transaction; SEE1 stays unconnected."
+    },
+    {
+      "id": "pay-google-settings-guards",
+      "map": "features/google.md",
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T15:39:38.536073+00:00",
+      "evidence": [
+        "local_data/pstack/pay/2026-11-24T11-14-32-956Z-9039a90e/http/google-http.txt"
+      ],
+      "result": "member 403 Forbidden; coorganizer 403 自分が連携したイベントのみ操作できます; unknown intent, wrong template, empty folder each 400 before any Google call."
+    },
+    {
+      "id": "pay-signout",
+      "map": "features/auth.md",
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T15:39:38.536073+00:00",
+      "evidence": [
+        "local_data/pstack/pay/2026-11-24T11-14-32-956Z-9039a90e/receipts"
+      ],
+      "result": "サインアウト clears the pay cookie and /api/auth/me returns {\"user\":null}."
+    }
+  ],
+  "outsideTheMap": [
+    "pay-receipt-upload: upload always posts the file to generativelanguage.googleapis.com (Gemini), even with no key. Executed only at module level with a stubbed fetch (no network): one POST to …:generateContent?key=<EMPTY> carrying the file as inlineData. Defect confirmed; the runtime upload stays outside the map.",
+    "Google OAuth consent and code exchange, Drive, Sheets and the Picker: no local fake."
+  ],
+  "exclusions": [
+    "Real external services (X, Discord, connpass.com, Luma, Google, Gemini, Resend, Vercel)",
+    "Deployed Cloudflare behavior"
+  ]
+}

@@ -1,0 +1,28 @@
+[
+  {
+    "id": "screen-rename-not-persisted",
+    "description": "Renaming a stage updates the live room but not the stage registry",
+    "workspace": "@gdgjp/screen",
+    "spec": "e2e/ui-properties.spec.ts",
+    "grep": "seed 3301 ",
+    "file": "apps/screen/app/routes/api.stages.ts",
+    "find": "    await renameStage(env.DB, stage.id, name);\n",
+    "replace": "    await renameStage(env.DB, `${stage.id}-missing`, name);\n",
+    "expect": {
+      "property": "screen stages"
+    }
+  },
+  {
+    "id": "screen-delete-keeps-registry",
+    "description": "Deleting a stage destroys the room but leaves it in the stage registry",
+    "workspace": "@gdgjp/screen",
+    "spec": "e2e/ui-properties.spec.ts",
+    "grep": "seed 72057 ",
+    "file": "apps/screen/app/routes/api.stages.ts",
+    "find": "    await deleteStage(env.DB, stage.id);\n",
+    "replace": "    await deleteStage(env.DB, `${stage.id}-missing`);\n",
+    "expect": {
+      "property": "screen stages"
+    }
+  }
+]

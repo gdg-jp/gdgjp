@@ -1,9 +1,11 @@
 {
-  "syncedCommit": "ced0bbd11e2965350f7952042510195f15a26fa7",
+  "syncedCommit": "1c0569f355bf990c689a5174ed4910488ddfbf23",
   "bounds": "2 chapters, 2 users, 2 developer clients, 3 tokens, 2 overlapping developer-console requests; every trace of up to 14 states",
   "sources": {
-    "apps/accounts/app/features/developer-apps/oauth-clients.server.ts": "1afc007aa40ae8c7b060852de1a60dc3cef4364dd8d53b9af4cfc00398a5c940",
-    "apps/accounts/migrations/0014_disable_owned_clients_without_membership.sql": "de45e36c65b5a820b5630bacac2e0f9ecaa8bf8cd15a9aff498dbe9cc4a89528"
+    "apps/accounts/app/features/developer-apps/oauth-clients.server.ts": "d302898e5c59b0b1ddb6e7642b7f03a6ac0e36ec9fe4247c5316041aa0dec04a",
+    "apps/accounts/migrations/0014_disable_owned_clients_without_membership.sql": "de45e36c65b5a820b5630bacac2e0f9ecaa8bf8cd15a9aff498dbe9cc4a89528",
+    "apps/accounts/migrations/0025_developer_client_grants_outlive_sessions.sql": "211ad93834dfc485fcce87642bd26a655c9f22161d55504485d972b279cf43b6",
+    "apps/accounts/migrations/0026_developer_client_revocation_holds_for_late_writes.sql": "5a4f657a867644a189fea79727999d8c28f1cc5801c2e61e0d0882485b17f75d"
   },
   "packages": {
     "@better-auth/oauth-provider": {
@@ -72,6 +74,26 @@
       "model": "membershipChange"
     },
     {
+      "file": "apps/accounts/migrations/0026_developer_client_revocation_holds_for_late_writes.sql",
+      "text": "CREATE TRIGGER developer_client_revocation_purges_grants\nAFTER UPDATE OF \"disabled\", \"scopes\" ON \"oauthClient\"",
+      "model": "membershipChange, disable, update: writing disabled = 1 or new scopes fires the purge"
+    },
+    {
+      "file": "apps/accounts/migrations/0026_developer_client_revocation_holds_for_late_writes.sql",
+      "text": "  AND (NEW.\"disabled\" = 1 OR NEW.\"scopes\" IS NOT OLD.\"scopes\")",
+      "model": "membershipChange, disable, update"
+    },
+    {
+      "file": "apps/accounts/migrations/0026_developer_client_revocation_holds_for_late_writes.sql",
+      "text": "  DELETE FROM \"developerClientGrantCode\" WHERE \"clientId\" = NEW.\"clientId\";",
+      "model": "membershipChange, disable, update: grant records are deleted"
+    },
+    {
+      "file": "apps/accounts/schema.sql",
+      "text": "CREATE TRIGGER developer_client_revocation_purges_grants",
+      "model": "membershipChange, disable, update: the trigger is still installed"
+    },
+    {
       "file": "apps/accounts/schema.sql",
       "text": "CREATE TRIGGER disable_owned_oauth_clients_after_membership_delete",
       "model": "membershipChange: the trigger is still installed"
@@ -83,12 +105,12 @@
     },
     {
       "file": "apps/accounts/app/features/developer-apps/oauth-clients.server.ts",
-      "text": "\"SELECT 1 AS ok FROM memberships WHERE user_id = ? AND status = 'active' LIMIT 1\",",
+      "text": ".prepare(\"SELECT 1 AS ok FROM memberships WHERE user_id = ? AND status = 'active' LIMIT 1\")",
       "model": "admit"
     },
     {
       "file": "apps/accounts/app/features/developer-apps/oauth-clients.server.ts",
-      "text": "if (membership?.ok !== 1) throw new Response(\"Forbidden\", { status: 403 });",
+      "text": "if (!(await hasActiveMembership(env.DB, user.id))) throw forbidden();",
       "model": "admit"
     },
     {
@@ -98,22 +120,38 @@
     },
     {
       "file": "apps/accounts/app/features/developer-apps/oauth-clients.server.ts",
-      "text": ") VALUES (?, ?, ?, 0, 1, 1, 'public', ?, ?, ?, ?, ?, ?, ?, ?, 'client_secret_basic', ?, ?, 'web', 0, 'web', 1)`,",
+      "text": "     ) SELECT ?1, ?2, ?3, 0, 0, 1, 'public', ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11,",
       "model": "create: the row is inserted enabled"
     },
     {
       "file": "apps/accounts/app/features/developer-apps/oauth-clients.server.ts",
-      "text": "\"UPDATE oauthClient SET disabled = ?, updatedAt = ? WHERE clientId = ? AND userId = ?\",",
+      "text": "       WHERE EXISTS (SELECT 1 FROM memberships WHERE user_id = ?5 AND status = 'active')`,",
+      "model": "create: only while the owner has an active membership"
+    },
+    {
+      "file": "apps/accounts/app/features/developer-apps/oauth-clients.server.ts",
+      "text": "if (insert.meta.changes !== 1) throw forbidden();",
+      "model": "create, abort"
+    },
+    {
+      "file": "apps/accounts/app/features/developer-apps/oauth-clients.server.ts",
+      "text": "`UPDATE oauthClient SET disabled = ?1, updatedAt = ?2\n     WHERE clientId = ?3 AND userId = ?4",
       "model": "enable, disable"
     },
     {
       "file": "apps/accounts/app/features/developer-apps/oauth-clients.server.ts",
-      "text": "if (!enabled) {",
-      "model": "disable: tokens are deleted in the same batch"
+      "text": "       AND (?1 = 1 OR EXISTS (\n         SELECT 1 FROM memberships WHERE user_id = ?4 AND status = 'active'",
+      "model": "enable: only while the owner has an active membership"
     },
     {
       "file": "apps/accounts/app/features/developer-apps/oauth-clients.server.ts",
-      "text": "if (!sameStringArray(parseStringArray(current.scopes), normalized.scopes)) {",
+      "text": "DELETE FROM oauthAccessToken",
+      "model": "disable, update: tokens are deleted by the migration 0026 trigger, not by the request",
+      "absent": true
+    },
+    {
+      "file": "apps/accounts/app/features/developer-apps/oauth-clients.server.ts",
+      "text": "     SET name = ?, uri = ?, redirectUris = ?, postLogoutRedirectUris = ?, scopes = ?,",
       "model": "update"
     },
     {
@@ -130,34 +168,62 @@
       "file": "apps/accounts/app/features/auth/auth.server.ts",
       "text": "allowDynamicClientRegistration: false,",
       "model": "create: clients are created only through oauth-clients.server.ts"
+    },
+    {
+      "file": "apps/accounts/migrations/0026_developer_client_revocation_holds_for_late_writes.sql",
+      "text": "    SELECT \"clientId\" FROM \"oauthClient\"\n    WHERE \"userId\" IS NOT NULL AND COALESCE(\"disabled\", 0) = 0",
+      "model": "issueBegin: a code is recorded only while its client is enabled"
+    },
+    {
+      "file": "apps/accounts/schema.sql",
+      "text": "    WHERE \"userId\" IS NOT NULL AND COALESCE(\"disabled\", 0) = 0",
+      "model": "issueBegin: the recording trigger of migration 0026 is installed"
+    },
+    {
+      "file": "apps/accounts/migrations/0025_developer_client_grants_outlive_sessions.sql",
+      "text": "CREATE TRIGGER developer_client_access_token_requires_consent\nBEFORE INSERT ON \"oauthAccessToken\"",
+      "model": "issueFinish, issueRejected: the insert needs the grant record"
+    },
+    {
+      "file": "apps/accounts/migrations/0025_developer_client_grants_outlive_sessions.sql",
+      "text": "CREATE TRIGGER developer_client_refresh_token_requires_consent\nBEFORE INSERT ON \"oauthRefreshToken\"",
+      "model": "issueFinish, issueRejected: the insert needs the grant record"
+    },
+    {
+      "file": "apps/accounts/schema.sql",
+      "text": "CREATE TRIGGER developer_client_access_token_requires_consent",
+      "model": "issueFinish: the trigger is still installed"
+    },
+    {
+      "file": "apps/accounts/schema.sql",
+      "text": "CREATE TRIGGER developer_client_refresh_token_requires_consent",
+      "model": "issueFinish: the trigger is still installed"
     }
   ],
   "checks": [
     {
       "name": "EnabledClientHasMemberOwner",
-      "expect": "finding",
+      "expect": "holds",
       "property": "An enabled developer client belongs to someone with an active chapter membership.",
-      "harm": "Someone who left or was removed from every chapter keeps a working OAuth client that skips consent, so people who sign in through it hand over their identity and chapter claims.",
-      "finding": "A1"
+      "harm": "Someone who left or was removed from every chapter keeps a working OAuth client, so people who sign in through it hand over their identity and chapter claims to an app no member answers for."
     },
     {
       "name": "EnabledClientHasMemberOwnerWhenSerial",
       "expect": "holds",
       "property": "When requests do not overlap, an enabled developer client belongs to someone with an active chapter membership.",
-      "harm": "Someone who left or was removed from every chapter keeps a working OAuth client that skips consent, so people who sign in through it hand over their identity and chapter claims."
+      "harm": "Someone who left or was removed from every chapter keeps a working OAuth client, so people who sign in through it hand over their identity and chapter claims to an app no member answers for."
     },
     {
       "name": "RevokedTokenStaysDead",
-      "expect": "finding",
-      "property": "When developer-console requests do not overlap anything, a token issued before its client's owner lost membership never works again.",
-      "harm": "A grant that was revoked when the client's owner lost membership works again without the end user authorizing again.",
-      "finding": "A2"
+      "expect": "holds",
+      "property": "When developer-console requests do not overlap anything, a token issued before its client was revoked, by its owner's loss of membership or by its owner disabling it, never works again.",
+      "harm": "A grant that was revoked works again without the end user authorizing again."
     },
     {
       "name": "RevokedTokenStaysDeadWhenSerial",
       "expect": "holds",
-      "property": "When requests and sign-ins do not overlap, a token issued before its client's owner lost membership never works again.",
-      "harm": "A grant that was revoked when the client's owner lost membership works again without the end user authorizing again."
+      "property": "When requests and sign-ins do not overlap, a token issued before its client was revoked, by its owner's loss of membership or by its owner disabling it, never works again.",
+      "harm": "A grant that was revoked works again without the end user authorizing again."
     },
     {
       "name": "TokenWorks",
@@ -169,6 +235,10 @@
     },
     {
       "name": "OwnerReenablesAfterReturning",
+      "expect": "reachable"
+    },
+    {
+      "name": "NewGrantWorksAfterReturning",
       "expect": "reachable"
     }
   ]

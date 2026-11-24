@@ -151,6 +151,9 @@ export function verificationEnvironment({ source, root }) {
     WIKI_E2E_ISSUER: "http://localhost:6173",
     PR_REAL_SERVICES: "",
     PLAYWRIGHT_JSON_OUTPUT_NAME: ".turbo/ci-playwright.json",
+    ...Object.fromEntries(
+      Object.entries(process.env).filter(([key]) => /^UI_PROPERTY_[A-Z_]+$/.test(key)),
+    ),
   };
 }
 

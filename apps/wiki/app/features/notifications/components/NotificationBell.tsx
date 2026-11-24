@@ -1,7 +1,8 @@
 import { Button, IconButton } from "@gdgjp/design-system";
 import { Popover, PopoverContent, PopoverTrigger } from "@gdgjp/design-system";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useInterval, useMountEffect, useTransientValue } from "@gdgjp/gdg-lib/react";
+import { useCallback, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router";
 
@@ -25,14 +26,6 @@ function playChime() {
       t += 0.1;
     }
   } catch {}
-}
-
-function AutoDismiss({ onDismiss }: { onDismiss: () => void }) {
-  useEffect(() => {
-    const timer = setTimeout(onDismiss, 5_000);
-    return () => clearTimeout(timer);
-  }, [onDismiss]);
-  return null;
 }
 
 interface Notification {
@@ -76,8 +69,13 @@ export default function NotificationBell({ initialCount }: { initialCount: numbe
   const [open, setOpen] = useState(false);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [unreadCount, setUnreadCount] = useState(initialCount);
-  const [chipNotification, setChipNotification] = useState<Notification | null>(null);
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [syncedInitialCount, setSyncedInitialCount] = useState(initialCount);
+  if (syncedInitialCount !== initialCount) {
+    setSyncedInitialCount(initialCount);
+    setUnreadCount(initialCount);
+  }
+  const [chipNotification, showChipNotification, dismissChipNotification] =
+    useTransientValue<Notification>(5_000);
   const prevUnreadRef = useRef(initialCount);
 
   const fetchNotifications = useCallback(async () => {
@@ -91,29 +89,22 @@ export default function NotificationBell({ initialCount }: { initialCount: numbe
       if (newCount > prevUnreadRef.current) {
         playChime();
         const newest = data.notifications.find((n) => !n.readAt);
-        if (newest) setChipNotification(newest);
+        if (newest) showChipNotification(newest);
       }
       prevUnreadRef.current = newCount;
     } catch {}
-  }, []);
+  }, [showChipNotification]);
 
-  useEffect(() => {
-    fetchNotifications();
-    const interval = open ? 5_000 : 30_000;
-    if (intervalRef.current) clearInterval(intervalRef.current);
-    intervalRef.current = setInterval(fetchNotifications, interval);
-    return () => {
-      if (intervalRef.current) clearInterval(intervalRef.current);
-    };
-  }, [open, fetchNotifications]);
+  useMountEffect(() => {
+    void fetchNotifications();
+  });
 
-  useEffect(() => {
-    if (open) fetchNotifications();
-  }, [open, fetchNotifications]);
+  useInterval(() => void fetchNotifications(), open ? 5_000 : 30_000);
 
-  useEffect(() => {
-    setUnreadCount(initialCount);
-  }, [initialCount]);
+  function changeOpen(next: boolean) {
+    setOpen(next);
+    void fetchNotifications();
+  }
 
   async function markAsRead(notificationId: string) {
     setNotifications((prev) =>
@@ -153,7 +144,7 @@ export default function NotificationBell({ initialCount }: { initialCount: numbe
   const bellIconName = unreadCount > 0 ? "BellDot" : "Bell";
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <Popover open={open} onOpenChange={changeOpen}>
       <PopoverTrigger asChild>
         <IconButton
           variant="ghost"
@@ -179,13 +170,12 @@ export default function NotificationBell({ initialCount }: { initialCount: numbe
           <p className="min-w-0 flex-1 truncate text-sm font-medium">{title(chipNotification)}</p>
           <IconButton
             variant="ghost"
-            onClick={() => setChipNotification(null)}
+            onClick={dismissChipNotification}
             aria-label="Dismiss"
             className="-mr-2 text-muted"
           >
             <Icons name="X" className="size-4" />
           </IconButton>
-          <AutoDismiss onDismiss={() => setChipNotification(null)} />
         </output>
       ) : null}
       <PopoverContent

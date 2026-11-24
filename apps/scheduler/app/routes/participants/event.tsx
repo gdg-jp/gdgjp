@@ -16,7 +16,8 @@ import {
   Table,
   toast,
 } from "@gdgjp/design-system";
-import { useEffect, useRef } from "react";
+import { useValueChange } from "@gdgjp/gdg-lib/react";
+import { useRef } from "react";
 import { Form, Link, useFetcher } from "react-router";
 import { ShareUrl } from "~/components/share-url";
 import { loadEventParticipation, respondToEvent } from "~/features/participants/event.server";
@@ -65,9 +66,6 @@ export default function EventPage({ loaderData }: Route.ComponentProps) {
     slotIds: number[];
   } | null>(null);
   const suppressNextSaveToastRef = useRef(false);
-  const savePrevStateRef = useRef(saveFetcher.state);
-  const deletePrevStateRef = useRef(deleteFetcher.state);
-  const adminPrevStateRef = useRef(adminFetcher.state);
 
   function restore() {
     const snap = snapshotRef.current;
@@ -102,44 +100,31 @@ export default function EventPage({ loaderData }: Route.ComponentProps) {
     adminFetcher.submit(fd, { method: "post" });
   }
 
-  useEffect(() => {
-    const prev = savePrevStateRef.current;
-    savePrevStateRef.current = saveFetcher.state;
-    if (prev === "submitting" && saveFetcher.data?.kind === "joined" && !user) {
-      joinFormRef.current?.reset();
-    }
-    if (prev !== "idle" && saveFetcher.state === "idle" && saveFetcher.data) {
-      if (suppressNextSaveToastRef.current) {
-        suppressNextSaveToastRef.current = false;
-        toast.success("Availability restored");
-      } else if (saveFetcher.data.kind === "joined") {
-        toast.success("Joined event");
-      } else if (saveFetcher.data.kind === "updated") {
-        toast.success("Availability updated");
-      }
-    }
-  }, [saveFetcher.state, saveFetcher.data, user]);
+  useValueChange(saveFetcher.data, (data) => {
+    if (data?.kind === "joined" && !user) joinFormRef.current?.reset();
+  });
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: restore is stable enough; we only fire on state transitions
-  useEffect(() => {
-    if (
-      deletePrevStateRef.current !== "idle" &&
-      deleteFetcher.state === "idle" &&
-      deleteFetcher.data?.kind === "deleted"
-    ) {
-      toast("Removed your availability", {
-        action: { label: "Undo", onClick: restore },
-      });
+  useValueChange(saveFetcher.state === "idle" ? saveFetcher.data : undefined, (data) => {
+    if (!data) return;
+    if (suppressNextSaveToastRef.current) {
+      suppressNextSaveToastRef.current = false;
+      toast.success("Availability restored");
+    } else if (data.kind === "joined") {
+      toast.success("Joined event");
+    } else if (data.kind === "updated") {
+      toast.success("Availability updated");
     }
-    deletePrevStateRef.current = deleteFetcher.state;
-  }, [deleteFetcher.state, deleteFetcher.data]);
+  });
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: adminRestore is stable enough; only fires on state transitions
-  useEffect(() => {
-    const prev = adminPrevStateRef.current;
-    adminPrevStateRef.current = adminFetcher.state;
-    if (prev === "idle" || adminFetcher.state !== "idle") return;
-    const kind = adminFetcher.data?.kind;
+  useValueChange(deleteFetcher.state === "idle" ? deleteFetcher.data : undefined, (data) => {
+    if (data?.kind !== "deleted") return;
+    toast("Removed your availability", {
+      action: { label: "Undo", onClick: restore },
+    });
+  });
+
+  useValueChange(adminFetcher.state === "idle" ? adminFetcher.data : undefined, (data) => {
+    const kind = data?.kind;
     if (kind === "admin-deleted") {
       const snap = adminSnapshotRef.current;
       const name = snap?.displayName ?? "participant";
@@ -149,7 +134,7 @@ export default function EventPage({ loaderData }: Route.ComponentProps) {
     } else if (kind === "admin-restored") {
       toast.success("Participant restored");
     }
-  }, [adminFetcher.state, adminFetcher.data]);
+  });
 
   const slotByDayTime = new Map<string, (typeof slots)[number]>();
   for (const s of slots) slotByDayTime.set(`${s.dayOfWeek}-${s.startTime}`, s);

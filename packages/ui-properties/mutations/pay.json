@@ -1,0 +1,12 @@
+[
+  {
+    "id": "pay-proxy-for-any-organizer",
+    "description": "Any organizer may manage and proxy-claim any chapter's event",
+    "workspace": "@gdgjp/pay",
+    "spec": "e2e/ui-properties.spec.ts",
+    "file": "apps/pay/app/features/events/permissions.ts",
+    "find": "    (chapter) => chapter.role === \"organizer\" && event.ownerChapterIds.includes(chapter.chapterId),",
+    "replace": "    (chapter) => chapter.role === \"organizer\",",
+    "expect": { "property": "pay event access" }
+  }
+]

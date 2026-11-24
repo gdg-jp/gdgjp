@@ -1,5 +1,6 @@
 import { Button, FormField, Input } from "@gdgjp/design-system";
-import { useEffect, useRef, useState } from "react";
+import { useMountEffect } from "@gdgjp/gdg-lib/react";
+import { useRef, useState } from "react";
 import { getDeck, isDeckId, timingSafeEqual } from "~/features/deck/decks.server";
 import { DockEngine, type DockSettings, type DockSnapshot } from "~/features/dock/dock-engine";
 import { OBS_DEFAULT_URL } from "~/features/obs/obs-client";
@@ -68,7 +69,14 @@ export default function Dock({ loaderData }: Route.ComponentProps) {
       </main>
     );
   }
-  return <DockPanel deckId={loaderData.deckId} token={loaderData.token} name={loaderData.name} />;
+  return (
+    <DockPanel
+      key={`${loaderData.deckId}:${loaderData.token}`}
+      deckId={loaderData.deckId}
+      token={loaderData.token}
+      name={loaderData.name}
+    />
+  );
 }
 
 function DockPanel({ deckId, token, name }: { deckId: string; token: string; name: string }) {
@@ -78,7 +86,7 @@ function DockPanel({ deckId, token, name }: { deckId: string; token: string; nam
   const [editing, setEditing] = useState(false);
   const engine = useRef<DockEngine | null>(null);
 
-  useEffect(() => {
+  useMountEffect(() => {
     const loaded = loadSettings(deckId);
     settingsRef.current = loaded;
     setSettings(loaded);
@@ -99,7 +107,7 @@ function DockPanel({ deckId, token, name }: { deckId: string; token: string; nam
       e.stop();
       engine.current = null;
     };
-  }, [deckId, token]);
+  });
 
   const save = (next: DockSettings) => {
     settingsRef.current = next;

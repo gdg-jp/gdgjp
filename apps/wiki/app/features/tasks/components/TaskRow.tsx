@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { STATUSES, STATUS_CHIP, TYPES, TYPE_CHIP } from "../task-options";
 import AssigneeCell from "./AssigneeCell";
@@ -47,6 +47,8 @@ interface TaskRowProps {
   onDelete?: (taskId: string) => void;
 }
 
+const focusOnAttach = (element: HTMLInputElement | null) => element?.focus();
+
 export default function TaskRow({
   task,
   teams,
@@ -63,25 +65,10 @@ export default function TaskRow({
   const [titleDraft, setTitleDraft] = useState(task.title);
   const [editingDesc, setEditingDesc] = useState(false);
   const [descDraft, setDescDraft] = useState(task.description);
-  const titleInputRef = useRef<HTMLInputElement>(null);
-  const descInputRef = useRef<HTMLInputElement>(null);
   const skipTitleBlurRef = useRef(false);
 
-  useEffect(() => {
-    if (editingTitle) titleInputRef.current?.focus();
-  }, [editingTitle]);
-
-  useEffect(() => {
-    if (editingDesc) descInputRef.current?.focus();
-  }, [editingDesc]);
-
-  useEffect(() => {
-    if (!editingTitle) setTitleDraft(task.title);
-  }, [task.title, editingTitle]);
-
-  useEffect(() => {
-    if (!editingDesc) setDescDraft(task.description);
-  }, [task.description, editingDesc]);
+  if (!editingTitle && titleDraft !== task.title) setTitleDraft(task.title);
+  if (!editingDesc && descDraft !== task.description) setDescDraft(task.description);
 
   const statusOptions: DropdownOption[] = STATUSES.map((s) => ({
     value: s,
@@ -196,7 +183,7 @@ export default function TaskRow({
       <td className="break-words px-3 py-2 text-sm font-medium text-foreground">
         {editingTitle ? (
           <input
-            ref={titleInputRef}
+            ref={focusOnAttach}
             type="text"
             className="w-full rounded border border-ring px-1 py-0.5 text-sm font-medium text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
             value={titleDraft}
@@ -252,7 +239,7 @@ export default function TaskRow({
       <td className="break-words px-3 py-2 text-sm text-muted">
         {editingDesc ? (
           <input
-            ref={descInputRef}
+            ref={focusOnAttach}
             type="text"
             className="w-full rounded border border-ring px-1 py-0.5 text-sm text-muted focus:outline-none focus:ring-1 focus:ring-ring"
             value={descDraft}

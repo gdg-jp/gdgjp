@@ -60,8 +60,7 @@ export async function aeQuery(env: AeEnv, sql: string): Promise<AeRow[]> {
   }
 
   const url = `https://api.cloudflare.com/client/v4/accounts/${env.CF_ACCOUNT_ID}/analytics_engine/sql`;
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), QUERY_TIMEOUT_MS);
+  const signal = AbortSignal.timeout(QUERY_TIMEOUT_MS);
   let response: Response;
   try {
     response = await fetch(url, {
@@ -71,15 +70,13 @@ export async function aeQuery(env: AeEnv, sql: string): Promise<AeRow[]> {
         "Content-Type": "text/plain",
       },
       body: sql,
-      signal: controller.signal,
+      signal,
     });
   } catch (err) {
-    if (controller.signal.aborted) {
+    if (signal.aborted) {
       throw new Error(`Analytics Engine query timed out after ${QUERY_TIMEOUT_MS}ms`);
     }
     throw err;
-  } finally {
-    clearTimeout(timer);
   }
   if (!response.ok) {
     const text = await response.text().catch(() => "");

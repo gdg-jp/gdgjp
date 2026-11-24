@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useNow as useClock } from "@gdgjp/gdg-lib/react";
 import type { Timer } from "./protocol";
 import { timerRemaining } from "./room-state";
 
@@ -11,12 +11,7 @@ export function formatRemaining(ms: number): string {
 }
 
 export function useNow(intervalMs = 250): number {
-  const [now, setNow] = useState(() => Date.now());
-  useEffect(() => {
-    const timer = setInterval(() => setNow(Date.now()), intervalMs);
-    return () => clearInterval(timer);
-  }, [intervalMs]);
-  return now;
+  return useClock(intervalMs);
 }
 
 export function useRemaining(timer: Timer | undefined, clockOffset: number): number | null {

@@ -5,11 +5,17 @@ description: Model-check accounts.gdgs.jp's promise that a developer's OAuth cli
 
 # Verify Accounts client revocation
 
-Accounts lets an active chapter member create OAuth clients that skip consent. Migration
-0014 promises that such a client is available only while its owner belongs to at least one
-chapter with an active membership, and that losing the last one disables the client and
-deletes its tokens. A break leaves someone outside every chapter with a working client:
-people who sign in through it hand over their identity and chapter claims.
+Accounts lets an active chapter member create OAuth clients. Migration 0014 promises that
+such a client is available only while its owner belongs to at least one chapter with an
+active membership, and that losing the last one disables the client and deletes its tokens.
+A break leaves someone outside every chapter with a working client: people who sign in
+through it hand over their identity and chapter claims.
+
+Migration 0026 makes the promise hold for writes that were decided before the revocation
+and land after it. Creating or enabling a client is conditional on an active membership in
+the same statement. Disabling a client, or changing its scopes, deletes its tokens, pending
+codes, and grant-code records (migration 0025) in a trigger on `oauthClient`, and the token
+insert triggers of migration 0025 refuse a token whose record is gone.
 
 [model/clients.als](model/clients.als) is an Alloy 6 model of that promise. Every transition
 in it is one D1 statement or one D1 batch in `apps/accounts`, with the triggers inside the
@@ -21,9 +27,12 @@ the bounds below. It checks the model, not the TypeScript or the SQL.
 Run the check when you change any of these in `apps/accounts`:
 
 - `app/features/developer-apps/oauth-clients.server.ts`
-- `migrations/0014_disable_owned_clients_without_membership.sql`, or a new migration that
-  drops, replaces, or adds a trigger on `memberships`, or rebuilds `memberships`,
-  `oauthClient`, `oauthAccessToken`, or `oauthRefreshToken`
+- `migrations/0014_disable_owned_clients_without_membership.sql`,
+  `migrations/0025_developer_client_grants_outlive_sessions.sql`, or
+  `migrations/0026_developer_client_revocation_holds_for_late_writes.sql`, or a new
+  migration that drops, replaces, or adds a trigger on `memberships`, `oauthClient`,
+  `verification`, `oauthAccessToken`, or `oauthRefreshToken`, or rebuilds one of them or
+  `developerClientGrantCode`
 - `app/features/auth/auth.server.ts`, where it configures client registration
 - the version of `@better-auth/oauth-provider`
 
@@ -57,8 +66,9 @@ Each line is one check:
 
 - `ok    <name>: holds` means Alloy found no trace that breaks the property.
 - `ok    <name>: reachable` means a witness still exists: a token can work, a membership
-  loss can revoke, and an owner who returns can enable a client again. Without these, the
-  other checks could pass because nothing can happen.
+  loss can revoke, an owner who returns can enable a client again, and a new authorization
+  through that client works. Without these, the other checks could pass because nothing
+  can happen.
 - `open  <name>: finding A<n> still reproduces` means a recorded break of the product code
   is still there. The steps follow.
 - `FAIL` means the result differs from `coverage.json`.
@@ -76,12 +86,12 @@ Exit codes:
 | Check | Property | Harm when it breaks | Now |
 | --- | --- | --- | --- |
 | `EnabledClientHasMemberOwnerWhenSerial` | When requests do not overlap, an enabled developer client belongs to someone with an active membership. | Someone outside every chapter keeps a working client. | holds |
-| `EnabledClientHasMemberOwner` | The same, when requests may overlap. | Someone outside every chapter keeps a working client. | finding A1 |
-| `RevokedTokenStaysDeadWhenSerial` | When requests and sign-ins do not overlap, a token issued before its client's owner lost membership never works again. | A revoked grant works again without a new authorization. | holds |
-| `RevokedTokenStaysDead` | The same, when a sign-in may be in flight while other statements run. | A revoked grant works again without a new authorization. | finding A2 |
+| `EnabledClientHasMemberOwner` | The same, when requests may overlap. | Someone outside every chapter keeps a working client. | holds (was finding A1) |
+| `RevokedTokenStaysDeadWhenSerial` | When requests and sign-ins do not overlap, a token issued before its client was revoked (its owner lost membership or disabled it) never works again. | A revoked grant works again without a new authorization. | holds |
+| `RevokedTokenStaysDead` | The same, when a sign-in may be in flight while other statements run. | A revoked grant works again without a new authorization. | holds (was finding A2) |
 
-[references/findings.md](references/findings.md) tells A1 and A2 as steps and names the
-code behind each.
+[references/findings.md](references/findings.md) tells the fixed findings A1 and A2 as steps,
+how migration 0026 closed them, and what was seen while reading.
 
 ## Bounds and assumptions
 
@@ -99,17 +109,27 @@ The model assumes:
   list batch, and rows deleted by a chapter's foreign-key cascade. The cascade case rests
   on the migration's own statement of intent, not on a test.
 - Better Auth, at the version in `coverage.json`, refuses a disabled client at the token
-  endpoint, treats a disabled client's tokens as inactive, and inserts token rows in a
-  later statement than the one that reads the client. These were read in the installed
-  library, not executed.
+  endpoint, treats a disabled client's tokens as inactive, inserts token rows in a later
+  statement than the one that reads the client, and writes the code's identifier into
+  `authorizationCodeId` of every token, copying it through refresh rotations. These were
+  read in the installed library, not executed. The SQL side (the triggers refusing a token
+  whose grant record is gone) is replayed in
+  `apps/accounts/app/features/developer-apps/oauth-clients.server.revocation.test.ts`.
+- A token's grant-code record exists when the token endpoint reads its code. The model
+  grants it at that read, which allows at least every record the real trigger writes.
 
 It does not cover:
 
 - seeded first-party clients, which have no owner and are outside the triggers;
-- whether a grant outlives the browser sign-in that created it (migration 0023). Reading
-  the installed library shows that a refresh still succeeds after the session row expires
-  without being deleted. That is a design question, not an ordering of statements, so no
-  model covers it;
+- an authorization request that read the client before a revocation and inserts its code
+  after the owner rejoined and enabled the client again. The code is then recorded and can
+  be exchanged. The model treats that code as a new authorization, because the user is
+  authorizing at that moment through a client whose owner is a member; codes inserted while
+  the client is disabled are never recorded (migration 0026, tested in SQL);
+- scope narrowing as a property: a scope change purges grants in the model, but no check
+  states that tokens with the old scopes stop working;
+- whether a grant outlives the browser sign-in that created it. Since migration 0025 it
+  does by design: a developer client's grant is the user's consent, not the session;
 - who is allowed to change memberships, and the last-organizer rules;
 - Bearer tokens that wiki and connpass accept from any client through userinfo;
 - whether the TypeScript and SQL do what the model says. `coverage.json` ties the two
@@ -154,7 +174,8 @@ Replay the steps against the code. Each step names what a request read or wrote,
 
 To confirm a counterexample on real SQL, load `apps/accounts/schema.sql` into `node:sqlite`
 with `PRAGMA foreign_keys = ON` and run the statements from the code in the order of the
-steps. The schema dump includes the triggers. A1 and A2 were confirmed that way.
+steps. The schema dump includes the triggers. A1 and A2 were confirmed that way, and
+`oauth-clients.server.revocation.test.ts` keeps both replays as tests.
 
 ## A finding is fixed
 
@@ -173,11 +194,18 @@ property to fail. Each guard stands for production code:
 | --- | --- | --- |
 | `trigger-leaves-clients-enabled` | `UPDATE oauthClient SET disabled = 1` in the triggers | `EnabledClientHasMemberOwnerWhenSerial` |
 | `trigger-leaves-tokens` | the token `DELETE`s in the triggers | `RevokedTokenStaysDeadWhenSerial` |
-| `admit-without-membership` | the membership check in `requireDeveloperAccess` | `EnabledClientHasMemberOwnerWhenSerial` |
+| `membership-loss-leaves-grant-records` | the `developerClientGrantCode` `DELETE` of migration 0026's trigger, as the membership triggers fire it | `RevokedTokenStaysDead` |
+| `disable-leaves-grant-records` | the same `DELETE`, as `setDeveloperClientEnabled(false)` fires it | `RevokedTokenStaysDead` |
+| `create-without-membership` | `WHERE EXISTS` (active membership) on the client `INSERT` | `EnabledClientHasMemberOwner` |
+| `enable-without-membership` | the active-membership `EXISTS` on the enabling `UPDATE` | `EnabledClientHasMemberOwner` |
+
+The membership check in `requireDeveloperAccess` has no mutation. Since the writes check
+membership themselves, removing it breaks no property in the model; it still keeps a
+non-member out of the console.
 
 ## Coverage record
 
-[coverage.json](coverage.json) holds the SHA-256 of two source files, the call-site counts,
+[coverage.json](coverage.json) holds the SHA-256 of four source files, the call-site counts,
 the library version, the anchors, the expected result of each check, and `syncedCommit`:
 the commit at which the model was last confirmed to describe the code. Use
 `/maintain-formal-verification-skill` when earlier changes skipped this review.

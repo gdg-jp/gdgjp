@@ -79,7 +79,7 @@ function seed(raw: DatabaseSync) {
     VALUES
     ('c1', 'dev-app', 'Dev App', 'https://dev.example/', '[]', 'owner', 0, 1,
      '["authorization_code","refresh_token"]'),
-    ('c2', 'dev-other', 'Other App', 'javascript:alert(1)', '[]', 'owner', 1, 1,
+    ('c2', 'dev-other', 'Other App', 'javascript:alert(1)', '[]', 'owner', 0, 1,
      '["authorization_code","refresh_token"]'),
     ('c3', 'fp-wiki', 'Wiki', 'https://wiki.example/', '[]', NULL, 0, 1,
      '["authorization_code","refresh_token"]'),
@@ -739,7 +739,7 @@ describe("listConnectedApps", () => {
         scopes: ["openid", "offline_access"],
         grantedAt: null,
         lastTokenAt: "2026-11-05T00:00:00.000Z",
-        disabled: true,
+        disabled: false,
       },
       {
         clientId: "dev-app",
@@ -750,6 +750,31 @@ describe("listConnectedApps", () => {
         grantedAt: "2026-11-02T00:00:00.000Z",
         lastTokenAt: "2026-11-04T00:00:00.000Z",
         disabled: false,
+      },
+    ]);
+  });
+
+  it("keeps listing a consented app whose owner disabled it, without its tokens", async () => {
+    const { raw, db } = migratedDb();
+    seed(raw);
+    addConsent(raw, {
+      id: "consent-1",
+      clientId: "dev-other",
+      userId: "user-1",
+      scopes: JSON.stringify(["openid"]),
+      createdAt: "2026-11-02T00:00:00.000Z",
+    });
+    addTokens(raw, { id: "other", clientId: "dev-other", userId: "user-1" });
+
+    raw.exec(`UPDATE "oauthClient" SET disabled = 1 WHERE "clientId" = 'dev-other'`);
+
+    await expect(listConnectedApps(db, "user-1", NOW)).resolves.toMatchObject([
+      {
+        clientId: "dev-other",
+        scopes: ["openid"],
+        grantedAt: "2026-11-02T00:00:00.000Z",
+        lastTokenAt: null,
+        disabled: true,
       },
     ]);
   });

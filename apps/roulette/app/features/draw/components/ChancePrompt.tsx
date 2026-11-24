@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useCallback, useRef } from "react";
 import { reducedMotion } from "../feedback";
 import type { CutInLevel } from "../staging";
 import { PachiText } from "./PachiText";
@@ -23,28 +23,30 @@ export function ChancePrompt({
   taps: number;
   onPress: () => void;
 }) {
-  const root = useRef<HTMLDivElement>(null);
   const button = useRef<HTMLButtonElement>(null);
   const ripple = useRef<HTMLSpanElement>(null);
   const countdown = useRef<SVGCircleElement>(null);
 
-  useEffect(() => {
-    if (!prompt.key) return;
-    button.current?.focus({ preventScroll: true });
-    if (reducedMotion()) return;
-    root.current?.animate(
-      [
-        { opacity: 0, transform: "translateY(48px) scale(0.7)" },
-        { opacity: 1, transform: "none" },
-      ],
-      { duration: 280, easing: "cubic-bezier(0.2, 0.8, 0.3, 1.3)" },
-    );
-    if (prompt.timeout)
-      countdown.current?.animate([{ strokeDashoffset: 0 }, { strokeDashoffset: RING }], {
-        duration: prompt.timeout,
-        fill: "forwards",
-      });
-  }, [prompt.key, prompt.timeout]);
+  const root = useCallback(
+    (element: HTMLDivElement | null) => {
+      if (!element || !prompt.key) return;
+      button.current?.focus({ preventScroll: true });
+      if (reducedMotion()) return;
+      element.animate(
+        [
+          { opacity: 0, transform: "translateY(48px) scale(0.7)" },
+          { opacity: 1, transform: "none" },
+        ],
+        { duration: 280, easing: "cubic-bezier(0.2, 0.8, 0.3, 1.3)" },
+      );
+      if (prompt.timeout)
+        countdown.current?.animate([{ strokeDashoffset: 0 }, { strokeDashoffset: RING }], {
+          duration: prompt.timeout,
+          fill: "forwards",
+        });
+    },
+    [prompt.key, prompt.timeout],
+  );
 
   const press = () => {
     onPress();

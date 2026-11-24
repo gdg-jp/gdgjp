@@ -1,0 +1,26 @@
+{
+  "frameworkModules": [
+    {
+      "path": "packages/gdg-lib/src/react/",
+      "reason": "Shared React hooks that own every effect and timer lifecycle for product code; each hook has DOM tests beside it."
+    },
+    {
+      "path": "packages/gdg-lib/src/timing.ts",
+      "reason": "Shared cancellable delay for non-React code; it owns the only promise-wrapped timer."
+    }
+  ],
+  "allowances": [
+    {
+      "path": "apps/connpass/app/features/connpass/ui/event-read.ts",
+      "api": "setTimeout",
+      "count": 1,
+      "reason": "Runs inside Playwright page.evaluate on connpass.com, where the function is serialized into the remote page and cannot import shared modules; it polls the page's own DOM."
+    },
+    {
+      "path": "apps/connpass/app/features/connpass/ui/event-widgets.ts",
+      "api": "setTimeout",
+      "count": 2,
+      "reason": "Runs inside Playwright page.evaluate on connpass.com, waiting for connpass's own jQuery handlers to bind; the serialized function cannot import shared modules."
+    }
+  ]
+}

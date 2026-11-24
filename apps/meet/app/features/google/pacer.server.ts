@@ -1,3 +1,5 @@
+import { delay } from "@gdgjp/gdg-lib/timing";
+
 export const STATS_MIN_INTERVAL_MS = 200;
 
 export const STATS_MAX_CALLS_PER_JOB = 100;
@@ -14,13 +16,9 @@ export type ApiPacer = {
   usedCalls: () => number;
 };
 
-function defaultSleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
 export function createPacer(options: PacerOptions): ApiPacer {
   const nowMs = options.nowMs ?? (() => Date.now());
-  const sleep = options.sleep ?? defaultSleep;
+  const sleep = options.sleep ?? delay;
   const minIntervalMs = Math.max(0, options.minIntervalMs);
   const maxCalls = Math.max(0, Math.floor(options.maxCalls));
 

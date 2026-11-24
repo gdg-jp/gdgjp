@@ -28,9 +28,7 @@ interface TokenResponse {
 const TOKEN_TIMEOUT_MS = 10_000;
 
 function fetchWithTimeout(url: string, init: RequestInit, timeoutMs: number): Promise<Response> {
-  const controller = new AbortController();
-  const id = setTimeout(() => controller.abort(), timeoutMs);
-  return fetch(url, { ...init, signal: controller.signal }).finally(() => clearTimeout(id));
+  return fetch(url, { ...init, signal: AbortSignal.timeout(timeoutMs) });
 }
 
 export function hasRequiredDiscordOauthScopes(grantedScopes: string | null | undefined): boolean {

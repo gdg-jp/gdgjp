@@ -1,10 +1,10 @@
 import { toast } from "@gdgjp/design-system";
+import { useMountEffect, useValueChange } from "@gdgjp/gdg-lib/react";
 import {
   type ReactNode,
   createContext,
   useCallback,
   useContext,
-  useEffect,
   useMemo,
   useRef,
   useState,
@@ -98,12 +98,12 @@ function TrackController({ track, children }: { track: string; children: ReactNo
   const [cues, setCues] = useState<Record<string, number>>({});
   const [busy, setBusy] = useState<Set<string>>(new Set());
 
-  useEffect(() => setCues(readCues()), []);
+  useMountEffect(() => setCues(readCues()));
 
   const { setUploaded } = useCatalog();
-  useEffect(() => {
-    if (room.uploaded) setUploaded(room.uploaded);
-  }, [room.uploaded, setUploaded]);
+  useValueChange(room.uploaded, (uploaded) => {
+    if (uploaded) setUploaded(uploaded);
+  });
 
   const primaryRef = useRef<PlayerView | null>(null);
   primaryRef.current = room.primary;

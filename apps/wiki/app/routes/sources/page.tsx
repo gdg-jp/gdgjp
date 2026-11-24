@@ -1,5 +1,6 @@
 import { Button } from "@gdgjp/design-system";
-import { Suspense, useEffect, useMemo, useState } from "react";
+import { useInterval } from "@gdgjp/gdg-lib/react";
+import { Suspense, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Await, useFetcher, useLoaderData, useRevalidator, useSearchParams } from "react-router";
 import type { ActionFunctionArgs, LoaderFunctionArgs, MetaFunction } from "react-router";
@@ -93,11 +94,7 @@ function SourcesContent({
     [sources],
   );
 
-  useEffect(() => {
-    if (pendingCount === 0) return;
-    const timer = setInterval(() => revalidator.revalidate(), 3000);
-    return () => clearInterval(timer);
-  }, [pendingCount, revalidator]);
+  useInterval(() => revalidator.revalidate(), pendingCount === 0 ? null : 3000);
 
   return (
     <>

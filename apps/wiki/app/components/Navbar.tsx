@@ -17,7 +17,7 @@ import {
   gdgAppLinks,
 } from "@gdgjp/gdg-lib/ui";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   Form,
@@ -182,12 +182,13 @@ export default function Navbar({
   const [searchParams] = useSearchParams();
   const currentQuery = searchParams.get("q") ?? "";
   const [queryInput, setQueryInput] = useState(currentQuery);
+  const [syncedQuery, setSyncedQuery] = useState(currentQuery);
+  if (syncedQuery !== currentQuery) {
+    setSyncedQuery(currentQuery);
+    setQueryInput(currentQuery);
+  }
   const { space: spaceParam } = useParams();
   const searchAction = spaceParam ? spacePath(spaceParam, "search") : "/search";
-
-  useEffect(() => {
-    setQueryInput(currentQuery);
-  }, [currentQuery]);
 
   return (
     <header className="fixed top-0 right-0 left-0 z-50 flex h-14 items-center gap-2 border-b border-border bg-surface px-3 sm:gap-4 sm:px-4">

@@ -1,0 +1,312 @@
+{
+  "schemaVersion": 1,
+  "scope": "Local sns journeys (Orca Browser and HTTP) from features/README.md",
+  "sourceBaseCommit": "1c0569f3 (working tree with uncommitted changes; exact file hashes are in each run.json)",
+  "journeys": [
+    {
+      "id": "sns-access-signed-out",
+      "map": "features/access.md",
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T15:39:38.536073+00:00",
+      "evidence": [
+        "local_data/pstack/sns/2026-11-24T11-51-58-280Z-f9536e73/http/signed-out-accounts.txt",
+        "local_data/pstack/sns/2026-11-24T11-51-58-280Z-f9536e73/http/oidc-signin.txt"
+      ],
+      "result": "/posts reaches Accounts /signin with client_id=sns, the 6165 callback, openid, state and S256; with the Accounts session OIDC completes and /api/auth/me returns platform-oidc@test.local."
+    },
+    {
+      "id": "sns-access-roles",
+      "map": "features/contributors.md",
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T15:39:38.536073+00:00",
+      "evidence": [
+        "local_data/pstack/sns/2026-11-24T11-51-58-280Z-f9536e73/http/roles-orca.txt",
+        "local_data/pstack/sns/2026-11-24T11-51-58-280Z-f9536e73/http/roles-contributor.txt"
+      ],
+      "result": "Member to /no-chapter; contributor sees posts and X accounts but not Contributors/album and gets 403 on organizer actions; guest sees GDG Chapter 1; admin sees Contributors, not the album, and gets 403 on album save."
+    },
+    {
+      "id": "sns-chapter-switch",
+      "map": "features/access.md",
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T15:39:38.536073+00:00",
+      "evidence": [
+        "local_data/pstack/sns/2026-11-24T11-51-58-280Z-f9536e73/http/chapter-switch.txt"
+      ],
+      "result": "Switch to GDG Empty Chapter keeps /posts, label changes, sns-chapter=3; switching to chapter 2 is 403."
+    },
+    {
+      "id": "sns-signout",
+      "map": "features/access.md",
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T15:39:38.536073+00:00",
+      "evidence": [
+        "local_data/pstack/sns/2026-11-24T11-51-58-280Z-f9536e73/http/signout.txt"
+      ],
+      "result": "Sign out ends on Accounts sign-in; /api/auth/me null; /posts redirects to sign-in."
+    },
+    {
+      "id": "sns-posts-list",
+      "map": "features/posts.md",
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T15:39:38.536073+00:00",
+      "evidence": [
+        "local_data/pstack/sns/2026-11-24T08-21-42-727Z-1a614be7/http/posts-list.txt"
+      ],
+      "result": "Failed fixture with reason and 再試行; published and other-chapter posts hidden."
+    },
+    {
+      "id": "sns-posts-empty",
+      "map": "features/posts.md",
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T15:39:38.536073+00:00",
+      "evidence": [
+        "local_data/pstack/sns/2026-11-24T11-51-58-280Z-f9536e73/http/chapter-switch.txt"
+      ],
+      "result": "Chapter 3 shows 予約投稿はまだありません。 and a disabled composer asking to authorize an X account."
+    },
+    {
+      "id": "sns-schedule-create",
+      "map": "features/posts.md",
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T15:39:38.536073+00:00",
+      "evidence": [
+        "local_data/pstack/sns/2026-11-24T11-51-58-280Z-f9536e73/d1/p1.json"
+      ],
+      "result": "2099 post stored scheduled, no attempts."
+    },
+    {
+      "id": "sns-schedule-edit",
+      "map": "features/posts.md",
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T15:39:38.536073+00:00",
+      "evidence": [
+        "local_data/pstack/sns/2026-11-24T11-51-58-280Z-f9536e73/d1/p1-edited.json"
+      ],
+      "result": "Cancel returns to /posts; text and time updated."
+    },
+    {
+      "id": "sns-schedule-delete",
+      "map": "features/posts.md",
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T15:39:38.536073+00:00",
+      "evidence": [
+        "local_data/pstack/sns/2026-11-24T11-51-58-280Z-f9536e73/d1/p1-deleted.json"
+      ],
+      "result": "Dialog, cancel, delete; row gone."
+    },
+    {
+      "id": "sns-post-locked",
+      "map": "features/posts.md",
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T15:39:38.536073+00:00",
+      "evidence": [
+        "local_data/pstack/sns/2026-11-24T11-51-58-280Z-f9536e73/d1/locked.json"
+      ],
+      "result": "Save and delete of a published post show the locked messages; row unchanged."
+    },
+    {
+      "id": "sns-post-isolation",
+      "map": "features/posts.md",
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T15:39:38.536073+00:00",
+      "evidence": [
+        "local_data/pstack/sns/2026-11-24T11-51-58-280Z-f9536e73/d1/other.json"
+      ],
+      "result": "Other chapter edit 403; add_media 404; row unchanged."
+    },
+    {
+      "id": "sns-media-composer",
+      "map": "features/media.md",
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T15:39:38.536073+00:00",
+      "evidence": [
+        "local_data/pstack/sns/2026-11-24T11-51-58-280Z-f9536e73/d1/media2.json",
+        "local_data/pstack/sns/2026-11-24T11-51-58-280Z-f9536e73/http/r2-bytes.txt",
+        "local_data/pstack/sns/2026-11-24T11-51-58-280Z-f9536e73/http/media-access.txt"
+      ],
+      "result": "Image with alt text stored (99 bytes in R2); organizer 200, other chapter 404, anonymous 302."
+    },
+    {
+      "id": "sns-media-photo-required",
+      "map": "features/media.md",
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T15:39:38.536073+00:00",
+      "evidence": [
+        "local_data/pstack/sns/2026-11-24T11-51-58-280Z-f9536e73/d1/pr-after.json",
+        "local_data/pstack/sns/2026-11-24T11-51-58-280Z-f9536e73/d1/pr-removed.json"
+      ],
+      "result": "Photo-required post waits; adding the photo in the editor makes it scheduled with no attempts; removing returns it to waiting_for_photo. The per-card hidden file input could not be targeted by Orca, so the editor path was used."
+    },
+    {
+      "id": "sns-x-accounts-list",
+      "map": "features/x-accounts.md",
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T15:39:38.536073+00:00",
+      "evidence": [
+        "local_data/pstack/sns/2026-11-24T11-51-58-280Z-f9536e73/http/x-accounts.txt"
+      ],
+      "result": "Chapter-1 accounts listed (CLI-revoked one gone), chapter-2 absent; chapter 3 shows no accounts."
+    },
+    {
+      "id": "sns-x-revoke",
+      "map": "features/x-accounts.md",
+      "status": "FAILED",
+      "observedAt": "2026-11-24T15:39:38.536073+00:00",
+      "evidence": [
+        "local_data/pstack/sns/2026-11-24T11-51-58-280Z-f9536e73/http/revoke-network.txt",
+        "local_data/pstack/sns/2026-11-24T11-51-58-280Z-f9536e73/d1/revoked3.json"
+      ],
+      "result": "Defect: in the 解除 dialog the ID check enables 削除する correctly, but neither clicking it nor pressing Enter sends a request; xacc-verify-revoke stays active. HTTP revoke with a wrong id returns 400."
+    },
+    {
+      "id": "sns-x-connect",
+      "map": "features/x-accounts.md",
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T15:39:38.536073+00:00",
+      "evidence": [
+        "local_data/pstack/sns/2026-11-24T11-51-58-280Z-f9536e73/d1/oauthtx.json"
+      ],
+      "result": "302 to the loopback authorize URL with sns-verify-x-client, the callback, scopes, state and S256; transaction stored; callback without params 400."
+    },
+    {
+      "id": "sns-contributors-add",
+      "map": "features/contributors.md",
+      "status": "FAILED",
+      "observedAt": "2026-11-24T15:39:38.536073+00:00",
+      "evidence": [
+        "local_data/pstack/sns/2026-11-24T11-51-58-280Z-f9536e73/http/contrib-candidates.txt",
+        "local_data/pstack/sns/2026-11-24T11-51-58-280Z-f9536e73/http/contrib-add-error-page.txt"
+      ],
+      "result": "Defect: typing in the candidate search calls /api/contributor-candidates, which returns 500 (ClaimsUnavailableError no_linked_account under dev sign-in) and replaces Settings with an Application Error page."
+    },
+    {
+      "id": "sns-contributors-remove",
+      "map": "features/contributors.md",
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T15:39:38.536073+00:00",
+      "evidence": [
+        "local_data/pstack/sns/2026-11-24T11-51-58-280Z-f9536e73/d1/contrib-after.json",
+        "local_data/pstack/sns/2026-11-24T11-51-58-280Z-f9536e73/http/contrib-removed.txt"
+      ],
+      "result": "削除 removes the contributor; that user then goes to /no-chapter; empty candidate query returns []."
+    },
+    {
+      "id": "sns-photos-album",
+      "map": "features/google-photos.md",
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T15:39:38.536073+00:00",
+      "evidence": [
+        "local_data/pstack/sns/2026-11-24T11-51-58-280Z-f9536e73/http/album-bad.txt",
+        "local_data/pstack/sns/2026-11-24T11-51-58-280Z-f9536e73/d1/album1.json",
+        "local_data/pstack/sns/2026-11-24T11-51-58-280Z-f9536e73/d1/album2.json"
+      ],
+      "result": "Non-Google URL is refused (no row) but the user is left on a blank /settings/google-photos page (confirmed defect); valid album monitors every 5 minutes; stop and resume work."
+    },
+    {
+      "id": "sns-photos-import",
+      "map": "features/google-photos.md",
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T15:39:38.536073+00:00",
+      "evidence": [
+        "local_data/pstack/sns/2026-11-24T11-51-58-280Z-f9536e73/http/photos-import.txt",
+        "local_data/pstack/sns/2026-11-24T11-51-58-280Z-f9536e73/d1/gpm.json",
+        "local_data/pstack/sns/2026-11-24T11-51-58-280Z-f9536e73/d1/runs.json"
+      ],
+      "result": "Claim 401 without token, lease, known, media 201 then 409 duplicate, complete; settings shows imported (1 件追加)."
+    },
+    {
+      "id": "sns-photos-library",
+      "map": "features/google-photos.md",
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T15:39:38.536073+00:00",
+      "evidence": [
+        "local_data/pstack/sns/2026-11-24T11-51-58-280Z-f9536e73/d1/libpost.json",
+        "local_data/pstack/sns/2026-11-24T11-51-58-280Z-f9536e73/d1/libB.json"
+      ],
+      "result": "Empty library for a waiting post, 404 without/other post; after import, selecting the photo attaches a 99-byte copy and the post becomes scheduled."
+    },
+    {
+      "id": "sns-publish-failsafe",
+      "map": "features/publishing.md",
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T15:39:38.536073+00:00",
+      "evidence": [
+        "local_data/pstack/sns/2026-11-24T11-51-58-280Z-f9536e73/d1/retry.json",
+        "local_data/pstack/sns/2026-11-24T11-51-58-280Z-f9536e73/d1/imm.json",
+        "local_data/pstack/sns/2026-11-24T11-51-58-280Z-f9536e73/d1/nosend.json"
+      ],
+      "result": "再試行 and 今すぐ投稿 both fail with Invalid encrypted secret, one failed attempt each, no published ids, no api.x.com in the log."
+    },
+    {
+      "id": "sns-cli-auth",
+      "map": "features/cli-api.md",
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T15:39:38.536073+00:00",
+      "evidence": [
+        "local_data/pstack/sns/2026-11-24T11-51-58-280Z-f9536e73/http/cli-battery.json"
+      ],
+      "result": "401/401/400/403/403/405/405/415 as mapped."
+    },
+    {
+      "id": "sns-cli-posts",
+      "map": "features/cli-api.md",
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T15:39:38.536073+00:00",
+      "evidence": [
+        "local_data/pstack/sns/2026-11-24T11-51-58-280Z-f9536e73/http/cli-battery.json"
+      ],
+      "result": "List, filter, cursor, create 201, invalid condition/account 400, get, patch, 409 not_editable, other chapter 404, delete."
+    },
+    {
+      "id": "sns-cli-media",
+      "map": "features/cli-api.md",
+      "status": "FAILED",
+      "observedAt": "2026-11-24T15:39:38.536073+00:00",
+      "evidence": [
+        "local_data/pstack/sns/2026-11-24T11-51-58-280Z-f9536e73/http/cli-battery.json"
+      ],
+      "result": "Defect: uploading without sortOrder returns 500 with a D1 UNIQUE constraint error instead of 400. Upload with sortOrder (201, 99 bytes), delete, and 404 after delete pass."
+    },
+    {
+      "id": "sns-cli-contributors",
+      "map": "features/cli-api.md",
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T15:39:38.536073+00:00",
+      "evidence": [
+        "local_data/pstack/sns/2026-11-24T11-51-58-280Z-f9536e73/http/cli-battery.json",
+        "local_data/pstack/sns/2026-11-24T11-51-58-280Z-f9536e73/d1/cli-contrib.json"
+      ],
+      "result": "Organizer-only list; add grants member access; remove revokes it."
+    },
+    {
+      "id": "sns-cli-x-accounts",
+      "map": "features/cli-api.md",
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T15:39:38.536073+00:00",
+      "evidence": [
+        "local_data/pstack/sns/2026-11-24T11-51-58-280Z-f9536e73/http/cli-battery.json",
+        "local_data/pstack/sns/2026-11-24T11-51-58-280Z-f9536e73/d1/cli-revoke.json"
+      ],
+      "result": "No token fields; id mismatch 400; other chapter 404; revoke of xacc-verify-cli-revoke."
+    },
+    {
+      "id": "sns-cli-publish-failsafe",
+      "map": "features/publishing.md",
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T15:39:38.536073+00:00",
+      "evidence": [
+        "local_data/pstack/sns/2026-11-24T11-51-58-280Z-f9536e73/http/cli-battery.json"
+      ],
+      "result": "409 already_published, 409 missing_required_media, 502 failed Invalid encrypted secret, 401, 404."
+    }
+  ],
+  "outsideTheMap": [
+    "Real X OAuth completion, posting, media upload and tag-handle resolution; the cron (GitHub dispatch); the Google Photos importer workflow; link previews.",
+    "sns-tag-handle-orphan: confirmed. POST /api/cli/v1/posts with tagHandles returns 500 Invalid encrypted secret while the post row remains with status scheduled (publishable when due). Separately, the composer's タグ付けするユーザー field lives in a dialog that unmounts on close, so handles typed there are silently dropped."
+  ],
+  "exclusions": [
+    "Real external services (X, Discord, connpass.com, Luma, Google, Gemini, Resend, Vercel)",
+    "Deployed Cloudflare behavior"
+  ]
+}

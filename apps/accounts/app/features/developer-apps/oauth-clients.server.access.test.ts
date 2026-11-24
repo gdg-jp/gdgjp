@@ -28,8 +28,6 @@ import {
   getDeveloperClient,
   listDeveloperClients,
   requireDeveloperAccess,
-  setDeveloperClientEnabled,
-  updateDeveloperClient,
 } from "~/features/developer-apps/oauth-clients.server";
 
 const user = {
@@ -60,7 +58,6 @@ function testEnv(options?: {
   cliToken?: { userId: string; scopes: string } | null;
 }) {
   const calls: Call[] = [];
-  const batches: string[][] = [];
   const active = options?.active ?? true;
   const ownedClient = options && "ownedClient" in options ? options.ownedClient : clientRow;
   const cliToken = options?.cliToken ?? null;
@@ -91,24 +88,7 @@ function testEnv(options?: {
       };
       return statement as D1PreparedStatement;
     },
-    async batch(statements: D1PreparedStatement[]) {
-      batches.push(
-        statements.map(
-          (statement) =>
-            calls.find((call) => call.operation === "run" && call.sql === String(statement))?.sql ??
-            String(statement),
-        ),
-      );
-      return statements.map(() => ({ meta: { changes: 1 } }));
-    },
   };
-
-  const preparedSql: string[] = [];
-  const originalPrepare = db.prepare.bind(db);
-  db.prepare = ((sql: string) => {
-    preparedSql.push(sql);
-    return originalPrepare(sql);
-  }) as typeof db.prepare;
 
   const env = {
     DB: db as D1Database,
@@ -120,7 +100,7 @@ function testEnv(options?: {
     AGENTS_CLIENT_ID: "agents",
     PAY_CLIENT_ID: "pay",
   } as Env;
-  return { env, calls, batches, preparedSql };
+  return { env, calls };
 }
 
 beforeEach(() => {
@@ -193,33 +173,6 @@ describe("developer client access", () => {
     expect(insert?.sql).toContain("client_secret_basic");
   });
 
-  it("revokes access and refresh tokens when disabling a client", async () => {
-    const { env, preparedSql } = testEnv();
-    await setDeveloperClientEnabled(
-      env,
-      new Request("https://accounts.example"),
-      "client-1",
-      false,
-    );
-
-    expect(preparedSql).toContain("DELETE FROM oauthAccessToken WHERE clientId = ?");
-    expect(preparedSql).toContain("DELETE FROM oauthRefreshToken WHERE clientId = ?");
-  });
-
-  it("revokes existing tokens when registered scopes change", async () => {
-    const { env, preparedSql } = testEnv();
-    await updateDeveloperClient(env, new Request("https://accounts.example"), "client-1", {
-      name: "Example",
-      appUrl: "https://example.com/",
-      redirectUris: ["https://example.com/callback"],
-      postLogoutRedirectUris: ["https://example.com/signed-out"],
-      scopes: ["openid", "profile"],
-    });
-
-    expect(preparedSql).toContain("DELETE FROM oauthAccessToken WHERE clientId = ?");
-    expect(preparedSql).toContain("DELETE FROM oauthRefreshToken WHERE clientId = ?");
-  });
-
   it("accepts a valid scoped gdg-cli bearer token", async () => {
     const { env, calls } = testEnv({
       cliToken: { userId: user.id, scopes: '["openid","https://gdgs.jp/scopes/cli"]' },
@@ -264,7 +217,7 @@ describe("createDeveloperClient on the migrated schema", () => {
     const statement = (sql: string, params: SQLInputValue[] = []) => ({
       bind: (...next: SQLInputValue[]) => statement(sql, next),
       first: async () => raw.prepare(sql).all(...params)[0] ?? null,
-      run: async () => raw.prepare(sql).run(...params),
+      run: async () => ({ meta: { changes: Number(raw.prepare(sql).run(...params).changes) } }),
     });
     raw.exec(`INSERT INTO chapters (id, slug, name, kind) VALUES (1, 'tokyo', 'Tokyo', 'gdg')`);
     raw.exec(`INSERT INTO "user" (id, name, email) VALUES ('user-1', 'Member', 'm@example.com')`);

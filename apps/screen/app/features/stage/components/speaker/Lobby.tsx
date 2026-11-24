@@ -1,5 +1,6 @@
 import { Button, Input } from "@gdgjp/design-system";
-import { type FormEvent, useEffect, useRef, useState } from "react";
+import { useClientValue } from "@gdgjp/gdg-lib/react";
+import { type FormEvent, useRef, useState } from "react";
 import { Help } from "~/components/Help";
 import { LevelBars } from "~/components/LevelBars";
 import {
@@ -33,8 +34,7 @@ export function Lobby({
 }) {
   const { t } = useI18n();
   const level = useLevel(media.mic, media.micOn);
-  const [tabAudio, setTabAudio] = useState(true);
-  useEffect(() => setTabAudio(canShareTabAudio(navigator.userAgent)), []);
+  const tabAudio = useClientValue(() => canShareTabAudio(navigator.userAgent), true);
   const [nameError, setNameError] = useState(false);
   const nameRef = useRef<HTMLInputElement>(null);
   const submit = (e: FormEvent) => {

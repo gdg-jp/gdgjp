@@ -15,7 +15,8 @@ import {
   Input,
   toast,
 } from "@gdgjp/design-system";
-import { type ReactNode, useEffect, useState } from "react";
+import { useValueChange } from "@gdgjp/gdg-lib/react";
+import { type ReactNode, useState } from "react";
 import { useFetcher } from "react-router";
 import { Choice } from "~/components/Choice";
 
@@ -132,9 +133,9 @@ export function RenameDeckDialog({
   onOpenChange: (open: boolean) => void;
 }) {
   const fetcher = useFetcher<{ ok: boolean }>();
-  useEffect(() => {
-    if (fetcher.state === "idle" && fetcher.data?.ok) onOpenChange(false);
-  }, [fetcher.state, fetcher.data, onOpenChange]);
+  useValueChange(fetcher.data, (data) => {
+    if (data?.ok) onOpenChange(false);
+  });
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="dk-dialog">

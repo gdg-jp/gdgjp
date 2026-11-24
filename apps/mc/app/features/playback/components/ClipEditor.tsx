@@ -22,6 +22,7 @@ import {
   Textarea,
   toast,
 } from "@gdgjp/design-system";
+import { useMountEffect } from "@gdgjp/gdg-lib/react";
 import { type ReactNode, createContext, useContext, useEffect, useRef, useState } from "react";
 import { fixNotation, segmentsFromLines, splitPhrases } from "~/features/clips/align";
 import { type AudioAnalysis, analyzeAudio } from "~/features/clips/analyze-audio";
@@ -116,15 +117,12 @@ function EditorBody({ mode, onDone }: { mode: EditorMode; onDone: () => void }) 
       .catch(() => null);
   }, [editing]);
 
-  useEffect(
-    () => () => {
-      const id = pendingId.current;
-      if (id && !committed.current) {
-        void fetch(`/api/clips/${id}`, { method: "DELETE", keepalive: true });
-      }
-    },
-    [],
-  );
+  useMountEffect(() => () => {
+    const id = pendingId.current;
+    if (id && !committed.current) {
+      void fetch(`/api/clips/${id}`, { method: "DELETE", keepalive: true });
+    }
+  });
 
   const onFile = async (picked: File | undefined) => {
     if (!picked) return;

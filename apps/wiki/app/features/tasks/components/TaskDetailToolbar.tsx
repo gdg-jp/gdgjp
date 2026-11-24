@@ -1,4 +1,5 @@
-import { Suspense, useEffect, useRef, useState } from "react";
+import { useEventListener } from "@gdgjp/gdg-lib/react";
+import { Suspense, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Await, Link, useFetcher } from "react-router";
 import Tooltip from "~/components/Tooltip";
@@ -13,9 +14,11 @@ function TaskStarButton({ pageId, initialStarred }: { pageId: string; initialSta
   const [currentStarred, setCurrentStarred] = useState(initialStarred);
   const optimisticStarred = favFetcher.state !== "idle" ? !currentStarred : currentStarred;
 
-  useEffect(() => {
+  const [syncedStarred, setSyncedStarred] = useState(initialStarred);
+  if (syncedStarred !== initialStarred) {
+    setSyncedStarred(initialStarred);
     setCurrentStarred(initialStarred);
-  }, [initialStarred]);
+  }
 
   const starStyle = optimisticStarred
     ? { color: "var(--color-feedback-warning-solid)" }
@@ -54,9 +57,11 @@ function MobileTaskStarButton({
   const [currentStarred, setCurrentStarred] = useState(initialStarred);
   const optimisticStarred = favFetcher.state !== "idle" ? !currentStarred : currentStarred;
 
-  useEffect(() => {
+  const [syncedStarred, setSyncedStarred] = useState(initialStarred);
+  if (syncedStarred !== initialStarred) {
+    setSyncedStarred(initialStarred);
     setCurrentStarred(initialStarred);
-  }, [initialStarred]);
+  }
 
   const starStyle = optimisticStarred
     ? { color: "var(--color-feedback-warning-solid)" }
@@ -105,14 +110,11 @@ export function TaskDetailToolbar({
   const [moreOpen, setMoreOpen] = useState(false);
   const moreRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    if (!moreOpen) return;
-    const handler = (e: MouseEvent) => {
-      if (moreRef.current && !moreRef.current.contains(e.target as Node)) setMoreOpen(false);
-    };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, [moreOpen]);
+  useEventListener("document", "mousedown", (e) => {
+    if (moreOpen && moreRef.current && !moreRef.current.contains(e.target as Node)) {
+      setMoreOpen(false);
+    }
+  });
 
   return (
     <div className="flex items-center justify-end gap-2 border-b border-border px-4 py-2 md:px-10">

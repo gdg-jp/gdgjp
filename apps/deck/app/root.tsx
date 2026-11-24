@@ -1,6 +1,6 @@
 import { ThemeProvider, Toaster, TooltipProvider } from "@gdgjp/design-system";
-import { installSignedOutReload } from "@gdgjp/gdg-lib/auth/signed-out-reload";
-import { type ReactNode, useEffect } from "react";
+import { useSignedOutReload } from "@gdgjp/gdg-lib/auth/signed-out-reload";
+import type { ReactNode } from "react";
 import {
   Links,
   Meta,
@@ -43,7 +43,7 @@ export function Layout({ children }: { children: ReactNode }) {
 }
 
 export default function App() {
-  useEffect(() => installSignedOutReload(), []);
+  useSignedOutReload();
   return (
     <ThemeProvider forcedTheme="dark" defaultTheme="dark" storageKey="deck-theme">
       <TooltipProvider delayDuration={300}>

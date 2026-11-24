@@ -1,4 +1,5 @@
 import { IconButton } from "@gdgjp/design-system";
+import { useClientValue, useEventListener } from "@gdgjp/gdg-lib/react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router";
 import { Help } from "~/components/Help";
@@ -59,7 +60,14 @@ export async function loader({ params, request, context }: Route.LoaderArgs) {
 
 const TAB_KEY = "screen-op-tab";
 
+let cachedTabId: string | undefined;
+
 function tabId(): string {
+  cachedTabId ??= readTabId();
+  return cachedTabId;
+}
+
+function readTabId(): string {
   try {
     const existing = sessionStorage.getItem(TAB_KEY);
     if (existing) return existing;
@@ -71,41 +79,33 @@ function tabId(): string {
   }
 }
 
+function isTyping(e: KeyboardEvent): boolean {
+  return (
+    e.target instanceof HTMLElement &&
+    (e.target.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(e.target.tagName))
+  );
+}
+
 function usePushToTalk(enabled: boolean): [boolean, (held: boolean) => void] {
   const [held, setHeld] = useState(false);
-  useEffect(() => {
-    if (!enabled) {
-      setHeld(false);
-      return;
-    }
-    const typing = (e: KeyboardEvent) =>
-      e.target instanceof HTMLElement &&
-      (e.target.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(e.target.tagName));
-    const down = (e: KeyboardEvent) => {
-      if (e.code !== "Space" || e.repeat || typing(e)) return;
-      e.preventDefault();
-      setHeld(true);
-    };
-    const up = (e: KeyboardEvent) => {
-      if (e.code === "Space") setHeld(false);
-    };
-    const blur = () => setHeld(false);
-    window.addEventListener("keydown", down);
-    window.addEventListener("keyup", up);
-    window.addEventListener("blur", blur);
-    return () => {
-      window.removeEventListener("keydown", down);
-      window.removeEventListener("keyup", up);
-      window.removeEventListener("blur", blur);
-    };
-  }, [enabled]);
+  if (!enabled && held) setHeld(false);
+  useEventListener("window", "keydown", (e) => {
+    if (!enabled || e.code !== "Space" || e.repeat || isTyping(e)) return;
+    e.preventDefault();
+    setHeld(true);
+  });
+  useEventListener("window", "keyup", (e) => {
+    if (enabled && e.code === "Space") setHeld(false);
+  });
+  useEventListener("window", "blur", () => {
+    if (enabled) setHeld(false);
+  });
   return [held, setHeld];
 }
 
 export default function ControlRoom({ loaderData }: Route.ComponentProps) {
   const { stage, debug } = loaderData;
-  const [tab, setTab] = useState("");
-  useEffect(() => setTab(tabId()), []);
+  const tab = useClientValue(tabId, "");
   const room = useStageRoom<OperatorView>(
     tab ? { role: "operator", stage: stage.id, pid: tab } : null,
   );

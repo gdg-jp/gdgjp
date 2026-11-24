@@ -1,5 +1,6 @@
+import { useValueChange } from "@gdgjp/gdg-lib/react";
 import { AnimatePresence, motion } from "motion/react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { Link, useFetcher } from "react-router";
 import { AnimatedCount } from "~/components/motion";
 import { listItem, tapSubtle, transitions } from "~/components/motion-presets";
@@ -49,20 +50,23 @@ export default function LayoutEditor({ loaderData }: Route.ComponentProps) {
 
   const [desks, setDesks] = useState<Desk[]>(state.desks);
   const draggingRef = useRef(false);
-  useEffect(() => {
-    if (!draggingRef.current) setDesks(state.desks);
-  }, [state.desks]);
+  useValueChange(state.desks, (next) => {
+    if (!draggingRef.current) setDesks(next);
+  });
 
   const wrapRef = useRef<HTMLDivElement>(null);
   const [viewport, setViewport] = useState({ width: 960, height: 600 });
-  useEffect(() => {
-    const el = wrapRef.current;
+  const measure = useCallback((el: HTMLDivElement | null) => {
+    wrapRef.current = el;
     if (!el) return;
     const update = () => setViewport({ width: el.clientWidth, height: el.clientHeight });
     update();
     const ro = new ResizeObserver(update);
     ro.observe(el);
-    return () => ro.disconnect();
+    return () => {
+      ro.disconnect();
+      wrapRef.current = null;
+    };
   }, []);
 
   const world = useMemo(() => (desks.length > 0 ? boundingBox(desks) : DEFAULT_WORLD), [desks]);
@@ -209,7 +213,7 @@ export default function LayoutEditor({ loaderData }: Route.ComponentProps) {
       </div>
 
       <div
-        ref={wrapRef}
+        ref={measure}
         className="relative h-[60vh] overflow-hidden rounded-[1.5rem] border-2 border-black bg-white"
       >
         <AnimatePresence initial={false}>

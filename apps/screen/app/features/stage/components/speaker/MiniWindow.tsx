@@ -1,3 +1,4 @@
+import { useClientValue } from "@gdgjp/gdg-lib/react";
 import { type ReactNode, useCallback, useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 
@@ -30,8 +31,7 @@ function cloneStyles(target: Document) {
  */
 export function useMiniWindow() {
   const [win, setWin] = useState<Window | null>(null);
-  const [supported, setSupported] = useState(false);
-  useEffect(() => setSupported(pipApi() !== null), []);
+  const supported = useClientValue(() => pipApi() !== null, false);
 
   const open = useCallback(async (): Promise<boolean> => {
     const api = pipApi();

@@ -1,0 +1,23 @@
+{
+  "llmFree": ["apps/agent", "apps/mcp", "apps/pr", "apps/wiki"],
+  "baseline": [
+    "llm-free:apps/wiki:app/lib/queue-processors.server.ts calls env.AI.run(",
+    "llm-free:apps/wiki:configures AI_GATEWAY_BASE_URL in wrangler.toml",
+    "llm-free:apps/wiki:declares an AI binding in wrangler.toml",
+    "migration-number:apps/tinyurl/migrations/0018_default_other_campaign_channel.sql",
+    "migration-number:apps/wiki/migrations/0040_google_chat_import_runs.sql",
+    "migration-number:apps/wiki/migrations/0043_seed_answers_namespace.sql",
+    "migration-number:apps/wiki/migrations/0050_prune_google_chat_sender_samples.sql",
+    "migration-scripts:apps/agent",
+    "rp-registration:apps/agent",
+    "test-colocation:apps/accounts/app/workers-app.test.ts",
+    "test-colocation:apps/img/app/features/images/delivery.test.ts",
+    "test-colocation:apps/sns/app/routes/api.cli.v1.method-guards.test.ts",
+    "test-colocation:apps/tinyurl/app/features/links/link-data-access.test.ts",
+    "test-colocation:apps/website/app/routes/site-pages.test.tsx",
+    "test-colocation:apps/wiki/workers/features/sources/lifecycle.test.ts",
+    "test-colocation:packages/gdg-lib/src/acl/agent-surface.test.ts",
+    "test-colocation:packages/gdg-lib/src/acl/classes.test.ts",
+    "test-colocation:packages/gdg-lib/src/acl/root-surface.test.ts"
+  ]
+}

@@ -47,6 +47,13 @@ test("selects Pay browser checks for application and harness changes", () => {
   assert.deepEqual(classifyChanges(["apps/pay/playwright.config.ts"]).e2e, ["pay"]);
 });
 
+test("runs the UI property dependents' checks without deploying them", () => {
+  const result = classifyChanges(["packages/ui-properties/src/engine.ts"]);
+  assert.deepEqual(result.e2e, ["accounts", "tinyurl", "wiki", "pay", "ost", "screen", "pr"]);
+  assert.ok(result.ci.includes("@gdgjp/ui-properties"));
+  assert.deepEqual(result.deploy, []);
+});
+
 test("propagates gdg-lib changes to every dependent application", () => {
   const result = classifyChanges(["packages/gdg-lib/src/auth/session.ts"]);
 
@@ -95,7 +102,7 @@ test("propagates gdg-lib changes to every dependent application", () => {
 test("fans common configuration changes out to every target", () => {
   const result = classifyChanges(["pnpm-lock.yaml"]);
 
-  assert.equal(result.ci.length, 24);
+  assert.equal(result.ci.length, 25);
   assert.equal(result.build.length, 23);
   assert.equal(result.deploy.length, 21);
   assert.equal(result.openapi, true);
@@ -107,13 +114,13 @@ test("treats workflow and detector changes as global for their consumers", () =>
   const detector = classifyChanges([".github/scripts/changed-workspaces.mjs"]);
   const action = classifyChanges([".github/actions/playwright-fonts/action.yml"]);
 
-  assert.equal(ci.ci.length, 24);
+  assert.equal(ci.ci.length, 25);
   assert.equal(ci.deploy.length, 0);
   assert.equal(deploy.ci.length, 0);
   assert.equal(deploy.deploy.length, 21);
-  assert.equal(detector.ci.length, 24);
+  assert.equal(detector.ci.length, 25);
   assert.equal(detector.deploy.length, 21);
-  assert.equal(action.ci.length, 24);
+  assert.equal(action.ci.length, 25);
   assert.equal(action.deploy.length, 0);
 });
 
@@ -152,7 +159,7 @@ test("manual execution selects every CI and deploy target", () => {
   const result = classifyChanges([], { forceAll: true });
 
   assert.equal(result.full, true);
-  assert.equal(result.ci.length, 24);
+  assert.equal(result.ci.length, 25);
   assert.equal(result.deploy.length, 21);
   assert.equal(result.lint, true);
   assert.equal(result.cli, true);

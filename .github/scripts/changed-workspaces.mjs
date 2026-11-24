@@ -1,5 +1,5 @@
 import { spawnSync } from "node:child_process";
-import { appendFileSync } from "node:fs";
+import { appendFileSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { isDesignSourceFile } from "../../scripts/check-design-harness.mjs";
 
@@ -34,6 +34,12 @@ const CI_WORKSPACES = [
     e2e: false,
   },
   { directory: "packages/gdg-lib", workspace: "@gdgjp/gdg-lib", build: false, e2e: false },
+  {
+    directory: "packages/ui-properties",
+    workspace: "@gdgjp/ui-properties",
+    build: false,
+    e2e: false,
+  },
   {
     directory: "apps/tinyurl-gateway",
     workspace: "@gdgjp/tinyurl-gateway",
@@ -149,6 +155,7 @@ export const DEPLOY_TARGETS = [
   { app: "mcp", workspace: "@gdgjp/mcp", provider: "cloudflare", migrate: false },
 ];
 
+const UI_PROPERTIES_DEPENDENTS = ["wiki", "pr", "accounts", "ost", "screen", "pay", "tinyurl"];
 const GDG_LIB_DEPENDENTS = new Set([
   "accounts",
   "tinyurl",
@@ -217,6 +224,40 @@ const JOB_LIFECYCLE_FILES = new Set([
   "tsconfig.base.json",
 ]);
 
+export const ALLOY_VERIFIERS = ["verify-accounts-client-revocation"];
+const ALLOY_HARNESS = new Set([
+  "scripts/verification/alloy.mjs",
+  "scripts/verification/alloy-skill.mjs",
+]);
+
+function alloyCoverage(skill) {
+  const coverage = JSON.parse(
+    readFileSync(new URL(`../../.agents/skills/${skill}/coverage.json`, import.meta.url), "utf8"),
+  );
+  const packages = Object.values(coverage.packages ?? {});
+  return {
+    prefixes: [`.agents/skills/${skill}/`, ...coverage.censusRoots.map((root) => `${root}/`)],
+    files: new Set([
+      ...Object.keys(coverage.sources),
+      ...coverage.anchors.map((anchor) => anchor.file),
+      ...packages.map((entry) => `${entry.from}/package.json`),
+      ...(packages.length ? ["pnpm-lock.yaml"] : []),
+    ]),
+  };
+}
+
+export function alloyVerifiers(files) {
+  return ALLOY_VERIFIERS.filter((skill) => {
+    const { prefixes, files: inputs } = alloyCoverage(skill);
+    return files.some(
+      (file) =>
+        ALLOY_HARNESS.has(file) ||
+        inputs.has(file) ||
+        prefixes.some((prefix) => file.startsWith(prefix)),
+    );
+  });
+}
+
 export const MUTATION_PROJECTS = ["packages/gdg-lib", "apps/accounts"];
 const MUTATION_RUNNER = "scripts/run-mutation.mjs";
 
@@ -261,6 +302,7 @@ function allResults() {
     designSource: true,
     engineering: true,
     jobLifecycle: true,
+    alloy: [...ALLOY_VERIFIERS],
     mutation: [...MUTATION_PROJECTS],
     full: true,
   };
@@ -324,11 +366,16 @@ export function classifyChanges(files, { forceAll = false } = {}) {
     }
   }
 
+  const testedDirectories = new Set(affectedDirectories);
+  if (directDirectories.has("packages/ui-properties")) {
+    for (const directory of UI_PROPERTIES_DEPENDENTS) testedDirectories.add(`apps/${directory}`);
+  }
+
   const ciTargets = ciGlobal
     ? CI_WORKSPACES
     : CI_WORKSPACES.filter(
         ({ directory }) =>
-          affectedDirectories.has(directory) ||
+          testedDirectories.has(directory) ||
           normalizedFiles.some((file) => file === directory || file.startsWith(`${directory}/`)),
       );
   const deployTargets = deployGlobal
@@ -360,13 +407,21 @@ export function classifyChanges(files, { forceAll = false } = {}) {
     scriptTests: normalizedFiles.some(
       (file) =>
         /^\.github\/scripts\/.*\.mjs$/.test(file) ||
+        file.startsWith(".github/scripts/fixtures/") ||
+        file.startsWith("scripts/verification/") ||
+        file.startsWith(".agents/skills/verify-apps/scripts/") ||
+        file === "scripts/verification-summary.mjs" ||
         file.startsWith("scripts/staging/") ||
         file === "scripts/check-ui-conventions.mjs" ||
         file === "scripts/check-design-harness.mjs" ||
         file === "scripts/pstack.mjs" ||
         file === "scripts/check-docs.mjs" ||
         file === "scripts/check-workspace-boundaries.mjs" ||
+        file === "scripts/check-app-conventions.mjs" ||
+        file === "scripts/app-conventions.json" ||
         file === "scripts/check-code-comments.mjs" ||
+        file === "scripts/check-effects.mjs" ||
+        file === "scripts/count-baseline.mjs" ||
         file === "scripts/code-comment-exceptions.json" ||
         file === "scripts/engineering-health.mjs" ||
         file === "scripts/run-ci.mjs" ||
@@ -392,6 +447,7 @@ export function classifyChanges(files, { forceAll = false } = {}) {
       ),
     designSource: normalizedFiles.some((file) => isDesignSourceFile(file)),
     jobLifecycle: ciGlobal || normalizedFiles.some(isJobLifecycleInput),
+    alloy: ciGlobal ? [...ALLOY_VERIFIERS] : alloyVerifiers(normalizedFiles),
     mutation: mutationProjects(normalizedFiles),
     engineering:
       ciGlobal ||
@@ -446,6 +502,7 @@ function workflowOutputs(result, base, head) {
   return {
     engineering: String(result.engineering),
     "job-lifecycle": String(result.jobLifecycle),
+    alloy: JSON.stringify(result.alloy),
     ci: JSON.stringify(result.ci),
     build: JSON.stringify(result.build),
     e2e: JSON.stringify(result.e2e),
