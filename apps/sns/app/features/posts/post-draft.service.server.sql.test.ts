@@ -2,7 +2,12 @@ import { readFileSync, readdirSync } from "node:fs";
 import { DatabaseSync, type SQLInputValue } from "node:sqlite";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it, vi } from "vitest";
-import { attachMedia, createDraft, updateDraft } from "./post-draft.service.server";
+import {
+  attachMedia,
+  createDraft,
+  saveScheduledDraft,
+  updateDraft,
+} from "./post-draft.service.server";
 import type { PostDraftDependencies } from "./post.types";
 
 const migrations = new URL("../../../migrations/", import.meta.url);
@@ -223,5 +228,56 @@ describe("media sort order", () => {
 
     expect(rows("SELECT id FROM post_media")).toEqual([{ id: "m-0" }]);
     expect(dependencies.media.put).not.toHaveBeenCalled();
+  });
+});
+
+describe("saving a post from the schedule screen", () => {
+  it("closes the gap left by a removed image and puts a new one after the rest", async () => {
+    const { db, sqlite, rows } = migratedDatabase();
+    sqlite.exec(`
+      INSERT INTO posts (id, chapter_id, x_account_id, text, scheduled_at, condition, status,
+        created_by_user_id, created_at, updated_at)
+      VALUES ('post-1', 1, 'acc-1', 'Photo post', '2099-12-31T03:00:00.000Z', 'scheduled',
+        'scheduled', 'u1', 't0', 't0');
+      INSERT INTO post_media (id, post_id, r2_key, content_type, byte_size, sort_order, created_at)
+      VALUES ('m-0', 'post-1', 'k0', 'image/png', 9, 0, 't0'),
+             ('m-1', 'post-1', 'k1', 'image/png', 9, 1, 't0'),
+             ('m-2', 'post-1', 'k2', 'image/png', 9, 2, 't0'),
+             ('m-3', 'post-1', 'k3', 'image/png', 9, 3, 't0');
+    `);
+    const dependencies = deps(db, lookupSucceeds);
+
+    await saveScheduledDraft(dependencies, {
+      ...draft,
+      postId: "post-1",
+      media: {
+        keep: [
+          { id: "m-3", altText: "d" },
+          { id: "m-0", altText: "a" },
+          { id: "m-2", altText: "c" },
+        ],
+        remove: ["m-1"],
+        add: [{ bytes: new ArrayBuffer(9), contentType: "image/png", altText: "e" }],
+      },
+    });
+
+    expect(rows("SELECT id, alt_text, sort_order FROM post_media ORDER BY sort_order")).toEqual([
+      { id: "m-0", alt_text: "a", sort_order: 0 },
+      { id: "m-2", alt_text: "c", sort_order: 1 },
+      { id: "m-3", alt_text: "d", sort_order: 2 },
+      expect.objectContaining({ alt_text: "e", sort_order: 3 }),
+    ]);
+    expect(dependencies.media.delete).toHaveBeenCalledWith("k1");
+  });
+
+  it("refuses media ids that do not belong to the post", async () => {
+    const { db } = migratedDatabase();
+    await expect(
+      saveScheduledDraft(deps(db, lookupSucceeds), {
+        ...draft,
+        postId: null,
+        media: { keep: [{ id: "someone-elses", altText: "" }], remove: [], add: [] },
+      }),
+    ).rejects.toMatchObject({ code: "not_found" });
   });
 });

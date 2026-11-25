@@ -233,11 +233,9 @@ export function AltTextDialog({
 export function TagUsersDialog({
   value,
   onValueChange,
-  submit,
-}: { value: string; onValueChange: (value: string) => void; submit: boolean }) {
+}: { value: string; onValueChange: (value: string) => void }) {
   return (
     <DialogPrimitive.Root>
-      {submit ? <input type="hidden" name="tagHandles" value={value} /> : null}
       <DialogPrimitive.Trigger asChild>
         <button
           type="button"

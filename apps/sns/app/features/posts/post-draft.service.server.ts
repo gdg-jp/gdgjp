@@ -2,10 +2,12 @@ import type { Post } from "~/features/posts/post.types";
 import { getXAccount } from "~/features/x-accounts/x-account.repository.server";
 import { nowIso } from "~/lib/utils";
 import {
-  batchUpdateMediaMetadata,
+  compactPostMediaStatements,
   deletePostMediaById,
+  deletePostMediaStatement,
   getPostMediaById,
   insertPostMedia,
+  insertPostMediaStatement,
   listMediaForPost,
 } from "./post-media.repository.server";
 import {
@@ -29,9 +31,9 @@ import {
 import type {
   AttachMediaInput,
   CreateDraftInput,
-  MediaMetadataEdit,
   PostDetail,
   PostDraftDependencies,
+  ScheduledDraftInput,
   UpdateDraftPatch,
 } from "./post.types";
 
@@ -205,6 +207,101 @@ export async function updateDraft(
   return reloadPost(deps, id);
 }
 
+export async function saveScheduledDraft(
+  deps: PostDraftDependencies,
+  input: ScheduledDraftInput,
+): Promise<Post> {
+  if (!isValidPostText(input.text)) throw new PostDraftError("invalid_text");
+  if (!isValidScheduledAt(input.scheduledAt)) throw new PostDraftError("invalid_schedule");
+  if (!isValidCondition(input.condition)) throw new PostDraftError("invalid_condition");
+  const existing = input.postId ? await getPost(deps.db, input.postId) : null;
+  if (input.postId && !existing) throw new PostDraftError("not_found");
+  if (existing && !isEditableStatus(existing.status)) throw new PostDraftError("not_editable");
+  const chapterId = existing?.chapterId ?? input.chapterId;
+  await assertActiveChapterAccount(deps, chapterId, input.xAccountId);
+
+  const current = existing ? await listMediaForPost(deps.db, existing.id) : [];
+  const { keep, remove, add } = input.media;
+  const named = new Set([...keep.map((item) => item.id), ...remove]);
+  if (named.size !== keep.length + remove.length || current.some((item) => !named.has(item.id)))
+    throw new PostDraftError("not_found");
+  if (current.length !== named.size) throw new PostDraftError("not_found");
+  const position = new Map(current.map((item) => [item.id, item.sortOrder]));
+  const kept = [...keep].sort((a, b) => (position.get(a.id) ?? 0) - (position.get(b.id) ?? 0));
+  const invalid = validateNewMedia(
+    keep.length,
+    add.map((file) => ({ size: file.bytes.byteLength, contentType: file.contentType })),
+  );
+  if (invalid) throw new PostDraftError(invalid);
+  const tags = await resolveTags(deps, input.xAccountId, input.tagHandles);
+  const linkPreview =
+    existing && input.text === existing.text
+      ? {
+          url: existing.linkPreviewUrl,
+          title: existing.linkPreviewTitle,
+          description: existing.linkPreviewDescription,
+          imageUrl: existing.linkPreviewImageUrl,
+        }
+      : await derivePreview(deps, input.text);
+
+  const id = existing?.id ?? crypto.randomUUID();
+  const now = nowIso();
+  const status = recomputeDraftStatus(input.condition, keep.length + add.length);
+  const added = add.map((file, index) => ({
+    id: crypto.randomUUID(),
+    postId: id,
+    r2Key: `${chapterId}/${id}/${crypto.randomUUID()}`,
+    contentType: file.contentType,
+    byteSize: file.bytes.byteLength,
+    altText: file.altText,
+    sortOrder: keep.length + index,
+    bytes: file.bytes,
+  }));
+  const stored: string[] = [];
+  try {
+    for (const file of added) {
+      await deps.media.put(file.r2Key, file.bytes, {
+        httpMetadata: { contentType: file.contentType },
+      });
+      stored.push(file.r2Key);
+    }
+    await deps.db.batch([
+      existing
+        ? updatePostFieldsStatement(deps.db, id, {
+            xAccountId: input.xAccountId,
+            text: input.text,
+            scheduledAt: input.scheduledAt,
+            condition: input.condition,
+            status,
+            linkPreview,
+            now,
+          })
+        : insertPostStatement(deps.db, {
+            id,
+            chapterId,
+            xAccountId: input.xAccountId,
+            text: input.text,
+            scheduledAt: input.scheduledAt,
+            condition: input.condition,
+            status,
+            createdByUserId: input.createdByUserId,
+            linkPreview,
+            now,
+          }),
+      ...(tags ? replacePostMediaTagsStatements(deps.db, id, tags) : []),
+      ...remove.map((mediaId) => deletePostMediaStatement(deps.db, id, mediaId)),
+      ...compactPostMediaStatements(deps.db, id, kept),
+      ...added.map(({ bytes: _, ...record }) => insertPostMediaStatement(deps.db, record, now)),
+    ]);
+  } catch (error) {
+    await Promise.allSettled(stored.map((key) => deps.media.delete(key)));
+    throw error;
+  }
+  const removedKeys = current.filter((item) => remove.includes(item.id)).map((item) => item.r2Key);
+  await Promise.allSettled(removedKeys.map((key) => deps.media.delete(key)));
+  return reloadPost(deps, id);
+}
+
 export async function deleteDraft(
   deps: PostDraftDependencies,
   id: string,
@@ -298,11 +395,4 @@ export async function removeMedia(
     );
   }
   return { id: mediaId, deleted: true, post: await reloadPost(deps, media.postId) };
-}
-
-export async function updateMediaMetadata(
-  deps: PostDraftDependencies,
-  edits: MediaMetadataEdit[],
-): Promise<void> {
-  await batchUpdateMediaMetadata(deps.db, edits);
 }

@@ -50,18 +50,26 @@ function taggedPhotoPost() {
     INSERT INTO post_media_tags (post_id, x_user_id, username)
     VALUES ('post-1', 'uid-gdg_tokyo', 'gdg_tokyo');
   `);
+  const writes = { outsideBatch: [] as string[], batches: 0, failBatch: false };
+  let inBatch = false;
   const statement = (sql: string, params: SQLInputValue[] = []) => ({
     bind: (...next: SQLInputValue[]) => statement(sql, next),
     first: async () => sqlite.prepare(sql).get(...params) ?? null,
     all: async () => ({ results: sqlite.prepare(sql).all(...params) }),
-    run: async () => ({
-      success: true,
-      meta: { changes: Number(sqlite.prepare(sql).run(...params).changes) },
-    }),
+    run: async () => {
+      if (!inBatch && /^\s*(INSERT|UPDATE|DELETE)/i.test(sql)) writes.outsideBatch.push(sql);
+      return {
+        success: true,
+        meta: { changes: Number(sqlite.prepare(sql).run(...params).changes) },
+      };
+    },
   });
   const db = {
     prepare: (sql: string) => statement(sql),
     batch: async (statements: ReturnType<typeof statement>[]) => {
+      writes.batches++;
+      if (writes.failBatch) throw new Error("D1 unavailable");
+      inBatch = true;
       sqlite.exec("BEGIN");
       try {
         const results = [];
@@ -71,6 +79,8 @@ function taggedPhotoPost() {
       } catch (error) {
         sqlite.exec("ROLLBACK");
         throw error;
+      } finally {
+        inBatch = false;
       }
     },
   };
@@ -81,10 +91,10 @@ function taggedPhotoPost() {
       .prepare(sql)
       .all()
       .map((row) => ({ ...row }));
-  return { env, media, rows };
+  return { env, media, rows, writes };
 }
 
-function edit(env: Env, fields: Record<string, string | string[]>) {
+function edit(env: Env, fields: Record<string, string | string[] | File>) {
   const form = new FormData();
   const base = {
     postId: "post-1",
@@ -96,7 +106,7 @@ function edit(env: Env, fields: Record<string, string | string[]>) {
     "alt-m-1": "second",
   };
   for (const [name, value] of Object.entries({ ...base, ...fields }))
-    for (const item of [value].flat()) form.append(name, item);
+    for (const item of [value].flat()) form.append(name, item as string | Blob);
   return submitSchedule(
     new Request("https://sns.gdgs.jp/posts/schedule", { method: "POST", body: form }),
     env,
@@ -161,5 +171,55 @@ describe("editing a scheduled post through the schedule screen", () => {
       { id: "m-0" },
       { id: "m-1" },
     ]);
+  });
+
+  it("writes the text, the removed image and a new image in one batch", async () => {
+    const { env, media, rows, writes } = taggedPhotoPost();
+
+    const result = await edit(env, {
+      postingOption: "immediate",
+      deletedMedia: "m-0",
+      images: new File([new Uint8Array(10)], "new.png", { type: "image/png" }),
+      "new-alt-0": "new",
+    });
+
+    expect((result as Response).status).toBe(302);
+    expect(writes).toMatchObject({ outsideBatch: [], batches: 1 });
+    expect(rows("SELECT text FROM posts")).toEqual([{ text: "Photo post, text edited" }]);
+    expect(rows("SELECT id, alt_text, sort_order FROM post_media ORDER BY sort_order")).toEqual([
+      { id: "m-1", alt_text: "second", sort_order: 0 },
+      expect.objectContaining({ alt_text: "new", sort_order: 1 }),
+    ]);
+    expect(media.put).toHaveBeenCalledTimes(1);
+    expect(media.delete).toHaveBeenCalledWith("1/post-1/first");
+  });
+
+  it("changes nothing and removes the uploaded image when the write fails", async () => {
+    const { env, media, rows, writes } = taggedPhotoPost();
+    writes.failBatch = true;
+
+    const result = await edit(env, {
+      deletedMedia: "m-0",
+      images: new File([new Uint8Array(10)], "new.png", { type: "image/png" }),
+    });
+
+    expect(result).toBeInstanceOf(Error);
+    expect(rows("SELECT text FROM posts")).toEqual([{ text: "Photo post" }]);
+    expect(rows("SELECT id FROM post_media ORDER BY sort_order")).toEqual([
+      { id: "m-0" },
+      { id: "m-1" },
+    ]);
+    const [[storedKey]] = media.put.mock.calls as unknown as [[string]];
+    expect(media.delete.mock.calls).toEqual([[storedKey]]);
+  });
+
+  it("clears the saved tags when they are emptied, even with every image removed", async () => {
+    const { env, rows } = taggedPhotoPost();
+
+    const result = await edit(env, { tagHandles: "", deletedMedia: ["m-0", "m-1"] });
+
+    expect((result as Response).status).toBe(302);
+    expect(rows("SELECT x_user_id FROM post_media_tags")).toEqual([]);
+    expect(rows("SELECT id FROM post_media")).toEqual([]);
   });
 });

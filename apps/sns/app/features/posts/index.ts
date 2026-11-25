@@ -2,7 +2,6 @@ export type {
   AttachMediaInput,
   CreateDraftInput,
   LinkPreview,
-  MediaMetadataEdit,
   Post,
   PostCondition,
   PostDetail,

@@ -153,6 +153,9 @@ export default function ScheduleEditor({ loaderData, actionData }: Route.Compone
             <span className="sr-only">本文</span>
             <XPostComposer text={text} textAreaRef={textAreaRef} onTextChange={setText} />
           </label>
+          {tagHandles !== loaderData.tagHandles ? (
+            <input type="hidden" name="tagHandles" value={tagHandles} />
+          ) : null}
           {deletedMediaIds.map((id) => (
             <input key={id} type="hidden" name="deletedMedia" value={id} />
           ))}
@@ -163,11 +166,7 @@ export default function ScheduleEditor({ loaderData, actionData }: Route.Compone
             onRemoveNew={removeNewImage}
           />
           {imageCount > 0 ? (
-            <TagUsersDialog
-              value={tagHandles}
-              onValueChange={setTagHandles}
-              submit={tagHandles !== loaderData.tagHandles}
-            />
+            <TagUsersDialog value={tagHandles} onValueChange={setTagHandles} />
           ) : null}
           <div className="flex items-center justify-between border-t pt-3">
             <div className="flex items-center gap-1">

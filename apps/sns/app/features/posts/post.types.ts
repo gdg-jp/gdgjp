@@ -67,7 +67,16 @@ export type AttachMediaInput = {
   sortOrder: number;
 };
 
-export type MediaMetadataEdit = { id: string; altText: string; sortOrder: number };
+export type ScheduledDraftInput = Omit<CreateDraftInput, "chapterId" | "createdByUserId"> & {
+  chapterId: number;
+  createdByUserId: string;
+  postId: string | null;
+  media: {
+    keep: { id: string; altText: string }[];
+    remove: string[];
+    add: { bytes: ArrayBuffer; contentType: string; altText: string }[];
+  };
+};
 
 export type PostDetail = { post: Post; media: PostMedia[] };
 

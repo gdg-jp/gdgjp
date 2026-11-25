@@ -5,13 +5,9 @@ import { listXAccounts } from "~/features/x-accounts/x-account.repository.server
 import { postDraftDepsFromEnv } from "./post-draft.deps.server";
 import {
   PostDraftError,
-  attachMedia,
-  createDraft,
   deleteDraft,
   getDraft,
-  removeMedia,
-  updateDraft,
-  updateMediaMetadata,
+  saveScheduledDraft,
 } from "./post-draft.service.server";
 import { listPostMedia } from "./post-media.repository.server";
 import { getPost, listPostTagUsernames } from "./post.repository.server";
@@ -102,44 +98,30 @@ export async function submitSchedule(request: Request, env: Env) {
   const tagHandles = form.has("tagHandles") ? [String(form.get("tagHandles"))] : undefined;
   let post: Post;
   try {
-    if (existing) {
-      post = await updateDraft(deps, existing.id, {
-        xAccountId,
-        text,
-        scheduledAt,
-        condition,
-        tagHandles,
-      });
-      for (const media of deletedMedia) await removeMedia(deps, media.id);
-      await updateMediaMetadata(
-        deps,
-        remainingMedia.map((media, index) => ({
+    post = await saveScheduledDraft(deps, {
+      postId: existing?.id ?? null,
+      chapterId: access.chapter.chapterId,
+      createdByUserId: access.user.id,
+      xAccountId,
+      text,
+      scheduledAt,
+      condition,
+      tagHandles,
+      media: {
+        keep: remainingMedia.map((media) => ({
           id: media.id,
           altText: String(form.get(`alt-${media.id}`) ?? ""),
-          sortOrder: index,
         })),
-      );
-      post = (await getDraft(deps, existing.id))?.post ?? post;
-    } else {
-      post = await createDraft(deps, {
-        chapterId: access.chapter.chapterId,
-        xAccountId,
-        text,
-        scheduledAt,
-        condition,
-        createdByUserId: access.user.id,
-        tagHandles,
-      });
-    }
-    for (const [index, file] of files.entries()) {
-      const result = await attachMedia(deps, post.id, {
-        bytes: await file.arrayBuffer(),
-        contentType: file.type,
-        altText: String(form.get(`new-alt-${index}`) ?? ""),
-        sortOrder: remainingMedia.length + index,
-      });
-      post = result.post;
-    }
+        remove: deletedMedia.map((media) => media.id),
+        add: await Promise.all(
+          files.map(async (file, index) => ({
+            bytes: await file.arrayBuffer(),
+            contentType: file.type,
+            altText: String(form.get(`new-alt-${index}`) ?? ""),
+          })),
+        ),
+      },
+    });
   } catch (error) {
     if (error instanceof PostDraftError) {
       if (error.code === "account_not_found") throw new Response("Forbidden", { status: 403 });

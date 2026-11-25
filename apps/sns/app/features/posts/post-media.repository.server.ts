@@ -1,6 +1,5 @@
 import { nowIso } from "~/lib/utils";
 import type { PostMedia } from "./post.types";
-import type { MediaMetadataEdit } from "./post.types";
 
 type PostMediaRow = {
   id: string;
@@ -73,22 +72,49 @@ export async function insertPostMedia(
   return result.meta.changes > 0 ? { ...record, createdAt } : null;
 }
 
-export async function deletePostMediaById(db: D1Database, id: string): Promise<void> {
-  await db.prepare("DELETE FROM post_media WHERE id = ?").bind(id).run();
+export function insertPostMediaStatement(
+  db: D1Database,
+  record: InsertPostMediaRecord,
+  createdAt: string,
+): D1PreparedStatement {
+  return db
+    .prepare(
+      "INSERT INTO post_media (id, post_id, r2_key, content_type, byte_size, alt_text, sort_order, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+    )
+    .bind(
+      record.id,
+      record.postId,
+      record.r2Key,
+      record.contentType,
+      record.byteSize,
+      record.altText,
+      record.sortOrder,
+      createdAt,
+    );
 }
 
-export async function batchUpdateMediaMetadata(
+export function deletePostMediaStatement(
   db: D1Database,
-  edits: MediaMetadataEdit[],
-): Promise<void> {
-  if (edits.length === 0) return;
-  await db.batch(
-    edits.map((edit) =>
-      db
-        .prepare("UPDATE post_media SET alt_text = ?, sort_order = ? WHERE id = ?")
-        .bind(edit.altText, edit.sortOrder, edit.id),
-    ),
+  postId: string,
+  id: string,
+): D1PreparedStatement {
+  return db.prepare("DELETE FROM post_media WHERE id = ? AND post_id = ?").bind(id, postId);
+}
+
+export function compactPostMediaStatements(
+  db: D1Database,
+  postId: string,
+  media: { id: string; altText: string }[],
+): D1PreparedStatement[] {
+  return media.map((item, index) =>
+    db
+      .prepare("UPDATE post_media SET alt_text = ?, sort_order = ? WHERE id = ? AND post_id = ?")
+      .bind(item.altText, index, item.id, postId),
   );
+}
+
+export async function deletePostMediaById(db: D1Database, id: string): Promise<void> {
+  await db.prepare("DELETE FROM post_media WHERE id = ?").bind(id).run();
 }
 
 export async function listPostMedia(
