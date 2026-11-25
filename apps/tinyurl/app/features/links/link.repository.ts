@@ -76,7 +76,23 @@ export type CreateLinkRecord = {
   campaignChannelId?: number | null;
   folderId?: number | null;
   visibility?: LinkVisibility;
+  prOrigin?: PrLinkOrigin;
 };
+
+export type PrLinkOrigin = { key: string; chapterId: number };
+
+export async function getLinkByPrOrigin(
+  db: D1Database,
+  key: string,
+): Promise<(Link & { prOriginChapterId: number | null }) | null> {
+  const row = await db
+    .prepare(
+      `SELECT ${LINK_COLS}, pr_origin_chapter_id FROM links WHERE pr_origin = ? AND deleted_at IS NULL`,
+    )
+    .bind(key)
+    .first<LinkRow & { pr_origin_chapter_id: number | null }>();
+  return row ? { ...toLink(row), prOriginChapterId: row.pr_origin_chapter_id } : null;
+}
 
 export type CreateLinkResult = { ok: true; link: Link } | { ok: false; reason: "slug_taken" };
 
@@ -88,8 +104,8 @@ export async function createLink(
   try {
     const row = await db
       .prepare(
-        `INSERT INTO links (id, domain_id, slug, destination_url, title, description, og_image_url, owner_user_id, owner_chapter_id, campaign_channel_id, folder_id, visibility)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `INSERT INTO links (id, domain_id, slug, destination_url, title, description, og_image_url, owner_user_id, owner_chapter_id, campaign_channel_id, folder_id, visibility, pr_origin, pr_origin_chapter_id)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
          RETURNING ${LINK_COLS}`,
       )
       .bind(
@@ -105,6 +121,8 @@ export async function createLink(
         input.campaignChannelId ?? null,
         input.folderId ?? null,
         input.visibility ?? "private",
+        input.prOrigin?.key ?? null,
+        input.prOrigin?.chapterId ?? null,
       )
       .first<LinkRow>();
     if (!row) throw new Error("Insert returned no row");

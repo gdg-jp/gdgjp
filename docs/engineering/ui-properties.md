@@ -17,7 +17,9 @@ action, invariants that must always hold. The same engine runs in two places:
 | Module | What it does |
 | --- | --- |
 | `src/engine.ts` | Seeded generation, replay, shrinking (chunk removal until no smaller sequence fails the same check with the same normalized message), failure signatures |
-| `src/access.ts` | The staging route that sends requests for the slot's hosts from the test process with the Access service token |
+| `src/access.ts` | The staging run's Access scope and upstream, from its environment |
+| `src/forwarder.ts` | The local TLS forwarder that adds the Access service token to requests for the slot's `https` hosts |
+| `src/certificate.ts` | Per-run self-signed certificates and their SPKI hashes |
 | `scripts/secret-scan.mjs` | Searches fuzz evidence, including Playwright and Bombadil traces, for the Access service token and issued Access JWTs before upload |
 | `src/monitor.ts` | Generic invariants on every watched page: no console errors, no uncaught exceptions, no 5xx responses from the app's origins, no dead-end page that stays without a visible enabled control for three seconds, an accessible name on every control an action touches |
 | `src/run.ts` | `runPlan` (budget from the environment), `checkUiProperty` (runs, shrinks, prints, and records a failure) |
@@ -117,20 +119,38 @@ starts it after a deploy. Inputs: `slot`, `apps`, `minutes` per app and seed, `s
    step gets only the Access service token and that session file: the browser, which
    runs the slot's possibly unreviewed code, never shares a process environment with
    the Cloudflare token or the staging root secret. Before exploring, the job runs the
-   package's Access, explorer, and evidence tests in a real browser. A route in
-   `src/access.ts` sends each request for one of the slot's hosts from the test
-   process with Node's own HTTP client, adding the Access headers and following no
-   redirect, and fulfills the browser with the response; the browser follows a redirect
-   as a new request that the route checks again, so a short link that redirects off the
-   slot sends neither the headers nor the slot's cookies. The route does not use
-   `route.continue({ headers })`, whose headers carry over to redirects, or
-   `route.fetch` and `context.request`, which the Playwright trace records with their
-   headers. The trace therefore shows every slot request as the browser made it, with its
-   status and redirects, but not the token. The route also drops Access's own
-   `CF_Authorization` cookie, so the browser and its trace never hold that 24-hour JWT;
-   the slot's other cookies still reach the browser for the host that set them.
-   Responses are buffered, so a streamed response reaches the page only when it ends,
-   and a request that takes longer than a minute is aborted. The browser process is
+   package's Access, forwarder, explorer, and evidence tests in a real browser. The
+   Access token is added in one place, the forwarder in `src/forwarder.ts`, which the
+   staging spec starts per worker. It is a local TLS server with a key and certificate
+   generated with `openssl` for that run and kept in memory. Chromium is launched with
+   `--host-resolver-rules` that send only port 443 of the slot domain and its
+   subdomains to it, with `--ignore-certificate-errors-spki-list` naming that one
+   certificate, and with QUIC disabled. Every request to an `https` slot URL then
+   reaches the forwarder, including each hop of a redirect chain, form posts,
+   subresources, and WebSocket upgrades, and the browser never holds the token. For
+   each request the forwarder checks that the TLS server name and the `Host` header
+   match and that `https://<host><path>` is in the Access scope
+   (`scripts/access-origin.mjs`, shared with `ui-fuzz.mjs`): `https` on the default
+   port, a host that is the slot domain or one of its subdomains after URL
+   normalization, with no user information and no trailing dot. Anything else,
+   including an absolute or `//` request target, gets `421` and no upstream connection.
+   It then removes any `CF-Access-*` header and `CF_Authorization` cookie the page sent,
+   adds the service token, and connects to the real host over `https` with normal
+   certificate verification and the real host as server name, resolving it itself.
+   Responses and request bodies are streamed in both directions; it removes
+   `CF_Authorization` from `Set-Cookie`, so the browser and its trace never hold that
+   24-hour JWT, while the slot's other cookies reach the browser for the host that set
+   them. An upstream connection that stays idle for two minutes is closed, which also
+   ends a quiet stream. Hosts outside the slot domain resolve normally and never reach
+   the forwarder. An `http` URL on a slot host is not mapped, so the browser sends it to
+   the real host itself, without the token, and the app's redirect to `https` then goes
+   through the forwarder; plain `http` sent to the mapped port 443 fails the TLS
+   handshake. A redirect off the slot is followed by the browser and carries neither
+   the token nor the slot's cookies. If the forwarder stops, slot requests fail rather
+   than going out directly, because the host mapping stays in place. The Playwright
+   trace records every slot request as the browser made it, with its status and
+   redirects, but not the token, because the token is added outside the browser. The
+   browser process is
    launched without the `CF_ACCESS_*` variables. Every app runs the explorer with the
    `long` profile. With `bombadil` on, each app is also explored by Bombadil (see
    [Bombadil](#bombadil) for how it gets through Access). Setup checks the requested
@@ -183,9 +203,16 @@ Mint a session with `node .github/scripts/ui-fuzz.mjs session --slot stg-N --app
 `UI_FUZZ_SESSION_FILE=<dir>/storage-state.json`, and the Access service token as
 `CF_ACCESS_CLIENT_ID` and `CF_ACCESS_CLIENT_SECRET`, then run the issue's replay
 command. Remove the user afterwards with `ui-fuzz.mjs cleanup --out <dir>`, also after a
-`session` that failed. A loopback
-target (`UI_FUZZ_TARGETS=app=http://127.0.0.1:PORT`) explores a local server without
-any of this.
+`session` that failed. `session` refuses any target that is not an `https` origin on the
+slot domain before it writes anything, and the staging spec refuses such a target
+whenever the Access token is set. A loopback target
+(`UI_FUZZ_TARGETS=app=http://127.0.0.1:PORT`) explores a local server without any of
+this. To run the forwarder against local servers, as the evidence test does, serve them
+over `https` under a `.test` domain and set `UI_FUZZ_LOCAL=1`, `UI_FUZZ_DOMAIN` to that
+domain, `UI_FUZZ_LOCAL_UPSTREAM=127.0.0.1:PORT`, and `UI_FUZZ_LOCAL_CA` to the servers'
+certificate. In that mode the forwarder dials only that loopback address, refuses a
+domain outside `.test`, and Chromium resolves every other name to nothing; outside it,
+a `.test` domain is refused.
 
 ### Data exposure
 
@@ -220,8 +247,9 @@ engine of the property specs, because:
   which changes the cookies, OIDC redirects, and URLs under test.
 
 So the staging loop gives Bombadil a cookie instead of the service token. Per target,
-`ui-fuzz.mjs access-cookie` sends one request with the service token, following no
-redirect, and takes the `CF_Authorization` value Access sets. The cookie passed to
+`ui-fuzz.mjs access-cookie --domain <slot domain>` refuses a URL outside the same
+Access scope, then sends one request with the service token, following no redirect,
+and takes the `CF_Authorization` value Access sets. The cookie passed to
 Bombadil has no `Domain` attribute, so the browser sends it only to that host. The step
 masks the value in the job log and appends it to a file outside every uploaded path, and
 the pre-upload scan searches the evidence for each value in that file. The wrapper

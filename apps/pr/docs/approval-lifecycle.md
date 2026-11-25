@@ -54,10 +54,12 @@ only then does pr act outside. A `{{shortlink}}` link belongs to the version it 
 (`campaign_links.draft_id`, `draft_version`, slug `<campaign>-<kind>-<draft>v<version>`): the
 draft approval creates it, a send that finds it missing creates it before sending, and a send
 never uses another version's link. A stored link whose destination is not the version's link URL
-counts as missing. If url.gdgs.jp already has the version's slug (it created the link but pr did
-not record it), pr looks the slug up (`TINYURL.findLink`) and records it only when its
-destination, campaign channel and owner (the campaign's chapter or the acting user) are the ones
-pr asked for; otherwise the send stops with an error and nothing goes out. Links stored before
+counts as missing. Every `TINYURL.createLink` names its origin (pr campaign, draft, version)
+and the campaign's chapter, and url.gdgs.jp is idempotent on that origin: if it already made the
+version's link (pr lost the record, or another approver's attempt made it), a create by anyone
+in the campaign's chapter, or by the link's creator, returns that same link and pr records it.
+A taken slug without that origin, the same origin with another destination or channel, or an
+approver outside the chapter, stops the send with an error and nothing goes out. Links stored before
 migration 0012 are not bound to any version; they stay as history for health checks and metrics.
 A connpass page or listing publishes the approved version. A new version saved while a send is
 under way does not change what is sent. The chart leaves out レビュー OK, 差し戻す, 却下, more than one account,

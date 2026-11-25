@@ -17,7 +17,7 @@ import { hasShortlink, shortlinkSlug, withShortlink } from "./slug";
 
 export const NO_CONTENT = "配信する本文がありません";
 
-const SLUG_TAKEN = ["conflict", "slug_taken"];
+const REFUSED = ["conflict", "slug_taken", "origin_mismatch", "not_found"];
 
 export type VersionText =
   | { ok: true; post: DeliverablePost; text: string; link: CampaignLink | null }
@@ -42,13 +42,6 @@ export async function versionText(
     : link;
 }
 
-type Wanted = {
-  slug: string;
-  chapterId: number;
-  destinationUrl: string;
-  campaignChannelId: number | null;
-};
-
 async function ensureVersionLink(
   env: Env,
   actor: PrActor | null,
@@ -65,30 +58,29 @@ async function ensureVersionLink(
   const destinationUrl = post.linkUrl ?? (await fallbackUrl(env.DB, campaign.id));
   if (!destinationUrl) return { ok: false, error: "短縮リンクの宛先がありません" };
   if (existing) await unbindLink(env.DB, existing.id);
-  const wanted: Wanted = {
-    slug: shortlinkSlug(campaign.slug, item.kind, at),
-    chapterId: campaign.chapterId,
-    destinationUrl,
-    campaignChannelId: await campaignChannelId(env.DB, campaign.id, item.channel),
-  };
-  const created = await callRpc(() =>
+  const slug = shortlinkSlug(campaign.slug, item.kind, at);
+  const channelId = await campaignChannelId(env.DB, campaign.id, item.channel);
+  const result = await callRpc(() =>
     tinyurlService(env).createLink({
       actor,
-      ...wanted,
+      chapterId: campaign.chapterId,
+      slug,
+      destinationUrl,
       title: item.title,
       ogImageUrl: post.ogImage,
+      campaignChannelId: channelId,
+      origin: { campaignId: campaign.id, draftId: at.draftId, version: at.version },
     }),
   );
-  const taken = !created.ok && SLUG_TAKEN.includes(created.code);
-  const result = taken ? await adoptTakenSlug(env, actor, wanted) : created;
+  const adopted = result.ok && result.adopted === true;
   await logDispatch(env.DB, {
     campaignId: campaign.id,
     itemId: item.id,
-    action: taken ? "link_adopt" : "link_create",
+    action: adopted ? "link_adopt" : "link_create",
     ok: result.ok,
     detail: result.ok
       ? `v${at.version} ${result.link.shortUrl}`
-      : `v${at.version} ${wanted.slug} ${result.code}: ${result.message ?? ""}`,
+      : `v${at.version} ${slug} ${result.code}: ${result.message ?? ""}`,
   });
   if (result.ok)
     await insertVersionLink(env.DB, at, {
@@ -102,29 +94,11 @@ async function ensureVersionLink(
     });
   const saved = await linkForVersion(env.DB, at);
   if (saved && saved.destinationUrl === destinationUrl) return { ok: true, link: saved };
-  if (result.ok || !taken)
-    return {
-      ok: false,
-      error: `短縮リンクを作れませんでした（${result.ok ? "保存" : result.code}）`,
-    };
+  if (result.ok) return { ok: false, error: "短縮リンクを作れませんでした（保存）" };
   return {
     ok: false,
-    error: `短縮リンク ${wanted.slug} は url.gdgs.jp でほかの宛先か持ち主に使われているので送りません（${result.code}）`,
+    error: REFUSED.includes(result.code)
+      ? `短縮リンク ${slug} は url.gdgs.jp でほかの宛先か持ち主に使われているので送りません（${result.code}）`
+      : `短縮リンクを作れませんでした（${result.code}）`,
   };
-}
-
-async function adoptTakenSlug(env: Env, actor: PrActor, wanted: Wanted) {
-  const found = await callRpc(() =>
-    tinyurlService(env).findLink({ actor, chapterId: wanted.chapterId, slug: wanted.slug }),
-  );
-  if (!found.ok) return { ...found, code: `slug_taken/${found.code}` };
-  const link = found.link;
-  const ours =
-    link.slug === wanted.slug &&
-    link.destinationUrl === wanted.destinationUrl &&
-    link.campaignChannelId === wanted.campaignChannelId &&
-    (link.ownerChapterId === wanted.chapterId || link.ownerUserId === actor.user.id);
-  return ours
-    ? found
-    : { ok: false as const, code: "slug_taken/mismatch", message: link.destinationUrl };
 }

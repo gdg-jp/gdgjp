@@ -94,6 +94,7 @@ function accessFor(who: ReturnType<typeof user>, manage: boolean): CampaignAcces
     members: [
       { userId: "lead", roles: ["lead"] },
       { userId: "cohost", roles: [] },
+      { userId: "member1", roles: [] },
     ],
     permissions: { manage, edit: true },
   } as unknown as CampaignAccess;
@@ -101,6 +102,7 @@ function accessFor(who: ReturnType<typeof user>, manage: boolean): CampaignAcces
 
 const LEAD = user("lead", 1, "organizer");
 const COHOST = user("cohost", 2, "member");
+const HOST_MEMBER = user("member1", 1, "member");
 
 type Content = (n: number) => unknown;
 
@@ -114,6 +116,8 @@ type TinyurlLink = {
   ownerUserId: string;
   ownerChapterId: number | null;
   campaignChannelId: number | null;
+  origin?: string | null;
+  originChapterId?: number | null;
 };
 
 type TinyurlInput = {
@@ -122,6 +126,7 @@ type TinyurlInput = {
   slug: string;
   destinationUrl: string;
   campaignChannelId: number | null;
+  origin?: { campaignId: number; draftId: number; version: number };
 };
 
 function seeded(kind: "x_post" | "connpass_mail") {
@@ -154,21 +159,28 @@ function setup(
     down: false,
     calls: [] as { slug: string; destinationUrl: string }[],
     links: new Map<string, TinyurlLink>(),
-    lookup: true,
+    originAware: true,
   };
   const summary = (slug: string) => ({
     id: `link-${[...tinyurl.links.keys()].indexOf(slug) + 1}`,
     slug,
     shortUrl: `https://gdgs.jp/${slug}`,
   });
-  const findLink = async (input: TinyurlInput) => {
-    const link = tinyurl.links.get(input.slug);
-    const member = input.actor.chapters.some((c) => c.chapterId === input.chapterId);
-    return link &&
-      ((member && link.ownerChapterId === input.chapterId) ||
-        link.ownerUserId === input.actor.user.id)
-      ? { ok: true, link: { ...summary(input.slug), ...link } }
-      : { ok: false, code: "not_found" };
+  const adopt = (input: TinyurlInput, key: string) => {
+    const found = [...tinyurl.links.entries()].find(([, link]) => link.origin === key);
+    if (!found) return null;
+    const [slug, link] = found;
+    const entitled =
+      input.actor.chapters.some((c) => c.chapterId === link.originChapterId) ||
+      link.ownerUserId === input.actor.user.id;
+    if (!entitled || link.originChapterId !== input.chapterId)
+      return { ok: false, code: "not_found" };
+    if (
+      link.destinationUrl !== input.destinationUrl ||
+      link.campaignChannelId !== input.campaignChannelId
+    )
+      return { ok: false, code: "origin_mismatch" };
+    return { ok: true, adopted: true, link: summary(slug) };
   };
   const env = {
     DB: db,
@@ -176,17 +188,20 @@ function setup(
       createLink: async (input: TinyurlInput) => {
         tinyurl.calls.push({ slug: input.slug, destinationUrl: input.destinationUrl });
         if (tinyurl.down) return { ok: false, code: "unavailable" };
+        const o = tinyurl.originAware ? input.origin : undefined;
+        const key = o ? `pr:${o.campaignId}:${o.draftId}:${o.version}` : null;
+        const adopted = key ? adopt(input, key) : null;
+        if (adopted) return adopted;
         if (tinyurl.links.has(input.slug)) return { ok: false, code: "conflict" };
         tinyurl.links.set(input.slug, {
           destinationUrl: input.destinationUrl,
           ownerUserId: input.actor.user.id,
           ownerChapterId: input.campaignChannelId === null ? null : input.chapterId,
           campaignChannelId: input.campaignChannelId,
+          origin: key,
+          originChapterId: key ? input.chapterId : null,
         });
         return { ok: true, link: summary(input.slug) };
-      },
-      get findLink() {
-        return tinyurl.lookup ? findLink : undefined;
       },
     },
     SNS: {
@@ -490,13 +505,41 @@ describe("a short link is created only for an approved version", () => {
     ).toEqual([{ slug: "devfest-x-1v1", draft_version: 1, destination_url: destination(1) }]);
   });
 
-  it("refuses to adopt a taken slug whose destination is not this version's, and sends nothing", async () => {
+  it("a second approver adopts the link whose record the draft approver's create lost, and sends it once", async () => {
+    const t = setup("x_post", linked);
+    t.raw.exec(`INSERT INTO campaign_accounts (id, campaign_id, kind, chapter_id, external_id,
+      label, role) VALUES (2, 1, 'x', 1, 'x-1', 'host-account', 'primary')`);
+    await t.save(1);
+    t.after("INSERT INTO campaign_links", async () => {
+      t.raw.exec("DELETE FROM campaign_links");
+    });
+    expect((await t.press(LEAD, true, 1)).ok).toBe(false);
+    expect(t.tinyurl.links.size).toBe(1);
+    expect(t.raw.prepare("SELECT id FROM campaign_links").all()).toEqual([]);
+    const host = (await listTargets(t.db, 1)).find((target) => target.account.id === 2);
+    expect(
+      await approveTarget(t.env, accessFor(HOST_MEMBER, false), await t.draft(), host?.id ?? 0, 1),
+    ).toMatchObject({ ok: true });
+    expect(t.posts).toHaveLength(1);
+    expect(sentLinks(t, t.posts)).toEqual([destination(1)]);
+    expect(t.tinyurl.links.size).toBe(1);
+    expect(
+      t.raw.prepare("SELECT slug, draft_version, destination_url FROM campaign_links").all(),
+    ).toEqual([{ slug: "devfest-x-1v1", draft_version: 1, destination_url: destination(1) }]);
+  });
+
+  it.each([
+    ["a taken slug with no origin", null],
+    ["a link for this origin with another destination", "pr:1:1:1"],
+  ])("refuses %s, and sends nothing", async (_, origin) => {
     const t = setup("x_post", linked);
     t.tinyurl.links.set("devfest-x-1v1", {
       destinationUrl: "https://elsewhere.example/",
-      ownerUserId: "cohost",
+      ownerUserId: "lead",
       ownerChapterId: null,
       campaignChannelId: null,
+      origin,
+      originChapterId: origin ? 1 : null,
     });
     await t.save(1);
     expect((await t.press(LEAD, true, 1)).ok).toBe(false);
@@ -506,17 +549,27 @@ describe("a short link is created only for an approved version", () => {
     expect((await listTargets(t.db, 1))[0]).toMatchObject({ status: "failed" });
   });
 
-  it("refuses to adopt a taken slug it cannot look up, and sends nothing", async () => {
+  it("stops the send when tinyurl does not know the origin yet and the slug is taken", async () => {
     const t = setup("x_post", linked);
-    t.tinyurl.lookup = false;
-    t.tinyurl.links.set("devfest-x-1v1", {
-      destinationUrl: destination(1),
-      ownerUserId: "cohost",
-      ownerChapterId: null,
-      campaignChannelId: null,
-    });
+    t.tinyurl.originAware = false;
     await t.save(1);
-    await t.press(LEAD, true, 1);
+    t.after("INSERT INTO campaign_links", async () => {
+      t.raw.exec("DELETE FROM campaign_links");
+    });
+    expect((await t.press(LEAD, true, 1)).ok).toBe(false);
+    expect(await t.approveAsCohost(1)).toMatchObject({ ok: false });
+    expect(t.posts).toEqual([]);
+    expect(t.raw.prepare("SELECT id FROM campaign_links").all()).toEqual([]);
+    expect(t.tinyurl.links.size).toBe(1);
+  });
+
+  it("tells an approver outside the origin's chapter nothing about another approver's link", async () => {
+    const t = setup("x_post", linked);
+    await t.save(1);
+    t.after("INSERT INTO campaign_links", async () => {
+      t.raw.exec("DELETE FROM campaign_links");
+    });
+    expect((await t.press(LEAD, true, 1)).ok).toBe(false);
     expect(await t.approveAsCohost(1)).toMatchObject({ ok: false });
     expect(t.posts).toEqual([]);
     expect(t.raw.prepare("SELECT id FROM campaign_links").all()).toEqual([]);

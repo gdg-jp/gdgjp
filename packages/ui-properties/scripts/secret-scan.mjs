@@ -69,7 +69,7 @@ export function needles(secret) {
   return [...found].filter((value) => value.length >= 4);
 }
 
-function zipEntries(buffer) {
+export function zipEntries(buffer) {
   let end = -1;
   for (let index = buffer.length - 22; index >= Math.max(0, buffer.length - 65_557); index--)
     if (buffer.readUInt32LE(index) === 0x06054b50) {

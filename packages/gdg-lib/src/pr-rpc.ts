@@ -57,12 +57,7 @@ export interface SnsPrService {
 
 export type TinyurlLinkSummary = { id: string; slug: string; shortUrl: string };
 
-export type TinyurlLinkDetail = TinyurlLinkSummary & {
-  destinationUrl: string;
-  ownerUserId: string;
-  ownerChapterId: number | null;
-  campaignChannelId: number | null;
-};
+export type TinyurlLinkOrigin = { campaignId: number; draftId: number; version: number };
 
 export interface TinyurlPrService {
   ensureCampaign(input: {
@@ -83,10 +78,8 @@ export interface TinyurlPrService {
     title?: string | null;
     ogImageUrl?: string | null;
     campaignChannelId: number | null;
-  }): Promise<PrRpcResult<{ link: TinyurlLinkSummary }>>;
-  findLink(input: { actor: PrActor; chapterId: number; slug: string }): Promise<
-    PrRpcResult<{ link: TinyurlLinkDetail }>
-  >;
+    origin?: TinyurlLinkOrigin;
+  }): Promise<PrRpcResult<{ link: TinyurlLinkSummary; adopted?: boolean }>>;
   updateLink(input: {
     actor: PrActor;
     linkId: string;

@@ -238,6 +238,7 @@ test("scopes the Access credential to a cookie for one host", async () => {
   headers.append("set-cookie", "CF_Authorization=abc.def; Path=/; Secure; HttpOnly");
   const issued = await accessCookie({
     url: "https://wiki.stg1.gdgs.jp/",
+    domain: "stg1.gdgs.jp",
     id: "i",
     secret: "s",
     fetchImpl: async (_url, init) => {
@@ -256,6 +257,7 @@ test("scopes the Access credential to a cookie for one host", async () => {
   await assert.rejects(
     accessCookie({
       url: "https://wiki.stg1.gdgs.jp/",
+      domain: "stg1.gdgs.jp",
       id: "i",
       secret: "s",
       fetchImpl: async () => new Response(null, { headers: injected }),
@@ -265,12 +267,78 @@ test("scopes the Access credential to a cookie for one host", async () => {
   await assert.rejects(
     accessCookie({
       url: "https://wiki.stg1.gdgs.jp/",
+      domain: "stg1.gdgs.jp",
       id: "i",
       secret: "s",
       fetchImpl: async () => new Response(null),
     }),
     /did not issue.*strict service token authentication/,
   );
+});
+
+test("the Bombadil exchange sends the service token only to an https slot origin", async () => {
+  const refused = async (options) => {
+    let called = false;
+    await assert.rejects(
+      accessCookie({
+        id: "i",
+        secret: "s",
+        ...options,
+        fetchImpl: async () => {
+          called = true;
+          return new Response(null);
+        },
+      }),
+      /only sends the service token|needs --domain|loopback|Invalid slot domain/,
+    );
+    assert.equal(called, false, JSON.stringify(options));
+  };
+  await refused({ url: "http://wiki.stg1.gdgs.jp/", domain: "stg1.gdgs.jp" });
+  await refused({ url: "https://wiki.stg1.gdgs.jp:8443/", domain: "stg1.gdgs.jp" });
+  await refused({ url: "https://user:pw@wiki.stg1.gdgs.jp/", domain: "stg1.gdgs.jp" });
+  await refused({ url: "https://wiki.stg1.gdgs.jp./", domain: "stg1.gdgs.jp" });
+  await refused({ url: "https://example.com/", domain: "stg1.gdgs.jp" });
+  await refused({ url: "wss://wiki.stg1.gdgs.jp/", domain: "stg1.gdgs.jp" });
+  await refused({ url: "https://wiki.stg1.gdgs.jp/" });
+  await refused({ url: "http://localhost:6100/", domain: "localhost" });
+  await refused({ url: "http://localhost:6100/", domain: "stg1.gdgs.jp" });
+  await refused({ url: "http://wiki.stg1.gdgs.jp/", localOrigin: "http://wiki.stg1.gdgs.jp" });
+  await refused({ url: "http://127.0.0.1:6101/", localOrigin: "http://127.0.0.1:6100" });
+  const headers = new Headers();
+  headers.append("set-cookie", "CF_Authorization=abc.def; Path=/");
+  const local = await accessCookie({
+    url: "http://127.0.0.1:6100/",
+    localOrigin: "http://127.0.0.1:6100",
+    id: "i",
+    secret: "s",
+    fetchImpl: async () => new Response(null, { headers }),
+  });
+  assert.equal(local.cookie, "CF_Authorization=abc.def; Path=/; Secure; HttpOnly");
+});
+
+test("session refuses a target that is not an https origin on the slot domain", async () => {
+  for (const [name, value] of [
+    ["E2E_RP_URLS", "http://url.stg1.gdgs.jp,https://wiki.stg1.gdgs.jp"],
+    ["E2E_RP_URLS", "https://url.stg1.gdgs.jp:8443,https://wiki.stg1.gdgs.jp"],
+    ["E2E_RP_URLS", "https://url.example.com,https://wiki.stg1.gdgs.jp"],
+    ["E2E_ACCOUNTS_URL", "http://accounts.stg1.gdgs.jp"],
+  ]) {
+    const out = join(mkdtempSync(join(tmpdir(), "ui-fuzz-session-")), "state");
+    const d1 = fakeD1();
+    await assert.rejects(
+      session(
+        { slot: "stg-1", out, apps: [] },
+        {
+          slot: async () => ({ ...slot, environment: { ...slot.environment, [name]: value } }),
+          d1: d1.exec,
+        },
+      ),
+      /must be https origins|Invalid slot domain/,
+      value,
+    );
+    assert.deepEqual(d1.calls, []);
+    assert.equal(existsSync(join(out, "fuzz.json")), false);
+  }
 });
 
 test("fix agent gets data as data, a write-only worktree, and no protected paths", () => {
@@ -359,15 +427,32 @@ test("the Access token reaches only the slot's hosts and never the browser", () 
   const source = (path) =>
     readFileSync(new URL(`../../packages/ui-properties/${path}`, import.meta.url), "utf8");
   const spec = source("fuzz/staging.fuzz.ts");
-  assert.match(spec, /routeThroughAccess\(context, inSlot, token\)/);
+  assert.match(spec, /startForwarder\(\{ \.\.\.access, token \}\)/);
+  assert.match(spec, /forwarder\?\.chromiumArgs/);
+  assert.match(spec, /fuzzAccess\(process\.env,/);
+  assert.doesNotMatch(workflow, /UI_FUZZ_LOCAL|--local-origin/);
+  assert.match(workflow, /access-cookie --url "\$url\/" --domain "\$domain"/);
   assert.doesNotMatch(
     spec,
-    /CF-Access-Client|extraHTTPHeaders|setExtraHTTPHeaders|route\.continue\(/,
+    /CF-Access-Client|extraHTTPHeaders|setExtraHTTPHeaders|\.route\(|route\.continue\(|ignoreHTTPSErrors/,
   );
   const access = source("src/access.ts");
-  assert.match(access, /from "node:http"/);
-  assert.match(access, /from "node:https"/);
-  assert.doesNotMatch(access, /continue\(\s*\{|\.fetch\(|\.request\.|APIRequestContext|newContext/);
+  assert.doesNotMatch(access, /node:http|cf-access-client-secret|\.route\(/i);
+  const forwarder = source("src/forwarder.ts");
+  assert.match(forwarder, /from "node:https"/);
+  assert.match(forwarder, /rejectUnauthorized: true/);
+  assert.match(forwarder, /inAccessScope\(scope, candidate\)/);
+  assert.match(forwarder, /--ignore-certificate-errors-spki-list=/);
+  assert.match(forwarder, /MAP \*\.\$\{domain\}:443 127\.0\.0\.1/);
+  assert.doesNotMatch(
+    forwarder,
+    /^import (?!type )[^;]*from "node:http"|\.fetch\(|APIRequestContext|newContext|ignore-certificate-errors"|console\./m,
+  );
+  assert.equal(
+    [...`${access}${forwarder}${spec}`.matchAll(/cf-access-client-secret/gi)].length,
+    1,
+    "the forwarder is the only place that adds the token",
+  );
   assert.match(source("fuzz/playwright.config.ts"), /env: browserEnvironment\(process\.env\)/);
   const check = workflow.indexOf("- name: Check that the Access token stays on the slot's hosts");
   const explore = workflow.indexOf("- name: Explore the slot");
@@ -375,6 +460,7 @@ test("the Access token reaches only the slot's hosts and never the browser", () 
   const checkStep = workflow.slice(check, workflow.indexOf("- name: Mint a throwaway fuzz user"));
   assert.match(checkStep, /UI_PROPERTIES_REQUIRE_BROWSER: "1"/);
   assert.match(checkStep, /src\/access\.test\.ts/);
+  assert.match(checkStep, /src\/forwarder\.test\.ts/);
   assert.doesNotMatch(checkStep, /secrets\./);
   const exploreStep = workflow.slice(explore, workflow.indexOf("- name: Explore the slot with"));
   assert.deepEqual(
