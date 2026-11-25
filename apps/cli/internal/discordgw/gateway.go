@@ -10,6 +10,7 @@ import (
 	"math/rand/v2"
 	"net/http"
 	"os"
+	"regexp"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -318,7 +319,10 @@ func (g *Gateway) dispatch(ctx context.Context, p payload) {
 			g.cfg.Logger.Printf("gateway: bad READY: %v", err)
 			return
 		}
-		g.sessionID, g.resumeURL, g.botID = r.SessionID, r.ResumeGatewayURL, r.User.ID
+		g.sessionID, g.resumeURL, g.botID = r.SessionID, resumeURL(g.cfg.GatewayURL, r.ResumeGatewayURL), r.User.ID
+		if r.ResumeGatewayURL != "" && g.resumeURL == "" {
+			g.cfg.Logger.Printf("gateway: ignoring resume URL %q outside discord.gg", r.ResumeGatewayURL)
+		}
 		g.cfg.Logger.Printf("gateway: ready as %s (%s), %d guilds", r.User.Username, r.User.ID, len(r.Guilds))
 	case "RESUMED":
 		g.cfg.Logger.Printf("gateway: resumed at seq %d", g.seq.Load())
@@ -394,4 +398,16 @@ func send(ctx context.Context, conn *websocket.Conn, op int, d any) error {
 	wctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
 	return conn.Write(wctx, websocket.MessageText, data)
+}
+
+var discordResumeURL = regexp.MustCompile(`^wss://[a-z0-9-]+\.discord\.gg/?$`)
+
+func resumeURL(configured, received string) string {
+	if received == configured {
+		return configured
+	}
+	if discordResumeURL.MatchString(received) {
+		return received
+	}
+	return ""
 }

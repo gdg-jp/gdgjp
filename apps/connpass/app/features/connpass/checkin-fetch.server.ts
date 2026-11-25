@@ -1,3 +1,4 @@
+import { isHostOrSubdomain } from "@gdgjp/gdg-lib/url";
 import { loadStorageState } from "./session.server";
 import { type CheckinResult, parseCheckinPage } from "./ui/checkin";
 
@@ -8,7 +9,7 @@ export async function connpassCookieHeader(env: Env): Promise<string | null> {
   const now = Date.now() / 1000;
   const cookies = (state?.cookies ?? []).filter(
     (c) =>
-      c.domain.replace(/^\./, "").endsWith("connpass.com") &&
+      isHostOrSubdomain(c.domain, "connpass.com") &&
       (c.expires == null || c.expires < 0 || c.expires > now),
   );
   return cookies.length ? cookies.map((c) => `${c.name}=${c.value}`).join("; ") : null;

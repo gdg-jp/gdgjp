@@ -57,6 +57,29 @@ describe("tiptapToMarkdown", () => {
   });
 });
 
+describe("tiptapToMarkdown tables", () => {
+  const cell = (text: string) => ({
+    type: "tableCell",
+    content: [{ type: "paragraph", content: [{ type: "text", text }] }],
+  });
+  const table = (...texts: string[]): TipTapDoc => ({
+    type: "doc",
+    content: [{ type: "table", content: [{ type: "tableRow", content: texts.map(cell) }] }],
+  });
+
+  it("escapes a pipe so it stays inside its cell", () => {
+    expect(tiptapToMarkdown(table("a|b", "c"))).toBe("| a\\|b | c |\n| --- | --- |");
+  });
+
+  it("escapes a backslash before a pipe so the pipe cannot end the cell", () => {
+    const markdown = tiptapToMarkdown(table("path\\", "|x"));
+    expect(markdown.split("\n")[0]).toBe("| path\\\\ | \\|x |");
+    const row = markdown.split("\n")[0].slice(2, -2);
+    const unescapedPipes = row.match(/(?<!\\)(?:\\\\)*\|/g) ?? [];
+    expect(unescapedPipes).toHaveLength(1);
+  });
+});
+
 describe("applyPatchesToMarkdown", () => {
   const existingMarkdown = [
     "## 概要",

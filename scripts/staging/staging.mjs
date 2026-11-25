@@ -52,6 +52,7 @@ import {
   clientIdForSecret,
   deriveSecret,
   externalKey,
+  externalSecretsIn,
   externalValues,
   hashClientSecret,
   stagingSecretsFor,
@@ -326,12 +327,7 @@ function rootSecret() {
 }
 
 function allExternalSecrets() {
-  const raw = process.env.STAGING_SECRETS_JSON;
-  if (!raw) return {};
-  const parsed = JSON.parse(raw);
-  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed))
-    throw new Error("STAGING_SECRETS_JSON must be a JSON object");
-  return parsed;
+  return externalSecretsIn(process.env);
 }
 
 function hostOf(apps, name, slot) {
@@ -639,7 +635,7 @@ export async function secretPlan(slot, apps, current) {
       );
     for (const name of plan.missingExternal)
       log(
-        `::warning::${app.worker}: ${name} has no staging value; set the ${externalKey(app.worker, name)} secret`,
+        `::warning::${app.worker}: ${name} has no staging value; set the ${externalKey(app.worker, name)} secret in the staging environment and pass it to the deploy step in .github/workflows/staging-deploy.yml`,
       );
     plans[app.worker] = plan;
   }

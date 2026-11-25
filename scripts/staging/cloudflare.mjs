@@ -1,6 +1,6 @@
 import { spawnSync } from "node:child_process";
 import { createRequire } from "node:module";
-import { dirname, join, resolve } from "node:path";
+import { basename, dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 export const TRUSTED_ROOT = resolve(fileURLToPath(new URL("../..", import.meta.url)));
@@ -18,6 +18,15 @@ export function log(message) {
   process.stderr.write(`${message}\n`);
 }
 
+export function describeCommand(command, args) {
+  const shown = [basename(command)];
+  for (const arg of args) {
+    if (arg.startsWith("-")) break;
+    shown.push(arg);
+  }
+  return shown.join(" ");
+}
+
 export function run(command, args, { cwd = TRUSTED_ROOT, capture = false, env, input } = {}) {
   const result = spawnSync(command, args, {
     cwd,
@@ -33,7 +42,7 @@ export function run(command, args, { cwd = TRUSTED_ROOT, capture = false, env, i
   });
   if (result.status !== 0) {
     const detail = capture ? `\n${result.stderr}${result.stdout}` : "";
-    throw new Error(`${command} ${args.join(" ")} exited ${result.status}${detail}`);
+    throw new Error(`${describeCommand(command, args)} exited ${result.status}${detail}`);
   }
   return result.stdout ?? "";
 }

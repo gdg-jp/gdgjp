@@ -1,3 +1,4 @@
+import { type HtmlTag, htmlText } from "@gdgjp/gdg-lib/html";
 export type SourceImage = { id: string; type: string; size: number; src?: string };
 
 export type Source = {
@@ -61,17 +62,36 @@ export function googleExportUrl(target: GoogleTarget): string | null {
   }
 }
 
-const BLOCK = /<\/(p|div|section|article|li|h[1-6]|tr|table|ul|ol|header|footer|br)>|<br\s*\/?>/gi;
+const HIDDEN = ["script", "style", "noscript", "svg", "template"];
+const BLOCK_END = new Set([
+  "p",
+  "div",
+  "section",
+  "article",
+  "li",
+  "h1",
+  "h2",
+  "h3",
+  "h4",
+  "h5",
+  "h6",
+  "tr",
+  "table",
+  "ul",
+  "ol",
+  "header",
+  "footer",
+]);
+const IMAGE_ALT = /\balt="([^"]+)"/i;
+
+function tagText(tag: HtmlTag): string {
+  if (tag.name === "br" || (tag.closing && BLOCK_END.has(tag.name))) return "\n";
+  const alt = tag.name === "img" && !tag.closing ? IMAGE_ALT.exec(tag.source)?.[1] : undefined;
+  return alt ? ` [画像: ${alt}] ` : " ";
+}
 
 export function htmlToText(html: string): string {
-  return decodeEntities(
-    html
-      .replace(/<(script|style|noscript|svg|template)[\s\S]*?<\/\1>/gi, "")
-      .replace(/<!--[\s\S]*?-->/g, "")
-      .replace(BLOCK, "\n")
-      .replace(/<img[^>]*alt="([^"]+)"[^>]*>/gi, " [画像: $1] ")
-      .replace(/<[^>]+>/g, " "),
-  )
+  return decodeEntities(htmlText(html, { skip: HIDDEN, tag: tagText }))
     .split("\n")
     .map((line) => line.replace(/[ \t ]+/g, " ").trim())
     .filter((line, i, lines) => line || lines[i - 1])

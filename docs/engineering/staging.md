@@ -40,7 +40,12 @@ Cloudflare and Vercel deploy credentials exist only as secrets of the `Productio
 `staging` GitHub environments. Both environments accept only protected branches, so a
 workflow on any other branch cannot read them. Staging runs on `pull_request_target`:
 the workflow definition and the deploying job come from `main`, and the PR's code only
-runs in the build job, which has no secrets, no cache writes, and a read-only token. The
+runs in the build job, which has no secrets and a read-only token. Even there it runs only
+inside a `docker run` container: that job shares `main`'s Actions cache scope, and code on
+the runner itself could read the runner's cache token and plant an entry that a later
+`main` job restores. The checkout keeps no credentials, and the job sets up no Node or
+cache on the runner. The deploy step receives `STAGING_ROOT_SECRET`, the Cloudflare token,
+and the `STAGING_EXT__*` secrets it names, never the repository's other secrets. The
 deploy job removes `.env*`, `.dev.vars*`, and `.vercel` from the PR's output and invokes
 `main`'s Wrangler with generated configs whose names all end in `-stg-N`.
 
@@ -86,9 +91,11 @@ classifies every production secret name; the deploy stops on a name without a ru
 - **External** credentials (Google, X, Discord, Resend, Gemini, connpass and Luma bots,
   Vercel, Cloudflare Realtime) come from staging-owned accounts. Store each as a `staging`
   environment secret named `STAGING_EXT__<WORKER>__<NAME>`, for example
-  `STAGING_EXT__ACCOUNTS__GOOGLE_CLIENT_SECRET`. The same prefix overrides a var, such as
-  `STAGING_EXT__ACCOUNTS__GOOGLE_CLIENT_ID`. A missing external value leaves that
-  integration unconfigured and prints a warning naming the secret to set.
+  `STAGING_EXT__ACCOUNTS__GOOGLE_CLIENT_SECRET`, and add the same name to the `env` of the
+  deploy step in [staging-deploy.yml](../../.github/workflows/staging-deploy.yml). The same
+  prefix overrides a var, such as `STAGING_EXT__ACCOUNTS__GOOGLE_CLIENT_ID`. A missing
+  external value leaves that integration unconfigured and prints a warning naming the
+  secret to set.
 
 Encrypted values copied from production cannot be decrypted with staging keys, which is
 intended.

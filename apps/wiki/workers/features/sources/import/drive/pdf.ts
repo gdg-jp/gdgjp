@@ -35,11 +35,19 @@ export function parseRetryAfterMs(header: string | null): number | null {
   return Math.max(0, asDate - Date.now());
 }
 
+function redirectedToGoogleSignIn(response: Response): boolean {
+  try {
+    return new URL(response.url).hostname === "accounts.google.com";
+  } catch {
+    return false;
+  }
+}
+
 function responseStatusError(
   response: Response,
   body: string,
 ): PdfExportHttpError | PdfTooLargeError {
-  const redirectedToLogin = response.url.includes("accounts.google.com");
+  const redirectedToLogin = redirectedToGoogleSignIn(response);
   const suffix = body.trim().slice(0, 500);
   const message = `Google Drive PDF export failed (${response.status})${redirectedToLogin ? ": redirected to Google sign-in" : suffix ? `: ${suffix}` : ""}`;
   if (response.status === 403 && body.includes("exportSizeLimitExceeded")) {
@@ -56,7 +64,7 @@ export async function validatedPdfBody(
   response: Response,
   maxBytes: number = MAX_PDF_BYTES,
 ): Promise<Uint8Array> {
-  if (!response.ok || response.url.includes("accounts.google.com")) {
+  if (!response.ok || redirectedToGoogleSignIn(response)) {
     throw responseStatusError(response, await response.text());
   }
   const contentType = response.headers.get("content-type")?.split(";", 1)[0]?.trim().toLowerCase();

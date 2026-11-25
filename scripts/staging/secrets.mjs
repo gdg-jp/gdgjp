@@ -107,6 +107,14 @@ export function externalKey(worker, name) {
     .toUpperCase()}__${name}`;
 }
 
+export function externalSecretsIn(environment) {
+  return Object.fromEntries(
+    Object.entries(environment).filter(
+      ([key, value]) => key.startsWith(EXTERNAL_PREFIX) && typeof value === "string" && value,
+    ),
+  );
+}
+
 export function externalValues(worker, allSecrets = {}) {
   const prefix = externalKey(worker, "");
   return Object.fromEntries(

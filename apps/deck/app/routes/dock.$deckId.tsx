@@ -26,20 +26,28 @@ function storageKey(deckId: string) {
   return `deck-dock:${deckId}`;
 }
 
-function loadSettings(deckId: string): DockSettings {
+type StoredSettings = Pick<DockSettings, "obsUrl" | "screenshotDir">;
+
+function storedSettings(deckId: string): StoredSettings | null {
   try {
     const raw = localStorage.getItem(storageKey(deckId));
-    return raw
-      ? { ...DEFAULT_SETTINGS, ...(JSON.parse(raw) as Partial<DockSettings>) }
-      : DEFAULT_SETTINGS;
+    if (!raw) return null;
+    const { obsUrl, screenshotDir, ...rest } = JSON.parse(raw) as Partial<DockSettings>;
+    const stored = {
+      obsUrl: typeof obsUrl === "string" && obsUrl ? obsUrl : DEFAULT_SETTINGS.obsUrl,
+      screenshotDir: typeof screenshotDir === "string" ? screenshotDir : "",
+    };
+    if ("password" in rest) localStorage.setItem(storageKey(deckId), JSON.stringify(stored));
+    return stored;
   } catch {
-    return DEFAULT_SETTINGS;
+    return null;
   }
 }
 
-function saveSettings(deckId: string, settings: DockSettings) {
+function saveSettings(deckId: string, { obsUrl, screenshotDir }: DockSettings) {
   try {
-    localStorage.setItem(storageKey(deckId), JSON.stringify(settings));
+    const stored: StoredSettings = { obsUrl, screenshotDir };
+    localStorage.setItem(storageKey(deckId), JSON.stringify(stored));
   } catch {}
 }
 
@@ -87,14 +95,11 @@ function DockPanel({ deckId, token, name }: { deckId: string; token: string; nam
   const engine = useRef<DockEngine | null>(null);
 
   useMountEffect(() => {
-    const loaded = loadSettings(deckId);
+    const stored = storedSettings(deckId);
+    const loaded = { ...DEFAULT_SETTINGS, ...stored };
     settingsRef.current = loaded;
     setSettings(loaded);
-    setEditing(
-      !loaded.password &&
-        loaded.obsUrl === OBS_DEFAULT_URL &&
-        !localStorage.getItem(storageKey(deckId)),
-    );
+    setEditing(stored === null);
     const e = new DockEngine({
       deckId,
       token,
@@ -162,7 +167,11 @@ function DockPanel({ deckId, token, name }: { deckId: string; token: string; nam
         </p>
       )}
 
-      {editing && <DockSettingsForm settings={settings} onSave={save} />}
+      {obs === "auth-failed" && !settings.password && (
+        <p className="dk-dock-help">OBS の WebSocket サーバーのパスワードを入れてください。</p>
+      )}
+
+      {(editing || obs === "auth-failed") && <DockSettingsForm settings={settings} onSave={save} />}
 
       <section className="dk-dock-log" aria-label="操作ログ">
         {log.length === 0 ? (
@@ -205,7 +214,10 @@ function DockSettingsForm({
       <FormField label="obs-websocket の URL">
         <Input name="obsUrl" defaultValue={settings.obsUrl} placeholder={OBS_DEFAULT_URL} />
       </FormField>
-      <FormField label="パスワード" description="この PC のこのドックにだけ保存されます。">
+      <FormField
+        label="パスワード"
+        description="保存しません。ドックを開き直したら入れ直してください。"
+      >
         <Input
           name="password"
           type="password"

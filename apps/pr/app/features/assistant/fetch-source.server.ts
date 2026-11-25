@@ -1,3 +1,4 @@
+import { isHostOrSubdomain } from "@gdgjp/gdg-lib/url";
 import type { SourceImage } from "./source";
 import {
   connpassMain,
@@ -100,7 +101,7 @@ async function readUrl(env: Env, url: string): Promise<Fetched> {
       }
     } catch {}
   }
-  const main = host.endsWith("connpass.com") ? (connpassMain(html) ?? html) : html;
+  const main = isHostOrSubdomain(host, "connpass.com") ? (connpassMain(html) ?? html) : html;
   return {
     title: titleOf(html) || host,
     text: htmlToText(main),

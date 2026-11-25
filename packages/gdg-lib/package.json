@@ -11,11 +11,13 @@
     "./auth/signed-out-reload": "./src/auth/signed-out-reload.ts",
     "./acl": "./src/acl/index.ts",
     "./acl/agent": "./src/acl/agent.ts",
+    "./html": "./src/html.ts",
     "./react": "./src/react/index.ts",
     "./ui": "./src/ui/index.ts",
     "./ui/app-links": "./src/ui/app-links.ts",
     "./staging-snapshot": "./src/staging-snapshot.ts",
     "./timing": "./src/timing.ts",
+    "./url": "./src/url.ts",
     "./testing/durable-object": "./src/testing/durable-object.ts"
   },
   "scripts": {

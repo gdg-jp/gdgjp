@@ -10,6 +10,7 @@ import {
   findPendingDeviceCodeByUserCode,
   handleDeviceAuthorizationRequest,
   handleDeviceTokenGrant,
+  userCodeFrom,
 } from "~/features/oauth/device-authorization.server";
 import { sha256Base64Url } from "~/lib/crypto.server";
 
@@ -792,5 +793,39 @@ describe("approveDeviceCode", () => {
     );
     expect(approved).toBe(false);
     expect(runAuthHandler).not.toHaveBeenCalled();
+  });
+});
+
+describe("userCodeFrom", () => {
+  const ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
+  const source = (...batches: number[][]) => {
+    const calls: number[] = [];
+    const next = (count: number) => {
+      calls.push(count);
+      return new Uint8Array(batches.shift() ?? []);
+    };
+    return { next, calls };
+  };
+
+  it("maps each byte to one of 31 equal buckets of eight values", () => {
+    const { next } = source([0, 7, 8, 15, 16, 239, 240, 247]);
+    expect(userCodeFrom(next)).toBe("AABB-C899");
+  });
+
+  it("discards the bytes that would favour the first letters and draws again", () => {
+    const { next, calls } = source([248, 255, 0, 0, 0, 0, 0, 0], [8, 247]);
+    expect(userCodeFrom(next)).toBe("AAAA-AAB9");
+    expect(calls).toEqual([8, 2]);
+  });
+
+  it("gives every letter of the alphabet the same number of accepted byte values", () => {
+    const counts = new Map<string, number>();
+    for (let byte = 0; byte < 248; byte++) {
+      const { next } = source([byte], [0, 0, 0, 0, 0, 0, 0]);
+      const letter = userCodeFrom(next)[0];
+      counts.set(letter, (counts.get(letter) ?? 0) + 1);
+    }
+    expect([...counts.keys()].join("")).toBe(ALPHABET);
+    expect([...counts.values()].every((count) => count === 8)).toBe(true);
   });
 });

@@ -1,4 +1,5 @@
 import type { Page } from "@cloudflare/playwright";
+import { htmlTokens } from "@gdgjp/gdg-lib/html";
 
 export type CheckinUrl = { url: string; eventId: string };
 
@@ -36,16 +37,14 @@ const USER_LINK = /href="(?:https:\/\/connpass\.com)?\/user\/([^/"?#]+)\/?"/;
 const ATTENDEE_LINK =
   /参加者[\s\S]{0,400}?href="(?:https:\/\/connpass\.com)?\/user\/([^/"?#]+)\/?"/;
 
-function mainContent(html: string): string {
-  return html
-    .replace(/<(header|nav|footer)\b[\s\S]*?<\/\1>/gi, "")
-    .replace(/<(script|style)\b[\s\S]*?<\/\1>/gi, "");
-}
+const OUTSIDE_MAIN = ["header", "nav", "footer", "script", "style"];
 
 export function parseCheckinPage(html: string): CheckinResult {
-  const main = mainContent(html);
-  const text = main
-    .replace(/<[^>]+>/g, " ")
+  const tokens = htmlTokens(html, { skip: OUTSIDE_MAIN });
+  const main = tokens.map((token) => (token.kind === "text" ? token.text : token.source)).join("");
+  const text = tokens
+    .map((token) => (token.kind === "text" ? token.text : " "))
+    .join("")
     .replace(/&nbsp;/g, " ")
     .replace(/\s+/g, " ");
   const userId = (ATTENDEE_LINK.exec(main) ?? USER_LINK.exec(main))?.[1] ?? null;

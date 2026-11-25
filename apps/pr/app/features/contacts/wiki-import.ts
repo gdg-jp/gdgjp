@@ -1,3 +1,4 @@
+import { htmlText } from "@gdgjp/gdg-lib/html";
 import type { ContactKind } from "./contact";
 import { organizationKey } from "./contact";
 
@@ -40,7 +41,7 @@ const EMAIL = /[\w.+-]+@[\w-]+\.[\w.-]+/;
 const PHONE = /\d{2,4}-\d{2,4}-\d{3,4}/;
 
 function kindOf(label: string): ContactKind | undefined {
-  const clean = label.replace(/<[^>]*>/g, "").trim();
+  const clean = htmlText(label, { tag: () => "" }).trim();
   return (
     KIND_BY_LABEL[clean] ??
     KIND_BY_LABEL[clean.split(/[／/]/)[0]?.trim() ?? ""] ??
