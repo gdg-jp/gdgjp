@@ -20,6 +20,7 @@ export type Dial = { readonly host: string; readonly address: string; readonly p
 export type Forwarder = {
   readonly port: number;
   readonly spki: string;
+  readonly certificate: Buffer;
   readonly chromiumArgs: readonly string[];
   readonly dials: readonly Dial[];
   close(): Promise<void>;
@@ -266,6 +267,7 @@ export async function startForwarder({
   return {
     port,
     spki: certificate.spki,
+    certificate: certificate.cert,
     chromiumArgs: [
       `--host-resolver-rules=${rules.join(", ")}`,
       `--ignore-certificate-errors-spki-list=${certificate.spki}`,
