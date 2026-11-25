@@ -1,15 +1,23 @@
-import { type Page, expect, test } from "@playwright/test";
+import { type Page, type Response, expect, test } from "@playwright/test";
 import { organizerLogin, queryLocalD1, seedXAccount } from "./local-d1";
 
 async function hydratedContributorSearch(page: Page) {
   const search = page.getByPlaceholder("名前またはメールアドレスで検索");
-  const opened = page.waitForResponse(
-    (response) =>
+  let opened = false;
+  const listen = (response: Response) => {
+    if (
       response.url().includes("contributor-candidates") &&
-      new URL(response.url()).searchParams.get("q") === "",
-  );
-  await search.click();
-  await opened;
+      new URL(response.url()).searchParams.get("q") === ""
+    )
+      opened = true;
+  };
+  page.on("response", listen);
+  await expect(async () => {
+    await page.getByRole("heading", { name: "Settings" }).click();
+    await search.click();
+    await expect.poll(() => opened, { timeout: 2_000 }).toBe(true);
+  }).toPass({ timeout: 25_000 });
+  page.off("response", listen);
   return search;
 }
 
