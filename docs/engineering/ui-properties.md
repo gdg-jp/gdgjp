@@ -34,7 +34,7 @@ worlds, so `setup` must not depend on earlier runs.
 | App | Spec | Model |
 | --- | --- | --- |
 | Wiki | `apps/wiki/tests/e2e/ui-properties.spec.ts` | Author and member on two pages: display settings per actor and page, sharing dialog scope, access API never widens, member writes refused |
-| PR | `apps/pr/e2e/ui-properties.spec.ts` | Host and co-host organizers and outsiders: nothing reaches a send without approval of that exact version |
+| PR | `apps/pr/e2e/ui-properties.spec.ts` | Host and co-host organizers and outsiders editing text and `{{shortlink}}` link URLs: nothing reaches a send without approval of that exact version, a refused approval writes no link or log row and calls no url.gdgs.jp, each short link belongs to one approved version, and each send links to its own version's URL |
 | Accounts | `apps/accounts/e2e/ui-properties.spec.ts` | Sign-in and sign-out consistency with a relying party; privileges never grow from UI actions |
 | Tinyurl | `apps/tinyurl/e2e/ui-properties.spec.ts` | Two members creating, opening, and deleting private and public links: each reaches exactly the links it may see, and no dashboard lists another member's private link |
 | OST | `apps/ost/e2e/ui-properties.spec.ts` | Participants submitting and voting, an organizer moderating: the screen shows every topic once with its vote count, and participants cannot moderate |

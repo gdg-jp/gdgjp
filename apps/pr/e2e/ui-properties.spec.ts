@@ -15,11 +15,18 @@ import {
   type Chapter,
   type Model,
   type PrWorld,
+  SHORTLINK,
   type Send,
   connpassJobCount,
   createWorld,
   current,
+  linkOf,
+  linkRows,
+  linkUrl,
   mockState,
+  outside,
+  ownLinks,
+  postContent,
   textOf,
 } from "./ui-properties-world";
 
@@ -28,7 +35,8 @@ test.describe.configure({ retries: 0 });
 const PR_ORIGIN = `http://localhost:${process.env.PR_E2E_PERSIST_TO || process.env.CI ? 6191 : 5191}`;
 const EDIT_WORDS = ["告知", "update", "テスト 🎉", "改行\nあり", "  前後に空白  ", "最終版"];
 
-const observed = { sends: 0, targetApprovals: 0, draftApprovals: 0 };
+const observed = { sends: 0, targetApprovals: 0, draftApprovals: 0, linkEdits: 0, refusals: 0 };
+const SHORT_URL = /https:\/\/gdgs\.jp\/[A-Za-z0-9-]+/g;
 
 type Target = { actor: ActorName; chapter: Chapter };
 type Approval = { actor: ActorName; version: "current" | "stale" };
@@ -44,6 +52,7 @@ function predictDraftApproval(model: Model, actor: ActorName, version: number) {
   observed.draftApprovals++;
   model.status = "approved";
   model.approvedVersion = version;
+  model.approvedVersions.push(version);
   model.targets ??= {
     1: { status: "pending", approvedVersion: null },
     2: { status: "pending", approvedVersion: null },
@@ -67,6 +76,7 @@ function predictTargetApproval(model: Model, actor: ActorName, chapter: Chapter,
     chapterId: chapter,
     text: textOf(model, version),
     actor: `dev-user-${actor}`,
+    version,
   });
   return true;
 }
@@ -106,6 +116,11 @@ async function submitted(world: PrWorld, page: Page, click: () => Promise<void>)
   await page.waitForLoadState("networkidle", { timeout: 10_000 }).catch(() => undefined);
 }
 
+async function watchRefusal(world: PrWorld, action: string, accepted: boolean) {
+  world.refusal = accepted ? null : { action, before: await outside(world) };
+  if (!accepted) observed.refusals++;
+}
+
 const onDraft = (world: PrWorld, actor: ActorName) =>
   world.model.seen[actor] !== null && world.pages[actor].url().endsWith(world.draftUrl);
 
@@ -135,13 +150,36 @@ const property = (browser: Browser): UiProperty<PrWorld> => ({
         const page = world.pages[input.actor];
         const model = world.model;
         model.edits++;
-        const text = `${world.marker} e${model.edits} ${input.word}`;
+        const text = `${world.marker} e${model.edits} ${input.word} ${SHORTLINK}`;
         await world.ui.fill(page.getByLabel("投稿の本文"), text);
         await world.ui.click(page.getByRole("button", { name: "新しい版として保存" }));
         model.versions.push(text.replace(/\r\n/g, "\n"));
+        model.links.push(linkOf(model, current(model) - 1));
         if (model.status === "approved") model.status = "in_review";
         await expect(page.getByText(`版 ${current(model)} を保存しました`)).toBeVisible();
         model.seen[input.actor] = current(model);
+      },
+    }),
+    action<PrWorld, { actor: ActorName }>({
+      name: "save a new version with a different link",
+      weight: 2,
+      input: (random) => ({
+        actor: random.pick(ACTOR_NAMES.filter((actor) => actor !== "outsider")),
+      }),
+      run: async (world, input) => {
+        const model = world.model;
+        model.edits++;
+        const text = `${world.marker} l${model.edits} リンクを差し替え ${SHORTLINK}`;
+        const url = linkUrl(world.marker, model.edits);
+        const response = await postForm(world, input.actor, {
+          intent: "edit-json",
+          json: JSON.stringify(postContent(text, url)),
+        });
+        expect(response.status(), "saving a new link").toBe(200);
+        model.versions.push(text);
+        model.links.push(url);
+        observed.linkEdits++;
+        if (model.status === "approved") model.status = "in_review";
       },
     }),
     action<PrWorld, { actor: ActorName }>({
@@ -158,6 +196,7 @@ const property = (browser: Browser): UiProperty<PrWorld> => ({
         if ((await approve.count()) === 0) return;
         const seen = world.model.seen[input.actor] ?? 0;
         const expected = predictDraftApproval(world.model, input.actor, seen);
+        await watchRefusal(world, "approve the draft in the page", expected);
         await submitted(world, page, () => world.ui.click(approve));
         if (expected) await targetId(world, 1);
         world.model.seen[input.actor] = current(world.model);
@@ -173,6 +212,7 @@ const property = (browser: Browser): UiProperty<PrWorld> => ({
       run: async (world, input) => {
         const version = versionFor(world.model, input.version);
         const expected = predictDraftApproval(world.model, input.actor, version);
+        await watchRefusal(world, `draft approval of v${version} by ${input.actor}`, expected);
         await postForm(world, input.actor, { intent: "approve", version: String(version) });
         if (expected) await targetId(world, 1);
       },
@@ -201,7 +241,8 @@ const property = (browser: Browser): UiProperty<PrWorld> => ({
         const page = world.pages[input.actor];
         if ((await reserveButton(page, input.chapter).count()) === 0) return;
         const seen = world.model.seen[input.actor] ?? 0;
-        predictTargetApproval(world.model, input.actor, input.chapter, seen);
+        const expected = predictTargetApproval(world.model, input.actor, input.chapter, seen);
+        await watchRefusal(world, "reserve a target in the page", expected);
         await submitted(world, page, () => world.ui.click(reserveButton(page, input.chapter)));
         world.model.seen[input.actor] = current(world.model);
       },
@@ -218,7 +259,12 @@ const property = (browser: Browser): UiProperty<PrWorld> => ({
       run: async (world, input) => {
         const target = await targetId(world, input.chapter);
         const version = versionFor(world.model, input.version);
-        predictTargetApproval(world.model, input.actor, input.chapter, version);
+        const expected = predictTargetApproval(world.model, input.actor, input.chapter, version);
+        await watchRefusal(
+          world,
+          `target approval of v${version} for chapter ${input.chapter} by ${input.actor}`,
+          expected,
+        );
         await postForm(world, input.actor, {
           intent: "target-approve",
           target: target,
@@ -243,11 +289,17 @@ const property = (browser: Browser): UiProperty<PrWorld> => ({
         const state = await mockState(world.request);
         const actual = state.sns.posts
           .filter((post) => post.text.includes(world.marker))
-          .map(({ chapterId, text, actor }): Send => ({ chapterId, text, actor }));
+          .map(
+            ({ chapterId, text, actor }): Send => ({
+              chapterId,
+              text: text.replace(SHORT_URL, SHORTLINK),
+              actor,
+            }),
+          );
         observed.sends = Math.max(observed.sends, actual.length);
         const key = (send: Send) => JSON.stringify([send.chapterId, send.text, send.actor]);
         const expected = new Map<string, number>();
-        for (const send of world.model.sends)
+        for (const { version: _, ...send } of world.model.sends)
           expected.set(key(send), (expected.get(key(send)) ?? 0) + 1);
         for (const send of actual) {
           const left = expected.get(key(send)) ?? 0;
@@ -284,6 +336,78 @@ const property = (browser: Browser): UiProperty<PrWorld> => ({
           );
       },
     ),
+    invariant("a refused approval creates no link, log row, or url.gdgs.jp call", async (world) => {
+      const refusal = world.refusal;
+      world.refusal = null;
+      if (!refusal) return;
+      const after = await outside(world);
+      if (JSON.stringify(after) !== JSON.stringify(refusal.before))
+        throw new PropertyViolation(
+          "invariant",
+          "a refused approval creates no link, log row, or url.gdgs.jp call",
+          `${refusal.action} was refused but changed ${JSON.stringify(refusal.before)} to ${JSON.stringify(after)}`,
+        );
+    }),
+    invariant("short links belong to approved versions and are sent with them", async (world) => {
+      const model = world.model;
+      const rows = linkRows(world);
+      const state = await mockState(world.request);
+      const tiny = ownLinks(world, state);
+      for (const row of rows)
+        if (
+          row.draft_id !== null &&
+          (row.draft_id !== world.draftId ||
+            !model.approvedVersions.includes(row.draft_version ?? 0))
+        )
+          throw new PropertyViolation(
+            "invariant",
+            "every bound short link names an approved version",
+            `campaign_links ${row.slug} is bound to draft ${row.draft_id} v${row.draft_version}; approved versions of draft ${world.draftId} are ${JSON.stringify(model.approvedVersions)}`,
+          );
+      const perVersion = new Map<string, number>();
+      const bound = rows.filter((row) => row.draft_id !== null);
+      const keys = [
+        ...tiny.map((link) => {
+          const row = bound.find((item) => item.tinyurl_link_id === link.id);
+          return row ? `draft ${row.draft_id} v${row.draft_version}` : `unbound ${link.slug}`;
+        }),
+        ...bound
+          .filter((row) => !tiny.some((link) => link.id === row.tinyurl_link_id))
+          .map((row) => `draft ${row.draft_id} v${row.draft_version}`),
+      ];
+      for (const key of keys) perVersion.set(key, (perVersion.get(key) ?? 0) + 1);
+      for (const [key, count] of perVersion)
+        if (count > 1)
+          throw new PropertyViolation(
+            "invariant",
+            "at most one url.gdgs.jp link per draft version",
+            `${key} has ${count} links`,
+          );
+      const sent = state.sns.posts.filter((post) => post.text.includes(world.marker));
+      for (const post of sent) {
+        const normalized = post.text.replace(SHORT_URL, SHORTLINK);
+        const send = model.sends.find(
+          (item) => item.chapterId === post.chapterId && item.text === normalized,
+        );
+        const urls: string[] = post.text.match(SHORT_URL) ?? [];
+        const link = tiny.find((item) => urls.includes(`https://gdgs.jp/${item.slug}`));
+        const row = rows.find((item) => item.tinyurl_link_id === link?.id);
+        const want = send ? linkOf(model, send.version) : "(no approved send)";
+        if (
+          !send ||
+          urls.length !== 1 ||
+          post.text.includes(SHORTLINK) ||
+          link?.destinationUrl !== want ||
+          row?.draft_id !== world.draftId ||
+          row?.draft_version !== send.version
+        )
+          throw new PropertyViolation(
+            "invariant",
+            "each send carries the short link of the version it sends",
+            `chapter ${post.chapterId} received ${JSON.stringify(post.text)} linking to ${link?.destinationUrl ?? "nothing"} (row v${row?.draft_version ?? "-"}); v${send?.version ?? "-"} links to ${want}`,
+          );
+      }
+    }),
   ],
 });
 
@@ -303,7 +427,13 @@ const plan = runPlan({ seeds: [4242, 7331], steps: 80, minutes: 5 });
 
 for (const seed of plan.seeds) {
   test(`seed ${seed} sends only approved versions`, async ({ browser }, testInfo) => {
-    Object.assign(observed, { sends: 0, targetApprovals: 0, draftApprovals: 0 });
+    Object.assign(observed, {
+      sends: 0,
+      targetApprovals: 0,
+      draftApprovals: 0,
+      linkEdits: 0,
+      refusals: 0,
+    });
     try {
       await checkUiProperty(testInfo, property(browser), {
         plan,
