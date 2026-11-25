@@ -1,5 +1,9 @@
-import type { PrActor, PrRpcResult, TinyurlLinkSummary } from "@gdgjp/gdg-lib";
+import type { PrActor, PrRpcResult, TinyurlLinkDetail, TinyurlLinkSummary } from "@gdgjp/gdg-lib";
+import { isSuperAdmin } from "@gdgjp/gdg-lib";
 import { getDomainByHostname } from "~/features/domains/domain.repository";
+import { listPermissionsForLink } from "~/features/links/link-permissions.repository";
+import { canViewLink } from "~/features/links/link-policy";
+import { getLinkBySlug } from "~/features/links/link-queries";
 import type { Link } from "~/features/links/link-record";
 import { createLinkWithExtras, updateLinkWithExtras } from "~/features/links/link.service";
 import { getCampaignAnalyticsForActor } from "./campaign-cli-analytics";
@@ -104,6 +108,30 @@ export async function prCreateLink(
   return created.ok
     ? { ok: true, link: summary(env, { ...created.link, domainHostname: domain.hostname }) }
     : fail(created.code, created.error);
+}
+
+export async function prFindLink(
+  env: Env,
+  input: { actor: PrActor; chapterId: number; slug: string },
+): Promise<PrRpcResult<{ link: TinyurlLinkDetail }>> {
+  const { user, chapters } = input.actor;
+  const member = isSuperAdmin(user) || chapters.some((c) => c.chapterId === input.chapterId);
+  const viewer = { user, chapterId: member ? input.chapterId : null };
+  const hostname = new URL(env.SHORT_URL_BASE).host;
+  const link = await getLinkBySlug(env.DB, input.slug, hostname);
+  const permissions = link ? await listPermissionsForLink(env.DB, link.id) : [];
+  if (!link || !canViewLink(viewer, link, permissions))
+    return fail("not_found", "No link with this slug is visible to this actor.");
+  return {
+    ok: true,
+    link: {
+      ...summary(env, { ...link, domainHostname: hostname }),
+      destinationUrl: link.destinationUrl,
+      ownerUserId: link.ownerUserId,
+      ownerChapterId: link.ownerChapterId,
+      campaignChannelId: link.campaignChannelId,
+    },
+  };
 }
 
 export async function prUpdateLink(

@@ -6,6 +6,7 @@ import {
   createServer,
 } from "node:http";
 import type { AddressInfo } from "node:net";
+import { gzipSync } from "node:zlib";
 import { type Browser, type Route, chromium } from "@playwright/test";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import {
@@ -13,6 +14,7 @@ import {
   browserEnvironment,
   forwardThroughAccess,
   routeThroughAccess,
+  sendThroughAccess,
   slotHosts,
 } from "./access";
 
@@ -42,10 +44,7 @@ const outside = recording((_request, response) => {
 });
 
 const slot = recording((request, response) => {
-  const authorized =
-    request.headers["cf-access-client-secret"] === token.secret ||
-    /CF_Authorization=jwt/.test(request.headers.cookie ?? "");
-  if (!authorized) {
+  if (request.headers["cf-access-client-secret"] !== token.secret) {
     response.writeHead(403).end("Access denied");
     return;
   }
@@ -60,6 +59,28 @@ const slot = recording((request, response) => {
   }
   if (request.url === "/fetch") {
     response.writeHead(307, { location: `${outsideUrl}/api` }).end();
+    return;
+  }
+  if (request.url === "/echo") {
+    const chunks: Buffer[] = [];
+    request.on("data", (chunk: Buffer) => chunks.push(chunk));
+    request.on("end", () => {
+      response.writeHead(201, {
+        "content-type": "application/json",
+        "content-encoding": "gzip",
+        "set-cookie": ["app=1; Path=/; HttpOnly", "CF_Authorization=jwt; Path=/; HttpOnly"],
+      });
+      response.end(
+        gzipSync(
+          JSON.stringify({
+            method: request.method,
+            body: Buffer.concat(chunks).toString(),
+            cookie: request.headers.cookie ?? null,
+            pageHeader: request.headers["x-page"] ?? null,
+          }),
+        ),
+      );
+    });
     return;
   }
   response
@@ -106,17 +127,55 @@ describe("slotHosts", () => {
   });
 });
 
+describe("sendThroughAccess", () => {
+  it("adds the token itself, follows no redirect, and keeps Access's cookie from the browser", async () => {
+    const redirect = await sendThroughAccess(
+      { url: `${slotUrl}/short`, method: "GET", headers: {}, body: null },
+      token,
+    );
+    expect(redirect.status).toBe(302);
+    expect(redirect.headers.location).toBe(`${outsideUrl}/landed`);
+    expect(redirect.headers["set-cookie"]).toBeUndefined();
+    expect(outside.seen.some((entry) => entry.path === "/landed")).toBe(false);
+    const echoed = await sendThroughAccess(
+      {
+        url: `${slotUrl}/echo`,
+        method: "POST",
+        headers: {
+          "content-type": "text/plain",
+          "content-length": "5",
+          cookie: "app=1; CF_Authorization=stale",
+          "CF-Access-Client-Secret": "from-the-page",
+          "x-page": "kept",
+        },
+        body: Buffer.from("hello"),
+      },
+      token,
+    );
+    expect(echoed.status).toBe(201);
+    expect(echoed.headers["content-encoding"]).toBeUndefined();
+    expect(echoed.headers["set-cookie"]).toBe("app=1; Path=/; HttpOnly");
+    expect(JSON.parse(echoed.body.toString())).toEqual({
+      method: "POST",
+      body: "hello",
+      cookie: "app=1",
+      pageHeader: "kept",
+    });
+  });
+});
+
 describe("forwardThroughAccess", () => {
   const fake = (url: string) => {
     const calls: { method: string; options: unknown }[] = [];
     const route = {
-      request: () => ({ url: () => url, headers: () => ({ accept: "text/html" }) }),
+      request: () => ({
+        url: () => url,
+        method: () => "POST",
+        allHeaders: async () => ({ accept: "text/html", cookie: "app=1" }),
+        postDataBuffer: () => Buffer.from("x"),
+      }),
       continue: async (options?: unknown) => {
         calls.push({ method: "continue", options });
-      },
-      fetch: async (options?: unknown) => {
-        calls.push({ method: "fetch", options });
-        return { status: () => 302 };
       },
       fulfill: async (options?: unknown) => {
         calls.push({ method: "fulfill", options });
@@ -128,22 +187,42 @@ describe("forwardThroughAccess", () => {
     return { route: route as unknown as Route, calls };
   };
 
-  it("sends the token itself without following redirects and never through the browser", async () => {
+  it("sends slot requests from the test process and leaves other hosts untouched", async () => {
     const inSlot = slotHosts("stg1.gdgs.jp");
+    const sent: unknown[] = [];
+    const send = async (request: unknown) => {
+      sent.push(request);
+      return { status: 302, headers: { location: "https://example.com/" }, body: Buffer.alloc(0) };
+    };
     const within = fake("https://url.stg1.gdgs.jp/abc");
-    await forwardThroughAccess(within.route, inSlot, token);
-    expect(within.calls.map((call) => call.method)).toEqual(["fetch", "fulfill"]);
-    expect(within.calls[0]?.options).toEqual({
-      headers: {
-        accept: "text/html",
-        "CF-Access-Client-Id": token.id,
-        "CF-Access-Client-Secret": token.secret,
+    await forwardThroughAccess(within.route, inSlot, token, send);
+    expect(sent).toEqual([
+      {
+        url: "https://url.stg1.gdgs.jp/abc",
+        method: "POST",
+        headers: { accept: "text/html", cookie: "app=1" },
+        body: Buffer.from("x"),
       },
-      maxRedirects: 0,
+    ]);
+    expect(within.calls).toEqual([
+      {
+        method: "fulfill",
+        options: {
+          status: 302,
+          headers: { location: "https://example.com/" },
+          body: Buffer.alloc(0),
+        },
+      },
+    ]);
+    const failed = fake("https://url.stg1.gdgs.jp/down");
+    await forwardThroughAccess(failed.route, inSlot, token, async () => {
+      throw new Error("refused");
     });
+    expect(failed.calls.map((call) => call.method)).toEqual(["abort"]);
     const beyond = fake("https://example.com/landed");
-    await forwardThroughAccess(beyond.route, inSlot, token);
+    await forwardThroughAccess(beyond.route, inSlot, token, send);
     expect(beyond.calls).toEqual([{ method: "continue", options: undefined }]);
+    expect(sent).toHaveLength(1);
   });
 });
 
@@ -166,8 +245,16 @@ describe("routeThroughAccess in a browser", () => {
         `${slotUrl}/fetch`,
       );
       expect(fetched).toBe(200);
+      const echoed = await page.evaluate(
+        async (url) => (await fetch(url, { method: "POST", body: "from the page" })).json(),
+        `${slotUrl}/echo`,
+      );
+      expect(echoed).toMatchObject({ method: "POST", body: "from the page" });
       await page.goto(`${slotUrl}/short`);
       await page.waitForURL(`${outsideUrl}/landed`);
+      expect(
+        (await browserContext.cookies()).map((cookie) => `${cookie.name}@${cookie.domain}`).sort(),
+      ).toEqual(["app@localhost", "session@localhost"]);
     } finally {
       const state = JSON.stringify(await browserContext.storageState());
       await browserContext.close();
@@ -179,11 +266,15 @@ describe("routeThroughAccess in a browser", () => {
     expect(slot.seen.some((entry) => entry.headers.cookie?.includes("session=slot-only"))).toBe(
       true,
     );
+    expect(slot.seen.some((entry) => entry.headers.cookie?.includes("app=1"))).toBe(true);
+    expect(slot.seen.some((entry) => entry.headers.cookie?.includes("CF_Authorization"))).toBe(
+      false,
+    );
     expect(outside.seen.map((entry) => entry.path)).toEqual(["/landed", "/api", "/landed"]);
     for (const entry of outside.seen) {
       expect(entry.headers["cf-access-client-id"]).toBeUndefined();
       expect(entry.headers["cf-access-client-secret"]).toBeUndefined();
-      expect(entry.headers.cookie ?? "").not.toMatch(/CF_Authorization|session=/);
+      expect(entry.headers.cookie ?? "").not.toMatch(/CF_Authorization|session=|app=/);
     }
   }, 60_000);
 });

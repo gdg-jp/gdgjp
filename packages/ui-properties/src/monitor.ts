@@ -30,6 +30,8 @@ const CONTROL_SELECTOR = [
   "[contenteditable=true]",
 ].join(",");
 
+const ABORTED_ROUTE_DISCOVERY = /^Failed to fetch manifest patches TypeError: Failed to fetch/;
+
 export class PageMonitor {
   readonly #options: MonitorOptions;
   readonly #problems: Problem[] = [];
@@ -59,6 +61,9 @@ export class PageMonitor {
       const text = entry.text();
       if (this.#options.ignoreConsole?.some((pattern) => pattern.test(text))) return;
       if (/the server responded with a status of 5\d\d/.test(text)) return;
+      if (ABORTED_ROUTE_DISCOVERY.test(text)) return;
+      if (text.startsWith("Failed to load resource") && !this.#allowedOrigin(entry.location().url))
+        return;
       this.#problems.push({
         check: "no console errors",
         message: `console error on ${page.url()}: ${text}`,

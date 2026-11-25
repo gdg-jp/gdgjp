@@ -5,6 +5,7 @@ import {
   prCreateLink,
   prEnsureCampaign,
   prEnsureChannel,
+  prFindLink,
   prGetAnalytics,
   prUpdateLink,
 } from "../app/features/campaigns/pr-service.server";
@@ -53,6 +54,9 @@ export class PrService extends WorkerEntrypoint<Env> implements TinyurlPrService
   }
   createLink(input: Parameters<TinyurlPrService["createLink"]>[0]) {
     return prCreateLink(this.env, input);
+  }
+  findLink(input: Parameters<TinyurlPrService["findLink"]>[0]) {
+    return prFindLink(this.env, input);
   }
   updateLink(input: Parameters<TinyurlPrService["updateLink"]>[0]) {
     return prUpdateLink(this.env, input);

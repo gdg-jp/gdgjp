@@ -99,17 +99,45 @@ export function bombadilFailure({ origin, output, exitCode, trace }) {
   };
 }
 
-function run(binary, args) {
+export function redactOutput(text, secrets) {
+  let redacted = text;
+  for (const secret of secrets.filter((value) => value.length >= 4))
+    for (const form of new Set([secret, encodeURIComponent(secret)]))
+      redacted = redacted.replaceAll(form, "[redacted]");
+  return redacted;
+}
+
+export function cookieValue(line) {
+  const pair = line.split(";")[0] ?? "";
+  const index = pair.indexOf("=");
+  return index >= 0 ? pair.slice(index + 1).trim() : "";
+}
+
+function run(binary, args, secrets) {
   return new Promise((done) => {
     const child = spawn(binary, args, { stdio: ["ignore", "pipe", "pipe"] });
     let output = "";
+    let pending = "";
+    const flush = (all) => {
+      const end = all ? pending.length : pending.lastIndexOf("\n") + 1;
+      if (end <= 0) return;
+      process.stdout.write(redactOutput(pending.slice(0, end), secrets));
+      pending = pending.slice(end);
+    };
     for (const stream of [child.stdout, child.stderr])
       stream.on("data", (chunk) => {
         output += chunk;
-        process.stdout.write(chunk);
+        pending += chunk;
+        flush(false);
       });
-    child.on("close", (code) => done({ exitCode: code ?? 1, output }));
-    child.on("error", (error) => done({ exitCode: 1, output: `${output}\n${error.message}` }));
+    child.on("close", (code) => {
+      flush(true);
+      done({ exitCode: code ?? 1, output: redactOutput(output, secrets) });
+    });
+    child.on("error", (error) => {
+      flush(true);
+      done({ exitCode: 1, output: redactOutput(`${output}\n${error.message}`, secrets) });
+    });
   });
 }
 
@@ -147,23 +175,35 @@ async function main(args) {
   if (cookieFile)
     for (const line of readFileSync(cookieFile, "utf8").split("\n").filter(Boolean))
       cookies.push("--cookie", line);
+  const extra = many("cookie").flatMap((value) => ["--cookie", value]);
+  const secrets = [
+    process.env.CF_ACCESS_CLIENT_ID ?? "",
+    process.env.CF_ACCESS_CLIENT_SECRET ?? "",
+    ...[...cookies, ...extra]
+      .filter((_, index, list) => list[index - 1] === "--cookie")
+      .map(cookieValue),
+  ];
   const binary = await ensureBombadil();
-  const { exitCode, output } = await run(binary, [
-    "browser",
-    "test",
-    "--headless",
-    "--exit-on-violation",
-    "--time-limit",
-    option("time-limit", "5m"),
-    "--output-path",
-    trace,
-    "--output-path-overwrite",
-    ...headers,
-    ...cookies,
-    ...many("cookie").flatMap((value) => ["--cookie", value]),
-    ...many("allow-url").flatMap((value) => ["--allow-url", value]),
-    origin,
-  ]);
+  const { exitCode, output } = await run(
+    binary,
+    [
+      "browser",
+      "test",
+      "--headless",
+      "--exit-on-violation",
+      "--time-limit",
+      option("time-limit", "5m"),
+      "--output-path",
+      trace,
+      "--output-path-overwrite",
+      ...headers,
+      ...cookies,
+      ...extra,
+      ...many("allow-url").flatMap((value) => ["--allow-url", value]),
+      origin,
+    ],
+    secrets,
+  );
   if (exitCode === 2) {
     const failure = bombadilFailure({ origin, output, exitCode, trace });
     const directory = process.env.UI_PROPERTY_FAILURES_DIR ?? out;

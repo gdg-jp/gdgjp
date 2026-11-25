@@ -236,18 +236,31 @@ test("cleanup state is on disk before the fuzz user reaches D1", async () => {
 test("scopes the Access credential to a cookie for one host", async () => {
   const headers = new Headers();
   headers.append("set-cookie", "CF_Authorization=abc.def; Path=/; Secure; HttpOnly");
-  const cookie = await accessCookie({
+  const issued = await accessCookie({
     url: "https://wiki.stg1.gdgs.jp/",
     id: "i",
     secret: "s",
     fetchImpl: async (_url, init) => {
       assert.equal(init.headers["CF-Access-Client-Id"], "i");
+      assert.equal(init.redirect, "manual");
       return new Response(null, { status: 302, headers });
     },
   });
-  assert.equal(
-    cookie,
-    "CF_Authorization=abc.def; Domain=wiki.stg1.gdgs.jp; Path=/; Secure; HttpOnly",
+  assert.deepEqual(issued, {
+    value: "abc.def",
+    cookie: "CF_Authorization=abc.def; Path=/; Secure; HttpOnly",
+  });
+  assert.doesNotMatch(issued.cookie, /Domain=/i);
+  const injected = new Headers();
+  injected.append("set-cookie", "CF_Authorization=a.b c; Path=/");
+  await assert.rejects(
+    accessCookie({
+      url: "https://wiki.stg1.gdgs.jp/",
+      id: "i",
+      secret: "s",
+      fetchImpl: async () => new Response(null, { headers: injected }),
+    }),
+    /not a JWT/,
   );
   await assert.rejects(
     accessCookie({
@@ -256,7 +269,7 @@ test("scopes the Access credential to a cookie for one host", async () => {
       secret: "s",
       fetchImpl: async () => new Response(null),
     }),
-    /did not issue/,
+    /did not issue.*strict service token authentication/,
   );
 });
 
@@ -352,8 +365,9 @@ test("the Access token reaches only the slot's hosts and never the browser", () 
     /CF-Access-Client|extraHTTPHeaders|setExtraHTTPHeaders|route\.continue\(/,
   );
   const access = source("src/access.ts");
-  assert.match(access, /maxRedirects: 0/);
-  assert.doesNotMatch(access, /continue\(\s*\{/);
+  assert.match(access, /from "node:http"/);
+  assert.match(access, /from "node:https"/);
+  assert.doesNotMatch(access, /continue\(\s*\{|\.fetch\(|\.request\.|APIRequestContext|newContext/);
   assert.match(source("fuzz/playwright.config.ts"), /env: browserEnvironment\(process\.env\)/);
   const check = workflow.indexOf("- name: Check that the Access token stays on the slot's hosts");
   const explore = workflow.indexOf("- name: Explore the slot");
@@ -366,5 +380,57 @@ test("the Access token reaches only the slot's hosts and never the browser", () 
   assert.deepEqual(
     [...exploreStep.matchAll(/secrets\.(\w+)/g)].map((match) => match[1]),
     ["STAGING_ACCESS_CLIENT_ID", "STAGING_ACCESS_CLIENT_SECRET"],
+  );
+});
+
+test("everything the fuzz job uploads is scanned for the Access token first", () => {
+  const fuzzJob = jobs(workflow).find((job) => job.name === "fuzz").text;
+  const steps = fuzzJob.split(/\n(?= {6}- )/);
+  const normalize = (path) =>
+    path.replace("${{ runner.temp }}", "$RUNNER_TEMP").replace(/^"|"$/g, "");
+  const uploads = steps.filter((step) => step.includes("actions/upload-artifact"));
+  assert.ok(uploads.length >= 2);
+  const uploaded = uploads.flatMap((step) => {
+    const block = /\n {10}path: \|\n((?: {12}.+\n?)+)/.exec(step);
+    if (block)
+      return block[1]
+        .split("\n")
+        .map((line) => line.trim())
+        .filter(Boolean);
+    return [/\n {10}path: (.+)/.exec(step)[1].trim()];
+  });
+  for (const step of uploads)
+    assert.match(step, /\n {8}if: always\(\) && steps\.scan\.outcome == 'success'\n/);
+  const scanIndex = steps.findIndex((step) => /\n {8}id: scan\n/.test(step));
+  assert.ok(scanIndex >= 0);
+  assert.ok(steps.slice(0, scanIndex).every((step) => !step.includes("actions/upload-artifact")));
+  const scan = steps[scanIndex];
+  assert.match(scan, /\n {8}if: always\(\)\n/);
+  assert.match(scan, /CF_ACCESS_CLIENT_ID: \$\{\{ secrets\.STAGING_ACCESS_CLIENT_ID \}\}/);
+  assert.match(scan, /CF_ACCESS_CLIENT_SECRET: \$\{\{ secrets\.STAGING_ACCESS_CLIENT_SECRET \}\}/);
+  assert.match(scan, /packages\/ui-properties\/scripts\/secret-scan\.mjs/);
+  assert.match(scan, /--env CF_ACCESS_CLIENT_ID --env CF_ACCESS_CLIENT_SECRET/);
+  const scanned = [...scan.matchAll(/^\s+("?(?:\$RUNNER_TEMP\/|packages\/)[^"\s]*"?)\s*$/gm)].map(
+    (match) => normalize(match[1]),
+  );
+  assert.deepEqual([...new Set(scanned)].sort(), [...new Set(uploaded.map(normalize))].sort());
+  const issuedFile = /--values "CF_Authorization=(\$RUNNER_TEMP\/[^"]+)"/.exec(scan)?.[1];
+  assert.ok(issuedFile, "the scan step reads the Access JWTs this job issued");
+  const bombadilIndex = steps.findIndex((step) =>
+    step.includes("- name: Explore the slot with Bombadil"),
+  );
+  assert.ok(bombadilIndex >= 0 && bombadilIndex < scanIndex);
+  const bombadil = steps[bombadilIndex];
+  assert.equal(bombadil.split("ui-fuzz.mjs access-cookie").length, 2);
+  const exchange = bombadil.slice(
+    bombadil.indexOf("ui-fuzz.mjs access-cookie"),
+    bombadil.indexOf("|| { status=1; continue; }"),
+  );
+  assert.ok(exchange.includes(`--values "${issuedFile}"`));
+  assert.ok(!uploaded.map(normalize).some((path) => issuedFile.startsWith(path)));
+  assert.match(bombadil, /CF_ACCESS_CLIENT_ID= CF_ACCESS_CLIENT_SECRET= BOMBADIL_COOKIE_FILE=/);
+  assert.match(
+    fuzzJob,
+    /UI_PROPERTIES_REQUIRE_BOMBADIL: \$\{\{ inputs\.bombadil && '1' \|\| '' \}\}/,
   );
 });

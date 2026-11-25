@@ -253,7 +253,6 @@ for (const seed of plan.seeds) {
       seed,
       monitor: {
         origins: [ACCOUNTS_URL, RP_URL],
-        ignoreConsole: [/^Failed to fetch manifest patches TypeError: Failed to fetch/],
       },
     });
   });

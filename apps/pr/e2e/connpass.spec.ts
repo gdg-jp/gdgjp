@@ -64,11 +64,19 @@ async function setUp(page: Page, slug: string) {
   await expect(page.getByText("設定を更新しました。")).toBeVisible();
 }
 
+const PIXEL_PNG = Buffer.from(
+  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=",
+  "base64",
+);
+
 test("a connpass page is rendered from slots, previewed, and sent on approval", async ({
   page,
   request,
 }) => {
   const slug = `e2e-cp-${Date.now()}`;
+  await page.route("https://img.gdgs.jp/**", (route) =>
+    route.fulfill({ contentType: "image/png", body: PIXEL_PNG }),
+  );
   await setUp(page, slug);
   await page.goto(`/c/${slug}/plan`);
   await page.getByRole("button", { name: "connpass ページを作る" }).click();

@@ -184,7 +184,6 @@ for (const seed of plan.seeds) {
       seed,
       monitor: {
         origins: [PAY_ORIGIN],
-        ignoreConsole: [/^Failed to fetch manifest patches/],
       },
     });
   });

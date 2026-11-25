@@ -109,7 +109,22 @@ const plain = (kind: "x_post" | "connpass_mail"): Content =>
     ? (n) => ({ posts: [{ text: `post v${n}` }] })
     : (n) => ({ subject: `subject v${n}`, text: `body v${n}` });
 
-function setup(kind: "x_post" | "connpass_mail", content: Content = plain(kind)) {
+type TinyurlLink = {
+  destinationUrl: string;
+  ownerUserId: string;
+  ownerChapterId: number | null;
+  campaignChannelId: number | null;
+};
+
+type TinyurlInput = {
+  actor: { user: { id: string }; chapters: { chapterId: number }[] };
+  chapterId: number;
+  slug: string;
+  destinationUrl: string;
+  campaignChannelId: number | null;
+};
+
+function seeded(kind: "x_post" | "connpass_mail") {
   const raw = sqlite(schema());
   raw.exec(`
     INSERT INTO campaigns (id, chapter_id, chapter_slug, slug, name, playbook_version, created_by,
@@ -123,6 +138,14 @@ function setup(kind: "x_post" | "connpass_mail", content: Content = plain(kind))
       VALUES (1, 1, '${kind === "x_post" ? "x" : "connpass_group"}', 2,
         '${kind === "x_post" ? "x-2" : "group-2"}', 'cohost-account', 'mirror');
   `);
+  return raw;
+}
+
+function setup(
+  kind: "x_post" | "connpass_mail",
+  content: Content = plain(kind),
+  raw: DatabaseSync = seeded(kind),
+) {
   const { db, after } = d1(raw);
   const posts: string[] = [];
   const mails: string[] = [];
@@ -130,18 +153,40 @@ function setup(kind: "x_post" | "connpass_mail", content: Content = plain(kind))
   const tinyurl = {
     down: false,
     calls: [] as { slug: string; destinationUrl: string }[],
-    links: new Map<string, string>(),
+    links: new Map<string, TinyurlLink>(),
+    lookup: true,
+  };
+  const summary = (slug: string) => ({
+    id: `link-${[...tinyurl.links.keys()].indexOf(slug) + 1}`,
+    slug,
+    shortUrl: `https://gdgs.jp/${slug}`,
+  });
+  const findLink = async (input: TinyurlInput) => {
+    const link = tinyurl.links.get(input.slug);
+    const member = input.actor.chapters.some((c) => c.chapterId === input.chapterId);
+    return link &&
+      ((member && link.ownerChapterId === input.chapterId) ||
+        link.ownerUserId === input.actor.user.id)
+      ? { ok: true, link: { ...summary(input.slug), ...link } }
+      : { ok: false, code: "not_found" };
   };
   const env = {
     DB: db,
     TINYURL: {
-      createLink: async (input: { slug: string; destinationUrl: string }) => {
+      createLink: async (input: TinyurlInput) => {
         tinyurl.calls.push({ slug: input.slug, destinationUrl: input.destinationUrl });
         if (tinyurl.down) return { ok: false, code: "unavailable" };
         if (tinyurl.links.has(input.slug)) return { ok: false, code: "conflict" };
-        tinyurl.links.set(input.slug, input.destinationUrl);
-        const link = { id: `link-${tinyurl.links.size}`, slug: input.slug };
-        return { ok: true, link: { ...link, shortUrl: `https://gdgs.jp/${input.slug}` } };
+        tinyurl.links.set(input.slug, {
+          destinationUrl: input.destinationUrl,
+          ownerUserId: input.actor.user.id,
+          ownerChapterId: input.campaignChannelId === null ? null : input.chapterId,
+          campaignChannelId: input.campaignChannelId,
+        });
+        return { ok: true, link: summary(input.slug) };
+      },
+      get findLink() {
+        return tinyurl.lookup ? findLink : undefined;
       },
     },
     SNS: {
@@ -179,8 +224,8 @@ function setup(kind: "x_post" | "connpass_mail", content: Content = plain(kind))
   };
   const approveDraft = async (version: number) =>
     reviewDraft(db, accessFor(LEAD, true), await draft(), "approve", version, null);
-  const approveAsCohost = async (version: number) =>
-    approveTarget(env, accessFor(COHOST, false), await draft(), 1, version);
+  const approveAsCohost = async (version: number, targetId = 1) =>
+    approveTarget(env, accessFor(COHOST, false), await draft(), targetId, version);
   const press = async (who: ReturnType<typeof user>, manage: boolean, version: number) => {
     const form = new FormData();
     form.set("intent", "approve");
@@ -346,7 +391,7 @@ const linked: Content = (n) => ({
 const sentLinks = (t: ReturnType<typeof setup>, texts: string[]) =>
   texts.map((text) => {
     const slug = /https:\/\/gdgs\.jp\/(\S+)/.exec(text)?.[1] ?? "";
-    return t.tinyurl.links.get(slug) ?? null;
+    return t.tinyurl.links.get(slug)?.destinationUrl ?? null;
   });
 
 const nothingWritten = (t: ReturnType<typeof setup>) => ({
@@ -424,17 +469,80 @@ describe("a short link is created only for an approved version", () => {
     ]);
   });
 
-  it("a retry after tinyurl kept a link pr did not record creates no second link", async () => {
+  it("a retry after tinyurl kept a link pr did not record adopts that link and sends once", async () => {
     const t = setup("x_post", linked);
     await t.save(1);
+    t.tinyurl.down = true;
+    expect((await t.press(LEAD, true, 1)).ok).toBe(false);
+    t.tinyurl.down = false;
     t.after("INSERT INTO campaign_links", async () => {
       t.raw.exec("DELETE FROM campaign_links");
     });
-    await t.press(LEAD, true, 1);
+    expect(await t.approveAsCohost(1)).toMatchObject({ ok: false });
+    expect(t.raw.prepare("SELECT id FROM campaign_links").all()).toEqual([]);
+    expect(t.posts).toEqual([]);
+    expect(await t.approveAsCohost(1)).toMatchObject({ ok: true });
+    expect(t.posts).toHaveLength(1);
+    expect(sentLinks(t, t.posts)).toEqual([destination(1)]);
     expect(t.tinyurl.links.size).toBe(1);
+    expect(
+      t.raw.prepare("SELECT slug, draft_version, destination_url FROM campaign_links").all(),
+    ).toEqual([{ slug: "devfest-x-1v1", draft_version: 1, destination_url: destination(1) }]);
+  });
+
+  it("refuses to adopt a taken slug whose destination is not this version's, and sends nothing", async () => {
+    const t = setup("x_post", linked);
+    t.tinyurl.links.set("devfest-x-1v1", {
+      destinationUrl: "https://elsewhere.example/",
+      ownerUserId: "cohost",
+      ownerChapterId: null,
+      campaignChannelId: null,
+    });
+    await t.save(1);
+    expect((await t.press(LEAD, true, 1)).ok).toBe(false);
     expect(await t.approveAsCohost(1)).toMatchObject({ ok: false });
     expect(t.posts).toEqual([]);
-    expect(t.tinyurl.links.size).toBe(1);
+    expect(t.raw.prepare("SELECT id FROM campaign_links").all()).toEqual([]);
+    expect((await listTargets(t.db, 1))[0]).toMatchObject({ status: "failed" });
+  });
+
+  it("refuses to adopt a taken slug it cannot look up, and sends nothing", async () => {
+    const t = setup("x_post", linked);
+    t.tinyurl.lookup = false;
+    t.tinyurl.links.set("devfest-x-1v1", {
+      destinationUrl: destination(1),
+      ownerUserId: "cohost",
+      ownerChapterId: null,
+      campaignChannelId: null,
+    });
+    await t.save(1);
+    await t.press(LEAD, true, 1);
+    expect(await t.approveAsCohost(1)).toMatchObject({ ok: false });
+    expect(t.posts).toEqual([]);
+    expect(t.raw.prepare("SELECT id FROM campaign_links").all()).toEqual([]);
+  });
+
+  it("never delivers a stored link whose destination is not the version's link URL", async () => {
+    const t = setup("x_post", linked);
+    await t.save(1);
+    t.raw.exec(`INSERT INTO campaign_links (campaign_id, draft_id, draft_version, tinyurl_link_id,
+      short_url, slug, destination_url)
+      VALUES (1, 1, 1, 'old', 'https://gdgs.jp/old', 'old', 'https://wrong.example/')`);
+    t.tinyurl.links.set("old", {
+      destinationUrl: "https://wrong.example/",
+      ownerUserId: "lead",
+      ownerChapterId: 1,
+      campaignChannelId: null,
+    });
+    expect(await t.press(LEAD, true, 1)).toMatchObject({ ok: true });
+    expect(await t.approveAsCohost(1)).toMatchObject({ ok: true });
+    expect(sentLinks(t, t.posts)).toEqual([destination(1)]);
+    expect(
+      t.raw.prepare("SELECT slug, draft_id, draft_version FROM campaign_links ORDER BY id").all(),
+    ).toEqual([
+      { slug: "old", draft_id: null, draft_version: null },
+      { slug: "devfest-x-1v1", draft_id: 1, draft_version: 1 },
+    ]);
   });
 
   it("the mail cron creates the missing link for the approved version before it sends", async () => {
@@ -470,39 +578,51 @@ describe("a hand-off after approval sends the approved version", () => {
 });
 
 describe("migration 0012", () => {
-  it("binds an old link only to the version a sent target went out with", () => {
+  it("leaves an old link unbound, so the unsent target goes out with version 2's own link", async () => {
     const directory = new URL("../../../migrations/", import.meta.url);
     const files = readdirSync(directory).sort();
     const raw = sqlite("");
     for (const file of files.filter((f) => f < "0012"))
       raw.exec(readFileSync(new URL(file, directory), "utf8"));
+    const version = (n: number) => JSON.stringify(linked(n)).replaceAll("'", "''");
     raw.exec(`
-      INSERT INTO campaigns (id, chapter_id, chapter_slug, slug, name, playbook_version, created_by)
-        VALUES (1, 1, 'c1', 'devfest', 'DevFest', 'v1', 'lead');
+      INSERT INTO campaigns (id, chapter_id, chapter_slug, slug, name, playbook_version, created_by,
+        tinyurl_campaign_id)
+        VALUES (1, 1, 'c1', 'devfest', 'DevFest', 'v1', 'lead', 7);
       INSERT INTO schedule_items (id, campaign_id, kind, due_at, title, status)
-        VALUES (1, 1, 'x_post', 0, 'sent', 'scheduled'), (2, 1, 'x_post', 0, 'waiting', 'approved');
+        VALUES (1, 1, 'x_post', 0, 'item', 'dispatching');
       INSERT INTO drafts (id, campaign_id, kind, schedule_item_id, title, status, current_version,
-        approved_version)
-        VALUES (1, 1, 'x_post', 1, 'sent', 'approved', 2, 2),
-               (2, 1, 'x_post', 2, 'waiting', 'approved', 2, 2);
-      INSERT INTO campaign_accounts (id, campaign_id, kind, chapter_id, external_id, label)
-        VALUES (1, 1, 'x', 1, 'x', 'x');
-      INSERT INTO dispatch_targets (schedule_item_id, account_id, status, approved_version)
-        VALUES (1, 1, 'scheduled', 2), (2, 1, 'approved', 2);
+        approved_by, approved_version)
+        VALUES (1, 1, 'x_post', 1, 'draft', 'approved', 2, 'lead', 2);
+      INSERT INTO draft_versions (draft_id, version, author, content, playbook_version, check_results)
+        VALUES (1, 1, 'agent', '${version(1)}', 'v1', '[]'),
+               (1, 2, 'agent', '${version(2)}', 'v1', '[]');
+      INSERT INTO campaign_accounts (id, campaign_id, kind, chapter_id, external_id, label, role)
+        VALUES (1, 1, 'x', 2, 'x-2', 'sent-account', 'mirror'),
+               (2, 1, 'x', 2, 'x-3', 'unsent-account', 'mirror');
+      INSERT INTO dispatch_targets (id, schedule_item_id, account_id, status, approved_version,
+        approved_by, actor_snapshot)
+        VALUES (1, 1, 1, 'scheduled', 2, 'cohost', '{}'), (2, 1, 2, 'pending', NULL, NULL, NULL);
       INSERT INTO campaign_links (campaign_id, schedule_item_id, tinyurl_link_id, short_url, slug,
         destination_url)
-        VALUES (1, 1, 'a', 'https://gdgs.jp/a', 'a', 'https://a'),
-               (1, 2, 'b', 'https://gdgs.jp/b', 'b', 'https://b');
+        VALUES (1, 1, 'legacy', 'https://gdgs.jp/devfest-x-1', 'devfest-x-1', '${destination(1)}');
     `);
     raw.exec(
       readFileSync(new URL(files.find((f) => f.startsWith("0012")) ?? "", directory), "utf8"),
     );
-    expect(
-      raw.prepare("SELECT slug, draft_id, draft_version FROM campaign_links ORDER BY id").all(),
-    ).toEqual([
-      { slug: "a", draft_id: 1, draft_version: 2 },
-      { slug: "b", draft_id: null, draft_version: null },
+    expect(raw.prepare("SELECT slug, draft_id, draft_version FROM campaign_links").all()).toEqual([
+      { slug: "devfest-x-1", draft_id: null, draft_version: null },
     ]);
+    const t = setup("x_post", linked, raw);
+    t.tinyurl.links.set("devfest-x-1", {
+      destinationUrl: destination(1),
+      ownerUserId: "lead",
+      ownerChapterId: 1,
+      campaignChannelId: null,
+    });
+    expect(await t.approveAsCohost(2, 2)).toMatchObject({ ok: true });
+    expect(t.posts).toHaveLength(1);
+    expect(sentLinks(t, t.posts)).toEqual([destination(2)]);
   });
 });
 

@@ -438,7 +438,7 @@ for (const seed of plan.seeds) {
       await checkUiProperty(testInfo, property(browser), {
         plan,
         seed,
-        monitor: { origins: [PR_ORIGIN], ignoreConsole: [/^Failed to fetch manifest patches/] },
+        monitor: { origins: [PR_ORIGIN] },
       });
     } finally {
       await testInfo.attach("pr-approvals.json", {
