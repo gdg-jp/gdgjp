@@ -1,13 +1,21 @@
 import type { Campaign } from "~/features/campaigns/campaign";
-import { getCampaignById, listMembers } from "~/features/campaigns/campaign.repository.server";
+import {
+  getActorSnapshot,
+  getCampaignById,
+  listMembers,
+} from "~/features/campaigns/campaign.repository.server";
+import { approvedForSending } from "~/features/drafts/draft";
 import { draftForItem, latestVersion } from "~/features/drafts/draft.repository.server";
-import { linkForItem } from "~/features/links/link.repository.server";
+import { parseActor } from "~/features/integrations/bindings.server";
+import { versionText } from "~/features/links/create.server";
+import { approvedLinkForItem } from "~/features/links/link.repository.server";
 import { withShortlink } from "~/features/links/slug";
 import { mention } from "~/features/notify/discord";
 import { notifyChapter, template } from "~/features/notify/send.server";
 import type { ScheduleItem } from "~/features/schedule/item";
 import { dueItems, getItem, transitionItem } from "~/features/schedule/item.repository.server";
 import { deliverablePost, jstLabel } from "./content";
+import { logDispatch } from "./log.server";
 
 const now = () => Math.floor(Date.now() / 1000);
 
@@ -24,7 +32,7 @@ export async function staffReminderText(env: Env, campaign: Campaign, item: Sche
   const draft = parent ? await draftForItem(env.DB, parent.id) : null;
   const latest = draft ? await latestVersion(env.DB, draft.id) : null;
   const post = deliverablePost(latest?.content ?? null);
-  const link = parent ? await linkForItem(env.DB, parent.id) : null;
+  const link = parent ? await approvedLinkForItem(env.DB, parent.id) : null;
   const vars = {
     mention: await handleOf(env, campaign.id, item.assigneeUserId),
     at: jstLabel(parent?.dueAt ?? item.dueAt),
@@ -93,18 +101,24 @@ export async function sweepReminders(env: Env) {
     const campaign = await campaignOf(env, cache, item.campaignId);
     if (!campaign || !(await transitionItem(env.DB, item.id, ["approved"], "dispatching")))
       continue;
-    const draft = await draftForItem(env.DB, item.id);
-    const post = draft
-      ? deliverablePost((await latestVersion(env.DB, draft.id))?.content ?? null)
-      : null;
-    const link = await linkForItem(env.DB, item.id);
-    const text = withShortlink(post?.text ?? item.note ?? item.title, link?.shortUrl ?? null);
+    const text = await discordPostText(env, campaign, item);
+    if (!text.ok) {
+      await logDispatch(env.DB, {
+        campaignId: campaign.id,
+        itemId: item.id,
+        action: "discord_post",
+        ok: false,
+        detail: text.error,
+      });
+      await transitionItem(env.DB, item.id, ["dispatching"], "failed");
+      continue;
+    }
     const result = await notifyChapter(env, {
       chapterId: campaign.chapterId,
       campaignId: campaign.id,
       itemId: item.id,
       key: `discord_post:${item.id}`,
-      content: template("discordPost", { text }),
+      content: template("discordPost", { text: text.text }),
       action: "discord_post",
     });
     await transitionItem(env.DB, item.id, ["dispatching"], result === "sent" ? "done" : "failed");
@@ -135,6 +149,20 @@ export async function sweepReminders(env: Env) {
     if (result === "sent") counts.followup++;
   }
   return counts;
+}
+
+async function discordPostText(
+  env: Env,
+  campaign: Campaign,
+  item: ScheduleItem,
+): Promise<{ ok: true; text: string } | { ok: false; error: string }> {
+  const draft = await draftForItem(env.DB, item.id);
+  if (!draft) return { ok: true, text: item.note ?? item.title };
+  if (!approvedForSending(draft) || draft.approvedVersion === null)
+    return { ok: false, error: "not_approved" };
+  const actor = parseActor(await getActorSnapshot(env.DB, campaign.id));
+  const at = { draftId: draft.id, version: draft.approvedVersion };
+  return versionText(env, actor, campaign, item, at);
 }
 
 async function sweepReviewRequests(env: Env, cache: Map<number, Campaign | null>) {

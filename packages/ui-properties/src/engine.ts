@@ -196,7 +196,11 @@ export async function execute<W>(
 }
 
 export function sameViolation(a: Violation, b: Violation): boolean {
-  return a.kind === b.kind && a.name === b.name;
+  return (
+    a.kind === b.kind &&
+    a.name === b.name &&
+    normalizeMessage(a.message) === normalizeMessage(b.message)
+  );
 }
 
 export type ShrinkResult = {

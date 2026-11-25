@@ -3,12 +3,12 @@ import type { AnalyzeReport } from "~/features/analyze/report";
 import type { CampaignAccess } from "~/features/campaigns/access.server";
 import { publishApprovedPage } from "~/features/connpass/page.server";
 import { deliveryAction } from "~/features/dispatch/delivery.server";
-import { afterDraftApproval, prepareDraftApproval } from "~/features/dispatch/dispatch.server";
+import { afterDraftApproval, draftApprovalBlockers } from "~/features/dispatch/dispatch.server";
 import { EnqueueError, enqueueCopy, enqueuePosts } from "~/features/jobs/enqueue.server";
 import { afterListingApproval, markListedByHand } from "~/features/listings/listing.server";
 import { type ConnpassPageContent, setSectionImages } from "~/features/pages/render";
 import { autoFold } from "./content";
-import { type Draft, seenVersion } from "./draft";
+import { type Draft, approvedForSending, seenVersion } from "./draft";
 import { getDraft, latestVersion, updateDraftPeople } from "./draft.repository.server";
 import { STALE_VERSION, currentContent, editDraft, reviewDraft } from "./review.server";
 
@@ -38,34 +38,16 @@ export async function draftAction(
     const version = seenVersion(form);
     if (version === null) return { ok: false, errors: [STALE_VERSION] };
     if (intent === "approve") {
-      const ready = await prepareDraftApproval(env, access, draft, version);
-      if (!ready.ok) return { ok: false, errors: ready.errors };
+      const blockers = await draftApprovalBlockers(env, access, draft, version);
+      if (blockers.length) return { ok: false, errors: blockers };
     }
     const result = await reviewDraft(env.DB, access, draft, intent, version, comment);
     if (!result.ok) return { ok: false, errors: [result.error] };
-    if (intent === "approve") {
-      const approved = { ...draft, status: "approved" as const, approvedVersion: version };
-      await afterDraftApproval(env, access.campaign, approved);
-      if (draft.kind === "listing") {
-        const listed = await afterListingApproval(env, access, approved);
-        return listed.ok
-          ? { ok: true, message: `承認しました。${listed.message}` }
-          : { ok: false, errors: [`承認しましたが、${listed.error}`] };
-      }
-      if (draft.kind === "connpass_page") {
-        const page = await publishApprovedPage(env, access, approved);
-        return page.ok
-          ? { ok: true, message: `承認しました。${page.message}` }
-          : { ok: false, errors: [`承認しましたが、${page.error}`] };
-      }
-    }
+    if (intent === "approve")
+      return afterApproval(env, access, { ...draft, status: "approved", approvedVersion: version });
     return { ok: true, message: "更新しました" };
   }
-  if (
-    intent === "connpass-retry" &&
-    draft.kind === "connpass_page" &&
-    draft.status === "approved"
-  ) {
+  if (intent === "connpass-retry" && draft.kind === "connpass_page" && approvedForSending(draft)) {
     const page = await publishApprovedPage(env, access, draft);
     return page.ok ? { ok: true, message: page.message } : { ok: false, errors: [page.error] };
   }
@@ -138,6 +120,29 @@ export async function draftAction(
     return { ok: true, message: "作り直しのジョブを積みました" };
   }
   return { ok: false, errors: ["不明な操作です"] };
+}
+
+async function afterApproval(
+  env: Env,
+  access: CampaignAccess,
+  approved: Draft & { approvedVersion: number },
+): Promise<DetailActionResult> {
+  const linkError = await afterDraftApproval(env, access, approved, approved.approvedVersion);
+  if (linkError)
+    return {
+      ok: false,
+      errors: [`承認しましたが、${linkError}。配信先の承認か送信のときにもう一度作ります`],
+    };
+  const handOff =
+    approved.kind === "listing"
+      ? await afterListingApproval(env, access, approved)
+      : approved.kind === "connpass_page"
+        ? await publishApprovedPage(env, access, approved)
+        : null;
+  if (!handOff) return { ok: true, message: "更新しました" };
+  return handOff.ok
+    ? { ok: true, message: `承認しました。${handOff.message}` }
+    : { ok: false, errors: [`承認しましたが、${handOff.error}`] };
 }
 
 async function editPostText(

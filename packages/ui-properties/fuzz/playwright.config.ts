@@ -1,4 +1,5 @@
 import { defineConfig, devices } from "@playwright/test";
+import { browserEnvironment } from "../src/access";
 
 if (!process.env.UI_FUZZ_TARGETS)
   throw new Error("UI_FUZZ_TARGETS must list app=https://origin pairs");
@@ -15,6 +16,10 @@ export default defineConfig({
     ["html", { open: "never" }],
   ],
   outputDir: "../test-results/fuzz",
-  use: { trace: "retain-on-failure", screenshot: "only-on-failure" },
+  use: {
+    trace: "retain-on-failure",
+    screenshot: "only-on-failure",
+    launchOptions: { env: browserEnvironment(process.env) },
+  },
   projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
 });

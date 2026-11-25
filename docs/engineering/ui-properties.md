@@ -16,7 +16,8 @@ action, invariants that must always hold. The same engine runs in two places:
 
 | Module | What it does |
 | --- | --- |
-| `src/engine.ts` | Seeded generation, replay, shrinking (chunk removal until no smaller sequence fails the same check), failure signatures |
+| `src/engine.ts` | Seeded generation, replay, shrinking (chunk removal until no smaller sequence fails the same check with the same normalized message), failure signatures |
+| `src/access.ts` | The staging route that adds the Access service token only to requests for the slot's hosts |
 | `src/monitor.ts` | Generic invariants on every watched page: no console errors, no uncaught exceptions, no 5xx responses from the app's origins, no dead-end page that stays without a visible enabled control for three seconds, an accessible name on every control an action touches |
 | `src/run.ts` | `runPlan` (budget from the environment), `checkUiProperty` (runs, shrinks, prints, and records a failure) |
 | `src/explore.ts` | Generic actions for apps without a model: use a random visible control, repeat it, go back, reload, start over; destructive labels are avoided |
@@ -114,11 +115,20 @@ starts it after a deploy. Inputs: `slot`, `apps`, `minutes` per app and seed, `s
    `CLOUDFLARE_API_TOKEN` and the slot's derived Better Auth secret. The exploration
    step gets only the Access service token and that session file: the browser, which
    runs the slot's possibly unreviewed code, never shares a process environment with
-   the Cloudflare token or the staging root secret. The Access headers are added by a
-   route only to requests for the slot's own hosts. Every app runs the explorer with
-   the `long` profile; with `bombadil` on, each app is also explored by Bombadil, which
-   receives a host-scoped `CF_Authorization` cookie instead of headers because its
-   `--header` option applies to every request. A final step deletes the user.
+   the Cloudflare token or the staging root secret. Before exploring, the job runs the
+   package's Access and explorer tests in a real browser. A route in
+   `src/access.ts` sends each request for one of the slot's hosts itself, with the
+   Access headers and without following redirects, and hands the response to the
+   browser; the browser follows a redirect as a new request that the route checks
+   again, so a short link that redirects off the slot sends neither the headers nor the
+   slot's cookies. Playwright's `route.continue({ headers })` is not used because its
+   headers carry over to redirects. The browser process is launched without the
+   `CF_ACCESS_*` variables. Every app runs the explorer with the `long` profile; with
+   `bombadil` on, each app is also explored by Bombadil, which receives a
+   `CF_Authorization` cookie for the target host instead of headers because its
+   `--header` option applies to every request. Setup checks the requested apps before
+   it writes anything, and writes the user ID and database to `fuzz.json` before it
+   inserts the user, so the final step deletes the user even when setup failed halfway.
 3. **File deduplicated issues** has `issues: write` and no environment secrets. It groups
    failure records by signature, keeps the smallest replay of each group, comments on an
    open `ui-fuzz` issue that carries the same signature marker (only markers in issues
@@ -155,7 +165,8 @@ Mint a session with `node .github/scripts/ui-fuzz.mjs session --slot stg-N --app
 `UI_FUZZ_ACCOUNTS_URL`, `UI_FUZZ_DOMAIN` from `<dir>/fuzz.json`,
 `UI_FUZZ_SESSION_FILE=<dir>/storage-state.json`, and the Access service token as
 `CF_ACCESS_CLIENT_ID` and `CF_ACCESS_CLIENT_SECRET`, then run the issue's replay
-command. Remove the user afterwards with `ui-fuzz.mjs cleanup --out <dir>`. A loopback
+command. Remove the user afterwards with `ui-fuzz.mjs cleanup --out <dir>`, also after a
+`session` that failed. A loopback
 target (`UI_FUZZ_TARGETS=app=http://127.0.0.1:PORT`) explores a local server without
 any of this.
 

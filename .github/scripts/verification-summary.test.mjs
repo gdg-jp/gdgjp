@@ -1,10 +1,19 @@
 import assert from "node:assert/strict";
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, utimesSync, writeFileSync } from "node:fs";
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  utimesSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { test } from "node:test";
 
 import {
+  STATE_MACHINE_MODULES,
   SUMMARY_JSON,
   SUMMARY_MARKDOWN,
   buildSummary,
@@ -12,6 +21,7 @@ import {
   classifyChangedFiles,
   collectEvidence,
   evidenceRequirements,
+  journeyOwners,
   main,
   parseArguments,
   renderMarkdown,
@@ -196,13 +206,212 @@ test("local evidence is summarized from what ran, newest per check, without secr
       ["platform/wiki-search", "NOT VERIFIED"],
     ],
   );
+  assert.ok(by("orca-journeys").every((entry) => entry.workspaces.length === 0));
+  assert.deepEqual(by("isolated-e2e")[0].workspaces, ["apps/wiki"]);
   assert.deepEqual(
-    media.map(({ path, kind }) => [path, kind]),
+    media.map(({ path, kind, workspace }) => [path, kind, workspace]),
     [
-      ["pstack/e2e/run-1/apps/wiki/test-results/home/shot.png", "screenshot"],
-      ["pstack/platform/run-3/journey.webm", "recording"],
+      ["pstack/e2e/run-1/apps/wiki/test-results/home/shot.png", "screenshot", "apps/wiki"],
+      ["pstack/platform/run-3/journey.webm", "recording", null],
     ],
   );
+});
+
+function seedAttributedEvidence(put) {
+  put(".agents/skills/verify-apps/coverage.json", {
+    journeys: [
+      { id: "deck-access", app: "deck" },
+      { id: "mc-timer", app: "mc" },
+    ],
+  });
+  put("local_data/pstack/pay/r1/run.json", { applications: { pay: {} } });
+  put("local_data/pstack/pay/r1/screenshots/receipt.png", "png");
+  put("local_data/pstack/pay/r1/journeys.json", {
+    journeys: [{ id: "pay-receipt", status: "VERIFIED", observedAt: "2026-11-20T00:00:00Z" }],
+  });
+  put("local_data/pstack/apps/r2/run.json", { applications: { mc: {}, deck: {} } });
+  put("local_data/pstack/apps/r2/orca-mc/timer.png", "png");
+  put("local_data/pstack/apps/r2/orca/shared.png", "png");
+  put("local_data/pstack/apps/r2/journeys.json", {
+    journeys: [
+      { id: "deck-access", status: "VERIFIED", observedAt: "2026-11-20T00:00:00Z" },
+      { id: "wiki-claim", app: "wiki", status: "VERIFIED", observedAt: "2026-11-20T00:00:00Z" },
+      { id: "unmapped", status: "VERIFIED", observedAt: "2026-11-20T00:00:00Z" },
+    ],
+  });
+  put("local_data/pstack/platform/r3/run.json", {
+    origins: { accounts: "http://localhost:6173", wiki: "http://localhost:6177" },
+  });
+  put("local_data/pstack/platform/r3/orca-wiki-runner/translated.png", "png");
+  put("local_data/pstack/wiki/r4/page.png", "png");
+  put("local_data/pstack/e2e/r5/packages/design-system/test-results/form/shot.png", "png");
+  put("local_data/pstack/stray.png", "png");
+  put("inputs/design-harness-reports/catalog.png", "png");
+}
+
+function collectAttributed(root) {
+  return collectEvidence({
+    roots: [
+      { label: "pstack", path: join(root, "local_data/pstack") },
+      { label: "inputs", path: join(root, "inputs") },
+    ],
+    owners: journeyOwners(root),
+  });
+}
+
+test("evidence is attributed from where it was produced, and the rest stays unattributed", (t) => {
+  const { root, put } = fixture(t);
+  seedAttributedEvidence(put);
+  const { entries, media } = collectAttributed(root);
+  assert.deepEqual(
+    media.map(({ path, workspace }) => [path, workspace]),
+    [
+      ["inputs/design-harness-reports/catalog.png", "packages/design-system"],
+      ["pstack/apps/r2/orca-mc/timer.png", "apps/mc"],
+      ["pstack/apps/r2/orca/shared.png", null],
+      ["pstack/e2e/r5/packages/design-system/test-results/form/shot.png", "packages/design-system"],
+      ["pstack/pay/r1/screenshots/receipt.png", "apps/pay"],
+      ["pstack/platform/r3/orca-wiki-runner/translated.png", "apps/wiki"],
+      ["pstack/stray.png", null],
+      ["pstack/wiki/r4/page.png", "apps/wiki"],
+    ],
+  );
+  assert.deepEqual(
+    entries
+      .filter((entry) => entry.source === "orca-journeys")
+      .map(({ name, workspaces }) => [name, workspaces]),
+    [
+      ["apps/deck-access", ["apps/deck"]],
+      ["apps/wiki-claim", []],
+      ["apps/unmapped", []],
+      ["pay/pay-receipt", ["apps/pay"]],
+    ],
+  );
+});
+
+test("another app's screenshot or Orca journey does not satisfy a UI change", (t) => {
+  const { root, put } = fixture(t);
+  seedAttributedEvidence(put);
+  const { entries, media } = collectAttributed(root);
+  const build = (changedFiles) =>
+    buildSummary({
+      commit: "abc",
+      context: "local",
+      changedFiles,
+      coverage: new Map(),
+      entries,
+      media,
+    }).summary;
+  const wiki = build(["apps/wiki/app/components/Navbar.tsx"]);
+  assert.deepEqual(wiki.requirements, [
+    {
+      id: "ui:apps/wiki",
+      kind: "ui",
+      workspace: "apps/wiki",
+      paths: ["apps/wiki/app/components/Navbar.tsx"],
+      label:
+        "Screenshots or recordings of the changed apps/wiki screens, or a VERIFIED Orca journey of apps/wiki",
+      satisfied: true,
+      evidence: [
+        "media/pstack/platform/r3/orca-wiki-runner/translated.png",
+        "media/pstack/wiki/r4/page.png",
+      ],
+    },
+  ]);
+  assert.deepEqual(wiki.unattributed, {
+    media: ["media/pstack/apps/r2/orca/shared.png", "media/pstack/stray.png"],
+    journeys: ["apps/wiki-claim", "apps/unmapped"],
+  });
+  const markdown = renderMarkdown(wiki);
+  assert.match(markdown, /### Unattributed evidence/);
+  assert.match(markdown, /- screenshot of apps\/pay: `media\/pstack\/pay\/r1/);
+  const deck = build(["apps/deck/app/routes/edit.tsx"]);
+  assert.deepEqual(deck.requirements[0].evidence, ["apps/deck-access"]);
+  assert.equal(deck.requirements[0].satisfied, true);
+  const roster = build(["apps/roster/app/routes/home.tsx"]);
+  assert.equal(roster.requirements[0].satisfied, false);
+});
+
+test("UI requirements are matched per app and per package by the stated rule", () => {
+  const changes = classifyChangedFiles([
+    "apps/wiki/app/components/Navbar.tsx",
+    "apps/pay/app/routes/receipt.tsx",
+    "packages/design-system/src/components/button.tsx",
+    "packages/gdg-lib/src/ui/menu.tsx",
+  ]);
+  const satisfied = (summary) =>
+    evidenceRequirements(changes, summary).map(({ id, satisfied }) => [id, satisfied]);
+  const payOnly = {
+    media: [{ path: "media/pay/receipt.png", workspace: "apps/pay" }],
+    sources: [
+      {
+        id: "orca-journeys",
+        entries: [{ name: "pay/receipt", status: "VERIFIED", workspaces: ["apps/pay"] }],
+      },
+    ],
+  };
+  assert.deepEqual(satisfied(payOnly), [
+    ["ui:apps/pay", true],
+    ["ui:apps/wiki", false],
+    ["ui:packages/design-system", false],
+    ["ui:packages/gdg-lib", null],
+  ]);
+  assert.deepEqual(
+    satisfied({
+      media: [
+        { path: "media/x/navbar.png", workspace: "apps/wiki" },
+        { path: "media/x/loose.png", workspace: null },
+        { path: "media/design-harness-reports/catalog.png", workspace: "packages/design-system" },
+      ],
+      sources: [],
+    }),
+    [
+      ["ui:apps/pay", false],
+      ["ui:apps/wiki", true],
+      ["ui:packages/design-system", true],
+      ["ui:packages/gdg-lib", null],
+    ],
+  );
+  assert.deepEqual(
+    satisfied({
+      media: [{ path: "media/x/loose.png" }],
+      sources: [{ id: "orca-journeys", entries: [{ name: "apps/unmapped", status: "VERIFIED" }] }],
+    }),
+    [
+      ["ui:apps/pay", false],
+      ["ui:apps/wiki", false],
+      ["ui:packages/design-system", false],
+      ["ui:packages/gdg-lib", null],
+    ],
+  );
+});
+
+test("state-machine changes come from verifier coverage and the reviewed module list, not path names", () => {
+  const changes = classifyChangedFiles([
+    ".agents/skills/statechart/SKILL.md",
+    ".agents/skills/statechart/scripts/statechart.ts",
+    ".agents/skills/statechart/scripts/test/chart.test.ts",
+    "docs/engineering/statechart.md",
+    "scripts/state-machine-report.mjs",
+    "apps/pr/app/features/drafts/state-machine.test.ts",
+    "apps/pr/app/features/drafts/state-machine.ts",
+    "apps/wiki/app/features/sources/lifecycle.server.ts",
+  ]);
+  assert.deepEqual(changes.stateMachine, [
+    "apps/pr/app/features/drafts/state-machine.ts",
+    "apps/wiki/app/features/sources/lifecycle.server.ts",
+  ]);
+  assert.deepEqual(
+    evidenceRequirements(classifyChangedFiles([".agents/skills/statechart/SKILL.md"]), {
+      media: [],
+      sources: [],
+    }),
+    [],
+  );
+  const repository = new URL("../../", import.meta.url);
+  for (const path of STATE_MACHINE_MODULES) {
+    assert.ok(existsSync(new URL(path, repository)), `${path} is listed but does not exist`);
+  }
 });
 
 test("missing sources are reported as missing and never as passed", () => {
@@ -219,7 +428,7 @@ test("missing sources are reported as missing and never as passed", () => {
   assert.deepEqual(
     summary.requirements.map(({ id, satisfied }) => [id, satisfied]),
     [
-      ["ui", false],
+      ["ui:apps/wiki", false],
       ["verifier:acl-boundaries", false],
     ],
   );
@@ -270,19 +479,22 @@ test("requirements are satisfied only by matching evidence", () => {
     media: [],
     sources: [
       { id: "accounts-client-revocation", entries: [{ status: "INCONCLUSIVE", evidence: "x" }] },
-      { id: "orca-journeys", entries: [{ name: "wiki/viewer", status: "NOT VERIFIED" }] },
+      {
+        id: "orca-journeys",
+        entries: [{ name: "wiki/viewer", status: "NOT VERIFIED", workspaces: ["apps/wiki"] }],
+      },
     ],
   });
   assert.deepEqual(
     inconclusive.map(({ id, satisfied }) => [id, satisfied]),
     [
-      ["ui", false],
+      ["ui:apps/wiki", false],
       ["verifier:accounts-client-revocation", false],
       ["state-diagram", null],
     ],
   );
   const present = evidenceRequirements(changes, {
-    media: [{ path: "media/a.png" }],
+    media: [{ path: "media/a.png", workspace: "apps/wiki" }],
     sources: [
       { id: "accounts-client-revocation", entries: [{ status: "VERIFIED", evidence: "y" }] },
     ],
@@ -290,7 +502,7 @@ test("requirements are satisfied only by matching evidence", () => {
   assert.deepEqual(
     present.map(({ id, satisfied }) => [id, satisfied]),
     [
-      ["ui", true],
+      ["ui:apps/wiki", true],
       ["verifier:accounts-client-revocation", true],
       ["state-diagram", null],
     ],
@@ -357,21 +569,27 @@ test("the CLI writes JSON, Markdown, and copied media for downloaded hosted arti
   assert.equal(status("ci-metrics").found, false);
   assert.equal(status("accounts-client-revocation").found, false);
   assert.deepEqual(
-    summary.media.map((item) => item.path),
-    ["media/inputs/playwright-report-wiki/run-9/apps/wiki/test-results/fail/shot.png"],
+    summary.media.map(({ path, workspace }) => [path, workspace]),
+    [
+      [
+        "media/inputs/playwright-report-wiki/run-9/apps/wiki/test-results/fail/shot.png",
+        "apps/wiki",
+      ],
+    ],
   );
   assert.equal(readFileSync(join(output, summary.media[0].path), "utf8"), "png");
   assert.deepEqual(
     summary.requirements.map(({ id, satisfied }) => [id, satisfied]),
     [
-      ["ui", true],
+      ["ui:apps/wiki", true],
       ["verifier:acl-boundaries", true],
     ],
   );
   const markdown = readFileSync(join(output, SUMMARY_MARKDOWN), "utf8");
   assert.match(markdown, /## Verification summary/);
   assert.match(markdown, /Local CI metrics \(\.turbo\/ci-metrics\): MISSING\./);
-  assert.match(markdown, /\| Hosted CI jobs \| mutation \| NOT VERIFIED \|/);
+  assert.match(markdown, /\| Hosted CI jobs \| mutation \| {2}\| NOT VERIFIED \|/);
+  assert.match(markdown, /\| @gdgjp\/wiki \| apps\/wiki \| NOT VERIFIED \|/);
   assert.match(markdown, /A missing source is not a pass/);
 });
 
@@ -387,4 +605,34 @@ test("argument errors are explicit", () => {
     evidence: ["a", "b"],
     local: false,
   });
+});
+
+test("the media limit keeps evidence of every attributed workspace before more of one", () => {
+  const item = (path, workspace) => ({
+    file: path,
+    path,
+    kind: "screenshot",
+    workspace,
+    bytes: 1,
+    recordedAt: null,
+  });
+  const media = [
+    ...Array.from({ length: 120 }, (_, index) =>
+      item(`pstack/pay/r/screenshots/${String(index).padStart(3, "0")}.png`, "apps/pay"),
+    ),
+    item("pstack/wiki/r/page.png", "apps/wiki"),
+    item("pstack/stray.png", null),
+  ];
+  const { summary } = buildSummary({
+    commit: "abc",
+    context: "local",
+    changedFiles: ["apps/wiki/app/components/Navbar.tsx"],
+    coverage: new Map(),
+    entries: [],
+    media,
+  });
+  assert.equal(summary.media.length, 100);
+  assert.equal(summary.mediaOmitted, 22);
+  assert.deepEqual(summary.requirements[0].evidence, ["media/pstack/wiki/r/page.png"]);
+  assert.deepEqual(summary.unattributed.media, ["media/pstack/stray.png"]);
 });

@@ -243,7 +243,7 @@ CREATE TABLE campaign_links (
   health_failures  INTEGER NOT NULL DEFAULT 0,
   health_checked_at INTEGER,
   health_alerted_at INTEGER,
-  created_at       INTEGER NOT NULL DEFAULT (unixepoch()),
+  created_at       INTEGER NOT NULL DEFAULT (unixepoch()), draft_id INTEGER, draft_version INTEGER,
   UNIQUE (schedule_item_id)
 );
 CREATE TABLE dispatch_log (
@@ -454,3 +454,4 @@ CREATE TABLE design_references (
   created_at   INTEGER NOT NULL DEFAULT (unixepoch())
 );
 CREATE INDEX design_references_chapter ON design_references (chapter_id, made_on DESC, created_at DESC);
+CREATE UNIQUE INDEX campaign_links_version ON campaign_links (draft_id, draft_version);

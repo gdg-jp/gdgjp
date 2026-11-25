@@ -47,7 +47,9 @@ only while the draft and the target are approved for the same version and it is 
 one `UPDATE`, and sends exactly that version. A version holds the text and the attached image, so
 changing either saves a new version; a new version clears the draft's approval, so people approve again.
 See [the approval lifecycle](docs/approval-lifecycle.md). `{{shortlink}}`
-becomes a url.gdgs.jp link (`TINYURL.createLink`) created at draft approval. Crons follow sns status,
+becomes a url.gdgs.jp link (`TINYURL.createLink`) that belongs to one approved version
+(`campaign_links.draft_id`, `draft_version`): it is created only after the draft approval is
+recorded, again by the send if that failed, and never reused for another version. Crons follow sns status,
 send staff reminders / review requests / follow-ups to the chapter's Discord webhook
 (`/settings/chapter`, encrypted with `SETTINGS_ENCRYPTION_KEY`) and check link health. Locally,
 `pnpm dev` serves `SNS` / `TINYURL` / `CONNPASS` from `e2e/mock-services`; `/dev/cron?name=minute|hourly` runs a

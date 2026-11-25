@@ -9,6 +9,7 @@ import {
   execute,
   invariant,
   normalizeMessage,
+  sameViolation,
   shrink,
   signature,
 } from "./engine";
@@ -189,6 +190,72 @@ describe("shrink", () => {
     );
     expect(result.steps).toEqual([{ action: "add", input: 2 }]);
     expect(result.violation.name).toBe("count matches the log");
+  });
+
+  it("keeps the original failure when a shorter sequence fails the same check elsewhere", async () => {
+    type Api = { warm: boolean; searched: boolean };
+    const api = {
+      name: "api",
+      actions: [
+        action<Api>({
+          name: "warm",
+          run: async (world) => {
+            world.warm = true;
+          },
+        }),
+        action<Api>({
+          name: "search",
+          run: async (world) => {
+            if (!world.warm)
+              throw new PropertyViolation(
+                "monitor",
+                "no 5xx responses",
+                "GET https://pr.stg1.gdgs.jp/search returned 503",
+              );
+            world.searched = true;
+          },
+        }),
+        action<Api>({
+          name: "approve",
+          run: async (world) => {
+            if (world.searched)
+              throw new PropertyViolation(
+                "monitor",
+                "no 5xx responses",
+                "POST https://pr.stg1.gdgs.jp/approval returned 500",
+              );
+          },
+        }),
+      ],
+      invariants: [],
+    };
+    const apiHarness: Harness<Api> = {
+      setup: async () => ({ warm: false, searched: false }),
+      teardown: async () => undefined,
+      observe: async () => undefined,
+      step: (_title, body) => body(),
+    };
+    const steps: Step[] = [
+      { action: "warm", input: null },
+      { action: "search", input: null },
+      { action: "approve", input: null },
+    ];
+    const outcome = await execute(api, apiHarness, { kind: "replay", steps });
+    if (outcome.ok) throw new Error("expected a failure");
+    expect(outcome.violation.message).toContain("/approval returned 500");
+    const result = await shrink(
+      { steps: outcome.executed, violation: outcome.violation },
+      (candidate) => execute(api, apiHarness, { kind: "replay", steps: candidate }),
+      { replays: 50 },
+    );
+    expect(result.violation.message).toContain("/approval returned 500");
+    expect(result.steps).toEqual(steps);
+    expect(
+      sameViolation(outcome.violation, {
+        ...outcome.violation,
+        message: "POST https://pr.stg1.gdgs.jp/approval returned 502",
+      }),
+    ).toBe(true);
   });
 
   it("stops at the replay limit", async () => {

@@ -1,4 +1,4 @@
-import type { CampaignLink } from "./link";
+import type { CampaignLink, LinkVersion } from "./link";
 
 type Row = {
   id: number;
@@ -13,12 +13,17 @@ type Row = {
   health_failures: number;
   health_checked_at: number | null;
   health_alerted_at: number | null;
+  draft_id: number | null;
+  draft_version: number | null;
+  item_id: number | null;
 };
 
 const toLink = (r: Row): CampaignLink => ({
   id: r.id,
   campaignId: r.campaign_id,
-  scheduleItemId: r.schedule_item_id,
+  scheduleItemId: r.item_id,
+  draftId: r.draft_id,
+  draftVersion: r.draft_version,
   tinyurlLinkId: r.tinyurl_link_id,
   shortUrl: r.short_url,
   slug: r.slug,
@@ -30,9 +35,30 @@ const toLink = (r: Row): CampaignLink => ({
   healthAlertedAt: r.health_alerted_at,
 });
 
-export async function linkForItem(db: D1Database, itemId: number): Promise<CampaignLink | null> {
+const SELECT = `SELECT l.*, COALESCE(l.schedule_item_id, ld.schedule_item_id) AS item_id
+  FROM campaign_links l LEFT JOIN drafts ld ON ld.id = l.draft_id`;
+
+export async function linkForVersion(
+  db: D1Database,
+  at: LinkVersion,
+): Promise<CampaignLink | null> {
   const row = await db
-    .prepare("SELECT * FROM campaign_links WHERE schedule_item_id = ?")
+    .prepare(`${SELECT} WHERE l.draft_id = ? AND l.draft_version = ?`)
+    .bind(at.draftId, at.version)
+    .first<Row>();
+  return row ? toLink(row) : null;
+}
+
+export async function approvedLinkForItem(
+  db: D1Database,
+  itemId: number,
+): Promise<CampaignLink | null> {
+  const row = await db
+    .prepare(
+      `${SELECT} JOIN drafts d ON d.id = l.draft_id AND d.approved_version = l.draft_version
+       WHERE d.schedule_item_id = ? AND d.status = 'approved' AND d.current_version = d.approved_version
+       ORDER BY d.id DESC LIMIT 1`,
+    )
     .bind(itemId)
     .first<Row>();
   return row ? toLink(row) : null;
@@ -40,7 +66,7 @@ export async function linkForItem(db: D1Database, itemId: number): Promise<Campa
 
 export async function listLinks(db: D1Database, campaignId: number): Promise<CampaignLink[]> {
   const { results } = await db
-    .prepare("SELECT * FROM campaign_links WHERE campaign_id = ? ORDER BY id DESC")
+    .prepare(`${SELECT} WHERE l.campaign_id = ? ORDER BY l.id DESC`)
     .bind(campaignId)
     .all<Row>();
   return results.map(toLink);
@@ -49,7 +75,7 @@ export async function listLinks(db: D1Database, campaignId: number): Promise<Cam
 export async function linksToCheck(db: D1Database, limit = 50): Promise<CampaignLink[]> {
   const { results } = await db
     .prepare(
-      `SELECT l.* FROM campaign_links l JOIN campaigns c ON c.id = l.campaign_id
+      `${SELECT} JOIN campaigns c ON c.id = l.campaign_id
        WHERE c.status = 'active' ORDER BY COALESCE(l.health_checked_at, 0) LIMIT ?`,
     )
     .bind(limit)
@@ -57,18 +83,29 @@ export async function linksToCheck(db: D1Database, limit = 50): Promise<Campaign
   return results.map(toLink);
 }
 
-export async function insertLink(
+export async function insertVersionLink(
   db: D1Database,
-  link: Omit<CampaignLink, "id" | "healthFailures" | "healthCheckedAt" | "healthAlertedAt">,
+  at: LinkVersion,
+  link: Pick<
+    CampaignLink,
+    | "campaignId"
+    | "tinyurlLinkId"
+    | "shortUrl"
+    | "slug"
+    | "destinationUrl"
+    | "channel"
+    | "ogImageUrl"
+  >,
 ) {
   await db
     .prepare(
-      `INSERT INTO campaign_links (campaign_id, schedule_item_id, tinyurl_link_id, short_url, slug, destination_url, channel, og_image_url)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT (schedule_item_id) DO NOTHING`,
+      `INSERT INTO campaign_links (campaign_id, draft_id, draft_version, tinyurl_link_id, short_url, slug, destination_url, channel, og_image_url)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT DO NOTHING`,
     )
     .bind(
       link.campaignId,
-      link.scheduleItemId,
+      at.draftId,
+      at.version,
       link.tinyurlLinkId,
       link.shortUrl,
       link.slug,

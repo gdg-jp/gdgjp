@@ -8,7 +8,7 @@ import {
   setDraftMedia,
 } from "~/features/drafts/review.server";
 import { enqueueAsset } from "~/features/jobs/enqueue.server";
-import { linkForItem } from "~/features/links/link.repository.server";
+import { linkForVersion } from "~/features/links/link.repository.server";
 import { getItem } from "~/features/schedule/item.repository.server";
 import { deliverablePost, jstLabel } from "./content";
 import { delegateTarget } from "./delegate.server";
@@ -53,8 +53,10 @@ export async function deliveryView(
     isMember: access.members.some((m) => m.userId === access.user.id),
     isAdmin: access.user.isAdmin,
   };
-  const link = await linkForItem(env.DB, item.id);
   const approvedVersion = approvedForSending(draft) ? draft.approvedVersion : null;
+  const link = approvedVersion
+    ? await linkForVersion(env.DB, { draftId: draft.id, version: approvedVersion })
+    : null;
   return {
     dispatchable: draft.status === "approved",
     approvedVersion,

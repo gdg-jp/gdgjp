@@ -16,7 +16,7 @@
 | Drafts: append-only versions, create → review → approve state machine, reviews, edits | `app/features/drafts/` — `state-machine.ts` is the only place transitions are decided; `setDraftStatus` writes only for the version the form showed and records `drafts.approved_version` |
 | Delivery accounts per chapter, tinyurl activation, posting precheck, `SNS` / `TINYURL` bindings | `app/features/integrations/` — `bindings.server.ts` is the only place the bindings are cast to the gdg-lib `PrService` types |
 | Dispatch targets (one per item × X account, approved by that account's chapter), sns scheduling, delegation, status polling, reminders | `app/features/dispatch/` — `target.ts` decides who approves; `approveTargetVersion` and `claimApprovedTarget` (`target.repository.server.ts`) are the only writes to `approved` and `dispatching`, each conditional on the draft being approved for the same, latest version |
-| Short links (`{{shortlink}}` → url.gdgs.jp) and their health | `app/features/links/` |
+| Short links (`{{shortlink}}` → url.gdgs.jp), one per approved draft version, and their health | `app/features/links/` — `versionText` (`create.server.ts`) is the only place a version's text gets its link, created after the approval is recorded and reused only for that version |
 | Discord webhooks (chapter settings, encrypted), message text from `constants.reminders.templates` | `app/features/notify/`, `app/features/settings/` |
 | Staff reminders to send, speaker requests, outreach replies (approvals page) | `app/features/requests/` |
 | Cron jobs (minute: requeue, reminders, mails at their time, approved posts no request claimed; hourly: sns status, link health) | `app/features/cron/cron.server.ts` (crons match `wrangler.toml`, tested) |
@@ -48,10 +48,13 @@
   known gaps.
 - The Worker never trusts runner output: `complete.server.ts` validates it against the Skill's
   output schema and runs the Playbook checks before anything is saved as a version.
-- Only a dispatch target's approval writes outside (sns, tinyurl), as the approver's live claims.
-  Cron follows status, sends Discord messages, and sends approved targets (mails at their time,
-  posts whose approving request stopped before the claim); it acts for stored claims snapshots
-  (`dispatch_targets.actor_snapshot`, `campaigns.actor_snapshot`) and logs `no_actor` without one.
+- Only a recorded approval writes outside (sns, tinyurl, connpass), as the approver's live claims:
+  approval checks are read-only, the conditional approval write comes first, and the hand-off
+  reads the approved version (`getVersion`, `approvedContent`). A send that finds its version's
+  short link missing creates it before sending. Cron follows status, sends Discord messages,
+  sends connpass mails at their time and posts whose approving request stopped before the claim,
+  and acts for stored claims snapshots (`dispatch_targets.actor_snapshot`,
+  `campaigns.actor_snapshot`); it logs `no_actor` without one.
 - A connpass page's `html` is rebuilt from its slots on every import and edit
   (`pages/render.ts`, `skills/pr-playbook/scripts/render/`). A connpass mail is approved per group
   target but sent by the minute cron at the item's time, never on approval.

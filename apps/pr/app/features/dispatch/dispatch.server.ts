@@ -1,20 +1,17 @@
 import type { PrActor } from "@gdgjp/gdg-lib";
-import { latestBrief } from "~/features/briefs/brief.repository.server";
 import type { CampaignAccess } from "~/features/campaigns/access.server";
 import type { Campaign } from "~/features/campaigns/campaign";
 import { getCampaignById } from "~/features/campaigns/campaign.repository.server";
 import { pageApprovalBlockers } from "~/features/connpass/page.server";
 import { type Draft, approvedForSending } from "~/features/drafts/draft";
-import { getDraft } from "~/features/drafts/draft.repository.server";
-import { getVersion } from "~/features/drafts/draft.repository.server";
+import { getDraft, getVersion } from "~/features/drafts/draft.repository.server";
 import { STALE_VERSION } from "~/features/drafts/review.server";
 import { actorOf, callRpc, parseActor, snsService } from "~/features/integrations/bindings.server";
-import { ensureShortlink } from "~/features/links/create.server";
-import { withShortlink } from "~/features/links/slug";
+import { NO_CONTENT, fallbackUrl, versionText } from "~/features/links/create.server";
 import { listingApprovalBlockers } from "~/features/listings/listing.server";
 import type { ScheduleItem } from "~/features/schedule/item";
 import { getItem, transitionItem } from "~/features/schedule/item.repository.server";
-import { type DeliverablePost, approvalBlockers, deliverablePost, isoAt } from "./content";
+import { approvalBlockers, deliverablePost, isoAt } from "./content";
 import { logDispatch } from "./log.server";
 import { canApproveTarget, isDispatchKind, rollupItemStatus, targetAccountKind } from "./target";
 import {
@@ -30,41 +27,45 @@ import {
 
 export type DispatchResult = { ok: true; message: string } | { ok: false; error: string };
 
-async function deliverable(env: Env, draftId: number, version: number) {
-  const saved = await getVersion(env.DB, draftId, version);
-  return { post: deliverablePost(saved?.content ?? null), mediaUrl: saved?.mediaUrl ?? null };
-}
-
-const fallbackUrl = async (env: Env, campaignId: number) =>
-  (await latestBrief(env.DB, campaignId))?.brief.event.connpassUrl ?? null;
-
-export async function prepareDraftApproval(
+export async function draftApprovalBlockers(
   env: Env,
   access: CampaignAccess,
   draft: Draft,
   version: number,
-): Promise<{ ok: true } | { ok: false; errors: string[] }> {
+): Promise<string[]> {
+  if (version !== draft.currentVersion) return [STALE_VERSION];
   const connpass = [
     ...pageApprovalBlockers(access, draft),
     ...(await listingApprovalBlockers(env, access, draft)),
   ];
-  if (connpass.length) return { ok: false, errors: connpass };
-  if (!draft.scheduleItemId) return { ok: true };
-  const { post, mediaUrl } = await deliverable(env, draft.id, version);
-  const fallback = await fallbackUrl(env, access.campaign.id);
-  const blockers = approvalBlockers(post, fallback, mediaUrl);
-  if (blockers.length) return { ok: false, errors: blockers };
-  const item = await getItem(env.DB, access.campaign.id, draft.scheduleItemId);
-  if (post && item && post.text.includes("{{shortlink}}")) {
-    const link = await ensureShortlink(env, actorOf(access), access.campaign, item, post, fallback);
-    if (!link.ok) return { ok: false, errors: [link.error] };
-  }
-  return { ok: true };
+  if (connpass.length || !draft.scheduleItemId) return connpass;
+  const saved = await getVersion(env.DB, draft.id, version);
+  return approvalBlockers(deliverablePost(saved?.content ?? null), {
+    fallbackUrl: await fallbackUrl(env.DB, access.campaign.id),
+    mediaUrl: saved?.mediaUrl ?? null,
+    tinyurlActive: access.campaign.tinyurlCampaignId !== null,
+  });
 }
 
-export async function afterDraftApproval(env: Env, campaign: Campaign, draft: Draft) {
-  if (!draft.scheduleItemId || !isDispatchKind(draft.kind)) return;
-  await ensureTargets(env.DB, campaign.id, draft.scheduleItemId, targetAccountKind(draft.kind));
+export async function afterDraftApproval(
+  env: Env,
+  access: CampaignAccess,
+  draft: Draft,
+  version: number,
+): Promise<string | null> {
+  if (!draft.scheduleItemId) return null;
+  if (isDispatchKind(draft.kind))
+    await ensureTargets(
+      env.DB,
+      access.campaign.id,
+      draft.scheduleItemId,
+      targetAccountKind(draft.kind),
+    );
+  const item = await getItem(env.DB, access.campaign.id, draft.scheduleItemId);
+  if (!item) return null;
+  const at = { draftId: draft.id, version };
+  const text = await versionText(env, actorOf(access), access.campaign, item, at);
+  return text.ok || text.error === NO_CONTENT ? null : text.error;
 }
 
 export async function rollup(env: Env, itemId: number) {
@@ -187,11 +188,11 @@ async function sendClaimedPost(
 ): Promise<DispatchResult> {
   const target = await getTarget(env.DB, at.targetId);
   const item = target ? await getItem(env.DB, campaign.id, target.scheduleItemId) : null;
-  const { post, mediaUrl } = await deliverable(env, at.draftId, at.version);
   const fail = (error: string) => failClaimed(env, at.targetId, item?.id ?? null, error);
-  if (!target || !item || !post) return fail("配信する本文がありません");
-  const text = await textForDelivery(env, actor, campaign, item, post);
+  if (!target || !item) return fail(NO_CONTENT);
+  const text = await versionText(env, actor, campaign, item, at);
   if (!text.ok) return fail(text.error);
+  const mediaUrl = (await getVersion(env.DB, at.draftId, at.version))?.mediaUrl ?? null;
   const created = await callRpc(() =>
     snsService(env).createScheduledPost({
       actor,
@@ -230,25 +231,6 @@ async function sendClaimedPost(
   await transitionItem(env.DB, item.id, ["approved", "failed"], "dispatching");
   await rollup(env, item.id);
   return { ok: true, message: `${target.account.label} に予約しました` };
-}
-
-async function textForDelivery(
-  env: Env,
-  actor: PrActor,
-  campaign: Campaign,
-  item: ScheduleItem,
-  post: DeliverablePost,
-): Promise<{ ok: true; text: string } | { ok: false; error: string }> {
-  if (!post.text.includes("{{shortlink}}")) return { ok: true, text: post.text };
-  const link = await ensureShortlink(
-    env,
-    actor,
-    campaign,
-    item,
-    post,
-    await fallbackUrl(env, campaign.id),
-  );
-  return link.ok ? { ok: true, text: withShortlink(post.text, link.link.shortUrl) } : link;
 }
 
 async function attachImage(

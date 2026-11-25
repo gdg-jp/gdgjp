@@ -285,14 +285,32 @@ export function targetsFor(environment, relyingParties, apps) {
   return named.filter((target) => apps.includes(target.app));
 }
 
-async function session({ slot, out, apps }) {
-  const { environment, relyingParties } = await slotEnvironment(slot);
+const USER_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+const DATABASE = /^[a-z0-9][a-z0-9-]*$/;
+
+export async function session(
+  { slot, out, apps },
+  { slot: resolve = slotEnvironment, d1: execute = d1 } = {},
+) {
+  const { environment, relyingParties } = await resolve(slot);
   if (!environment.E2E_BETTER_AUTH_SECRET) throw new Error("STAGING_ROOT_SECRET is required");
+  const targets = targetsFor(environment, relyingParties, apps);
+  const database = environment.E2E_ACCOUNTS_D1.slice("remote:".length);
+  if (!DATABASE.test(database)) throw new Error(`Invalid accounts database: ${database}`);
   const userId = randomUUID();
   const token = randomUUID().replaceAll("-", "");
-  const database = environment.E2E_ACCOUNTS_D1.slice("remote:".length);
-  await d1(database, sessionSql({ userId, email: `ui-fuzz-${userId}@example.com`, token }));
   mkdirSync(out, { recursive: true, mode: 0o700 });
+  writeFileSync(
+    join(out, "fuzz.json"),
+    JSON.stringify({
+      userId,
+      database,
+      accountsUrl: environment.E2E_ACCOUNTS_URL,
+      domain: new URL(environment.E2E_ACCOUNTS_URL).hostname.split(".").slice(1).join("."),
+      targets: targets.map((target) => `${target.app}=${target.url}`).join(","),
+    }),
+  );
+  await execute(database, sessionSql({ userId, email: `ui-fuzz-${userId}@example.com`, token }));
   writeFileSync(
     join(out, "storage-state.json"),
     JSON.stringify(
@@ -304,25 +322,15 @@ async function session({ slot, out, apps }) {
     ),
     { mode: 0o600 },
   );
-  const targets = targetsFor(environment, relyingParties, apps);
-  writeFileSync(
-    join(out, "fuzz.json"),
-    JSON.stringify({
-      userId,
-      database,
-      accountsUrl: environment.E2E_ACCOUNTS_URL,
-      domain: new URL(environment.E2E_ACCOUNTS_URL).hostname.split(".").slice(1).join("."),
-      targets: targets.map((target) => `${target.app}=${target.url}`).join(","),
-    }),
-  );
 }
 
-async function cleanup({ out }) {
+export async function cleanup({ out }, { d1: execute = d1 } = {}) {
   const file = join(out, "fuzz.json");
   if (!existsSync(file)) return;
   const { userId, database } = JSON.parse(readFileSync(file, "utf8"));
-  if (!/^[0-9a-f-]{36}$/.test(userId)) throw new Error("fuzz.json has an invalid user id");
-  await d1(
+  if (!USER_ID.test(userId)) throw new Error("fuzz.json has an invalid user id");
+  if (!DATABASE.test(database)) throw new Error("fuzz.json has an invalid database");
+  await execute(
     database,
     `DELETE FROM "session" WHERE "userId" = '${userId}'; DELETE FROM "user" WHERE "id" = '${userId}';`,
   );

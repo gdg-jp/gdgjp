@@ -5,6 +5,7 @@ import { submitConnpass } from "~/features/connpass/submit.server";
 import type { Draft } from "~/features/drafts/draft";
 import {
   appendVersion,
+  approvedContent,
   createDraft,
   draftForItem,
   latestVersion,
@@ -116,7 +117,7 @@ export async function listingApprovalBlockers(env: Env, access: CampaignAccess, 
 }
 
 export async function afterListingApproval(env: Env, access: CampaignAccess, draft: Draft) {
-  const content = (await latestVersion(env.DB, draft.id))?.content as ListingContent | null;
+  const content = (await approvedContent(env.DB, draft)) as ListingContent | null;
   if (!content || !draft.scheduleItemId)
     return { ok: false as const, error: "掲載内容がありません" };
   const target = (await listingTargets(env.DB, access.campaign.id)).find(

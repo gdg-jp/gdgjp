@@ -62,11 +62,25 @@ export const SUMMARY_PRODUCERS = [
   /^\.agents\/skills\/verify-[^/]+\/scripts\//,
 ];
 
+export const STATE_MACHINE_MODULES = [
+  "apps/pr/app/features/drafts/state-machine.ts",
+  "apps/wiki/app/features/sources/lifecycle.server.ts",
+];
+
+export const PACKAGE_UI_EVIDENCE = ["packages/design-system"];
+
+export const EVIDENCE_LAYOUTS = [
+  { producer: /^(?:e2e|playwright-report-[^/]+)$/, layout: "workspace-tree" },
+  { producer: /^design-harness-reports$/, workspace: "packages/design-system" },
+  { producer: /^wiki$/, workspace: "apps/wiki" },
+];
+
 const UI_FILE = /^(?:apps|packages)\/(?!cli\/)[^/]+\/.+\.(?:tsx|jsx|css|scss|html|svg)$/;
 const UI_LOCALE = /^(?:apps|packages)\/(?!cli\/)[^/]+\/(?:.+\/)?locales?\/.+\.json$/;
 const TEST_FILE =
   /(?:^|\/)(?:tests?|e2e|__tests__|__mocks__)\/|\.(?:test|spec)\.[cm]?[jt]sx?$|\.verification\./;
-const STATE_MACHINE_FILE = /(?:^|[/._-])(?:state-?machine|statechart)(?:[/._-]|$)|\.als$/i;
+const WORKSPACE = /^(?:apps|packages)\/[a-z0-9][a-z0-9-]*$/;
+const APP_NAME = /^[a-z0-9][a-z0-9-]*$/;
 const SCREENSHOT = /\.(?:png|jpe?g|webp|gif)$/i;
 const RECORDING = /\.(?:webm|mp4|mov)$/i;
 const SKIPPED_DIRECTORIES = new Set(["node_modules", ".git", "storage-state", "playwright-report"]);
@@ -115,9 +129,43 @@ export function classifyChangedFiles(files, coverage = new Map()) {
     if (model && !covered.includes(model)) covered.push(model);
     for (const id of covered) verifiers[id] = [...(verifiers[id] ?? []), path];
     const modeled = covered.some((id) => VERIFIERS.find((item) => item.id === id)?.stateMachine);
-    if (modeled || (!test && STATE_MACHINE_FILE.test(path))) stateMachine.push(path);
+    if (modeled || STATE_MACHINE_MODULES.includes(path)) stateMachine.push(path);
   }
   return { files: files.length, ui, stateMachine, verifiers };
+}
+
+export function workspaceOf(path) {
+  const workspace = path.split("/").slice(0, 2).join("/");
+  return WORKSPACE.test(workspace) ? workspace : null;
+}
+
+export function validWorkspace(value) {
+  return typeof value === "string" && WORKSPACE.test(value) ? value : null;
+}
+
+export function journeyOwners(root) {
+  const owners = new Map();
+  const skills = join(root, ".agents/skills");
+  let names = [];
+  try {
+    names = readdirSync(skills).filter((name) => name.startsWith("verify-"));
+  } catch {
+    return owners;
+  }
+  for (const name of names) {
+    const file = join(skills, name, "coverage.json");
+    if (!existsSync(file)) continue;
+    const journeys = readJson(file)?.journeys;
+    if (!Array.isArray(journeys)) continue;
+    const apps = new Map();
+    for (const journey of journeys) {
+      if (typeof journey?.id === "string" && APP_NAME.test(journey?.app ?? "")) {
+        apps.set(journey.id, journey.app);
+      }
+    }
+    if (apps.size > 0) owners.set(name.slice("verify-".length), apps);
+  }
+  return owners;
 }
 
 export function producersChanged(files) {
@@ -130,19 +178,39 @@ function sourceEntries(summary, id) {
 
 export function evidenceRequirements(changes, summary) {
   const requirements = [];
-  if (changes.ui.length > 0) {
-    const media = summary?.media ?? [];
-    const journeys = sourceEntries(summary, "orca-journeys").filter(
-      (entry) => entry.status === "VERIFIED",
+  const media = summary?.media ?? [];
+  const journeys = sourceEntries(summary, "orca-journeys").filter(
+    (entry) => entry.status === "VERIFIED",
+  );
+  const targets = new Map();
+  for (const path of changes.ui) {
+    const workspace = workspaceOf(path);
+    if (workspace) targets.set(workspace, [...(targets.get(workspace) ?? []), path]);
+  }
+  for (const [workspace, paths] of targets) {
+    const base = { id: `ui:${workspace}`, kind: "ui", workspace, paths };
+    if (workspace.startsWith("packages/") && !PACKAGE_UI_EVIDENCE.includes(workspace)) {
+      requirements.push({
+        ...base,
+        label: `Screenshots or recordings of a consuming app's screen that renders the changed ${workspace} UI`,
+        satisfied: null,
+        evidence: [],
+      });
+      continue;
+    }
+    const shots = media.filter((item) => item.workspace === workspace);
+    const runs = journeys.filter(
+      (entry) => Array.isArray(entry.workspaces) && entry.workspaces.includes(workspace),
     );
     requirements.push({
-      id: "ui",
-      label: "Screenshots or recordings of the changed UI, or a VERIFIED Orca journey",
-      paths: changes.ui,
-      satisfied: media.length > 0 || journeys.length > 0,
+      ...base,
+      label: workspace.startsWith("packages/")
+        ? `Screenshots or recordings from ${workspace}'s own Playwright or design-harness report`
+        : `Screenshots or recordings of the changed ${workspace} screens, or a VERIFIED Orca journey of ${workspace}`,
+      satisfied: shots.length > 0 || runs.length > 0,
       evidence: [
-        ...media.slice(0, 10).map((item) => item.path),
-        ...journeys.slice(0, 10).map((entry) => entry.name),
+        ...shots.slice(0, 10).map((item) => item.path),
+        ...runs.slice(0, 10).map((entry) => entry.name),
       ],
     });
   }
@@ -211,7 +279,7 @@ function modifiedAt(file) {
 }
 
 function entry(source, fields) {
-  return { source, details: "", recordedAt: null, evidence: null, ...fields };
+  return { source, details: "", recordedAt: null, evidence: null, workspaces: [], ...fields };
 }
 
 function ciMetricsEntries(record, evidence, recordedAt) {
@@ -262,6 +330,9 @@ function e2eEntry(record, evidence, recordedAt) {
     details: notes.join("; "),
     recordedAt,
     evidence,
+    workspaces: [
+      ...new Set((record.reports ?? []).map((report) => validWorkspace(report?.workspace))),
+    ].filter(Boolean),
   });
 }
 
@@ -355,19 +426,14 @@ function mutationEntry(record, evidence, recordedAt) {
   });
 }
 
-function journeyEntries(record, evidence, recordedAt) {
+function journeyEntries(record, evidence, recordedAt, { producer = "orca", owner = () => null }) {
   const journeys = Array.isArray(record) ? record : (record?.journeys ?? []);
-  const directory = evidence.split("/");
-  const skill = directory.includes("platform")
-    ? "platform"
-    : directory.includes("wiki")
-      ? "wiki"
-      : "orca";
   return journeys
     .filter((journey) => journey && typeof journey.id === "string")
-    .map((journey) =>
-      entry("orca-journeys", {
-        name: `${skill}/${journey.id}`,
+    .map((journey) => {
+      const workspace = owner(journey);
+      return entry("orca-journeys", {
+        name: `${producer}/${journey.id}`,
         status:
           journey.status === "VERIFIED"
             ? "VERIFIED"
@@ -378,18 +444,21 @@ function journeyEntries(record, evidence, recordedAt) {
           ? `failure: ${typeof journey.failure === "string" ? journey.failure : JSON.stringify(journey.failure)}`
           : journey.status === "FAILED"
             ? "failed"
-            : (journey.entryPoint ?? ""),
+            : typeof journey.entryPoint === "string"
+              ? journey.entryPoint
+              : "",
         recordedAt: isoTime(journey.observedAt) ?? recordedAt,
         evidence,
-      }),
-    );
+        workspaces: workspace ? [workspace] : [],
+      });
+    });
 }
 
-export function classifyRecord(path, record, recordedAt) {
+export function classifyRecord(path, record, recordedAt, place = {}) {
   const name = basename(path);
   const parent = basename(dirname(path));
   if (!record || typeof record !== "object") return [];
-  if (/journeys\.json$/.test(name)) return journeyEntries(record, path, recordedAt);
+  if (/journeys\.json$/.test(name)) return journeyEntries(record, path, recordedAt, place);
   if (name === "mutation.json" && record.framework?.name === "mutator") {
     return [mutationEntry(record, path, recordedAt)];
   }
@@ -452,19 +521,70 @@ export function hostedJobEntries(needs, evidence) {
     );
 }
 
-export function collectEvidence({ roots, since = null, skip = [] }) {
+function plainObject(value) {
+  return value !== null && typeof value === "object" && !Array.isArray(value);
+}
+
+function servedApps(directory) {
+  const file = join(directory, "run.json");
+  const record = existsSync(file) ? readJson(file) : undefined;
+  if (!plainObject(record)) return [];
+  const served = [record.applications, record.origins].filter(plainObject).flatMap(Object.keys);
+  return [...new Set(served)].filter((name) => APP_NAME.test(name)).sort();
+}
+
+function namedApp(apps, names) {
+  return apps.filter(names).sort((a, b) => b.length - a.length)[0] ?? null;
+}
+
+export function locateEvidence(rootPath, path, cache = new Map()) {
+  const [producer, run, ...rest] = path.split("/");
+  const none = { producer, workspace: null, apps: [] };
+  const layout = EVIDENCE_LAYOUTS.find((item) => item.producer.test(producer));
+  if (layout?.workspace) return { ...none, workspace: layout.workspace };
+  if (rest.length === 0) return none;
+  if (layout?.layout === "workspace-tree") {
+    return { ...none, workspace: rest.length > 2 ? validWorkspace(`${rest[0]}/${rest[1]}`) : null };
+  }
+  const directory = join(rootPath, producer, run);
+  if (!cache.has(directory)) cache.set(directory, servedApps(directory));
+  const apps = cache.get(directory);
+  if (apps.length === 1) return { producer, workspace: `apps/${apps[0]}`, apps };
+  const [first] = rest;
+  const app =
+    rest.length > 1
+      ? namedApp(apps, (name) => first === `orca-${name}` || first.startsWith(`orca-${name}-`))
+      : namedApp(apps, (name) => first === `${name}-journeys.json`);
+  return { producer, workspace: app ? `apps/${app}` : null, apps };
+}
+
+function journeyOwner(place, owners) {
+  return (journey) => {
+    const claimed = APP_NAME.test(journey.app ?? "") ? journey.app : null;
+    if (place.workspace) {
+      return claimed === null || `apps/${claimed}` === place.workspace ? place.workspace : null;
+    }
+    const app = claimed ?? owners.get(place.producer)?.get(journey.id) ?? null;
+    return app && place.apps.includes(app) ? `apps/${app}` : null;
+  };
+}
+
+export function collectEvidence({ roots, since = null, skip = [], owners = new Map() }) {
   const skipped = new Set(skip.map((path) => resolve(path)));
   const sinceTime = since === null ? null : Date.parse(since);
   const entries = [];
   const media = [];
+  const runs = new Map();
   for (const root of roots) {
-    walk(resolve(root.path), skipped, (file, path) => {
+    const rootPath = resolve(root.path);
+    walk(rootPath, skipped, (file, path) => {
       const label = `${root.label}/${path}`;
       if (SCREENSHOT.test(file) || RECORDING.test(file)) {
         media.push({
           file,
           path: label,
           kind: SCREENSHOT.test(file) ? "screenshot" : "recording",
+          workspace: locateEvidence(rootPath, path, runs).workspace,
           bytes: statSync(file).size,
           recordedAt: modifiedAt(file),
         });
@@ -479,7 +599,13 @@ export function collectEvidence({ roots, since = null, skip = [] }) {
         /journeys\.json$/.test(name) ||
         ["ci-metrics", "acl-boundaries", ...VERIFIERS.map((item) => item.id)].includes(parent);
       if (!candidate) return;
-      entries.push(...classifyRecord(label, readJson(file), modifiedAt(file)));
+      const place = locateEvidence(rootPath, path, runs);
+      entries.push(
+        ...classifyRecord(label, readJson(file), modifiedAt(file), {
+          producer: place.producer,
+          owner: journeyOwner(place, owners),
+        }),
+      );
     });
   }
   const recent = (item) =>
@@ -490,17 +616,33 @@ export function collectEvidence({ roots, since = null, skip = [] }) {
   };
 }
 
+function interleaveByWorkspace(media) {
+  const groups = new Map();
+  for (const item of media) {
+    const key = item.workspace ?? "";
+    groups.set(key, [...(groups.get(key) ?? []), item]);
+  }
+  const queues = [...groups.entries()]
+    .sort(([a], [b]) => Number(a === "") - Number(b === "") || a.localeCompare(b))
+    .map(([, items]) => items);
+  const ordered = [];
+  for (let index = 0; ordered.length < media.length; index += 1) {
+    for (const queue of queues) if (index < queue.length) ordered.push(queue[index]);
+  }
+  return ordered;
+}
+
 function selectMedia(media) {
   const selected = [];
   let total = 0;
-  for (const item of media) {
+  for (const item of interleaveByWorkspace(media)) {
     if (selected.length >= MEDIA_LIMITS.files) break;
     if (item.bytes > MEDIA_LIMITS.fileBytes || total + item.bytes > MEDIA_LIMITS.totalBytes)
       continue;
     selected.push(item);
     total += item.bytes;
   }
-  return selected;
+  return selected.sort((a, b) => a.path.localeCompare(b.path));
 }
 
 const MISSING_REASONS = {
@@ -509,7 +651,7 @@ const MISSING_REASONS = {
   "hosted-jobs": "Not a hosted CI run.",
   "isolated-e2e": "No isolated E2E result. `pnpm test:e2e` writes one.",
   mutation: "No mutation report. `pnpm test:mutation -- --reporter json` writes one.",
-  "orca-journeys": "No Orca journey records (`journeys.json`) from verify-platform or verify-wiki.",
+  "orca-journeys": "No Orca journey records (`journeys.json`) from a verify-* skill run.",
 };
 
 export function buildSummary({
@@ -554,6 +696,13 @@ export function buildSummary({
     sources,
     media: kept.map(({ file, ...item }) => ({ ...item, path: `media/${item.path}` })),
     mediaOmitted: media.length - kept.length,
+  };
+  summary.unattributed = {
+    media: summary.media.filter((item) => !item.workspace).map((item) => item.path),
+    journeys: sources
+      .find((source) => source.id === "orca-journeys")
+      .entries.filter((item) => item.workspaces.length === 0)
+      .map((item) => item.name),
   };
   summary.requirements = evidenceRequirements(changes, summary);
   return { summary, mediaFiles: kept };
@@ -621,14 +770,14 @@ export function renderMarkdown(summary) {
     lines.push("No check or journey recorded a result.");
   } else {
     lines.push(
-      "| Source | Check or journey | Result | Notes | Evidence |",
-      "| --- | --- | --- | --- | --- |",
+      "| Source | Check or journey | Workspace | Result | Notes | Evidence |",
+      "| --- | --- | --- | --- | --- | --- |",
     );
   }
   for (const source of summary.sources) {
     for (const item of source.entries) {
       lines.push(
-        `| ${cell(source.label)} | ${cell(item.name)} | ${item.status} | ${cell(item.details)} | ${item.evidence ? code(item.evidence) : ""} |`,
+        `| ${cell(source.label)} | ${cell(item.name)} | ${cell(item.workspaces.join(", "))} | ${item.status} | ${cell(item.details)} | ${item.evidence ? code(item.evidence) : ""} |`,
       );
     }
   }
@@ -638,11 +787,26 @@ export function renderMarkdown(summary) {
   for (const source of missing) lines.push(`- ${source.label}: MISSING. ${source.reason}`);
   lines.push("", "### Screenshots and recordings", "");
   if (summary.media.length === 0) lines.push("MISSING. No screenshots or recordings were found.");
-  for (const item of summary.media.slice(0, 50)) lines.push(`- ${item.kind}: ${code(item.path)}`);
+  for (const item of summary.media.slice(0, 50)) {
+    lines.push(`- ${item.kind} of ${item.workspace ?? "no workspace"}: ${code(item.path)}`);
+  }
   if (summary.media.length > 50) lines.push(`- ${summary.media.length - 50} more in the artifact`);
   if (summary.mediaOmitted > 0) {
     lines.push(`- ${summary.mediaOmitted} files omitted by the size and count limits`);
   }
+  lines.push("", "### Unattributed evidence", "");
+  const { media: loose = [], journeys: unowned = [] } = summary.unattributed ?? {};
+  if (loose.length === 0 && unowned.length === 0) lines.push("None.");
+  else {
+    lines.push(
+      "Evidence whose location does not name the app or package it shows satisfies no requirement.",
+      "",
+    );
+  }
+  for (const name of unowned.slice(0, 20)) lines.push(`- journey: ${code(name)}`);
+  for (const path of loose.slice(0, 20)) lines.push(`- media: ${code(path)}`);
+  const hidden = Math.max(0, unowned.length - 20) + Math.max(0, loose.length - 20);
+  if (hidden > 0) lines.push(`- ${hidden} more in the JSON summary`);
   lines.push("");
   return lines.join("\n");
 }
@@ -751,6 +915,7 @@ export function main(args = process.argv.slice(2), root = process.cwd()) {
   const { entries, media } = collectEvidence({
     roots,
     since: options.since ?? null,
+    owners: journeyOwners(root),
     skip: [
       output,
       join(root, "local_data/pstack/verification-summary"),

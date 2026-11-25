@@ -1,4 +1,11 @@
 export {
+  type AccessToken,
+  accessToken,
+  forwardThroughAccess,
+  routeThroughAccess,
+  slotHosts,
+} from "./access";
+export {
   type Action,
   type Invariant,
   type Json,
@@ -27,6 +34,7 @@ export {
   Ui,
   accessibleControl,
   parseAriaSnapshot,
+  readControl,
 } from "./monitor";
 export { type Random, hashSeed, random } from "./random";
 export {

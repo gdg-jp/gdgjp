@@ -90,6 +90,8 @@ jobs:
           ref: main
           submodules: false
           persist-credentials: false
+      - name: Initialize shared UI submodule
+        run: git submodule update --init packages/design-system
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
@@ -98,6 +100,10 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - name: Install Playwright browser
         run: pnpm --filter @gdgjp/ui-properties exec playwright install --with-deps chromium
+      - name: Check that the Access token stays on the slot's hosts
+        env:
+          UI_PROPERTIES_REQUIRE_BROWSER: "1"
+        run: pnpm --filter @gdgjp/ui-properties exec vitest run src/access.test.ts src/explore.test.ts
       - name: Mint a throwaway fuzz user without memberships
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
