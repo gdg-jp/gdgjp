@@ -212,7 +212,13 @@ async function withContext<T>(body: (context: BrowserContext) => Promise<T>): Pr
   }
 }
 
-function direct(options: { servername: string; host: string; path: string; port: number }) {
+function direct(options: {
+  servername: string;
+  host: string;
+  path: string;
+  port: number;
+  ca?: Buffer;
+}) {
   return new Promise<number>((done, reject) => {
     const request = httpsRequest(
       {
@@ -221,7 +227,8 @@ function direct(options: { servername: string; host: string; path: string; port:
         servername: options.servername,
         path: options.path,
         headers: { host: options.host },
-        rejectUnauthorized: false,
+        ca: options.ca ?? forwarder?.certificate,
+        checkServerIdentity: () => undefined,
         agent: false,
       },
       (response) => {
@@ -401,7 +408,15 @@ describe("the Access forwarder", () => {
     const plainPort = await listen(plain);
     const downgraded = await guardedForwarder(plainPort);
     try {
-      expect(await direct({ servername: host, host, path: "/", port: downgraded.port })).toBe(502);
+      expect(
+        await direct({
+          servername: host,
+          host,
+          path: "/",
+          port: downgraded.port,
+          ca: downgraded.certificate,
+        }),
+      ).toBe(502);
     } finally {
       await downgraded.close();
       await new Promise((done) => plain.close(done));
