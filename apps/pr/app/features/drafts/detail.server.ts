@@ -5,6 +5,7 @@ import { publishApprovedPage } from "~/features/connpass/page.server";
 import { deliveryAction } from "~/features/dispatch/delivery.server";
 import { afterDraftApproval, draftApprovalBlockers } from "~/features/dispatch/dispatch.server";
 import { EnqueueError, enqueueCopy, enqueuePosts } from "~/features/jobs/enqueue.server";
+import type { ApprovedLinkVersion } from "~/features/links/link";
 import { afterListingApproval, markListedByHand } from "~/features/listings/listing.server";
 import { type ConnpassPageContent, setSectionImages } from "~/features/pages/render";
 import { autoFold } from "./content";
@@ -43,8 +44,13 @@ export async function draftAction(
     }
     const result = await reviewDraft(env.DB, access, draft, intent, version, comment);
     if (!result.ok) return { ok: false, errors: [result.error] };
-    if (intent === "approve")
-      return afterApproval(env, access, { ...draft, status: "approved", approvedVersion: version });
+    if (result.approved)
+      return afterApproval(
+        env,
+        access,
+        { ...draft, status: "approved", approvedVersion: version },
+        result.approved,
+      );
     return { ok: true, message: "更新しました" };
   }
   if (intent === "connpass-retry" && draft.kind === "connpass_page" && approvedForSending(draft)) {
@@ -125,9 +131,10 @@ export async function draftAction(
 async function afterApproval(
   env: Env,
   access: CampaignAccess,
-  approved: Draft & { approvedVersion: number },
+  approved: Draft,
+  recorded: ApprovedLinkVersion,
 ): Promise<DetailActionResult> {
-  const linkError = await afterDraftApproval(env, access, approved, approved.approvedVersion);
+  const linkError = await afterDraftApproval(env, access, approved, recorded);
   if (linkError)
     return {
       ok: false,

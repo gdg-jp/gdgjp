@@ -236,28 +236,109 @@ test("cleanup state is on disk before the fuzz user reaches D1", async () => {
 test("scopes the Access credential to a cookie for one host", async () => {
   const headers = new Headers();
   headers.append("set-cookie", "CF_Authorization=abc.def; Path=/; Secure; HttpOnly");
-  const cookie = await accessCookie({
+  const issued = await accessCookie({
     url: "https://wiki.stg1.gdgs.jp/",
+    domain: "stg1.gdgs.jp",
     id: "i",
     secret: "s",
     fetchImpl: async (_url, init) => {
       assert.equal(init.headers["CF-Access-Client-Id"], "i");
+      assert.equal(init.redirect, "manual");
       return new Response(null, { status: 302, headers });
     },
   });
-  assert.equal(
-    cookie,
-    "CF_Authorization=abc.def; Domain=wiki.stg1.gdgs.jp; Path=/; Secure; HttpOnly",
+  assert.deepEqual(issued, {
+    value: "abc.def",
+    cookie: "CF_Authorization=abc.def; Path=/; Secure; HttpOnly",
+  });
+  assert.doesNotMatch(issued.cookie, /Domain=/i);
+  const injected = new Headers();
+  injected.append("set-cookie", "CF_Authorization=a.b c; Path=/");
+  await assert.rejects(
+    accessCookie({
+      url: "https://wiki.stg1.gdgs.jp/",
+      domain: "stg1.gdgs.jp",
+      id: "i",
+      secret: "s",
+      fetchImpl: async () => new Response(null, { headers: injected }),
+    }),
+    /not a JWT/,
   );
   await assert.rejects(
     accessCookie({
       url: "https://wiki.stg1.gdgs.jp/",
+      domain: "stg1.gdgs.jp",
       id: "i",
       secret: "s",
       fetchImpl: async () => new Response(null),
     }),
-    /did not issue/,
+    /did not issue.*strict service token authentication/,
   );
+});
+
+test("the Bombadil exchange sends the service token only to an https slot origin", async () => {
+  const refused = async (options) => {
+    let called = false;
+    await assert.rejects(
+      accessCookie({
+        id: "i",
+        secret: "s",
+        ...options,
+        fetchImpl: async () => {
+          called = true;
+          return new Response(null);
+        },
+      }),
+      /only sends the service token|needs --domain|loopback|Invalid slot domain/,
+    );
+    assert.equal(called, false, JSON.stringify(options));
+  };
+  await refused({ url: "http://wiki.stg1.gdgs.jp/", domain: "stg1.gdgs.jp" });
+  await refused({ url: "https://wiki.stg1.gdgs.jp:8443/", domain: "stg1.gdgs.jp" });
+  await refused({ url: "https://user:pw@wiki.stg1.gdgs.jp/", domain: "stg1.gdgs.jp" });
+  await refused({ url: "https://wiki.stg1.gdgs.jp./", domain: "stg1.gdgs.jp" });
+  await refused({ url: "https://example.com/", domain: "stg1.gdgs.jp" });
+  await refused({ url: "wss://wiki.stg1.gdgs.jp/", domain: "stg1.gdgs.jp" });
+  await refused({ url: "https://wiki.stg1.gdgs.jp/" });
+  await refused({ url: "http://localhost:6100/", domain: "localhost" });
+  await refused({ url: "http://localhost:6100/", domain: "stg1.gdgs.jp" });
+  await refused({ url: "http://wiki.stg1.gdgs.jp/", localOrigin: "http://wiki.stg1.gdgs.jp" });
+  await refused({ url: "http://127.0.0.1:6101/", localOrigin: "http://127.0.0.1:6100" });
+  const headers = new Headers();
+  headers.append("set-cookie", "CF_Authorization=abc.def; Path=/");
+  const local = await accessCookie({
+    url: "http://127.0.0.1:6100/",
+    localOrigin: "http://127.0.0.1:6100",
+    id: "i",
+    secret: "s",
+    fetchImpl: async () => new Response(null, { headers }),
+  });
+  assert.equal(local.cookie, "CF_Authorization=abc.def; Path=/; Secure; HttpOnly");
+});
+
+test("session refuses a target that is not an https origin on the slot domain", async () => {
+  for (const [name, value] of [
+    ["E2E_RP_URLS", "http://url.stg1.gdgs.jp,https://wiki.stg1.gdgs.jp"],
+    ["E2E_RP_URLS", "https://url.stg1.gdgs.jp:8443,https://wiki.stg1.gdgs.jp"],
+    ["E2E_RP_URLS", "https://url.example.com,https://wiki.stg1.gdgs.jp"],
+    ["E2E_ACCOUNTS_URL", "http://accounts.stg1.gdgs.jp"],
+  ]) {
+    const out = join(mkdtempSync(join(tmpdir(), "ui-fuzz-session-")), "state");
+    const d1 = fakeD1();
+    await assert.rejects(
+      session(
+        { slot: "stg-1", out, apps: [] },
+        {
+          slot: async () => ({ ...slot, environment: { ...slot.environment, [name]: value } }),
+          d1: d1.exec,
+        },
+      ),
+      /must be https origins|Invalid slot domain/,
+      value,
+    );
+    assert.deepEqual(d1.calls, []);
+    assert.equal(existsSync(join(out, "fuzz.json")), false);
+  }
 });
 
 test("fix agent gets data as data, a write-only worktree, and no protected paths", () => {
@@ -346,14 +427,32 @@ test("the Access token reaches only the slot's hosts and never the browser", () 
   const source = (path) =>
     readFileSync(new URL(`../../packages/ui-properties/${path}`, import.meta.url), "utf8");
   const spec = source("fuzz/staging.fuzz.ts");
-  assert.match(spec, /routeThroughAccess\(context, inSlot, token\)/);
+  assert.match(spec, /startForwarder\(\{ \.\.\.access, token \}\)/);
+  assert.match(spec, /forwarder\?\.chromiumArgs/);
+  assert.match(spec, /fuzzAccess\(process\.env,/);
+  assert.doesNotMatch(workflow, /UI_FUZZ_LOCAL|--local-origin/);
+  assert.match(workflow, /access-cookie --url "\$url\/" --domain "\$domain"/);
   assert.doesNotMatch(
     spec,
-    /CF-Access-Client|extraHTTPHeaders|setExtraHTTPHeaders|route\.continue\(/,
+    /CF-Access-Client|extraHTTPHeaders|setExtraHTTPHeaders|\.route\(|route\.continue\(|ignoreHTTPSErrors/,
   );
   const access = source("src/access.ts");
-  assert.match(access, /maxRedirects: 0/);
-  assert.doesNotMatch(access, /continue\(\s*\{/);
+  assert.doesNotMatch(access, /node:http|cf-access-client-secret|\.route\(/i);
+  const forwarder = source("src/forwarder.ts");
+  assert.match(forwarder, /from "node:https"/);
+  assert.match(forwarder, /rejectUnauthorized: true/);
+  assert.match(forwarder, /inAccessScope\(scope, candidate\)/);
+  assert.match(forwarder, /--ignore-certificate-errors-spki-list=/);
+  assert.match(forwarder, /MAP \*\.\$\{domain\}:443 127\.0\.0\.1/);
+  assert.doesNotMatch(
+    forwarder,
+    /^import (?!type )[^;]*from "node:http"|\.fetch\(|APIRequestContext|newContext|ignore-certificate-errors"|console\./m,
+  );
+  assert.equal(
+    [...`${access}${forwarder}${spec}`.matchAll(/cf-access-client-secret/gi)].length,
+    1,
+    "the forwarder is the only place that adds the token",
+  );
   assert.match(source("fuzz/playwright.config.ts"), /env: browserEnvironment\(process\.env\)/);
   const check = workflow.indexOf("- name: Check that the Access token stays on the slot's hosts");
   const explore = workflow.indexOf("- name: Explore the slot");
@@ -361,10 +460,63 @@ test("the Access token reaches only the slot's hosts and never the browser", () 
   const checkStep = workflow.slice(check, workflow.indexOf("- name: Mint a throwaway fuzz user"));
   assert.match(checkStep, /UI_PROPERTIES_REQUIRE_BROWSER: "1"/);
   assert.match(checkStep, /src\/access\.test\.ts/);
+  assert.match(checkStep, /src\/forwarder\.test\.ts/);
   assert.doesNotMatch(checkStep, /secrets\./);
   const exploreStep = workflow.slice(explore, workflow.indexOf("- name: Explore the slot with"));
   assert.deepEqual(
     [...exploreStep.matchAll(/secrets\.(\w+)/g)].map((match) => match[1]),
     ["STAGING_ACCESS_CLIENT_ID", "STAGING_ACCESS_CLIENT_SECRET"],
+  );
+});
+
+test("everything the fuzz job uploads is scanned for the Access token first", () => {
+  const fuzzJob = jobs(workflow).find((job) => job.name === "fuzz").text;
+  const steps = fuzzJob.split(/\n(?= {6}- )/);
+  const normalize = (path) =>
+    path.replace("${{ runner.temp }}", "$RUNNER_TEMP").replace(/^"|"$/g, "");
+  const uploads = steps.filter((step) => step.includes("actions/upload-artifact"));
+  assert.ok(uploads.length >= 2);
+  const uploaded = uploads.flatMap((step) => {
+    const block = /\n {10}path: \|\n((?: {12}.+\n?)+)/.exec(step);
+    if (block)
+      return block[1]
+        .split("\n")
+        .map((line) => line.trim())
+        .filter(Boolean);
+    return [/\n {10}path: (.+)/.exec(step)[1].trim()];
+  });
+  for (const step of uploads)
+    assert.match(step, /\n {8}if: always\(\) && steps\.scan\.outcome == 'success'\n/);
+  const scanIndex = steps.findIndex((step) => /\n {8}id: scan\n/.test(step));
+  assert.ok(scanIndex >= 0);
+  assert.ok(steps.slice(0, scanIndex).every((step) => !step.includes("actions/upload-artifact")));
+  const scan = steps[scanIndex];
+  assert.match(scan, /\n {8}if: always\(\)\n/);
+  assert.match(scan, /CF_ACCESS_CLIENT_ID: \$\{\{ secrets\.STAGING_ACCESS_CLIENT_ID \}\}/);
+  assert.match(scan, /CF_ACCESS_CLIENT_SECRET: \$\{\{ secrets\.STAGING_ACCESS_CLIENT_SECRET \}\}/);
+  assert.match(scan, /packages\/ui-properties\/scripts\/secret-scan\.mjs/);
+  assert.match(scan, /--env CF_ACCESS_CLIENT_ID --env CF_ACCESS_CLIENT_SECRET/);
+  const scanned = [...scan.matchAll(/^\s+("?(?:\$RUNNER_TEMP\/|packages\/)[^"\s]*"?)\s*$/gm)].map(
+    (match) => normalize(match[1]),
+  );
+  assert.deepEqual([...new Set(scanned)].sort(), [...new Set(uploaded.map(normalize))].sort());
+  const issuedFile = /--values "CF_Authorization=(\$RUNNER_TEMP\/[^"]+)"/.exec(scan)?.[1];
+  assert.ok(issuedFile, "the scan step reads the Access JWTs this job issued");
+  const bombadilIndex = steps.findIndex((step) =>
+    step.includes("- name: Explore the slot with Bombadil"),
+  );
+  assert.ok(bombadilIndex >= 0 && bombadilIndex < scanIndex);
+  const bombadil = steps[bombadilIndex];
+  assert.equal(bombadil.split("ui-fuzz.mjs access-cookie").length, 2);
+  const exchange = bombadil.slice(
+    bombadil.indexOf("ui-fuzz.mjs access-cookie"),
+    bombadil.indexOf("|| { status=1; continue; }"),
+  );
+  assert.ok(exchange.includes(`--values "${issuedFile}"`));
+  assert.ok(!uploaded.map(normalize).some((path) => issuedFile.startsWith(path)));
+  assert.match(bombadil, /CF_ACCESS_CLIENT_ID= CF_ACCESS_CLIENT_SECRET= BOMBADIL_COOKIE_FILE=/);
+  assert.match(
+    fuzzJob,
+    /UI_PROPERTIES_REQUIRE_BOMBADIL: \$\{\{ inputs\.bombadil && '1' \|\| '' \}\}/,
   );
 });

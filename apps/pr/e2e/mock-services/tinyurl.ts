@@ -4,14 +4,67 @@ import type { PrActor } from "@gdgjp/gdg-lib";
 const campaigns = new Map<string, { id: number; chapterId: number; name: string }>();
 const channels = new Map<string, { id: number; campaignId: number; code: string }>();
 const RUN = Date.now().toString(36);
+type Origin = { campaignId: number; draftId: number; version: number };
 const links = new Map<
   string,
-  { id: string; slug: string; destinationUrl: string; campaignChannelId: number | null }
+  {
+    id: string;
+    slug: string;
+    destinationUrl: string;
+    campaignChannelId: number | null;
+    ownerUserId: string;
+    origin: string | null;
+    originChapterId: number | null;
+  }
 >();
-const attempts: { slug: string; destinationUrl: string }[] = [];
+const attempts: { slug: string; destinationUrl: string; origin: string | null; result: string }[] =
+  [];
+const originKey = (origin?: Origin) =>
+  origin ? `pr:${origin.campaignId}:${origin.draftId}:${origin.version}` : null;
 
 const inChapter = (actor: PrActor, chapterId: number) =>
   actor.user.isAdmin || actor.chapters.some((c) => c.chapterId === chapterId);
+
+function createOrAdopt(
+  input: {
+    actor: PrActor;
+    chapterId: number;
+    slug: string;
+    destinationUrl: string;
+    campaignChannelId: number | null;
+  },
+  origin: string | null,
+) {
+  const summary = (link: { id: string; slug: string }) => ({
+    id: link.id,
+    slug: link.slug,
+    shortUrl: `https://gdgs.jp/${link.slug}`,
+  });
+  const same = origin ? [...links.values()].find((l) => l.origin === origin) : undefined;
+  if (same) {
+    if (same.originChapterId !== input.chapterId) return { ok: false as const, code: "not_found" };
+    if (
+      same.destinationUrl !== input.destinationUrl ||
+      same.campaignChannelId !== input.campaignChannelId
+    )
+      return { ok: false as const, code: "origin_mismatch" };
+    return { ok: true as const, adopted: true, link: summary(same) };
+  }
+  if (!inChapter(input.actor, input.chapterId)) return { ok: false as const, code: "forbidden" };
+  if ([...links.values()].some((l) => l.slug === input.slug))
+    return { ok: false as const, code: "slug_taken" };
+  const id = `link-${RUN}-${links.size + 1}`;
+  links.set(id, {
+    id,
+    slug: input.slug,
+    destinationUrl: input.destinationUrl,
+    campaignChannelId: input.campaignChannelId,
+    ownerUserId: input.actor.user.id,
+    origin,
+    originChapterId: origin ? input.chapterId : null,
+  });
+  return { ok: true as const, adopted: false, link: summary({ id, slug: input.slug }) };
+}
 
 export class PrService extends WorkerEntrypoint {
   ensureCampaign(input: { actor: PrActor; chapterId: number; code: string; name: string }) {
@@ -36,22 +89,17 @@ export class PrService extends WorkerEntrypoint {
     slug: string;
     destinationUrl: string;
     campaignChannelId: number | null;
+    approvedVersion?: Origin;
   }) {
-    attempts.push({ slug: input.slug, destinationUrl: input.destinationUrl });
-    if (!inChapter(input.actor, input.chapterId)) return { ok: false as const, code: "forbidden" };
-    if ([...links.values()].some((l) => l.slug === input.slug))
-      return { ok: false as const, code: "slug_taken" };
-    const id = `link-${RUN}-${links.size + 1}`;
-    links.set(id, {
-      id,
+    const origin = originKey(input.approvedVersion);
+    const result = createOrAdopt(input, origin);
+    attempts.push({
       slug: input.slug,
       destinationUrl: input.destinationUrl,
-      campaignChannelId: input.campaignChannelId,
+      origin,
+      result: result.ok ? (result.adopted ? "adopted" : "created") : result.code,
     });
-    return {
-      ok: true as const,
-      link: { id, slug: input.slug, shortUrl: `https://gdgs.jp/${input.slug}` },
-    };
+    return result;
   }
   updateLink() {
     return { ok: false as const, code: "not_implemented" };

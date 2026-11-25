@@ -1,6 +1,13 @@
 import { spawn } from "node:child_process";
 import { createHmac, randomUUID } from "node:crypto";
-import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
+import {
+  appendFileSync,
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  readdirSync,
+  writeFileSync,
+} from "node:fs";
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
@@ -288,6 +295,23 @@ export function targetsFor(environment, relyingParties, apps) {
 const USER_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 const DATABASE = /^[a-z0-9][a-z0-9-]*$/;
 
+function accessRules() {
+  return import(
+    pathToFileURL(join(repository, "packages/ui-properties/scripts/access-origin.mjs")).href
+  );
+}
+
+export async function slotTargets(environment, targets) {
+  const { accessScope, inAccessScope } = await accessRules();
+  const accounts = environment.E2E_ACCOUNTS_URL;
+  const domain = new URL(accounts).hostname.split(".").slice(1).join(".");
+  const scope = accessScope({ domain });
+  for (const url of [accounts, ...targets.map((target) => target.url)])
+    if (!inAccessScope(scope, url) || new URL(url).origin !== url)
+      throw new Error(`Fuzz targets must be https origins on ${domain}: ${url}`);
+  return domain;
+}
+
 export async function session(
   { slot, out, apps },
   { slot: resolve = slotEnvironment, d1: execute = d1 } = {},
@@ -295,6 +319,7 @@ export async function session(
   const { environment, relyingParties } = await resolve(slot);
   if (!environment.E2E_BETTER_AUTH_SECRET) throw new Error("STAGING_ROOT_SECRET is required");
   const targets = targetsFor(environment, relyingParties, apps);
+  const domain = await slotTargets(environment, targets);
   const database = environment.E2E_ACCOUNTS_D1.slice("remote:".length);
   if (!DATABASE.test(database)) throw new Error(`Invalid accounts database: ${database}`);
   const userId = randomUUID();
@@ -306,7 +331,7 @@ export async function session(
       userId,
       database,
       accountsUrl: environment.E2E_ACCOUNTS_URL,
-      domain: new URL(environment.E2E_ACCOUNTS_URL).hostname.split(".").slice(1).join("."),
+      domain,
       targets: targets.map((target) => `${target.app}=${target.url}`).join(","),
     }),
   );
@@ -336,7 +361,14 @@ export async function cleanup({ out }, { d1: execute = d1 } = {}) {
   );
 }
 
-export async function accessCookie({ url, id, secret, fetchImpl = fetch }) {
+const ACCESS_JWT = /^[A-Za-z0-9._-]+$/;
+
+export async function accessCookie({ url, domain, localOrigin, id, secret, fetchImpl = fetch }) {
+  const { accessScope, inAccessScope } = await accessRules();
+  if (!domain && !localOrigin) throw new Error("access-cookie needs --domain or --local-origin");
+  const scope = accessScope({ domain, localOrigins: localOrigin ? [localOrigin] : [] });
+  if (!inAccessScope(scope, url))
+    throw new Error(`access-cookie only sends the service token to https slot origins: ${url}`);
   const response = await fetchImpl(url, {
     redirect: "manual",
     headers: { "CF-Access-Client-Id": id, "CF-Access-Client-Secret": secret },
@@ -345,8 +377,13 @@ export async function accessCookie({ url, id, secret, fetchImpl = fetch }) {
   const value = cookies
     .map((cookie) => /^CF_Authorization=([^;]+)/.exec(cookie)?.[1])
     .find(Boolean);
-  if (!value) throw new Error(`Access did not issue CF_Authorization for ${new URL(url).origin}`);
-  return `CF_Authorization=${value}; Domain=${new URL(url).hostname}; Path=/; Secure; HttpOnly`;
+  if (!value)
+    throw new Error(
+      `Access did not issue CF_Authorization for ${new URL(url).origin}; with strict service token authentication it never does, so Bombadil cannot reach the slot`,
+    );
+  if (!ACCESS_JWT.test(value))
+    throw new Error("Access issued a CF_Authorization value that is not a JWT");
+  return { value, cookie: `CF_Authorization=${value}; Path=/; Secure; HttpOnly` };
 }
 
 export function fixSchema() {
@@ -637,11 +674,19 @@ async function main([command, ...args]) {
     return session({ slot: option(args, "slot"), out: option(args, "out"), apps });
   if (command === "cleanup") return cleanup({ out: option(args, "out") });
   if (command === "access-cookie") {
-    const cookie = await accessCookie({
+    const { value, cookie } = await accessCookie({
       url: option(args, "url"),
+      domain: option(args, "domain"),
+      localOrigin: option(args, "local-origin"),
       id: process.env.CF_ACCESS_CLIENT_ID,
       secret: process.env.CF_ACCESS_CLIENT_SECRET,
     });
+    if (process.env.GITHUB_ACTIONS === "true") console.log(`::add-mask::${value}`);
+    const values = option(args, "values");
+    if (values) {
+      mkdirSync(dirname(values), { recursive: true, mode: 0o700 });
+      appendFileSync(values, `${value}\n`, { mode: 0o600 });
+    }
     writeFileSync(option(args, "out"), `${cookie}\n`, { mode: 0o600 });
     return;
   }
@@ -671,7 +716,7 @@ async function main([command, ...args]) {
     return;
   }
   throw new Error(
-    "Usage: node .github/scripts/ui-fuzz.mjs summarize DIR... | dedupe DIR... --out FILE | session --slot stg-N --out DIR [--apps a,b] | cleanup --out DIR | access-cookie --url URL --out FILE | issues --failures FILE --out FILE [--slot S --deployment D] | fix --issues FILE [--max N]",
+    "Usage: node .github/scripts/ui-fuzz.mjs summarize DIR... | dedupe DIR... --out FILE | session --slot stg-N --out DIR [--apps a,b] | cleanup --out DIR | access-cookie --url URL (--domain D | --local-origin O) --out FILE [--values FILE] | issues --failures FILE --out FILE [--slot S --deployment D] | fix --issues FILE [--max N]",
   );
 }
 

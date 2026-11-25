@@ -116,6 +116,13 @@ export async function insertVersionLink(
     .run();
 }
 
+export async function unbindLink(db: D1Database, id: number) {
+  await db
+    .prepare("UPDATE campaign_links SET draft_id = NULL, draft_version = NULL WHERE id = ?")
+    .bind(id)
+    .run();
+}
+
 export async function recordHealth(
   db: D1Database,
   id: number,

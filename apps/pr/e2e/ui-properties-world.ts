@@ -84,9 +84,16 @@ export const linkUrl = (marker: string, edit: number) =>
 
 export type TinyurlLink = { id: string; slug: string; destinationUrl: string };
 
+export type TinyurlCall = {
+  slug: string;
+  destinationUrl: string;
+  origin: string | null;
+  result: string;
+};
+
 type MockState = {
   sns: { posts: { chapterId: number; text: string; actor: string }[] };
-  tinyurl: { links: TinyurlLink[]; attempts: { slug: string; destinationUrl: string }[] };
+  tinyurl: { links: TinyurlLink[]; attempts: TinyurlCall[] };
   connpass: { jobs?: unknown[] } | unknown[];
 };
 

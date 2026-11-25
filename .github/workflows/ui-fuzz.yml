@@ -103,7 +103,8 @@ jobs:
       - name: Check that the Access token stays on the slot's hosts
         env:
           UI_PROPERTIES_REQUIRE_BROWSER: "1"
-        run: pnpm --filter @gdgjp/ui-properties exec vitest run src/access.test.ts src/explore.test.ts
+          UI_PROPERTIES_REQUIRE_BOMBADIL: ${{ inputs.bombadil && '1' || '' }}
+        run: pnpm --filter @gdgjp/ui-properties exec vitest run src/access.test.ts src/forwarder.test.ts src/explore.test.ts fuzz/evidence.test.mjs
       - name: Mint a throwaway fuzz user without memberships
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
@@ -139,7 +140,8 @@ jobs:
           for target in $(jq -r '.targets | split(",")[]' "$RUNNER_TEMP/ui-fuzz/fuzz.json"); do
             url=${target#*=}
             cookies="$RUNNER_TEMP/ui-fuzz/bombadil-cookies-${target%%=*}"
-            node .github/scripts/ui-fuzz.mjs access-cookie --url "$url/" --out "$cookies"
+            node .github/scripts/ui-fuzz.mjs access-cookie --url "$url/" --domain "$domain" --out "$cookies" \
+              --values "$RUNNER_TEMP/ui-fuzz-scan/access-cookies" || { status=1; continue; }
             CF_ACCESS_CLIENT_ID= CF_ACCESS_CLIENT_SECRET= BOMBADIL_COOKIE_FILE="$cookies" \
               UI_PROPERTY_FAILURES_DIR="$RUNNER_TEMP/ui-fuzz-failures" \
               node packages/ui-properties/scripts/bombadil.mjs explore "$url" \
@@ -155,8 +157,22 @@ jobs:
         run: |
           node .github/scripts/ui-fuzz.mjs cleanup --out "$RUNNER_TEMP/ui-fuzz"
           rm -rf "$RUNNER_TEMP/ui-fuzz"
-      - name: Upload failures
+      - name: Check the evidence for the Access token
+        id: scan
         if: always()
+        env:
+          CF_ACCESS_CLIENT_ID: ${{ secrets.STAGING_ACCESS_CLIENT_ID }}
+          CF_ACCESS_CLIENT_SECRET: ${{ secrets.STAGING_ACCESS_CLIENT_SECRET }}
+        run: >-
+          node packages/ui-properties/scripts/secret-scan.mjs
+          --env CF_ACCESS_CLIENT_ID --env CF_ACCESS_CLIENT_SECRET
+          --values "CF_Authorization=$RUNNER_TEMP/ui-fuzz-scan/access-cookies"
+          "$RUNNER_TEMP/ui-fuzz-failures/"
+          packages/ui-properties/test-results/
+          packages/ui-properties/playwright-report/
+          "$RUNNER_TEMP/ui-fuzz-bombadil/"
+      - name: Upload failures
+        if: always() && steps.scan.outcome == 'success'
         uses: actions/upload-artifact@v4
         with:
           name: ui-fuzz-failures
@@ -164,7 +180,7 @@ jobs:
           if-no-files-found: ignore
           retention-days: 14
       - name: Upload traces
-        if: always()
+        if: always() && steps.scan.outcome == 'success'
         uses: actions/upload-artifact@v4
         with:
           name: ui-fuzz-traces

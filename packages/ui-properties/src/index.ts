@@ -1,10 +1,21 @@
 export {
+  type AccessScope,
   type AccessToken,
+  type FuzzAccess,
+  accessScope,
   accessToken,
-  forwardThroughAccess,
-  routeThroughAccess,
-  slotHosts,
+  browserEnvironment,
+  fuzzAccess,
+  inAccessScope,
 } from "./access";
+export { type Certificate, selfSignedCertificate, spkiHash } from "./certificate";
+export {
+  type Dial,
+  type Forwarder,
+  type Upstream,
+  forwardedTarget,
+  startForwarder,
+} from "./forwarder";
 export {
   type Action,
   type Invariant,

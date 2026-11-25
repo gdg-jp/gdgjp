@@ -1,4 +1,5 @@
 import type { AccountKind } from "~/features/integrations/account";
+import type { ApprovedLinkVersion } from "~/features/links/link";
 import type { DispatchTarget, TargetRef, TargetStatus } from "./target";
 
 type Row = {
@@ -151,7 +152,10 @@ export async function approveTargetVersion(
   return (result.meta.changes ?? 0) > 0;
 }
 
-export async function claimApprovedTarget(db: D1Database, at: ApprovedVersion): Promise<boolean> {
+export async function claimApprovedTarget(
+  db: D1Database,
+  at: ApprovedVersion,
+): Promise<ApprovedLinkVersion | null> {
   const result = await db
     .prepare(
       `UPDATE dispatch_targets SET status = 'dispatching', updated_at = unixepoch()
@@ -159,7 +163,9 @@ export async function claimApprovedTarget(db: D1Database, at: ApprovedVersion): 
     )
     .bind(at.targetId, at.version, at.draftId, at.version, at.version)
     .run();
-  return (result.meta.changes ?? 0) > 0;
+  return (result.meta.changes ?? 0) > 0
+    ? ({ draftId: at.draftId, version: at.version } as ApprovedLinkVersion)
+    : null;
 }
 
 export async function moveTarget(

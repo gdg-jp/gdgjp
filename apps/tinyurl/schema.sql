@@ -205,7 +205,7 @@ CREATE TABLE IF NOT EXISTS "links" (
   created_at          INTEGER NOT NULL DEFAULT (unixepoch()),
   updated_at          INTEGER NOT NULL DEFAULT (unixepoch()),
   archived_at         INTEGER,
-  deleted_at          INTEGER, folder_id INTEGER REFERENCES folders(id) ON DELETE SET NULL,
+  deleted_at          INTEGER, folder_id INTEGER REFERENCES folders(id) ON DELETE SET NULL, pr_origin TEXT, pr_origin_chapter_id INTEGER,
   UNIQUE(domain_id, slug),
   FOREIGN KEY (domain_id) REFERENCES domains(id) ON DELETE RESTRICT,
   FOREIGN KEY (campaign_channel_id) REFERENCES campaign_channels(id) ON DELETE SET NULL
@@ -264,3 +264,4 @@ CREATE INDEX idx_folder_permissions_chapter
   ON folder_permissions(principal_type, principal_id) WHERE principal_type = 'chapter';
 CREATE INDEX idx_links_folder
   ON links(folder_id, archived_at, deleted_at, created_at DESC);
+CREATE UNIQUE INDEX idx_links_pr_origin ON links(pr_origin) WHERE pr_origin IS NOT NULL;

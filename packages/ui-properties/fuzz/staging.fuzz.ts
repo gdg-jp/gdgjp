@@ -1,18 +1,19 @@
 import { readFileSync } from "node:fs";
-import { type Browser, test } from "@playwright/test";
+import { type Browser, test as base } from "@playwright/test";
 import {
   DESTRUCTIVE_CONTROLS,
   type ExploreWorld,
+  type Forwarder,
   PropertyViolation,
   Ui,
   type UiProperty,
   accessToken,
   checkUiProperty,
   exploreActions,
+  fuzzAccess,
   invariant,
-  routeThroughAccess,
   runPlan,
-  slotHosts,
+  startForwarder,
 } from "../src/index";
 
 type Target = { app: string; url: string };
@@ -33,10 +34,35 @@ export function parseTargets(value: string): Target[] {
 const targets = parseTargets(process.env.UI_FUZZ_TARGETS ?? "");
 const accounts = process.env.UI_FUZZ_ACCOUNTS_URL;
 const sessionFile = process.env.UI_FUZZ_SESSION_FILE;
-const domain = process.env.UI_FUZZ_DOMAIN;
 const token = accessToken(process.env);
 const plan = runPlan({ seeds: [4242, 8675], steps: 150, minutes: 6 });
-const inSlot = slotHosts(domain);
+const access = fuzzAccess(process.env, [
+  ...targets.map((target) => target.url),
+  ...(accounts ? [new URL(accounts).origin] : []),
+]);
+
+const test = base.extend<Record<never, never>, { forwarder: Forwarder | null }>({
+  forwarder: [
+    async ({ headless: _headless }, use) => {
+      const forwarder = token ? await startForwarder({ ...access, token }) : null;
+      await use(forwarder);
+      await forwarder?.close();
+    },
+    { scope: "worker" },
+  ],
+  browser: [
+    async ({ playwright, launchOptions, headless, forwarder }, use) => {
+      const browser = await playwright.chromium.launch({
+        ...launchOptions,
+        headless,
+        args: [...(launchOptions.args ?? []), ...(forwarder?.chromiumArgs ?? [])],
+      });
+      await use(browser);
+      await browser.close();
+    },
+    { scope: "worker" },
+  ],
+});
 
 function property(browser: Browser, target: Target) {
   const origins = [target.url, ...(accounts ? [new URL(accounts).origin] : [])];
@@ -47,7 +73,6 @@ function property(browser: Browser, target: Target) {
         ...(sessionFile ? { storageState: JSON.parse(readFileSync(sessionFile, "utf8")) } : {}),
         locale: "ja-JP",
       });
-      await routeThroughAccess(context, inSlot, token);
       monitor.watchContext(context);
       const page = await context.newPage();
       if (target.app !== "accounts" && sessionFile)

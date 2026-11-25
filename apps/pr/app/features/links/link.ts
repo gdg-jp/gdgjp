@@ -17,6 +17,10 @@ export type CampaignLink = {
 
 export type LinkVersion = { draftId: number; version: number };
 
+declare const recordedApproval: unique symbol;
+
+export type ApprovedLinkVersion = LinkVersion & { readonly [recordedApproval]: true };
+
 export const HEALTH_FAILURE_THRESHOLD = 2;
 
 export type HealthState = "ok" | "unknown" | "warning" | "broken";

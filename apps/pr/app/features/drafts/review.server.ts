@@ -3,6 +3,7 @@ import { latestBrief } from "~/features/briefs/brief.repository.server";
 import type { CampaignAccess } from "~/features/campaigns/access.server";
 import { SKILL_FOR_KIND } from "~/features/jobs/skill-kinds";
 import { recordEdits } from "~/features/learning/edits.server";
+import type { ApprovedLinkVersion } from "~/features/links/link";
 import { type ConnpassPageContent, withRenderedHtml } from "~/features/pages/render";
 import { connpassSectionTemplates, outputSchemas } from "~/features/playbook/guides.server";
 import {
@@ -48,7 +49,7 @@ export async function reviewDraft(
   action: Exclude<ReviewAction, "submit">,
   version: number,
   comment: string | null,
-): Promise<{ ok: true } | { ok: false; error: string }> {
+): Promise<{ ok: true; approved: ApprovedLinkVersion | null } | { ok: false; error: string }> {
   if (version !== draft.currentVersion) return { ok: false, error: STALE_VERSION };
   const to = nextStatus(draft.status, action, actorFor(access, draft));
   if (!to)
@@ -74,7 +75,10 @@ export async function reviewDraft(
     stage: action === "review_ok" || draft.status === "in_review" ? "review" : "approval",
     comment,
   });
-  return { ok: true };
+  return {
+    ok: true,
+    approved: to === "approved" ? ({ draftId: draft.id, version } as ApprovedLinkVersion) : null,
+  };
 }
 
 export async function editDraft(

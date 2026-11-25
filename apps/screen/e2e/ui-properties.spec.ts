@@ -227,7 +227,6 @@ for (const seed of plan.seeds) {
       monitor: {
         origins: [BASE_URL],
         ignoreResponses: [/\/rtc\/[^/]+\/sessions\//],
-        ignoreConsole: [/^Failed to fetch manifest patches TypeError: Failed to fetch/],
       },
     });
   });

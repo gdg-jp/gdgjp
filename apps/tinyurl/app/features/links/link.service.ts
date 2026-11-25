@@ -12,6 +12,7 @@ import {
   updatePermissionRole,
 } from "~/features/links/link-permissions.repository";
 import {
+  type PrLinkOrigin,
   deleteLink,
   createLink as repoCreateLink,
   updateLink as repoUpdateLink,
@@ -237,6 +238,7 @@ export async function createLinkWithExtras(
   deps: LinkServiceDependencies,
   actor: LinkServiceActor,
   rawInput: unknown,
+  prOrigin?: PrLinkOrigin,
 ): Promise<{ ok: true; link: Link } | FeatureFailure> {
   const inputResult = parseCreateLinkInput(rawInput);
   if (!inputResult.ok) return inputResult;
@@ -355,6 +357,7 @@ export async function createLinkWithExtras(
     campaignChannelId,
     folderId,
     visibility: input.visibility,
+    prOrigin,
   };
 
   async function createOnce(slug: string) {

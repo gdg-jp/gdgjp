@@ -57,6 +57,8 @@ export interface SnsPrService {
 
 export type TinyurlLinkSummary = { id: string; slug: string; shortUrl: string };
 
+export type TinyurlApprovedVersion = { campaignId: number; draftId: number; version: number };
+
 export interface TinyurlPrService {
   ensureCampaign(input: {
     actor: PrActor;
@@ -76,7 +78,8 @@ export interface TinyurlPrService {
     title?: string | null;
     ogImageUrl?: string | null;
     campaignChannelId: number | null;
-  }): Promise<PrRpcResult<{ link: TinyurlLinkSummary }>>;
+    approvedVersion?: TinyurlApprovedVersion;
+  }): Promise<PrRpcResult<{ link: TinyurlLinkSummary; adopted?: boolean }>>;
   updateLink(input: {
     actor: PrActor;
     linkId: string;

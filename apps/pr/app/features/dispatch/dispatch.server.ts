@@ -7,7 +7,8 @@ import { type Draft, approvedForSending } from "~/features/drafts/draft";
 import { getDraft, getVersion } from "~/features/drafts/draft.repository.server";
 import { STALE_VERSION } from "~/features/drafts/review.server";
 import { actorOf, callRpc, parseActor, snsService } from "~/features/integrations/bindings.server";
-import { NO_CONTENT, fallbackUrl, versionText } from "~/features/links/create.server";
+import { NO_CONTENT, approvedVersionText, fallbackUrl } from "~/features/links/create.server";
+import type { ApprovedLinkVersion } from "~/features/links/link";
 import { listingApprovalBlockers } from "~/features/listings/listing.server";
 import type { ScheduleItem } from "~/features/schedule/item";
 import { getItem, transitionItem } from "~/features/schedule/item.repository.server";
@@ -51,7 +52,7 @@ export async function afterDraftApproval(
   env: Env,
   access: CampaignAccess,
   draft: Draft,
-  version: number,
+  approved: ApprovedLinkVersion,
 ): Promise<string | null> {
   if (!draft.scheduleItemId) return null;
   if (isDispatchKind(draft.kind))
@@ -63,8 +64,7 @@ export async function afterDraftApproval(
     );
   const item = await getItem(env.DB, access.campaign.id, draft.scheduleItemId);
   if (!item) return null;
-  const at = { draftId: draft.id, version };
-  const text = await versionText(env, actorOf(access), access.campaign, item, at);
+  const text = await approvedVersionText(env, actorOf(access), access.campaign, item, approved);
   return text.ok || text.error === NO_CONTENT ? null : text.error;
 }
 
@@ -132,25 +132,27 @@ async function dispatchTarget(
   at: ApprovedVersion,
   actor: PrActor,
 ): Promise<DispatchResult> {
-  if (!(await claimApprovedTarget(env.DB, at))) {
+  const claimed = await claimApprovedTarget(env.DB, at);
+  if (!claimed) {
     const now = await getDraft(env.DB, campaign.id, at.draftId);
     return now?.currentVersion === at.version && approvedForSending(now)
       ? { ok: true, message: "この配信先はもう配信中です" }
       : { ok: false, error: STALE_VERSION };
   }
-  return sendClaimedPost(env, campaign, at, actor);
+  return sendClaimedPost(env, campaign, at.targetId, claimed, actor);
 }
 
 export async function sendApprovedPosts(env: Env): Promise<{ sent: number; failed: number }> {
   let sent = 0;
   let failed = 0;
   for (const target of await unclaimedPostTargets(env.DB)) {
-    if (!(await claimApprovedTarget(env.DB, target.at))) continue;
+    const claimed = await claimApprovedTarget(env.DB, target.at);
+    if (!claimed) continue;
     const campaign = await getCampaignById(env.DB, target.account.campaignId);
     const actor = parseActor(target.actorSnapshot);
     const result =
       campaign && actor
-        ? await sendClaimedPost(env, campaign, target.at, actor)
+        ? await sendClaimedPost(env, campaign, target.id, claimed, actor)
         : await withoutActor(env, target.account.campaignId, target.scheduleItemId, target.id);
     if (result.ok) sent++;
     else failed++;
@@ -183,16 +185,17 @@ async function failClaimed(
 async function sendClaimedPost(
   env: Env,
   campaign: Campaign,
-  at: ApprovedVersion,
+  targetId: number,
+  claimed: ApprovedLinkVersion,
   actor: PrActor,
 ): Promise<DispatchResult> {
-  const target = await getTarget(env.DB, at.targetId);
+  const target = await getTarget(env.DB, targetId);
   const item = target ? await getItem(env.DB, campaign.id, target.scheduleItemId) : null;
-  const fail = (error: string) => failClaimed(env, at.targetId, item?.id ?? null, error);
+  const fail = (error: string) => failClaimed(env, targetId, item?.id ?? null, error);
   if (!target || !item) return fail(NO_CONTENT);
-  const text = await versionText(env, actor, campaign, item, at);
+  const text = await approvedVersionText(env, actor, campaign, item, claimed);
   if (!text.ok) return fail(text.error);
-  const mediaUrl = (await getVersion(env.DB, at.draftId, at.version))?.mediaUrl ?? null;
+  const mediaUrl = (await getVersion(env.DB, claimed.draftId, claimed.version))?.mediaUrl ?? null;
   const created = await callRpc(() =>
     snsService(env).createScheduledPost({
       actor,
@@ -224,7 +227,7 @@ async function sendClaimedPost(
       created.post.id,
       mediaUrl,
     );
-  await moveTarget(env.DB, at.targetId, ["dispatching"], "scheduled", {
+  await moveTarget(env.DB, targetId, ["dispatching"], "scheduled", {
     externalRef: { snsPostId: created.post.id },
     error: null,
   });

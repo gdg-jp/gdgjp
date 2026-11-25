@@ -1,4 +1,13 @@
-import type { BrowserContext, Route } from "@playwright/test";
+import { readFileSync } from "node:fs";
+import {
+  type AccessScope,
+  accessScope,
+  inAccessScope,
+  isTestDomain,
+} from "../scripts/access-origin.mjs";
+import type { Upstream } from "./forwarder";
+
+export { type AccessScope, accessScope, inAccessScope };
 
 export type AccessToken = { readonly id: string; readonly secret: string };
 
@@ -17,42 +26,40 @@ export function browserEnvironment(
   return kept;
 }
 
-export function slotHosts(domain: string | undefined): (url: string) => boolean {
-  return (url) => {
-    if (!domain) return false;
-    const host = new URL(url).hostname;
-    return host === domain || host.endsWith(`.${domain}`);
-  };
-}
+export type FuzzAccess = { readonly scope: AccessScope; readonly upstream: Upstream };
 
-type RoutedRequest = Pick<Route, "request" | "continue" | "fetch" | "fulfill" | "abort">;
+const LOCAL_UPSTREAM = /^(127(?:\.(?:25[0-5]|2[0-4]\d|1?\d?\d)){3}):(\d{1,5})$/;
 
-export async function forwardThroughAccess(
-  route: RoutedRequest,
-  inSlot: (url: string) => boolean,
-  token: AccessToken,
-): Promise<void> {
-  const request = route.request();
-  if (!inSlot(request.url())) return route.continue();
-  const response = await route
-    .fetch({
-      headers: {
-        ...request.headers(),
-        "CF-Access-Client-Id": token.id,
-        "CF-Access-Client-Secret": token.secret,
-      },
-      maxRedirects: 0,
-    })
-    .catch(() => null);
-  if (!response) return route.abort().catch(() => undefined);
-  await route.fulfill({ response }).catch(() => undefined);
-}
-
-export async function routeThroughAccess(
-  context: BrowserContext,
-  inSlot: (url: string) => boolean,
-  token: AccessToken | null,
-): Promise<void> {
-  if (!token) return;
-  await context.route("**/*", (route) => forwardThroughAccess(route, inSlot, token));
+export function fuzzAccess(
+  env: Readonly<Record<string, string | undefined>>,
+  origins: readonly string[],
+): FuzzAccess {
+  const domain = env.UI_FUZZ_DOMAIN;
+  const local = env.UI_FUZZ_LOCAL === "1";
+  let upstream: Upstream = { kind: "dns" };
+  if (local) {
+    if (!domain || !isTestDomain(domain))
+      throw new Error("UI_FUZZ_LOCAL=1 needs UI_FUZZ_DOMAIN under .test");
+    const match = LOCAL_UPSTREAM.exec(env.UI_FUZZ_LOCAL_UPSTREAM ?? "");
+    if (!match || !env.UI_FUZZ_LOCAL_CA)
+      throw new Error(
+        "UI_FUZZ_LOCAL=1 needs UI_FUZZ_LOCAL_UPSTREAM=127.x.x.x:PORT and UI_FUZZ_LOCAL_CA",
+      );
+    upstream = {
+      kind: "loopback",
+      address: match[1] as string,
+      port: Number(match[2]),
+      ca: readFileSync(env.UI_FUZZ_LOCAL_CA),
+    };
+  } else if (domain && isTestDomain(domain)) {
+    throw new Error(`${domain} is a test domain; set UI_FUZZ_LOCAL=1`);
+  }
+  const scope = accessScope({ domain });
+  if (accessToken(env))
+    for (const origin of origins)
+      if (!inAccessScope(scope, origin))
+        throw new Error(
+          `The Access token only goes to https origins on the slot domain; ${origin} is not one`,
+        );
+  return { scope, upstream };
 }

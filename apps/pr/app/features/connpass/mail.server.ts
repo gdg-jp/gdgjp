@@ -9,7 +9,7 @@ import {
 } from "~/features/dispatch/target.repository.server";
 import { getVersion } from "~/features/drafts/draft.repository.server";
 import { connpassService, parseActor } from "~/features/integrations/bindings.server";
-import { versionText } from "~/features/links/create.server";
+import { approvedVersionText } from "~/features/links/create.server";
 import { getItem } from "~/features/schedule/item.repository.server";
 import { connpassEventOf, submitConnpass } from "./submit.server";
 
@@ -18,7 +18,8 @@ export async function sendDueMails(env: Env): Promise<{ sent: number; failed: nu
   let failed = 0;
   for (const target of await dueMailTargets(env.DB, Math.floor(Date.now() / 1000))) {
     const { at } = target;
-    if (!(await claimApprovedTarget(env.DB, at))) continue;
+    const claimed = await claimApprovedTarget(env.DB, at);
+    if (!claimed) continue;
     const fail = async (error: string) => {
       failed++;
       await moveTarget(env.DB, target.id, ["dispatching"], "failed", { error });
@@ -47,7 +48,7 @@ export async function sendDueMails(env: Env): Promise<{ sent: number; failed: nu
       continue;
     }
     const item = await getItem(env.DB, campaign.id, target.scheduleItemId);
-    const body = item ? await versionText(env, actor, campaign, item, at) : null;
+    const body = item ? await approvedVersionText(env, actor, campaign, item, claimed) : null;
     if (!body?.ok) {
       await fail(body?.error ?? "送る本文がありません");
       continue;

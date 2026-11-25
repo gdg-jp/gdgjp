@@ -25,6 +25,7 @@ import {
   linkUrl,
   mockState,
   outside,
+  ownAttempts,
   ownLinks,
   postContent,
   textOf,
@@ -364,6 +365,17 @@ const property = (browser: Browser): UiProperty<PrWorld> => ({
             "every bound short link names an approved version",
             `campaign_links ${row.slug} is bound to draft ${row.draft_id} v${row.draft_version}; approved versions of draft ${world.draftId} are ${JSON.stringify(model.approvedVersions)}`,
           );
+      for (const call of ownAttempts(world, state)) {
+        const version = model.approvedVersions.find(
+          (v) => call.origin === `pr:${world.campaignId}:${world.draftId}:${v}`,
+        );
+        if (version === undefined || call.destinationUrl !== linkOf(model, version))
+          throw new PropertyViolation(
+            "invariant",
+            "every url.gdgs.jp create names an approved version's origin and link",
+            `createLink ${call.slug} (${call.result}) named ${call.origin ?? "no origin"} for ${call.destinationUrl}; approved versions are ${JSON.stringify(model.approvedVersions)}`,
+          );
+      }
       const perVersion = new Map<string, number>();
       const bound = rows.filter((row) => row.draft_id !== null);
       const keys = [
@@ -438,7 +450,7 @@ for (const seed of plan.seeds) {
       await checkUiProperty(testInfo, property(browser), {
         plan,
         seed,
-        monitor: { origins: [PR_ORIGIN], ignoreConsole: [/^Failed to fetch manifest patches/] },
+        monitor: { origins: [PR_ORIGIN] },
       });
     } finally {
       await testInfo.attach("pr-approvals.json", {
