@@ -174,15 +174,18 @@ async function openDock(browser: Browser, deckId: string, url: string): Promise<
   const context = await browser.newContext({ locale: "ja-JP" });
   await context.addInitScript(([key, value]) => localStorage.setItem(key, value), [
     `deck-dock:${deckId}`,
-    JSON.stringify({
-      obsUrl: `ws://127.0.0.1:${OBS_PORT}`,
-      password: OBS_PASSWORD,
-      screenshotDir: "/tmp",
-    }),
+    JSON.stringify({ obsUrl: `ws://127.0.0.1:${OBS_PORT}`, screenshotDir: "/tmp" }),
   ] as const);
   const dock = await context.newPage();
   await dock.goto(url);
+  await expect(
+    dock.getByText("OBS の WebSocket サーバーのパスワードを入れてください。"),
+  ).toBeVisible();
+  await dock.getByLabel("パスワード").fill(OBS_PASSWORD);
+  await dock.getByRole("button", { name: "保存して接続" }).click();
   await expect(dock.getByText("接続 (32.2.2)")).toBeVisible();
+  const stored = await dock.evaluate((key) => localStorage.getItem(key), `deck-dock:${deckId}`);
+  expect(stored).not.toContain(OBS_PASSWORD);
   return dock;
 }
 

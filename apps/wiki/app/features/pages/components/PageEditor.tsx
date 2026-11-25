@@ -2,6 +2,7 @@ import { MdEditor } from "md-editor-rt";
 import "md-editor-rt/lib/style.css";
 import { useTheme } from "@gdgjp/design-system";
 
+import { useValueChange } from "@gdgjp/gdg-lib/react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link, useBlocker, useFetcher } from "react-router";
@@ -100,13 +101,13 @@ export default function PageEditor({ page, currentUser }: PageEditorProps) {
     contentJa !== lastSavedRef.current.contentJa ||
     contentEn !== lastSavedRef.current.contentEn;
 
-  useEffect(() => {
-    if (fetcher.data?.ok && fetcher.data.savedAt && pendingSaveRef.current) {
-      setLastSavedAt(fetcher.data.savedAt);
+  useValueChange(fetcher.data, (result) => {
+    if (result?.ok && result.savedAt && pendingSaveRef.current) {
+      setLastSavedAt(result.savedAt);
       lastSavedRef.current = pendingSaveRef.current;
       pendingSaveRef.current = null;
     }
-  }, [fetcher.data]);
+  });
 
   const submitAutosave = useCallback(() => {
     if (!isDirty) return;

@@ -210,7 +210,7 @@ function aliases(specifier, options, directory) {
   const match = matches[0];
   const base = options.baseUrl ?? options.pathsBasePath ?? directory;
   return match
-    ? match.targets.map((target) => resolve(base, target.replace("*", match.match)))
+    ? match.targets.map((target) => resolve(base, target.replaceAll("*", match.match)))
     : [];
 }
 
@@ -316,17 +316,17 @@ export function checkWorkspaceBoundaries(directory) {
         if (target && target !== workspace) {
           if (target.group === "apps") {
             result.errors.push(
-              `${label}: applications are service boundaries; use their API instead of importing ${name}`,
+              `${label}: applications are service boundaries; call ${name} over its HTTP API or service binding, or move the shared code into packages/`,
             );
           } else if (!Object.hasOwn(dependencies, name)) {
             result.errors.push(
-              `${label}: declare ${name} in ${relative(root, workspace.directory)}/package.json`,
+              `${label}: declare ${name} in ${relative(root, workspace.directory)}/package.json as "workspace:*" so the dependency graph records this import`,
             );
           } else if (
             !publicEntry(target.pkg, clean === name ? "." : `.${clean.slice(name.length)}`)
           ) {
             result.errors.push(
-              `${label}: ${name} does not export this entry; use its public exports`,
+              `${label}: ${name} does not export this entry; import one of its public exports, or add the subpath to its package.json exports if it is meant to be shared`,
             );
           }
           continue;
@@ -349,7 +349,7 @@ export function checkWorkspaceBoundaries(directory) {
         const destination = resolvedPath && owner(resolvedPath);
         if (destination && destination !== workspace) {
           result.errors.push(
-            `${label}: resolves into ${relative(root, destination.directory)} outside a declared public package import`,
+            `${label}: resolves into ${relative(root, destination.directory)} outside a declared public package import; depend on that workspace in package.json and import its package name, or move the shared code into packages/`,
           );
         }
       }

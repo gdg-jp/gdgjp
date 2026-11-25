@@ -2,16 +2,9 @@
 
 Repo-wide conventions in `../../CLAUDE.md`. This file = lib-specific only.
 
-Shared RP building blocks for the four downstream apps (`tinyurl`, `img`, `scheduler`, `wiki`), plus signed-cookie primitives. The IdP (`accounts/`) uses Better Auth's OAuth Provider plugin and only consumes shared types from this package; do not add IdP-side handlers here.
+Shared RP building blocks for every first-party relying party, plus signed-cookie primitives. The IdP (`accounts/`) uses Better Auth's OAuth Provider plugin and only consumes shared types from this package; do not add IdP-side handlers here.
 
-No build step for workspace consumption: source TS exported directly (`"main": "./src/index.ts"`),
-bundled by each consumer. No `lint`/`dev` scripts here — those run at root via Turborepo + Biome.
-
-```
-pnpm --filter @gdgjp/gdg-lib typecheck
-pnpm --filter @gdgjp/gdg-lib test
-pnpm --filter @gdgjp/gdg-lib exec vitest run src/auth/cookie.test.ts   # single file
-```
+No build step for workspace consumption: source TS exported directly, bundled by each consumer.
 
 ## `pnpm build` — the one exception (external publish only)
 
@@ -37,11 +30,11 @@ either script.
 - `src/auth/rp.ts` — `initializeRpAuth(config)` factory returning the instance every RP wires under `/api/auth/*` and `/auth/signout*`. Bulk of the package.
 - `src/auth/index.ts` — shared types `AuthUser`, `UserClaims`, `UserChapter`, `ChapterRole`; `ClaimsUnavailableError`; `SSO_PROVIDER_ID = "gdgjp"`; generic `getSessionUser` / `requireUser` for any `{ api: { getSession } }`-shaped auth (legacy better-auth callsites).
 - `src/auth/bearer.ts` — Bearer-token identity lookups for non-browser (CLI/agent) callers, both backed by Accounts. `getBearerIdentity` is the compatibility path (any valid OAuth client token, resolved via OIDC `/userinfo`, malformed chapter rows dropped individually) — used by connpass and wiki, which predate the CLI scope and must keep their current `/userinfo` semantics. `getCliIdentity` is the strict path (only a `gdg-cli` token carrying the `https://gdgs.jp/scopes/cli` scope, resolved via Accounts' `/api/cli/v1/identity`, whole response rejected on any malformed field) — used by new CLI mutation APIs (tinyurl/img/sns). Both return `client` (`{ id, firstParty }`, from Accounts' `https://gdgs.jp/claims/client` UserInfo claim; `null` when absent or malformed, and `gdg-cli` first-party for the strict path), so a resource server can refuse writes from developer-owned apps (connpass and wiki do). Do not swap connpass/wiki onto the strict helper as a "compatible" refactor; it is a narrower authorization boundary, not a drop-in.
-- `src/staging-snapshot.ts` — Durable Object storage snapshot types and helpers behind each app's `StagingSnapshot` entrypoint (`scripts/staging/durable-objects.mjs`). `restoreDurableObject` refuses to run unless `STAGING_SLOT` is set. `src/testing/durable-object.ts` is a test-only `node:sqlite` fake of Durable Object storage; never import it from Worker code.
+- `src/staging-snapshot.ts` — Durable Object storage snapshot types and helpers behind each app's `StagingSnapshot` entrypoint (`scripts/staging/durable-objects.mjs`). `restoreDurableObject` refuses to run unless `STAGING_SLOT` is set. `src/testing/durable-object.ts` is a test-only `node:sqlite` fake of Durable Object storage (`pnpm check:apps` keeps it out of Worker code).
 
 ## RP factory — load-bearing invariants (`rp.ts`)
 
-- **Runtime is Cloudflare Workers, not Node.** Vitest env is `"node"` but deploy target is Workers — use `crypto.subtle`, `D1Database`, `fetch`. Avoid Node-only APIs.
+- **Runtime is Cloudflare Workers, not Node.** `pnpm check:apps` rejects `node:` imports outside tests and `src/testing/`.
 - **ID Tokens are mandatory.** Authorization uses PKCE S256, state, and nonce; callback validation passes `idTokenExpected: true` and `expectedNonce`. UserInfo is fetched with the validated ID Token `sub` as `expectedSubject`.
 - **Local `user.id` is RP-minted.** Stable external identity is `(oidc_issuer, oidc_subject)`. Verified email is permitted only for a one-time link of legacy rows and conflicts fail closed.
 - **The IdP is the only source of truth for who is signed in.** The signed v4 session cookie carries only the RP session ID, local user ID, issuer/subject, the IdP session ID (`sid` from the ID Token) and an expiry — no display or role claims. On every request `getSessionUser` / `requireUser` / `getFreshClaims` (memoized per `Request`) first require the Accounts-issued `gdg_sid` parent-domain cookie to equal `sid` (no network: catches sign-out and account switching), then `POST {idp}/api/rp/v1/session` with client credentials for live claims (catches revocation and role/membership/profile changes). An unreachable IdP throws a 503 `Response` (fail closed). Do not add caches across requests.

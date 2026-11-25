@@ -26,7 +26,7 @@ export default function ColumnFilterPopover({
   searchPlaceholder,
 }: ColumnFilterPopoverProps) {
   const { triggerRef, menuRef, searchInputRef, pos, open, search, setSearch, openMenu } =
-    useAnchoredMenu({ searchable });
+    useAnchoredMenu();
 
   const isActive = selected.length > 0;
 

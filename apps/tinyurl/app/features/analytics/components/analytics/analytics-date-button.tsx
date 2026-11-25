@@ -15,7 +15,7 @@ import {
   cn,
 } from "@gdgjp/design-system";
 import type { ReactNode } from "react";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { useNavigate, useNavigation, useSearchParams } from "react-router";
 import {
   ANALYTICS_PERIOD_PARAMS,
@@ -86,9 +86,11 @@ export function AnalyticsDateButton({
 
   const [range, setRange] = useState<DateRange | null>(initialRange);
 
-  useEffect(() => {
+  const [rangeSource, setRangeSource] = useState(initialRange);
+  if (rangeSource !== initialRange) {
+    setRangeSource(initialRange);
     setRange(initialRange);
-  }, [initialRange]);
+  }
 
   const label =
     display.preset === "custom" && display.startIso && display.endIso

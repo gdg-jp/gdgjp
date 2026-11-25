@@ -15,10 +15,19 @@ export type Draft = {
   reviewedBy: string | null;
   approvedBy: string | null;
   approvedAt: number | null;
+  approvedVersion: number | null;
   dispatchMediaUrl: string | null;
   createdAt: number;
   updatedAt: number;
 };
+
+export const approvedForSending = (draft: Draft) =>
+  draft.status === "approved" && draft.approvedVersion === draft.currentVersion;
+
+export function seenVersion(form: FormData): number | null {
+  const version = Number(form.get("version"));
+  return Number.isInteger(version) && version > 0 ? version : null;
+}
 
 export type DraftVersion = {
   id: number;

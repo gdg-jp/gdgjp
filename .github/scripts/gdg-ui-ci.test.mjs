@@ -610,6 +610,57 @@ test("job lifecycle verification is selected across local and hosted delivery", 
   );
 });
 
+test("Alloy model checks run with mutation proof when their covered sources change", () => {
+  const cases = {
+    "verify-accounts-client-revocation": [
+      "apps/accounts/app/features/developer-apps/oauth-clients.server.ts",
+      "apps/accounts/schema.sql",
+      "apps/accounts/package.json",
+      ".agents/skills/verify-accounts-client-revocation/coverage.json",
+    ],
+  };
+  for (const [skill, inputs] of Object.entries(cases)) {
+    const command = `node .agents/skills/${skill}/scripts/verify.mjs --mutation-proof`;
+    const coverage = JSON.parse(
+      readFileSync(new URL(`../../.agents/skills/${skill}/coverage.json`, import.meta.url), "utf8"),
+    );
+    for (const path of [...inputs, ...Object.keys(coverage.sources)]) {
+      assert.deepEqual(classifyChanges([path]).alloy, [skill], path);
+      for (const mode of ["quick", "full"]) {
+        const step = changedSteps(mode, [path]).find(([name]) => name === `alloy:${skill}`);
+        assert.equal(step?.[1], command, `${mode} ${path}`);
+      }
+    }
+    for (const mode of ["quick", "full"]) {
+      assert.ok(
+        completeSteps(mode).some(([, step]) => step === command),
+        mode,
+      );
+    }
+  }
+  for (const path of ["scripts/verification/alloy.mjs", "scripts/verification/alloy-skill.mjs"]) {
+    assert.deepEqual(classifyChanges([path]).alloy, ["verify-accounts-client-revocation"]);
+  }
+  for (const path of [
+    "docs/README.md",
+    "apps/wiki/app/root.tsx",
+    "apps/pr/e2e/helpers.ts",
+    "apps/pr/app/features/dispatch/dispatch.server.ts",
+  ]) {
+    assert.deepEqual(classifyChanges([path]).alloy, [], path);
+    assert.ok(!changedSteps("full", [path]).some(([name]) => name.startsWith("alloy:")), path);
+  }
+  const workflow = readWorkflow("ci.yml");
+  assert.equal(workflow.jobs.changes.outputs.alloy, "${{ steps.changes.outputs.alloy }}");
+  const job = workflow.jobs.alloy;
+  assert.equal(job.if, "needs.changes.outputs.alloy != '[]'");
+  assert.equal(job.strategy.matrix.skill, "${{ fromJSON(needs.changes.outputs.alloy) }}");
+  assert.ok(job.steps.some((step) => step.uses === "actions/setup-java@v4"));
+  const run = job.steps.find((step) => step.run?.includes("verify.mjs"));
+  assert.equal(run.env.SKILL, "${{ matrix.skill }}");
+  assert.equal(run.run, 'node ".agents/skills/$SKILL/scripts/verify.mjs" --mutation-proof');
+});
+
 test("the ruleset's single required check gates on every CI job", () => {
   const workflow = readWorkflow("ci.yml");
   const job = workflow.jobs.required;
@@ -640,11 +691,76 @@ test("hosted engineering observations run after failures and preserve missing-so
     stepByName(job, "Record engineering observations").run,
     /node scripts\/engineering-health\.mjs --since/,
   );
-  assert.doesNotMatch(JSON.stringify(job), /continue-on-error|production-rum|synthetic-navigation/);
+  assert.doesNotMatch(JSON.stringify(job), /continue-on-error|synthetic-navigation/);
+  const rum = stepByName(job, "Collect production RUM");
+  assert.equal(
+    rum.if,
+    "always() && github.event_name == 'push' && github.ref == 'refs/heads/main'",
+  );
+  assert.equal(rum.env.CLOUDFLARE_RUM_API_TOKEN, "${{ secrets.CLOUDFLARE_RUM_API_TOKEN }}");
+  assert.equal(
+    JSON.stringify(job).match(/production-rum\.json/g).length,
+    3,
+    "production RUM may only come from the hosted collector's output",
+  );
   assert.equal(stepByName(job, "Upload engineering observations").if, "always()");
   assert.equal(
     stepByName(job, "Upload engineering observations").with.path,
     "local_data/pstack/engineering-health/",
+  );
+});
+
+test("hosted production RUM stays unavailable without a token and is passed on only when collected", (t) => {
+  const directory = mkdtempSync(join(tmpdir(), "gdgjp-rum-observations-"));
+  t.after(() => rmSync(directory, { recursive: true, force: true }));
+  const job = readWorkflow("ci.yml").jobs.observations;
+  const step = (name, env = {}) =>
+    spawnSync("bash", ["-e", "-o", "pipefail", "-c", stepByName(job, name).run], {
+      cwd: directory,
+      encoding: "utf8",
+      env: { ...process.env, CLOUDFLARE_RUM_API_TOKEN: "", ...env },
+    });
+  const output = join(directory, "local_data/pstack/engineering-health");
+  const skipped = step("Collect production RUM", { CLOUDFLARE_RUM_ACCOUNT_ID: "account" });
+  assert.equal(skipped.status, 0, skipped.stderr);
+  assert.equal(existsSync(join(output, "production-rum.json")), false);
+  assert.deepEqual(JSON.parse(readFileSync(join(output, "production-rum-collection.json"))), {
+    status: "unavailable",
+    reason: "Cloudflare RUM token or account is not configured",
+  });
+  mkdirSync(join(directory, "scripts"));
+  writeFileSync(
+    join(directory, "scripts/engineering-health.mjs"),
+    'import { writeFileSync } from "node:fs"; writeFileSync("health-arguments.json", JSON.stringify(process.argv.slice(2)));',
+  );
+  const record = (env) => {
+    const result = step("Record engineering observations", env);
+    assert.equal(result.status, 0, result.stderr);
+    return JSON.parse(readFileSync(join(directory, "health-arguments.json"), "utf8"));
+  };
+  const window = {
+    OBSERVATION_SINCE: "2026-10-25T00:00:00Z",
+    OBSERVATION_UNTIL: "2026-11-24T00:00:00Z",
+  };
+  assert.equal(record(window).includes("--production-rum"), false);
+  writeFileSync(join(output, "production-rum.json"), "{}");
+  assert.deepEqual(record(window).slice(0, 6), [
+    "--since",
+    "2026-10-25T00:00:00Z",
+    "--until",
+    "2026-11-24T00:00:00Z",
+    "--production-rum",
+    "local_data/pstack/engineering-health/production-rum.json",
+  ]);
+  const failed = step("Collect production RUM", {
+    ...window,
+    CLOUDFLARE_RUM_API_TOKEN: "token",
+    CLOUDFLARE_RUM_ACCOUNT_ID: "account",
+  });
+  assert.equal(failed.status, 1);
+  assert.equal(
+    JSON.parse(readFileSync(join(output, "production-rum-collection.json"))).reason,
+    "Cloudflare RUM collection failed",
   );
 });
 

@@ -1,3 +1,5 @@
+import { useMountEffect } from "../react/mount-effect";
+
 const RELOADED_KEY = "gdg-signed-out-reload";
 
 export function installSignedOutReload(): () => void {
@@ -50,4 +52,8 @@ function isSameOriginApi(input: RequestInfo | URL): boolean {
     return false;
   }
   return url.origin === window.location.origin && !url.pathname.startsWith("/api/auth/");
+}
+
+export function useSignedOutReload(): void {
+  useMountEffect(installSignedOutReload);
 }

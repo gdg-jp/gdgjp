@@ -87,9 +87,20 @@ pnpm test
 Run `pnpm test:e2e` when the change affects user-facing behavior. Use Conventional Commit-style
 subjects and scope them by package where practical, for example `feat(tinyurl): add analytics`.
 
-The CI workflow runs lint, typecheck, unit tests, builds, and Playwright separately. Pull requests
-should describe the change, list validation performed, link related issues, and include screenshots
-for UI changes. Call out any Cloudflare binding, migration, or `.dev.vars.example` changes.
+The CI workflow runs lint, typecheck, unit tests, builds, and Playwright separately. Fill in the
+[pull request template](.github/pull_request_template.md): what changed and why, a verification
+table with a `VERIFIED`, `NOT VERIFIED`, or `INCONCLUSIVE` result and an evidence link for each
+claimed outcome, screenshots or recordings for UI changes, a state diagram when a state machine
+changes, the checks you did not run, and any binding, migration, deployment, or
+`.dev.vars.example` change. Link related issues.
+
+Reviewers read evidence rather than every line. Each pull request's CI run publishes a
+**Verification summary** (job summary and `verification-summary` artifact, with screenshots) of
+what actually ran; a missing source is listed as missing, not passed. Local evidence under
+`local_data/` stays on your machine, so run `pnpm verification:summary` after your local checks,
+paste its Markdown into the pull request, and attach the screenshots it lists. The required
+[AI review](docs/engineering/ai-review.md#verification-evidence) reads the hosted summary and
+reports a UI or state-machine change without evidence as a finding.
 
 ## Project conventions
 

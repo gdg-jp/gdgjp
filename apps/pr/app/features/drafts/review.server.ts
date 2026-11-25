@@ -3,6 +3,7 @@ import { latestBrief } from "~/features/briefs/brief.repository.server";
 import type { CampaignAccess } from "~/features/campaigns/access.server";
 import { SKILL_FOR_KIND } from "~/features/jobs/skill-kinds";
 import { recordEdits } from "~/features/learning/edits.server";
+import type { ApprovedLinkVersion } from "~/features/links/link";
 import { type ConnpassPageContent, withRenderedHtml } from "~/features/pages/render";
 import { connpassSectionTemplates, outputSchemas } from "~/features/playbook/guides.server";
 import {
@@ -21,6 +22,8 @@ import {
   statusAfterEdit,
 } from "./state-machine";
 
+export const STALE_VERSION = "新しい版が保存されています。読み直してから操作してください";
+
 export function actorFor(access: CampaignAccess, draft: Draft): Actor {
   const me = access.members.find((m) => m.userId === access.user.id);
   const canApprove = access.permissions.manage;
@@ -38,15 +41,18 @@ export async function reviewDraft(
   access: CampaignAccess,
   draft: Draft,
   action: Exclude<ReviewAction, "submit">,
+  version: number,
   comment: string | null,
-): Promise<{ ok: true } | { ok: false; error: string }> {
+): Promise<{ ok: true; approved: ApprovedLinkVersion | null } | { ok: false; error: string }> {
+  if (version !== draft.currentVersion) return { ok: false, error: STALE_VERSION };
   const to = nextStatus(draft.status, action, actorFor(access, draft));
   if (!to)
     return {
       ok: false,
       error: "この状態からはその操作ができません（権限か状態を確認してください）",
     };
-  const changed = await setDraftStatus(db, draft.id, draft.status, to, itemStatusFor(to), {
+  const seen = { status: draft.status, version };
+  const changed = await setDraftStatus(db, draft.id, seen, to, itemStatusFor(to), {
     reviewedBy:
       action === "review_ok" || (action === "request_changes" && draft.status === "in_review")
         ? access.user.id
@@ -56,14 +62,17 @@ export async function reviewDraft(
   if (!changed) return { ok: false, error: "ほかの人が先に更新しました。再読み込みしてください" };
   await addReview(db, {
     draftId: draft.id,
-    version: draft.currentVersion,
+    version,
     userId: access.user.id,
     decision:
       action === "request_changes" ? "request_changes" : action === "reject" ? "reject" : "approve",
     stage: action === "review_ok" || draft.status === "in_review" ? "review" : "approval",
     comment,
   });
-  return { ok: true };
+  return {
+    ok: true,
+    approved: to === "approved" ? ({ draftId: draft.id, version } as ApprovedLinkVersion) : null,
+  };
 }
 
 export async function editDraft(

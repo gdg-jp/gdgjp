@@ -1,4 +1,5 @@
-import { type ReactNode, useEffect, useState } from "react";
+import { useClientValue } from "@gdgjp/gdg-lib/react";
+import type { ReactNode } from "react";
 import {
   Area,
   AreaChart,
@@ -46,13 +47,10 @@ export function formatAnalyticsTick(
 }
 
 export function useLocalTimeZone(): string | undefined {
-  const [timeZone, setTimeZone] = useState<string>();
-
-  useEffect(() => {
-    setTimeZone(Intl.DateTimeFormat().resolvedOptions().timeZone);
-  }, []);
-
-  return timeZone;
+  return useClientValue<string | undefined>(
+    () => Intl.DateTimeFormat().resolvedOptions().timeZone,
+    undefined,
+  );
 }
 
 export function AnalyticsAreaChart({

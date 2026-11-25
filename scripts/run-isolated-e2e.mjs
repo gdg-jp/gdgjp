@@ -147,10 +147,14 @@ export function verificationEnvironment({ source, root }) {
     MINIFLARE_REGISTRY_PATH: registry,
     WRANGLER_REGISTRY_PATH: registry,
     GDG_E2E_DEPENDENCIES: join(source, "node_modules"),
+    GDG_E2E_FONT_CACHE: join(source, "local_data/pstack/tools/gdg-fonts"),
     WIKI_E2E_SESSION_SECRET: "ci-wiki-e2e-session-secret",
     WIKI_E2E_ISSUER: "http://localhost:6173",
     PR_REAL_SERVICES: "",
     PLAYWRIGHT_JSON_OUTPUT_NAME: ".turbo/ci-playwright.json",
+    ...Object.fromEntries(
+      Object.entries(process.env).filter(([key]) => /^UI_PROPERTY_[A-Z_]+$/.test(key)),
+    ),
   };
 }
 

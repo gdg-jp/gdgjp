@@ -305,13 +305,28 @@ CREATE TABLE IF NOT EXISTS "oauthClientAssertion" (
   "id" TEXT NOT NULL PRIMARY KEY,
   "expiresAt" TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS "developerClientGrantCode" (
+  "authorizationCodeId" TEXT NOT NULL PRIMARY KEY,
+  "userId" TEXT NOT NULL REFERENCES "user" ("id") ON DELETE CASCADE,
+  "clientId" TEXT NOT NULL REFERENCES "oauthClient" ("clientId") ON DELETE CASCADE,
+  "createdAt" TEXT NOT NULL
+);
+CREATE INDEX "developerClientGrantCode_user_client_idx"
+  ON "developerClientGrantCode" ("userId", "clientId");
 CREATE TRIGGER developer_client_access_token_requires_consent
 BEFORE INSERT ON "oauthAccessToken"
 WHEN NEW."userId" IS NOT NULL
   AND NEW."clientId" IN (SELECT "clientId" FROM "oauthClient" WHERE "userId" IS NOT NULL)
-  AND NOT EXISTS (
-    SELECT 1 FROM "oauthConsent"
-    WHERE "userId" = NEW."userId" AND "clientId" = NEW."clientId"
+  AND (
+    NOT EXISTS (
+      SELECT 1 FROM "oauthConsent"
+      WHERE "userId" = NEW."userId" AND "clientId" = NEW."clientId"
+    )
+    OR NOT EXISTS (
+      SELECT 1 FROM "developerClientGrantCode"
+      WHERE "authorizationCodeId" = NEW."authorizationCodeId"
+        AND "userId" = NEW."userId" AND "clientId" = NEW."clientId"
+    )
   )
 BEGIN
   SELECT RAISE(ABORT, 'developer client token without consent');
@@ -324,6 +339,11 @@ WHEN NEW."clientId" IN (SELECT "clientId" FROM "oauthClient" WHERE "userId" IS N
     OR NOT EXISTS (
       SELECT 1 FROM "oauthConsent"
       WHERE "userId" = NEW."userId" AND "clientId" = NEW."clientId"
+    )
+    OR NOT EXISTS (
+      SELECT 1 FROM "developerClientGrantCode"
+      WHERE "authorizationCodeId" = NEW."authorizationCodeId"
+        AND "userId" = NEW."userId" AND "clientId" = NEW."clientId"
     )
   )
 BEGIN
@@ -348,6 +368,8 @@ BEGIN
   WHERE "userId" = OLD."userId" AND "clientId" = OLD."clientId";
   DELETE FROM "oauthRefreshToken"
   WHERE "userId" = OLD."userId" AND "clientId" = OLD."clientId";
+  DELETE FROM "developerClientGrantCode"
+  WHERE "userId" = OLD."userId" AND "clientId" = OLD."clientId";
 END;
 CREATE TRIGGER session_end_revokes_oauth_tokens
 BEFORE DELETE ON "session"
@@ -364,4 +386,48 @@ BEGIN
       SELECT "clientId" FROM "oauthClient"
       WHERE "grantTypes" LIKE '%device_code%' OR "userId" IS NOT NULL
     );
+END;
+CREATE TRIGGER developer_client_code_records_grant
+AFTER INSERT ON "verification"
+WHEN CASE WHEN json_valid(NEW."value") THEN
+  json_extract(NEW."value", '$.type') = 'authorization_code'
+  AND json_extract(NEW."value", '$.query.client_id') IN (
+    SELECT "clientId" FROM "oauthClient"
+    WHERE "userId" IS NOT NULL AND COALESCE("disabled", 0) = 0
+  )
+  AND CASE json_type(NEW."value", '$.resource')
+    WHEN 'array' THEN json_array_length(NEW."value", '$.resource') = 0
+    WHEN 'null' THEN 1
+    ELSE json_type(NEW."value", '$.resource') IS NULL
+  END
+  AND json_type(NEW."value", '$.query.resource') IS NULL
+  AND EXISTS (
+    SELECT 1 FROM "oauthConsent"
+    WHERE "userId" = json_extract(NEW."value", '$.userId')
+      AND "clientId" = json_extract(NEW."value", '$.query.client_id')
+  )
+ELSE 0 END
+BEGIN
+  INSERT OR IGNORE INTO "developerClientGrantCode"
+    ("authorizationCodeId", "userId", "clientId", "createdAt")
+  VALUES (
+    NEW."identifier",
+    json_extract(NEW."value", '$.userId'),
+    json_extract(NEW."value", '$.query.client_id'),
+    strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+  );
+END;
+CREATE TRIGGER developer_client_revocation_purges_grants
+AFTER UPDATE OF "disabled", "scopes" ON "oauthClient"
+WHEN NEW."userId" IS NOT NULL
+  AND (NEW."disabled" = 1 OR NEW."scopes" IS NOT OLD."scopes")
+BEGIN
+  DELETE FROM "verification"
+  WHERE CASE WHEN json_valid("value") THEN
+    json_extract("value", '$.type') = 'authorization_code'
+    AND json_extract("value", '$.query.client_id') = NEW."clientId"
+  ELSE 0 END;
+  DELETE FROM "oauthAccessToken" WHERE "clientId" = NEW."clientId";
+  DELETE FROM "oauthRefreshToken" WHERE "clientId" = NEW."clientId";
+  DELETE FROM "developerClientGrantCode" WHERE "clientId" = NEW."clientId";
 END;

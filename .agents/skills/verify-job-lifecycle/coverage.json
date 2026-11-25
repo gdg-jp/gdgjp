@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "syncedBaseCommit": "1e7b661528087e3fba693beb0e26d1025c65f312",
+  "syncedBaseCommit": "1c0569f355bf990c689a5174ed4910488ddfbf23",
   "method": "Bounded exhaustive execution of production TypeScript and SQL in SQLite, with targeted adversarial request interleavings and production-expression mutations.",
   "tools": {
     "node": "v26.3.1",
@@ -272,7 +272,7 @@
     },
     {
       "path": "apps/wiki/app/routes/api/runner/jobs-next.ts",
-      "sha256": "30e620cf9d1686cefe61f9793a6a391bec5b5b38e687b608661b2937c4c0b96e",
+      "sha256": "8c6ae6de9d39a48c8591585edfad92009288dcba8293a035daa99539da7f60ce",
       "role": "production"
     },
     {
@@ -297,7 +297,7 @@
     },
     {
       "path": "apps/wiki/package.json",
-      "sha256": "bb686b7fd74faeb51c5b7ad885c1c2e6415561530f976c9306ffc86c411d7914",
+      "sha256": "c395ccc0ff2deb1f4adea5a5220fa70f4fee031a2c8b761883a151d73e943557",
       "role": "tool-config"
     },
     {
@@ -317,7 +317,7 @@
     },
     {
       "path": "pnpm-lock.yaml",
-      "sha256": "5144b9f7618f0b833893cd4bce6356ffc1d31b7511864daf33a377d6a56a984c",
+      "sha256": "b27f87582fd461a1b49e42daa0bbc41f0efe4955d315996cd1cdfea15bf6af32",
       "role": "tool-config"
     },
     {

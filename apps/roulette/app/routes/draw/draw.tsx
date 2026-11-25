@@ -1,5 +1,11 @@
 import { Alert, Button, Heading, IconButton, Icons, Stack, Text } from "@gdgjp/design-system";
-import { useEffect, useState } from "react";
+import {
+  useEventListener,
+  useMountEffect,
+  useTransientValue,
+  useValueChange,
+} from "@gdgjp/gdg-lib/react";
+import { useState } from "react";
 import {
   type ShouldRevalidateFunctionArgs,
   data,
@@ -90,27 +96,21 @@ const FANFARE_MS = 2400;
 
 function useSound() {
   const [sound, setSound] = useState(true);
-  useEffect(() => {
+  useMountEffect(() => {
     try {
-      if (localStorage.getItem(SOUND_KEY) === "off") setSound(false);
+      if (localStorage.getItem(SOUND_KEY) === "off") {
+        setSoundOn(false);
+        setSound(false);
+      }
     } catch {}
     return () => music.stop();
-  }, []);
-  useEffect(() => {
-    setSoundOn(sound);
-    if (!sound) {
-      music.stop();
-      return;
-    }
-    // Browsers allow sound only after a tap: start the music on the first one.
-    const start = () => music.start();
-    window.addEventListener("pointerdown", start, { once: true });
-    window.addEventListener("keydown", start, { once: true });
-    return () => {
-      window.removeEventListener("pointerdown", start);
-      window.removeEventListener("keydown", start);
-    };
-  }, [sound]);
+  });
+  // Browsers allow sound only after a tap: start the music on the first one.
+  const start = () => {
+    if (sound) music.start();
+  };
+  useEventListener("window", "pointerdown", start, { once: true });
+  useEventListener("window", "keydown", start, { once: true });
   const toggle = () => {
     const next = !sound;
     try {
@@ -118,6 +118,7 @@ function useSound() {
     } catch {}
     setSoundOn(next);
     if (next) music.start();
+    else music.stop();
     setSound(next);
   };
   return [sound, toggle] as const;
@@ -133,20 +134,16 @@ export default function DrawPage({ loaderData }: Route.ComponentProps) {
   const wheel = useSpin(segments, initial);
   const [sound, toggleSound] = useSound();
   const [error, setError] = useState<string | null>(null);
-  const [fanfare, setFanfare] = useState(false);
+  const [fanfareKey, showFanfare] = useTransientValue<number>(FANFARE_MS);
+  const fanfare = fanfareKey !== null;
   const hydrated = useHydrated();
   const { search } = useLocation();
 
-  useEffect(() => {
-    if (!wheel.celebrateKey) return;
-    setFanfare(true);
-    const timer = setTimeout(() => setFanfare(false), FANFARE_MS);
-    return () => clearTimeout(timer);
-  }, [wheel.celebrateKey]);
+  useValueChange(wheel.celebrateKey, (key) => {
+    if (key) showFanfare(key);
+  });
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: react to each new spin response only
-  useEffect(() => {
-    const outcome = fetcher.data;
+  useValueChange(fetcher.data, (outcome) => {
     if (!outcome) return;
     if (outcome.status === "won" || outcome.status === "already") {
       wheel.land(outcome.result);
@@ -155,7 +152,7 @@ export default function DrawPage({ loaderData }: Route.ComponentProps) {
     wheel.abort();
     setError(failure[outcome.status]);
     revalidator.revalidate();
-  }, [fetcher.data]);
+  });
 
   const result = wheel.result ?? mine;
   const phase =
@@ -165,7 +162,7 @@ export default function DrawPage({ loaderData }: Route.ComponentProps) {
   const staged = wheel.staging !== "none";
   const mood: Mood =
     staged || fanfare ? "quiet" : phase === "charge" || phase === "spinning" ? "spin" : "idle";
-  useEffect(() => music.setMood(mood), [mood]);
+  useValueChange(mood, (next) => music.setMood(next));
   const lights: LightMode =
     phase === "closed" || phase === "soldout" || wheel.staging === "hush"
       ? "off"

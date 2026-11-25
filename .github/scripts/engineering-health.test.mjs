@@ -84,6 +84,8 @@ test("keeps delivery attempts, explicit reverts, and performance provenance dist
   assert.equal(report.productionRum.kind, "production-rum");
   assert.equal(report.syntheticNavigation.timingMs.durationMs.median, 100);
   assert.equal(report.syntheticNavigation.comparisonVerdict, "not evaluated");
+  assert.equal(report.deliveryAndPerformance.production.basis.startsWith("not shown"), true);
+  assert.ok(report.deliveryAndPerformance.apps.every((row) => row.production === null));
 });
 
 test("deployment cancellations, queued work, incomplete results and skips are never successful attempts", () => {
@@ -385,6 +387,9 @@ test("real CLI reads only the requested HEAD window and writes an idempotent rep
   assert.equal(report.commits.count, 2);
   assert.equal(report.commits.explicitRevertCount, 1);
   assert.equal(report.productionRum.status, "unavailable");
+  assert.equal(report.deliveryAndPerformance.throughput.commits, 2);
+  assert.match(report.deliveryAndPerformance.throughput.perAppCommitBasis, /^commits whose/);
+  assert.equal(report.deliveryAndPerformance.production.basis, "unavailable");
   assert.equal(report.status, "NOT VERIFIED");
   assert.equal(f.git(["status", "--porcelain"]), before);
 });

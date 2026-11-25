@@ -1,5 +1,7 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import test from "node:test";
+import { accountApi, describeCommand } from "../../scripts/staging/cloudflare.mjs";
 import {
   firstPartyClientSql,
   isCredentialColumn,
@@ -9,6 +11,7 @@ import {
   classifySecret,
   deriveSecret,
   externalKey,
+  externalSecretsIn,
   externalValues,
   hashClientSecret,
   stagingSecretsFor,
@@ -148,4 +151,70 @@ test("scrub deletes only rows nothing references without a cascade", async () =>
       assert.deepEqual(blocking, [], `${database}: deleting ${table} would violate a foreign key`);
     }
   }
+});
+
+test("external staging secrets come only from STAGING_EXT__ variables", () => {
+  assert.deepEqual(
+    externalSecretsIn({
+      STAGING_EXT__ACCOUNTS__GOOGLE_CLIENT_ID: "id",
+      STAGING_EXT__ACCOUNTS__EMPTY: "",
+      STAGING_ROOT_SECRET: "root",
+      DISCORD_BOT_TOKEN: "production",
+    }),
+    { STAGING_EXT__ACCOUNTS__GOOGLE_CLIENT_ID: "id" },
+  );
+});
+
+test("a failed command is reported without the values of its options", () => {
+  assert.equal(
+    describeCommand("/usr/bin/node", [
+      "/x/vc.js",
+      "deploy",
+      "/src/apps/tinyurl-gateway",
+      "--token",
+      "vercel-secret",
+      "--env",
+      "GATEWAY_SHARED_SECRET=derived",
+    ]),
+    "node /x/vc.js deploy /src/apps/tinyurl-gateway",
+  );
+});
+
+test("the staging deploy workflow hands its runner no secret it does not name", () => {
+  const workflow = readFileSync(".github/workflows/staging-deploy.yml", "utf8");
+  assert.doesNotMatch(workflow, /toJSON\(\s*secrets\s*\)/);
+  for (const [, name, secret] of workflow.matchAll(
+    /^\s+(STAGING_EXT__\w+):\s*\$\{\{\s*secrets\.(\w+)\s*\}\}/gm,
+  ))
+    assert.equal(name, secret);
+});
+
+test("the job that checks out a pull request's code runs it only inside a container", () => {
+  const workflow = readFileSync(".github/workflows/staging-deploy.yml", "utf8");
+  const build = workflow.slice(workflow.indexOf("  build:"), workflow.indexOf("\n  deploy:"));
+  assert.match(build, /ref: \$\{\{ inputs\.ref \}\}/);
+  assert.match(build, /persist-credentials: false/);
+  assert.doesNotMatch(build, /actions\/setup-node|pnpm\/action-setup|actions\/cache/);
+  const commands = [...build.matchAll(/^\s+(?:- )?run: (?:>-|\|)?\s*\n?\s*(\S+)/gm)].map(
+    ([, first]) => first,
+  );
+  assert.deepEqual(new Set(commands), new Set(["git", "docker", "shopt"]));
+});
+
+test("a failed Cloudflare call names its path without the account ID", async (t) => {
+  const account = "0123456789abcdef0123456789abcdef";
+  process.env.CLOUDFLARE_API_TOKEN = "token";
+  process.env.CLOUDFLARE_ACCOUNT_ID = account;
+  const requested = [];
+  t.mock.method(globalThis, "fetch", async (url) => {
+    requested.push(String(url));
+    return new Response(JSON.stringify({ success: false, errors: [{ code: 7003 }] }));
+  });
+  await assert.rejects(accountApi("/d1/database"), (error) => {
+    assert.equal(error.message, 'GET /accounts/:account/d1/database failed: [{"code":7003}]');
+    return true;
+  });
+  assert.deepEqual(requested, [
+    `https://api.cloudflare.com/client/v4/accounts/${account}/d1/database`,
+  ]);
 });

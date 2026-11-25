@@ -32,9 +32,7 @@ export function log(
 }
 
 export function fetchWithTimeout(url: string, init: RequestInit): Promise<Response> {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 30_000);
-  return fetch(url, { ...init, signal: controller.signal }).finally(() => clearTimeout(timer));
+  return fetch(url, { ...init, signal: AbortSignal.timeout(30_000) });
 }
 
 export function requireBotToken(ctx: DiscordImportTickContext): string {

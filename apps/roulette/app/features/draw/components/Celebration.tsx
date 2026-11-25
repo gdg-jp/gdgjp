@@ -1,27 +1,29 @@
-import { useEffect, useRef } from "react";
+import { useCallback } from "react";
 import type { Tier } from "~/features/prizes/prize";
 import { reducedMotion } from "../feedback";
 import { PachiText } from "./PachiText";
 
 export function Stamp({ tier, nearMiss }: { tier: Tier; nearMiss?: boolean }) {
-  const ref = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    if (reducedMotion()) return;
-    ref.current?.animate(
-      tier === "lose"
-        ? [
-            { opacity: 0, translate: "0 -24px" },
-            { opacity: 1, translate: "0 0" },
-          ]
-        : [
-            { opacity: 0, scale: 3 },
-            { opacity: 1, scale: 0.9, offset: 0.55 },
-            { opacity: 1, scale: 1.08, offset: 0.75 },
-            { opacity: 1, scale: 1 },
-          ],
-      { duration: tier === "lose" ? 700 : 600, easing: "cubic-bezier(0.23, 1, 0.32, 1)" },
-    );
-  }, [tier]);
+  const ref = useCallback(
+    (element: HTMLDivElement | null) => {
+      if (!element || reducedMotion()) return;
+      element.animate(
+        tier === "lose"
+          ? [
+              { opacity: 0, translate: "0 -24px" },
+              { opacity: 1, translate: "0 0" },
+            ]
+          : [
+              { opacity: 0, scale: 3 },
+              { opacity: 1, scale: 0.9, offset: 0.55 },
+              { opacity: 1, scale: 1.08, offset: 0.75 },
+              { opacity: 1, scale: 1 },
+            ],
+        { duration: tier === "lose" ? 700 : 600, easing: "cubic-bezier(0.23, 1, 0.32, 1)" },
+      );
+    },
+    [tier],
+  );
   return (
     <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
       <div ref={ref} aria-hidden="true" className="-rotate-6">
@@ -56,15 +58,17 @@ const rayClass: Record<Exclude<RayTone, "rainbow">, string> = {
 const rainbowRays = ["fill-gdg-red", "fill-gdg-yellow", "fill-gdg-green", "fill-gdg-blue"];
 
 export function Sunburst({ tone, fast }: { tone: RayTone; fast?: boolean }) {
-  const ref = useRef<SVGSVGElement>(null);
-  useEffect(() => {
-    if (reducedMotion()) return;
-    const animation = ref.current?.animate(
-      [{ transform: "rotate(0deg)" }, { transform: "rotate(360deg)" }],
-      { duration: fast ? 6000 : 24000, iterations: Number.POSITIVE_INFINITY },
-    );
-    return () => animation?.cancel();
-  }, [fast]);
+  const ref = useCallback(
+    (element: SVGSVGElement | null) => {
+      if (!element || reducedMotion()) return;
+      const animation = element.animate(
+        [{ transform: "rotate(0deg)" }, { transform: "rotate(360deg)" }],
+        { duration: fast ? 6000 : 24000, iterations: Number.POSITIVE_INFINITY },
+      );
+      return () => animation.cancel();
+    },
+    [fast],
+  );
   const rays = 18;
   return (
     <svg
@@ -100,16 +104,18 @@ const flashClass = {
 } as const;
 
 export function Flash({ tone, runKey }: { tone: keyof typeof flashClass; runKey: number }) {
-  const ref = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    if (!runKey || reducedMotion()) return;
-    ref.current?.animate(
-      tone === "win"
-        ? [{ opacity: 0 }, { opacity: 0.45 }, { opacity: 0 }]
-        : [{ opacity: 0 }, { opacity: 0.9 }, { opacity: 0 }, { opacity: 0.6 }, { opacity: 0 }],
-      { duration: tone === "win" ? 450 : 900, easing: "ease-out" },
-    );
-  }, [tone, runKey]);
+  const ref = useCallback(
+    (element: HTMLDivElement | null) => {
+      if (!element || !runKey || reducedMotion()) return;
+      element.animate(
+        tone === "win"
+          ? [{ opacity: 0 }, { opacity: 0.45 }, { opacity: 0 }]
+          : [{ opacity: 0 }, { opacity: 0.9 }, { opacity: 0 }, { opacity: 0.6 }, { opacity: 0 }],
+        { duration: tone === "win" ? 450 : 900, easing: "ease-out" },
+      );
+    },
+    [tone, runKey],
+  );
   return (
     <div
       ref={ref}
@@ -247,31 +253,32 @@ function draw(
 }
 
 export function Confetti({ tier, runKey }: { tier: "jackpot" | "win"; runKey: number }) {
-  const ref = useRef<HTMLCanvasElement>(null);
-  useEffect(() => {
-    const canvas = ref.current;
-    const ctx = canvas?.getContext("2d");
-    if (!runKey || !canvas || !ctx || reducedMotion()) return;
-    const ratio = Math.min(window.devicePixelRatio || 1, 2);
-    const width = window.innerWidth;
-    const height = window.innerHeight;
-    canvas.width = width * ratio;
-    canvas.height = height * ratio;
-    ctx.scale(ratio, ratio);
-    const pieces = spawn(tier, width, height);
-    let frame = 0;
-    const start = performance.now();
-    let last = start;
-    const loop = (now: number) => {
-      const time = (now - start) / 1000;
-      step(pieces, Math.min((now - last) / 1000, 1 / 30), time);
-      last = now;
-      draw(ctx, pieces, time, width, height);
-      if (time < 5.5) frame = requestAnimationFrame(loop);
-      else ctx.clearRect(0, 0, width, height);
-    };
-    frame = requestAnimationFrame(loop);
-    return () => cancelAnimationFrame(frame);
-  }, [tier, runKey]);
+  const ref = useCallback(
+    (canvas: HTMLCanvasElement | null) => {
+      const ctx = canvas?.getContext("2d");
+      if (!runKey || !canvas || !ctx || reducedMotion()) return;
+      const ratio = Math.min(window.devicePixelRatio || 1, 2);
+      const width = window.innerWidth;
+      const height = window.innerHeight;
+      canvas.width = width * ratio;
+      canvas.height = height * ratio;
+      ctx.scale(ratio, ratio);
+      const pieces = spawn(tier, width, height);
+      let frame = 0;
+      const start = performance.now();
+      let last = start;
+      const loop = (now: number) => {
+        const time = (now - start) / 1000;
+        step(pieces, Math.min((now - last) / 1000, 1 / 30), time);
+        last = now;
+        draw(ctx, pieces, time, width, height);
+        if (time < 5.5) frame = requestAnimationFrame(loop);
+        else ctx.clearRect(0, 0, width, height);
+      };
+      frame = requestAnimationFrame(loop);
+      return () => cancelAnimationFrame(frame);
+    },
+    [tier, runKey],
+  );
   return <canvas ref={ref} className="pointer-events-none fixed inset-0 z-50 h-full w-full" />;
 }

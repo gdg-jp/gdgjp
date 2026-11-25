@@ -1,14 +1,24 @@
-# Open findings
+# Findings
 
 Each finding is a counterexample that Alloy found in the model and that was then read
 against `apps/accounts`. Paths are under `apps/accounts`. The verifier prints the current
-steps on every run.
+steps of any open finding on every run.
 
-Both come from one design fact: the membership triggers act once, at the moment the last
-active membership goes away. A write that was decided before that moment and lands after it
-is not seen by the trigger and is not checked again.
+## Open findings
 
-## A1. A request that passed the membership check re-enables or creates a client
+None.
+
+## Fixed findings
+
+Both came from one design fact: the membership triggers acted once, at the moment the last
+active membership went away. A write that was decided before that moment and landed after
+it was not seen by the trigger and was not checked again. Migration
+`migrations/0026_developer_client_revocation_holds_for_late_writes.sql` and
+`app/features/developer-apps/oauth-clients.server.ts` move the check to the late write
+itself. `app/features/developer-apps/oauth-clients.server.revocation.test.ts` replays both
+sequences on the migrated schema in `node:sqlite`; each replay failed before the fix.
+
+### A1. A request that passed the membership check re-enabled or created a client
 
 Property: an enabled developer client belongs to someone with an active chapter
 membership.
@@ -32,13 +42,20 @@ chooses when to send the request and can repeat it. This sequence was replayed o
 `schema.sql` in `node:sqlite` with the statements from the code: after step 3 the client row
 has `disabled = 0` and the owner has no active membership.
 
-With requests that do not overlap, the property holds.
+With requests that do not overlap, the property held.
 
-## A2. A token inserted after the purge works again when the owner returns
+Fix: the `INSERT` of `createDeveloperClient` is an `INSERT ... SELECT ... WHERE EXISTS` on
+an active membership of the owner, and the enabling `UPDATE` of
+`setDeveloperClientEnabled` carries the same `EXISTS`. When the membership is gone at the
+write, the statement changes nothing and the request answers 403. Migration 0026 also
+disables every developer client that was already enabled while its owner had no active
+membership.
 
-Property: a token issued before its client's owner lost membership never works again. The
-migration says the same: restoring a membership does not restore a client's tokens, and
-the owner must enable the client and authorize again.
+### A2. A token inserted after the purge worked again when the owner returned
+
+Property: a token issued before its client was revoked never works again. Migration 0014
+says the same for membership loss: restoring a membership does not restore a client's
+tokens, and the owner must enable the client and authorize again.
 
 1. Someone signs in through a member's client. The token endpoint finds the client enabled.
 2. Before the token rows are inserted, the member loses their last active membership. The
@@ -53,20 +70,35 @@ statements was read in the installed library, not executed. Steps 2 to 5 were re
 `schema.sql` in `node:sqlite`: a token row inserted after the purge is still there after the
 owner returns and writes `disabled = 0`.
 
-`setDeveloperClientEnabled(false)` has the same shape: it deletes tokens in the batch that
-disables the client, and a sign-in in flight inserts its rows afterwards.
+`setDeveloperClientEnabled(false)` had the same shape: it deleted tokens in the batch that
+disabled the client, and a sign-in in flight inserted its rows afterwards. So did a scope
+change in `updateDeveloperClient`.
+
+Fix: a trigger on `oauthClient` (migration 0026) runs whenever a developer client is written
+with `disabled = 1` or with different `scopes`, whichever path writes it: the owner, or the
+membership triggers. It deletes the client's tokens, pending authorization codes, and
+`developerClientGrantCode` records. The `BEFORE INSERT` token triggers of migration 0025
+refuse a token whose code has no record, so the insert of step 3 aborts, before and after
+step 4, and the token endpoint answers `invalid_grant`. The recording trigger now records a
+code only while its client is enabled, so a code issued while the client is disabled can
+never be exchanged. The installed `@better-auth/oauth-provider` copies
+`authorizationCodeId` through refresh rotations, so a rotation in flight fails the same way.
 
 ## Seen while reading, not model-checked
 
-- A grant survives the expiry of the sign-in that created it. Migration 0023 deletes a
-  session's tokens when the session row is deleted. A session that expires is not deleted
-  unless a first-party app asks about it (`app/features/oauth/rp-session.server.ts`). The
-  installed `@better-auth/oauth-provider` refuses an access token whose session expired,
-  but its refresh grant issues new tokens anyway, without a session link. A developer
-  client can therefore keep refreshing after the user's 14-day session ended.
+- A grant survives the expiry of the sign-in that created it. This was written against
+  migration 0023. Since migration 0025 it is the intended model for developer clients: the
+  grant is the user's consent, which the user removes at `/settings/connected-apps`.
 - `packages/gdg-lib/src/auth/bearer.ts` `getBearerIdentity` accepts an access token of any
-  client through userinfo. Together with A1, a token obtained through a client that should
-  be disabled is accepted as a Bearer token by the apps that use it.
+  client through userinfo. With A1 fixed, a client can no longer be enabled for an owner
+  outside every chapter, and UserInfo names the client (`https://gdgs.jp/claims/client`),
+  but the Bearer check itself is unchanged and outside `apps/accounts`.
 - `app/features/auth/auth-redirect.ts` `safeReturnTo` accepts `/<TAB>/evil.example`. The
-  WHATWG URL parser removes the tab and resolves it to `https://evil.example`. Not checked
-  in a browser.
+  WHATWG URL parser removes the tab and resolves it to `https://evil.example` (Node 26
+  `new URL("/\t/evil.example", "https://accounts.gdgs.jp")` gives `https://evil.example/`).
+  It is an open redirect, not a revocation race, and is not fixed here. Not checked in a
+  browser.
+- An authorization request that read the client before a revocation can insert its code
+  after the owner rejoined and enabled the client again; the code is then recorded and
+  works. The user is authorizing at that moment through a client whose owner is a member,
+  so this is treated as a new authorization. See "Bounds and assumptions" in `SKILL.md`.

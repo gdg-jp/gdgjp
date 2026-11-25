@@ -195,9 +195,10 @@ export default function DraftDetail({ loaderData, actionData }: Route.ComponentP
       {canAct && (actor.canReview || actor.canApprove) ? (
         <Card>
           <Form method="post">
+            <input type="hidden" name="version" value={version?.version ?? 0} />
             <Stack>
               <Heading level={2} className="text-lg">
-                {draft.status === "in_review" ? "レビュー" : "承認"}
+                {draft.status === "in_review" ? "レビュー" : "承認"}（版 {version?.version}）
               </Heading>
               <FormField label="コメント" description="差し戻すときは何を直すかを書く">
                 <Textarea name="comment" rows={2} />
@@ -282,7 +283,9 @@ export default function DraftDetail({ loaderData, actionData }: Route.ComponentP
           </Button>
         </Form>
       ) : null}
-      {delivery ? <DeliveryCard view={delivery} busy={busy} /> : null}
+      {delivery ? (
+        <DeliveryCard view={delivery} version={version?.version ?? 0} busy={busy} />
+      ) : null}
       {version && draft.status !== "generating" ? (
         <Card>
           <Form method="post" key={version.version}>

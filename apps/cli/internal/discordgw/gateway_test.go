@@ -179,3 +179,22 @@ func TestBadTokenIsFatal(t *testing.T) {
 		t.Fatalf("Run = %v, want a fatal 4004", err)
 	}
 }
+
+func TestResumeURLAcceptsOnlyDiscordGatewaysOrTheConfiguredOne(t *testing.T) {
+	cases := []struct{ received, want string }{
+		{"wss://gateway-us-east1-b.discord.gg", "wss://gateway-us-east1-b.discord.gg"},
+		{"wss://gateway.discord.gg/", "wss://gateway.discord.gg/"},
+		{"ws://127.0.0.1:1234", "ws://127.0.0.1:1234"},
+		{"ws://gateway.discord.gg", ""},
+		{"wss://evil.example", ""},
+		{"wss://discord.gg.evil.example", ""},
+		{"wss://gateway.discord.gg@evil.example", ""},
+		{"wss://gateway.discord.gg/../x", ""},
+		{"", ""},
+	}
+	for _, c := range cases {
+		if got := resumeURL("ws://127.0.0.1:1234", c.received); got != c.want {
+			t.Errorf("resumeURL(%q) = %q, want %q", c.received, got, c.want)
+		}
+	}
+}

@@ -39,21 +39,23 @@ export function deliverablePost(content: unknown): DeliverablePost | null {
   };
 }
 
+export const NO_TINYURL = "短縮リンクを作るには、設定でキャンペーンを有効化してください";
+
 export function approvalBlockers(
   post: DeliverablePost | null,
-  fallbackUrl: string | null,
-  mediaUrl: string | null = null,
+  setup: { fallbackUrl: string | null; mediaUrl: string | null; tinyurlActive: boolean },
 ): string[] {
   if (!post) return [];
   const out: string[] = [];
-  if (post.attachmentKind === "image" && !mediaUrl)
+  if (post.attachmentKind === "image" && !setup.mediaUrl)
     out.push("画像付きの投稿です。画像を承認する（か、添付する画像の URL を入れる）と承認できます");
   if (post.attachmentKind === "ogp" && !post.ogImage)
     out.push("OGP カードで出す投稿に OGP 画像の URL がありません（OGP-ON-SHORTLINK）");
-  if (post.text.includes("{{shortlink}}") && !post.linkUrl && !fallbackUrl)
+  if (post.text.includes("{{shortlink}}") && !post.linkUrl && !setup.fallbackUrl)
     out.push(
       "短縮リンクの宛先がありません（リンク URL か brief の connpass URL を入れてください）",
     );
+  if (post.text.includes("{{shortlink}}") && !setup.tinyurlActive) out.push(NO_TINYURL);
   return out;
 }
 

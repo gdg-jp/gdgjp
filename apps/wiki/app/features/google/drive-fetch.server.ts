@@ -3,7 +3,5 @@ export function fetchWithTimeout(
   init: RequestInit,
   timeoutMs: number,
 ): Promise<Response> {
-  const controller = new AbortController();
-  const id = setTimeout(() => controller.abort(), timeoutMs);
-  return fetch(url, { ...init, signal: controller.signal }).finally(() => clearTimeout(id));
+  return fetch(url, { ...init, signal: AbortSignal.timeout(timeoutMs) });
 }

@@ -1,7 +1,12 @@
 import { IconButton, Input } from "@gdgjp/design-system";
-import { type FormEvent, useEffect, useRef, useState } from "react";
+import { type FormEvent, useState } from "react";
 import { SendHorizontal, StickyNote } from "~/components/icons";
 import type { Message } from "../protocol";
+
+function scrollListToEnd(item: HTMLLIElement | null) {
+  const list = item?.parentElement;
+  if (list) list.scrollTop = list.scrollHeight;
+}
 
 function time(at: number): string {
   const d = new Date(at);
@@ -24,23 +29,17 @@ export function ChatLog({
   nameOf?: (id: string) => string | undefined;
 }) {
   const [text, setText] = useState("");
-  const listRef = useRef<HTMLOListElement>(null);
-  const count = messages.length;
-  // biome-ignore lint/correctness/useExhaustiveDependencies: scroll on new messages
-  useEffect(() => {
-    const el = listRef.current;
-    if (el) el.scrollTop = el.scrollHeight;
-  }, [count]);
   const submit = (e: FormEvent) => {
     e.preventDefault();
     if (text.trim() && onSend(text)) setText("");
   };
   return (
     <div className="sc-chat">
-      <ol className="sc-chat-list" ref={listRef}>
-        {messages.map((m) => (
+      <ol className="sc-chat-list">
+        {messages.map((m, i) => (
           <li
             key={m.id}
+            ref={i === messages.length - 1 ? scrollListToEnd : undefined}
             className="sc-chat-item"
             data-mine={m.from.id === selfId || undefined}
             data-cue={m.kind === "cue" || undefined}

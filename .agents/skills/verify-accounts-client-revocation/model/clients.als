@@ -2,8 +2,8 @@ module clients
 
 -- accounts.gdgs.jp: developer-owned OAuth clients, their owners' chapter memberships, and
 -- the tokens issued through those clients. Each transition below is one D1 statement or
--- one D1 batch, with the membership triggers of migration 0014 inside the statement that
--- fires them. coverage.json maps every transition to the code it describes.
+-- one D1 batch, with the triggers of migrations 0014, 0025 and 0026 inside the statement
+-- that fires them. coverage.json maps every transition to the code it describes.
 
 sig Chapter {}
 sig User {}
@@ -18,7 +18,9 @@ one sig Db {
   var clients: set Client,
   var disabled: set Client,
   var live: set Token,
-  var issuing: set Token
+  var issuing: set Token,
+  -- developerClientGrantCode: the record of the authorization code behind a token
+  var grants: set Token
 }
 
 abstract sig Pc {}
@@ -61,7 +63,7 @@ pred usable[t: Token] { t in Db.live and enabled[t.client] }
 
 pred sameMemberships { Db.membership' = Db.membership }
 pred sameClients { Db.clients' = Db.clients and Db.disabled' = Db.disabled }
-pred sameTokens { Db.live' = Db.live and Db.issuing' = Db.issuing }
+pred sameTokens { Db.live' = Db.live and Db.issuing' = Db.issuing and Db.grants' = Db.grants }
 pred sameReqsExcept[r: lone Req] {
   all q: Req - r | q.pc' = q.pc and q.op' = q.op and q.by' = q.by and q.subject' = q.subject
 }
@@ -96,6 +98,7 @@ fact init {
   no Db.disabled
   no Db.live
   no Db.issuing
+  no Db.grants
   all r: Req | r.pc = Idle and no r.op and no r.by and no r.subject
   no Ghost.used
   no Ghost.everClient
@@ -110,18 +113,21 @@ fact init {
 -- Any statement or batch that writes memberships rows of one user: join, approve, revert,
 -- remove, leave, the admin's chapter list, a chapter delete. Migration 0014's triggers run
 -- inside it: when the user had an active membership and has none afterwards, every client
--- the user owns is disabled and its tokens are deleted.
+-- the user owns is disabled and its tokens are deleted. Writing disabled = 1 fires migration
+-- 0026's trigger on oauthClient, which also deletes the clients' grant-code records.
 pred membershipChange[u: User] {
   Db.membership' != Db.membership
   all v: User - u | Db.membership'[v] = Db.membership[v]
   (isMember[u] and no Db.membership'[u].Active) implies {
     Db.disabled' = Db.disabled + ownedBy[u]
     Db.live' = Db.live - client.(ownedBy[u])
+    Db.grants' = Db.grants - client.(ownedBy[u])
     Ghost.revoked' = Ghost.revoked + ownedBy[u]
     Ghost.preRevocation' = Ghost.preRevocation + (Db.live + Db.issuing) & client.(ownedBy[u])
   } else {
     Db.disabled' = Db.disabled
     Db.live' = Db.live
+    Db.grants' = Db.grants
     Ghost.revoked' = Ghost.revoked
     Ghost.preRevocation' = Ghost.preRevocation
   }
@@ -156,12 +162,15 @@ pred find[r: Req] {
   log[EFind, r.by, r.subject, none]
 }
 
--- createDeveloperClient: INSERT INTO oauthClient with disabled = 0
+-- createDeveloperClient: INSERT INTO oauthClient ... SELECT with disabled = 0, WHERE the
+-- owner has an active membership. When the owner has none, the statement inserts nothing
+-- and the request ends with 403 (abort).
 pred create[r: Req, c: Client] {
   r.pc = Admitted
   r.op = Create
   c not in Ghost.everClient
   c.owner = r.by
+  isMember[r.by]
   Db.clients' = Db.clients + c
   Db.disabled' = Db.disabled
   Ghost.everClient' = Ghost.everClient + c
@@ -174,9 +183,12 @@ pred create[r: Req, c: Client] {
 }
 
 -- setDeveloperClientEnabled(true): UPDATE oauthClient SET disabled = 0 WHERE clientId, userId
+-- and the owner has an active membership. When the owner has none, the statement changes
+-- nothing and the request ends with 403 (abort).
 pred enable[r: Req] {
   r.pc = Found
   r.op = Enable
+  isMember[r.by]
   Db.disabled' = Db.disabled - (r.subject & Db.clients)
   Db.clients' = Db.clients
   finish[r]
@@ -184,48 +196,61 @@ pred enable[r: Req] {
   log[EEnable, r.by, r.subject, none]
 }
 
--- setDeveloperClientEnabled(false): the same UPDATE with disabled = 1, and both token DELETEs
+-- setDeveloperClientEnabled(false): the same UPDATE with disabled = 1. Migration 0026's
+-- trigger on oauthClient deletes the client's tokens and grant-code records in it.
 pred disable[r: Req] {
   r.pc = Found
   r.op = Disable
   Db.disabled' = Db.disabled + (r.subject & Db.clients)
   Db.clients' = Db.clients
   Db.live' = Db.live - client.(r.subject)
+  Db.grants' = Db.grants - client.(r.subject)
   Db.issuing' = Db.issuing
+  Ghost.preRevocation' = Ghost.preRevocation + (Db.live + Db.issuing) & client.(r.subject & Db.clients)
+  Ghost.used' = Ghost.used
+  Ghost.everClient' = Ghost.everClient
+  Ghost.revoked' = Ghost.revoked
   finish[r]
-  sameMemberships and sameReqsExcept[r] and sameHistory
+  sameMemberships and sameReqsExcept[r]
   log[EDisable, r.by, r.subject, none]
 }
 
--- updateDeveloperClient: UPDATE of name, URIs and scopes; token DELETEs when scopes changed
+-- updateDeveloperClient: UPDATE of name, URIs and scopes. When the scopes change, migration
+-- 0026's trigger deletes the client's tokens and grant-code records in it.
 pred update[r: Req] {
   r.pc = Found
   r.op = Update
-  Db.live' = Db.live or Db.live' = Db.live - client.(r.subject)
+  (Db.live' = Db.live and Db.grants' = Db.grants)
+    or (Db.live' = Db.live - client.(r.subject) and Db.grants' = Db.grants - client.(r.subject))
   Db.issuing' = Db.issuing
   finish[r]
   sameMemberships and sameClients and sameReqsExcept[r] and sameHistory
   log[EUpdate, r.by, r.subject, none]
 }
 
--- deleteDeveloperClient: DELETE FROM oauthClient; token rows cascade
+-- deleteDeveloperClient: DELETE FROM oauthClient; token and grant-code rows cascade
 pred delete[r: Req] {
   r.pc = Found
   r.op = Delete
   Db.clients' = Db.clients - r.subject
   Db.disabled' = Db.disabled - r.subject
   Db.live' = Db.live - client.(r.subject)
+  Db.grants' = Db.grants - client.(r.subject)
   Db.issuing' = Db.issuing
   finish[r]
   sameMemberships and sameReqsExcept[r] and sameHistory
   log[EDelete, r.by, r.subject, none]
 }
 
--- Better Auth token endpoint: validateClientCredentials rejects a disabled client
+-- Better Auth token endpoint: validateClientCredentials rejects a disabled client, then the
+-- code or refresh token is read. Its grant-code record was written when the code was issued
+-- (migration 0026 records a code only while its client is enabled). Granting the record
+-- here, at the read, allows at least every record the code can have.
 pred issueBegin[t: Token] {
   t not in Ghost.used
   enabled[t.client]
   Db.issuing' = Db.issuing + t
+  Db.grants' = Db.grants + t
   Db.live' = Db.live
   Ghost.used' = Ghost.used + t
   Ghost.everClient' = Ghost.everClient
@@ -235,22 +260,27 @@ pred issueBegin[t: Token] {
   log[EIssueBegin, none, t.client, t]
 }
 
--- Better Auth token endpoint: INSERT of the token rows, a later statement
+-- Better Auth token endpoint: INSERT of the token rows, a later statement. Migration 0025's
+-- BEFORE INSERT triggers abort it unless the grant-code record still exists.
 pred issueFinish[t: Token] {
   t in Db.issuing
   t.client in Db.clients
+  t in Db.grants
   Db.issuing' = Db.issuing - t
   Db.live' = Db.live + t
+  Db.grants' = Db.grants
   sameMemberships and sameClients and sameReqsExcept[none] and sameHistory
   log[EIssueFinish, none, t.client, t]
 }
 
--- The INSERT fails on the clientId foreign key when the client row is gone
+-- The INSERT fails on the clientId foreign key when the client row is gone, or on the
+-- grant-code triggers when the record was deleted
 pred issueRejected[t: Token] {
   t in Db.issuing
-  t.client not in Db.clients
+  t.client not in Db.clients or t not in Db.grants
   Db.issuing' = Db.issuing - t
   Db.live' = Db.live
+  Db.grants' = Db.grants
   sameMemberships and sameClients and sameReqsExcept[none] and sameHistory
   log[EIssueRejected, none, t.client, t]
 }
@@ -308,7 +338,8 @@ assert EnabledClientHasMemberOwnerWhenSerial {
   serial implies always (all c: Db.clients - Db.disabled | isMember[c.owner])
 }
 
--- A token issued before its client's owner lost membership never works again.
+-- A token issued before its client was revoked, because its owner lost membership or
+-- disabled it, never works again.
 assert RevokedTokenStaysDead {
   consoleSerial implies always (no t: Ghost.preRevocation | usable[t])
 }
@@ -322,6 +353,9 @@ pred TokenWorks { eventually (some t: Token | usable[t]) }
 pred MembershipLossRevokes { eventually (some Ghost.revoked and some Ghost.preRevocation) }
 pred OwnerReenablesAfterReturning {
   serial and eventually (some c: Ghost.revoked | enabled[c] and isMember[c.owner])
+}
+pred NewGrantWorksAfterReturning {
+  serial and eventually (some t: Token - Ghost.preRevocation | usable[t] and t.client in Ghost.revoked)
 }
 
 check EnabledClientHasMemberOwner
@@ -337,4 +371,6 @@ run TokenWorks
 run MembershipLossRevokes
   for 3 but exactly 2 Chapter, exactly 2 User, exactly 2 Client, exactly 3 Token, exactly 2 Req, 14 steps
 run OwnerReenablesAfterReturning
+  for 3 but exactly 2 Chapter, exactly 2 User, exactly 2 Client, exactly 3 Token, exactly 2 Req, 14 steps
+run NewGrantWorksAfterReturning
   for 3 but exactly 2 Chapter, exactly 2 User, exactly 2 Client, exactly 3 Token, exactly 2 Req, 14 steps

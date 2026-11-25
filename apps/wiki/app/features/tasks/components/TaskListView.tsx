@@ -1,4 +1,5 @@
-import { type ReactNode, Suspense, useCallback, useEffect, useState } from "react";
+import { useValueChange } from "@gdgjp/gdg-lib/react";
+import { type ReactNode, Suspense, useCallback, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Await, useFetcher, useLoaderData, useRevalidator } from "react-router";
 import ConfirmDialog from "~/components/ConfirmDialog";
@@ -48,12 +49,12 @@ export function TaskListView() {
   const [shareOpen, setShareOpen] = useState(false);
   const [archiveDialogOpen, setArchiveDialogOpen] = useState(false);
 
-  useEffect(() => {
-    if (settingsFetcher.data?.ok) {
+  useValueChange(settingsFetcher.data, (result) => {
+    if (result?.ok) {
       setEditMode(false);
       revalidator.revalidate();
     }
-  }, [settingsFetcher.data, revalidator]);
+  });
 
   const title = displayLang === "en" ? page.titleEn || page.titleJa : page.titleJa || page.titleEn;
 

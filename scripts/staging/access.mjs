@@ -60,7 +60,7 @@ function requireEnv(name) {
   return value;
 }
 
-async function api(path, { method = "GET", body } = {}) {
+async function request(path, shown, { method = "GET", body } = {}) {
   const response = await fetch(`${API}${path}`, {
     method,
     headers: {
@@ -71,8 +71,13 @@ async function api(path, { method = "GET", body } = {}) {
   });
   const json = await response.json();
   if (!json.success)
-    throw new Error(`${method} ${path} failed: ${JSON.stringify(json.errors ?? json)}`);
+    throw new Error(`${method} ${shown} failed: ${JSON.stringify(json.errors ?? json)}`);
   return json.result;
+}
+
+function accountApi(path, options) {
+  const account = requireEnv("CLOUDFLARE_ACCOUNT_ID");
+  return request(`/accounts/${account}${path}`, `/accounts/:account${path}`, options);
 }
 
 function storeGithubSecret(name, value) {
@@ -84,8 +89,8 @@ function storeGithubSecret(name, value) {
   if (result.status !== 0) throw new Error(`gh secret set ${name} failed: ${result.stderr}`);
 }
 
-async function ensureIdentityProvider(account) {
-  const providers = await api(`/accounts/${account}/access/identity_providers`);
+async function ensureIdentityProvider() {
+  const providers = await accountApi("/access/identity_providers");
   const existing = providers.find(({ name }) => name === IDENTITY_PROVIDER_NAME);
   const body = {
     name: IDENTITY_PROVIDER_NAME,
@@ -96,22 +101,21 @@ async function ensureIdentityProvider(account) {
     },
   };
   if (existing) {
-    await api(`/accounts/${account}/access/identity_providers/${existing.id}`, {
+    await accountApi(`/access/identity_providers/${existing.id}`, {
       method: "PUT",
       body,
     });
     return existing.id;
   }
-  return (await api(`/accounts/${account}/access/identity_providers`, { method: "POST", body })).id;
+  return (await accountApi("/access/identity_providers", { method: "POST", body })).id;
 }
 
-async function ensureServiceToken(account) {
-  const tokens = await api(`/accounts/${account}/access/service_tokens`);
+async function ensureServiceToken() {
+  const tokens = await accountApi("/access/service_tokens");
   const existing = tokens.find(({ name }) => name === SERVICE_TOKEN_NAME);
   if (existing && !process.argv.includes("--rotate-service-token")) return existing.id;
-  if (existing)
-    await api(`/accounts/${account}/access/service_tokens/${existing.id}`, { method: "DELETE" });
-  const created = await api(`/accounts/${account}/access/service_tokens`, {
+  if (existing) await accountApi(`/access/service_tokens/${existing.id}`, { method: "DELETE" });
+  const created = await accountApi("/access/service_tokens", {
     method: "POST",
     body: { name: SERVICE_TOKEN_NAME, duration: "8760h" },
   });
@@ -120,27 +124,26 @@ async function ensureServiceToken(account) {
   return created.id;
 }
 
-async function ensureApplication(account, slot, ids) {
-  const apps = await api(`/accounts/${account}/access/apps`);
+async function ensureApplication(slot, ids) {
+  const apps = await accountApi("/access/apps");
   const body = applicationBody({ slot, ...ids });
   const existing = apps.find(({ name }) => name === body.name);
   if (existing) {
-    await api(`/accounts/${account}/access/apps/${existing.id}`, { method: "PUT", body });
+    await accountApi(`/access/apps/${existing.id}`, { method: "PUT", body });
     return existing.id;
   }
-  return (await api(`/accounts/${account}/access/apps`, { method: "POST", body })).id;
+  return (await accountApi("/access/apps", { method: "POST", body })).id;
 }
 
 export async function setup() {
-  const account = requireEnv("CLOUDFLARE_ACCOUNT_ID");
-  const organization = await api(`/accounts/${account}/access/organizations`);
+  const organization = await accountApi("/access/organizations");
   process.stdout.write(
     `GitHub OAuth callback: https://${organization.auth_domain}/cdn-cgi/access/callback\n`,
   );
-  const identityProviderId = await ensureIdentityProvider(account);
-  const serviceTokenId = await ensureServiceToken(account);
+  const identityProviderId = await ensureIdentityProvider();
+  const serviceTokenId = await ensureServiceToken();
   for (const slot of SLOTS) {
-    await ensureApplication(account, slot, { identityProviderId, serviceTokenId });
+    await ensureApplication(slot, { identityProviderId, serviceTokenId });
     process.stdout.write(
       `${applicationName(slot)}: ${slotDestinations(slot)
         .map(({ uri }) => uri)

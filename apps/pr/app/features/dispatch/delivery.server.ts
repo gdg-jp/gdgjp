@@ -1,9 +1,9 @@
 import type { CampaignAccess } from "~/features/campaigns/access.server";
-import type { Draft } from "~/features/drafts/draft";
+import { type Draft, approvedForSending, seenVersion } from "~/features/drafts/draft";
 import { latestVersion, setDispatchMedia } from "~/features/drafts/draft.repository.server";
-import { currentContent, editDraft } from "~/features/drafts/review.server";
+import { STALE_VERSION, currentContent, editDraft } from "~/features/drafts/review.server";
 import { enqueueAsset } from "~/features/jobs/enqueue.server";
-import { linkForItem } from "~/features/links/link.repository.server";
+import { linkForVersion } from "~/features/links/link.repository.server";
 import { getItem } from "~/features/schedule/item.repository.server";
 import { deliverablePost, jstLabel } from "./content";
 import { delegateTarget } from "./delegate.server";
@@ -13,6 +13,7 @@ import { listTargets } from "./target.repository.server";
 
 export type DeliveryView = {
   dispatchable: boolean;
+  approvedVersion: number | null;
   at: string | null;
   shortUrl: string | null;
   linkUrl: string | null;
@@ -24,6 +25,7 @@ export type DeliveryView = {
     label: string;
     status: string;
     statusLabel: string;
+    needsApproval: boolean;
     canApprove: boolean;
     error: string | null;
     snsPostId: string | null;
@@ -45,9 +47,13 @@ export async function deliveryView(
     isMember: access.members.some((m) => m.userId === access.user.id),
     isAdmin: access.user.isAdmin,
   };
-  const link = await linkForItem(env.DB, item.id);
+  const approvedVersion = approvedForSending(draft) ? draft.approvedVersion : null;
+  const link = approvedVersion
+    ? await linkForVersion(env.DB, { draftId: draft.id, version: approvedVersion })
+    : null;
   return {
     dispatchable: draft.status === "approved",
+    approvedVersion,
     at: jstLabel(item.dueAt),
     shortUrl: link?.shortUrl ?? null,
     linkUrl: post?.linkUrl ?? null,
@@ -58,7 +64,14 @@ export async function deliveryView(
       id: t.id,
       label: t.account.label,
       status: t.status,
-      statusLabel: TARGET_STATUS_LABELS[t.status],
+      statusLabel:
+        t.status === "approved" && t.approvedVersion !== approvedVersion
+          ? "承認し直しが必要"
+          : TARGET_STATUS_LABELS[t.status],
+      needsApproval:
+        t.status === "pending" ||
+        t.status === "failed" ||
+        (t.status === "approved" && t.approvedVersion !== approvedVersion),
       canApprove: canApproveTarget(t.account, viewer),
       error: t.error,
       snsPostId: t.externalRef?.snsPostId ?? null,
@@ -79,8 +92,11 @@ export async function deliveryAction(
   form: FormData,
 ): Promise<Result | null> {
   const targetId = Number(form.get("target"));
-  if (intent === "target-approve")
-    return fromDispatch(await approveTarget(env, access, draft, targetId));
+  if (intent === "target-approve") {
+    const version = seenVersion(form);
+    if (version === null) return { ok: false, errors: [STALE_VERSION] };
+    return fromDispatch(await approveTarget(env, access, draft, targetId, version));
+  }
   if (intent === "target-delegate")
     return fromDispatch(await delegateTarget(env, access, draft, targetId));
   if (intent === "target-skip") {

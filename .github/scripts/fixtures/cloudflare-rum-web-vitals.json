@@ -1,0 +1,118 @@
+{
+  "data": {
+    "viewer": {
+      "accounts": [
+        {
+          "rumWebVitalsEventsAdaptiveGroups": [
+            {
+              "count": 1840,
+              "avg": { "sampleInterval": 1 },
+              "sum": {
+                "visits": 1210,
+                "ttfbTotal": 1800,
+                "fcpTotal": 1790,
+                "lcpTotal": 1702,
+                "inpTotal": 640,
+                "clsTotal": 1755
+              },
+              "dimensions": { "requestHost": "wiki.gdgs.jp" },
+              "quantiles": {
+                "timeToFirstByteP50": 182000,
+                "timeToFirstByteP75": 311000,
+                "timeToFirstByteP90": 540000,
+                "timeToFirstByteP99": 1320000,
+                "firstContentfulPaintP50": 702000,
+                "firstContentfulPaintP75": 1015000,
+                "firstContentfulPaintP90": 1610000,
+                "firstContentfulPaintP99": 3880000,
+                "largestContentfulPaintP50": 1104000,
+                "largestContentfulPaintP75": 1712000,
+                "largestContentfulPaintP90": 2650000,
+                "largestContentfulPaintP99": 5210000,
+                "interactionToNextPaintP50": 64000,
+                "interactionToNextPaintP75": 112000,
+                "interactionToNextPaintP90": 208000,
+                "interactionToNextPaintP99": 496000,
+                "cumulativeLayoutShiftP50": 0.01,
+                "cumulativeLayoutShiftP75": 0.04,
+                "cumulativeLayoutShiftP90": 0.11,
+                "cumulativeLayoutShiftP99": 0.32
+              }
+            },
+            {
+              "count": 96,
+              "avg": { "sampleInterval": 1 },
+              "sum": {
+                "visits": 71,
+                "ttfbTotal": 96,
+                "fcpTotal": 95,
+                "lcpTotal": 93,
+                "inpTotal": 0,
+                "clsTotal": 94
+              },
+              "dimensions": { "requestHost": "gdgs.jp" },
+              "quantiles": {
+                "timeToFirstByteP50": 95000,
+                "timeToFirstByteP75": 140000,
+                "timeToFirstByteP90": 230000,
+                "timeToFirstByteP99": 610000,
+                "firstContentfulPaintP50": 420000,
+                "firstContentfulPaintP75": 610000,
+                "firstContentfulPaintP90": 990000,
+                "firstContentfulPaintP99": 2100000,
+                "largestContentfulPaintP50": 680000,
+                "largestContentfulPaintP75": 930000,
+                "largestContentfulPaintP90": 1500000,
+                "largestContentfulPaintP99": 3300000,
+                "interactionToNextPaintP50": -1,
+                "interactionToNextPaintP75": -1,
+                "interactionToNextPaintP90": -1,
+                "interactionToNextPaintP99": -1,
+                "cumulativeLayoutShiftP50": 0,
+                "cumulativeLayoutShiftP75": 0.002,
+                "cumulativeLayoutShiftP90": 0.03,
+                "cumulativeLayoutShiftP99": 0.09
+              }
+            },
+            {
+              "count": 12,
+              "avg": { "sampleInterval": 1 },
+              "sum": {
+                "visits": 4,
+                "ttfbTotal": 12,
+                "fcpTotal": 12,
+                "lcpTotal": 12,
+                "inpTotal": 3,
+                "clsTotal": 12
+              },
+              "dimensions": { "requestHost": "wiki-pr-12.staging.gdgs.jp" },
+              "quantiles": {
+                "timeToFirstByteP50": 410000,
+                "timeToFirstByteP75": 520000,
+                "timeToFirstByteP90": 600000,
+                "timeToFirstByteP99": 700000,
+                "firstContentfulPaintP50": 900000,
+                "firstContentfulPaintP75": 1100000,
+                "firstContentfulPaintP90": 1300000,
+                "firstContentfulPaintP99": 1500000,
+                "largestContentfulPaintP50": 1300000,
+                "largestContentfulPaintP75": 1600000,
+                "largestContentfulPaintP90": 1900000,
+                "largestContentfulPaintP99": 2200000,
+                "interactionToNextPaintP50": 80000,
+                "interactionToNextPaintP75": 90000,
+                "interactionToNextPaintP90": 100000,
+                "interactionToNextPaintP99": 110000,
+                "cumulativeLayoutShiftP50": 0,
+                "cumulativeLayoutShiftP75": 0,
+                "cumulativeLayoutShiftP90": 0,
+                "cumulativeLayoutShiftP99": 0
+              }
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "errors": null
+}

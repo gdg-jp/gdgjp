@@ -117,26 +117,28 @@ as SHA-256 hashes in `oauthClient`; source secrets remain Wrangler secrets.
 
 Migration history is non-trivial: Better Auth was added in 0002, removed in 0011, and restored with
 the current provider in 0013. Migration 0014 installs membership triggers that disable individually
-owned clients and revoke their tokens when their owner loses their final active membership. The
-`user` table must only be changed in place: dropping/recreating it can cascade-delete `memberships`
+owned clients and revoke their tokens when their owner loses their final active membership.
+Migration 0026 makes that hold for writes decided before the loss and landing after it:
+
+- `createDeveloperClient` and `setDeveloperClientEnabled(true)` write an enabled client only when
+  the owner has an active membership in the same statement, and answer 403 otherwise.
+- The `developer_client_revocation_purges_grants` trigger on `oauthClient` deletes a developer
+  client's tokens, pending authorization codes and `developerClientGrantCode` records whenever the
+  client is written with `disabled = 1` (by its owner or by the membership triggers) or with new
+  `scopes`. The console code no longer deletes tokens itself. A code exchange or rotation that read
+  its code before then fails on the 0025 token triggers, also after the client is enabled again.
+- A developer-client authorization code is recorded only while its client is enabled.
+
+Apply migration 0026 before deploying the code that relies on it: the new console no longer
+deletes tokens when a client is disabled or its scopes change. The migration also disables every
+developer client that is enabled while its owner has no active membership, and deletes the tokens,
+codes and grant records of every disabled developer client. The `verify-accounts-client-revocation`
+skill model-checks this design. The `user` table must only be changed in place: dropping/recreating it can cascade-delete `memberships`
 under D1's migration transaction behavior.
 
 ## Bindings and secrets
 
-- `DB`: D1 `gdgjp-accounts-db`
-- `ASSETS`: static assets from `./build/client`
-- Secrets: `BETTER_AUTH_SECRET`, `GOOGLE_CLIENT_SECRET`, `RESEND_API_KEY`, and one
-  `<APP>_CLIENT_SECRET` per trusted RP
-
+Trusted RPs each have an `<APP>_CLIENT_SECRET` Wrangler secret; `pnpm check:apps` keeps their
+client IDs, redirect URLs, `.dev.vars.example` entries, and `collectSpecs` tuples in step.
 After changing a client ID, secret, redirect URI, or post-logout URI, deploy and run
 `/admin/seed-clients` again.
-
-## Commands
-
-```sh
-pnpm --filter @gdgjp/accounts dev
-pnpm --filter @gdgjp/accounts test
-pnpm --filter @gdgjp/accounts typecheck
-pnpm --filter @gdgjp/accounts migrate:local
-pnpm --filter @gdgjp/accounts migrate:remote
-```

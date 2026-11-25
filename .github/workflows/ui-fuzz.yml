@@ -1,0 +1,311 @@
+name: UI fuzz (staging)
+
+on:
+  workflow_dispatch:
+    inputs:
+      slot:
+        description: Staging slot to fuzz; it must have a successful deployment
+        required: true
+        type: choice
+        options: [stg-1, stg-2, stg-3]
+      apps:
+        description: Comma-separated apps (accounts, wiki, pr, ...); empty fuzzes Accounts and every relying party
+        required: false
+        type: string
+      minutes:
+        description: Minutes of exploration per app and seed
+        required: false
+        type: string
+        default: "10"
+      seeds:
+        description: Comma-separated seeds; empty uses the fixed seeds plus four dated seeds
+        required: false
+        type: string
+      bombadil:
+        description: Also explore each app with Bombadil (no seed; replays from a trace)
+        required: false
+        type: boolean
+        default: false
+      open_fix_prs:
+        description: Ask GDG-chan's Codex agent to open a draft fix PR for each new failure
+        required: false
+        type: boolean
+        default: false
+      max_fix_prs:
+        description: Upper bound on fix PRs opened by this run
+        required: false
+        type: string
+        default: "3"
+
+permissions: {}
+
+env:
+  NODE_VERSION: "22"
+  CODEX_VERSION: "0.171.0"
+
+jobs:
+  target:
+    name: Check the slot's deployment
+    if: vars.STAGING_ENABLED == 'true' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      deployments: read
+    outputs:
+      deployment: ${{ steps.check.outputs.deployment }}
+    steps:
+      - id: check
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SLOT: ${{ inputs.slot }}
+        run: |
+          deployment=$(gh api "repos/${GITHUB_REPOSITORY}/deployments?environment=${SLOT}&per_page=1" --jq '.[0]')
+          if [ -z "$deployment" ] || [ "$deployment" = null ]; then
+            echo "::error::${SLOT} has no deployment"
+            exit 1
+          fi
+          id=$(jq -r .id <<<"$deployment")
+          state=$(gh api "repos/${GITHUB_REPOSITORY}/deployments/${id}/statuses?per_page=1" --jq '.[0].state')
+          if [ "$state" != success ]; then
+            echo "::error::The latest ${SLOT} deployment is ${state:-unknown}, not success"
+            exit 1
+          fi
+          description=$(jq -r '"\(.description) at \(.sha[0:12])"' <<<"$deployment" | tr -cd '[:alnum:] #:._-')
+          echo "deployment=$description" >> "$GITHUB_OUTPUT"
+
+  fuzz:
+    name: Fuzz ${{ inputs.slot }}
+    needs: target
+    runs-on: ubuntu-24.04
+    timeout-minutes: 300
+    environment: staging
+    concurrency:
+      group: staging-${{ inputs.slot }}
+      cancel-in-progress: false
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          submodules: false
+          persist-credentials: false
+      - name: Initialize shared UI submodule
+        run: git submodule update --init packages/design-system
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Install Playwright browser
+        run: pnpm --filter @gdgjp/ui-properties exec playwright install --with-deps chromium
+      - name: Check that the Access token stays on the slot's hosts
+        env:
+          UI_PROPERTIES_REQUIRE_BROWSER: "1"
+          UI_PROPERTIES_REQUIRE_BOMBADIL: ${{ inputs.bombadil && '1' || '' }}
+        run: pnpm --filter @gdgjp/ui-properties exec vitest run src/access.test.ts src/forwarder.test.ts src/explore.test.ts fuzz/evidence.test.mjs
+      - name: Mint a throwaway fuzz user without memberships
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          STAGING_ROOT_SECRET: ${{ secrets.STAGING_ROOT_SECRET }}
+          SLOT: ${{ inputs.slot }}
+          APPS: ${{ inputs.apps }}
+        run: node .github/scripts/ui-fuzz.mjs session --slot "$SLOT" --apps "$APPS" --out "$RUNNER_TEMP/ui-fuzz"
+      - name: Explore the slot
+        env:
+          CF_ACCESS_CLIENT_ID: ${{ secrets.STAGING_ACCESS_CLIENT_ID }}
+          CF_ACCESS_CLIENT_SECRET: ${{ secrets.STAGING_ACCESS_CLIENT_SECRET }}
+          UI_PROPERTY_PROFILE: long
+          UI_PROPERTY_MINUTES: ${{ inputs.minutes }}
+          UI_PROPERTY_SEEDS: ${{ inputs.seeds }}
+        run: |
+          config="$RUNNER_TEMP/ui-fuzz/fuzz.json"
+          export UI_FUZZ_TARGETS=$(jq -r .targets "$config")
+          export UI_FUZZ_ACCOUNTS_URL=$(jq -r .accountsUrl "$config")
+          export UI_FUZZ_DOMAIN=$(jq -r .domain "$config")
+          export UI_FUZZ_SESSION_FILE="$RUNNER_TEMP/ui-fuzz/storage-state.json"
+          export UI_PROPERTY_FAILURES_DIR="$RUNNER_TEMP/ui-fuzz-failures"
+          pnpm --filter @gdgjp/ui-properties exec playwright test --config fuzz/playwright.config.ts
+      - name: Explore the slot with Bombadil
+        if: always() && inputs.bombadil
+        env:
+          CF_ACCESS_CLIENT_ID: ${{ secrets.STAGING_ACCESS_CLIENT_ID }}
+          CF_ACCESS_CLIENT_SECRET: ${{ secrets.STAGING_ACCESS_CLIENT_SECRET }}
+          MINUTES: ${{ inputs.minutes }}
+        run: |
+          status=0
+          domain=$(jq -r .domain "$RUNNER_TEMP/ui-fuzz/fuzz.json")
+          for target in $(jq -r '.targets | split(",")[]' "$RUNNER_TEMP/ui-fuzz/fuzz.json"); do
+            url=${target#*=}
+            cookies="$RUNNER_TEMP/ui-fuzz/bombadil-cookies-${target%%=*}"
+            node .github/scripts/ui-fuzz.mjs access-cookie --url "$url/" --domain "$domain" --out "$cookies" \
+              --values "$RUNNER_TEMP/ui-fuzz-scan/access-cookies" || { status=1; continue; }
+            CF_ACCESS_CLIENT_ID= CF_ACCESS_CLIENT_SECRET= BOMBADIL_COOKIE_FILE="$cookies" \
+              UI_PROPERTY_FAILURES_DIR="$RUNNER_TEMP/ui-fuzz-failures" \
+              node packages/ui-properties/scripts/bombadil.mjs explore "$url" \
+                --time-limit "${MINUTES}m" --allow-url "https://*.${domain}/*" \
+                --out "$RUNNER_TEMP/ui-fuzz-bombadil" || status=1
+          done
+          exit $status
+      - name: Remove the fuzz user
+        if: always()
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          node .github/scripts/ui-fuzz.mjs cleanup --out "$RUNNER_TEMP/ui-fuzz"
+          rm -rf "$RUNNER_TEMP/ui-fuzz"
+      - name: Check the evidence for the Access token
+        id: scan
+        if: always()
+        env:
+          CF_ACCESS_CLIENT_ID: ${{ secrets.STAGING_ACCESS_CLIENT_ID }}
+          CF_ACCESS_CLIENT_SECRET: ${{ secrets.STAGING_ACCESS_CLIENT_SECRET }}
+        run: >-
+          node packages/ui-properties/scripts/secret-scan.mjs
+          --env CF_ACCESS_CLIENT_ID --env CF_ACCESS_CLIENT_SECRET
+          --values "CF_Authorization=$RUNNER_TEMP/ui-fuzz-scan/access-cookies"
+          "$RUNNER_TEMP/ui-fuzz-failures/"
+          packages/ui-properties/test-results/
+          packages/ui-properties/playwright-report/
+          "$RUNNER_TEMP/ui-fuzz-bombadil/"
+      - name: Upload failures
+        if: always() && steps.scan.outcome == 'success'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ui-fuzz-failures
+          path: ${{ runner.temp }}/ui-fuzz-failures/
+          if-no-files-found: ignore
+          retention-days: 14
+      - name: Upload traces
+        if: always() && steps.scan.outcome == 'success'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ui-fuzz-traces
+          path: |
+            packages/ui-properties/test-results/
+            packages/ui-properties/playwright-report/
+            ${{ runner.temp }}/ui-fuzz-bombadil/
+          if-no-files-found: ignore
+          retention-days: 7
+
+  issues:
+    name: File deduplicated issues
+    needs: [target, fuzz]
+    if: always() && needs.target.result == 'success' && needs.fuzz.result != 'cancelled'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      issues: write
+    outputs:
+      count: ${{ steps.file.outputs.count }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          sparse-checkout: .github/scripts
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      - uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          name: ui-fuzz-failures
+          path: ${{ runner.temp }}/failures
+      - id: file
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ github.token }}
+          SLOT: ${{ inputs.slot }}
+          DEPLOYMENT: ${{ needs.target.outputs.deployment }}
+        run: |
+          node .github/scripts/ui-fuzz.mjs dedupe "$RUNNER_TEMP/failures" --out "$RUNNER_TEMP/groups.json"
+          node .github/scripts/ui-fuzz.mjs summarize "$RUNNER_TEMP/failures" >> "$GITHUB_STEP_SUMMARY"
+          if [ "$(jq length "$RUNNER_TEMP/groups.json")" = 0 ]; then
+            echo "[]" > "$RUNNER_TEMP/issues.json"
+          else
+            gh label create ui-fuzz --repo "$GITHUB_REPOSITORY" --color B60205 \
+              --description "Found by the staging UI fuzz workflow" 2>/dev/null || true
+            node .github/scripts/ui-fuzz.mjs issues --failures "$RUNNER_TEMP/groups.json" \
+              --out "$RUNNER_TEMP/issues.json" --slot "$SLOT" --deployment "$DEPLOYMENT"
+          fi
+          echo "count=$(jq '[.[] | select(.created)] | length' "$RUNNER_TEMP/issues.json")" >> "$GITHUB_OUTPUT"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ui-fuzz-issues
+          path: ${{ runner.temp }}/issues.json
+          retention-days: 14
+
+  fix:
+    name: Propose fixes
+    needs: issues
+    if: inputs.open_fix_prs && needs.issues.result == 'success' && needs.issues.outputs.count != '0'
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    environment: ai-review
+    concurrency:
+      group: codex-auth
+      cancel-in-progress: false
+    permissions:
+      actions: write
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      - name: Install Codex
+        run: npm install --global "@openai/codex@${CODEX_VERSION}"
+      - name: Allow the Codex sandbox to create user namespaces
+        run: sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+      - name: Restore Codex login
+        id: restore
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          CODEX_AUTH_KEY: ${{ secrets.CODEX_AUTH_KEY }}
+          CODEX_ACCOUNT_SHA256: ${{ secrets.CODEX_ACCOUNT_SHA256 }}
+        run: |
+          echo "CODEX_HOME=$RUNNER_TEMP/codex-home" >> "$GITHUB_ENV"
+          node .github/scripts/codex-auth.mjs restore "$RUNNER_TEMP/codex-home"
+      - uses: actions/download-artifact@v4
+        with:
+          name: ui-fuzz-issues
+          path: ${{ runner.temp }}/issues
+      - name: Ask Codex for a fix per new failure
+        env:
+          GDG_CHAN_APP_ID: ${{ vars.GDG_CHAN_APP_ID }}
+          GDG_CHAN_PRIVATE_KEY: ${{ secrets.GDG_CHAN_PRIVATE_KEY }}
+          CODEX_MODEL: ${{ vars.CODEX_REVIEW_MODEL || 'gpt-6.2-astra' }}
+          CODEX_EFFORT: ${{ vars.CODEX_REVIEW_EFFORT || 'medium' }}
+          MAX: ${{ inputs.max_fix_prs }}
+        run: |
+          jq '[.[] | select(.created)]' "$RUNNER_TEMP/issues/issues.json" > "$RUNNER_TEMP/new-issues.json"
+          node .github/scripts/ui-fuzz.mjs fix --issues "$RUNNER_TEMP/new-issues.json" --max "$MAX"
+      - name: Prepare refreshed Codex login
+        id: save
+        if: always() && steps.restore.outcome == 'success'
+        env:
+          CODEX_AUTH_KEY: ${{ secrets.CODEX_AUTH_KEY }}
+          CODEX_ACCOUNT_SHA256: ${{ secrets.CODEX_ACCOUNT_SHA256 }}
+        run: node .github/scripts/codex-auth.mjs save "$CODEX_HOME" "$RUNNER_TEMP/codex-auth-upload"
+      - name: Store refreshed Codex login
+        if: always() && steps.save.outputs.changed == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: codex-auth
+          path: ${{ runner.temp }}/codex-auth-upload/codex-auth.enc
+          retention-days: 90
+          if-no-files-found: error
+      - name: Delete older Codex logins
+        if: always() && steps.save.outputs.changed == 'true'
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: node .github/scripts/codex-auth.mjs prune

@@ -1,0 +1,12 @@
+[
+  {
+    "id": "tinyurl-link-page-skips-view-check",
+    "description": "The link detail page renders for any signed-in member, ignoring the link's visibility",
+    "workspace": "@gdgjp/tinyurl",
+    "spec": "e2e/ui-properties.spec.ts",
+    "file": "apps/tinyurl/app/features/links/detail.server.ts",
+    "find": "  if (!canViewLink(ctx, link, permissions)) {\n    throw new Response(\"Forbidden\", { status: 403 });\n  }\n  const editable",
+    "replace": "  const editable",
+    "expect": { "property": "tinyurl link ownership" }
+  }
+]

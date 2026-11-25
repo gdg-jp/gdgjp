@@ -28,8 +28,9 @@ import {
   Textarea,
   toast,
 } from "@gdgjp/design-system";
+import { useValueChange } from "@gdgjp/gdg-lib/react";
 import { QRCodeSVG } from "qrcode.react";
-import { Suspense, useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, useMemo, useState } from "react";
 import { Await, Form, Link, useNavigation } from "react-router";
 import type { LinkVisibility } from "~/features/links";
 import { formatDateShort } from "~/features/links/components/edit-fields";
@@ -88,28 +89,28 @@ export default function EditLink({ loaderData, actionData }: Route.ComponentProp
   const apexShortUrl = `https://${shortHost}/${draft.slug}`;
   const shortDisplay = shortLinkDisplay(shortHost, draft.slug);
   const favicon = faviconUrl(draft.destinationUrl);
-  useEffect(() => {
+  const [draftSource, setDraftSource] = useState(initial);
+  if (draftSource !== initial) {
+    setDraftSource(initial);
     setDraft(initial);
     setSlugUnlocked(false);
-  }, [initial]);
+  }
 
   const navigation = useNavigation();
   const submittingIntent = navigation.formData?.get("intent");
   const isSaving = navigation.state !== "idle" && submittingIntent === "update";
   const isFetchingOgp = navigation.state !== "idle" && submittingIntent === "fetchOgp";
 
-  const lastToastedRef = useRef<unknown>(null);
-  useEffect(() => {
-    if (!actionData || lastToastedRef.current === actionData) return;
-    lastToastedRef.current = actionData;
-    if ("success" in actionData && actionData.success) {
+  useValueChange(actionData, (result) => {
+    if (!result) return;
+    if ("success" in result && result.success) {
       toast.success("Successfully updated short link!", {
         icon: <Icons name="Check" aria-hidden="true" className="size-4" />,
       });
-    } else if ("error" in actionData && actionData.error) {
-      toast.error(actionData.error);
+    } else if ("error" in result && result.error) {
+      toast.error(result.error);
     }
-  }, [actionData]);
+  });
 
   const isDirty = !draftEqual(draft, initial);
 

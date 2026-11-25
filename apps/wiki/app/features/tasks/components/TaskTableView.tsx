@@ -1,8 +1,8 @@
-import { useEffect, useRef, useState } from "react";
+import { useHydrated, useMediaQuery } from "@gdgjp/gdg-lib/react";
+import { useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import SidebarDialog from "~/components/SidebarDialog";
 import SidebarPopover from "~/components/SidebarPopover";
-import { useMediaQuery } from "~/hooks/useMediaQuery";
 import ColumnFilterPopover from "./ColumnFilterPopover";
 import NewTaskRow from "./NewTaskRow";
 import TaskRow from "./TaskRow";
@@ -83,10 +83,11 @@ export default function TaskTableView({
   const [assigneeFilter, setAssigneeFilter] = useState<string[]>([]);
   const [teamFilter, setTeamFilter] = useState<string[]>([]);
   const [showTeamSettings, setShowTeamSettings] = useState(false);
-  const [tipKey, setTipKey] = useState("tasks.add_task_tip_multiline");
-  useEffect(() => {
-    setTipKey(Math.random() < 0.5 ? "tasks.add_task_tip_multiline" : "tasks.add_task_tip_discord");
-  }, []);
+  const hydrated = useHydrated();
+  const [clientTipKey] = useState(() =>
+    Math.random() < 0.5 ? "tasks.add_task_tip_multiline" : "tasks.add_task_tip_discord",
+  );
+  const tipKey = hydrated ? clientTipKey : "tasks.add_task_tip_multiline";
   const teamSettingsBtnRef = useRef<HTMLButtonElement>(null);
   const isMobile = useMediaQuery("(max-width: 768px)");
 

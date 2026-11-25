@@ -1,5 +1,5 @@
 import { IconButton } from "@gdgjp/design-system";
-import { useEffect } from "react";
+import { useInterval } from "@gdgjp/gdg-lib/react";
 import { Link, useRevalidator } from "react-router";
 import { Help } from "~/components/Help";
 import { Plus, Radio, Users } from "~/components/icons";
@@ -44,14 +44,11 @@ export default function Home({ loaderData }: Route.ComponentProps) {
   const { stages, user, accountsUrl } = loaderData;
   const revalidator = useRevalidator();
 
-  useEffect(() => {
-    const timer = setInterval(() => {
-      if (document.visibilityState === "visible" && revalidator.state === "idle") {
-        void revalidator.revalidate();
-      }
-    }, POLL_MS);
-    return () => clearInterval(timer);
-  }, [revalidator]);
+  useInterval(() => {
+    if (document.visibilityState === "visible" && revalidator.state === "idle") {
+      void revalidator.revalidate();
+    }
+  }, POLL_MS);
 
   return (
     <div className="sc-page">

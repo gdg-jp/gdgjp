@@ -1,6 +1,13 @@
-import type { PrActor, PrRpcResult, TinyurlLinkSummary } from "@gdgjp/gdg-lib";
+import type {
+  PrActor,
+  PrRpcResult,
+  TinyurlApprovedVersion,
+  TinyurlLinkSummary,
+  TinyurlPrService,
+} from "@gdgjp/gdg-lib";
 import { getDomainByHostname } from "~/features/domains/domain.repository";
 import type { Link } from "~/features/links/link-record";
+import { type PrLinkOrigin, getLinkByPrOrigin } from "~/features/links/link.repository";
 import { createLinkWithExtras, updateLinkWithExtras } from "~/features/links/link.service";
 import { getCampaignAnalyticsForActor } from "./campaign-cli-analytics";
 import { parseIdCursor } from "./campaign.repository";
@@ -73,20 +80,27 @@ const summary = (env: Env, link: Link): TinyurlLinkSummary => ({
   shortUrl: `${(link.domainHostname ? `https://${link.domainHostname}` : env.SHORT_URL_BASE).replace(/\/$/, "")}/${link.slug}`,
 });
 
+type PrCreateLinkInput = Parameters<TinyurlPrService["createLink"]>[0];
+
+const originKey = (origin: TinyurlApprovedVersion) =>
+  [origin.campaignId, origin.draftId, origin.version].every((n) => Number.isInteger(n) && n > 0)
+    ? `pr:${origin.campaignId}:${origin.draftId}:${origin.version}`
+    : null;
+
 export async function prCreateLink(
   env: Env,
-  input: {
-    actor: PrActor;
-    chapterId: number;
-    slug: string;
-    destinationUrl: string;
-    title?: string | null;
-    ogImageUrl?: string | null;
-    campaignChannelId: number | null;
-  },
-): Promise<PrRpcResult<{ link: TinyurlLinkSummary }>> {
+  input: PrCreateLinkInput,
+): Promise<PrRpcResult<{ link: TinyurlLinkSummary; adopted?: boolean }>> {
   const domain = await getDomainByHostname(env.DB, new URL(env.SHORT_URL_BASE).host);
   if (!domain) return fail("not_found", "The short-link system domain is missing.");
+  const key = input.approvedVersion ? originKey(input.approvedVersion) : null;
+  if (input.approvedVersion && !key)
+    return fail("invalid_input", "The approved version is invalid.");
+  const origin = key ? { key, chapterId: input.chapterId } : undefined;
+  if (origin) {
+    const adopted = await adoptByOrigin(env, input, origin);
+    if (adopted) return adopted;
+  }
   const created = await createLinkWithExtras(
     { db: env.DB },
     { user: input.actor.user, chapters: input.actor.chapters, selectedChapterId: input.chapterId },
@@ -100,10 +114,30 @@ export async function prCreateLink(
       campaignChannelId: input.campaignChannelId,
       visibility: "private",
     },
+    origin,
   );
-  return created.ok
-    ? { ok: true, link: summary(env, { ...created.link, domainHostname: domain.hostname }) }
-    : fail(created.code, created.error);
+  if (created.ok)
+    return { ok: true, link: summary(env, { ...created.link, domainHostname: domain.hostname }) };
+  const raced =
+    origin && created.code === "conflict" ? await adoptByOrigin(env, input, origin) : null;
+  return raced ?? fail(created.code, created.error);
+}
+
+async function adoptByOrigin(
+  env: Env,
+  input: PrCreateLinkInput,
+  origin: PrLinkOrigin,
+): Promise<PrRpcResult<{ link: TinyurlLinkSummary; adopted: true }> | null> {
+  const link = await getLinkByPrOrigin(env.DB, origin.key);
+  if (!link) return null;
+  if (link.prOriginChapterId !== origin.chapterId)
+    return fail("not_found", "No link was made for this approved version in this chapter.");
+  if (
+    link.destinationUrl !== input.destinationUrl ||
+    link.campaignChannelId !== input.campaignChannelId
+  )
+    return fail("origin_mismatch", "A link with this origin has another destination or channel.");
+  return { ok: true, link: summary(env, link), adopted: true };
 }
 
 export async function prUpdateLink(

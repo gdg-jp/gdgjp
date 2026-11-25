@@ -6,7 +6,7 @@ import {
   Slider,
   Switch,
 } from "@gdgjp/design-system";
-import { useEffect, useId, useState } from "react";
+import { useId, useState } from "react";
 import { AudioLines } from "~/components/icons";
 import {
   DEFAULT_DENOISE,
@@ -43,7 +43,11 @@ export function DenoiseControl({
 }) {
   const id = useId();
   const [draft, setDraft] = useState(setting.attenDb);
-  useEffect(() => setDraft(setting.attenDb), [setting.attenDb]);
+  const [draftSource, setDraftSource] = useState(setting.attenDb);
+  if (draftSource !== setting.attenDb) {
+    setDraftSource(setting.attenDb);
+    setDraft(setting.attenDb);
+  }
   return (
     <Popover>
       <PopoverTrigger asChild>

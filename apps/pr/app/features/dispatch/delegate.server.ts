@@ -1,8 +1,7 @@
 import type { CampaignAccess } from "~/features/campaigns/access.server";
-import type { Draft } from "~/features/drafts/draft";
+import { type Draft, approvedForSending } from "~/features/drafts/draft";
 import { latestVersion } from "~/features/drafts/draft.repository.server";
-import { linkForItem } from "~/features/links/link.repository.server";
-import { withShortlink } from "~/features/links/slug";
+import { storedVersionText } from "~/features/links/create.server";
 import { notifyChapter, template } from "~/features/notify/send.server";
 import { createDerivedItem, getItem } from "~/features/schedule/item.repository.server";
 import { deliverablePost, jstLabel } from "./content";
@@ -10,6 +9,15 @@ import { type DispatchResult, skipTarget } from "./dispatch.server";
 import { getTarget } from "./target.repository.server";
 
 const DAY_MINUTES = 24 * 60;
+
+async function delegatedText(env: Env, draft: Draft): Promise<string | null> {
+  if (approvedForSending(draft) && draft.approvedVersion !== null) {
+    const at = { draftId: draft.id, version: draft.approvedVersion };
+    const text = await storedVersionText(env.DB, at);
+    if (text.ok) return text.text;
+  }
+  return deliverablePost((await latestVersion(env.DB, draft.id))?.content ?? null)?.text ?? null;
+}
 
 export async function delegateTarget(
   env: Env,
@@ -22,10 +30,9 @@ export async function delegateTarget(
   const item = draft.scheduleItemId
     ? await getItem(env.DB, access.campaign.id, draft.scheduleItemId)
     : null;
-  const post = deliverablePost((await latestVersion(env.DB, draft.id))?.content ?? null);
-  if (!item || !post) return { ok: true, message: "依頼に回しました" };
-  const link = await linkForItem(env.DB, item.id);
-  const text = withShortlink(post.text, link?.shortUrl ?? null);
+  if (!item) return { ok: true, message: "依頼に回しました" };
+  const text = await delegatedText(env, draft);
+  if (!text) return { ok: true, message: "依頼に回しました" };
   const at = jstLabel(item.dueAt);
   const content = template("delegated", { mention: "", account: skipped.targetLabel, at, text });
   const now = Math.floor(Date.now() / 1000);

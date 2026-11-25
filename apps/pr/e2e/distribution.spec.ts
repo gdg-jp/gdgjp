@@ -149,7 +149,9 @@ test("an approved X post is scheduled once per account, each by its own chapter,
     .locator('input[name="target"]')
     .getAttribute("value");
   const approve = () =>
-    page.request.post(draftUrl, { form: { intent: "target-approve", target: String(hostTarget) } });
+    page.request.post(draftUrl, {
+      form: { intent: "target-approve", target: String(hostTarget), version: "3" },
+    });
   const responses = await Promise.all([approve(), approve()]);
   expect(responses.map((r) => r.status())).toEqual([200, 200]);
   await page.reload();

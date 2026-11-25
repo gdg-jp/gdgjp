@@ -1,8 +1,11 @@
-import { useEffect, useRef, useState } from "react";
+import { useEventListener } from "@gdgjp/gdg-lib/react";
+import { useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 
 import { Icons } from "@gdgjp/design-system";
+
+const focusOnAttach = (element: HTMLInputElement | null) => element?.focus();
 interface DepsDropdownProps {
   taskId: string;
   value: string[];
@@ -27,7 +30,6 @@ export default function DepsDropdown({
   const [search, setSearch] = useState("");
   const triggerRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
-  const searchInputRef = useRef<HTMLInputElement>(null);
 
   function openMenu(e: React.MouseEvent) {
     e.stopPropagation();
@@ -44,36 +46,28 @@ export default function DepsDropdown({
     }
     setSearch("");
     setOpen(true);
-    setTimeout(() => searchInputRef.current?.focus(), 0);
   }
 
-  useEffect(() => {
+  useEventListener("document", "mousedown", (e) => {
     if (!open) return;
-    function handleOutside(e: MouseEvent) {
-      const target = e.target as Node;
-      if (triggerRef.current?.contains(target) || menuRef.current?.contains(target)) return;
+    const target = e.target as Node;
+    if (triggerRef.current?.contains(target) || menuRef.current?.contains(target)) return;
+    setOpen(false);
+    setSearch("");
+  });
+
+  useEventListener("document", "keydown", (e) => {
+    if (open && e.key === "Escape") {
       setOpen(false);
       setSearch("");
     }
-    document.addEventListener("mousedown", handleOutside);
-    return () => document.removeEventListener("mousedown", handleOutside);
-  }, [open]);
+  });
 
-  useEffect(() => {
-    if (!open) return;
-    function handleKey(e: KeyboardEvent) {
-      if (e.key === "Escape") {
-        setOpen(false);
-        setSearch("");
-      }
-    }
-    document.addEventListener("keydown", handleKey);
-    return () => document.removeEventListener("keydown", handleKey);
-  }, [open]);
-
-  useEffect(() => {
-    if (!open) return;
-    function handleScroll() {
+  useEventListener(
+    "window",
+    "scroll",
+    () => {
+      if (!open) return;
       const rect = triggerRef.current?.getBoundingClientRect();
       if (rect) {
         setPos({
@@ -81,10 +75,9 @@ export default function DepsDropdown({
           left: rect.left + window.scrollX,
         });
       }
-    }
-    window.addEventListener("scroll", handleScroll, true);
-    return () => window.removeEventListener("scroll", handleScroll, true);
-  }, [open]);
+    },
+    { capture: true },
+  );
 
   function toggleOption(id: string) {
     if (value.includes(id)) {
@@ -126,7 +119,7 @@ export default function DepsDropdown({
             </div>
             <div className="border-b border-border px-2 py-1.5">
               <input
-                ref={searchInputRef}
+                ref={focusOnAttach}
                 type="text"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}

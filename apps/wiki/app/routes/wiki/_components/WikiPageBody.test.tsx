@@ -14,10 +14,6 @@ vi.mock("react-i18next", () => ({
   }),
 }));
 
-vi.mock("~/hooks/useMediaQuery", () => ({
-  useMediaQuery: () => false,
-}));
-
 vi.mock("@gdgjp/design-system", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@gdgjp/design-system")>()),
   useTheme: () => ({ resolvedTheme: "light" }),

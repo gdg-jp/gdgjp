@@ -1,5 +1,6 @@
 import { Button, Dialog, Icons, PageHeader, Stack, toast } from "@gdgjp/design-system";
-import { Suspense, useEffect, useRef, useState } from "react";
+import { useValueChange } from "@gdgjp/gdg-lib/react";
+import { Suspense, useEffect, useState } from "react";
 import { Await, Link, useFetcher } from "react-router";
 import {
   BUILT_IN_DISPLAY_DEFAULTS,
@@ -61,17 +62,15 @@ export default function FolderDetail({ loaderData }: Route.ComponentProps) {
     properties: [...BUILT_IN_DISPLAY_DEFAULTS.properties],
   });
   const fetcher = useFetcher<FolderActionData>();
-  const handled = useRef<FolderActionData | undefined>(undefined);
-  useEffect(() => {
-    if (!fetcher.data || fetcher.data === handled.current) return;
-    handled.current = fetcher.data;
-    if ("error" in fetcher.data) toast.error(fetcher.data.error);
+  useValueChange(fetcher.data, (data) => {
+    if (!data) return;
+    if ("error" in data) toast.error(data.error);
     else {
-      toast.success(fetcher.data.message ?? "Saved.");
+      toast.success(data.message ?? "Saved.");
       setCreateOpen(false);
       setRenameOpen(false);
     }
-  }, [fetcher.data]);
+  });
   useEffect(() => {
     try {
       const preferences = readDisplayPreferences(window.localStorage);

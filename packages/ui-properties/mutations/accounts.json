@@ -1,0 +1,26 @@
+[
+  {
+    "id": "accounts-admin-chapters-open",
+    "description": "The super-admin guard lets every signed-in user manage chapters",
+    "workspace": "@gdgjp/accounts",
+    "spec": "e2e/ui-properties.spec.ts",
+    "file": "apps/accounts/app/features/chapters/permissions.ts",
+    "find": "export function requireSuperAdmin(user: AuthUser): void {\n  if (!canManageChapters(user)) {",
+    "replace": "export function requireSuperAdmin(user: AuthUser): void {\n  if (!canManageChapters(user) && !user.id) {",
+    "expect": {
+      "property": "accounts authorization and sign-in state"
+    }
+  },
+  {
+    "id": "accounts-developer-access-without-membership",
+    "description": "The developer-console membership check accepts users without an active membership",
+    "workspace": "@gdgjp/accounts",
+    "spec": "e2e/ui-properties.spec.ts",
+    "file": "apps/accounts/app/features/developer-apps/oauth-clients.server.ts",
+    "find": "  if (!(await hasActiveMembership(env.DB, user.id))) throw forbidden();",
+    "replace": "  if (!(await hasActiveMembership(env.DB, user.id)) && !user.id) throw forbidden();",
+    "expect": {
+      "property": "accounts authorization and sign-in state"
+    }
+  }
+]

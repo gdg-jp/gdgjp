@@ -1,5 +1,5 @@
 import { AnimatePresence } from "motion/react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { ConnectionPill } from "~/components/motion";
 import type { Topic } from "~/features/board/protocol";
 import { useLiveBoard } from "~/features/board/use-live-board";
@@ -27,14 +27,17 @@ export default function AssignedTables({ loaderData }: Route.ComponentProps) {
 
   const wrapRef = useRef<HTMLDivElement>(null);
   const [viewport, setViewport] = useState({ width: 1280, height: 720 });
-  useEffect(() => {
-    const el = wrapRef.current;
+  const measure = useCallback((el: HTMLDivElement | null) => {
+    wrapRef.current = el;
     if (!el) return;
     const update = () => setViewport({ width: el.clientWidth, height: el.clientHeight });
     update();
     const ro = new ResizeObserver(update);
     ro.observe(el);
-    return () => ro.disconnect();
+    return () => {
+      ro.disconnect();
+      wrapRef.current = null;
+    };
   }, []);
 
   const transform = useMemo(
@@ -61,7 +64,7 @@ export default function AssignedTables({ loaderData }: Route.ComponentProps) {
       </header>
 
       <div
-        ref={wrapRef}
+        ref={measure}
         className="relative flex-1 overflow-hidden rounded-[1.5rem] border-2 border-black bg-white"
       >
         {state.desks.length === 0 ? (

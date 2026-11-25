@@ -2,6 +2,8 @@ export type CampaignLink = {
   id: number;
   campaignId: number;
   scheduleItemId: number | null;
+  draftId: number | null;
+  draftVersion: number | null;
   tinyurlLinkId: string;
   shortUrl: string;
   slug: string;
@@ -12,6 +14,12 @@ export type CampaignLink = {
   healthCheckedAt: number | null;
   healthAlertedAt: number | null;
 };
+
+export type LinkVersion = { draftId: number; version: number };
+
+declare const recordedApproval: unique symbol;
+
+export type ApprovedLinkVersion = LinkVersion & { readonly [recordedApproval]: true };
 
 export const HEALTH_FAILURE_THRESHOLD = 2;
 

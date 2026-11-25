@@ -1,3 +1,4 @@
+import { useMediaQuery } from "@gdgjp/gdg-lib/react";
 import { MdPreview } from "md-editor-rt";
 import {
   displayedMarkdown,
@@ -17,7 +18,6 @@ import { parseMdHeadings } from "~/features/editor/toc";
 import TagChip from "~/features/pages/components/TagChip";
 import type { TocItem } from "~/features/pages/components/WikiRightSidebar";
 import WikiRightSidebar from "~/features/pages/components/WikiRightSidebar";
-import { useMediaQuery } from "~/hooks/useMediaQuery";
 import { MobileContentsSheet } from "./MobileContentsSheet";
 
 import { Icons } from "@gdgjp/design-system";

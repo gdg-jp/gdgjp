@@ -124,7 +124,7 @@ function convertNode(
           const inner = (cell.content ?? [])
             .map((n) => convertNode(n))
             .join(" ")
-            .replace(/\|/g, "\\|");
+            .replace(/([\\|])/g, "\\$1");
           return inner.trim();
         });
         lines.push(`| ${cells.join(" | ")} |`);

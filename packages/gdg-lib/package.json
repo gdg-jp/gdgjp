@@ -11,9 +11,13 @@
     "./auth/signed-out-reload": "./src/auth/signed-out-reload.ts",
     "./acl": "./src/acl/index.ts",
     "./acl/agent": "./src/acl/agent.ts",
+    "./html": "./src/html.ts",
+    "./react": "./src/react/index.ts",
     "./ui": "./src/ui/index.ts",
     "./ui/app-links": "./src/ui/app-links.ts",
     "./staging-snapshot": "./src/staging-snapshot.ts",
+    "./timing": "./src/timing.ts",
+    "./url": "./src/url.ts",
     "./testing/durable-object": "./src/testing/durable-object.ts"
   },
   "scripts": {
@@ -28,6 +32,7 @@
     "@types/react": "^19.0.1",
     "@types/react-dom": "^19.0.1",
     "esbuild": "^0.25.0",
+    "happy-dom": "21.0.4",
     "lucide-react": "^1.14.0",
     "radix-ui": "^1.4.3",
     "react": "^19.0.0",

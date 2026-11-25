@@ -1,0 +1,198 @@
+{
+  "schemaVersion": 1,
+  "scope": "Local scheduler journeys (Orca Browser and HTTP) from features/README.md",
+  "sourceBaseCommit": "1c0569f3 (working tree with uncommitted changes; exact file hashes are in each run.json)",
+  "journeys": [
+    {
+      "id": "scheduler-shell-theme",
+      "map": "features/shell.md",
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T15:39:38.536073+00:00",
+      "evidence": [
+        "local_data/pstack/scheduler/2026-11-24T11-20-50-406Z-cd6424fe/http/theme.txt"
+      ],
+      "result": "ダーク/ライト set the html class and persist in localStorage across reload; システム restores system."
+    },
+    {
+      "id": "scheduler-shell-viewport",
+      "map": "features/shell.md",
+      "status": "FAILED",
+      "observedAt": "2026-11-24T15:39:38.536073+00:00",
+      "evidence": [
+        "local_data/pstack/scheduler/2026-11-24T11-20-50-406Z-cd6424fe/http/viewport.txt",
+        "local_data/pstack/scheduler/2026-11-24T11-20-50-406Z-cd6424fe/http/viewport-event-overflow.txt",
+        "local_data/pstack/scheduler/2026-11-24T11-20-50-406Z-cd6424fe/screenshots/vp-event-390-overflow.png"
+      ],
+      "result": "Defect: at 390 px the event page scrolls horizontally (document scrollWidth 447 > 390; the availability table overflows). The create form at 390 and 1280 in both themes passes (30-minute preview, Sat range add/remove, Tab to Sign in, no overflow)."
+    },
+    {
+      "id": "scheduler-create-anon",
+      "map": "features/my-events.md",
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T15:39:38.536073+00:00",
+      "evidence": [
+        "local_data/pstack/scheduler/2026-11-24T08-18-14-862Z-6ea78f43/d1/anon-slots.json"
+      ],
+      "result": "30-minute event with 8 slots; no Edit/Delete; D1 owner NULL."
+    },
+    {
+      "id": "scheduler-create-owner",
+      "map": "features/my-events.md",
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T15:39:38.536073+00:00",
+      "evidence": [
+        "local_data/pstack/scheduler/2026-11-24T08-18-14-862Z-6ea78f43/d1/owner-event.json"
+      ],
+      "result": "Owner event with Edit/Delete; 15 slots; owner dev-user-verify-owner."
+    },
+    {
+      "id": "scheduler-create-validation",
+      "map": "features/create.md",
+      "status": "FAILED",
+      "observedAt": "2026-11-24T15:39:38.536073+00:00",
+      "evidence": [
+        "local_data/pstack/scheduler/2026-11-24T11-20-50-406Z-cd6424fe/http/validation-posts.txt",
+        "local_data/pstack/scheduler/2026-11-24T11-20-50-406Z-cd6424fe/screenshots/validation-short.png",
+        "local_data/pstack/scheduler/2026-11-24T11-20-50-406Z-cd6424fe/d1/invalid2.json"
+      ],
+      "result": "Defect: the server rejects both invalid forms (POST /events/new.data 400, no row) but the page shows no message; the user sees an unchanged form."
+    },
+    {
+      "id": "scheduler-respond-anon",
+      "map": "features/respond.md",
+      "status": "FAILED",
+      "observedAt": "2026-11-24T15:39:38.536073+00:00",
+      "evidence": [
+        "local_data/pstack/scheduler/2026-11-24T11-20-50-406Z-cd6424fe/http/respond-anon-rerun.txt",
+        "local_data/pstack/scheduler/2026-11-24T08-18-14-862Z-6ea78f43/http/guest-cookie-attrs.json",
+        "local_data/pstack/scheduler/2026-11-24T11-20-50-406Z-cd6424fe/screenshots/respond-anon-rerun.png"
+      ],
+      "result": "Defect (re-run, same failure): the guest cookie has Path=/e/<id>, so Update sends POST /e/<id>.data without it and gets 403; the card shows no identity until a full reload; D1 unchanged."
+    },
+    {
+      "id": "scheduler-respond-signed-in",
+      "map": "features/my-events.md",
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T15:39:38.536073+00:00",
+      "evidence": [
+        "local_data/pstack/scheduler/2026-11-24T11-20-50-406Z-cd6424fe/d1/signed-join.json",
+        "local_data/pstack/scheduler/2026-11-24T11-20-50-406Z-cd6424fe/d1/signed-avail.json",
+        "local_data/pstack/scheduler/2026-11-24T11-20-50-406Z-cd6424fe/d1/signed-after-remove.json"
+      ],
+      "result": "No name field; Join stores user_id with no token hash; Update and Remove work."
+    },
+    {
+      "id": "scheduler-anon-identity",
+      "map": "features/manage.md",
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T15:39:38.536073+00:00",
+      "evidence": [
+        "local_data/pstack/scheduler/2026-11-24T11-20-50-406Z-cd6424fe/http/anon-identity.txt"
+      ],
+      "result": "Seeded guest cookie shows Participating as Seed Guest; a wrong token shows Pick the times that work."
+    },
+    {
+      "id": "scheduler-event-missing",
+      "map": "features/respond.md",
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T15:39:38.536073+00:00",
+      "evidence": [
+        "local_data/pstack/scheduler/2026-11-24T08-18-14-862Z-6ea78f43/http/boundaries.txt"
+      ],
+      "result": "Unknown and soft-deleted events return 404 (bare framework page)."
+    },
+    {
+      "id": "scheduler-my-events",
+      "map": "features/my-events.md",
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T15:39:38.536073+00:00",
+      "evidence": [
+        "local_data/pstack/scheduler/2026-11-24T11-20-50-406Z-cd6424fe/http/my-events.txt"
+      ],
+      "result": "No events yet, then only the owner event; foreign, joined and deleted events absent."
+    },
+    {
+      "id": "scheduler-my-events-gate",
+      "map": "features/my-events.md",
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T15:39:38.536073+00:00",
+      "evidence": [
+        "local_data/pstack/scheduler/2026-11-24T08-18-14-862Z-6ea78f43/http/boundaries.txt"
+      ],
+      "result": "Anonymous /events 302 to /signin?return_to=%2Fevents."
+    },
+    {
+      "id": "scheduler-edit",
+      "map": "features/manage.md",
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T15:39:38.536073+00:00",
+      "evidence": [
+        "local_data/pstack/scheduler/2026-11-24T11-20-50-406Z-cd6424fe/d1/edited.json",
+        "local_data/pstack/scheduler/2026-11-24T11-20-50-406Z-cd6424fe/d1/slot-count.json",
+        "local_data/pstack/scheduler/2026-11-24T11-20-50-406Z-cd6424fe/d1/other-avail.json"
+      ],
+      "result": "Title/description saved; removing Fri leaves 12 slots; the Mon 19:00 slot id and the other participant's pick survive; Cancel changes nothing."
+    },
+    {
+      "id": "scheduler-owner-boundaries",
+      "map": "features/manage.md",
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T15:39:38.536073+00:00",
+      "evidence": [
+        "local_data/pstack/scheduler/2026-11-24T11-20-50-406Z-cd6424fe/http/owner-boundaries.txt",
+        "local_data/pstack/scheduler/2026-11-24T11-20-50-406Z-cd6424fe/d1/after-boundaries.json"
+      ],
+      "result": "Non-owner edit page 403; non-owner edit/delete POST 404; admin-delete-participant 403; anonymous edit 302 to sign-in; event and participant unchanged."
+    },
+    {
+      "id": "scheduler-owner-remove-participant",
+      "map": "features/my-events.md",
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T15:39:38.536073+00:00",
+      "evidence": [
+        "local_data/pstack/scheduler/2026-11-24T11-20-50-406Z-cd6424fe/d1/guest2-before.json",
+        "local_data/pstack/scheduler/2026-11-24T11-20-50-406Z-cd6424fe/d1/guest2-after.json",
+        "local_data/pstack/scheduler/2026-11-24T11-20-50-406Z-cd6424fe/http/undo-guest-identity.txt"
+      ],
+      "result": "Owner removes an anonymous participant and Undo restores it — with a new id and token hash, so the original guest no longer sees their identity (confirmed defect). The seeded Seed Guest variant removed the participant but the Undo toast was outside the viewport; run on the owner event instead."
+    },
+    {
+      "id": "scheduler-delete",
+      "map": "features/manage.md",
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T15:39:38.536073+00:00",
+      "evidence": [
+        "local_data/pstack/scheduler/2026-11-24T11-20-50-406Z-cd6424fe/d1/deleted.json"
+      ],
+      "result": "Dialog, Cancel keeps it, Delete event lands on /events; /e/<id> 404; soft delete keeps slots and participants."
+    },
+    {
+      "id": "scheduler-signin-redirect",
+      "map": "features/shell.md",
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T15:39:38.536073+00:00",
+      "evidence": [
+        "local_data/pstack/scheduler/2026-11-24T15-32-30-808Z-6a4c2a95/http/accounts-continuation.json",
+        "local_data/pstack/scheduler/2026-11-24T15-32-30-808Z-6a4c2a95/http/accounts-oidc.json"
+      ],
+      "result": "With --platform, Sign in path reaches Accounts /signin with client_id=scheduler, the 6168 callback, S256 and state; OIDC completes to /events."
+    },
+    {
+      "id": "scheduler-signout",
+      "map": "features/shell.md",
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T15:39:38.536073+00:00",
+      "evidence": [
+        "local_data/pstack/scheduler/2026-11-24T15-32-30-808Z-6a4c2a95/http/signout.txt"
+      ],
+      "result": "Sign out lands on Accounts sign-in; /api/auth/me null; /events redirects to Accounts."
+    }
+  ],
+  "outsideTheMap": [
+    "Clipboard contents of Copy; production app launcher links."
+  ],
+  "exclusions": [
+    "Real external services (X, Discord, connpass.com, Luma, Google, Gemini, Resend, Vercel)",
+    "Deployed Cloudflare behavior"
+  ]
+}

@@ -24,8 +24,7 @@ Static routes outrank `/:slug`; `events/slug.ts` also rejects reserved words / b
 ## Data
 
 - **D1 (`DB`)** — `user` + `oidc_session` (gdg-lib) and an `events` registry
-  (`slug`, `title`, `chapter_id`, `chapter_slug`). Migrations in `migrations/`; `schema.sql` is
-  generated (`pnpm migrate:local`).
+  (`slug`, `title`, `chapter_id`, `chapter_slug`).
 - **Per-event Durable Object** — `OstBoard`, addressed `env.OST_BOARD.getByName(slug)`. Own
   SQLite: `topics` (+`group_id`,`desk_id`), `votes` (PK `topic_id,voter_id`), `groups`, `desks`.
   Schema in `workers/ost-board-schema.ts` (idempotent `CREATE TABLE IF NOT EXISTS`; no
@@ -63,12 +62,7 @@ load-bearing — without them `@gdgjp/gdg-lib` (consumed as source) leaves the c
 React copies ("invalid hook call" at hydration). `esbuild.keepNames` keeps the `OstBoard` class
 name for the wrangler migration.
 
-`.dev.vars` needs `RP_SESSION_SECRET`, `IDP_CLIENT_SECRET` (= the accounts worker's
-`OST_CLIENT_SECRET`), and `APP_URL=http://localhost:5185`. Register the `ost` OIDC client on the
-accounts side (`accounts/wrangler.toml` vars + `seed-clients.server.ts` tuple, then
-`POST /admin/seed-clients`).
-
-Local: `pnpm --filter @gdgjp/ost migrate:local` then `pnpm --filter @gdgjp/ost dev` (port
-`5185`); run `accounts` on `5173` for real sign-in, or use `/dev/login?as=owner&chapter=1:x`.
+`IDP_CLIENT_SECRET` equals the accounts worker's `OST_CLIENT_SECRET`. Run `accounts` for real
+sign-in, or use `/dev/login?as=owner&chapter=1:x`.
 
 See [ARCHITECTURE.md](./ARCHITECTURE.md) for feature ownership and dependency boundaries.

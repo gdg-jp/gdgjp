@@ -22,7 +22,7 @@ before installing dependencies. `apps/learn/`, `skills/`, and `packages/design-s
 are separate Git submodules; make changes in the owning repository.
 
 - `pnpm dev`, `pnpm build`, `pnpm deploy`, and `pnpm typecheck` run Turborepo tasks.
-- `pnpm lint`, `pnpm lint:fix`, and `pnpm format` run Biome.
+- `pnpm lint` runs Biome and the repository policy checks; `pnpm lint:fix` and `pnpm format` run Biome.
 - `pnpm test` runs repository script tests and workspace Vitest tests.
 - `pnpm test:e2e` runs workspace Playwright suites serially.
   It snapshots current source, creates test-only credentials and fresh persistence,
@@ -43,19 +43,16 @@ Playwright MCP container; see [the AI review gate](docs/engineering/ai-review.md
 
 ## Style, security, and review
 
-Use TypeScript and ESM. Biome enforces 2-space indentation, double quotes, semicolons,
-trailing commas, and a 100-character line width. Use `import type` / `export type` for
-type-only symbols (`verbatimModuleSyntax` and `isolatedModules` are enabled).
+Use TypeScript and ESM. Biome and `tsc` enforce formatting and type-only imports.
 
 Do not add code comments by default. Express constraints in types, APIs, module boundaries,
 or executable checks. Preserve necessary legal notices, public API contracts, and explanations
 of externally imposed behavior. See [the comment policy](docs/engineering/comments.md) for
 reviewed exceptions and the automatic check.
 
-Do not commit `.dev.vars*`, secrets, generated Worker types, build output, Playwright reports,
-or local Wrangler state. Do not hand-edit generated Worker types or `schema.sql` dumps;
-edit migrations instead. Store Cloudflare secrets with `wrangler secret put` and Vercel
-secrets in the project's environment.
+`.gitignore` keeps local secrets and generated output out of Git, and `pnpm check:apps`
+rejects hand-edited `schema.sql`. Store Cloudflare secrets with `wrangler secret put` and
+Vercel secrets in the project's environment.
 
 Use Conventional Commit subjects scoped by package, such as `feat(accounts): add client management`.
 PRs explain the change, link related issues, list validation, and include screenshots for UI changes.

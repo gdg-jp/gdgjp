@@ -1,5 +1,5 @@
 import { IconButton, Input } from "@gdgjp/design-system";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Pause, Play, RotateCcw, Timer as TimerIcon } from "~/components/icons";
 import type { ClientMessage, Timer } from "../../protocol";
 import { formatRemaining, useRemaining } from "../../timer";
@@ -15,7 +15,11 @@ export function TimerControl({
 }) {
   const remaining = useRemaining(timer, clockOffset) ?? timer.durationMs;
   const [minutes, setMinutes] = useState(String(Math.round(timer.durationMs / 60_000)));
-  useEffect(() => setMinutes(String(Math.round(timer.durationMs / 60_000))), [timer.durationMs]);
+  const [minutesSource, setMinutesSource] = useState(timer.durationMs);
+  if (minutesSource !== timer.durationMs) {
+    setMinutesSource(timer.durationMs);
+    setMinutes(String(Math.round(timer.durationMs / 60_000)));
+  }
   const running = timer.startedAt !== null;
   return (
     <div className="sc-timer-control">

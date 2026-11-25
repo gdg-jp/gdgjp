@@ -1,6 +1,7 @@
 import EmojiPicker, { Emoji, EmojiStyle, type EmojiClickData } from "emoji-picker-react";
 
-import { useEffect, useRef, useState } from "react";
+import { useEventListener } from "@gdgjp/gdg-lib/react";
+import { useRef, useState } from "react";
 
 import { Icons } from "@gdgjp/design-system";
 function toUnified(emoji: string): string {
@@ -28,21 +29,17 @@ export default function EmojiReactionBar({
   const pickerRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
 
-  useEffect(() => {
-    if (!pickerOpen) return;
-    function handlePointerDown(e: PointerEvent) {
-      if (
-        pickerRef.current &&
-        !pickerRef.current.contains(e.target as Node) &&
-        triggerRef.current &&
-        !triggerRef.current.contains(e.target as Node)
-      ) {
-        setPickerOpen(false);
-      }
+  useEventListener("window", "pointerdown", (e) => {
+    if (
+      pickerOpen &&
+      pickerRef.current &&
+      !pickerRef.current.contains(e.target as Node) &&
+      triggerRef.current &&
+      !triggerRef.current.contains(e.target as Node)
+    ) {
+      setPickerOpen(false);
     }
-    window.addEventListener("pointerdown", handlePointerDown);
-    return () => window.removeEventListener("pointerdown", handlePointerDown);
-  }, [pickerOpen]);
+  });
 
   function handlePickerSelect(data: EmojiClickData) {
     onToggleReaction(data.emoji);

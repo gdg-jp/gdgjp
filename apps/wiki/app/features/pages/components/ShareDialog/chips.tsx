@@ -56,7 +56,9 @@ export function SelectedChips({
   const [rendered, setRendered] = useState(selected);
   const selectedKeys = new Set(selected.map(subjectKey));
 
-  useEffect(() => {
+  const [renderedSelection, setRenderedSelection] = useState(selected);
+  if (renderedSelection !== selected) {
+    setRenderedSelection(selected);
     setRendered((current) => {
       const selectedByKey = new Map(selected.map((subject) => [subjectKey(subject), subject]));
       const currentKeys = new Set(current.map(subjectKey));
@@ -65,7 +67,7 @@ export function SelectedChips({
         ...selected.filter((subject) => !currentKeys.has(subjectKey(subject))),
       ];
     });
-  }, [selected]);
+  }
 
   return rendered.map((subject) => (
     <SelectedChip

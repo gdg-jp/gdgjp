@@ -14,8 +14,6 @@ Machine API for connpass group admin automation via Cloudflare Browser Run.
   plain `fetch` as the shared bot (`LUMA_BOT_EMAIL` / `LUMA_BOT_PASSWORD`, password sign-in; session
   key cached in `SESSION_KV`). Events are allowed via `PUT /api/admin/luma-calendars/:calendarId`.
 
-Local port: `5179`.
-
 ## Local API / E2E
 
 Local D1 is created by `wrangler d1 migrations apply` (the e2e `webServer` runs this

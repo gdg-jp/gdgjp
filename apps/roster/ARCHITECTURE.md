@@ -23,7 +23,7 @@
   real `SolverInput` from D1 (`solver-input.server.ts`), the single `writeAssignments` write path
   (`roster.server.ts`), pure grid-assembly logic (`grid.ts`), and the new `/e/:id/roster` route —
   the 3-view shift table (staff/role/coverage) plus the 2 manual-edit drawers.
-- **Stage 08 (this PR)** adds the `revisions` table + `events.revision_cursor` and
+- **Stage 08** added the `revisions` table + `events.revision_cursor` and
   `app/features/history/`: `recordRevision`/`restoreRevision` (D1 access), the pure
   `grouping.ts`/`retention.ts`/`cursor.ts` decisions, a versioned `snapshot.ts` codec, and
   `/e/:id/roster`'s new history panel + undo/redo buttons. `roster.server.ts#writeAssignments`
@@ -97,12 +97,31 @@ app/routes/
   no-chapter.tsx      "/no-chapter"
   api.auth.$.ts       "/api/auth/*" — gdg-lib RP plumbing
   auth.signout.ts     "/auth/signout"
-  dev.login.tsx       "/dev/login" — local/e2e only, hard 404 in production
+  dev.login.ts        "/dev/login" — local/e2e only, hard 404 in production
   dev.seed.tsx        "/dev/seed" — local/e2e only, hard 404 in production
 ```
 
 `tests/architecture/route-urls.test.ts` snapshots this full URL set; a snapshot diff is the
 signal that a route was added, moved, or removed — expected to fail when you add one.
+
+Screen widgets: `/e/:id` renders `RosterSheetCard`s and `NewRosterSheetDialog`; per-sheet screens
+share `SheetHeader`. `/e/:id/staff` composes `StaffTable`, `StaffDrawer`, `SupplyDemandRow`,
+`ShortageSummary`, `ApplyLinkCard`, and `ProxyAddDialog` (ADR-008). The roster screen composes
+`GeneratePanel`, `MetricsRow`/`ShortageReport` (rendered from `evaluate()`'s `Report`, never a
+separate tally), `StaffGrid`/`RoleGrid`/`DemandCoverageGrid`, the warn-and-allow `CellDrawer` and
+`DemandCellDrawer` (index.md §5.1), and `UndoRedoButtons` + `HistoryPanel`. `/r/:token` has
+staff-grid, role-grid (`RoleGrid` with `readOnly`), `PersonTimeline`, and party tabs (party hidden
+when `event.hasParty` is false). `/e/:id/share` is `ShareCard`.
+
+## Persistence
+
+D1 (`DB`) holds `user` + `oidc_session` (gdg-lib), `events`, `roster_sheets`, `phases`,
+`time_slots`, `tracks`, `roles` (six seeded with `event_id` NULL, ADR-007, plus event-owned rows,
+ADR-011), `event_roles`, `demands`, `applications`, `application_skills`, `availabilities`,
+`assignments`, and `revisions` (a JSON snapshot per revision, ADR-006). `roster_sheets`
+(migrations 0007–0012) scopes the per-sheet tables by `roster_sheet_id`; compatibility triggers
+attribute legacy event-scoped writes to the default sheet. `revision_cursor` names the revision
+reflected in `assignments` (`NULL` = no history yet).
 
 ## Placement rules (ADR-003)
 
@@ -134,8 +153,8 @@ signal that a route was added, moved, or removed — expected to fail when you a
 
 | File | Source of truth |
 |---|---|
-| `worker-configuration.d.ts` | `wrangler.toml` bindings (run `pnpm cf-typegen` after changing them) |
-| `schema.sql` | `migrations/` (run `pnpm migrate:local` after adding a migration) |
+| `worker-configuration.d.ts` | `wrangler.toml` bindings (`pnpm typecheck` regenerates it) |
+| `schema.sql` | `migrations/` (`pnpm check:apps` rejects a stale or hand-edited dump) |
 
 ## Where tests live
 

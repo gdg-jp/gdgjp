@@ -379,11 +379,22 @@ function parseStringArray(value: string | null | undefined): string[] {
   }
 }
 
-function randomUserCode(): string {
-  const bytes = crypto.getRandomValues(new Uint8Array(USER_CODE_LENGTH));
+const USER_CODE_BUCKET = Math.floor(256 / USER_CODE_ALPHABET.length);
+const USER_CODE_BYTE_LIMIT = USER_CODE_BUCKET * USER_CODE_ALPHABET.length;
+
+export function userCodeFrom(randomBytes: (count: number) => Uint8Array): string {
   let code = "";
-  for (const byte of bytes) code += USER_CODE_ALPHABET[byte % USER_CODE_ALPHABET.length];
+  while (code.length < USER_CODE_LENGTH) {
+    for (const byte of randomBytes(USER_CODE_LENGTH - code.length)) {
+      if (byte < USER_CODE_BYTE_LIMIT)
+        code += USER_CODE_ALPHABET[Math.floor(byte / USER_CODE_BUCKET)];
+    }
+  }
   return `${code.slice(0, 4)}-${code.slice(4)}`;
+}
+
+function randomUserCode(): string {
+  return userCodeFrom((count) => crypto.getRandomValues(new Uint8Array(count)));
 }
 
 function trimTrailing(value: string): string {

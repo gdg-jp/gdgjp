@@ -11,6 +11,7 @@ Every journey starts as `NOT VERIFIED`; a source recipe is not execution evidenc
 | `wiki-authoring`, `wiki-comment` | [Create, edit, and comment](authoring.md) | Wiki author |
 | `wiki-search` | [Keyword search](search.md) | Author and member |
 | `wiki-runner-admin`, `wiki-space-settings` | [Administrator boundaries](administration.md) | Wiki admin and member |
+| `wiki-translate-now`, `wiki-runner-status` | [Runner jobs with a local fake runner](runner.md) | Wiki author and admin |
 | `wiki-viewer` | [Viewer permissions](../../verify-wiki/features/viewer.md) | Wiki member |
 | `wiki-redaction` | [Markdown redaction](../../verify-wiki/features/redaction.md) | Wiki author without organizer access |
 | `wiki-sharing` | [Sharing dialog](../../verify-wiki/features/sharing.md) | Wiki author |

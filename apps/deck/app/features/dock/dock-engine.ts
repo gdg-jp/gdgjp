@@ -1,3 +1,4 @@
+import { delay } from "@gdgjp/gdg-lib/timing";
 import type { Step } from "~/features/deck/model";
 import { ObsClient, type ObsStatus } from "~/features/obs/obs-client";
 import { BASE_REQUESTS, applyEvent, readBase, readDetails } from "~/features/obs/obs-events";
@@ -27,8 +28,6 @@ export type DockSnapshot = {
 
 const PUSH_THROTTLE_MS = 100;
 const REFRESH_DEBOUNCE_MS = 300;
-
-const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 export class DockEngine {
   private snapshot: DockSnapshot = {
@@ -148,7 +147,7 @@ export class DockEngine {
     try {
       for (const step of steps) {
         if (step.type === "wait") {
-          await sleep(step.ms);
+          await delay(step.ms);
           continue;
         }
         const requests = toRequests(step.action, {

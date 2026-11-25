@@ -7,6 +7,8 @@ export type DraftStatus =
   | "rejected"
   | "superseded";
 
+export type UnapprovedStatus = Exclude<DraftStatus, "approved">;
+
 export type ReviewAction = "submit" | "review_ok" | "request_changes" | "approve" | "reject";
 
 export type Actor = { canReview: boolean; canApprove: boolean };
@@ -36,7 +38,7 @@ export function nextStatus(
   }
 }
 
-export function statusAfterEdit(current: DraftStatus): DraftStatus {
+export function statusAfterEdit(current: DraftStatus): UnapprovedStatus {
   return current === "rejected" || current === "superseded" ? current : "in_review";
 }
 

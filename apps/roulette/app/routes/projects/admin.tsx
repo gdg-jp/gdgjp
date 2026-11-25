@@ -18,7 +18,8 @@ import {
   Text,
   toast,
 } from "@gdgjp/design-system";
-import { useEffect, useState } from "react";
+import { useInterval, useValueChange } from "@gdgjp/gdg-lib/react";
+import { useState } from "react";
 import { Link, useFetcher, useRevalidator } from "react-router";
 import { DrawLogCard } from "~/features/draw/components/DrawLogCard";
 import { listDraws } from "~/features/draw/draw.server";
@@ -98,12 +99,9 @@ export async function action({ request, params, context }: Route.ActionArgs) {
 
 function usePolling(ms: number) {
   const { revalidate, state } = useRevalidator();
-  useEffect(() => {
-    const timer = setInterval(() => {
-      if (document.visibilityState === "visible" && state === "idle") void revalidate();
-    }, ms);
-    return () => clearInterval(timer);
-  }, [ms, revalidate, state]);
+  useInterval(() => {
+    if (document.visibilityState === "visible" && state === "idle") void revalidate();
+  }, ms);
 }
 
 export default function AdminPage({ loaderData }: Route.ComponentProps) {
@@ -124,21 +122,20 @@ export default function AdminPage({ loaderData }: Route.ComponentProps) {
     setErrors({});
   }
 
-  useEffect(() => {
-    const data = save.data;
+  useValueChange(save.data, (data) => {
     if (data?.intent !== "save") return;
     setErrors(data.errors);
     if (!hasErrors(data.errors)) toast.success("変更を保存しました");
-  }, [save.data]);
+  });
 
-  useEffect(() => {
-    if (toggle.data?.intent === "open")
-      toast.success(toggle.data.open ? "抽選の受付を始めました" : "抽選の受付を止めました");
-  }, [toggle.data]);
+  useValueChange(toggle.data, (data) => {
+    if (data?.intent === "open")
+      toast.success(data.open ? "抽選の受付を始めました" : "抽選の受付を止めました");
+  });
 
-  useEffect(() => {
-    if (reset.data?.intent === "reset") toast.success("抽選結果をリセットしました");
-  }, [reset.data]);
+  useValueChange(reset.data, (data) => {
+    if (data?.intent === "reset") toast.success("抽選結果をリセットしました");
+  });
 
   const submit = (fetcher: typeof save, body: Intent) =>
     fetcher.submit(body, { method: "post", encType: "application/json" });

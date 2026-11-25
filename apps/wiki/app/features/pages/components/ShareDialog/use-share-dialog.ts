@@ -1,3 +1,4 @@
+import { useEventListener, useTransientValue, useValueChange } from "@gdgjp/gdg-lib/react";
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useFetcher } from "react-router";
@@ -47,7 +48,8 @@ export function useShareDialog({
   const [grantRole, setGrantRole] = useState<PageRole>("viewer");
   const [notify, setNotify] = useState(true);
   const [message, setMessage] = useState("");
-  const [copied, setCopied] = useState(false);
+  const [copiedLink, showCopiedLink] = useTransientValue<true>(1800);
+  const copied = copiedLink !== null;
   const [error, setError] = useState<string | null>(null);
   const [warning, setWarning] = useState<string | null>(null);
   const [localAccess, setLocalAccess] = useState<GeneralAccess>(currentVisibility as GeneralAccess);
@@ -111,13 +113,11 @@ export function useShareDialog({
       resetCandidates();
     };
   }, [open, pageId, loadAccess, resetAccess, resetCandidates, resetDescendantPrompt]);
-  useEffect(() => {
-    if (!open || !accessFetcher.data) return;
-    setLocalAccess(
-      accessFetcher.data.generalAccess ?? accessFetcher.data.visibility ?? "restricted",
-    );
-    setLocalGeneralRole(accessFetcher.data.generalRole ?? "viewer");
-  }, [accessFetcher.data, open]);
+  useValueChange(accessFetcher.data, (data) => {
+    if (!open || !data) return;
+    setLocalAccess(data.generalAccess ?? data.visibility ?? "restricted");
+    setLocalGeneralRole(data.generalRole ?? "viewer");
+  });
 
   useEffect(() => {
     resetCandidates();
@@ -133,20 +133,17 @@ export function useShareDialog({
     };
   }, [open, isListOpen, query, pageId, loadCandidates, resetCandidates]);
 
-  useEffect(() => {
-    if (!open || !isListOpen) return;
-    const handlePointerDown = (event: PointerEvent) => {
-      if (!searchAreaRef.current?.contains(event.target as Node)) {
-        setIsListOpen(false);
-      }
-    };
-    document.addEventListener("pointerdown", handlePointerDown);
-    return () => document.removeEventListener("pointerdown", handlePointerDown);
-  }, [open, isListOpen]);
+  useEventListener("document", "pointerdown", (event) => {
+    if (open && isListOpen && !searchAreaRef.current?.contains(event.target as Node)) {
+      setIsListOpen(false);
+    }
+  });
 
-  useEffect(() => {
+  const [clampedRowCount, setClampedRowCount] = useState(candidateRows.length);
+  if (clampedRowCount !== candidateRows.length) {
+    setClampedRowCount(candidateRows.length);
     setActiveIndex((index) => Math.min(Math.max(index, 0), Math.max(candidateRows.length - 1, 0)));
-  }, [candidateRows.length]);
+  }
 
   useEffect(() => {
     if (!open) {
@@ -258,8 +255,7 @@ export function useShareDialog({
   async function copyLink() {
     try {
       await copyText(window.location.href);
-      setCopied(true);
-      window.setTimeout(() => setCopied(false), 1800);
+      showCopiedLink(true);
     } catch {
       setError(t("wiki.share_copy_failed"));
     }

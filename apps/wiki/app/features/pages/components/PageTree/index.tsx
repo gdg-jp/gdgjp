@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEventListener } from "@gdgjp/gdg-lib/react";
+import { useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router";
 import { type PageNode, buildSlugPathById, getAncestorIdsForSlug } from "~/features/pages/tree";
@@ -32,25 +33,22 @@ export default function PageTree({
   const currentSpace = useCurrentSpace();
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
-  const pagesRef = useRef(pages);
   const [expandedIds, setExpandedIds] = useState(() => getAncestorIdsForSlug(pages, currentSlug));
   const pathById = useMemo(() => buildSlugPathById(pages), [pages]);
 
-  useEffect(() => {
-    pagesRef.current = pages;
-  }, [pages]);
-
-  useEffect(() => {
+  const [expandedForSlug, setExpandedForSlug] = useState(currentSlug);
+  if (expandedForSlug !== currentSlug) {
+    setExpandedForSlug(currentSlug);
     setExpandedIds((previous) => {
-      const ancestors = getAncestorIdsForSlug(pagesRef.current, currentSlug);
+      const ancestors = getAncestorIdsForSlug(pages, currentSlug);
       if (!currentSlug) return ancestors;
 
       const next = new Set(ancestors);
-      const currentId = findNodeIdBySlug(pagesRef.current, currentSlug);
+      const currentId = findNodeIdBySlug(pages, currentSlug);
       if (currentId && previous.has(currentId)) next.add(currentId);
       return next;
     });
-  }, [currentSlug]);
+  }
 
   function toggleExpanded(id: string) {
     setExpandedIds((previous) => {
@@ -61,16 +59,11 @@ export default function PageTree({
     });
   }
 
-  useEffect(() => {
-    if (!dropdownOpen) return;
-    function handleOutsideClick(e: MouseEvent) {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
-        setDropdownOpen(false);
-      }
+  useEventListener("document", "mousedown", (e) => {
+    if (dropdownOpen && dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+      setDropdownOpen(false);
     }
-    document.addEventListener("mousedown", handleOutsideClick);
-    return () => document.removeEventListener("mousedown", handleOutsideClick);
-  }, [dropdownOpen]);
+  });
 
   return (
     <nav aria-label="Page tree" className="flex h-full flex-col py-2">

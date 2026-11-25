@@ -314,6 +314,174 @@ function navigationObservations(input, metadata, within, kind, now, maxAgeMs) {
   };
 }
 
+const RUM_METRICS = ["ttfbMs", "fcpMs", "lcpMs", "inpMs", "cls"];
+const RUM_PERCENTILES = ["p50", "p75", "p90", "p99"];
+
+function productionHost(value, label) {
+  if (
+    typeof value !== "string" ||
+    !/^[a-z0-9-]+(?:\.[a-z0-9-]+)+$/.test(value) ||
+    value.endsWith(".localhost") ||
+    /^\d+(?:\.\d+){3}$/.test(value)
+  )
+    throw new Error(`${label} must be a production hostname`);
+  return value;
+}
+
+function aggregateRumObservations(input, metadata, window, now, maxAgeMs) {
+  if (input.kind !== "production-rum")
+    throw new Error("Expected production-rum input; observations cannot be relabeled");
+  const range = object(input.window, "productionRum.window");
+  const since = time(range.since, "productionRum.window.since");
+  const until = time(range.until, "productionRum.window.until");
+  if (since > until) throw new Error("productionRum.window must satisfy since <= until");
+  if (input.synthetic === true) throw new Error("Production RUM cannot be synthetic");
+  const apps = array(input.apps, "productionRum.apps").map((raw) => {
+    const entry = object(raw, "production RUM app");
+    if (typeof entry.app !== "string" || !/^[a-z0-9-]+$/.test(entry.app))
+      throw new Error("production RUM app name is invalid");
+    if (entry.synthetic === true) throw new Error("Production RUM cannot be synthetic");
+    const metrics = object(entry.metrics, "production RUM metrics");
+    return {
+      app: entry.app,
+      host: productionHost(entry.host, "production RUM host"),
+      pageViews: number(entry.pageViews, "production RUM pageViews"),
+      visits: entry.visits === undefined ? null : number(entry.visits, "production RUM visits"),
+      sampleInterval:
+        entry.sampleInterval === undefined
+          ? null
+          : number(entry.sampleInterval, "production RUM sampleInterval"),
+      metrics: Object.fromEntries(
+        RUM_METRICS.map((name) => {
+          const value = object(metrics[name], `production RUM metrics.${name}`);
+          const sampleCount = number(value.sampleCount, `${name}.sampleCount`);
+          return [
+            name,
+            {
+              sampleCount,
+              ...Object.fromEntries(
+                RUM_PERCENTILES.map((percentile) => {
+                  const raw = value[percentile];
+                  if (raw === null || raw === undefined) return [percentile, null];
+                  if (sampleCount === 0)
+                    throw new Error(`${name}.${percentile} requires a nonzero sample count`);
+                  return [percentile, number(raw, `${name}.${percentile}`)];
+                }),
+              ),
+            },
+          ];
+        }),
+      ),
+    };
+  });
+  const windowMatchesReport = since === window.start && until === window.end;
+  const windowEndAgeMs = now - until;
+  return {
+    ...metadata,
+    status: windowEndAgeMs > maxAgeMs ? "stale" : metadata.status,
+    kind: "production-rum",
+    format: "aggregate",
+    window: {
+      since: new Date(since).toISOString(),
+      until: new Date(until).toISOString(),
+      inclusive: true,
+    },
+    windowMatchesReport,
+    windowEndAgeMs,
+    sampling: typeof input.sampling === "string" ? input.sampling : null,
+    privacy: typeof input.privacy === "string" ? input.privacy : null,
+    appCount: apps.length,
+    pageViews: apps.reduce((total, entry) => total + entry.pageViews, 0),
+    excludedHostCount:
+      input.excludedHostCount === undefined
+        ? null
+        : number(input.excludedHostCount, "productionRum.excludedHostCount", true),
+    apps,
+    comparisonVerdict: "not evaluated",
+  };
+}
+
+function appOf(path) {
+  const match = /^apps\/([^/]+)\//.exec(path);
+  return match ? match[1] : null;
+}
+
+function deliveryAndPerformance(report, filtered, explicitReverts) {
+  const withPaths = filtered.every((commit) => Array.isArray(commit.paths));
+  const perApp = new Map();
+  const row = (app) => {
+    if (!perApp.has(app))
+      perApp.set(app, {
+        app,
+        commits: withPaths ? 0 : null,
+        explicitReverts: withPaths ? 0 : null,
+        production: null,
+      });
+    return perApp.get(app);
+  };
+  if (withPaths) {
+    const reverts = new Set(explicitReverts.map((commit) => commit.sha));
+    for (const commit of filtered) {
+      for (const app of new Set(commit.paths.map(appOf).filter(Boolean))) {
+        row(app).commits++;
+        if (reverts.has(commit.sha)) row(app).explicitReverts++;
+      }
+    }
+  }
+  const rum = report.productionRum;
+  const rumUsable = rum.format === "aggregate" && rum.windowMatchesReport;
+  if (rumUsable) {
+    for (const entry of rum.apps) {
+      const target = row(entry.app);
+      target.production ??= [];
+      target.production.push({
+        host: entry.host,
+        pageViews: entry.pageViews,
+        sampleInterval: entry.sampleInterval,
+        ...Object.fromEntries(
+          RUM_METRICS.map((name) => [
+            name,
+            { p75: entry.metrics[name].p75, sampleCount: entry.metrics[name].sampleCount },
+          ]),
+        ),
+      });
+    }
+  }
+  const deploy = report.deployRuns;
+  return {
+    window: report.window,
+    causality:
+      "Not inferred. Rows place independently measured throughput, explicit reverts, and production performance in the same window",
+    throughput: {
+      commits: filtered.length,
+      explicitReverts: explicitReverts.length,
+      deployAttempts: deploy.status === "unavailable" ? null : deploy.windowAttemptCount,
+      deployAttemptsUnit: "workflow attempts across all applications, not per-application releases",
+      deploySource: { status: deploy.status, complete: deploy.complete ?? null },
+      perAppCommitBasis: withPaths
+        ? "commits whose changed paths include apps/<app>/; one commit can count for several apps; merge commits list no paths"
+        : "unavailable: commit paths were not supplied",
+    },
+    production: {
+      status: rum.status,
+      source: rum.source,
+      collectedAt: rum.collectedAt,
+      ageMs: rum.ageMs,
+      windowEndAgeMs: rum.windowEndAgeMs ?? null,
+      windowMatchesReport: rum.windowMatchesReport ?? null,
+      sampling: rum.sampling ?? null,
+      basis: rumUsable
+        ? "p75 per host from production RUM for the report window"
+        : rum.status === "unavailable"
+          ? "unavailable"
+          : rum.format !== "aggregate"
+            ? "not shown: per-sample production RUM is reported separately"
+            : "not shown: production RUM window differs from the report window",
+    },
+    apps: [...perApp.values()].sort((a, b) => a.app.localeCompare(b.app)),
+  };
+}
+
 export function aggregateEngineeringHealth({
   since,
   until,
@@ -340,6 +508,11 @@ export function aggregateEngineeringHealth({
         typeof commit.subject !== "string"
       )
         throw new Error("Commit SHA or subject is invalid");
+      if (
+        commit.paths !== undefined &&
+        !array(commit.paths, "commit.paths").every((path) => typeof path === "string")
+      )
+        throw new Error("commit.paths must contain strings");
       return { ...commit, timestamp: time(commit.committedAt, "commit.committedAt") };
     })
     .filter((commit) => within(commit.timestamp));
@@ -382,20 +555,25 @@ export function aggregateEngineeringHealth({
           ? deploymentObservations(input, metadata, within, generated, maxAgeMs)
           : name === "ciRuns"
             ? ciObservations(input, metadata, within, generated, maxAgeMs)
-            : navigationObservations(
-                input,
-                metadata,
-                within,
-                name === "syntheticNavigation" ? "synthetic-navigation" : "production-rum",
-                generated,
-                maxAgeMs,
-              );
+            : name === "productionRum" && input.format === "aggregate"
+              ? aggregateRumObservations(input, metadata, { start, end }, generated, maxAgeMs)
+              : navigationObservations(
+                  input,
+                  metadata,
+                  within,
+                  name === "syntheticNavigation" ? "synthetic-navigation" : "production-rum",
+                  generated,
+                  maxAgeMs,
+                );
   }
   report.gaps = Object.entries(report)
     .filter(([, value]) => value?.status === "unavailable" || value?.status === "stale")
     .map(([name, value]) => `${name}: ${value.status}`);
   if (report.deployRuns.complete === false)
     report.gaps.push("deployRuns: pagination coverage is incomplete or unknown");
+  if (report.productionRum.windowMatchesReport === false)
+    report.gaps.push("productionRum: window differs from the report window");
+  report.deliveryAndPerformance = deliveryAndPerformance(report, filtered, explicitReverts);
   report.status = report.gaps.length ? "NOT VERIFIED" : "VERIFIED";
   report.statusBasis =
     "Input availability and freshness only; outcomes remain separate and are not deployment approval";
@@ -410,10 +588,15 @@ const help = `Usage: node scripts/engineering-health.mjs --since ISO [options]
   --deploy-runs PATH             {collectedAt, source, workflow_runs, total_count?, complete?}
   --ci-metrics-dir PATH          Existing local CI JSON run directory
   --synthetic-navigation PATH    {kind:"synthetic-navigation", collectedAt, source, samples}
-  --production-rum PATH          {kind:"production-rum", collectedAt, source, samples}
+  --production-rum PATH          {kind:"production-rum", collectedAt, source, samples} or
+                                 {kind:"production-rum", format:"aggregate", collectedAt,
+                                  source, window:{since,until}, apps}
   --output PATH                  Write report JSON instead of stdout
 Navigation sample: {observedAt,url,outcome:"success"|"failed",httpStatus?,evidence,
  navigation:{duration,responseStart,domContentLoadedEventEnd,loadEventEnd}}
+Aggregate RUM app: {app,host,pageViews,visits?,sampleInterval?,
+ metrics:{ttfbMs,fcpMs,lcpMs,inpMs,cls each {sampleCount,p50,p75,p90,p99}}}
+Production RUM appears beside throughput only when its window equals the report window.
 Missing inputs produce NOT VERIFIED coverage. Malformed inputs fail with exit code 1.
 This command reads local files and Git only; it never fetches or changes external state.\n`;
 
@@ -453,18 +636,23 @@ export function run(args = process.argv.slice(2)) {
   const repository = resolve(options.repo ?? process.cwd());
   const output = execFileSync(
     "git",
-    ["log", "--format=%H%x00%cI%x00%s", `--since-as-filter=${options.since}`, `--until=${until}`],
-    { cwd: repository, encoding: "utf8" },
+    [
+      "log",
+      "--format=%x1e%H%x00%cI%x00%s",
+      "--name-only",
+      `--since-as-filter=${options.since}`,
+      `--until=${until}`,
+    ],
+    { cwd: repository, encoding: "utf8", maxBuffer: 256 * 1024 * 1024 },
   );
-  const commits = output.trim()
-    ? output
-        .trimEnd()
-        .split("\n")
-        .map((line) => {
-          const [sha, committedAt, subject] = line.split("\0");
-          return { sha, committedAt, subject };
-        })
-    : [];
+  const commits = output
+    .split("\x1e")
+    .filter((record) => record.trim())
+    .map((record) => {
+      const [header, ...paths] = record.split("\n");
+      const [sha, committedAt, subject] = header.split("\0");
+      return { sha, committedAt, subject, paths: paths.filter(Boolean) };
+    });
   const read = (flag) =>
     options[flag] ? JSON.parse(readFileSync(resolve(options[flag]), "utf8")) : undefined;
   const ciRuns = options["ci-metrics-dir"]

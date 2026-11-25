@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from "react";
+import { useEventListener } from "@gdgjp/gdg-lib/react";
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import ConfirmDialog from "~/components/ConfirmDialog";
 import TipTapEditor from "~/features/editor/components/TipTapEditor";
@@ -38,14 +39,9 @@ export default function CommentEditor({
     }
   })();
 
-  useEffect(() => {
-    if (!isDirty) return;
-    function handleBeforeUnload(e: BeforeUnloadEvent) {
-      e.preventDefault();
-    }
-    window.addEventListener("beforeunload", handleBeforeUnload);
-    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
-  }, [isDirty]);
+  useEventListener(isDirty && typeof window !== "undefined" ? window : null, "beforeunload", (e) =>
+    e.preventDefault(),
+  );
 
   function handleCancel() {
     if (isDirty) {
@@ -60,14 +56,14 @@ export default function CommentEditor({
     onSubmit(contentJson);
   }
 
-  const wasSubmittingRef = useRef(false);
-  useEffect(() => {
-    if (wasSubmittingRef.current && !isSubmitting) {
+  const [wasSubmitting, setWasSubmitting] = useState(isSubmitting);
+  if (wasSubmitting !== isSubmitting) {
+    setWasSubmitting(isSubmitting);
+    if (!isSubmitting) {
       setContentJson("");
       setResetKey((k) => k + 1);
     }
-    wasSubmittingRef.current = isSubmitting;
-  }, [isSubmitting]);
+  }
 
   return (
     <div className="flex flex-col gap-2">

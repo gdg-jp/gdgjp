@@ -4,7 +4,7 @@ Scoped to `tinyurl/`. Monorepo-wide conventions in `../../CLAUDE.md`.
 
 ## Bindings
 
-- `DB` — D1 `gdgjp-tinyurl-db` (schema in `migrations/`, dumped to `schema.sql`).
+- `DB` — D1 `gdgjp-tinyurl-db`.
 - `CLICKS_AE` — Analytics Engine dataset `tinyurl_clicks`. Writes via `writeDataPoint` (no secrets); reads via AE SQL API need `CF_ACCOUNT_ID` + `CF_AE_API_TOKEN` (Account Analytics: Read).
 
 ## Request flow — apex fast path
@@ -37,9 +37,8 @@ Slugs are user-supplied unique. `createLink` distinguishes unique-violation and 
 
 ## Dev
 
-`.dev.vars` needs `RP_SESSION_SECRET`, `IDP_CLIENT_SECRET`, and (for analytics pages) `CF_ACCOUNT_ID` / `CF_AE_API_TOKEN`. Set local URL overrides `APP_URL` / `IDP_URL` / `SHORT_URL_BASE=http://localhost:5174` so the apex path is exercisable in dev. See `.dev.vars.example`.
-
-E2E (`playwright.config.ts`) boots BOTH `accounts` (:5173) and `tinyurl` (:5174) via `webServer`. Flake? Check both came up.
+Analytics pages need `CF_ACCOUNT_ID` / `CF_AE_API_TOKEN`. Keep `SHORT_URL_BASE` on the local origin so
+the apex path is exercisable in dev.
 
 ## Code map
 

@@ -1,5 +1,6 @@
 import { Button, Icons, PageHeader, Stack } from "@gdgjp/design-system";
-import { useEffect, useState } from "react";
+import { useInterval, useValueChange } from "@gdgjp/gdg-lib/react";
+import { useState } from "react";
 import { useFetcher, useRevalidator } from "react-router";
 import { ConnectDomainDialog } from "~/features/domains/components/connect-domain-dialog";
 import { DomainCard } from "~/features/domains/components/domain-card";
@@ -28,18 +29,16 @@ export default function Domains({ loaderData, actionData }: Route.ComponentProps
     (domain) =>
       domain.kind === "custom" && domain.status !== "active" && domain.status !== "deleted",
   );
-  const syncSubmit = syncer.submit;
 
-  useEffect(() => {
-    if (!pending) return;
-    const timer = window.setInterval(() => {
-      if (syncer.state === "idle") syncSubmit({ intent: "syncAll" }, { method: "post" });
-    }, 10_000);
-    return () => window.clearInterval(timer);
-  }, [pending, syncSubmit, syncer.state]);
-  useEffect(() => {
-    if (syncer.state === "idle" && syncer.data) revalidator.revalidate();
-  }, [syncer.state, syncer.data, revalidator]);
+  useInterval(
+    () => {
+      if (syncer.state === "idle") syncer.submit({ intent: "syncAll" }, { method: "post" });
+    },
+    pending ? 10_000 : null,
+  );
+  useValueChange(syncer.state === "idle" ? syncer.data : undefined, (data) => {
+    if (data) revalidator.revalidate();
+  });
 
   const organizers = loaderData.chapters.filter((chapter) =>
     loaderData.manageableIds.includes(chapter.chapterId),

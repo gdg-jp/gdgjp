@@ -1,0 +1,24 @@
+[
+  {
+    "id": "ost-vote-count-off-by-one",
+    "description": "The board state reports one more vote than was cast for each voted topic",
+    "workspace": "@gdgjp/ost",
+    "spec": "e2e/ui-properties.spec.ts",
+    "grep": "seed 4127 ",
+    "file": "apps/ost/workers/ost-board.ts",
+    "find": "      voteCounts[row.topic_id] = row.n;",
+    "replace": "      voteCounts[row.topic_id] = row.n + 1;",
+    "expect": { "property": "ost board" }
+  },
+  {
+    "id": "ost-moderation-without-access",
+    "description": "Screen moderation (delete, clear, merge) skips the chapter access check",
+    "workspace": "@gdgjp/ost",
+    "spec": "e2e/ui-properties.spec.ts",
+    "grep": "seed 80021 ",
+    "file": "apps/ost/app/features/board/moderation.server.ts",
+    "find": "  const { event } = await requireEventAccess(env, request, rawSlug);",
+    "replace": "  const event = { slug: String(rawSlug) };",
+    "expect": { "property": "ost board" }
+  }
+]

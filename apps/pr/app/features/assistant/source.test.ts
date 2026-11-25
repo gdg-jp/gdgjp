@@ -36,6 +36,11 @@ describe("page helpers", () => {
   });
   it("turns markup into lines and masks contact details", () => {
     expect(htmlToText("<p>a&amp;b</p><script>x</script><div>c<br>d</div>")).toBe("a&b\nc\nd");
+    expect(htmlToText('<img src="x.png" alt="会場の地図"><!-- note -->')).toBe(
+      "[画像: 会場の地図]",
+    );
+    expect(htmlToText("<scr<script>x</script>ipt>alert(1)</script>")).not.toMatch(/<script/i);
+    expect(htmlToText("<!<!-- -->-- y -->")).not.toContain("<!--");
     expect(maskContacts("連絡先 hoge@example.com / 06-1234-5678")).toBe(
       "連絡先 ［メール］ / ［電話］",
     );

@@ -1,7 +1,7 @@
 {
   "supportSource": "https://github.com/cursor/plugins/tree/main/pstack",
-  "supportVersion": "0.15.42",
-  "note": "Support files restored from installed Claude plugin cache. Existing vendored skills retained without replacement.",
+  "supportVersion": "0.15.48",
+  "note": "Skills, agents, and docs/guide follow harness/pstack/claude-code at cursor/plugins 9e278fe (0.15.48), merged three-way over the local adaptations. Existing vendored skills retained without replacement.",
   "skills": [
     "architect",
     "arena",
@@ -49,6 +49,7 @@
     "principle-test-behavior-not-implementation",
     "principle-type-system-discipline",
     "recall",
+    "reframe",
     "reflect",
     "setup-pstack",
     "sharpen",
@@ -62,9 +63,15 @@
     "unslop",
     "verify-accounts-client-revocation",
     "verify-acl-boundaries",
+    "verify-apps",
+    "verify-connpass",
     "verify-job-lifecycle",
+    "verify-pay",
     "verify-platform",
-    "verify-pr-approval",
+    "verify-pr",
+    "verify-scheduler",
+    "verify-sns",
+    "verify-tinyurl",
     "verify-wiki",
     "why"
   ]

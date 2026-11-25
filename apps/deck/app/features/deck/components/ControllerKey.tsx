@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from "react";
+import { useAnimationFrame, useTimeout } from "@gdgjp/gdg-lib/react";
+import { useRef, useState } from "react";
 import { isMomentary } from "~/features/obs/actions";
 import type { Phase } from "~/features/obs/requests";
 import { buzz } from "~/lib/haptics";
@@ -34,17 +35,10 @@ export function ControllerKey({
 
   const [progress, setProgress] = useState(0);
   const [armed, setArmed] = useState(false);
-  const hold = useRef<{ start: number; frame: number } | null>(null);
-  const armTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const hold = useRef<number | null>(null);
+  const [holding, setHolding] = useState(false);
+  const armTimer = useTimeout();
   const down = useRef(false);
-
-  useEffect(
-    () => () => {
-      if (hold.current) cancelAnimationFrame(hold.current.frame);
-      clearTimeout(armTimer.current);
-    },
-    [],
-  );
 
   const fire = () => {
     buzz(confirm.mode === "none" ? 12 : [10, 40, 20]);
@@ -52,10 +46,21 @@ export function ControllerKey({
   };
 
   const cancelHold = () => {
-    if (hold.current) cancelAnimationFrame(hold.current.frame);
     hold.current = null;
+    setHolding(false);
     setProgress(0);
   };
+
+  useAnimationFrame(() => {
+    const start = hold.current;
+    if (start === null || confirm.mode !== "hold") return;
+    const p = Math.min(1, (performance.now() - start) / confirm.ms);
+    setProgress(p);
+    if (p >= 1) {
+      cancelHold();
+      fire();
+    }
+  }, holding);
 
   const onPointerDown = (e: React.PointerEvent) => {
     if (disabled && !navigates) return;
@@ -67,19 +72,8 @@ export function ControllerKey({
       return;
     }
     if (confirm.mode !== "hold") return;
-    const start = performance.now();
-    const tick = () => {
-      const p = Math.min(1, (performance.now() - start) / confirm.ms);
-      setProgress(p);
-      if (p >= 1) {
-        hold.current = null;
-        setProgress(0);
-        fire();
-        return;
-      }
-      if (hold.current) hold.current.frame = requestAnimationFrame(tick);
-    };
-    hold.current = { start, frame: requestAnimationFrame(tick) };
+    hold.current = performance.now();
+    setHolding(true);
   };
 
   const onPointerEnd = () => {
@@ -106,10 +100,10 @@ export function ControllerKey({
       if (!armed) {
         setArmed(true);
         buzz(8);
-        armTimer.current = setTimeout(() => setArmed(false), DOUBLE_TAP_MS);
+        armTimer.start(() => setArmed(false), DOUBLE_TAP_MS);
         return;
       }
-      clearTimeout(armTimer.current);
+      armTimer.cancel();
       setArmed(false);
     }
     fire();

@@ -1,5 +1,5 @@
+import { useValueChange } from "@gdgjp/gdg-lib/react";
 import { ExternalLink, ImagePlus, Pencil } from "lucide-react";
-import { useEffect } from "react";
 import { Link, useFetcher, useNavigate, useRevalidator } from "react-router";
 import type { Post, PostMedia } from "~/features/posts/post.types";
 import type { XAccount } from "~/features/x-accounts/x-account.types";
@@ -44,9 +44,9 @@ export function PostCard({
     if (editHref) navigate(editHref);
   };
 
-  useEffect(() => {
-    if (mediaFetcher.data?.ok) revalidator.revalidate();
-  }, [mediaFetcher.data?.ok, revalidator]);
+  useValueChange(mediaFetcher.data?.ok, (ok) => {
+    if (ok) revalidator.revalidate();
+  });
 
   return (
     <article

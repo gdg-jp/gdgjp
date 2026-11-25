@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+import { useDebouncedValue, useTimeout, useValueChange } from "@gdgjp/gdg-lib/react";
+import { useState } from "react";
 import { Form, Link, useFetcher } from "react-router";
 import { loadSettings } from "~/features/settings/settings.server";
 import { RevokeXAccountDialog } from "~/features/x-accounts/components/revoke-x-account-dialog";
@@ -6,17 +7,6 @@ import { AppShell } from "~/layouts/app-shell";
 import type { Route } from "./+types/settings";
 
 type ContributorCandidate = { email: string; name: string; image: string | null };
-
-function useDebouncedValue(value: string, delay = 250) {
-  const [debouncedValue, setDebouncedValue] = useState(value);
-
-  useEffect(() => {
-    const timer = window.setTimeout(() => setDebouncedValue(value), delay);
-    return () => window.clearTimeout(timer);
-  }, [delay, value]);
-
-  return debouncedValue;
-}
 
 export function loader({ request, context }: Route.LoaderArgs) {
   return loadSettings(request, context.cloudflare.env);
@@ -27,16 +17,17 @@ export default function SettingsPage({ loaderData }: Route.ComponentProps) {
   const canAdminContributors = loaderData.canAdminContributors;
   const [contributorQuery, setContributorQuery] = useState("");
   const [showContributorCandidates, setShowContributorCandidates] = useState(false);
-  const debouncedContributorQuery = useDebouncedValue(contributorQuery);
+  const debouncedContributorQuery = useDebouncedValue(contributorQuery, 250);
+  const hideCandidates = useTimeout();
   const contributorCandidates = useFetcher<{ candidates: ContributorCandidate[] }>();
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: fetcher functions are stable
-  useEffect(() => {
-    if (!canAdminContributors || !showContributorCandidates) return;
-    contributorCandidates.load(
-      `/api/contributor-candidates?q=${encodeURIComponent(debouncedContributorQuery)}`,
-    );
-  }, [debouncedContributorQuery, canAdminContributors, showContributorCandidates]);
+  useValueChange(
+    canAdminContributors && showContributorCandidates ? debouncedContributorQuery : null,
+    (query) => {
+      if (query === null) return;
+      contributorCandidates.load(`/api/contributor-candidates?q=${encodeURIComponent(query)}`);
+    },
+  );
 
   return (
     <AppShell user={loaderData.user} chapter={loaderData.chapter} chapters={loaderData.chapters}>
@@ -89,7 +80,9 @@ export default function SettingsPage({ loaderData }: Route.ComponentProps) {
                     setShowContributorCandidates(true);
                   }}
                   onFocus={() => setShowContributorCandidates(true)}
-                  onBlur={() => window.setTimeout(() => setShowContributorCandidates(false), 150)}
+                  onBlur={() =>
+                    hideCandidates.start(() => setShowContributorCandidates(false), 150)
+                  }
                   placeholder="名前またはメールアドレスで検索"
                   autoComplete="off"
                   className="w-full rounded-xl border bg-card p-2"

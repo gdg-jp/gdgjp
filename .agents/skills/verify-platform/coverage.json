@@ -186,13 +186,45 @@
       ],
       "result": "Small text is14px; full width changes768 to976. Both persist on reload and remain unset for a second page.",
       "sourceSnapshot": "local_data/pstack/platform/2026-11-17T15-40-37-884Z-c8490de6/run.json"
+    },
+    {
+      "id": "wiki-translate-now",
+      "map": "features/runner.md",
+      "entryPoint": "http://localhost:6177/wiki/e2e-test-page?lang=en",
+      "identity": "author: e2e-author-user-id; fake runner verify-fake-runner",
+      "expected": "A requested translation, completed by a runner over the real runner API, is shown on the English page.",
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T11:25:30Z",
+      "evidence": [
+        "local_data/pstack/platform/2026-11-24T11-19-18-464Z-ecf3c953/orca-wiki-runner/translate-queued.txt",
+        "local_data/pstack/platform/2026-11-24T11-19-18-464Z-ecf3c953/orca-wiki-runner/runner-http.txt",
+        "local_data/pstack/platform/2026-11-24T11-19-18-464Z-ecf3c953/orca-wiki-runner/translate-after.txt",
+        "local_data/pstack/platform/2026-11-24T11-19-18-464Z-ecf3c953/orca-wiki-runner/wiki-translated.png"
+      ],
+      "result": "Translation requested; lease returned translate job; token-less lease 401; translation POST 200 and result 200, duplicate result 409 lease_lost; English view shows E2E Test Page (verify EN), translated text, and Auto-translated.",
+      "sourceSnapshot": "local_data/pstack/platform/2026-11-24T11-19-18-464Z-ecf3c953/run.json"
+    },
+    {
+      "id": "wiki-runner-status",
+      "map": "features/runner.md",
+      "entryPoint": "http://localhost:6177/admin/runner",
+      "identity": "admin: e2e-admin-user-id",
+      "expected": "Runner heartbeat and finished job appear on the admin page.",
+      "status": "VERIFIED",
+      "observedAt": "2026-11-24T11:26:40Z",
+      "evidence": [
+        "local_data/pstack/platform/2026-11-24T11-19-18-464Z-ecf3c953/orca-wiki-runner/admin-runner.txt",
+        "local_data/pstack/platform/2026-11-24T11-19-18-464Z-ecf3c953/orca-wiki-runner/admin-runner-heartbeat.txt"
+      ],
+      "result": "translate · succeeded: 1 and the recent job listed; after heartbeat, verify-fake-runner · idle, seen 0 min ago.",
+      "sourceSnapshot": "local_data/pstack/platform/2026-11-24T11-19-18-464Z-ecf3c953/run.json"
     }
   ],
   "exclusions": [
     "Real Google authentication",
     "Deployed Cloudflare services and production role assignments",
     "External notifications and sync",
-    "Knowledge ingestion and AI search",
+    "Knowledge ingestion (synthesis from sources), agent requests on agent-authored pages, and AI search",
     "Production RUM",
     "Every Wiki route, mutation, locale, and viewport"
   ]

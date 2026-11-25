@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { deriveDayRanges, generateSlotTimes, minutesToTime, timeToMinutes } from "./slots";
+import {
+  MEETING_LENGTH_OPTIONS,
+  TIME_OPTIONS,
+  deriveDayRanges,
+  generateSlotTimes,
+  minutesToTime,
+  timeToMinutes,
+} from "./slots";
 
 describe("timeToMinutes / minutesToTime", () => {
   it("round-trips", () => {
@@ -67,5 +74,14 @@ describe("deriveDayRanges", () => {
     const days = deriveDayRanges([], 60);
     expect(days).toHaveLength(7);
     for (const d of days) expect(d.ranges).toEqual([]);
+  });
+});
+
+describe("TIME_OPTIONS", () => {
+  it("lands every meeting length on the time grid", () => {
+    const step = timeToMinutes(TIME_OPTIONS[1]) - timeToMinutes(TIME_OPTIONS[0]);
+    for (const { value } of MEETING_LENGTH_OPTIONS) {
+      expect(value % step, `${value} min needs a TIME_OPTIONS step that divides it`).toBe(0);
+    }
   });
 });

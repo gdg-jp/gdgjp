@@ -1,3 +1,4 @@
+import { withoutTrailingSlashes } from "../url";
 export type GdgAppLink = {
   iconUrl: string;
   label: string;
@@ -55,7 +56,7 @@ export function gdgAppLinks(accountsUrl: string | null | undefined): readonly Gd
 
 export function gdgAccountSettingsUrl(accountsUrl: string | null | undefined): string {
   const base = accountsUrl
-    ? accountsUrl.replace(/\/+$/, "")
+    ? withoutTrailingSlashes(accountsUrl)
     : `https://accounts.${PRODUCTION_SITE}`;
   return `${base}/dashboard`;
 }

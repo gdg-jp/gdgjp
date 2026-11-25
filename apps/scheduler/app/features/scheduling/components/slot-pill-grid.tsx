@@ -1,5 +1,5 @@
 import { Button, cn } from "@gdgjp/design-system";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { DAY_LABELS } from "~/features/scheduling/slots";
 
 type SlotKey = { dayOfWeek: number; startTime: string };
@@ -39,10 +39,11 @@ function InteractiveGrid({
 }: Extract<SlotPillGridProps, { mode: "interactive" }>) {
   const ownKey = useMemo(() => [...ownSet].sort((a, b) => a - b).join(","), [ownSet]);
   const [selected, setSelected] = useState<Set<number>>(() => new Set(ownSet));
-  // biome-ignore lint/correctness/useExhaustiveDependencies: ownKey captures ownSet content
-  useEffect(() => {
+  const [selectedFor, setSelectedFor] = useState(ownKey);
+  if (selectedFor !== ownKey) {
+    setSelectedFor(ownKey);
     setSelected(new Set(ownSet));
-  }, [ownKey]);
+  }
 
   const slotIdsByDay = useMemo(() => {
     const m = new Map<number, number[]>();

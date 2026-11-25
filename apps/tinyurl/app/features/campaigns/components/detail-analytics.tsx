@@ -13,6 +13,7 @@ import {
   Stack,
 } from "@gdgjp/design-system";
 import { useRef, useState } from "react";
+import { flushSync } from "react-dom";
 import { useSearchParams } from "react-router";
 import type { TopBlob, TopRow } from "~/features/analytics/analytics-engine";
 import { serializeAnalyticsParams } from "~/features/analytics/analytics-filters";
@@ -128,12 +129,13 @@ export function CampaignAnalyticsPanel({
     row: { key?: string; name: string },
   ) {
     if (!row.key) return;
-    setBreakdown(dimension);
-    setTrendMetric("clicks");
-    setGraphFocus({ key: row.key, label: row.name });
-    requestAnimationFrame(() =>
-      chartRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" }),
-    );
+    const key = row.key;
+    flushSync(() => {
+      setBreakdown(dimension);
+      setTrendMetric("clicks");
+      setGraphFocus({ key, label: row.name });
+    });
+    chartRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
   }
 
   function changeBreakdown(value: CampaignTrendDimension) {

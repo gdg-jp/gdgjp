@@ -1,4 +1,7 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEventListener } from "@gdgjp/gdg-lib/react";
+import { useCallback, useRef, useState } from "react";
+
+const focusOnAttach = (element: HTMLInputElement | null) => element?.focus();
 
 interface MenuPosition {
   top: number;
@@ -6,14 +9,10 @@ interface MenuPosition {
   width: number;
 }
 
-interface UseAnchoredMenuOptions {
-  searchable?: boolean;
-}
-
 interface UseAnchoredMenuResult {
   triggerRef: React.RefObject<HTMLButtonElement | null>;
   menuRef: React.RefObject<HTMLDivElement | null>;
-  searchInputRef: React.RefObject<HTMLInputElement | null>;
+  searchInputRef: (element: HTMLInputElement | null) => void;
   pos: MenuPosition | null;
   open: boolean;
   search: string;
@@ -22,15 +21,12 @@ interface UseAnchoredMenuResult {
   close: () => void;
 }
 
-export function useAnchoredMenu({
-  searchable,
-}: UseAnchoredMenuOptions = {}): UseAnchoredMenuResult {
+export function useAnchoredMenu(): UseAnchoredMenuResult {
   const [open, setOpen] = useState(false);
   const [pos, setPos] = useState<MenuPosition | null>(null);
   const [search, setSearch] = useState("");
   const triggerRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
-  const searchInputRef = useRef<HTMLInputElement>(null);
 
   function calcPos(): MenuPosition | null {
     const rect = triggerRef.current?.getBoundingClientRect();
@@ -52,9 +48,6 @@ export function useAnchoredMenu({
     if (p) setPos(p);
     setSearch("");
     setOpen(true);
-    if (searchable) {
-      setTimeout(() => searchInputRef.current?.focus(), 0);
-    }
   }
 
   const close = useCallback(() => {
@@ -62,29 +55,22 @@ export function useAnchoredMenu({
     setSearch("");
   }, []);
 
-  useEffect(() => {
+  useEventListener("document", "mousedown", (e) => {
     if (!open) return;
-    function handleOutside(e: MouseEvent) {
-      const target = e.target as Node;
-      if (triggerRef.current?.contains(target) || menuRef.current?.contains(target)) return;
-      close();
-    }
-    document.addEventListener("mousedown", handleOutside);
-    return () => document.removeEventListener("mousedown", handleOutside);
-  }, [open, close]);
+    const target = e.target as Node;
+    if (triggerRef.current?.contains(target) || menuRef.current?.contains(target)) return;
+    close();
+  });
 
-  useEffect(() => {
-    if (!open) return;
-    function handleKey(e: KeyboardEvent) {
-      if (e.key === "Escape") close();
-    }
-    document.addEventListener("keydown", handleKey);
-    return () => document.removeEventListener("keydown", handleKey);
-  }, [open, close]);
+  useEventListener("document", "keydown", (e) => {
+    if (open && e.key === "Escape") close();
+  });
 
-  useEffect(() => {
-    if (!open) return;
-    function handleScroll() {
+  useEventListener(
+    "window",
+    "scroll",
+    () => {
+      if (!open) return;
       const rect = triggerRef.current?.getBoundingClientRect();
       if (!rect) return;
       setPos({
@@ -92,10 +78,11 @@ export function useAnchoredMenu({
         left: rect.left + window.scrollX,
         width: Math.max(rect.width, 160),
       });
-    }
-    window.addEventListener("scroll", handleScroll, true);
-    return () => window.removeEventListener("scroll", handleScroll, true);
-  }, [open]);
+    },
+    { capture: true },
+  );
+
+  const searchInputRef = focusOnAttach;
 
   return { triggerRef, menuRef, searchInputRef, pos, open, search, setSearch, openMenu, close };
 }

@@ -1,5 +1,5 @@
 import { Button, IconButton, Icons } from "@gdgjp/design-system";
-import { useEffect } from "react";
+import { useInterval } from "@gdgjp/gdg-lib/react";
 import { Link, useRevalidator } from "react-router";
 import { requireUserWithChapter } from "~/features/auth/auth-redirect.server";
 import { CreateDeckDialog } from "~/features/deck/components/DeckDialogs";
@@ -82,14 +82,11 @@ export default function Home({ loaderData }: Route.ComponentProps) {
   const revalidator = useRevalidator();
   const multiChapter = chapters.length > 1;
 
-  useEffect(() => {
-    const timer = setInterval(() => {
-      if (document.visibilityState === "visible" && revalidator.state === "idle") {
-        void revalidator.revalidate();
-      }
-    }, POLL_MS);
-    return () => clearInterval(timer);
-  }, [revalidator]);
+  useInterval(() => {
+    if (document.visibilityState === "visible" && revalidator.state === "idle") {
+      void revalidator.revalidate();
+    }
+  }, POLL_MS);
 
   return (
     <div className="dk-page">

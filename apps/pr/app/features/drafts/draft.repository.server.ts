@@ -1,7 +1,7 @@
 import type { CheckResult } from "@skills/pr-playbook/scripts/checks/index.mjs";
 import type { Draft, DraftReview, DraftVersion } from "./draft";
 import type { DraftKind } from "./draft-kinds";
-import type { DraftStatus } from "./state-machine";
+import type { DraftStatus, UnapprovedStatus } from "./state-machine";
 
 type DraftRow = {
   id: number;
@@ -16,6 +16,7 @@ type DraftRow = {
   reviewed_by: string | null;
   approved_by: string | null;
   approved_at: number | null;
+  approved_version: number | null;
   dispatch_media_url?: string | null;
   created_at: number;
   updated_at: number;
@@ -34,6 +35,7 @@ const toDraft = (r: DraftRow): Draft => ({
   reviewedBy: r.reviewed_by,
   approvedBy: r.approved_by,
   approvedAt: r.approved_at,
+  approvedVersion: r.approved_version,
   dispatchMediaUrl: r.dispatch_media_url ?? null,
   createdAt: r.created_at,
   updatedAt: r.updated_at,
@@ -113,7 +115,7 @@ export async function appendVersion(
     content: unknown;
     playbookVersion: string;
     checkResults: CheckResult[];
-    status: DraftStatus;
+    status: UnapprovedStatus;
     itemStatus?: string | null;
   },
 ): Promise<number> {
@@ -138,11 +140,10 @@ export async function appendVersion(
       .prepare(
         `UPDATE drafts SET current_version = (SELECT MAX(version) FROM draft_versions WHERE draft_id = ?),
            status = ?, review_requested_at = CASE WHEN ? = 'in_review' THEN unixepoch() ELSE review_requested_at END,
-           approved_by = CASE WHEN ? = 'approved' THEN approved_by ELSE NULL END,
-           approved_at = CASE WHEN ? = 'approved' THEN approved_at ELSE NULL END,
+           approved_by = NULL, approved_at = NULL, approved_version = NULL,
            updated_at = unixepoch() WHERE id = ?`,
       )
-      .bind(draftId, input.status, input.status, input.status, input.status, draftId),
+      .bind(draftId, input.status, input.status, draftId),
     ...(input.itemStatus
       ? [
           db
@@ -225,21 +226,43 @@ export async function latestVersion(db: D1Database, draftId: number): Promise<Dr
   return row ? toVersion(row) : null;
 }
 
+export async function getVersion(
+  db: D1Database,
+  draftId: number,
+  version: number,
+): Promise<DraftVersion | null> {
+  const row = await db
+    .prepare("SELECT * FROM draft_versions WHERE draft_id = ? AND version = ?")
+    .bind(draftId, version)
+    .first<VersionRow>();
+  return row ? toVersion(row) : null;
+}
+
+export async function approvedContent(
+  db: D1Database,
+  draft: Pick<Draft, "id" | "approvedVersion">,
+): Promise<unknown> {
+  if (draft.approvedVersion === null) return null;
+  return (await getVersion(db, draft.id, draft.approvedVersion))?.content ?? null;
+}
+
 export async function setDraftStatus(
   db: D1Database,
   draftId: number,
-  from: DraftStatus,
+  seen: { status: DraftStatus; version: number },
   to: DraftStatus,
   itemStatus: string,
   by: { reviewedBy?: string; approvedBy?: string },
 ): Promise<boolean> {
+  const approvedVersion = to === "approved" ? seen.version : null;
   const results = await db.batch([
     db
       .prepare(
         `UPDATE drafts SET status = ?, reviewed_by = COALESCE(?, reviewed_by), reviewed_at = CASE WHEN ? IS NULL THEN reviewed_at ELSE unixepoch() END,
            approved_by = COALESCE(?, approved_by), approved_at = CASE WHEN ? IS NULL THEN approved_at ELSE unixepoch() END,
+           approved_version = COALESCE(?, approved_version),
            updated_at = unixepoch()
-         WHERE id = ? AND status = ?`,
+         WHERE id = ? AND status = ? AND current_version = ?`,
       )
       .bind(
         to,
@@ -247,16 +270,18 @@ export async function setDraftStatus(
         by.reviewedBy ?? null,
         by.approvedBy ?? null,
         by.approvedBy ?? null,
+        approvedVersion,
         draftId,
-        from,
+        seen.status,
+        seen.version,
       ),
     db
       .prepare(
         `UPDATE schedule_items SET status = ?, updated_at = unixepoch()
-         WHERE id = (SELECT schedule_item_id FROM drafts WHERE id = ? AND status = ?)
+         WHERE id = (SELECT schedule_item_id FROM drafts WHERE id = ? AND status = ? AND current_version = ?)
            AND status NOT IN ('dispatching','scheduled','done')`,
       )
-      .bind(itemStatus, draftId, to),
+      .bind(itemStatus, draftId, to, seen.version),
   ]);
   return (results[0]?.meta.changes ?? 0) > 0;
 }

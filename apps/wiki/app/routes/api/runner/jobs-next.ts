@@ -1,3 +1,4 @@
+import { delay } from "@gdgjp/gdg-lib/timing";
 import type { LoaderFunctionArgs } from "react-router";
 import { requireRunner, runnerHost } from "~/features/jobs/runner-routes.server";
 import { leaseNextJob } from "~/features/jobs/runner.server";
@@ -30,7 +31,7 @@ export async function loader({ request, context }: LoaderFunctionArgs) {
       });
     }
     if (Date.now() + POLL_MS > deadline) break;
-    await new Promise((resolve) => setTimeout(resolve, POLL_MS));
+    await delay(POLL_MS);
   } while (Date.now() < deadline);
   return new Response(null, { status: 204 });
 }

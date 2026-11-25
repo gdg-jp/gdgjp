@@ -10,7 +10,8 @@ import {
   cn,
   toast,
 } from "@gdgjp/design-system";
-import { useEffect, useState } from "react";
+import { useTransientValue } from "@gdgjp/gdg-lib/react";
+import { useState } from "react";
 import { Link } from "react-router";
 import { SourceCombobox, type SourceOption } from "~/features/campaigns/components/source-combobox";
 import { campaignSourceUrl } from "~/features/campaigns/components/source-url";
@@ -91,19 +92,13 @@ export function LinkCard({
   properties?: DisplayProperty[];
 }) {
   const [source, setSource] = useState("");
-  const [copyFeedback, setCopyFeedback] = useState<{ url: string } | null>(null);
+  const [copyFeedback, setCopyFeedback] = useTransientValue<{ url: string }>(3000);
   const [linkAction, setLinkAction] = useState<LinkAction | null>(null);
   const { link, owner, clicks, campaign, folder, tags = [] } = item;
   const favicon = faviconUrl(link.destinationUrl);
   const linkHost = link.domainHostname ?? shortHost;
   const shortUrl = `https://${linkHost}/${link.slug}`;
   const shortDisplay = linkHost === "go.gdgs.jp" ? `go/${link.slug}` : `${linkHost}/${link.slug}`;
-
-  useEffect(() => {
-    if (!copyFeedback) return;
-    const timeout = window.setTimeout(() => setCopyFeedback(null), 3000);
-    return () => window.clearTimeout(timeout);
-  }, [copyFeedback]);
 
   async function copyShort() {
     const url = (source && campaignSourceUrl(shortUrl, source)) || shortUrl;

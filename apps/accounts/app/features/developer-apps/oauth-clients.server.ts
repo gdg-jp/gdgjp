@@ -83,13 +83,16 @@ export async function requireDeveloperAccess(env: Env, request: Request): Promis
   const user = authorization
     ? await requireCliTokenUser(env, authorization)
     : await requireUser(env, request);
-  const membership = await env.DB.prepare(
-    "SELECT 1 AS ok FROM memberships WHERE user_id = ? AND status = 'active' LIMIT 1",
-  )
-    .bind(user.id)
-    .first<{ ok: number }>();
-  if (membership?.ok !== 1) throw new Response("Forbidden", { status: 403 });
+  if (!(await hasActiveMembership(env.DB, user.id))) throw forbidden();
   return user;
+}
+
+async function hasActiveMembership(db: D1Database, userId: string): Promise<boolean> {
+  const membership = await db
+    .prepare("SELECT 1 AS ok FROM memberships WHERE user_id = ? AND status = 'active' LIMIT 1")
+    .bind(userId)
+    .first<{ ok: number }>();
+  return membership?.ok === 1;
 }
 
 export async function listDeveloperClients(env: Env, request: Request): Promise<DeveloperClient[]> {
@@ -123,12 +126,14 @@ export async function createDeveloperClient(
   const clientId = crypto.randomUUID();
   const clientSecret = randomToken(32);
   const now = new Date().toISOString();
-  await env.DB.prepare(
+  const insert = await env.DB.prepare(
     `INSERT INTO oauthClient (
        id, clientId, clientSecret, disabled, skipConsent, enableEndSession, subjectType, scopes,
        userId, createdAt, updatedAt, name, uri, redirectUris, postLogoutRedirectUris,
        tokenEndpointAuthMethod, grantTypes, responseTypes, applicationType, public, type, requirePKCE
-     ) VALUES (?, ?, ?, 0, 0, 1, 'public', ?, ?, ?, ?, ?, ?, ?, ?, 'client_secret_basic', ?, ?, 'web', 0, 'web', 1)`,
+     ) SELECT ?1, ?2, ?3, 0, 0, 1, 'public', ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11,
+              'client_secret_basic', ?12, ?13, 'web', 0, 'web', 1
+       WHERE EXISTS (SELECT 1 FROM memberships WHERE user_id = ?5 AND status = 'active')`,
   )
     .bind(
       crypto.randomUUID(),
@@ -146,6 +151,7 @@ export async function createDeveloperClient(
       JSON.stringify(["code"]),
     )
     .run();
+  if (insert.meta.changes !== 1) throw forbidden();
 
   return {
     client: await getOwnedClientDirect(env.DB, user.id, clientId),
@@ -161,14 +167,14 @@ export async function updateDeveloperClient(
 ): Promise<DeveloperClient> {
   const user = await requireDeveloperAccess(env, request);
   const normalized = validateDeveloperClientInput(input);
-  const current = await requireOwnedClient(env, user.id, clientId);
-  const statements = [
-    env.DB.prepare(
-      `UPDATE oauthClient
+  await requireOwnedClient(env, user.id, clientId);
+  const update = await env.DB.prepare(
+    `UPDATE oauthClient
      SET name = ?, uri = ?, redirectUris = ?, postLogoutRedirectUris = ?, scopes = ?,
          updatedAt = ?
      WHERE clientId = ? AND userId = ?`,
-    ).bind(
+  )
+    .bind(
       normalized.name,
       normalized.appUrl,
       JSON.stringify(normalized.redirectUris),
@@ -177,15 +183,8 @@ export async function updateDeveloperClient(
       new Date().toISOString(),
       clientId,
       user.id,
-    ),
-  ];
-  if (!sameStringArray(parseStringArray(current.scopes), normalized.scopes)) {
-    statements.push(
-      env.DB.prepare("DELETE FROM oauthAccessToken WHERE clientId = ?").bind(clientId),
-      env.DB.prepare("DELETE FROM oauthRefreshToken WHERE clientId = ?").bind(clientId),
-    );
-  }
-  const [update] = await env.DB.batch(statements);
+    )
+    .run();
   if (update.meta.changes !== 1) throw notFound();
   return getOwnedClientDirect(env.DB, user.id, clientId);
 }
@@ -198,19 +197,18 @@ export async function setDeveloperClientEnabled(
 ): Promise<DeveloperClient> {
   const user = await requireDeveloperAccess(env, request);
   await requireOwnedClient(env, user.id, clientId);
-  const statements = [
-    env.DB.prepare(
-      "UPDATE oauthClient SET disabled = ?, updatedAt = ? WHERE clientId = ? AND userId = ?",
-    ).bind(enabled ? 0 : 1, new Date().toISOString(), clientId, user.id),
-  ];
-  if (!enabled) {
-    statements.push(
-      env.DB.prepare("DELETE FROM oauthAccessToken WHERE clientId = ?").bind(clientId),
-      env.DB.prepare("DELETE FROM oauthRefreshToken WHERE clientId = ?").bind(clientId),
-    );
+  const update = await env.DB.prepare(
+    `UPDATE oauthClient SET disabled = ?1, updatedAt = ?2
+     WHERE clientId = ?3 AND userId = ?4
+       AND (?1 = 1 OR EXISTS (
+         SELECT 1 FROM memberships WHERE user_id = ?4 AND status = 'active'
+       ))`,
+  )
+    .bind(enabled ? 0 : 1, new Date().toISOString(), clientId, user.id)
+    .run();
+  if (update.meta.changes !== 1) {
+    throw enabled && !(await hasActiveMembership(env.DB, user.id)) ? forbidden() : notFound();
   }
-  const [update] = await env.DB.batch(statements);
-  if (update.meta.changes !== 1) throw notFound();
   return getOwnedClientDirect(env.DB, user.id, clientId);
 }
 
@@ -390,12 +388,12 @@ function parseStringArray(value: string | null): string[] {
   }
 }
 
-function sameStringArray(left: string[], right: readonly string[]): boolean {
-  return left.length === right.length && left.every((value, index) => value === right[index]);
-}
-
 function trustedClientIds(env: Env): Set<string> {
   return new Set<string>(trustedOAuthClientIds(env));
+}
+
+function forbidden(): Response {
+  return new Response("Forbidden", { status: 403 });
 }
 
 function notFound(): Response {

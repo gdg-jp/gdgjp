@@ -1,6 +1,7 @@
 import { Button } from "@gdgjp/design-system";
 import { Popover, PopoverContent, PopoverTrigger } from "@gdgjp/design-system";
 
+import { useDebouncedCallback } from "@gdgjp/gdg-lib/react";
 import { useEffect, useId, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useFetcher } from "react-router";
@@ -92,23 +93,25 @@ export default function WikiRightSidebar({
     return () => observer.disconnect();
   }, [tocItems]);
 
-  useEffect(() => {
-    if (!authorPickerOpen) return;
-    const timer = window.setTimeout(() => {
-      const params = new URLSearchParams({ pageId, authorOnly: "1", q: authorQuery });
-      candidatesFetcher.load(`/api/share-candidates?${params}`);
-    }, 160);
-    return () => window.clearTimeout(timer);
-  }, [authorPickerOpen, authorQuery, candidatesFetcher, pageId]);
+  const loadAuthorCandidates = useDebouncedCallback((query: string) => {
+    const params = new URLSearchParams({ pageId, authorOnly: "1", q: query });
+    candidatesFetcher.load(`/api/share-candidates?${params}`);
+  }, 160);
 
-  useEffect(() => {
-    if (!authorPickerOpen) return;
-    window.requestAnimationFrame(() => searchInputRef.current?.focus());
-  }, [authorPickerOpen]);
+  function changeAuthorPickerOpen(next: boolean) {
+    setAuthorPickerOpen(next);
+    if (next) loadAuthorCandidates.run(authorQuery);
+    else loadAuthorCandidates.cancel();
+  }
+
+  function changeAuthorQuery(query: string) {
+    setAuthorQuery(query);
+    loadAuthorCandidates.run(query);
+  }
 
   function selectAuthor(user: UserCandidate) {
     authorFetcher.submit({ intent: "changeAuthor", authorId: user.id }, { method: "post" });
-    setAuthorPickerOpen(false);
+    changeAuthorPickerOpen(false);
     setAuthorQuery("");
   }
 
@@ -166,7 +169,7 @@ export default function WikiRightSidebar({
             {t("wiki.author")}
           </p>
           {isAdmin ? (
-            <Popover open={authorPickerOpen} onOpenChange={setAuthorPickerOpen}>
+            <Popover open={authorPickerOpen} onOpenChange={changeAuthorPickerOpen}>
               <PopoverTrigger asChild>
                 <button
                   type="button"
@@ -176,7 +179,14 @@ export default function WikiRightSidebar({
                   {authorIdentity}
                 </button>
               </PopoverTrigger>
-              <PopoverContent className="w-72 p-2" align="start">
+              <PopoverContent
+                className="w-72 p-2"
+                align="start"
+                onOpenAutoFocus={(event) => {
+                  event.preventDefault();
+                  searchInputRef.current?.focus();
+                }}
+              >
                 <label className="sr-only" htmlFor={listboxId}>
                   {t("wiki.author_search_placeholder")}
                 </label>
@@ -184,7 +194,7 @@ export default function WikiRightSidebar({
                   ref={searchInputRef}
                   id={listboxId}
                   value={authorQuery}
-                  onChange={(event) => setAuthorQuery(event.target.value)}
+                  onChange={(event) => changeAuthorQuery(event.target.value)}
                   role="combobox"
                   aria-autocomplete="list"
                   aria-expanded="true"

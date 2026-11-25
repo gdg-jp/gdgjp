@@ -7,7 +7,7 @@ import {
   FormField,
   Textarea,
 } from "@gdgjp/design-system";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useFetcher } from "react-router";
 
@@ -23,9 +23,11 @@ export function AskAgentDialog({
   const [text, setText] = useState("");
   const sent = fetcher.state === "idle" && fetcher.data?.ok === true;
 
-  useEffect(() => {
+  const [wasOpen, setWasOpen] = useState(open);
+  if (wasOpen !== open) {
+    setWasOpen(open);
     if (!open) setText("");
-  }, [open]);
+  }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>

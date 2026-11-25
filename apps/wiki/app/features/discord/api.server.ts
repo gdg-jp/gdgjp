@@ -124,9 +124,7 @@ export interface DiscordMessage {
 }
 
 function fetchWithTimeout(url: string, init: RequestInit): Promise<Response> {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), API_TIMEOUT_MS);
-  return fetch(url, { ...init, signal: controller.signal }).finally(() => clearTimeout(timer));
+  return fetch(url, { ...init, signal: AbortSignal.timeout(API_TIMEOUT_MS) });
 }
 
 function bearerHeaders(accessToken: string): HeadersInit {

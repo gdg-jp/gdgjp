@@ -1,7 +1,8 @@
 import { Monitor, Moon, Sun } from "lucide-react";
 import { DropdownMenu as DropdownMenuPrimitive } from "radix-ui";
 import type { ReactNode } from "react";
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import { createContext, useCallback, useContext, useMemo, useState } from "react";
+import { useMediaQuery, useValueChange } from "../react";
 
 export type Theme = "light" | "dark" | "system";
 export type ResolvedTheme = "light" | "dark";
@@ -20,10 +21,6 @@ function readStoredTheme(): Theme {
   return value === "light" || value === "dark" || value === "system" ? value : "system";
 }
 
-function systemPrefersDark() {
-  return typeof window !== "undefined" && window.matchMedia("(prefers-color-scheme: dark)").matches;
-}
-
 function applyResolvedTheme(resolvedTheme: ResolvedTheme) {
   if (typeof document === "undefined") return;
   const root = document.documentElement;
@@ -33,30 +30,14 @@ function applyResolvedTheme(resolvedTheme: ResolvedTheme) {
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
   const [theme, setThemeState] = useState<Theme>(readStoredTheme);
-  const [resolvedTheme, setResolvedTheme] = useState<ResolvedTheme>(() =>
-    theme === "system" ? (systemPrefersDark() ? "dark" : "light") : theme,
-  );
+  const systemDark = useMediaQuery("(prefers-color-scheme: dark)");
+  const resolvedTheme: ResolvedTheme = theme === "system" ? (systemDark ? "dark" : "light") : theme;
   const setTheme = useCallback((next: Theme) => {
     setThemeState(next);
     if (typeof window !== "undefined") window.localStorage.setItem(STORAGE_KEY, next);
   }, []);
 
-  useEffect(() => {
-    const next = theme === "system" ? (systemPrefersDark() ? "dark" : "light") : theme;
-    setResolvedTheme(next);
-    applyResolvedTheme(next);
-  }, [theme]);
-  useEffect(() => {
-    if (theme !== "system") return;
-    const media = window.matchMedia("(prefers-color-scheme: dark)");
-    const onChange = () => {
-      const next = media.matches ? "dark" : "light";
-      setResolvedTheme(next);
-      applyResolvedTheme(next);
-    };
-    media.addEventListener("change", onChange);
-    return () => media.removeEventListener("change", onChange);
-  }, [theme]);
+  useValueChange(resolvedTheme, applyResolvedTheme);
 
   const value = useMemo(
     () => ({ theme, resolvedTheme, setTheme }),

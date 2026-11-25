@@ -1,0 +1,105 @@
+name: UI properties (long budget)
+
+on:
+  schedule:
+    - cron: "30 18 * * 6"
+  workflow_dispatch:
+    inputs:
+      apps:
+        description: Comma-separated apps to run; empty runs every app with a property spec
+        required: false
+        type: string
+      seeds:
+        description: Comma-separated seeds; empty uses the fixed seeds plus four dated seeds
+        required: false
+        type: string
+      steps:
+        description: Steps per seed; empty uses five times the pull request budget
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ui-properties-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  NODE_VERSION: "22"
+
+jobs:
+  select:
+    name: Select apps
+    runs-on: ubuntu-latest
+    outputs:
+      apps: ${{ steps.select.outputs.apps }}
+    steps:
+      - id: select
+        env:
+          APPS: ${{ inputs.apps }}
+        run: |
+          all='["wiki","pr","accounts","tinyurl","ost","screen","pay"]'
+          if [ -z "$APPS" ]; then
+            echo "apps=$all" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          selected=$(jq -cn --arg apps "$APPS" --argjson all "$all" \
+            '[$apps | split(",")[] | gsub("^\\s+|\\s+$"; "") | select(. != "")] as $wanted
+             | if ($wanted - $all) == [] then $wanted else error("unknown app: \($wanted - $all)") end')
+          echo "apps=$selected" >> "$GITHUB_OUTPUT"
+
+  properties:
+    name: UI properties (${{ matrix.app }})
+    needs: select
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix:
+        app: ${{ fromJSON(needs.select.outputs.apps) }}
+    env:
+      UI_PROPERTY_PROFILE: long
+      UI_PROPERTY_SEEDS: ${{ inputs.seeds }}
+      UI_PROPERTY_STEPS: ${{ inputs.steps }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: false
+          persist-credentials: false
+      - name: Initialize shared UI submodule
+        run: git submodule update --init packages/design-system
+      - name: Initialize Playbook submodule
+        run: git submodule update --init skills
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Install Playwright fonts
+        if: matrix.app == 'pr'
+        uses: ./.github/actions/playwright-fonts
+      - name: Install Playwright browsers
+        run: pnpm --filter @gdgjp/${{ matrix.app }} exec playwright install chromium
+      - name: Run the property specs with the long budget
+        env:
+          APP: ${{ matrix.app }}
+        run: |
+          spec=e2e/ui-properties.spec.ts
+          [ "$APP" = wiki ] && spec=tests/e2e/ui-properties.spec.ts
+          UI_PROPERTY_FAILURES_DIR="$RUNNER_TEMP/ui-property-failures" \
+            pnpm test:e2e --workspace "@gdgjp/$APP" -- "$spec" --reporter=list,json
+      - name: Summarize failures
+        if: failure()
+        run: node .github/scripts/ui-fuzz.mjs summarize "$RUNNER_TEMP/ui-property-failures" >> "$GITHUB_STEP_SUMMARY"
+      - name: Upload evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ui-properties-${{ matrix.app }}
+          path: |
+            local_data/pstack/e2e/
+            ${{ runner.temp }}/ui-property-failures/
+          if-no-files-found: ignore
+          retention-days: 14

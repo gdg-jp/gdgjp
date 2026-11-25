@@ -8,9 +8,7 @@ export const GOOGLE_CHAT_REAUTH_MESSAGE =
   "Google Chat or Drive scopes are missing. Disconnect and reconnect Google from /sources to grant the required access.";
 
 function fetchWithTimeout(url: string, init: RequestInit, timeoutMs: number): Promise<Response> {
-  const controller = new AbortController();
-  const id = setTimeout(() => controller.abort(), timeoutMs);
-  return fetch(url, { ...init, signal: controller.signal }).finally(() => clearTimeout(id));
+  return fetch(url, { ...init, signal: AbortSignal.timeout(timeoutMs) });
 }
 
 export function warnGoogleChat(event: string, details: Record<string, string | number>): void {

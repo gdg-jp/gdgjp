@@ -1,5 +1,5 @@
+import { useTransientValue, useValueChange } from "@gdgjp/gdg-lib/react";
 import { eq } from "drizzle-orm";
-import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useFetcher, useLoaderData } from "react-router";
 import * as schema from "~/db/schema";
@@ -136,19 +136,17 @@ export default function SettingsPage() {
   const { t, i18n } = useTranslation();
 
   const fetcher = useFetcher<typeof action>();
-  const [saved, setSaved] = useState(false);
+  const [savedNotice, showSavedNotice] = useTransientValue<true>(3000);
+  const saved = savedNotice !== null;
 
-  useEffect(() => {
-    if (fetcher.state === "idle" && fetcher.data?.ok === true) {
-      if (fetcher.data.uiLang) {
-        i18n.changeLanguage(fetcher.data.uiLang);
-        localStorage.setItem("ui_lang", fetcher.data.uiLang);
-      }
-      setSaved(true);
-      const timer = setTimeout(() => setSaved(false), 3000);
-      return () => clearTimeout(timer);
+  useValueChange(fetcher.state === "idle" ? fetcher.data : undefined, (result) => {
+    if (result?.ok !== true) return;
+    if (result.uiLang) {
+      i18n.changeLanguage(result.uiLang);
+      localStorage.setItem("ui_lang", result.uiLang);
     }
-  }, [fetcher.state, fetcher.data, i18n]);
+    showSavedNotice(true);
+  });
 
   const errors = fetcher.data?.ok === false ? fetcher.data.errors : undefined;
 

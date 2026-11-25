@@ -21,6 +21,7 @@ import {
   toast,
 } from "@gdgjp/design-system";
 import { MAX_IMAGE_UPLOAD_BYTES } from "@gdgjp/gdg-lib";
+import { useValueChange } from "@gdgjp/gdg-lib/react";
 import { QRCodeSVG } from "qrcode.react";
 import {
   type ChangeEvent,
@@ -34,6 +35,7 @@ import { Link, useFetcher, useNavigation } from "react-router";
 import type { UserChapter } from "~/features/auth/chapter.server";
 import type { ApiLinksActionData } from "~/features/links/link-http.types";
 import type { LinkVisibility } from "~/features/links/link-record";
+import { previewImageSrc } from "~/features/links/preview-image";
 import { shortDomainLabel } from "~/features/links/short-url";
 import { generateRandomSlug } from "~/features/links/slug";
 import { TagCombobox } from "~/features/tags/components/tag-combobox";
@@ -156,6 +158,7 @@ function CreateLinkForm({
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [ogImageUrl, setOgImageUrl] = useState("");
+  const previewSrc = previewImageSrc(ogImageUrl);
   const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [isDraggingImage, setIsDraggingImage] = useState(false);
   const [tagIds, setTagIds] = useState<number[]>([]);
@@ -169,27 +172,19 @@ function CreateLinkForm({
   const [shareRole, setShareRole] = useState<"viewer" | "editor">("viewer");
   const [pendingShares, setPendingShares] = useState<PendingShare[]>([]);
 
-  const lastOgpRef = useRef<unknown>(null);
   const prefetchedDefaultDestinationUrlRef = useRef<string | null>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
-  useEffect(() => {
-    const data = ogpFetcher.data;
+  useValueChange(ogpFetcher.data, (data) => {
     if (!data || !("ogp" in data) || !data.ogp) return;
-    if (data === lastOgpRef.current) return;
-    lastOgpRef.current = data;
     const { title: t, description: d, image } = data.ogp;
     if (t) setTitle(t);
     if (d) setDescription(d);
     if (image) setOgImageUrl(image);
-  }, [ogpFetcher.data]);
+  });
 
-  const lastCreateRef = useRef<unknown>(null);
-  useEffect(() => {
-    const data = createFetcher.data;
-    if (!data || lastCreateRef.current === data) return;
-    lastCreateRef.current = data;
-    if ("error" in data && data.error) toast.error(data.error);
-  }, [createFetcher.data]);
+  useValueChange(createFetcher.data, (data) => {
+    if (data && "error" in data && data.error) toast.error(data.error);
+  });
 
   const navigation = useNavigation();
   const isSubmitting = createFetcher.state !== "idle" || navigation.state === "loading";
@@ -671,8 +666,8 @@ function CreateLinkForm({
                   isDraggingImage ? "bg-primary/15 ring-2 ring-primary ring-inset" : ""
                 }`}
               >
-                {ogImageUrl ? (
-                  <img src={ogImageUrl} alt="OGP preview" className="size-full object-cover" />
+                {previewSrc ? (
+                  <img src={previewSrc} alt="OGP preview" className="size-full object-cover" />
                 ) : (
                   <span className="flex size-full flex-col items-center justify-center gap-2">
                     <Icons name="GalleryThumbnails" aria-hidden="true" className="size-5" />
@@ -683,7 +678,7 @@ function CreateLinkForm({
                   className={`absolute inset-0 flex flex-col items-center justify-center gap-2 bg-surface/90 text-foreground transition-opacity ${
                     isUploadingImage || isDraggingImage
                       ? "opacity-100"
-                      : ogImageUrl
+                      : previewSrc
                         ? "opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100"
                         : "opacity-0"
                   }`}

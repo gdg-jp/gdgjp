@@ -1,4 +1,5 @@
-import { useCallback, useEffect } from "react";
+import { useMountEffect } from "@gdgjp/gdg-lib/react";
+import { useCallback } from "react";
 import { useTranslation } from "react-i18next";
 import { Link, useFetcher } from "react-router";
 import { ListSkeleton } from "~/components/Skeleton";
@@ -38,9 +39,9 @@ export default function RecentContent({ open, onClose, lang }: RecentContentProp
     fetcher.load("/api/recent");
   }, [fetcher.load]);
 
-  useEffect(() => {
+  useMountEffect(() => {
     if (open) loadRecent();
-  }, [open, loadRecent]);
+  });
 
   const data = cachedRecent;
   const isFirstLoad = !data;
