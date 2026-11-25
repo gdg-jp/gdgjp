@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { type Page, expect, test } from "@playwright/test";
 import { organizerLogin, queryLocalD1, seedXAccount } from "./local-d1";
 
 for (const [chapterId, submit] of [
@@ -56,6 +56,18 @@ for (const [chapterId, submit] of [
   });
 }
 
+async function hydratedContributorSearch(page: Page) {
+  const search = page.getByPlaceholder("名前またはメールアドレスで検索");
+  const opened = page.waitForResponse(
+    (response) =>
+      response.url().includes("contributor-candidates") &&
+      new URL(response.url()).searchParams.get("q") === "",
+  );
+  await search.click();
+  await opened;
+  return search;
+}
+
 test("contributor search without an Accounts token explains itself and keeps Settings", async ({
   page,
 }) => {
@@ -67,7 +79,7 @@ test("contributor search without an Accounts token explains itself and keeps Set
       response.url().includes("contributor-candidates") &&
       new URL(response.url()).searchParams.get("q") === "member@example.com",
   );
-  await page.getByPlaceholder("名前またはメールアドレスで検索").fill("member@example.com");
+  await (await hydratedContributorSearch(page)).fill("member@example.com");
   expect((await search).status()).toBe(401);
 
   await expect(
@@ -82,7 +94,7 @@ test("contributor search without an Accounts token explains itself and keeps Set
 
 test("an invalid contributor email is reported on Settings", async ({ page }) => {
   await page.goto(organizerLogin("sns-e2e-contributor-email", 24, "/settings"));
-  await page.getByPlaceholder("名前またはメールアドレスで検索").fill("someone@localhost");
+  await (await hydratedContributorSearch(page)).fill("someone@localhost");
   await page.getByRole("button", { name: "追加", exact: true }).click();
 
   await expect(page.getByText("有効なメールアドレスを入力してください。")).toBeVisible();
