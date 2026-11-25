@@ -1,6 +1,18 @@
 import { type Page, expect, test } from "@playwright/test";
 import { organizerLogin, queryLocalD1, seedXAccount } from "./local-d1";
 
+async function hydratedContributorSearch(page: Page) {
+  const search = page.getByPlaceholder("名前またはメールアドレスで検索");
+  const opened = page.waitForResponse(
+    (response) =>
+      response.url().includes("contributor-candidates") &&
+      new URL(response.url()).searchParams.get("q") === "",
+  );
+  await search.click();
+  await opened;
+  return search;
+}
+
 for (const [chapterId, submit] of [
   [21, "click"],
   [22, "Enter"],
@@ -21,7 +33,7 @@ for (const [chapterId, submit] of [
     });
 
     await page.goto(organizerLogin(`sns-e2e-revoke-${chapterId}`, chapterId, "/settings"));
-    await expect(page.getByRole("heading", { name: "Settings" })).toBeVisible();
+    await hydratedContributorSearch(page);
     await page
       .getByText(`@${account.username}`, { exact: true })
       .locator("..")
@@ -54,18 +66,6 @@ for (const [chapterId, submit] of [
       { id: account.id, revoked: 1 },
     ]);
   });
-}
-
-async function hydratedContributorSearch(page: Page) {
-  const search = page.getByPlaceholder("名前またはメールアドレスで検索");
-  const opened = page.waitForResponse(
-    (response) =>
-      response.url().includes("contributor-candidates") &&
-      new URL(response.url()).searchParams.get("q") === "",
-  );
-  await search.click();
-  await opened;
-  return search;
 }
 
 test("contributor search without an Accounts token explains itself and keeps Settings", async ({
@@ -105,6 +105,7 @@ test("an invalid contributor email is reported on Settings", async ({ page }) =>
 
 test("an album URL outside Google Photos is reported on Settings", async ({ page }) => {
   await page.goto(organizerLogin("sns-e2e-album", 25, "/settings"));
+  await hydratedContributorSearch(page);
   await page
     .getByPlaceholder("https://photos.google.com/share/...")
     .fill("https://example.com/album");
