@@ -15,11 +15,11 @@ import { parse as parseToml } from "smol-toml";
 import { DEPLOY_TARGETS } from "../../.github/scripts/changed-workspaces.mjs";
 import {
   TRUSTED_ROOT,
-  accountId,
+  accountApi,
+  accountPaged,
   api,
   d1Query,
   log,
-  paged,
   run,
   workersSubdomain,
   wrangler,
@@ -189,13 +189,11 @@ function removeUntrustedEnvironment(directory) {
 }
 
 async function productionHosts() {
-  const account = await accountId();
   const hosts = {};
   const add = (worker, host) => {
     hosts[worker] = [...(hosts[worker] ?? []), host];
   };
-  for (const domain of await paged(`/accounts/${account}/workers/domains`))
-    add(domain.service, domain.hostname);
+  for (const domain of await accountPaged("/workers/domains")) add(domain.service, domain.hostname);
   const zones = await api("/zones?name=gdgs.jp");
   for (const route of await api(`/zones/${zones[0].id}/workers/routes`)) {
     if (!route.script) continue;
@@ -208,8 +206,7 @@ async function productionHosts() {
 }
 
 async function productionVars(worker) {
-  const account = await accountId();
-  const settings = await api(`/accounts/${account}/workers/scripts/${worker}/settings`);
+  const settings = await accountApi(`/workers/scripts/${worker}/settings`);
   return Object.fromEntries(
     (settings.bindings ?? [])
       .filter(({ type }) => type === "plain_text" || type === "json")
@@ -218,27 +215,23 @@ async function productionVars(worker) {
 }
 
 async function productionSecretNames(workers) {
-  const account = await accountId();
   const names = {};
   for (const worker of workers)
-    names[worker] = (await api(`/accounts/${account}/workers/scripts/${worker}/secrets`)).map(
+    names[worker] = (await accountApi(`/workers/scripts/${worker}/secrets`)).map(
       ({ name }) => name,
     );
   return names;
 }
 
 async function inventory() {
-  const account = await accountId();
   const d1 = Object.fromEntries(
-    (await paged(`/accounts/${account}/d1/database`)).map(({ name, uuid }) => [name, uuid]),
+    (await accountPaged("/d1/database")).map(({ name, uuid }) => [name, uuid]),
   );
-  const namespaces = await paged(`/accounts/${account}/storage/kv/namespaces`);
+  const namespaces = await accountPaged("/storage/kv/namespaces");
   const r2 = new Set(
-    (await api(`/accounts/${account}/r2/buckets?per_page=1000`)).buckets.map(({ name }) => name),
+    (await accountApi("/r2/buckets?per_page=1000")).buckets.map(({ name }) => name),
   );
-  const queues = new Set(
-    (await paged(`/accounts/${account}/queues`)).map(({ queue_name }) => queue_name),
-  );
+  const queues = new Set((await accountPaged("/queues")).map(({ queue_name }) => queue_name));
   return {
     d1,
     kv: Object.fromEntries(namespaces.map(({ id, title }) => [title, id])),
@@ -264,7 +257,6 @@ function aiSearch(args) {
 }
 
 async function ensureResources(slot, apps) {
-  const account = await accountId();
   const current = await inventory();
   let aiSearchNamespaces;
   for (const app of apps) {
@@ -273,14 +265,14 @@ async function ensureResources(slot, apps) {
       if (!current.d1[name]) {
         log(`create D1 ${name}`);
         current.d1[name] = (
-          await api(`/accounts/${account}/d1/database`, { method: "POST", body: { name } })
+          await accountApi("/d1/database", { method: "POST", body: { name } })
         ).uuid;
       }
     for (const productionId of needed.kv) {
       const title = stagingName(current.kvTitles[productionId], slot);
       if (!current.kv[title]) {
         log(`create KV ${title}`);
-        const created = await api(`/accounts/${account}/storage/kv/namespaces`, {
+        const created = await accountApi("/storage/kv/namespaces", {
           method: "POST",
           body: { title },
         });
@@ -291,13 +283,13 @@ async function ensureResources(slot, apps) {
     for (const name of needed.r2)
       if (!current.r2.has(name)) {
         log(`create R2 ${name}`);
-        await api(`/accounts/${account}/r2/buckets`, { method: "POST", body: { name } });
+        await accountApi("/r2/buckets", { method: "POST", body: { name } });
         current.r2.add(name);
       }
     for (const name of needed.queues)
       if (!current.queues.has(name)) {
         log(`create queue ${name}`);
-        await api(`/accounts/${account}/queues`, { method: "POST", body: { queue_name: name } });
+        await accountApi("/queues", { method: "POST", body: { queue_name: name } });
         current.queues.add(name);
       }
     for (const name of needed.aiSearchNamespaces) {
@@ -444,7 +436,6 @@ async function replaceDatabase(
 ) {
   const target = stagingName(productionName, slot);
   if (!isStagingName(target, slot)) throw new Error(`Refusing to replace ${target}`);
-  const account = await accountId();
   const tail = [
     ...scrub,
     ...issuerRewriteSql(issuers, slot),
@@ -456,10 +447,10 @@ async function replaceDatabase(
   writeFileSync(slotFile, sql);
   if (current.d1[target]) {
     log(`replace D1 ${target}`);
-    await api(`/accounts/${account}/d1/database/${current.d1[target]}`, { method: "DELETE" });
+    await accountApi(`/d1/database/${current.d1[target]}`, { method: "DELETE" });
   }
   current.d1[target] = (
-    await api(`/accounts/${account}/d1/database`, { method: "POST", body: { name: target } })
+    await accountApi("/d1/database", { method: "POST", body: { name: target } })
   ).uuid;
   try {
     wrangler(["d1", "execute", target, "--remote", "--file", slotFile, "--yes"], { cwd: scratch });
@@ -469,9 +460,8 @@ async function replaceDatabase(
 }
 
 export async function rehearse(apps = stagingApps()) {
-  const account = await accountId();
   const d1 = Object.fromEntries(
-    (await paged(`/accounts/${account}/d1/database`)).map(({ name, uuid }) => [name, uuid]),
+    (await accountPaged("/d1/database")).map(({ name, uuid }) => [name, uuid]),
   );
   const scratch = mkdtempSync(join(tmpdir(), "gdgjp-staging-rehearse-"));
   try {
@@ -488,12 +478,11 @@ export async function rehearse(apps = stagingApps()) {
 }
 
 async function readNamespace(productionId) {
-  const account = await accountId();
-  const base = `/accounts/${account}/storage/kv/namespaces/${productionId}`;
+  const base = `/storage/kv/namespaces/${productionId}`;
   const entries = [];
   let cursor = "";
   do {
-    const listed = await api(
+    const listed = await accountApi(
       `${base}/keys?limit=1000${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ""}`,
       { raw: true },
     );
@@ -501,7 +490,7 @@ async function readNamespace(productionId) {
     const keys = listed.result.filter(({ expiration }) => !expiration || expiration > now + 60);
     for (let index = 0; index < keys.length; index += 100) {
       const batch = keys.slice(index, index + 100);
-      const values = await api(`${base}/bulk/get`, {
+      const values = await accountApi(`${base}/bulk/get`, {
         method: "POST",
         body: { keys: batch.map(({ name }) => name), withMetadata: true },
       });
@@ -523,16 +512,15 @@ async function readNamespace(productionId) {
 }
 
 async function replaceNamespace(productionId, entries, slot, current) {
-  const account = await accountId();
-  const base = `/accounts/${account}/storage/kv/namespaces`;
+  const base = "/storage/kv/namespaces";
   const title = stagingName(current.kvTitles[productionId], slot);
   if (!isStagingName(title, slot)) throw new Error(`Refusing to replace ${title}`);
-  if (current.kv[title]) await api(`${base}/${current.kv[title]}`, { method: "DELETE" });
-  const created = await api(base, { method: "POST", body: { title } });
+  if (current.kv[title]) await accountApi(`${base}/${current.kv[title]}`, { method: "DELETE" });
+  const created = await accountApi(base, { method: "POST", body: { title } });
   current.kv[title] = created.id;
   current.kvTitles[created.id] = title;
   for (let index = 0; index < entries.length; index += 5000)
-    await api(`${base}/${created.id}/bulk`, {
+    await accountApi(`${base}/${created.id}/bulk`, {
       method: "PUT",
       body: entries.slice(index, index + 5000),
     });
@@ -703,8 +691,7 @@ function deployOne(slot, { app, directory, config }, secrets, { migrate = true }
 }
 
 async function workerScripts() {
-  const account = await accountId();
-  return new Set((await api(`/accounts/${account}/workers/scripts`)).map(({ id }) => id));
+  return new Set((await accountApi("/workers/scripts")).map(({ id }) => id));
 }
 
 function deployGateway(slot) {

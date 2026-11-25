@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
-import { describeCommand } from "../../scripts/staging/cloudflare.mjs";
+import { accountApi, describeCommand } from "../../scripts/staging/cloudflare.mjs";
 import {
   firstPartyClientSql,
   isCredentialColumn,
@@ -199,4 +199,22 @@ test("the job that checks out a pull request's code runs it only inside a contai
     ([, first]) => first,
   );
   assert.deepEqual(new Set(commands), new Set(["git", "docker", "shopt"]));
+});
+
+test("a failed Cloudflare call names its path without the account ID", async (t) => {
+  const account = "0123456789abcdef0123456789abcdef";
+  process.env.CLOUDFLARE_API_TOKEN = "token";
+  process.env.CLOUDFLARE_ACCOUNT_ID = account;
+  const requested = [];
+  t.mock.method(globalThis, "fetch", async (url) => {
+    requested.push(String(url));
+    return new Response(JSON.stringify({ success: false, errors: [{ code: 7003 }] }));
+  });
+  await assert.rejects(accountApi("/d1/database"), (error) => {
+    assert.equal(error.message, 'GET /accounts/:account/d1/database failed: [{"code":7003}]');
+    return true;
+  });
+  assert.deepEqual(requested, [
+    `https://api.cloudflare.com/client/v4/accounts/${account}/d1/database`,
+  ]);
 });

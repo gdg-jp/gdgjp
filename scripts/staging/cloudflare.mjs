@@ -62,7 +62,7 @@ function cloudflare() {
   return credentials;
 }
 
-export async function api(path, { method = "GET", body, raw = false } = {}) {
+async function request(path, shown, { method = "GET", body, raw = false } = {}) {
   const { token } = cloudflare();
   for (let attempt = 1; ; attempt++) {
     let response;
@@ -86,9 +86,17 @@ export async function api(path, { method = "GET", body, raw = false } = {}) {
     }
     const json = await response.json();
     if (!json.success)
-      throw new Error(`${method} ${path} failed: ${JSON.stringify(json.errors ?? json)}`);
+      throw new Error(`${method} ${shown} failed: ${JSON.stringify(json.errors ?? json)}`);
     return raw ? json : json.result;
   }
+}
+
+export function api(path, options) {
+  return request(path, path, options);
+}
+
+export async function accountApi(path, options) {
+  return request(`/accounts/${await accountId()}${path}`, `/accounts/:account${path}`, options);
 }
 
 export async function accountId() {
@@ -102,11 +110,10 @@ export async function accountId() {
   return current.account;
 }
 
-export async function paged(path) {
+async function collectPages(fetchPage) {
   const results = [];
   for (let page = 1; ; page++) {
-    const separator = path.includes("?") ? "&" : "?";
-    const json = await api(`${path}${separator}page=${page}&per_page=100`, { raw: true });
+    const json = await fetchPage(page);
     results.push(...json.result);
     const info = json.result_info;
     if (!info || json.result.length === 0 || page * (info.per_page ?? 100) >= info.total_count)
@@ -114,9 +121,20 @@ export async function paged(path) {
   }
 }
 
+function pageQuery(path, page) {
+  return `${path}${path.includes("?") ? "&" : "?"}page=${page}&per_page=100`;
+}
+
+export function paged(path) {
+  return collectPages((page) => api(pageQuery(path, page), { raw: true }));
+}
+
+export function accountPaged(path) {
+  return collectPages((page) => accountApi(pageQuery(path, page), { raw: true }));
+}
+
 export async function d1Query(databaseId, sql, params = []) {
-  const account = await accountId();
-  const result = await api(`/accounts/${account}/d1/database/${databaseId}/query`, {
+  const result = await accountApi(`/d1/database/${databaseId}/query`, {
     method: "POST",
     body: { sql, params },
   });
@@ -124,5 +142,5 @@ export async function d1Query(databaseId, sql, params = []) {
 }
 
 export async function workersSubdomain() {
-  return (await api(`/accounts/${await accountId()}/workers/subdomain`)).subdomain;
+  return (await accountApi("/workers/subdomain")).subdomain;
 }
