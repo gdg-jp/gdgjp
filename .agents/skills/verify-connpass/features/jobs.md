@@ -83,8 +83,6 @@ the job count.
   (for example a Chromium launch error), the journey fails. Record the error string.
   Do not retry with credentials.
 - If the job stays `running` past 120 seconds, the journey fails. Record the last poll.
-  A browser launch that throws outside the runner's failure handler can leave the job
-  in `running`; the queue retry cannot reclaim it.
 - The first local Chromium launch may download a browser build. That download is not a
   connpass.com request, but it needs network access to the browser download host.
 - `e2e-developer-app-organizer` and `e2e-organizer` share the subject `e2e-organizer-user`.

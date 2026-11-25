@@ -6,11 +6,13 @@ the scanner shell is observable once an event id is already stored in the browse
 
 ## Sub-features
 
-- `live-checkin-settings`: with no stored settings the modal opens by itself and cannot be
-  dismissed: dialog **受付設定**, 受付を行うイベントを以下から選択して下さい。, legend
-  イベント（直近のものから順に表示）, イベントを取得中... then イベントの取得に失敗しました with
-  **再読み込み**; **保存** disabled; no **閉じる** or **キャンセル**; Escape and backdrop clicks
-  do nothing.
+- `live-checkin-settings`: with no stored settings the modal opens by itself: dialog **受付設定**,
+  受付を行うイベントを以下から選択して下さい。, legend イベント（直近のものから順に表示）,
+  イベントを取得中... (not dismissible while loading) then イベントの取得に失敗しました with the
+  API's error text (locally サーバー間リクエストでエラーが発生しました) and **再読み込み**; **保存**
+  disabled. Because no event can be chosen, **閉じる**, **キャンセル**, Escape and a backdrop click
+  close it and leave the scanner screen with no event; **受付設定** reopens it. When the list has
+  events the first-run modal stays blocking (no close controls) until one is saved.
 - `live-checkin-scanner-shell`: with `localStorage["checkin:settings"]` holding a fresh event id,
   the page shows h1 **connpass 連続受付システム**, GDG Japan Connpass API Mode, button **受付設定**,
   the idle overlay QRコードをフレーム内にかざしてください, button **カメラを切り替え**, 出席確認済み with
@@ -21,6 +23,10 @@ the scanner shell is observable once an event id is already stored in the browse
   `認証が必要です。ログインし直してください。` without a session, 403
   `このチャプターのメンバーのみ利用できます。` for another chapter, and, for `kwansai`, 500
   `サーバー間リクエストでエラーが発生しました` because the connpass fetch to `127.0.0.1:9` fails.
+  `/api/checkin` first checks the URL against the connpass reception QR
+  (`https://connpass.com/event/<n>/qr_checkin/<n>/<n>/`) and Luma ticket
+  (`https://luma.com/check-in/evt-…?pk=g-…`) shapes and answers 400
+  `受付対象外のチェックインURLです。` for anything else without contacting connpass.
 
 ## How to get to it (user POV)
 
@@ -32,14 +38,18 @@ event is chosen. Afterwards **受付設定** in the header reopens it.
 Identity: `kwansai`, cookie set on a fresh isolated profile before the first navigation (see the
 [README](README.md)). Grant no camera permission.
 
-- Blocking modal. Start `orca capture`, `goto http://localhost:6194/checkin`. Wait for text
+- First-run modal. Start `orca capture`, `goto http://localhost:6194/checkin`. Wait for text
   **受付設定** in a dialog (`wait --text 受付設定`). Require the dialog texts above, then
-  `wait --text イベントの取得に失敗しました`. Require button **再読み込み**, button **保存** disabled,
-  and no buttons **閉じる** or **キャンセル**. In the network capture require `GET /api/events`
-  with status 500 and body error `サーバー間リクエストでエラーが発生しました`, and no browser
-  request to any connpass host. Press Escape (`orca press Escape` or the equivalent key command)
-  and click outside the dialog; require the dialog still present. Screenshot.
+  `wait --text イベントの取得に失敗しました`. Require the text
+  サーバー間リクエストでエラーが発生しました in the dialog, button **再読み込み**, button **保存**
+  disabled, and buttons **閉じる** and **キャンセル**. In the network capture require
+  `GET /api/events` with status 500 and body error `サーバー間リクエストでエラーが発生しました`, and
+  no browser request to any connpass host. Screenshot.
 - Reload. Click **再読み込み**. Require a second `GET /api/events` (500) and the failure text again.
+- Close without an event. Click **閉じる**; require the dialog gone and h1 **connpass 連続受付システム**
+  with the idle overlay. Click **受付設定**; require the dialog with the failure text. Press Escape
+  (`orca press Escape` or the equivalent key command); require it gone. Reopen and click outside
+  the dialog; require it gone. Require `localStorage['checkin:settings']` still absent.
 - Stored event. Precondition only: on the same page run
   `orca eval "localStorage.setItem('checkin:settings', JSON.stringify({groupId: 'gdgkwansai', eventId: '123456', savedAt: Date.now()}))"`
   and record that receipt, then `orca reload`. Require no dialog, h1 **connpass 連続受付システム**,
@@ -64,11 +74,14 @@ Independent check (HTTP, cookie headers from the fixture files, never printed):
 - `POST /api/checkin` as `kwansai` with JSON
   `{"url":"https://connpass.com/event/123456/qr_checkin/1/2"}`: 500 with the same error; anonymous:
   401; `outsider`: 403.
+- `POST /api/checkin` as `kwansai` with JSON `{"url":"https://connpass.com@evil.example/"}`, then
+  `{"url":"https://connpass.com.evil.example/event/123456/qr_checkin/1/2/"}`: each 400
+  `受付対象外のチェックインURLです。`, and `server.log` gains no `[checkin] Proxy Error` line for them.
 - `server.log` in the evidence directory contains `[events] Proxy Error` and
   `[checkin] Proxy Error` lines whose cause is a refused connection to `127.0.0.1:9`, proving the
   proxy tried only the configured unreachable upstream.
 
-Evidence: screenshots of the blocking modal, the scanner shell, and the reopened closable modal;
+Evidence: screenshots of the first-run failure modal, the scanner shell, and the reopened modal;
 the sanitized `/api/events` network entries; the HTTP status table above.
 
 ## Gotchas

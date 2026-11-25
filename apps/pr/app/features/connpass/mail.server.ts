@@ -17,8 +17,7 @@ export async function sendDueMails(env: Env): Promise<{ sent: number; failed: nu
   let sent = 0;
   let failed = 0;
   for (const target of await dueMailTargets(env.DB, Math.floor(Date.now() / 1000))) {
-    if (!target.approvedVersion) continue;
-    const at = { targetId: target.id, draftId: target.draftId, version: target.approvedVersion };
+    const { at } = target;
     const claimed = await claimApprovedTarget(env.DB, at);
     if (!claimed) continue;
     const fail = async (error: string) => {

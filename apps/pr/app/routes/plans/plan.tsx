@@ -132,7 +132,7 @@ export default function PlanPage({ loaderData, actionData }: Route.ComponentProp
       ) : null}
       {generating ? (
         <Alert tone="info" title="runner が計画を書いています">
-          終わると新しい版が出ます。/admin/runner で状態を見られます。
+          終わると新しい版が出ます。runner の状態は設定の「秘書の稼働」で見られます。
         </Alert>
       ) : null}
       <Card>

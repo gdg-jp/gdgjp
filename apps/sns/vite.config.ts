@@ -8,6 +8,20 @@ export default defineConfig({
   build: { reportCompressedSize: false, target: ["edge88", "firefox78", "chrome87", "safari14"] },
   resolve: { tsconfigPaths: true },
   server: { port: 5178, strictPort: true },
+  optimizeDeps: {
+    include: [
+      "react",
+      "react-dom",
+      "react-dom/client",
+      "react-router",
+      "radix-ui",
+      "lucide-react",
+      "clsx",
+      "blurhash",
+      "nanoid",
+      "twitter-text",
+    ],
+  },
   plugins: [
     cloudflareDevProxy({
       environment: process.env.CLOUDFLARE_ENV,

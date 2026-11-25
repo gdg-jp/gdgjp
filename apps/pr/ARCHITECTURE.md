@@ -19,7 +19,7 @@
 | Short links (`{{shortlink}}` → url.gdgs.jp), one per approved draft version, and their health | `app/features/links/` — `approvedVersionText` (`create.server.ts`) is the only place a link is created or recovered, and it takes an `ApprovedLinkVersion` that only `reviewDraft`'s approval and `claimApprovedTarget` produce; `storedVersionText` only reads. `TINYURL.createLink` carries that `approvedVersion` (campaign, draft, version), so a repeated create for it returns the same link to the approver pr vouches for, co-hosts included, and anything else is refused |
 | Discord webhooks (chapter settings, encrypted), message text from `constants.reminders.templates` | `app/features/notify/`, `app/features/settings/` |
 | Staff reminders to send, speaker requests, outreach replies (approvals page) | `app/features/requests/` |
-| Cron jobs (minute: requeue, reminders; hourly: sns status, link health) | `app/features/cron/cron.server.ts` (crons match `wrangler.toml`, tested) |
+| Cron jobs (minute: requeue, reminders, mails at their time, approved posts no request claimed; hourly: sns status, link health) | `app/features/cron/cron.server.ts` (crons match `wrangler.toml`, tested) |
 | connpass: page publishing on approval, survey, mails at their time, sub-events, thumbnail, publish, and the ledger of connpass jobs (`connpass_jobs`) the hourly cron follows | `app/features/connpass/` — writes only through `CONNPASS.PrService` jobs; never `create_event` |
 | connpass page rendering (slots → HTML with the Playbook's renderer and section templates) and the preview | `app/features/pages/` — the agent's HTML is never used |
 | Listings on Luma / TECH PLAY / Findy / Bevy: mapped from the brief (no runner), approval through `CONNPASS.createListing` or copy-and-mark-done by hand; Findy once per campaign | `app/features/listings/` |
@@ -40,7 +40,8 @@
 - 400 lines per file at most; unit tests sit next to their subject.
 - `schedule_items.kind` is checked in `kinds.ts` (it grows), statuses by a SQL CHECK.
   `kinds.test.ts` keeps the kinds equal to `docs/plans/pr/00-overview.md` §4.
-- `draft_versions` is append-only: an edit, a runner rewrite and a fix are each a new version.
+- `draft_versions` is append-only: an edit, a runner rewrite, a fix and an image change are each a
+  new version. A version carries the attached image (`media_url`) forward unless it changes it.
 - An approval names a version (`drafts.approved_version`, `dispatch_targets.approved_version`).
   A send goes out as the version both name, read with `getVersion`, never `latestVersion`.
   [docs/approval-lifecycle.md](docs/approval-lifecycle.md) draws the lifecycle and lists its
@@ -50,8 +51,9 @@
 - Only a recorded approval writes outside (sns, tinyurl, connpass), as the approver's live claims:
   approval checks are read-only, the conditional approval write comes first, and the hand-off
   reads the approved version (`getVersion`, `approvedContent`). A send that finds its version's
-  short link missing creates it before sending. Cron only follows status, sends Discord messages
-  and connpass mails, and acts for stored claims snapshots (`dispatch_targets.actor_snapshot`,
+  short link missing creates it before sending. Cron follows status, sends Discord messages,
+  sends connpass mails at their time and posts whose approving request stopped before the claim,
+  and acts for stored claims snapshots (`dispatch_targets.actor_snapshot`,
   `campaigns.actor_snapshot`); it logs `no_actor` without one.
 - A connpass page's `html` is rebuilt from its slots on every import and edit
   (`pages/render.ts`, `skills/pr-playbook/scripts/render/`). A connpass mail is approved per group

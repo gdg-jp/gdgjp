@@ -17,7 +17,6 @@ type DraftRow = {
   approved_by: string | null;
   approved_at: number | null;
   approved_version: number | null;
-  dispatch_media_url?: string | null;
   created_at: number;
   updated_at: number;
 };
@@ -36,7 +35,6 @@ const toDraft = (r: DraftRow): Draft => ({
   approvedBy: r.approved_by,
   approvedAt: r.approved_at,
   approvedVersion: r.approved_version,
-  dispatchMediaUrl: r.dispatch_media_url ?? null,
   createdAt: r.created_at,
   updatedAt: r.updated_at,
 });
@@ -51,6 +49,7 @@ type VersionRow = {
   content: string;
   playbook_version: string;
   check_results: string;
+  media_url: string | null;
   created_at: number;
 };
 
@@ -64,6 +63,7 @@ const toVersion = (r: VersionRow): DraftVersion => ({
   content: JSON.parse(r.content),
   playbookVersion: r.playbook_version,
   checkResults: JSON.parse(r.check_results),
+  mediaUrl: r.media_url,
   createdAt: r.created_at,
 });
 
@@ -119,11 +119,13 @@ export async function appendVersion(
     itemStatus?: string | null;
   },
 ): Promise<number> {
-  const [inserted] = await db.batch<{ version: number }>([
+  return saveVersion(
+    db,
     db
       .prepare(
-        `INSERT INTO draft_versions (draft_id, version, author, user_id, job_id, content, playbook_version, check_results)
-         VALUES (?, (SELECT COALESCE(MAX(version), 0) + 1 FROM draft_versions WHERE draft_id = ?), ?, ?, ?, ?, ?, ?)
+        `INSERT INTO draft_versions (draft_id, version, author, user_id, job_id, content, playbook_version, check_results, media_url)
+         VALUES (?, (SELECT COALESCE(MAX(version), 0) + 1 FROM draft_versions WHERE draft_id = ?), ?, ?, ?, ?, ?, ?,
+           (SELECT media_url FROM draft_versions WHERE draft_id = ? ORDER BY version DESC LIMIT 1))
          RETURNING version`,
       )
       .bind(
@@ -135,7 +137,46 @@ export async function appendVersion(
         JSON.stringify(input.content),
         input.playbookVersion,
         JSON.stringify(input.checkResults),
+        draftId,
       ),
+    draftId,
+    input,
+  );
+}
+
+export async function appendMediaVersion(
+  db: D1Database,
+  draftId: number,
+  input: {
+    userId: string;
+    mediaUrl: string | null;
+    status: UnapprovedStatus;
+    itemStatus: string;
+  },
+): Promise<number> {
+  return saveVersion(
+    db,
+    db
+      .prepare(
+        `INSERT INTO draft_versions (draft_id, version, author, user_id, job_id, content, playbook_version, check_results, media_url)
+         SELECT draft_id, version + 1, 'human', ?, NULL, content, playbook_version, check_results, ?
+         FROM draft_versions WHERE draft_id = ? ORDER BY version DESC LIMIT 1
+         RETURNING version`,
+      )
+      .bind(input.userId, input.mediaUrl, draftId),
+    draftId,
+    input,
+  );
+}
+
+async function saveVersion(
+  db: D1Database,
+  insert: D1PreparedStatement,
+  draftId: number,
+  input: { status: UnapprovedStatus; itemStatus?: string | null },
+): Promise<number> {
+  const [inserted] = await db.batch<{ version: number }>([
+    insert,
     db
       .prepare(
         `UPDATE drafts SET current_version = (SELECT MAX(version) FROM draft_versions WHERE draft_id = ?),
@@ -339,12 +380,5 @@ export async function updateDraftPeople(
       "UPDATE drafts SET assignee_user_id = ?, reviewer_user_id = ?, updated_at = unixepoch() WHERE id = ?",
     )
     .bind(people.assigneeUserId, people.reviewerUserId, draftId)
-    .run();
-}
-
-export async function setDispatchMedia(db: D1Database, draftId: number, url: string | null) {
-  await db
-    .prepare("UPDATE drafts SET dispatch_media_url = ?, updated_at = unixepoch() WHERE id = ?")
-    .bind(url, draftId)
     .run();
 }

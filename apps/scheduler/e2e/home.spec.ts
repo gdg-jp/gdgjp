@@ -1,5 +1,30 @@
 import { expect, test } from "@playwright/test";
 
+test("create shows the server's validation messages and stays on the form", async ({ page }) => {
+  await page.goto("/", { waitUntil: "networkidle" });
+  await page.getByRole("textbox", { name: /^Title/ }).fill("Invalid event");
+  for (const day of ["Mon", "Tue", "Wed", "Thu", "Fri"]) {
+    await page.getByRole("button", { name: `Remove time range for ${day}` }).click();
+  }
+  await expect(page.getByText("0 slots (60 min each)")).toBeVisible();
+  const rejected = page.waitForResponse(
+    (response) => response.request().method() === "POST" && response.url().includes("/events/new"),
+  );
+  await page.getByRole("button", { name: "Create event" }).click();
+  expect((await rejected).status()).toBe(400);
+  await expect(page.getByRole("alert")).toContainText("Enable at least one day with a time range");
+  await expect(page).toHaveURL(/\/$/);
+
+  await page.getByRole("button", { name: "Add time range for Mon" }).click();
+  await expect(page.getByRole("combobox", { name: "Mon start time" })).toHaveText("09:00");
+  await page.getByRole("combobox", { name: "Mon end time" }).click();
+  await page.getByRole("option", { name: "09:30", exact: true }).click();
+  await expect(page.getByText("0 slots (60 min each)")).toBeVisible();
+  await page.getByRole("button", { name: "Create event" }).click();
+  await expect(page.getByRole("alert")).toContainText("shorter than the meeting length");
+  await expect(page).toHaveURL(/\/$/);
+});
+
 for (const width of [390, 1280]) {
   for (const theme of ["light", "dark"]) {
     test(`create form supports ${theme} at ${width}px`, async ({ page }) => {

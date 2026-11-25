@@ -1,10 +1,11 @@
+import { safeReturnTo } from "@gdgjp/gdg-lib/auth/return-to";
 import { redirect } from "react-router";
-import { safeReturnTo } from "~/features/auth/auth-redirect";
 import { authUnavailableResponse, getAuth, withAuthTimeout } from "~/features/auth/auth.server";
 import type { Route } from "./+types/auth.signout";
 
 export async function loader({ request, context }: Route.LoaderArgs) {
-  const returnTo = safeReturnTo(new URL(request.url).searchParams.get("return_to")) ?? "/signin";
+  const url = new URL(request.url);
+  const returnTo = safeReturnTo(url.searchParams.get("return_to"), url.origin) ?? "/signin";
   const response = await withAuthTimeout(
     getAuth(context.cloudflare.env).api.signOut({
       headers: request.headers,

@@ -10,6 +10,14 @@ export function canProxyForEvent(
   );
 }
 
+export function canViewEventTotal(
+  actor: { userId: string; chapters: UserChapter[] },
+  event: { ownerUserId: string; ownerChapterIds: number[] },
+): boolean {
+  if (actor.userId === event.ownerUserId) return true;
+  return actor.chapters.some((chapter) => event.ownerChapterIds.includes(chapter.chapterId));
+}
+
 export function canViewAllClaims(
   actor: { userId: string; chapters: UserChapter[] },
   event: { ownerUserId: string; ownerChapterIds: number[] },

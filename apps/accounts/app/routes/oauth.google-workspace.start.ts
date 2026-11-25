@@ -1,5 +1,5 @@
+import { safeReturnTo } from "@gdgjp/gdg-lib/auth/return-to";
 import { redirect } from "react-router";
-import { safeReturnTo } from "~/features/auth/auth-redirect";
 import { getSessionUser } from "~/features/auth/auth.server";
 import {
   createWorkspaceOauthState,
@@ -16,7 +16,7 @@ export async function loader({ request, context }: Route.LoaderArgs) {
     throw redirect(`/signin?return_to=${encodeURIComponent(returnTo)}`);
   }
 
-  const returnTo = safeReturnTo(url.searchParams.get("return_to")) ?? "/dashboard";
+  const returnTo = safeReturnTo(url.searchParams.get("return_to"), url.origin) ?? "/dashboard";
   const { state, codeChallenge } = await createWorkspaceOauthState(env.DB, user.id, returnTo);
   return redirect(workspaceAuthorizeUrl(env, state, codeChallenge));
 }

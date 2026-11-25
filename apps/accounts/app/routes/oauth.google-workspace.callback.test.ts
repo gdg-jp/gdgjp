@@ -173,7 +173,7 @@ describe("Google Workspace connect callback", () => {
     expect(await getWorkspaceConnection(db, USER.id)).not.toBeNull();
   });
 
-  it("preserves an absolute trusted sibling-origin returnTo on success", async () => {
+  it("keeps the redirect on Accounts even for a stored absolute returnTo", async () => {
     authMock.getSessionUser.mockResolvedValue(USER);
     workspaceMock.exchangeWorkspaceCode.mockResolvedValue({
       ok: true,
@@ -183,30 +183,26 @@ describe("Google Workspace connect callback", () => {
       expiresIn: 3600,
     });
     const { db } = fakeDb();
-    const created = await createWorkspaceOauthState(db, USER.id, "https://wiki.gdgs.jp/settings");
-
-    const response = await loader({
-      request: callbackRequest({ code: "auth-code", state: created.state }),
+    const connected = await createWorkspaceOauthState(
+      db,
+      USER.id,
+      "https://wiki.gdgs.jp/settings#a",
+    );
+    const success = await loader({
+      request: callbackRequest({ code: "auth-code", state: connected.state }),
       context: testContext(db),
     } as never);
+    expect((success as Response).headers.get("Location")).toBe("/settings?workspace=connected#a");
 
-    const location = (response as Response).headers.get("Location") ?? "";
-    expect(location).toBe("https://wiki.gdgs.jp/settings?workspace=connected");
-  });
-
-  it("preserves an absolute trusted sibling-origin returnTo on error", async () => {
-    authMock.getSessionUser.mockResolvedValue(USER);
-    const { db } = fakeDb();
-    const { state } = await createWorkspaceOauthState(db, USER.id, "https://wiki.gdgs.jp/settings");
-
-    const response = await catchRedirect(
+    const denied = await createWorkspaceOauthState(db, USER.id, "https://wiki.gdgs.jp/settings");
+    const error = await catchRedirect(
       loader({
-        request: callbackRequest({ error: "access_denied", state }),
+        request: callbackRequest({ error: "access_denied", state: denied.state }),
         context: testContext(db),
       } as never),
     );
-    expect(response.headers.get("Location")).toBe(
-      "https://wiki.gdgs.jp/settings?workspace=error&workspace_reason=access_denied",
+    expect(error.headers.get("Location")).toBe(
+      "/settings?workspace=error&workspace_reason=access_denied",
     );
   });
 

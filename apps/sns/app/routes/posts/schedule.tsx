@@ -37,6 +37,7 @@ export default function ScheduleEditor({ loaderData, actionData }: Route.Compone
     post?.condition ?? loaderData.defaultPostingOption,
   );
   const [text, setText] = useState(post?.text ?? "");
+  const [tagHandles, setTagHandles] = useState(loaderData.tagHandles);
   const [newImages, setNewImages] = useState<{ file: File; url: string }[]>([]);
   const [deletedMediaIds, setDeletedMediaIds] = useState<string[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -152,6 +153,9 @@ export default function ScheduleEditor({ loaderData, actionData }: Route.Compone
             <span className="sr-only">本文</span>
             <XPostComposer text={text} textAreaRef={textAreaRef} onTextChange={setText} />
           </label>
+          {tagHandles !== loaderData.tagHandles ? (
+            <input type="hidden" name="tagHandles" value={tagHandles} />
+          ) : null}
           {deletedMediaIds.map((id) => (
             <input key={id} type="hidden" name="deletedMedia" value={id} />
           ))}
@@ -161,7 +165,9 @@ export default function ScheduleEditor({ loaderData, actionData }: Route.Compone
             onRemoveExisting={(id) => setDeletedMediaIds((ids) => [...ids, id])}
             onRemoveNew={removeNewImage}
           />
-          {imageCount > 0 ? <TagUsersDialog /> : null}
+          {imageCount > 0 ? (
+            <TagUsersDialog value={tagHandles} onValueChange={setTagHandles} />
+          ) : null}
           <div className="flex items-center justify-between border-t pt-3">
             <div className="flex items-center gap-1">
               <label

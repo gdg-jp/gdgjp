@@ -22,6 +22,7 @@
 - `POST /api/checkin` dispatches on the QR URL: connpass reception URLs go through Browser Run, Luma ticket URLs (`luma.com/check-in/evt-…?pk=g-…`) call api.luma.com directly with `fetch` (no browser). Luma events are authorized through the `luma_calendars` allowlist (calendar → chapter), mirroring `groups`.
 - Browser sessions belong to the Connpass integration, shared by synchronous reads and queued writes. Account authorization is a separate concern from the bot login/session.
 - Preserve the job claim, terminal-status guards, failure capture, session release/destroy, and queue acknowledgement/retry ordering when changing execution.
+- After the claim, `processJobMessage` is the only code that settles a job. Job handlers return an outcome or throw; it records success, or records any throw (validation, browser launch, login, page operation) as `failed` with the error before the session is destroyed and the queue retries.
 - Feature modules cannot import route adapters. Tests are colocated with implementations; `app/features/architecture.test.ts` guards dependency cycles, repository and pure-contract boundaries, and the public route set.
 - Update this map in the same change when moving ownership.
 

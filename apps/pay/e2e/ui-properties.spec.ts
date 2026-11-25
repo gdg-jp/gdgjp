@@ -35,6 +35,8 @@ type PayWorld = UiPropertyWorld & {
 const canProxy = (actor: ActorName, event: Event) =>
   actor === event.owner ||
   (ACTORS[actor].organizer && ACTORS[actor].chapterId === ACTORS[event.owner].chapterId);
+const canSeeTotal = (actor: ActorName, event: Event) =>
+  actor === event.owner || ACTORS[actor].chapterId === ACTORS[event.owner].chapterId;
 
 test.beforeAll(() => {
   execFileSync(
@@ -144,15 +146,24 @@ const property = (browser: Browser): UiProperty<PayWorld> => ({
     }),
   ],
   invariants: [
-    invariant("every member's list shows every event once", async (world) => {
-      for (const name of NAMES) {
-        if (!world.events.length) break;
-        const response = await world.pages[name].request.get("/");
-        const html = await response.text();
-        for (const event of world.events)
-          expect(html.split(`/events/${event.id}"`).length - 1, `${name} sees ${event.id}`).toBe(1);
-      }
-    }),
+    invariant(
+      "every member's list shows every event once, with its total only to its chapters",
+      async (world) => {
+        for (const name of NAMES) {
+          if (!world.events.length) break;
+          const response = await world.pages[name].request.get("/");
+          const html = await response.text();
+          for (const event of world.events) {
+            const rows = html.split(`/events/${event.id}"`);
+            expect(rows.length - 1, `${name} sees ${event.id}`).toBe(1);
+            const row = rows[1]?.split("</tr>")[0] ?? "";
+            expect(row.includes("非公開"), `${name} sees the total of ${event.owner}'s event`).toBe(
+              !canSeeTotal(name, event),
+            );
+          }
+        }
+      },
+    ),
     invariant(
       "management controls appear exactly for owners and their organizers",
       async (world) => {
@@ -167,6 +178,7 @@ const property = (browser: Browser): UiProperty<PayWorld> => ({
           await expect(
             page.getByRole("heading", { name: manage ? "すべての申請" : "自分の申請" }),
           ).toBeVisible();
+          await expect(page.getByText(/^合計 ¥/)).toHaveCount(canSeeTotal(name, event) ? 1 : 0);
         }
       },
     ),

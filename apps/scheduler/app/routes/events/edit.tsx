@@ -1,4 +1,12 @@
-import { Button, FormField, Inline, Input, PageHeader, Textarea } from "@gdgjp/design-system";
+import {
+  Alert,
+  Button,
+  FormField,
+  Inline,
+  Input,
+  PageHeader,
+  Textarea,
+} from "@gdgjp/design-system";
 import { Form, useNavigation } from "react-router";
 import { ScheduleEditor } from "~/features/scheduling/components/schedule-editor";
 import { Header } from "~/layouts/header";
@@ -20,8 +28,9 @@ export function action(args: Route.ActionArgs) {
   return editEvent(args.context.cloudflare.env, args.request, args.params.id);
 }
 
-export default function EditEventPage({ loaderData }: Route.ComponentProps) {
+export default function EditEventPage({ loaderData, actionData }: Route.ComponentProps) {
   const { user, event, initialDays } = loaderData;
+  const errors = actionData?.errors;
   const nav = useNavigation();
   const submitting = nav.state === "submitting" && nav.formAction === `/e/${event.id}/edit`;
 
@@ -64,6 +73,15 @@ export default function EditEventPage({ loaderData }: Route.ComponentProps) {
               />
             </FormField>
           </ScheduleEditor>
+          {errors ? (
+            <Alert tone="danger" title="The changes were not saved">
+              <ul className="list-disc pl-5">
+                {errors.map((error) => (
+                  <li key={error}>{error}</li>
+                ))}
+              </ul>
+            </Alert>
+          ) : null}
           <Inline>
             <Button type="submit" loading={submitting}>
               {submitting ? "Saving…" : "Save changes"}

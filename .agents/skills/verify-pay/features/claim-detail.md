@@ -12,6 +12,7 @@ refusal states are covered here.
 - `pay-claim-items` updates an item, rejects an invalid amount, deletes an item, and recalculates the total.
 - `pay-claim-sync-unconnected` shows the empty-claim and no-Google-connection errors of **スプレッドシートに反映**.
 - `pay-claim-email-unconfigured` shows the disabled email button before sync and the configuration error after a seeded sync.
+- `pay-receipt-upload-manual` uploads a receipt with `GEMINI_API_KEY` unset and gets an item for manual entry without any request to Gemini.
 
 ## How to get to it (user POV)
 
@@ -81,12 +82,24 @@ proxy claim C1 `/events/evt_0000000000000000000000SEE1/claims/clm_00000000000000
   `SELECT email_sent_at FROM claims WHERE id = 'clm_0000000000000000000000SEC2'` returns
   `NULL`, and the event row for C2 does not show `メール送信済`. Evidence: snapshot,
   network list showing no request to `api.resend.com`.
+- Upload without extraction (`pay-receipt-upload-manual`). As `claimant`, on the self
+  claim created in `pay-claim-self` and after its empty-claim sync step, start network
+  capture, set **領収書 PDF / 写真を追加** to the scratch `apps/pay/public/app-icon.png`, and
+  choose **アップロードして抽出**. Require a success notice
+  `領収書を追加しました。自動読み取りは設定されていないため、月日・種別・品目・金額を入力して保存してください。`,
+  one item group with **種別** `その他`, **品目** `app-icon.png`, **金額（円）** `0`, and the
+  text `領収書: app-icon.png`. Independent check:
+  `SELECT i.description, i.amount_yen, i.extraction_json, i.receipt_r2_key FROM claim_items i JOIN claims c ON c.id = i.claim_id WHERE c.user_id = 'dev-user-claimant'`
+  returns `app-icon.png | 0 | NULL | claims/<claim id>/<uuid>-app-icon.png`. Evidence:
+  snapshot, the D1 row, network list showing no request to
+  `generativelanguage.googleapis.com`.
 
 ## Gotchas
 
-- Receipt upload (**アップロードして抽出**) always calls the Gemini API at
-  `generativelanguage.googleapis.com`, even when `GEMINI_API_KEY` is empty. It is outside
-  this map. Do not choose it; seeded items stand in for uploaded ones.
+- Receipt upload (**アップロードして抽出**) calls the Gemini API only when
+  `GEMINI_API_KEY` is set to a nonblank value; the helper refuses to start with one. Run
+  `pay-receipt-upload-manual` only on the claimant's own claim so the seeded totals stay
+  as the other steps quote them.
 - A successful **スプレッドシートに反映** writes to Google Drive and Sheets, and a successful
   **comm-support に確認メールを送る** mails `comm-support@voice-research.com` through Resend.
   Both are outside the map. Never run the email step when `RESEND_API_KEY` is set in the

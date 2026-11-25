@@ -7,12 +7,16 @@ delegates its receipt, synchronization, and email workflows to
 
 Features own their implementation, types, and tests:
 
-- `auth/`: Accounts relying-party setup, session/membership retrieval, safe redirects.
-- `events/`: event persistence and chapter/owner permission policy.
+- `auth/`: Accounts relying-party setup, session/membership retrieval, safe redirects,
+  and the typed reasons a page gives when it refuses a signed-in user (rendered by the
+  root error boundary).
+- `events/`: event persistence and chapter/owner permission policy, including who sees
+  an event's total (its owner and members of its chapters).
 - `profiles/`: claimant identity and encrypted bank account persistence.
 - `claims/`: claim/item persistence, yen arithmetic, authenticated detail workflows,
   and the explicit review-email operation.
-- `receipts/`: file constraints, object keys, and Gemini extraction.
+- `receipts/`: file constraints, object keys, and Gemini extraction (an extractor exists
+  only when `GEMINI_API_KEY` is nonblank).
 - `google/`: OAuth transactions/token lifecycle, Drive access, Sheets sync/template
   values, and connection/Picker UI.
 

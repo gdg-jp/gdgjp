@@ -27,8 +27,9 @@ not run.
   `Location: /signin?return_to=%2F`. Repeat for `/events/new` and require
   `return_to=%2Fevents%2Fnew`. In Orca, `goto http://localhost:6186/` and record the final URL
   from `orca eval "location.href"`: it stops at `/api/auth/signin?return_to=%2F` with the
-  plain-text body `Unexpected Server Error` (HTTP 500), because OIDC discovery against
-  `localhost:6173` fails without `--accounts`. Expect that page, not a roster screen.
+  HTTP 503 page **サインインサービスに接続できませんでした** and a **もう一度サインイン** link, because
+  OIDC discovery against `localhost:6173` fails without `--accounts`. Expect that page, not a
+  roster screen.
 - Chapter gate. `goto /dev/login?as=verify-roster-nochapter&chapter=0:none&return_to=/`. Require
   the URL `/no-chapter`, heading **GDG チャプターへの参加が必要です**, and link
   **チャプターに参加する** whose `href` ends in `/onboarding`. Screenshot.

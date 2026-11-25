@@ -59,45 +59,25 @@ export default function EventPage({ loaderData }: Route.ComponentProps) {
   const deleteFetcher = useFetcher<typeof action>();
   const adminFetcher = useFetcher<typeof action>();
   const joinFormRef = useRef<HTMLFormElement>(null);
-  const snapshotRef = useRef<{ displayName: string; slotIds: number[] } | null>(null);
-  const adminSnapshotRef = useRef<{
-    displayName: string;
-    userId: string | null;
-    slotIds: number[];
-  } | null>(null);
-  const suppressNextSaveToastRef = useRef(false);
+  const adminRemovedRef = useRef<{ participantId: number; displayName: string } | null>(null);
 
-  function restore() {
-    const snap = snapshotRef.current;
-    if (!snap) return;
-    snapshotRef.current = null;
-    suppressNextSaveToastRef.current = true;
-    const fd = new FormData();
-    fd.set("intent", "join");
-    fd.set("displayName", snap.displayName);
-    for (const id of snap.slotIds) fd.append("slot_id", String(id));
-    saveFetcher.submit(fd, { method: "post" });
+  function restoreOwnResponse() {
+    deleteFetcher.submit({ intent: "restore-response" }, { method: "post" });
   }
 
-  function adminDelete(p: Participant, slotIdsForP: number[]) {
-    adminSnapshotRef.current = {
-      displayName: p.displayName,
-      userId: p.userId,
-      slotIds: slotIdsForP,
-    };
-    const fd = new FormData();
-    fd.set("intent", "admin-delete-participant");
-    fd.set("participantId", String(p.id));
-    adminFetcher.submit(fd, { method: "post" });
+  function adminDelete(p: Participant) {
+    adminRemovedRef.current = { participantId: p.id, displayName: p.displayName };
+    adminFetcher.submit(
+      { intent: "admin-delete-participant", participantId: String(p.id) },
+      { method: "post" },
+    );
   }
 
-  function adminRestore(snap: { displayName: string; userId: string | null; slotIds: number[] }) {
-    const fd = new FormData();
-    fd.set("intent", "admin-restore-participant");
-    fd.set("displayName", snap.displayName);
-    if (snap.userId) fd.set("userId", snap.userId);
-    for (const id of snap.slotIds) fd.append("slot_id", String(id));
-    adminFetcher.submit(fd, { method: "post" });
+  function adminRestore(participantId: number) {
+    adminFetcher.submit(
+      { intent: "admin-restore-participant", participantId: String(participantId) },
+      { method: "post" },
+    );
   }
 
   useValueChange(saveFetcher.data, (data) => {
@@ -105,31 +85,31 @@ export default function EventPage({ loaderData }: Route.ComponentProps) {
   });
 
   useValueChange(saveFetcher.state === "idle" ? saveFetcher.data : undefined, (data) => {
-    if (!data) return;
-    if (suppressNextSaveToastRef.current) {
-      suppressNextSaveToastRef.current = false;
-      toast.success("Availability restored");
-    } else if (data.kind === "joined") {
+    if (data?.kind === "joined") {
       toast.success("Joined event");
-    } else if (data.kind === "updated") {
+    } else if (data?.kind === "updated") {
       toast.success("Availability updated");
     }
   });
 
   useValueChange(deleteFetcher.state === "idle" ? deleteFetcher.data : undefined, (data) => {
-    if (data?.kind !== "deleted") return;
-    toast("Removed your availability", {
-      action: { label: "Undo", onClick: restore },
-    });
+    if (data?.kind === "deleted") {
+      toast("Removed your availability", {
+        action: { label: "Undo", onClick: restoreOwnResponse },
+      });
+    } else if (data?.kind === "restored") {
+      toast.success("Availability restored");
+    }
   });
 
   useValueChange(adminFetcher.state === "idle" ? adminFetcher.data : undefined, (data) => {
     const kind = data?.kind;
     if (kind === "admin-deleted") {
-      const snap = adminSnapshotRef.current;
-      const name = snap?.displayName ?? "participant";
-      toast(`Removed ${name}`, {
-        action: snap ? { label: "Undo", onClick: () => adminRestore(snap) } : undefined,
+      const removed = adminRemovedRef.current;
+      toast(`Removed ${removed?.displayName ?? "participant"}`, {
+        action: removed
+          ? { label: "Undo", onClick: () => adminRestore(removed.participantId) }
+          : undefined,
       });
     } else if (kind === "admin-restored") {
       toast.success("Participant restored");
@@ -252,15 +232,7 @@ export default function EventPage({ loaderData }: Route.ComponentProps) {
           </saveFetcher.Form>
           <div className="mt-4">
             {currentParticipantId ? (
-              <deleteFetcher.Form
-                method="post"
-                onSubmit={() => {
-                  snapshotRef.current = {
-                    displayName: currentParticipantName ?? "",
-                    slotIds: [...ownSlotIds],
-                  };
-                }}
-              >
+              <deleteFetcher.Form method="post">
                 <input type="hidden" name="intent" value="delete-response" />
                 <Button type="submit" variant="danger" loading={deleteFetcher.state !== "idle"}>
                   <Icons name="Trash2" size={16} className="size-4" />
@@ -286,9 +258,7 @@ export default function EventPage({ loaderData }: Route.ComponentProps) {
                           {isOwner ? (
                             <IconButton
                               variant="ghost"
-                              onClick={() =>
-                                adminDelete(p, Array.from(availByParticipant.get(p.id) ?? []))
-                              }
+                              onClick={() => adminDelete(p)}
                               disabled={adminFetcher.state !== "idle"}
                               aria-label={`Remove ${p.displayName}`}
                             >
@@ -312,7 +282,7 @@ export default function EventPage({ loaderData }: Route.ComponentProps) {
                       {participants.map((p) => {
                         const has = availByParticipant.get(p.id)?.has(s.id) ?? false;
                         return (
-                          <td key={p.id} className="text-center">
+                          <td key={p.id} className="relative text-center">
                             {has ? (
                               <Icons
                                 name="Check"

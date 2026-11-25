@@ -123,14 +123,14 @@ export async function resolveXUsername(
   env: Env,
   accountId: string,
   username: string,
-): Promise<{ id: string; username: string }> {
+): Promise<{ id: string; username: string } | null> {
   const token = await accessTokenForAccount(env, accountId);
   const response = await fetch(
     `${env.X_API_BASE_URL}/2/users/by/username/${encodeURIComponent(username.replace(/^@/, ""))}`,
     { headers: { Authorization: `Bearer ${token}` } },
   );
+  if (response.status === 400) return null;
+  if (!response.ok) throw new Error(`X user lookup failed with ${response.status}`);
   const json = await response.json<{ data?: { id: string; username: string } }>();
-  if (!response.ok || !json.data)
-    throw new Error(`X user @${username.replace(/^@/, "")} was not found`);
-  return json.data;
+  return json.data ?? null;
 }

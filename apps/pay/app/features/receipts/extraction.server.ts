@@ -29,12 +29,26 @@ function asNullableAmount(value: unknown): number | null {
   return null;
 }
 
-export async function extractReceiptFields(
+export type ReceiptFile = { bytes: ArrayBuffer; mimeType: string; filename: string };
+
+export type ReceiptExtractor = (input: ReceiptFile) => Promise<ReceiptExtraction>;
+
+type GeminiClient = { apiKey: string; model: string };
+
+export function receiptExtractor(
   env: Pick<Env, "GEMINI_API_KEY" | "GEMINI_MODEL_ID">,
-  input: { bytes: ArrayBuffer; mimeType: string; filename: string },
+): ReceiptExtractor | null {
+  const apiKey = env.GEMINI_API_KEY?.trim();
+  if (!apiKey) return null;
+  const client = { apiKey, model: env.GEMINI_MODEL_ID || "gemini-3.5-flash-lite" };
+  return (input) => extractWithGemini(client, input);
+}
+
+async function extractWithGemini(
+  { apiKey, model }: GeminiClient,
+  input: ReceiptFile,
 ): Promise<ReceiptExtraction> {
-  const model = env.GEMINI_MODEL_ID || "gemini-3.5-flash-lite";
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(env.GEMINI_API_KEY)}`;
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(apiKey)}`;
   const bytes = new Uint8Array(input.bytes);
   let binary = "";
   const chunk = 0x8000;

@@ -1,11 +1,17 @@
 import { readFileSync, readdirSync } from "node:fs";
 import { DatabaseSync } from "node:sqlite";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import type { CampaignAccess } from "~/features/campaigns/access.server";
 import { sendDueMails } from "~/features/connpass/mail.server";
+import { MINUTE_CRON, runCron } from "~/features/cron/cron.server";
 import { draftAction } from "~/features/drafts/detail.server";
-import { appendVersion, getDraftById } from "~/features/drafts/draft.repository.server";
+import {
+  appendVersion,
+  getDraftById,
+  latestVersion,
+} from "~/features/drafts/draft.repository.server";
 import { STALE_VERSION, reviewDraft } from "~/features/drafts/review.server";
+import { deliveryAction } from "./delivery.server";
 import { approveTarget } from "./dispatch.server";
 import { dueMailTargets, ensureTargets, listTargets } from "./target.repository.server";
 
@@ -153,6 +159,8 @@ function setup(
 ) {
   const { db, after } = d1(raw);
   const posts: string[] = [];
+  const actors: string[] = [];
+  const media: string[] = [];
   const mails: string[] = [];
   const pages: string[] = [];
   const tinyurl = {
@@ -201,9 +209,14 @@ function setup(
       },
     },
     SNS: {
-      createScheduledPost: async (input: { text: string }) => {
+      createScheduledPost: async (input: { text: string; actor: { user: { id: string } } }) => {
         posts.push(input.text);
+        actors.push(input.actor.user.id);
         return { ok: true, post: { id: `sns-${posts.length}` } };
+      },
+      attachMedia: async (input: { postId: string; bytes: ArrayBuffer }) => {
+        media.push(`${input.postId} ${new TextDecoder().decode(input.bytes)}`);
+        return { ok: true, mediaId: `media-${media.length}` };
       },
     },
     CONNPASS: {
@@ -237,6 +250,11 @@ function setup(
     reviewDraft(db, accessFor(LEAD, true), await draft(), "approve", version, null);
   const approveAsCohost = async (version: number, targetId = 1) =>
     approveTarget(env, accessFor(COHOST, false), await draft(), targetId, version);
+  const setMedia = async (url: string) => {
+    const form = new FormData();
+    form.set("mediaUrl", url);
+    return deliveryAction(env, accessFor(LEAD, true), await draft(), "media", form);
+  };
   const press = async (who: ReturnType<typeof user>, manage: boolean, version: number) => {
     const form = new FormData();
     form.set("intent", "approve");
@@ -249,6 +267,8 @@ function setup(
     env,
     after,
     posts,
+    actors,
+    media,
     mails,
     pages,
     tinyurl,
@@ -256,8 +276,31 @@ function setup(
     draft,
     approveDraft,
     approveAsCohost,
+    setMedia,
     press,
   };
+}
+
+afterEach(() => {
+  vi.restoreAllMocks();
+});
+
+function serveImages() {
+  vi.spyOn(globalThis, "fetch").mockImplementation(
+    async (input) =>
+      new Response(String(input), { headers: { "content-type": "image/png" } }) as Response,
+  );
+}
+
+async function approvedButUnclaimed() {
+  const t = await approvedWithTarget("x_post");
+  t.after("SET status = 'approved', approved_version", async () => {
+    throw new Error("worker stopped");
+  });
+  await expect(t.approveAsCohost(1)).rejects.toThrow("worker stopped");
+  expect(t.posts).toEqual([]);
+  expect((await listTargets(t.db, 1))[0]).toMatchObject({ status: "approved", approvedVersion: 1 });
+  return t;
 }
 
 async function approvedWithTarget(kind: "x_post" | "connpass_mail") {
@@ -742,5 +785,180 @@ describe("migration 0011", () => {
       { status: "needs_approval" },
       { status: "scheduled" },
     ]);
+  });
+});
+
+describe("the attached image is part of a version", () => {
+  it("changing the image of an approved post needs a new approval, which sends the new image", async () => {
+    serveImages();
+    const t = setup("x_post");
+    await t.save(1);
+    expect(await t.setMedia("https://img.example/a.png")).toMatchObject({ ok: true });
+    const withA = (await t.draft()).currentVersion;
+    expect(await t.approveDraft(withA)).toMatchObject({ ok: true });
+    await ensureTargets(t.db, 1, 1, "x");
+
+    expect(await t.setMedia("https://img.example/b.png")).toMatchObject({ ok: true });
+    const withB = await t.draft();
+    expect(withB).toMatchObject({ status: "in_review", approvedVersion: null });
+    expect(withB.currentVersion).toBeGreaterThan(withA);
+    expect((await t.approveAsCohost(withA)).ok).toBe(false);
+    await runCron(t.env, MINUTE_CRON);
+    expect(t.posts).toEqual([]);
+
+    expect(await t.approveDraft(withB.currentVersion)).toMatchObject({ ok: true });
+    expect(await t.approveAsCohost(withB.currentVersion)).toMatchObject({ ok: true });
+    expect(t.posts).toEqual(["post v1"]);
+    expect(t.media).toEqual(["sns-1 https://img.example/b.png"]);
+  });
+
+  it("keeps the image on later versions and saves no version when it does not change", async () => {
+    const t = setup("x_post");
+    await t.save(1);
+    await t.setMedia("https://img.example/a.png");
+    const withA = (await t.draft()).currentVersion;
+    expect(await t.setMedia("https://img.example/a.png")).toMatchObject({ ok: true });
+    expect((await t.draft()).currentVersion).toBe(withA);
+    await t.save(2);
+    expect(await latestVersion(t.db, 1)).toMatchObject({
+      content: { posts: [{ text: "post v2" }] },
+      mediaUrl: "https://img.example/a.png",
+    });
+  });
+});
+
+describe("the minute cron sends an approved post the Worker did not claim", () => {
+  it("sends it once, as the approved version and the approver", async () => {
+    const t = await approvedButUnclaimed();
+    await runCron(t.env, MINUTE_CRON);
+    expect(t.posts).toEqual(["post v1"]);
+    expect(t.actors).toEqual(["cohost"]);
+    expect((await listTargets(t.db, 1))[0]).toMatchObject({
+      status: "scheduled",
+      approvedVersion: 1,
+      externalRef: { snsPostId: "sns-1" },
+    });
+    await runCron(t.env, MINUTE_CRON);
+    expect(t.posts).toEqual(["post v1"]);
+  });
+
+  it("two crons claiming at once send it once", async () => {
+    const t = await approvedButUnclaimed();
+    t.after("a.kind = 'x'", async () => {
+      await runCron(t.env, MINUTE_CRON);
+    });
+    await runCron(t.env, MINUTE_CRON);
+    expect(t.posts).toEqual(["post v1"]);
+  });
+
+  it("creates the approved version's missing short link before the cron sends it", async () => {
+    const t = setup("x_post", linked);
+    await t.save(1);
+    t.tinyurl.down = true;
+    await t.press(LEAD, true, 1);
+    expect(await t.draft()).toMatchObject({ status: "approved", approvedVersion: 1 });
+    expect(t.raw.prepare("SELECT id FROM campaign_links").all()).toEqual([]);
+    t.after("SET status = 'approved', approved_version", async () => {
+      throw new Error("worker stopped");
+    });
+    await expect(t.approveAsCohost(1)).rejects.toThrow("worker stopped");
+    t.tinyurl.down = false;
+
+    await runCron(t.env, MINUTE_CRON);
+    expect(t.posts).toHaveLength(1);
+    expect(t.posts[0]).not.toContain("{{shortlink}}");
+    expect(sentLinks(t, t.posts)).toEqual([destination(1)]);
+    expect(t.raw.prepare("SELECT draft_id, draft_version FROM campaign_links").all()).toEqual([
+      { draft_id: 1, draft_version: 1 },
+    ]);
+  });
+
+  it("a cron during the approval request does not send twice", async () => {
+    const t = await approvedWithTarget("x_post");
+    t.after("SET status = 'approved', approved_version", async () => {
+      await runCron(t.env, MINUTE_CRON);
+    });
+    expect(await t.approveAsCohost(1)).toMatchObject({ ok: true });
+    expect(t.posts).toEqual(["post v1"]);
+  });
+
+  it("does not send an approval whose version is no longer the latest", async () => {
+    const t = await approvedButUnclaimed();
+    await t.save(2);
+    await runCron(t.env, MINUTE_CRON);
+    expect(await t.approveDraft(2)).toMatchObject({ ok: true });
+    await runCron(t.env, MINUTE_CRON);
+    expect(t.posts).toEqual([]);
+    expect((await listTargets(t.db, 1))[0]).toMatchObject({
+      status: "approved",
+      approvedVersion: 1,
+    });
+  });
+});
+
+describe("migration 0013", () => {
+  it("moves a draft's image to its current version and asks for the post's approval again", () => {
+    const directory = new URL("../../../migrations/", import.meta.url);
+    const files = readdirSync(directory).sort();
+    const raw = sqlite("");
+    for (const file of files.filter((f) => f < "0013"))
+      raw.exec(readFileSync(new URL(file, directory), "utf8"));
+    raw.exec(`
+      INSERT INTO campaigns (id, chapter_id, chapter_slug, slug, name, playbook_version, created_by)
+        VALUES (1, 1, 'c1', 'devfest', 'DevFest', 'v1', 'lead');
+      INSERT INTO drafts (id, campaign_id, kind, title, status, current_version, approved_version,
+        dispatch_media_url)
+        VALUES (1, 1, 'x_post', 'with image', 'approved', 2, 2, 'https://img.example/a.png'),
+               (2, 1, 'x_post', 'without image', 'in_review', 1, NULL, NULL);
+      INSERT INTO draft_versions (draft_id, version, author, content, playbook_version)
+        VALUES (1, 1, 'agent', '{}', 'v1'), (1, 2, 'human', '{}', 'v1'), (2, 1, 'agent', '{}', 'v1');
+    `);
+    raw.exec(
+      readFileSync(new URL(files.find((f) => f.startsWith("0013")) ?? "", directory), "utf8"),
+    );
+    expect(
+      raw.prepare("SELECT draft_id, version, media_url FROM draft_versions ORDER BY id").all(),
+    ).toEqual([
+      { draft_id: 1, version: 1, media_url: null },
+      { draft_id: 1, version: 2, media_url: "https://img.example/a.png" },
+      { draft_id: 2, version: 1, media_url: null },
+    ]);
+    expect(raw.prepare("SELECT status, approved_version FROM drafts WHERE id = 1").get()).toEqual({
+      status: "needs_approval",
+      approved_version: null,
+    });
+  });
+
+  it("sends nothing approved before the image belonged to a version until it is approved again", async () => {
+    const raw = seeded("x_post");
+    const t = setup("x_post", plain("x_post"), raw);
+    await t.save(1);
+    expect(await t.approveDraft(1)).toMatchObject({ ok: true });
+    await ensureTargets(t.db, 1, 1, "x");
+    t.after("SET status = 'approved', approved_version", async () => {
+      throw new Error("worker stopped");
+    });
+    await expect(t.approveAsCohost(1)).rejects.toThrow("worker stopped");
+    const directory = new URL("../../../migrations/", import.meta.url);
+    const migration = readdirSync(directory).find((f) => f.startsWith("0013")) ?? "";
+    raw.exec(
+      readFileSync(new URL(migration, directory), "utf8").replace(
+        "ALTER TABLE draft_versions ADD COLUMN media_url TEXT;",
+        "",
+      ),
+    );
+    expect(raw.prepare("SELECT status, approved_version FROM drafts WHERE id = 1").get()).toEqual({
+      status: "needs_approval",
+      approved_version: null,
+    });
+    expect(
+      raw.prepare("SELECT status, approved_version, approved_by FROM dispatch_targets").all(),
+    ).toEqual([{ status: "pending", approved_version: null, approved_by: null }]);
+    await runCron(t.env, MINUTE_CRON);
+    expect(t.posts).toEqual([]);
+
+    expect(await t.approveDraft(1)).toMatchObject({ ok: true });
+    expect(await t.approveAsCohost(1)).toMatchObject({ ok: true });
+    expect(t.posts).toEqual(["post v1"]);
   });
 });

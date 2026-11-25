@@ -75,7 +75,7 @@ describe("parseEventForm", () => {
       ["slot_minutes", "60"],
     ]);
     const r = parseEventForm(fd);
-    expect(r.ok).toBe(false);
+    expect(r).toEqual({ ok: false, errors: ["Enable at least one day with a time range"] });
   });
 
   it("rejects when end is not after start", () => {
@@ -107,7 +107,10 @@ describe("parseEventForm", () => {
       ["day_0_end", "09:30"],
     ]);
     const r = parseEventForm(fd);
-    expect(r.ok).toBe(false);
+    expect(r).toEqual({
+      ok: false,
+      errors: ["Mon range 1: shorter than the meeting length"],
+    });
   });
 
   it("rejects an invalid meeting length", () => {

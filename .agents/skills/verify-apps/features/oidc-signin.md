@@ -32,7 +32,10 @@ then requires each gated app's `/signin` to reach the local authorize endpoint
   in `orca network` the authorize request naming the app's callback and a callback 302, then
   the final path (`/no-chapter`, or `/` for meet). `eval` `fetch('/api/auth/me')` and require
   email `platform-oidc@test.local`.
-- live-checkin: click **GDG Accounts でログイン** on `/`.
+- live-checkin: click **GDG Accounts でログイン** on `/`; the chapterless fixture user ends on
+  `/forbidden`. `eval` `fetch('/api/auth/session')` and require `user.email`
+  `platform-oidc@test.local` and `user.name` `Platform OIDC Admin` (Auth.js reads them from the
+  UserInfo endpoint); never record `accessToken`.
 
 Evidence: sanitized network rows (codes, states, PKCE values replaced), final paths, and the
 `/api/auth/me` email.

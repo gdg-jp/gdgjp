@@ -1,6 +1,6 @@
 import { nowIso } from "~/lib/utils";
+import { EDIT_APPLIED, type PostEdit, editAppliedParams } from "./post.repository.server";
 import type { PostMedia } from "./post.types";
-import type { MediaMetadataEdit } from "./post.types";
 
 type PostMediaRow = {
   id: string;
@@ -53,11 +53,11 @@ export type InsertPostMediaRecord = {
 export async function insertPostMedia(
   db: D1Database,
   record: InsertPostMediaRecord,
-): Promise<PostMedia> {
+): Promise<PostMedia | null> {
   const createdAt = nowIso();
-  await db
+  const result = await db
     .prepare(
-      "INSERT INTO post_media (id, post_id, r2_key, content_type, byte_size, alt_text, sort_order, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+      "INSERT INTO post_media (id, post_id, r2_key, content_type, byte_size, alt_text, sort_order, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT (post_id, sort_order) DO NOTHING",
     )
     .bind(
       record.id,
@@ -70,25 +70,57 @@ export async function insertPostMedia(
       createdAt,
     )
     .run();
-  return { ...record, createdAt };
+  return result.meta.changes > 0 ? { ...record, createdAt } : null;
+}
+
+export function insertPostMediaStatement(
+  db: D1Database,
+  edit: PostEdit,
+  record: InsertPostMediaRecord,
+): D1PreparedStatement {
+  return db
+    .prepare(
+      `INSERT INTO post_media (id, post_id, r2_key, content_type, byte_size, alt_text, sort_order, created_at) SELECT ?, ?, ?, ?, ?, ?, ?, ? WHERE ${EDIT_APPLIED}`,
+    )
+    .bind(
+      record.id,
+      record.postId,
+      record.r2Key,
+      record.contentType,
+      record.byteSize,
+      record.altText,
+      record.sortOrder,
+      edit.updatedAt,
+      ...editAppliedParams(edit),
+    );
+}
+
+export function deletePostMediaStatement(
+  db: D1Database,
+  edit: PostEdit,
+  id: string,
+): D1PreparedStatement {
+  return db
+    .prepare(`DELETE FROM post_media WHERE id = ? AND post_id = ? AND ${EDIT_APPLIED}`)
+    .bind(id, edit.postId, ...editAppliedParams(edit));
+}
+
+export function compactPostMediaStatements(
+  db: D1Database,
+  edit: PostEdit,
+  media: { id: string; altText: string }[],
+): D1PreparedStatement[] {
+  return media.map((item, index) =>
+    db
+      .prepare(
+        `UPDATE post_media SET alt_text = ?, sort_order = ? WHERE id = ? AND post_id = ? AND ${EDIT_APPLIED}`,
+      )
+      .bind(item.altText, index, item.id, edit.postId, ...editAppliedParams(edit)),
+  );
 }
 
 export async function deletePostMediaById(db: D1Database, id: string): Promise<void> {
   await db.prepare("DELETE FROM post_media WHERE id = ?").bind(id).run();
-}
-
-export async function batchUpdateMediaMetadata(
-  db: D1Database,
-  edits: MediaMetadataEdit[],
-): Promise<void> {
-  if (edits.length === 0) return;
-  await db.batch(
-    edits.map((edit) =>
-      db
-        .prepare("UPDATE post_media SET alt_text = ?, sort_order = ? WHERE id = ?")
-        .bind(edit.altText, edit.sortOrder, edit.id),
-    ),
-  );
 }
 
 export async function listPostMedia(

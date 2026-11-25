@@ -230,7 +230,10 @@ export function AltTextDialog({
   );
 }
 
-export function TagUsersDialog() {
+export function TagUsersDialog({
+  value,
+  onValueChange,
+}: { value: string; onValueChange: (value: string) => void }) {
   return (
     <DialogPrimitive.Root>
       <DialogPrimitive.Trigger asChild>
@@ -261,8 +264,8 @@ export function TagUsersDialog() {
             </DialogPrimitive.Close>
           </div>
           <input
-            form="schedule-form"
-            name="tagHandles"
+            value={value}
+            onChange={(event) => onValueChange(event.target.value)}
             placeholder="@gdg_tokyo @gdg_osaka"
             className="mt-4 w-full rounded-xl border bg-background p-3"
           />

@@ -80,4 +80,36 @@ describe("Google OAuth start", () => {
     vi.useRealTimers();
     invalidateAuthCache();
   });
+
+  it.each([
+    ["/invite/abc?x=1", "/invite/abc?x=1"],
+    ["/\t/evil.example", "/dashboard"],
+    ["https://wiki.gdgs.jp/settings", "/dashboard"],
+  ])("hands Better Auth the return target %j as %j", async (returnTo, callbackURL) => {
+    invalidateAuthCache();
+    authMock.signInSocial.mockReset();
+    authMock.signInSocial.mockResolvedValue(new Response("ok"));
+
+    await loader({
+      request: new Request(
+        `https://accounts.example/oauth/google/start?return_to=${encodeURIComponent(returnTo)}`,
+      ),
+      context: {
+        cloudflare: {
+          env: {
+            APP_URL: "https://accounts.example",
+            BETTER_AUTH_SECRET: "test-secret",
+            GOOGLE_CLIENT_ID: "google-client",
+            GOOGLE_CLIENT_SECRET: "google-secret",
+            DB: {},
+          },
+        },
+      },
+    } as never);
+
+    expect(authMock.signInSocial).toHaveBeenCalledWith(
+      expect.objectContaining({ body: expect.objectContaining({ callbackURL }) }),
+    );
+    invalidateAuthCache();
+  });
 });

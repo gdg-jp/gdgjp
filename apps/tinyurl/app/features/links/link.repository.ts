@@ -94,6 +94,50 @@ export async function getLinkByPrOrigin(
   return row ? { ...toLink(row), prOriginChapterId: row.pr_origin_chapter_id } : null;
 }
 
+export type PrLinkScope = { id: string; chapterId: number };
+
+export async function updatePrOriginLinkOgImage(
+  db: D1Database,
+  scope: PrLinkScope,
+  ogImageUrl: string | null,
+): Promise<Link | null> {
+  const row = await db
+    .prepare(
+      `UPDATE links SET og_image_url = ?, updated_at = unixepoch()
+       WHERE id = ? AND deleted_at IS NULL AND pr_origin IS NOT NULL AND pr_origin_chapter_id = ?
+       RETURNING ${LINK_COLS}`,
+    )
+    .bind(ogImageUrl, scope.id, scope.chapterId)
+    .first<LinkRow>();
+  return row ? toLink(row) : null;
+}
+
+export async function getLinkWithoutPrOrigin(db: D1Database, id: string): Promise<Link | null> {
+  const row = await db
+    .prepare(
+      `SELECT ${LINK_COLS} FROM links WHERE id = ? AND deleted_at IS NULL AND pr_origin IS NULL`,
+    )
+    .bind(id)
+    .first<LinkRow>();
+  return row ? toLink(row) : null;
+}
+
+export async function updateLinkOgImage(
+  db: D1Database,
+  id: string,
+  ogImageUrl: string | null,
+): Promise<Link | null> {
+  const row = await db
+    .prepare(
+      `UPDATE links SET og_image_url = ?, updated_at = unixepoch()
+       WHERE id = ? AND deleted_at IS NULL AND pr_origin IS NULL
+       RETURNING ${LINK_COLS}`,
+    )
+    .bind(ogImageUrl, id)
+    .first<LinkRow>();
+  return row ? toLink(row) : null;
+}
+
 export type CreateLinkResult = { ok: true; link: Link } | { ok: false; reason: "slug_taken" };
 
 export async function createLink(

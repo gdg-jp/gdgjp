@@ -51,6 +51,7 @@ export async function loader({ request, context }: Route.LoaderArgs) {
   return {
     chapter: chapterLabel(chapter.chapterSlug),
     canManage: chapter.role === "organizer" || user.isAdmin,
+    isAdmin: user.isAdmin,
     webhook,
     assistant,
     runner: runners[0]
@@ -115,7 +116,7 @@ export async function action({ request, context }: Route.ActionArgs) {
 }
 
 export default function Settings({ loaderData, actionData }: Route.ComponentProps) {
-  const { chapter, canManage, webhook, assistant, runner, references } = loaderData;
+  const { chapter, canManage, isAdmin, webhook, assistant, runner, references } = loaderData;
   const busy = useNavigation().state === "submitting";
   return (
     <AppLayout>
@@ -221,9 +222,11 @@ export default function Settings({ loaderData, actionData }: Route.ComponentProp
                 <Badge tone="danger">一度も応答がありません</Badge>
               )}
               {runner?.running ? <span className="text-muted">作業中</span> : null}
-              <Link to="/admin/runner" className="text-link">
-                詳しく
-              </Link>
+              {isAdmin ? (
+                <Link to="/admin/runner" className="text-link">
+                  詳しく
+                </Link>
+              ) : null}
             </div>
           </Stack>
         </Card>

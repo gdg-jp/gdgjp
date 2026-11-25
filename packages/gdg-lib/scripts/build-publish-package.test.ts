@@ -7,10 +7,16 @@ import { fileURLToPath } from "node:url";
 import { afterAll, describe, expect, it } from "vitest";
 
 const root = dirname(dirname(fileURLToPath(import.meta.url)));
-const distDir = join(root, "dist");
+const distDir = mkdtempSync(join(tmpdir(), "gdg-lib-dist-"));
 
 describe("build-publish-package", () => {
-  execFileSync("node", ["scripts/build-publish-package.mjs"], { cwd: root, stdio: "pipe" });
+  afterAll(() => {
+    rmSync(distDir, { recursive: true, force: true });
+  });
+  execFileSync("node", ["scripts/build-publish-package.mjs", distDir], {
+    cwd: root,
+    stdio: "pipe",
+  });
   const files = readdirSync(distDir).sort();
   const manifest = JSON.parse(readFileSync(join(distDir, "package.json"), "utf8"));
 

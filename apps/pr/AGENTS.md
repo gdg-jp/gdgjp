@@ -41,9 +41,11 @@ GDG_PR_URL=http://localhost:5191 RUNNER_TOKEN=<.dev.vars value> YOMIYASU_DIR=…
 Nothing goes out without approval, and every approval names a draft version. A post's draft is
 approved for the version on screen; then each X account (`campaign_accounts`, per chapter) is a
 dispatch target approved for that version by a member of **that account's chapter**, and only that
-approval calls `SNS.createScheduledPost` as the approver. A send claims its target only while the
-draft and the target are approved for the same version and it is still the latest, in one `UPDATE`,
-and sends exactly that version. A new version clears the draft's approval, so people approve again.
+approval calls `SNS.createScheduledPost` as the approver: the approving request, or the minute cron
+with the approver's stored claims when that request stopped before the send. A send claims its target
+only while the draft and the target are approved for the same version and it is still the latest, in
+one `UPDATE`, and sends exactly that version. A version holds the text and the attached image, so
+changing either saves a new version; a new version clears the draft's approval, so people approve again.
 See [the approval lifecycle](docs/approval-lifecycle.md). `{{shortlink}}`
 becomes a url.gdgs.jp link (`TINYURL.createLink`) that belongs to one approved version
 (`campaign_links.draft_id`, `draft_version`): it is created only after the draft approval is
@@ -80,7 +82,8 @@ goes to img.gdgs.jp and to connpass / tinyurl / the post.
 Campaigns belong to a host chapter; co-host chapters join through `campaign_chapters`. Members of
 either can see and edit the schedule. Brief, settings, co-hosts and members need `manage`: the lead
 (`campaign_members.roles` has `lead`), the host chapter's organizer, or a super admin
-(`app/features/campaigns/access.server.ts`). Others get 404.
+(`app/features/campaigns/access.server.ts`). Others get 404. `/admin/runner` lists every chapter's
+runner jobs, so only a super admin opens it (`requireSuperAdmin`); others get 404.
 
 ## Dev
 

@@ -7,11 +7,12 @@ export type ParticipantRow = {
   edit_token_hash: string | null;
   created_at: number;
   updated_at: number;
+  deleted_at: number | null;
 };
 export type AvailabilityRow = { participant_id: number; slot_id: number };
 
 export const PARTICIPANT_COLS =
-  "id, event_id, user_id, display_name, edit_token_hash, created_at, updated_at";
+  "id, event_id, user_id, display_name, edit_token_hash, created_at, updated_at, deleted_at";
 
 export function toParticipant(r: ParticipantRow): Participant {
   return {
@@ -22,6 +23,7 @@ export function toParticipant(r: ParticipantRow): Participant {
     editTokenHash: r.edit_token_hash,
     createdAt: r.created_at,
     updatedAt: r.updated_at,
+    deletedAt: r.deleted_at,
   };
 }
 
@@ -71,8 +73,24 @@ export async function findParticipantByUser(
   return row ? toParticipant(row) : null;
 }
 
-export async function deleteParticipant(db: D1Database, participantId: number): Promise<void> {
-  await db.prepare("DELETE FROM event_participants WHERE id = ?").bind(participantId).run();
+export async function softDeleteParticipant(db: D1Database, participantId: number): Promise<void> {
+  await db
+    .prepare(
+      `UPDATE event_participants SET deleted_at = unixepoch(), updated_at = unixepoch()
+       WHERE id = ? AND deleted_at IS NULL`,
+    )
+    .bind(participantId)
+    .run();
+}
+
+export async function restoreParticipant(db: D1Database, participantId: number): Promise<void> {
+  await db
+    .prepare(
+      `UPDATE event_participants SET deleted_at = NULL, updated_at = unixepoch()
+       WHERE id = ? AND deleted_at IS NOT NULL`,
+    )
+    .bind(participantId)
+    .run();
 }
 
 export async function setAvailability(

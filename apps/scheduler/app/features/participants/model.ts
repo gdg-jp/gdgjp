@@ -6,6 +6,7 @@ export type Participant = {
   editTokenHash: string | null;
   createdAt: number;
   updatedAt: number;
+  deletedAt: number | null;
 };
 
 export type Availability = { participantId: number; slotId: number };

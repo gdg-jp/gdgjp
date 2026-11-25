@@ -1,11 +1,12 @@
 import type { PrActor } from "@gdgjp/gdg-lib";
 import type { CampaignAccess } from "~/features/campaigns/access.server";
 import type { Campaign } from "~/features/campaigns/campaign";
+import { getCampaignById } from "~/features/campaigns/campaign.repository.server";
 import { pageApprovalBlockers } from "~/features/connpass/page.server";
 import { type Draft, approvedForSending } from "~/features/drafts/draft";
 import { getDraft, getVersion } from "~/features/drafts/draft.repository.server";
 import { STALE_VERSION } from "~/features/drafts/review.server";
-import { actorOf, callRpc, snsService } from "~/features/integrations/bindings.server";
+import { actorOf, callRpc, parseActor, snsService } from "~/features/integrations/bindings.server";
 import { NO_CONTENT, approvedVersionText, fallbackUrl } from "~/features/links/create.server";
 import type { ApprovedLinkVersion } from "~/features/links/link";
 import { listingApprovalBlockers } from "~/features/listings/listing.server";
@@ -22,6 +23,7 @@ import {
   getTarget,
   listTargets,
   moveTarget,
+  unclaimedPostTargets,
 } from "./target.repository.server";
 
 export type DispatchResult = { ok: true; message: string } | { ok: false; error: string };
@@ -38,10 +40,10 @@ export async function draftApprovalBlockers(
     ...(await listingApprovalBlockers(env, access, draft)),
   ];
   if (connpass.length || !draft.scheduleItemId) return connpass;
-  const post = deliverablePost((await getVersion(env.DB, draft.id, version))?.content ?? null);
-  return approvalBlockers(post, {
+  const saved = await getVersion(env.DB, draft.id, version);
+  return approvalBlockers(deliverablePost(saved?.content ?? null), {
     fallbackUrl: await fallbackUrl(env.DB, access.campaign.id),
-    mediaUrl: draft.dispatchMediaUrl,
+    mediaUrl: saved?.mediaUrl ?? null,
     tinyurlActive: access.campaign.tinyurlCampaignId !== null,
   });
 }
@@ -109,7 +111,7 @@ export async function approveTarget(
       ok: true,
       message: `${target.account.label} への送信を版 ${version} で承認しました。予定の時刻に送ります`,
     };
-  return dispatchTarget(env, access.campaign, draft, at, actor);
+  return dispatchTarget(env, access.campaign, at, actor);
 }
 
 async function refusal(
@@ -127,11 +129,9 @@ async function refusal(
 async function dispatchTarget(
   env: Env,
   campaign: Campaign,
-  draft: Draft,
   at: ApprovedVersion,
   actor: PrActor,
 ): Promise<DispatchResult> {
-  const targetId = at.targetId;
   const claimed = await claimApprovedTarget(env.DB, at);
   if (!claimed) {
     const now = await getDraft(env.DB, campaign.id, at.draftId);
@@ -139,18 +139,63 @@ async function dispatchTarget(
       ? { ok: true, message: "この配信先はもう配信中です" }
       : { ok: false, error: STALE_VERSION };
   }
+  return sendClaimedPost(env, campaign, at.targetId, claimed, actor);
+}
+
+export async function sendApprovedPosts(env: Env): Promise<{ sent: number; failed: number }> {
+  let sent = 0;
+  let failed = 0;
+  for (const target of await unclaimedPostTargets(env.DB)) {
+    const claimed = await claimApprovedTarget(env.DB, target.at);
+    if (!claimed) continue;
+    const campaign = await getCampaignById(env.DB, target.account.campaignId);
+    const actor = parseActor(target.actorSnapshot);
+    const result =
+      campaign && actor
+        ? await sendClaimedPost(env, campaign, target.id, claimed, actor)
+        : await withoutActor(env, target.account.campaignId, target.scheduleItemId, target.id);
+    if (result.ok) sent++;
+    else failed++;
+  }
+  return { sent, failed };
+}
+
+async function withoutActor(env: Env, campaignId: number, itemId: number, targetId: number) {
+  await logDispatch(env.DB, {
+    campaignId,
+    itemId,
+    action: "sns_create",
+    ok: false,
+    detail: "no_actor",
+  });
+  return failClaimed(env, targetId, itemId, "承認者の情報がありません");
+}
+
+async function failClaimed(
+  env: Env,
+  targetId: number,
+  itemId: number | null,
+  error: string,
+): Promise<DispatchResult> {
+  await moveTarget(env.DB, targetId, ["dispatching"], "failed", { error });
+  if (itemId !== null) await rollup(env, itemId);
+  return { ok: false, error };
+}
+
+async function sendClaimedPost(
+  env: Env,
+  campaign: Campaign,
+  targetId: number,
+  claimed: ApprovedLinkVersion,
+  actor: PrActor,
+): Promise<DispatchResult> {
   const target = await getTarget(env.DB, targetId);
-  const item = draft.scheduleItemId
-    ? await getItem(env.DB, campaign.id, draft.scheduleItemId)
-    : null;
-  const fail = async (error: string) => {
-    await moveTarget(env.DB, targetId, ["dispatching"], "failed", { error });
-    if (item) await rollup(env, item.id);
-    return { ok: false as const, error };
-  };
+  const item = target ? await getItem(env.DB, campaign.id, target.scheduleItemId) : null;
+  const fail = (error: string) => failClaimed(env, targetId, item?.id ?? null, error);
   if (!target || !item) return fail(NO_CONTENT);
   const text = await approvedVersionText(env, actor, campaign, item, claimed);
   if (!text.ok) return fail(text.error);
+  const mediaUrl = (await getVersion(env.DB, claimed.draftId, claimed.version))?.mediaUrl ?? null;
   const created = await callRpc(() =>
     snsService(env).createScheduledPost({
       actor,
@@ -172,7 +217,7 @@ async function dispatchTarget(
       : `${target.account.label}: ${created.code} ${created.message ?? ""}`,
   });
   if (!created.ok) return fail(`sns に予約できませんでした（${created.code}）`);
-  if (draft.dispatchMediaUrl)
+  if (mediaUrl)
     await attachImage(
       env,
       actor,
@@ -180,7 +225,7 @@ async function dispatchTarget(
       item,
       target.account.chapterId,
       created.post.id,
-      draft.dispatchMediaUrl,
+      mediaUrl,
     );
   await moveTarget(env.DB, targetId, ["dispatching"], "scheduled", {
     externalRef: { snsPostId: created.post.id },

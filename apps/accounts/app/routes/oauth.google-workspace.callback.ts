@@ -11,10 +11,9 @@ import type { Route } from "./+types/oauth.google-workspace.callback";
 const DEFAULT_RETURN_TO = "/dashboard";
 
 function withWorkspaceStatus(returnTo: string, params: Record<string, string>): string {
-  const isAbsolute = /^https:\/\//i.test(returnTo);
-  const url = isAbsolute ? new URL(returnTo) : new URL(returnTo, "https://placeholder.invalid");
+  const url = new URL(returnTo, "https://placeholder.invalid");
   for (const [key, value] of Object.entries(params)) url.searchParams.set(key, value);
-  return isAbsolute ? url.toString() : `${url.pathname}${url.search}`;
+  return `${url.pathname}${url.search}${url.hash}`;
 }
 
 function errorRedirect(returnTo: string, reason: string): Response {

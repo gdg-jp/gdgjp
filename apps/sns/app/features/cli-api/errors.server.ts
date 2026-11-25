@@ -14,6 +14,10 @@ const POST_DRAFT_STATUS: Record<PostDraftErrorCode, number> = {
   too_many_images: 400,
   image_too_large: 413,
   not_image: 400,
+  invalid_sort_order: 400,
+  sort_order_taken: 409,
+  tag_handle_not_found: 400,
+  tag_lookup_unavailable: 503,
   media_storage_cleanup_failed: 500,
 };
 

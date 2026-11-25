@@ -1,10 +1,16 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { requireMember } from "~/features/auth/session.server";
 import { getEvent } from "~/features/events/repository.server";
 import { syncClaimToGoogle } from "~/features/google/sheets.server";
 import { actOnClaimDetail } from "./detail.server";
 import { sendClaimReviewEmail } from "./email.server";
-import { getClaim, listClaimItems, markClaimEmailSent, markClaimSynced } from "./repository.server";
+import {
+  getClaim,
+  insertClaimItem,
+  listClaimItems,
+  markClaimEmailSent,
+  markClaimSynced,
+} from "./repository.server";
 import type { ClaimRow } from "./types";
 
 vi.mock("~/features/auth/session.server", () => ({ requireMember: vi.fn() }));
@@ -13,6 +19,7 @@ vi.mock("~/features/google/sheets.server", () => ({ syncClaimToGoogle: vi.fn() }
 vi.mock("./email.server", () => ({ sendClaimReviewEmail: vi.fn() }));
 vi.mock("./repository.server", () => ({
   getClaim: vi.fn(),
+  insertClaimItem: vi.fn(),
   listClaimItems: vi.fn(),
   decryptClaimBank: vi.fn().mockResolvedValue({}),
   markClaimEmailSent: vi.fn(),
@@ -77,11 +84,25 @@ describe("claim detail operations", () => {
       user: { id: "organizer" },
       chapters: [],
     } as unknown as Awaited<ReturnType<typeof requireMember>>);
-    await expect(
-      actOnClaimDetail(env, request("sync-sheets"), eventId, claimId),
-    ).rejects.toMatchObject({ status: 403 });
+    const refusal = await actOnClaimDetail(env, request("sync-sheets"), eventId, claimId).catch(
+      (error: Response) => error,
+    );
+    expect(refusal).toMatchObject({ status: 403 });
+    await expect((refusal as Response).json()).resolves.toEqual({ reason: "not-claim-editor" });
     expect(syncClaimToGoogle).not.toHaveBeenCalled();
     expect(sendClaimReviewEmail).not.toHaveBeenCalled();
+  });
+
+  it("tells a member who neither filed nor manages the claim why it is refused", async () => {
+    vi.mocked(requireMember).mockResolvedValue({
+      user: { id: "someone-else" },
+      chapters: [],
+    } as unknown as Awaited<ReturnType<typeof requireMember>>);
+    const refusal = await actOnClaimDetail(env, request("sync-sheets"), eventId, claimId).catch(
+      (error: Response) => error,
+    );
+    expect(refusal).toMatchObject({ status: 403 });
+    await expect((refusal as Response).json()).resolves.toEqual({ reason: "not-claim-viewer" });
   });
 
   it("syncs and records Sheets without implicitly sending review email", async () => {
@@ -112,4 +133,83 @@ describe("claim detail operations", () => {
     });
     expect(markClaimEmailSent).not.toHaveBeenCalled();
   });
+});
+
+describe("receipt upload without a Gemini key", () => {
+  const fetchMock = vi.fn(async () => {
+    throw new Error("network is disabled in tests");
+  });
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.stubGlobal("fetch", fetchMock);
+    vi.mocked(requireMember).mockResolvedValue({
+      user: { id: "applicant" },
+      chapters: [],
+    } as unknown as Awaited<ReturnType<typeof requireMember>>);
+    vi.mocked(getEvent).mockResolvedValue({
+      id: eventId,
+      title: "Event",
+      ownerUserId: "organizer",
+      ownerChapterIds: [],
+      status: "open",
+      createdAt: 0,
+      googleAdminUserId: null,
+      googleDriveFolderId: null,
+      googleDriveFolderName: null,
+    });
+    vi.mocked(getClaim).mockResolvedValue(claim);
+    vi.mocked(listClaimItems).mockResolvedValue([]);
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  for (const key of ["", "   "]) {
+    it(`stores the receipt for manual entry without calling Gemini when the key is ${JSON.stringify(key)}`, async () => {
+      const put = vi.fn();
+      const uploadEnv = {
+        ...env,
+        GEMINI_API_KEY: key,
+        GEMINI_MODEL_ID: "gemini-test",
+        RECEIPTS: { put },
+      } as unknown as Env;
+      const body = new FormData();
+      body.set("intent", "upload");
+      body.set(
+        "receipt",
+        new File([new Uint8Array([1, 2, 3])], "receipt.png", { type: "image/png" }),
+      );
+
+      const result = await actOnClaimDetail(
+        uploadEnv,
+        new Request(`https://pay.gdgs.jp/events/${eventId}/claims/${claimId}`, {
+          method: "POST",
+          body,
+        }),
+        eventId,
+        claimId,
+      );
+
+      expect(fetchMock).not.toHaveBeenCalled();
+      expect(result).toEqual({
+        ok: true,
+        message:
+          "領収書を追加しました。自動読み取りは設定されていないため、月日・種別・品目・金額を入力して保存してください。",
+      });
+      expect(put).toHaveBeenCalledOnce();
+      expect(insertClaimItem).toHaveBeenCalledWith(
+        uploadEnv.DB,
+        expect.objectContaining({
+          claimId,
+          amountYen: 0,
+          category: "その他",
+          description: "receipt.png",
+          receiptFilename: "receipt.png",
+          extractionJson: null,
+        }),
+      );
+    });
+  }
 });

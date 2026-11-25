@@ -5,16 +5,12 @@ import { listXAccounts } from "~/features/x-accounts/x-account.repository.server
 import { postDraftDepsFromEnv } from "./post-draft.deps.server";
 import {
   PostDraftError,
-  attachMedia,
-  createDraft,
   deleteDraft,
   getDraft,
-  removeMedia,
-  updateDraft,
-  updateMediaMetadata,
+  saveScheduledDraft,
 } from "./post-draft.service.server";
 import { listPostMedia } from "./post-media.repository.server";
-import { getPost } from "./post.repository.server";
+import { getPost, listPostTagUsernames } from "./post.repository.server";
 import type { Post } from "./post.types";
 import { type PostingOption, postingOptionCookie, postingOptionFromCookie } from "./posting-option";
 import { claimAndPublish } from "./scheduled-publishing.server";
@@ -31,6 +27,9 @@ export async function loadSchedule(request: Request, env: Env) {
     accounts: await listXAccounts(env.DB, access.chapter.chapterId),
     post,
     media: post ? ((await listPostMedia(env.DB, [post.id]))[post.id] ?? []) : [],
+    tagHandles: post
+      ? (await listPostTagUsernames(env.DB, post.id)).map((name) => `@${name}`).join(" ")
+      : "",
     defaultPostingOption: postingOptionFromCookie(request),
   };
 }
@@ -96,46 +95,33 @@ export async function submitSchedule(request: Request, env: Env) {
       { status: 400 },
     );
 
-  const tagHandles = [String(form.get("tagHandles") ?? "")];
+  const tagHandles = form.has("tagHandles") ? [String(form.get("tagHandles"))] : undefined;
   let post: Post;
   try {
-    if (existing) {
-      for (const media of deletedMedia) await removeMedia(deps, media.id);
-      await updateMediaMetadata(
-        deps,
-        remainingMedia.map((media, index) => ({
+    post = await saveScheduledDraft(deps, {
+      postId: existing?.id ?? null,
+      chapterId: access.chapter.chapterId,
+      createdByUserId: access.user.id,
+      xAccountId,
+      text,
+      scheduledAt,
+      condition,
+      tagHandles,
+      media: {
+        keep: remainingMedia.map((media) => ({
           id: media.id,
           altText: String(form.get(`alt-${media.id}`) ?? ""),
-          sortOrder: index,
         })),
-      );
-      post = await updateDraft(deps, existing.id, {
-        xAccountId,
-        text,
-        scheduledAt,
-        condition,
-        tagHandles,
-      });
-    } else {
-      post = await createDraft(deps, {
-        chapterId: access.chapter.chapterId,
-        xAccountId,
-        text,
-        scheduledAt,
-        condition,
-        createdByUserId: access.user.id,
-        tagHandles,
-      });
-    }
-    for (const [index, file] of files.entries()) {
-      const result = await attachMedia(deps, post.id, {
-        bytes: await file.arrayBuffer(),
-        contentType: file.type,
-        altText: String(form.get(`new-alt-${index}`) ?? ""),
-        sortOrder: remainingMedia.length + index,
-      });
-      post = result.post;
-    }
+        remove: deletedMedia.map((media) => media.id),
+        add: await Promise.all(
+          files.map(async (file, index) => ({
+            bytes: await file.arrayBuffer(),
+            contentType: file.type,
+            altText: String(form.get(`new-alt-${index}`) ?? ""),
+          })),
+        ),
+      },
+    });
   } catch (error) {
     if (error instanceof PostDraftError) {
       if (error.code === "account_not_found") throw new Response("Forbidden", { status: 403 });
@@ -148,6 +134,18 @@ export async function submitSchedule(request: Request, env: Env) {
       )
         return data(
           { error: "画像は4枚まで、1枚5MB以下の画像ファイルを指定してください。" },
+          { status: 400 },
+        );
+      if (error.code === "tag_lookup_unavailable")
+        return data(
+          { error: "X に問い合わせできませんでした。しばらくしてから保存し直してください。" },
+          { status: 503 },
+        );
+      if (error.code === "tag_handle_not_found")
+        return data(
+          {
+            error: "タグ付けする X ユーザーが見つかりませんでした。ユーザー名を確認してください。",
+          },
           { status: 400 },
         );
       if (

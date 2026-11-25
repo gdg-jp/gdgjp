@@ -39,6 +39,10 @@
     "reason": "equivalent: when the signature does not decode, ok stays undefined and the !ok check returns null anyway",
     "where": "src/auth/cookie.ts:39:11 { return null; } -> {}"
   },
+  "1rmn3ijlqfj": {
+    "reason": "equivalent: the ID Token claims are undefined only when sub is missing too, and the subject check above has already returned",
+    "where": "src/auth/rp.ts:268:28 ?. -> ."
+  },
   "1tgv7njr9nc": {
     "reason": "equivalent: an undefined body is rejected by the !value check exactly like null",
     "where": "src/auth/bearer.ts:49:52 null -> undefined"
@@ -46,10 +50,6 @@
   "1wk33u49i9v": {
     "reason": "equivalent: atob implements WHATWG forgiving-base64, which decodes unpadded input identically",
     "where": "src/auth/cookie.ts:16:15 s.length % 4 === 0 -> true"
-  },
-  "1xnxo5hgeri": {
-    "reason": "equivalent: the ID Token claims are undefined only when sub is missing too, and the subject check above has already returned",
-    "where": "src/auth/rp.ts:258:28 ?. -> ."
   },
   "2aih5ij93qu": {
     "reason": "equivalent: a value without a non-empty body before '.' fails the HMAC verify that follows; the early return is a fast path",

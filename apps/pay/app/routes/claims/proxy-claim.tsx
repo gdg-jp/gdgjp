@@ -4,6 +4,7 @@ import { Header } from "~/layouts/header";
 
 import { redirect } from "react-router";
 
+import { forbidden } from "~/features/auth/forbidden";
 import { requireMember } from "~/features/auth/session.server";
 import { todayJstDate } from "~/features/claims/money";
 import { createClaim } from "~/features/claims/repository.server";
@@ -23,7 +24,7 @@ export async function loader({ request, context, params }: Route.LoaderArgs) {
   const event = await getEvent(env.DB, params.id);
   if (!event) throw new Response("Not Found", { status: 404 });
   if (!canProxyForEvent({ userId: user.id, chapters }, event)) {
-    throw new Response("Forbidden", { status: 403 });
+    throw forbidden("not-proxy-registrar");
   }
   return { user, event };
 }
@@ -35,7 +36,7 @@ export async function action({ request, context, params }: Route.ActionArgs) {
   const event = await getEvent(env.DB, params.id);
   if (!event) throw new Response("Not Found", { status: 404 });
   if (!canProxyForEvent({ userId: user.id, chapters }, event)) {
-    throw new Response("Forbidden", { status: 403 });
+    throw forbidden("not-proxy-registrar");
   }
   const form = await request.formData();
   const applicantName = String(form.get("applicantName") ?? "").trim();

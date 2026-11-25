@@ -1,7 +1,7 @@
 import type { CampaignAccess } from "~/features/campaigns/access.server";
 import { connpassEventOf, submitConnpass } from "~/features/connpass/submit.server";
-import { getDraft, setDispatchMedia } from "~/features/drafts/draft.repository.server";
-import { currentContent, editDraft } from "~/features/drafts/review.server";
+import { getDraft } from "~/features/drafts/draft.repository.server";
+import { currentContent, editDraft, setDraftMedia } from "~/features/drafts/review.server";
 import {
   actorOf,
   callRpc,
@@ -85,7 +85,12 @@ async function handOff(
     const link = await approvedLinkForItem(env.DB, asset.forScheduleItemId);
     if (!link) return "短縮リンクがまだ無いので、OGP は投稿の承認時に使われます";
     const updated = await callRpc(() =>
-      tinyurlService(env).updateLink({ actor, linkId: link.tinyurlLinkId, ogImageUrl: url }),
+      tinyurlService(env).updateLink({
+        actor,
+        chapterId: access.campaign.chapterId,
+        linkId: link.tinyurlLinkId,
+        ogImageUrl: url,
+      }),
     );
     if (updated.ok)
       await env.DB.prepare("UPDATE campaign_links SET og_image_url = ? WHERE id = ?")
@@ -112,8 +117,13 @@ async function handOff(
       : saved.errors.join(" / ");
   }
   if (asset.forDraftId) {
-    await setDispatchMedia(env.DB, asset.forDraftId, url);
-    return "投稿の添付画像にしました";
+    const draft = await getDraft(env.DB, access.campaign.id, asset.forDraftId);
+    const saved = draft ? await setDraftMedia(env.DB, access, draft, url) : null;
+    if (!saved) return "";
+    if (!saved.ok) return saved.errors.join(" / ");
+    return saved.version === null
+      ? "投稿の添付画像にしました"
+      : `投稿の添付画像にしました（版 ${saved.version}、レビューに戻ります）`;
   }
   return "";
 }

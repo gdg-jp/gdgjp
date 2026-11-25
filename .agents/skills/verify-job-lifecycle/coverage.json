@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "syncedBaseCommit": "1c0569f355bf990c689a5174ed4910488ddfbf23",
+  "syncedBaseCommit": "fcbd4474c67783e2b69070a357de613b955149e7",
   "method": "Bounded exhaustive execution of production TypeScript and SQL in SQLite, with targeted adversarial request interleavings and production-expression mutations.",
   "tools": {
     "node": "v26.3.1",
@@ -317,7 +317,7 @@
     },
     {
       "path": "pnpm-lock.yaml",
-      "sha256": "b27f87582fd461a1b49e42daa0bbc41f0efe4955d315996cd1cdfea15bf6af32",
+      "sha256": "103a025e5bd3d2f8b2416608f54b35d67dc60ef623bf08fc3713279b1f484267",
       "role": "tool-config"
     },
     {

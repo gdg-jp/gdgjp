@@ -32,54 +32,68 @@ export function verify(a: string, b: string): boolean {
   return diff === 0;
 }
 
-export function serializeCookie(
+const COOKIE_PATH = "/e";
+const COOKIE_MAX_AGE_SECONDS = 63072000;
+
+function cookieAttributes(
+  nameValue: string,
+  path: string,
+  maxAge: number,
+  options: { secure: boolean },
+): string {
+  const attrs = [nameValue, "HttpOnly", "SameSite=Lax", `Path=${path}`, `Max-Age=${maxAge}`];
+  if (options.secure) attrs.push("Secure");
+  return attrs.join("; ");
+}
+
+function serializeCookie(
   eventId: string,
   participantId: number,
   token: string,
   options: { secure: boolean },
 ): string {
-  const value = `${participantId}.${token}`;
-  const attrs = [
-    `${cookieName(eventId)}=${value}`,
-    "HttpOnly",
-    "SameSite=Lax",
-    `Path=/e/${eventId}`,
-    "Max-Age=63072000",
-  ];
-  if (options.secure) attrs.push("Secure");
-  return attrs.join("; ");
+  return cookieAttributes(
+    `${cookieName(eventId)}=${participantId}.${token}`,
+    COOKIE_PATH,
+    COOKIE_MAX_AGE_SECONDS,
+    options,
+  );
 }
 
-export function clearCookie(eventId: string, options: { secure: boolean }): string {
-  const attrs = [
-    `${cookieName(eventId)}=`,
-    "HttpOnly",
-    "SameSite=Lax",
-    `Path=/e/${eventId}`,
-    "Max-Age=0",
-  ];
-  if (options.secure) attrs.push("Secure");
-  return attrs.join("; ");
+export function participantCookieHeaders(
+  eventId: string,
+  participantId: number,
+  token: string,
+  options: { secure: boolean },
+): Headers {
+  const headers = new Headers();
+  headers.append("Set-Cookie", serializeCookie(eventId, participantId, token, options));
+  headers.append(
+    "Set-Cookie",
+    cookieAttributes(`${cookieName(eventId)}=`, `${COOKIE_PATH}/${eventId}`, 0, options),
+  );
+  return headers;
 }
+
+export type ParticipantCredential = { participantId: number; token: string };
 
 export function parseFromHeader(
   cookieHeader: string | null,
   eventId: string,
-): { participantId: number; token: string } | null {
-  if (!cookieHeader) return null;
+): ParticipantCredential[] {
+  if (!cookieHeader) return [];
   const name = cookieName(eventId);
+  const credentials: ParticipantCredential[] = [];
   for (const part of cookieHeader.split(/;\s*/)) {
     const eq = part.indexOf("=");
-    if (eq === -1) continue;
-    if (part.slice(0, eq) !== name) continue;
+    if (eq === -1 || part.slice(0, eq) !== name) continue;
     const value = part.slice(eq + 1);
     const dot = value.indexOf(".");
-    if (dot === -1) return null;
-    const idStr = value.slice(0, dot);
+    if (dot === -1) continue;
+    const id = Number.parseInt(value.slice(0, dot), 10);
     const token = value.slice(dot + 1);
-    const id = Number.parseInt(idStr, 10);
-    if (!Number.isInteger(id) || id <= 0 || !token) return null;
-    return { participantId: id, token };
+    if (!Number.isInteger(id) || id <= 0 || !token) continue;
+    credentials.push({ participantId: id, token });
   }
-  return null;
+  return credentials;
 }

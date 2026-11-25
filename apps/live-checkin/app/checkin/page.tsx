@@ -1,14 +1,14 @@
 "use client";
 
 import { ALLOWED_CHAPTER_SLUG } from "@/lib/chapters";
+import { isCheckInForEvent, parseCheckInUrl } from "@/lib/checkin-url";
 import jsQR from "jsqr";
 import { Camera, ExternalLink, RefreshCw, SlidersHorizontal } from "lucide-react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
-import SettingsModal from "./_components/SettingsModal";
+import SettingsModal, { type EventsState } from "./_components/SettingsModal";
 import { loadSettings, saveSettings } from "./_lib/settingsStorage";
-import validateCheckInURL from "./_lib/validateCheckInURL";
 
 export default function CheckInPage() {
   const { data: session, status } = useSession();
@@ -55,7 +55,6 @@ function CheckInScanner({ apiToken }: { apiToken: string }) {
   const [groupId, setGroupId] = useState<string>("gdgkwansai");
   const [eventId, setEventId] = useState<string>("");
   const [showSettings, setShowSettings] = useState<boolean>(false);
-  const [settingsLoaded, setSettingsLoaded] = useState<boolean>(false);
   const isConfigured = groupId !== "" && eventId !== "";
 
   useEffect(() => {
@@ -63,37 +62,43 @@ function CheckInScanner({ apiToken }: { apiToken: string }) {
     if (saved) {
       setGroupId(saved.groupId);
       setEventId(saved.eventId);
+    } else {
+      setShowSettings(true);
     }
-    setSettingsLoaded(true);
   }, []);
 
   const { data: session } = useSession();
   const chapterId = session?.user?.chapters?.find(
     (c) => c.chapterSlug === ALLOWED_CHAPTER_SLUG,
   )?.chapterId;
-  const [events, setEvents] = useState<EventSummary[]>([]);
-  const [eventsStatus, setEventsStatus] = useState<"loading" | "ready" | "error">("loading");
+  const [events, setEvents] = useState<EventsState>({ status: "loading" });
   const [eventsReloadKey, setEventsReloadKey] = useState<number>(0);
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: eventsReloadKey is a manual reload trigger
   useEffect(() => {
     if (chapterId === undefined) return;
     let cancelled = false;
-    setEventsStatus("loading");
+    setEvents({ status: "loading" });
     fetch("/api/events")
       .then(async (res) => {
-        if (!res.ok) throw new Error(await res.text());
-        return res.json() as Promise<{ events: EventSummary[] }>;
+        if (res.ok) return (await res.json()) as { events: EventSummary[] };
+        const body = await res.json().catch(() => null);
+        throw new Error(typeof body?.error === "string" ? body.error : `HTTP ${res.status}`);
       })
       .then((data) => {
         if (cancelled) return;
-        setEvents(data.events);
-        setEventsStatus("ready");
+        setEvents({ status: "ready", events: data.events });
       })
       .catch((err) => {
         if (cancelled) return;
         console.error("Events API Error:", err);
-        setEventsStatus("error");
+        setEvents({
+          status: "error",
+          message:
+            err instanceof TypeError
+              ? "通信エラー：ネットワークに接続できません"
+              : String(err.message),
+        });
       });
     return () => {
       cancelled = true;
@@ -175,8 +180,8 @@ function CheckInScanner({ apiToken }: { apiToken: string }) {
         return;
       }
 
-      const { isValid } = validateCheckInURL(qrText, eventId);
-      if (!isValid) {
+      const target = parseCheckInUrl(qrText);
+      if (!target || !isCheckInForEvent(target, eventId)) {
         setScanStatus("error");
         setStatusMessage("対象外のQRコードです");
         playSound("error");
@@ -190,7 +195,7 @@ function CheckInScanner({ apiToken }: { apiToken: string }) {
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            url: qrText,
+            url: target.url,
           }),
         });
 
@@ -499,13 +504,12 @@ function CheckInScanner({ apiToken }: { apiToken: string }) {
         </div>
       </footer>
 
-      {settingsLoaded && (showSettings || !isConfigured) && (
+      {showSettings && (
         <SettingsModal
-          closable={isConfigured}
+          configured={isConfigured}
           groupId={groupId}
           eventId={eventId}
           events={events}
-          eventsStatus={eventsStatus}
           onReloadEvents={() => setEventsReloadKey((k) => k + 1)}
           onSave={(values) => {
             setGroupId(values.groupId);

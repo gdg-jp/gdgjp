@@ -1,12 +1,27 @@
 import { useDebouncedValue, useTimeout, useValueChange } from "@gdgjp/gdg-lib/react";
 import { useState } from "react";
 import { Form, Link, useFetcher } from "react-router";
+import type { ContributorCandidateSearch } from "~/features/contributors/contributor.types";
 import { loadSettings } from "~/features/settings/settings.server";
 import { RevokeXAccountDialog } from "~/features/x-accounts/components/revoke-x-account-dialog";
 import { AppShell } from "~/layouts/app-shell";
 import type { Route } from "./+types/settings";
 
-type ContributorCandidate = { email: string; name: string; image: string | null };
+const candidateSearchErrors: Record<NonNullable<ContributorCandidateSearch["error"]>, string> = {
+  accounts_sign_in_required:
+    "ユーザー検索を使うには、もう一度サインインしてください。メールアドレスを入力すれば追加できます。",
+  accounts_search_failed:
+    "ユーザーを検索できませんでした。メールアドレスを入力すれば追加できます。",
+};
+
+function useSubmissionError(fetcher: { state: string; data?: { error: string } }) {
+  const [error, setError] = useState<string | null>(null);
+  useValueChange(fetcher.state, (state) => {
+    if (state === "submitting") setError(null);
+  });
+  useValueChange(fetcher.data, (result) => setError(result?.error ?? null));
+  return error;
+}
 
 export function loader({ request, context }: Route.LoaderArgs) {
   return loadSettings(request, context.cloudflare.env);
@@ -19,7 +34,11 @@ export default function SettingsPage({ loaderData }: Route.ComponentProps) {
   const [showContributorCandidates, setShowContributorCandidates] = useState(false);
   const debouncedContributorQuery = useDebouncedValue(contributorQuery, 250);
   const hideCandidates = useTimeout();
-  const contributorCandidates = useFetcher<{ candidates: ContributorCandidate[] }>();
+  const contributorCandidates = useFetcher<ContributorCandidateSearch>();
+  const contributorAdd = useFetcher<{ error: string }>();
+  const albumSave = useFetcher<{ error: string }>();
+  const contributorAddError = useSubmissionError(contributorAdd);
+  const albumSaveError = useSubmissionError(albumSave);
 
   useValueChange(
     canAdminContributors && showContributorCandidates ? debouncedContributorQuery : null,
@@ -68,7 +87,11 @@ export default function SettingsPage({ loaderData }: Route.ComponentProps) {
             <p className="mt-1 text-sm text-muted-foreground">
               このチャプターの投稿操作を許可するユーザー
             </p>
-            <Form method="post" action="/settings/contributors" className="mt-3 flex gap-2">
+            <contributorAdd.Form
+              method="post"
+              action="/settings/contributors"
+              className="mt-3 flex gap-2"
+            >
               <div className="relative min-w-0 flex-1">
                 <input
                   required
@@ -94,6 +117,10 @@ export default function SettingsPage({ loaderData }: Route.ComponentProps) {
                   >
                     {contributorCandidates.state !== "idle" ? (
                       <p className="px-3 py-2 text-sm text-muted-foreground">検索中…</p>
+                    ) : contributorCandidates.data?.error ? (
+                      <p role="alert" className="px-3 py-2 text-sm text-red-500">
+                        {candidateSearchErrors[contributorCandidates.data.error]}
+                      </p>
                     ) : contributorCandidates.data?.candidates.length ? (
                       contributorCandidates.data.candidates.map((candidate) => (
                         <button
@@ -126,7 +153,12 @@ export default function SettingsPage({ loaderData }: Route.ComponentProps) {
               >
                 追加
               </button>
-            </Form>
+            </contributorAdd.Form>
+            {contributorAddError ? (
+              <p role="alert" className="mt-2 text-sm text-red-500">
+                {contributorAddError}
+              </p>
+            ) : null}
             <div className="mt-3 space-y-2">
               {loaderData.contributors.map((contributor) => (
                 <Form
@@ -156,7 +188,11 @@ export default function SettingsPage({ loaderData }: Route.ComponentProps) {
             <p className="mt-1 text-sm text-muted-foreground">
               公開共有アルバムを監視して、投稿用の写真ライブラリに取り込みます。
             </p>
-            <Form method="post" action="/settings/google-photos" className="mt-3 space-y-2">
+            <albumSave.Form
+              method="post"
+              action="/settings/google-photos"
+              className="mt-3 space-y-2"
+            >
               <input
                 required
                 name="albumUrl"
@@ -171,7 +207,12 @@ export default function SettingsPage({ loaderData }: Route.ComponentProps) {
               >
                 アルバムを保存
               </button>
-            </Form>
+              {albumSaveError ? (
+                <p role="alert" className="text-sm text-red-500">
+                  {albumSaveError}
+                </p>
+              ) : null}
+            </albumSave.Form>
             {loaderData.googlePhotosAlbum ? (
               <div className="mt-3 space-y-1 text-sm text-muted-foreground">
                 <p>

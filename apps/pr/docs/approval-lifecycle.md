@@ -3,7 +3,9 @@
 What a person sees for one post or mail and one chapter account, from the first draft to the
 send. Each approval names the version on screen (`drafts.approved_version`,
 `dispatch_targets.approved_version`). A send goes out only as the version that both the draft
-approval and the chapter's approval name, and only while it is still the latest.
+approval and the chapter's approval name, and only while it is still the latest. A version
+holds the text and the attached image (`draft_versions.media_url`), so changing the image saves
+a new version like any other edit.
 
 ```mermaid
 ---
@@ -27,15 +29,15 @@ stateDiagram-v2
   s6: Sent
   [*] --> s0
   s0 --> s1: a lead approves the version on screen
-  s1 --> s2: the runner or an editor saves a new version
+  s1 --> s2: the runner or an editor saves a new version or image
   s1 --> s3: a chapter member approves the version on screen
   s2 --> s1: a lead approves the version on screen
-  s3 --> s4: the send starts [a post at once, a mail at its time]
-  s3 --> s2: the runner or an editor saves a new version
+  s3 --> s4: the send starts [a post at once or at the next minute's cron, a mail at its time]
+  s3 --> s2: the runner or an editor saves a new version or image
   s4 --> s5: the send fails
   s4 --> s6: sns or connpass accepts it
   s5 --> s3: a chapter member approves the version on screen
-  s5 --> s2: the runner or an editor saves a new version
+  s5 --> s2: the runner or an editor saves a new version or image
   s4 --> s2: the send fails
   s2 --> s5: a lead approves the version on screen
   class s0 yellow
@@ -66,18 +68,18 @@ without that version, the same version with another destination or channel, or a
 chapter, stops the send with an error and nothing goes out. Links stored before
 migration 0012 are not bound to any version; they stay as history for health checks and metrics.
 A connpass page or listing publishes the approved version. A new version saved while a send is
-under way does not change what is sent. The chart leaves out レビュー OK, 差し戻す, 却下, more than one account,
+under way does not change what is sent. A post is claimed and sent by the request that approves
+it; if that request stops before the claim, the minute cron claims it with the approver's stored
+claims, and that claim is the `ApprovedLinkVersion` it sends with. Both claim with the same
+conditional write, so one of them sends. The chart leaves out レビュー OK, 差し戻す, 却下, more than one account,
 delegating or skipping a target, and sns reporting a scheduled post as failed later.
 `app/features/dispatch/dispatch.server.test.ts` replays the races the chart cannot show.
 
 ## Known gaps
 
+- A target whose Worker stops after the claim and before the send is recorded stays
+  `dispatching`: a post before sns answers, a mail before its connpass job is in
+  `connpass_jobs`. Nothing retries it, because the send may already have reached sns or
+  connpass, and the page shows no button for it.
 - A Discord post goes out only with the link its draft approval made; if that creation failed,
   the post is marked failed at its time and is not retried.
-
-- `setDispatchMedia` (`app/features/dispatch/delivery.server.ts`, intent `media`) changes the
-  image of an approved draft for anyone who can edit the campaign. The image is not part of a
-  version, so the draft stays approved and the next target approval posts the new image.
-- An X post target whose Worker stops after `approveTargetVersion` and before
-  `claimApprovedTarget` stays `approved` for a version that is still current. Nothing claims
-  it later and the page shows no approve button for it, so the post does not go out.

@@ -16,7 +16,6 @@ export type Draft = {
   approvedBy: string | null;
   approvedAt: number | null;
   approvedVersion: number | null;
-  dispatchMediaUrl: string | null;
   createdAt: number;
   updatedAt: number;
 };
@@ -39,6 +38,7 @@ export type DraftVersion = {
   content: unknown;
   playbookVersion: string;
   checkResults: CheckResult[];
+  mediaUrl: string | null;
   createdAt: number;
 };
 

@@ -42,6 +42,15 @@ export function validateNewMedia(
   return null;
 }
 
+export function validateMediaSortOrder(
+  usedSortOrders: number[],
+  sortOrder: number,
+): "invalid_sort_order" | "sort_order_taken" | null {
+  if (!Number.isInteger(sortOrder) || sortOrder < 0 || sortOrder >= MAX_IMAGES)
+    return "invalid_sort_order";
+  return usedSortOrders.includes(sortOrder) ? "sort_order_taken" : null;
+}
+
 export function normalizeTagHandles(handles: string[]): string[] {
   return handles
     .flatMap((value) => value.split(/[\s,]+/))

@@ -14,11 +14,13 @@ Anonymous users are first-class. Anyone can create/join/edit-own-response withou
 
 `event_participants.user_id` is **nullable**. Auth participants matched by `user_id`; anon matched by per-event cookie `scheduler_p_<eventId>` containing `<participantId>.<token>`. **Only the SHA-256 hash (`edit_token_hash`) is stored**; compare with constant-time `verify`.
 
-`resolveCurrentParticipant` in `app/features/participants/event.server.ts` is the canonical lookup — prefer signed-in user, fall back to validated cookie. Re-use (or mirror order) for new response-editing endpoints. Don't trust the cookie if a user is signed in. Don't trust a raw `participantId` from the form.
+`resolveCurrentParticipant` in `app/features/participants/event.server.ts` is the canonical lookup — prefer signed-in user, fall back to validated cookie. Re-use (or mirror order) for new response-editing endpoints. Don't trust the cookie if a user is signed in. Don't trust a raw `participantId` from the form; only the owner-only intents take one, and only for a participant of the same event.
 
-Cookie `Path` is scoped to `/e/<eventId>` so each event has its own anon identity — `serializeCookie` / `clearCookie` enforce that. Don't broaden.
+The cookie name carries the event ID, so each event keeps its own anon identity. Its `Path` is `/e` because React Router sends loader and action requests to `/e/<id>.data`, which a `/e/<id>` path does not match. `participantCookieHeaders` sets it and expires the `/e/<id>`-scoped cookie that earlier releases wrote; the event loader re-issues it whenever a cookie identifies a guest, which moves those guests over on their next page load.
 
 Owner-only mutations (`updateEventForOwner`, `softDeleteEvent`) take `ownerUserId` and short-circuit if `owner_user_id` doesn't match. Soft-delete uses `deleted_at`; every read filters `deleted_at IS NULL`.
+
+Participants are soft-deleted the same way (`event_participants.deleted_at`). Removing a response keeps the row, its token hash and its availability, so Undo (`restore-response`, `admin-restore-participant`) brings back the same identity and the guest's cookie keeps working. Event reads skip removed participants; restore and a signed-in rejoin look rows up by ID or user including removed ones.
 
 ## Data layer
 

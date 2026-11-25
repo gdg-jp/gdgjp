@@ -1,9 +1,9 @@
-import { Button, FormField, Input, PageHeader, Textarea } from "@gdgjp/design-system";
-import { Form, useNavigation } from "react-router";
+import { Alert, Button, FormField, Input, PageHeader, Textarea } from "@gdgjp/design-system";
+import { useFetcher } from "react-router";
+import { getOptionalUser } from "~/features/auth/auth-redirect.server";
+import type { createEvent } from "~/features/events/manage.server";
 import { ScheduleEditor } from "~/features/scheduling/components/schedule-editor";
 import { Header } from "~/layouts/header";
-
-import { getOptionalUser } from "~/features/auth/auth-redirect.server";
 import type { Route } from "./+types/create";
 
 export function meta() {
@@ -25,8 +25,9 @@ export async function loader(args: Route.LoaderArgs) {
 }
 
 export default function HomePage({ loaderData }: Route.ComponentProps) {
-  const nav = useNavigation();
-  const submitting = nav.state === "submitting" && nav.formAction === "/events/new";
+  const fetcher = useFetcher<typeof createEvent>();
+  const submitting = fetcher.state !== "idle";
+  const errors = fetcher.data?.errors;
 
   return (
     <div className="min-h-dvh">
@@ -37,7 +38,7 @@ export default function HomePage({ loaderData }: Route.ComponentProps) {
           title="Schedule a meeting"
           description="Set when meetings could happen and how long they should be. Share the URL — participants pick the times that work."
         />
-        <Form method="post" action="/events/new" className="flex flex-col gap-6">
+        <fetcher.Form method="post" action="/events/new" className="flex flex-col gap-6">
           <ScheduleEditor>
             <FormField id="title" label="Title" required>
               <Input id="title" name="title" required maxLength={200} placeholder="Team sync" />
@@ -51,12 +52,21 @@ export default function HomePage({ loaderData }: Route.ComponentProps) {
               />
             </FormField>
           </ScheduleEditor>
+          {errors ? (
+            <Alert tone="danger" title="The event was not created">
+              <ul className="list-disc pl-5">
+                {errors.map((error) => (
+                  <li key={error}>{error}</li>
+                ))}
+              </ul>
+            </Alert>
+          ) : null}
           <div>
             <Button type="submit" loading={submitting}>
               {submitting ? "Creating…" : "Create event"}
             </Button>
           </div>
-        </Form>
+        </fetcher.Form>
       </main>
     </div>
   );

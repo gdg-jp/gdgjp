@@ -4,7 +4,6 @@ import { Link, useNavigation, useSearchParams } from "react-router";
 import { GdgMark } from "~/components/gdg-mark";
 import { LocaleSwitcher } from "~/components/locale-switcher";
 import { ThemeToggle } from "~/components/theme-toggle";
-import { safeReturnTo } from "~/features/auth/auth-redirect";
 import { GoogleGlyph } from "~/features/auth/components/google-glyph";
 import { loadSignin } from "~/features/auth/signin.server";
 import type { RouteData } from "~/lib/route-data";
@@ -20,11 +19,11 @@ export function loader(args: Route.LoaderArgs) {
 
 type PageProps = { loaderData: RouteData<typeof loadSignin> };
 
-export default function SignInPage() {
+export default function SignInPage({ loaderData }: PageProps) {
   const { t } = useTranslation();
   const [params] = useSearchParams();
   const navigation = useNavigation();
-  const returnTo = safeReturnTo(params.get("return_to")) ?? "/dashboard";
+  const { returnTo } = loaderData;
   const oauthQuery = params.has("client_id") ? params.toString() : "";
 
   return (

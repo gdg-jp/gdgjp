@@ -1,11 +1,11 @@
+import { safeReturnTo } from "@gdgjp/gdg-lib/auth/return-to";
 import { redirect, redirectDocument } from "react-router";
-import { safeReturnTo } from "~/features/auth/auth-redirect";
 import { getAuth, withAuthTimeout } from "~/features/auth/auth.server";
 import type { Route } from "./+types/oauth.google.start";
 
 export async function loader({ request, context }: Route.LoaderArgs) {
   const url = new URL(request.url);
-  const callbackURL = safeReturnTo(url.searchParams.get("return_to")) ?? "/dashboard";
+  const callbackURL = safeReturnTo(url.searchParams.get("return_to"), url.origin) ?? "/dashboard";
   const oauthQuery = url.searchParams.get("oauth_query") ?? undefined;
   const body = { provider: "google" as const, callbackURL, oauth_query: oauthQuery };
   const response = await withAuthTimeout(

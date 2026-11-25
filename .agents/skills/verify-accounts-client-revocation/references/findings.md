@@ -93,11 +93,14 @@ never be exchanged. The installed `@better-auth/oauth-provider` copies
   client through userinfo. With A1 fixed, a client can no longer be enabled for an owner
   outside every chapter, and UserInfo names the client (`https://gdgs.jp/claims/client`),
   but the Bearer check itself is unchanged and outside `apps/accounts`.
-- `app/features/auth/auth-redirect.ts` `safeReturnTo` accepts `/<TAB>/evil.example`. The
+- `app/features/auth/auth-redirect.ts` `safeReturnTo` accepted `/<TAB>/evil.example`. The
   WHATWG URL parser removes the tab and resolves it to `https://evil.example` (Node 26
   `new URL("/\t/evil.example", "https://accounts.gdgs.jp")` gives `https://evil.example/`).
-  It is an open redirect, not a revocation race, and is not fixed here. Not checked in a
-  browser.
+  It was an open redirect, not a revocation race. Fixed outside this model: Accounts now
+  uses `safeReturnTo` from `@gdgjp/gdg-lib/auth/return-to`, which parses the target against
+  the request origin, requires the same origin, and returns only its path, so absolute
+  `https://*.gdgs.jp` targets are refused as well. Route tests under `app/routes/` and
+  `app/features/auth/auth-redirect.test.ts` cover it. Not checked in a browser.
 - An authorization request that read the client before a revocation can insert its code
   after the owner rejoined and enabled the client again; the code is then recorded and
   works. The user is authorizing at that moment through a client whose owner is a member,

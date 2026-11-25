@@ -1,4 +1,5 @@
 import {
+  DAY_LABELS,
   MEETING_LENGTH_OPTIONS,
   generateSlotTimes,
   isValidTime,
@@ -48,10 +49,11 @@ export function parseEventForm(form: FormData): ParseResult<EventForm> {
   const slots: SlotInput[] = [];
   if (slotMinutes !== null) {
     for (let day = 0; day < 7; day++) {
+      const label = DAY_LABELS[day];
       const starts = form.getAll(`day_${day}_start`);
       const ends = form.getAll(`day_${day}_end`);
       if (starts.length !== ends.length) {
-        errors.push(`Day ${day}: malformed range data`);
+        errors.push(`${label}: malformed range data`);
         continue;
       }
       const seen = new Set<string>();
@@ -59,15 +61,15 @@ export function parseEventForm(form: FormData): ParseResult<EventForm> {
         const start = parseTime(starts[k]);
         const end = parseTime(ends[k]);
         if (!start || !end) {
-          errors.push(`Day ${day}: range ${k + 1}: invalid time`);
+          errors.push(`${label} range ${k + 1}: invalid time`);
           continue;
         }
         if (timeToMinutes(end) <= timeToMinutes(start)) {
-          errors.push(`Day ${day}: range ${k + 1}: end must be after start`);
+          errors.push(`${label} range ${k + 1}: end must be after start`);
           continue;
         }
         if (timeToMinutes(end) - timeToMinutes(start) < slotMinutes) {
-          errors.push(`Day ${day}: range ${k + 1}: shorter than the meeting length`);
+          errors.push(`${label} range ${k + 1}: shorter than the meeting length`);
           continue;
         }
         for (const t of generateSlotTimes(start, end, slotMinutes)) {

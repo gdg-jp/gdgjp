@@ -180,7 +180,7 @@ CREATE TABLE draft_versions (
   content          TEXT NOT NULL,
   playbook_version TEXT NOT NULL,
   check_results    TEXT NOT NULL DEFAULT '[]',
-  created_at       INTEGER NOT NULL DEFAULT (unixepoch()),
+  created_at       INTEGER NOT NULL DEFAULT (unixepoch()), media_url TEXT,
   UNIQUE (draft_id, version)
 );
 CREATE TABLE draft_reviews (

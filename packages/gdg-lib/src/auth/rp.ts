@@ -19,6 +19,7 @@ import {
   type UserChapter,
   type UserClaims,
 } from "./index";
+import { safeReturnTo } from "./return-to";
 
 export interface RpAuthConfig {
   db: D1Database;
@@ -65,10 +66,8 @@ export function initializeRpAuth(config: RpAuthConfig): RpAuthInstance {
       return toAuthUser(session);
     },
     handleAuthRequest: (request) => handleAuthRequest(config, request),
-    handleSignOutRedirect: (request, options) => {
-      const returnTo = safeReturnTo(options?.returnTo ?? "/signin", config.appUrl);
-      return handleEndSession(config, request, returnTo);
-    },
+    handleSignOutRedirect: (request, options) =>
+      handleEndSession(config, request, returnUrl(config, options?.returnTo ?? "/signin")),
     getFreshClaims: async (request) => {
       const session = await verify(request);
       if (!session) throw new ClaimsUnavailableError("no_linked_account");
@@ -118,6 +117,15 @@ function getIssuerConfig(config: RpAuthConfig): Promise<oidc.Configuration> {
     issuerCache.set(key, p);
   }
   return p;
+}
+
+async function reachIssuer(config: RpAuthConfig): Promise<oidc.Configuration | null> {
+  try {
+    return await getIssuerConfig(config);
+  } catch (err) {
+    console.error("OIDC discovery failed", err);
+    return null;
+  }
 }
 
 function sessionCookieName(config: RpAuthConfig): string {
@@ -190,8 +198,9 @@ async function handleAuthRequest(config: RpAuthConfig, request: Request): Promis
 }
 
 async function handleSignIn(config: RpAuthConfig, _request: Request, url: URL): Promise<Response> {
-  const returnTo = safeReturnTo(url.searchParams.get("return_to"), config.appUrl);
-  const issuerConfig = await getIssuerConfig(config);
+  const returnTo = returnUrl(config, url.searchParams.get("return_to"));
+  const issuerConfig = await reachIssuer(config);
+  if (!issuerConfig) return signInUnavailablePage(config, returnTo);
   const codeVerifier = oidc.randomPKCECodeVerifier();
   const codeChallenge = await oidc.calculatePKCECodeChallenge(codeVerifier);
   const isRetry = url.searchParams.get("retry") === "1";
@@ -235,7 +244,8 @@ async function handleCallback(config: RpAuthConfig, request: Request, url: URL):
   const tx = txValue ? await verifyPayload<TxPayload>(txValue, config.secret) : null;
   if (!tx || tx.exp < Date.now()) return handleLostTransaction(config, url);
 
-  const issuerConfig = await getIssuerConfig(config);
+  const issuerConfig = await reachIssuer(config);
+  if (!issuerConfig) return signInUnavailablePage(config, tx.returnTo);
   let tokens: oidc.TokenEndpointResponse & oidc.TokenEndpointResponseHelpers;
   try {
     tokens = await oidc.authorizationCodeGrant(issuerConfig, url, {
@@ -261,7 +271,7 @@ async function handleCallback(config: RpAuthConfig, request: Request, url: URL):
     return new Response("Authentication failed", { status: 400 });
   }
   if (readCookie(request, SSO_SESSION_COOKIE) !== sid) {
-    return signInFailedPage(config, txCookieName(config), 409);
+    return signInFailedPage(config, 409);
   }
 
   let userClaims: UserClaims;
@@ -336,29 +346,59 @@ async function handleCallback(config: RpAuthConfig, request: Request, url: URL):
 function handleLostTransaction(config: RpAuthConfig, url: URL): Response {
   const state = url.searchParams.get("state") ?? "";
   if (url.searchParams.has("error") || state.startsWith(RETRY_STATE_PREFIX)) {
-    return signInFailedPage(config, txCookieName(config), 400);
+    return signInFailedPage(config, 400);
   }
   return new Response(null, {
     status: 302,
     headers: {
-      Location: `${trimTrailingSlash(config.appUrl)}/api/auth/signin?retry=1`,
+      Location: `${signInUrl(config)}?retry=1`,
       "Set-Cookie": clearedCookie(txCookieName(config)),
     },
   });
 }
 
-function signInFailedPage(config: RpAuthConfig, clearCookie: string, status: number): Response {
-  const signIn = escapeHtml(`${trimTrailingSlash(config.appUrl)}/api/auth/signin`);
+function signInFailedPage(config: RpAuthConfig, status: number): Response {
+  return signInErrorPage(
+    config,
+    status,
+    "サインインを完了できませんでした。ブラウザで Cookie が有効になっているか確認してから、",
+    signInUrl(config),
+    {},
+  );
+}
+
+function signInUnavailablePage(config: RpAuthConfig, returnTo: string): Response {
+  return signInErrorPage(
+    config,
+    503,
+    "サインインサービスに接続できませんでした。しばらく待ってから、",
+    `${signInUrl(config)}?return_to=${encodeURIComponent(returnTo)}`,
+    { "Retry-After": "5" },
+  );
+}
+
+function signInErrorPage(
+  config: RpAuthConfig,
+  status: number,
+  message: string,
+  retryUrl: string,
+  headers: Record<string, string>,
+): Response {
   return new Response(
-    `<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>サインインできませんでした</title><p>サインインを完了できませんでした。ブラウザで Cookie が有効になっているか確認してから、<a href="${signIn}">もう一度サインイン</a>してください。</p>`,
+    `<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>サインインできませんでした</title><p>${message}<a href="${escapeHtml(retryUrl)}">もう一度サインイン</a>してください。</p>`,
     {
       status,
       headers: {
+        ...headers,
         "Content-Type": "text/html; charset=utf-8",
-        "Set-Cookie": clearedCookie(clearCookie),
+        "Set-Cookie": clearedCookie(txCookieName(config)),
       },
     },
   );
+}
+
+function signInUrl(config: RpAuthConfig): string {
+  return `${trimTrailingSlash(config.appUrl)}/api/auth/signin`;
 }
 
 async function handleSignOut(config: RpAuthConfig, request: Request): Promise<Response> {
@@ -677,7 +717,7 @@ async function handleDevLogin(config: RpAuthConfig, request: Request): Promise<R
   };
 
   const headers = new Headers({
-    Location: safeReturnTo(url.searchParams.get("return_to"), config.appUrl),
+    Location: returnUrl(config, url.searchParams.get("return_to")),
   });
   headers.append("Set-Cookie", await sessionCookie(config, session));
   return new Response(null, { status: 302, headers });
@@ -870,11 +910,6 @@ function isLoopbackIssuer(issuer: string): boolean {
   }
 }
 
-function safeReturnTo(value: string | null, appUrl: string): string {
-  if (!value) return new URL("/", appUrl).toString();
-  try {
-    const u = new URL(value, appUrl);
-    if (u.origin === new URL(appUrl).origin) return u.toString();
-  } catch {}
-  return new URL("/", appUrl).toString();
+function returnUrl(config: RpAuthConfig, value: string | null): string {
+  return new URL(safeReturnTo(value, config.appUrl) ?? "/", config.appUrl).toString();
 }

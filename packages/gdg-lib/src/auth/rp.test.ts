@@ -854,9 +854,10 @@ describe("OIDC RP sign-in request", () => {
     const { db } = database();
     const instance = auth(db, "https://discovery-flaky.example");
     oidc.discovery.mockRejectedValueOnce(new Error("unreachable"));
-    await expect(
-      instance.handleAuthRequest(new Request("https://app.example/api/auth/signin")),
-    ).rejects.toThrow("unreachable");
+    const failed = await instance.handleAuthRequest(
+      new Request("https://app.example/api/auth/signin"),
+    );
+    expect(failed.status).toBe(503);
     const retried = await instance.handleAuthRequest(
       new Request("https://app.example/api/auth/signin"),
     );

@@ -3,38 +3,68 @@ import { getOptionalUser } from "../auth/auth-redirect.server";
 import { getEventBundle } from "../events/bundle.server";
 import type { Participant } from "./model";
 import {
-  clearCookie,
   hashToken,
   parseFromHeader,
+  participantCookieHeaders,
   randomToken,
-  serializeCookie,
   verify,
 } from "./participant-cookie";
 import {
   createParticipant,
-  deleteParticipant,
+  findParticipantById,
   findParticipantByUser,
+  restoreParticipant,
   setAvailability,
+  softDeleteParticipant,
 } from "./repository.server";
 import { parseSlotIds } from "./validate";
+
+type SessionUser = Awaited<ReturnType<typeof getOptionalUser>>;
+
+type ParticipantLookup = {
+  byUser(userId: string): Promise<Participant | null>;
+  byId(participantId: number): Promise<Participant | null>;
+};
+
+type CurrentParticipant = { participant: Participant; guestToken: string | null };
+
+function activeParticipants(participants: Participant[]): ParticipantLookup {
+  return {
+    byUser: async (userId) => participants.find((p) => p.userId === userId) ?? null,
+    byId: async (participantId) => participants.find((p) => p.id === participantId) ?? null,
+  };
+}
+
+function storedParticipants(db: D1Database, eventId: string): ParticipantLookup {
+  return {
+    byUser: (userId) => findParticipantByUser(db, eventId, userId),
+    byId: (participantId) => findParticipantById(db, eventId, participantId),
+  };
+}
+
 async function resolveCurrentParticipant(
-  env: Env,
+  user: SessionUser,
   request: Request,
   eventId: string,
-  participants: Participant[],
-): Promise<Participant | null> {
-  const user = await getOptionalUser(env, request);
+  lookup: ParticipantLookup,
+): Promise<CurrentParticipant | null> {
   if (user) {
-    const byUser = participants.find((p) => p.userId === user.id);
-    return byUser ?? null;
+    const participant = await lookup.byUser(user.id);
+    return participant ? { participant, guestToken: null } : null;
   }
-  const parsed = parseFromHeader(request.headers.get("Cookie"), eventId);
-  if (!parsed) return null;
-  const candidate = participants.find((p) => p.id === parsed.participantId);
-  if (!candidate || !candidate.editTokenHash) return null;
-  const hashed = await hashToken(parsed.token);
-  if (!verify(hashed, candidate.editTokenHash)) return null;
-  return candidate;
+  for (const credential of parseFromHeader(request.headers.get("Cookie"), eventId)) {
+    const candidate = await lookup.byId(credential.participantId);
+    if (!candidate?.editTokenHash) continue;
+    const hashed = await hashToken(credential.token);
+    if (verify(hashed, candidate.editTokenHash)) {
+      return { participant: candidate, guestToken: credential.token };
+    }
+  }
+  return null;
+}
+
+function isSecure(request: Request): boolean {
+  return new URL(request.url).protocol === "https:";
 }
 
 export async function loadEventParticipation(env: Env, request: Request, eventId: string) {
@@ -42,27 +72,49 @@ export async function loadEventParticipation(env: Env, request: Request, eventId
   if (!bundle) throw new Response("Not found", { status: 404 });
   const user = await getOptionalUser(env, request);
   const current = await resolveCurrentParticipant(
-    env,
+    user,
     request,
     bundle.event.id,
-    bundle.participants,
+    activeParticipants(bundle.participants),
   );
   const own = current
     ? new Set(
-        bundle.availabilities.filter((a) => a.participantId === current.id).map((a) => a.slotId),
+        bundle.availabilities
+          .filter((a) => a.participantId === current.participant.id)
+          .map((a) => a.slotId),
       )
     : new Set<number>();
-  return {
-    user: user ? { name: user.name, email: user.email, image: user.image } : null,
-    isOwner: !!user && user.id === bundle.event.ownerUserId,
-    event: bundle.event,
-    slots: bundle.slots,
-    participants: bundle.participants,
-    availabilities: bundle.availabilities,
-    currentParticipantId: current?.id ?? null,
-    currentParticipantName: current?.displayName ?? null,
-    ownSlotIds: Array.from(own),
-  };
+  return data(
+    {
+      user: user ? { name: user.name, email: user.email, image: user.image } : null,
+      isOwner: !!user && user.id === bundle.event.ownerUserId,
+      event: bundle.event,
+      slots: bundle.slots,
+      participants: bundle.participants,
+      availabilities: bundle.availabilities,
+      currentParticipantId: current?.participant.id ?? null,
+      currentParticipantName: current?.participant.displayName ?? null,
+      ownSlotIds: Array.from(own),
+    },
+    current?.guestToken
+      ? {
+          headers: participantCookieHeaders(
+            bundle.event.id,
+            current.participant.id,
+            current.guestToken,
+            { secure: isSecure(request) },
+          ),
+        }
+      : undefined,
+  );
+}
+
+function requireOwner(user: SessionUser, ownerUserId: string | null) {
+  if (!user || user.id !== ownerUserId) throw new Response("Forbidden", { status: 403 });
+}
+
+function formParticipantId(form: FormData): number {
+  return Number.parseInt((form.get("participantId") ?? "").toString(), 10);
 }
 
 export async function respondToEvent(env: Env, request: Request, eventId: string) {
@@ -77,69 +129,62 @@ export async function respondToEvent(env: Env, request: Request, eventId: string
   const user = await getOptionalUser(env, request);
 
   if (intent === "update") {
-    const current = await resolveCurrentParticipant(env, request, eventId, bundle.participants);
+    const current = await resolveCurrentParticipant(
+      user,
+      request,
+      eventId,
+      activeParticipants(bundle.participants),
+    );
     if (!current) throw new Response("Not joined", { status: 403 });
-    await setAvailability(env.DB, current.id, requested);
+    await setAvailability(env.DB, current.participant.id, requested);
     return data({ ok: true as const, kind: "updated" as const });
   }
 
   if (intent === "delete-response") {
-    const current = await resolveCurrentParticipant(env, request, eventId, bundle.participants);
+    const current = await resolveCurrentParticipant(
+      user,
+      request,
+      eventId,
+      activeParticipants(bundle.participants),
+    );
     if (!current) throw new Response("Not joined", { status: 403 });
-    await deleteParticipant(env.DB, current.id);
-    const headers: HeadersInit = {};
-    if (!current.userId) {
-      const secure = new URL(request.url).protocol === "https:";
-      headers["Set-Cookie"] = clearCookie(eventId, { secure });
-    }
-    return data({ ok: true as const, kind: "deleted" as const }, { headers });
+    await softDeleteParticipant(env.DB, current.participant.id);
+    return data({ ok: true as const, kind: "deleted" as const });
+  }
+
+  if (intent === "restore-response") {
+    const own = await resolveCurrentParticipant(
+      user,
+      request,
+      eventId,
+      storedParticipants(env.DB, eventId),
+    );
+    if (!own) throw new Response("Not joined", { status: 403 });
+    await restoreParticipant(env.DB, own.participant.id);
+    return data({ ok: true as const, kind: "restored" as const });
   }
 
   if (intent === "admin-delete-participant") {
-    if (!user || user.id !== bundle.event.ownerUserId) {
-      throw new Response("Forbidden", { status: 403 });
-    }
-    const participantId = Number.parseInt((form.get("participantId") ?? "").toString(), 10);
+    requireOwner(user, bundle.event.ownerUserId);
+    const participantId = formParticipantId(form);
     const target = bundle.participants.find((p) => p.id === participantId);
     if (!target) throw new Response("Participant not found", { status: 404 });
-    await deleteParticipant(env.DB, target.id);
+    await softDeleteParticipant(env.DB, target.id);
     return data({ ok: true as const, kind: "admin-deleted" as const });
   }
 
   if (intent === "admin-restore-participant") {
-    if (!user || user.id !== bundle.event.ownerUserId) {
-      throw new Response("Forbidden", { status: 403 });
-    }
-    const displayName = (form.get("displayName") ?? "").toString().trim();
-    if (!displayName) throw new Response("Name is required", { status: 400 });
-    const targetUserId = (form.get("userId") ?? "").toString().trim() || null;
-    let participant: Participant;
-    if (targetUserId) {
-      const existing = await findParticipantByUser(env.DB, eventId, targetUserId);
-      participant =
-        existing ??
-        (await createParticipant(env.DB, {
-          eventId,
-          userId: targetUserId,
-          displayName: displayName.slice(0, 100),
-          editTokenHash: null,
-        }));
-    } else {
-      const editTokenHash = await hashToken(randomToken());
-      participant = await createParticipant(env.DB, {
-        eventId,
-        userId: null,
-        displayName: displayName.slice(0, 100),
-        editTokenHash,
-      });
-    }
-    await setAvailability(env.DB, participant.id, requested);
+    requireOwner(user, bundle.event.ownerUserId);
+    const target = await findParticipantById(env.DB, eventId, formParticipantId(form));
+    if (!target) throw new Response("Participant not found", { status: 404 });
+    await restoreParticipant(env.DB, target.id);
     return data({ ok: true as const, kind: "admin-restored" as const });
   }
 
   if (intent === "join") {
     if (user) {
       const existing = await findParticipantByUser(env.DB, eventId, user.id);
+      if (existing?.deletedAt) await restoreParticipant(env.DB, existing.id);
       const participant =
         existing ??
         (await createParticipant(env.DB, {
@@ -162,13 +207,12 @@ export async function respondToEvent(env: Env, request: Request, eventId: string
       editTokenHash,
     });
     await setAvailability(env.DB, participant.id, requested);
-    const secure = new URL(request.url).protocol === "https:";
     return data(
       { ok: true as const, kind: "joined" as const },
       {
-        headers: {
-          "Set-Cookie": serializeCookie(eventId, participant.id, token, { secure }),
-        },
+        headers: participantCookieHeaders(eventId, participant.id, token, {
+          secure: isSecure(request),
+        }),
       },
     );
   }

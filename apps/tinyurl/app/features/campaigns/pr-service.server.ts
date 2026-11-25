@@ -6,9 +6,18 @@ import type {
   TinyurlPrService,
 } from "@gdgjp/gdg-lib";
 import { getDomainByHostname } from "~/features/domains/domain.repository";
+import { listPermissionsForLink } from "~/features/links/link-permissions.repository";
+import { canEditLinkForChapters } from "~/features/links/link-policy";
 import type { Link } from "~/features/links/link-record";
-import { type PrLinkOrigin, getLinkByPrOrigin } from "~/features/links/link.repository";
-import { createLinkWithExtras, updateLinkWithExtras } from "~/features/links/link.service";
+import {
+  type PrLinkOrigin,
+  getLinkByPrOrigin,
+  getLinkWithoutPrOrigin,
+  updateLinkOgImage,
+  updatePrOriginLinkOgImage,
+} from "~/features/links/link.repository";
+import { createLinkWithExtras } from "~/features/links/link.service";
+import { validatePublicHttpUrl } from "~/features/links/ogp";
 import { getCampaignAnalyticsForActor } from "./campaign-cli-analytics";
 import { parseIdCursor } from "./campaign.repository";
 import {
@@ -140,22 +149,36 @@ async function adoptByOrigin(
   return { ok: true, link: summary(env, link), adopted: true };
 }
 
+const LINK_NOT_FOUND = "Link not found.";
+
 export async function prUpdateLink(
   env: Env,
-  input: { actor: PrActor; linkId: string; ogImageUrl?: string | null; destinationUrl?: string },
+  input: Parameters<TinyurlPrService["updateLink"]>[0],
 ): Promise<PrRpcResult<{ link: TinyurlLinkSummary }>> {
-  const patch: Record<string, unknown> = {};
-  if (input.ogImageUrl !== undefined) patch.ogImageUrl = input.ogImageUrl;
-  if (input.destinationUrl !== undefined) patch.destinationUrl = input.destinationUrl;
-  const updated = await updateLinkWithExtras(
-    { db: env.DB },
-    { user: input.actor.user, chapters: input.actor.chapters, selectedChapterId: null },
-    input.linkId,
-    patch,
+  const ogImageUrl = input.ogImageUrl ?? null;
+  if (ogImageUrl) {
+    const valid = await validatePublicHttpUrl(ogImageUrl);
+    if (!valid.ok) return fail("invalid_input", `OG image ${valid.reason}`);
+  }
+  const scoped = await updatePrOriginLinkOgImage(
+    env.DB,
+    { id: input.linkId, chapterId: input.chapterId },
+    ogImageUrl,
   );
-  return updated.ok
-    ? { ok: true, link: summary(env, updated.link) }
-    : fail(updated.code, updated.error);
+  if (scoped) return { ok: true, link: summary(env, scoped) };
+  const legacy = await getLinkWithoutPrOrigin(env.DB, input.linkId);
+  if (
+    !legacy ||
+    !canEditLinkForChapters(
+      input.actor.user,
+      input.actor.chapters.map((chapter) => chapter.chapterId),
+      legacy,
+      await listPermissionsForLink(env.DB, legacy.id),
+    )
+  )
+    return fail("not_found", LINK_NOT_FOUND);
+  const updated = await updateLinkOgImage(env.DB, legacy.id, ogImageUrl);
+  return updated ? { ok: true, link: summary(env, updated) } : fail("not_found", LINK_NOT_FOUND);
 }
 
 export async function prGetAnalytics(

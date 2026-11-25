@@ -39,7 +39,8 @@ for journeys that need Accounts. Start it first with
 callback and post-logout URLs on the Accounts OAuth client before the app starts; Accounts
 caches trusted clients after first use, so attach a fresh verify-platform stack rather than
 one an earlier app already used. Accounts' dev registry can lose its entry when other stacks
-stop; if `/api/auth/signin` answers 500, restart verify-platform and the app.
+stop; if `/api/auth/signin` answers 503 (**サインインサービスに接続できませんでした**), restart
+verify-platform and the app.
 
 ## Doctor
 
