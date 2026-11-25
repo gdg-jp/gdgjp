@@ -8,6 +8,7 @@ const links = new Map<
   string,
   { id: string; slug: string; destinationUrl: string; campaignChannelId: number | null }
 >();
+const attempts: { slug: string; destinationUrl: string }[] = [];
 
 const inChapter = (actor: PrActor, chapterId: number) =>
   actor.user.isAdmin || actor.chapters.some((c) => c.chapterId === chapterId);
@@ -36,6 +37,7 @@ export class PrService extends WorkerEntrypoint {
     destinationUrl: string;
     campaignChannelId: number | null;
   }) {
+    attempts.push({ slug: input.slug, destinationUrl: input.destinationUrl });
     if (!inChapter(input.actor, input.chapterId)) return { ok: false as const, code: "forbidden" };
     if ([...links.values()].some((l) => l.slug === input.slug))
       return { ok: false as const, code: "slug_taken" };
@@ -86,6 +88,7 @@ export class PrService extends WorkerEntrypoint {
       campaigns: [...campaigns.entries()],
       channels: [...channels.values()],
       links: [...links.values()],
+      attempts,
     };
   }
 }

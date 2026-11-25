@@ -17,10 +17,49 @@
     "workspace": "@gdgjp/pr",
     "spec": "e2e/ui-properties.spec.ts",
     "file": "apps/pr/app/features/dispatch/dispatch.server.ts",
-    "find": "  const post = await deliverable(env, at.draftId, at.version);",
-    "replace": "  const post = await deliverable(env, at.draftId, Math.max(1, at.version - 1));",
+    "find": "  const text = await versionText(env, actor, campaign, item, at);",
+    "replace": "  const text = await versionText(env, actor, campaign, item, { ...at, version: Math.max(1, at.version - 1) });",
     "expect": {
       "property": "pr sends only the approved version"
+    }
+  },
+  {
+    "id": "pr-link-before-version-check",
+    "description": "The draft approval creates the version's short link before it checks the version on screen",
+    "workspace": "@gdgjp/pr",
+    "spec": "e2e/ui-properties.spec.ts",
+    "file": "apps/pr/app/features/dispatch/dispatch.server.ts",
+    "find": "  if (version !== draft.currentVersion) return [STALE_VERSION];\n",
+    "replace": "  await afterDraftApproval(env, access, draft, version);\n  if (version !== draft.currentVersion) return [STALE_VERSION];\n",
+    "expect": {
+      "property": "pr sends only the approved version",
+      "violation": "invariant:a refused approval creates no link, log row, or url.gdgs.jp call"
+    }
+  },
+  {
+    "id": "pr-link-before-approval-write",
+    "description": "The draft approval creates the short link before the conditional approval write, so an unauthorized approval makes one",
+    "workspace": "@gdgjp/pr",
+    "spec": "e2e/ui-properties.spec.ts",
+    "file": "apps/pr/app/features/drafts/detail.server.ts",
+    "find": "    const result = await reviewDraft(env.DB, access, draft, intent, version, comment);\n",
+    "replace": "    if (intent === \"approve\") await afterDraftApproval(env, access, draft, version);\n    const result = await reviewDraft(env.DB, access, draft, intent, version, comment);\n",
+    "expect": {
+      "property": "pr sends only the approved version",
+      "violation": "invariant:a refused approval creates no link, log row, or url.gdgs.jp call"
+    }
+  },
+  {
+    "id": "pr-link-reused-across-versions",
+    "description": "A version reuses the draft's first short link whatever version it was made for",
+    "workspace": "@gdgjp/pr",
+    "spec": "e2e/ui-properties.spec.ts",
+    "file": "apps/pr/app/features/links/link.repository.server.ts",
+    "find": "WHERE l.draft_id = ? AND l.draft_version = ?`",
+    "replace": "WHERE l.draft_id = ? AND (l.draft_version = ? OR l.draft_version IS NOT NULL) ORDER BY l.id`",
+    "expect": {
+      "property": "pr sends only the approved version",
+      "violation": "invariant:each send carries the short link of the version it sends"
     }
   }
 ]
