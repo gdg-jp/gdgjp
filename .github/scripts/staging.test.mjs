@@ -290,8 +290,9 @@ test("staging covers every Cloudflare deploy target, including live-checkin", ()
   const environment = e2eEnvironment("stg-2");
   assert.equal(environment.E2E_ACCOUNTS_URL, "https://accounts.stg2.gdgs.jp");
   assert.equal(environment.E2E_ACCOUNTS_D1, "remote:gdgjp-accounts-db-stg-2");
-  assert.ok(environment.E2E_RP_URLS.split(",").includes("https://url.stg2.gdgs.jp"));
-  assert.ok(environment.E2E_RP_URLS.split(",").every((url) => url.endsWith(".stg2.gdgs.jp")));
+  const relyingParties = environment.E2E_RP_URLS.split(",").map((url) => new URL(url));
+  assert.ok(relyingParties.some((url) => url.origin === "https://url.stg2.gdgs.jp"));
+  assert.ok(relyingParties.every((url) => url.hostname.endsWith(".stg2.gdgs.jp")));
 });
 
 test("JSONC configs keep URLs inside strings while dropping comments", () => {

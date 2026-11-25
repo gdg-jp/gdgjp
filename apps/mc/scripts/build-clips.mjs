@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import { execFileSync } from "node:child_process";
+import { execFileSync, spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { basename, dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -74,16 +74,17 @@ function probeDuration(file) {
 }
 
 function silencesOf(file, duration) {
-  // silencedetect logs to stderr; swap the streams so execFileSync returns it.
-  const log = execFileSync(
-    "sh",
-    [
-      "-c",
-      `ffmpeg -hide_banner -i "$0" -af silencedetect=noise=-40dB:d=0.12 -f null - 2>&1 >/dev/null`,
-      file,
-    ],
-    { encoding: "utf8" },
+  const result = spawnSync(
+    "ffmpeg",
+    ["-hide_banner", "-i", file, "-af", "silencedetect=noise=-40dB:d=0.12", "-f", "null", "-"],
+    { encoding: "utf8", maxBuffer: 64 * 1024 * 1024 },
   );
+  if (result.error) throw result.error;
+  if (result.status !== 0)
+    throw new Error(
+      `ffmpeg exited ${result.status} on ${file}: ${result.stderr.trim().split("\n").at(-1)}`,
+    );
+  const log = result.stderr;
   const silences = [];
   let start = null;
   for (const line of log.split("\n")) {

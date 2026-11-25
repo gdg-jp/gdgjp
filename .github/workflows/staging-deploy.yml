@@ -28,17 +28,20 @@ jobs:
         with:
           ref: ${{ inputs.ref }}
           submodules: false
-      - name: Initialize shared UI submodule
-        run: git submodule update --init packages/design-system
-      - name: Initialize Playbook submodule
-        run: git submodule update --init skills
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-      - run: pnpm install --frozen-lockfile
-      - name: Build and bundle every Worker
-        run: node scripts/staging/staging.mjs build
+          persist-credentials: false
+      - name: Initialize shared UI and Playbook submodules
+        run: git submodule update --init packages/design-system skills
+      - name: Build and bundle every Worker in a container without the runner's credentials
+        env:
+          IMAGE: node:${{ env.NODE_VERSION }}-bookworm
+        run: >-
+          docker run --rm --user "$(id -u):$(id -g)"
+          --env CI=true --env HOME=/tmp/home --env COREPACK_HOME=/tmp/corepack
+          --env COREPACK_ENABLE_DOWNLOAD_PROMPT=0 --env npm_config_store_dir=/tmp/pnpm-store
+          --volume "$GITHUB_WORKSPACE:/work" --workdir /work "$IMAGE"
+          bash -ec 'mkdir -p /tmp/home /tmp/bin;
+          corepack enable --install-directory /tmp/bin; export PATH="/tmp/bin:$PATH";
+          pnpm install --frozen-lockfile; node scripts/staging/staging.mjs build'
       - name: Package deployable output
         run: |
           shopt -s nullglob
@@ -113,7 +116,8 @@ jobs:
           echo "STAGING_SOURCE=$RUNNER_TEMP/source" >> "$GITHUB_ENV"
       - name: Deploy every Worker to the slot
         env:
-          STAGING_SECRETS_JSON: ${{ toJSON(secrets) }}
+          STAGING_EXT__ACCOUNTS__GOOGLE_CLIENT_ID: ${{ secrets.STAGING_EXT__ACCOUNTS__GOOGLE_CLIENT_ID }}
+          STAGING_EXT__ACCOUNTS__GOOGLE_CLIENT_SECRET: ${{ secrets.STAGING_EXT__ACCOUNTS__GOOGLE_CLIENT_SECRET }}
         run: node scripts/staging/staging.mjs deploy --slot "$SLOT"
       - name: Install Playwright browser
         run: pnpm --filter @gdgjp/accounts exec playwright install chromium

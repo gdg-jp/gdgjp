@@ -210,7 +210,7 @@ function aliases(specifier, options, directory) {
   const match = matches[0];
   const base = options.baseUrl ?? options.pathsBasePath ?? directory;
   return match
-    ? match.targets.map((target) => resolve(base, target.replace("*", match.match)))
+    ? match.targets.map((target) => resolve(base, target.replaceAll("*", match.match)))
     : [];
 }
 

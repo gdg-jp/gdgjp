@@ -18,7 +18,11 @@ export class UpstreamUnavailableError extends Error {}
 type AccountsEnv = Pick<Env, "APP_URL" | "ACCOUNTS_URL" | "IDP_CLIENT_ID" | "IDP_CLIENT_SECRET">;
 type Deps = { fetch?: typeof fetch; now?: () => number };
 
-const trim = (url: string) => url.replace(/\/+$/, "");
+const trim = (url: string) => {
+  let end = url.length;
+  while (end > 0 && url[end - 1] === "/") end--;
+  return url.slice(0, end);
+};
 
 export function upstreamRedirectUri(env: Pick<Env, "APP_URL">): string {
   return `${trim(env.APP_URL)}/callback`;

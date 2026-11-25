@@ -39,8 +39,9 @@ export async function startRenderServer(): Promise<Server> {
           }),
         );
       } catch (error) {
+        console.error("render-server:", error);
         res.writeHead(500, { "content-type": "application/json" });
-        res.end(JSON.stringify({ success: false, errors: [String(error)] }));
+        res.end(JSON.stringify({ success: false, errors: [renderFailure(error)] }));
       }
     });
   });
@@ -49,4 +50,10 @@ export async function startRenderServer(): Promise<Server> {
     server.once("error", reject);
     server.listen(RENDER_PORT, "127.0.0.1", () => resolve(server));
   });
+}
+
+function renderFailure(error: unknown): string {
+  return error instanceof Error
+    ? `${error.name}: ${error.message.split("\n")[0]}`
+    : "render failed";
 }

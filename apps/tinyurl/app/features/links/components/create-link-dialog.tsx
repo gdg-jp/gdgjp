@@ -35,6 +35,7 @@ import { Link, useFetcher, useNavigation } from "react-router";
 import type { UserChapter } from "~/features/auth/chapter.server";
 import type { ApiLinksActionData } from "~/features/links/link-http.types";
 import type { LinkVisibility } from "~/features/links/link-record";
+import { previewImageSrc } from "~/features/links/preview-image";
 import { shortDomainLabel } from "~/features/links/short-url";
 import { generateRandomSlug } from "~/features/links/slug";
 import { TagCombobox } from "~/features/tags/components/tag-combobox";
@@ -157,6 +158,7 @@ function CreateLinkForm({
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [ogImageUrl, setOgImageUrl] = useState("");
+  const previewSrc = previewImageSrc(ogImageUrl);
   const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [isDraggingImage, setIsDraggingImage] = useState(false);
   const [tagIds, setTagIds] = useState<number[]>([]);
@@ -664,8 +666,8 @@ function CreateLinkForm({
                   isDraggingImage ? "bg-primary/15 ring-2 ring-primary ring-inset" : ""
                 }`}
               >
-                {ogImageUrl ? (
-                  <img src={ogImageUrl} alt="OGP preview" className="size-full object-cover" />
+                {previewSrc ? (
+                  <img src={previewSrc} alt="OGP preview" className="size-full object-cover" />
                 ) : (
                   <span className="flex size-full flex-col items-center justify-center gap-2">
                     <Icons name="GalleryThumbnails" aria-hidden="true" className="size-5" />
@@ -676,7 +678,7 @@ function CreateLinkForm({
                   className={`absolute inset-0 flex flex-col items-center justify-center gap-2 bg-surface/90 text-foreground transition-opacity ${
                     isUploadingImage || isDraggingImage
                       ? "opacity-100"
-                      : ogImageUrl
+                      : previewSrc
                         ? "opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100"
                         : "opacity-0"
                   }`}

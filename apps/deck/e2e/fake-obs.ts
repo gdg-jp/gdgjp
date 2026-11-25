@@ -1,5 +1,6 @@
 import { createHash, randomBytes } from "node:crypto";
 import { type WebSocket, WebSocketServer } from "ws";
+import { obsAuth } from "../app/features/obs/obs-client";
 
 type Data = Record<string, unknown>;
 
@@ -50,8 +51,6 @@ const uuid = (name: string) => {
   return `${h.slice(0, 8)}-${h.slice(8, 12)}-${h.slice(12, 16)}-${h.slice(16, 20)}-${h.slice(20, 32)}`;
 };
 
-const b64sha = (s: string) => createHash("sha256").update(s).digest("base64");
-
 export class FakeObs {
   state = initialState();
   requests: { requestType: string; requestData?: Data }[] = [];
@@ -89,11 +88,11 @@ export class FakeObs {
     if (this.password) hello.authentication = { challenge, salt };
     ws.send(JSON.stringify({ op: 0, d: hello }));
 
-    ws.on("message", (raw) => {
+    ws.on("message", async (raw) => {
       const msg = JSON.parse(String(raw)) as { op: number; d: Data };
       if (msg.op === 1) {
         if (this.password) {
-          const expected = b64sha(b64sha(this.password + salt) + challenge);
+          const expected = await obsAuth(this.password, salt, challenge);
           if (msg.d.authentication !== expected) {
             ws.close(4009, "Authentication failed.");
             return;

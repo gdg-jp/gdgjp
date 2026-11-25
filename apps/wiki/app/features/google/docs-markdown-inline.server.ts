@@ -8,7 +8,7 @@ export interface GoogleDocsInlineImage {
 }
 
 export function escapeMarkdownText(value: string): string {
-  return value.replaceAll("\\", "\\\\").replace(/([*_`\[\]])/g, "\\$1");
+  return value.replace(/([\\*_`\[\]])/g, "\\$1");
 }
 
 export function escapeHtml(value: string): string {

@@ -453,7 +453,7 @@ describe("advanceSourceImportTick with the Chat driver", () => {
     vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
       const url = String(input);
       return new Response(
-        JSON.stringify(url.includes("admin.googleapis.com") ? { users: [] } : {}),
+        JSON.stringify(new URL(url).hostname === "admin.googleapis.com" ? { users: [] } : {}),
       );
     });
 
