@@ -85,7 +85,12 @@ async function handOff(
     const link = await approvedLinkForItem(env.DB, asset.forScheduleItemId);
     if (!link) return "短縮リンクがまだ無いので、OGP は投稿の承認時に使われます";
     const updated = await callRpc(() =>
-      tinyurlService(env).updateLink({ actor, linkId: link.tinyurlLinkId, ogImageUrl: url }),
+      tinyurlService(env).updateLink({
+        actor,
+        chapterId: access.campaign.chapterId,
+        linkId: link.tinyurlLinkId,
+        ogImageUrl: url,
+      }),
     );
     if (updated.ok)
       await env.DB.prepare("UPDATE campaign_links SET og_image_url = ? WHERE id = ?")

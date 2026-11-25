@@ -82,9 +82,9 @@ export interface TinyurlPrService {
   }): Promise<PrRpcResult<{ link: TinyurlLinkSummary; adopted?: boolean }>>;
   updateLink(input: {
     actor: PrActor;
+    chapterId: number;
     linkId: string;
-    ogImageUrl?: string | null;
-    destinationUrl?: string;
+    ogImageUrl: string | null;
   }): Promise<PrRpcResult<{ link: TinyurlLinkSummary }>>;
   getAnalytics(input: {
     actor: PrActor;
