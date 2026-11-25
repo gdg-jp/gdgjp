@@ -91,7 +91,7 @@ function taggedPhotoPost() {
       .prepare(sql)
       .all()
       .map((row) => ({ ...row }));
-  return { env, media, rows, writes };
+  return { env, media, rows, writes, sqlite };
 }
 
 function edit(env: Env, fields: Record<string, string | string[] | File>) {
@@ -221,5 +221,32 @@ describe("editing a scheduled post through the schedule screen", () => {
     expect((result as Response).status).toBe(302);
     expect(rows("SELECT x_user_id FROM post_media_tags")).toEqual([]);
     expect(rows("SELECT id FROM post_media")).toEqual([]);
+  });
+
+  it("stops the whole save with 409 when publishing claimed the post while images were stored", async () => {
+    const { env, media, rows, sqlite } = taggedPhotoPost();
+    media.put.mockImplementationOnce(async () => {
+      sqlite.exec("UPDATE posts SET status = 'posting' WHERE id = 'post-1'");
+      return null;
+    });
+
+    const result = await edit(env, {
+      tagHandles: "@gdg_osaka",
+      deletedMedia: "m-0",
+      "alt-m-1": "renamed",
+      images: new File([new Uint8Array(10)], "new.png", { type: "image/png" }),
+    });
+
+    expect(result).toMatchObject({ init: { status: 409 } });
+    expect(rows("SELECT text, status FROM posts")).toEqual([
+      { text: "Photo post", status: "posting" },
+    ]);
+    expect(rows("SELECT id, alt_text, sort_order FROM post_media ORDER BY sort_order")).toEqual([
+      { id: "m-0", alt_text: "first", sort_order: 0 },
+      { id: "m-1", alt_text: "second", sort_order: 1 },
+    ]);
+    expect(rows("SELECT x_user_id FROM post_media_tags")).toEqual([{ x_user_id: "uid-gdg_tokyo" }]);
+    const [[storedKey]] = media.put.mock.calls as unknown as [[string]];
+    expect(media.delete.mock.calls).toEqual([[storedKey]]);
   });
 });

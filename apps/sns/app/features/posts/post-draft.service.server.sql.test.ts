@@ -281,3 +281,32 @@ describe("saving a post from the schedule screen", () => {
     ).rejects.toMatchObject({ code: "not_found" });
   });
 });
+
+describe("an edit racing the publisher", () => {
+  it("refuses an edit whose post was claimed for posting after it was read", async () => {
+    const { db, sqlite, rows } = migratedDatabase();
+    sqlite.exec(`
+      INSERT INTO posts (id, chapter_id, x_account_id, text, scheduled_at, condition, status,
+        created_by_user_id, created_at, updated_at)
+      VALUES ('post-1', 1, 'acc-1', 'original', '2099-12-31T03:00:00.000Z', 'scheduled',
+        'scheduled', 'u1', 't0', 't0');
+      INSERT INTO post_media_tags (post_id, x_user_id, username) VALUES ('post-1', 'uid-kept', 'kept');
+    `);
+    const claimWhileResolving = vi.fn(async (_accountId: string, handle: string) => {
+      sqlite.exec("UPDATE posts SET status = 'posting' WHERE id = 'post-1'");
+      return { id: `uid-${handle}`, username: handle };
+    });
+
+    await expect(
+      updateDraft(deps(db, claimWhileResolving), "post-1", {
+        text: "edited",
+        tagHandles: ["@new"],
+      }),
+    ).rejects.toMatchObject({ code: "not_editable" });
+
+    expect(rows("SELECT text, status FROM posts")).toEqual([
+      { text: "original", status: "posting" },
+    ]);
+    expect(rows("SELECT x_user_id FROM post_media_tags")).toEqual([{ x_user_id: "uid-kept" }]);
+  });
+});

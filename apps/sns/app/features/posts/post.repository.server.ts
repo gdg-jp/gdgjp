@@ -139,7 +139,7 @@ export function updatePostFieldsStatement(
 ): D1PreparedStatement {
   return db
     .prepare(
-      "UPDATE posts SET x_account_id = ?, text = ?, scheduled_at = ?, condition = ?, status = ?, link_preview_url = ?, link_preview_title = ?, link_preview_description = ?, link_preview_image_url = ?, updated_at = ?, failure_reason = NULL WHERE id = ?",
+      "UPDATE posts SET x_account_id = ?, text = ?, scheduled_at = ?, condition = ?, status = ?, link_preview_url = ?, link_preview_title = ?, link_preview_description = ?, link_preview_image_url = ?, updated_at = ?, failure_reason = NULL WHERE id = ? AND status NOT IN ('published', 'posting')",
     )
     .bind(
       record.xAccountId,
@@ -177,17 +177,30 @@ export async function deletePostRow(db: D1Database, id: string): Promise<number>
   return result.meta.changes;
 }
 
+export type PostEdit = { postId: string; status: string; updatedAt: string };
+
+export const EDIT_APPLIED =
+  "EXISTS (SELECT 1 FROM posts WHERE id = ? AND status = ? AND updated_at = ?)";
+
+export function editAppliedParams(edit: PostEdit): string[] {
+  return [edit.postId, edit.status, edit.updatedAt];
+}
+
 export function replacePostMediaTagsStatements(
   db: D1Database,
-  postId: string,
+  edit: PostEdit,
   tags: { xUserId: string; username: string }[],
 ): D1PreparedStatement[] {
   return [
-    db.prepare("DELETE FROM post_media_tags WHERE post_id = ?").bind(postId),
+    db
+      .prepare(`DELETE FROM post_media_tags WHERE post_id = ? AND ${EDIT_APPLIED}`)
+      .bind(edit.postId, ...editAppliedParams(edit)),
     ...tags.map((tag) =>
       db
-        .prepare("INSERT INTO post_media_tags (post_id, x_user_id, username) VALUES (?, ?, ?)")
-        .bind(postId, tag.xUserId, tag.username),
+        .prepare(
+          `INSERT INTO post_media_tags (post_id, x_user_id, username) SELECT ?, ?, ? WHERE ${EDIT_APPLIED}`,
+        )
+        .bind(edit.postId, tag.xUserId, tag.username, ...editAppliedParams(edit)),
     ),
   ];
 }

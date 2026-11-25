@@ -142,6 +142,7 @@ export async function createDraft(
 
   const id = crypto.randomUUID();
   const now = nowIso();
+  const status = recomputeDraftStatus(input.condition, 0);
   const linkPreview = await derivePreview(deps, input.text);
   await deps.db.batch([
     insertPostStatement(deps.db, {
@@ -151,12 +152,14 @@ export async function createDraft(
       text: input.text,
       scheduledAt: input.scheduledAt,
       condition: input.condition,
-      status: recomputeDraftStatus(input.condition, 0),
+      status,
       createdByUserId: input.createdByUserId,
       linkPreview,
       now,
     }),
-    ...(tags ? replacePostMediaTagsStatements(deps.db, id, tags) : []),
+    ...(tags
+      ? replacePostMediaTagsStatements(deps.db, { postId: id, status, updatedAt: now }, tags)
+      : []),
   ]);
   return reloadPost(deps, id);
 }
@@ -192,18 +195,23 @@ export async function updateDraft(
         }
       : await derivePreview(deps, text);
 
-  await deps.db.batch([
+  const status = recomputeDraftStatus(condition, mediaCount);
+  const now = nowIso();
+  const [updated] = await deps.db.batch([
     updatePostFieldsStatement(deps.db, id, {
       xAccountId,
       text,
       scheduledAt,
       condition,
-      status: recomputeDraftStatus(condition, mediaCount),
+      status,
       linkPreview,
-      now: nowIso(),
+      now,
     }),
-    ...(tags ? replacePostMediaTagsStatements(deps.db, id, tags) : []),
+    ...(tags
+      ? replacePostMediaTagsStatements(deps.db, { postId: id, status, updatedAt: now }, tags)
+      : []),
   ]);
+  if (!updated?.meta.changes) throw new PostDraftError("not_editable");
   return reloadPost(deps, id);
 }
 
@@ -247,6 +255,7 @@ export async function saveScheduledDraft(
   const id = existing?.id ?? crypto.randomUUID();
   const now = nowIso();
   const status = recomputeDraftStatus(input.condition, keep.length + add.length);
+  const edit = { postId: id, status, updatedAt: now };
   const added = add.map((file, index) => ({
     id: crypto.randomUUID(),
     postId: id,
@@ -265,7 +274,7 @@ export async function saveScheduledDraft(
       });
       stored.push(file.r2Key);
     }
-    await deps.db.batch([
+    const [written] = await deps.db.batch([
       existing
         ? updatePostFieldsStatement(deps.db, id, {
             xAccountId: input.xAccountId,
@@ -288,11 +297,12 @@ export async function saveScheduledDraft(
             linkPreview,
             now,
           }),
-      ...(tags ? replacePostMediaTagsStatements(deps.db, id, tags) : []),
-      ...remove.map((mediaId) => deletePostMediaStatement(deps.db, id, mediaId)),
-      ...compactPostMediaStatements(deps.db, id, kept),
-      ...added.map(({ bytes: _, ...record }) => insertPostMediaStatement(deps.db, record, now)),
+      ...(tags ? replacePostMediaTagsStatements(deps.db, edit, tags) : []),
+      ...remove.map((mediaId) => deletePostMediaStatement(deps.db, edit, mediaId)),
+      ...compactPostMediaStatements(deps.db, edit, kept),
+      ...added.map(({ bytes: _, ...record }) => insertPostMediaStatement(deps.db, edit, record)),
     ]);
+    if (!written?.meta.changes) throw new PostDraftError("not_editable");
   } catch (error) {
     await Promise.allSettled(stored.map((key) => deps.media.delete(key)));
     throw error;
