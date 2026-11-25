@@ -2,6 +2,10 @@ import { readFileSync } from "node:fs";
 import { DatabaseSync } from "node:sqlite";
 import type { PrActor } from "@gdgjp/gdg-lib";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { listPermissionsForLink } from "~/features/links/link-permissions.repository";
+import { canEditLinkForChapters, canViewLinkForChapters } from "~/features/links/link-policy";
+import { getLinkById } from "~/features/links/link.repository";
+import { createLinkWithExtras } from "~/features/links/link.service";
 import { prCreateLink } from "./pr-service.server";
 
 function d1(raw: DatabaseSync): D1Database {
@@ -73,7 +77,7 @@ const create = (who: PrActor, patch: Record<string, unknown> = {}) =>
     slug: "df-x-7v2",
     destinationUrl: "https://example.com/b",
     campaignChannelId: null,
-    origin,
+    approvedVersion: origin,
     ...patch,
   });
 
@@ -82,8 +86,8 @@ const rows = () =>
     .prepare("SELECT slug, owner_user_id, visibility, pr_origin, pr_origin_chapter_id FROM links")
     .all();
 
-describe("pr links are idempotent on their origin", () => {
-  it("returns the same link to a second actor entitled to the origin's chapter, without changing it", async () => {
+describe("pr links are idempotent on their approved version", () => {
+  it("returns the same link to a second approver, without changing it", async () => {
     const first = await create(LEAD);
     expect(first).toMatchObject({ ok: true, link: { slug: "df-x-7v2" } });
     const second = await create(MEMBER);
@@ -103,19 +107,29 @@ describe("pr links are idempotent on their origin", () => {
     ]);
   });
 
-  it("tells an actor outside the origin's chapter nothing", async () => {
+  it("returns the link to a co-host approver pr vouches for, who still cannot view it in tinyurl", async () => {
+    const first = await create(LEAD);
+    expect(await create(OUTSIDER)).toEqual({
+      ok: true,
+      adopted: true,
+      link: first.ok ? first.link : null,
+    });
+    expect(rows()).toMatchObject([{ owner_user_id: "lead", visibility: "private" }]);
+    const link = first.ok ? await getLinkById(env.DB, first.link.id) : null;
+    if (!link) throw new Error("no link");
+    const permissions = await listPermissionsForLink(env.DB, link.id);
+    expect(canViewLinkForChapters(OUTSIDER.user, [2], link, permissions)).toBe(false);
+    expect(canEditLinkForChapters(OUTSIDER.user, [2], link, permissions)).toBe(false);
+    expect(canViewLinkForChapters(MEMBER.user, [1], link, permissions)).toBe(false);
+  });
+
+  it("returns nothing for the same version claimed for another chapter", async () => {
     await create(LEAD);
-    expect(await create(OUTSIDER)).toMatchObject({ ok: false, code: "not_found" });
     expect(await create(OUTSIDER, { chapterId: 2 })).toMatchObject({
       ok: false,
       code: "not_found",
     });
     expect(rows()).toHaveLength(1);
-  });
-
-  it("lets the creator recover its own link", async () => {
-    await create(OUTSIDER);
-    expect(await create(OUTSIDER)).toMatchObject({ ok: true, adopted: true });
   });
 
   it("refuses the same origin with another destination or channel", async () => {
@@ -130,15 +144,42 @@ describe("pr links are idempotent on their origin", () => {
   it("keeps a different version, and links without an origin, on the plain create", async () => {
     await create(LEAD);
     expect(
-      await create(MEMBER, { origin: { ...origin, version: 3 }, slug: "df-x-7v2" }),
+      await create(MEMBER, { approvedVersion: { ...origin, version: 3 }, slug: "df-x-7v2" }),
     ).toMatchObject({ ok: false, code: "conflict" });
-    expect(await create(LEAD, { origin: undefined, slug: "plain" })).toMatchObject({ ok: true });
-    expect(await create(MEMBER, { origin: undefined, slug: "plain" })).toMatchObject({
+    expect(await create(LEAD, { approvedVersion: undefined, slug: "plain" })).toMatchObject({
+      ok: true,
+    });
+    expect(await create(MEMBER, { approvedVersion: undefined, slug: "plain" })).toMatchObject({
       ok: false,
       code: "conflict",
     });
     expect(raw.prepare("SELECT slug, pr_origin FROM links WHERE slug = 'plain'").all()).toEqual([
       { slug: "plain", pr_origin: null },
+    ]);
+  });
+
+  it("ignores an approved version or origin in a payload that does not come through the pr service", async () => {
+    await create(LEAD);
+    const payload = {
+      domainId: 1,
+      slug: "df-x-7v2-copy",
+      destinationUrl: "https://example.com/b",
+      visibility: "private",
+      approvedVersion: origin,
+      prOrigin: { key: "pr:3:7:2", chapterId: 1 },
+    };
+    const actorOf = (who: PrActor) => ({ ...who, selectedChapterId: 1 });
+    const created = await createLinkWithExtras({ db: env.DB }, actorOf(MEMBER), payload);
+    expect(created).toMatchObject({ ok: true, link: { slug: "df-x-7v2-copy" } });
+    expect(
+      await createLinkWithExtras({ db: env.DB }, actorOf(OUTSIDER), {
+        ...payload,
+        slug: "df-x-7v2",
+      }),
+    ).toMatchObject({ ok: false, code: "conflict" });
+    expect(raw.prepare("SELECT slug, pr_origin FROM links ORDER BY slug").all()).toEqual([
+      { slug: "df-x-7v2", pr_origin: "pr:3:7:2" },
+      { slug: "df-x-7v2-copy", pr_origin: null },
     ]);
   });
 });

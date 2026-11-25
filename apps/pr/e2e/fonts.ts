@@ -14,7 +14,7 @@ const FONTS = [
 ] as const;
 
 export async function seedLocalFonts(cwd: string, persistence: string): Promise<void> {
-  const cache = join(cwd, "node_modules", ".cache", "gdg-fonts");
+  const cache = process.env.GDG_E2E_FONT_CACHE ?? join(cwd, "node_modules", ".cache", "gdg-fonts");
   mkdirSync(cache, { recursive: true });
   for (const [file, path] of FONTS) {
     const local = join(cache, file);

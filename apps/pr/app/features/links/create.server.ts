@@ -6,7 +6,7 @@ import { logDispatch } from "~/features/dispatch/log.server";
 import { getVersion } from "~/features/drafts/draft.repository.server";
 import { callRpc, tinyurlService } from "~/features/integrations/bindings.server";
 import type { ScheduleItem } from "~/features/schedule/item";
-import type { CampaignLink, LinkVersion } from "./link";
+import type { ApprovedLinkVersion, CampaignLink, LinkVersion } from "./link";
 import {
   campaignChannelId,
   insertVersionLink,
@@ -26,20 +26,43 @@ export type VersionText =
 export const fallbackUrl = async (db: D1Database, campaignId: number) =>
   (await latestBrief(db, campaignId))?.brief.event.connpassUrl ?? null;
 
-export async function versionText(
+const textWith = (post: DeliverablePost, link: CampaignLink): VersionText => ({
+  ok: true,
+  post,
+  text: withShortlink(post.text, link.shortUrl),
+  link,
+});
+
+async function versionPost(db: D1Database, at: LinkVersion) {
+  return deliverablePost((await getVersion(db, at.draftId, at.version))?.content ?? null);
+}
+
+async function storedLink(db: D1Database, at: LinkVersion, post: DeliverablePost) {
+  const stored = await linkForVersion(db, at);
+  const usable = stored && (post.linkUrl === null || stored.destinationUrl === post.linkUrl);
+  return { stored, usable: usable ? stored : null };
+}
+
+export async function storedVersionText(db: D1Database, at: LinkVersion): Promise<VersionText> {
+  const post = await versionPost(db, at);
+  if (!post) return { ok: false, error: NO_CONTENT };
+  if (!hasShortlink(post.text)) return { ok: true, post, text: post.text, link: null };
+  const { usable } = await storedLink(db, at, post);
+  return usable ? textWith(post, usable) : { ok: false, error: "no_link" };
+}
+
+export async function approvedVersionText(
   env: Env,
   actor: PrActor | null,
   campaign: Campaign,
   item: ScheduleItem,
-  at: LinkVersion,
+  at: ApprovedLinkVersion,
 ): Promise<VersionText> {
-  const post = deliverablePost((await getVersion(env.DB, at.draftId, at.version))?.content ?? null);
+  const post = await versionPost(env.DB, at);
   if (!post) return { ok: false, error: NO_CONTENT };
   if (!hasShortlink(post.text)) return { ok: true, post, text: post.text, link: null };
   const link = await ensureVersionLink(env, actor, campaign, item, at, post);
-  return link.ok
-    ? { ok: true, post, text: withShortlink(post.text, link.link.shortUrl), link: link.link }
-    : link;
+  return link.ok ? textWith(post, link.link) : link;
 }
 
 async function ensureVersionLink(
@@ -47,12 +70,11 @@ async function ensureVersionLink(
   actor: PrActor | null,
   campaign: Campaign,
   item: ScheduleItem,
-  at: LinkVersion,
+  at: ApprovedLinkVersion,
   post: DeliverablePost,
 ): Promise<{ ok: true; link: CampaignLink } | { ok: false; error: string }> {
-  const existing = await linkForVersion(env.DB, at);
-  if (existing && (post.linkUrl === null || existing.destinationUrl === post.linkUrl))
-    return { ok: true, link: existing };
+  const { stored: existing, usable } = await storedLink(env.DB, at, post);
+  if (usable) return { ok: true, link: usable };
   if (!campaign.tinyurlCampaignId) return { ok: false, error: NO_TINYURL };
   if (!actor) return { ok: false, error: "承認者の情報が無いので短縮リンクを作れません" };
   const destinationUrl = post.linkUrl ?? (await fallbackUrl(env.DB, campaign.id));
@@ -69,7 +91,7 @@ async function ensureVersionLink(
       title: item.title,
       ogImageUrl: post.ogImage,
       campaignChannelId: channelId,
-      origin: { campaignId: campaign.id, draftId: at.draftId, version: at.version },
+      approvedVersion: { campaignId: campaign.id, draftId: at.draftId, version: at.version },
     }),
   );
   const adopted = result.ok && result.adopted === true;
@@ -79,7 +101,7 @@ async function ensureVersionLink(
     action: adopted ? "link_adopt" : "link_create",
     ok: result.ok,
     detail: result.ok
-      ? `v${at.version} ${result.link.shortUrl}`
+      ? `v${at.version} ${result.link.shortUrl} by ${actor.user.id}`
       : `v${at.version} ${slug} ${result.code}: ${result.message ?? ""}`,
   });
   if (result.ok)

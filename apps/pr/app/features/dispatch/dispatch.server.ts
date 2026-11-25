@@ -6,7 +6,8 @@ import { type Draft, approvedForSending } from "~/features/drafts/draft";
 import { getDraft, getVersion } from "~/features/drafts/draft.repository.server";
 import { STALE_VERSION } from "~/features/drafts/review.server";
 import { actorOf, callRpc, snsService } from "~/features/integrations/bindings.server";
-import { NO_CONTENT, fallbackUrl, versionText } from "~/features/links/create.server";
+import { NO_CONTENT, approvedVersionText, fallbackUrl } from "~/features/links/create.server";
+import type { ApprovedLinkVersion } from "~/features/links/link";
 import { listingApprovalBlockers } from "~/features/listings/listing.server";
 import type { ScheduleItem } from "~/features/schedule/item";
 import { getItem, transitionItem } from "~/features/schedule/item.repository.server";
@@ -49,7 +50,7 @@ export async function afterDraftApproval(
   env: Env,
   access: CampaignAccess,
   draft: Draft,
-  version: number,
+  approved: ApprovedLinkVersion,
 ): Promise<string | null> {
   if (!draft.scheduleItemId) return null;
   if (isDispatchKind(draft.kind))
@@ -61,8 +62,7 @@ export async function afterDraftApproval(
     );
   const item = await getItem(env.DB, access.campaign.id, draft.scheduleItemId);
   if (!item) return null;
-  const at = { draftId: draft.id, version };
-  const text = await versionText(env, actorOf(access), access.campaign, item, at);
+  const text = await approvedVersionText(env, actorOf(access), access.campaign, item, approved);
   return text.ok || text.error === NO_CONTENT ? null : text.error;
 }
 
@@ -132,7 +132,8 @@ async function dispatchTarget(
   actor: PrActor,
 ): Promise<DispatchResult> {
   const targetId = at.targetId;
-  if (!(await claimApprovedTarget(env.DB, at))) {
+  const claimed = await claimApprovedTarget(env.DB, at);
+  if (!claimed) {
     const now = await getDraft(env.DB, campaign.id, at.draftId);
     return now?.currentVersion === at.version && approvedForSending(now)
       ? { ok: true, message: "この配信先はもう配信中です" }
@@ -148,7 +149,7 @@ async function dispatchTarget(
     return { ok: false as const, error };
   };
   if (!target || !item) return fail(NO_CONTENT);
-  const text = await versionText(env, actor, campaign, item, at);
+  const text = await approvedVersionText(env, actor, campaign, item, claimed);
   if (!text.ok) return fail(text.error);
   const created = await callRpc(() =>
     snsService(env).createScheduledPost({

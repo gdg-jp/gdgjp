@@ -1,11 +1,10 @@
 import type {
   PrActor,
   PrRpcResult,
-  TinyurlLinkOrigin,
+  TinyurlApprovedVersion,
   TinyurlLinkSummary,
   TinyurlPrService,
 } from "@gdgjp/gdg-lib";
-import { isSuperAdmin } from "@gdgjp/gdg-lib";
 import { getDomainByHostname } from "~/features/domains/domain.repository";
 import type { Link } from "~/features/links/link-record";
 import { type PrLinkOrigin, getLinkByPrOrigin } from "~/features/links/link.repository";
@@ -83,7 +82,7 @@ const summary = (env: Env, link: Link): TinyurlLinkSummary => ({
 
 type PrCreateLinkInput = Parameters<TinyurlPrService["createLink"]>[0];
 
-const originKey = (origin: TinyurlLinkOrigin) =>
+const originKey = (origin: TinyurlApprovedVersion) =>
   [origin.campaignId, origin.draftId, origin.version].every((n) => Number.isInteger(n) && n > 0)
     ? `pr:${origin.campaignId}:${origin.draftId}:${origin.version}`
     : null;
@@ -94,8 +93,9 @@ export async function prCreateLink(
 ): Promise<PrRpcResult<{ link: TinyurlLinkSummary; adopted?: boolean }>> {
   const domain = await getDomainByHostname(env.DB, new URL(env.SHORT_URL_BASE).host);
   if (!domain) return fail("not_found", "The short-link system domain is missing.");
-  const key = input.origin ? originKey(input.origin) : null;
-  if (input.origin && !key) return fail("invalid_input", "The link origin is invalid.");
+  const key = input.approvedVersion ? originKey(input.approvedVersion) : null;
+  if (input.approvedVersion && !key)
+    return fail("invalid_input", "The approved version is invalid.");
   const origin = key ? { key, chapterId: input.chapterId } : undefined;
   if (origin) {
     const adopted = await adoptByOrigin(env, input, origin);
@@ -130,13 +130,8 @@ async function adoptByOrigin(
 ): Promise<PrRpcResult<{ link: TinyurlLinkSummary; adopted: true }> | null> {
   const link = await getLinkByPrOrigin(env.DB, origin.key);
   if (!link) return null;
-  const { user, chapters } = input.actor;
-  const entitled =
-    isSuperAdmin(user) ||
-    chapters.some((c) => c.chapterId === origin.chapterId) ||
-    link.ownerUserId === user.id;
-  if (!entitled || link.prOriginChapterId !== origin.chapterId)
-    return fail("not_found", "No link with this origin is available to this actor.");
+  if (link.prOriginChapterId !== origin.chapterId)
+    return fail("not_found", "No link was made for this approved version in this chapter.");
   if (
     link.destinationUrl !== input.destinationUrl ||
     link.campaignChannelId !== input.campaignChannelId

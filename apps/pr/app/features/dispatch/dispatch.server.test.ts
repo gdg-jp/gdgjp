@@ -126,7 +126,7 @@ type TinyurlInput = {
   slug: string;
   destinationUrl: string;
   campaignChannelId: number | null;
-  origin?: { campaignId: number; draftId: number; version: number };
+  approvedVersion?: { campaignId: number; draftId: number; version: number };
 };
 
 function seeded(kind: "x_post" | "connpass_mail") {
@@ -170,11 +170,7 @@ function setup(
     const found = [...tinyurl.links.entries()].find(([, link]) => link.origin === key);
     if (!found) return null;
     const [slug, link] = found;
-    const entitled =
-      input.actor.chapters.some((c) => c.chapterId === link.originChapterId) ||
-      link.ownerUserId === input.actor.user.id;
-    if (!entitled || link.originChapterId !== input.chapterId)
-      return { ok: false, code: "not_found" };
+    if (link.originChapterId !== input.chapterId) return { ok: false, code: "not_found" };
     if (
       link.destinationUrl !== input.destinationUrl ||
       link.campaignChannelId !== input.campaignChannelId
@@ -188,7 +184,7 @@ function setup(
       createLink: async (input: TinyurlInput) => {
         tinyurl.calls.push({ slug: input.slug, destinationUrl: input.destinationUrl });
         if (tinyurl.down) return { ok: false, code: "unavailable" };
-        const o = tinyurl.originAware ? input.origin : undefined;
+        const o = tinyurl.originAware ? input.approvedVersion : undefined;
         const key = o ? `pr:${o.campaignId}:${o.draftId}:${o.version}` : null;
         const adopted = key ? adopt(input, key) : null;
         if (adopted) return adopted;
@@ -267,7 +263,7 @@ function setup(
 async function approvedWithTarget(kind: "x_post" | "connpass_mail") {
   const t = setup(kind);
   await t.save(1);
-  expect(await t.approveDraft(1)).toEqual({ ok: true });
+  expect(await t.approveDraft(1)).toMatchObject({ ok: true });
   await ensureTargets(t.db, 1, 1, kind === "x_post" ? "x" : "connpass_group");
   return t;
 }
@@ -280,7 +276,7 @@ describe("a draft approval names the version it approves", () => {
     const result = await t.approveDraft(1);
     expect(result.ok).toBe(false);
     expect(await t.draft()).toMatchObject({ status: "in_review", approvedVersion: null });
-    expect(await t.approveDraft(2)).toEqual({ ok: true });
+    expect(await t.approveDraft(2)).toMatchObject({ ok: true });
     expect(await t.draft()).toMatchObject({ status: "approved", approvedVersion: 2 });
     const reviews = t.raw.prepare("SELECT version FROM draft_reviews").all();
     expect(reviews).toEqual([{ version: 2 }]);
@@ -341,7 +337,7 @@ describe("a post goes out only as the version both approvals name", () => {
   it("F4: refuses a target approval pressed on an older version", async () => {
     const t = await approvedWithTarget("x_post");
     await t.save(2);
-    expect(await t.approveDraft(2)).toEqual({ ok: true });
+    expect(await t.approveDraft(2)).toMatchObject({ ok: true });
     const result = await t.approveAsCohost(1);
     expect(result.ok).toBe(false);
     expect(t.posts).toEqual([]);
@@ -372,7 +368,7 @@ describe("the mail cron sends only the version both approvals name", () => {
     const t = await approvedWithTarget("connpass_mail");
     expect(await t.approveAsCohost(1)).toMatchObject({ ok: true });
     await t.save(2);
-    expect(await t.approveDraft(2)).toEqual({ ok: true });
+    expect(await t.approveDraft(2)).toMatchObject({ ok: true });
     expect(await dueMailTargets(t.db, 1)).toEqual([]);
     expect(await sendDueMails(t.env)).toEqual({ sent: 0, failed: 0 });
     expect(t.mails).toEqual([]);
@@ -563,16 +559,40 @@ describe("a short link is created only for an approved version", () => {
     expect(t.tinyurl.links.size).toBe(1);
   });
 
-  it("tells an approver outside the origin's chapter nothing about another approver's link", async () => {
+  it("a co-host chapter's target approver adopts the host's link whose record was lost, and sends it once", async () => {
     const t = setup("x_post", linked);
     await t.save(1);
     t.after("INSERT INTO campaign_links", async () => {
       t.raw.exec("DELETE FROM campaign_links");
     });
     expect((await t.press(LEAD, true, 1)).ok).toBe(false);
-    expect(await t.approveAsCohost(1)).toMatchObject({ ok: false });
-    expect(t.posts).toEqual([]);
+    expect(t.tinyurl.links.size).toBe(1);
     expect(t.raw.prepare("SELECT id FROM campaign_links").all()).toEqual([]);
+    expect(await t.approveAsCohost(1)).toMatchObject({ ok: true });
+    expect(t.posts).toHaveLength(1);
+    expect(sentLinks(t, t.posts)).toEqual([destination(1)]);
+    expect(t.tinyurl.links.size).toBe(1);
+    expect([...t.tinyurl.links.values()][0]).toMatchObject({ ownerUserId: "lead" });
+    expect(
+      t.raw.prepare("SELECT slug, draft_version, destination_url FROM campaign_links").all(),
+    ).toEqual([{ slug: "devfest-x-1v1", draft_version: 1, destination_url: destination(1) }]);
+    expect(
+      t.raw.prepare("SELECT detail FROM dispatch_log WHERE action = 'link_adopt'").all(),
+    ).toEqual([{ detail: "v1 https://gdgs.jp/devfest-x-1v1 by cohost" }]);
+  });
+
+  it("an approver without authority for the target makes no url.gdgs.jp call", async () => {
+    const t = setup("x_post", linked);
+    await t.save(1);
+    t.tinyurl.down = true;
+    await t.press(LEAD, true, 1);
+    t.tinyurl.down = false;
+    const calls = t.tinyurl.calls.length;
+    const stranger = user("stranger", 3, "organizer");
+    const result = await approveTarget(t.env, accessFor(stranger, true), await t.draft(), 1, 1);
+    expect(result.ok).toBe(false);
+    expect(t.tinyurl.calls).toHaveLength(calls);
+    expect(t.posts).toEqual([]);
   });
 
   it("never delivers a stored link whose destination is not the version's link URL", async () => {

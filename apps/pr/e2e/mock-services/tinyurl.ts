@@ -42,11 +42,7 @@ function createOrAdopt(
   });
   const same = origin ? [...links.values()].find((l) => l.origin === origin) : undefined;
   if (same) {
-    const entitled =
-      (same.originChapterId !== null && inChapter(input.actor, same.originChapterId)) ||
-      same.ownerUserId === input.actor.user.id;
-    if (!entitled || same.originChapterId !== input.chapterId)
-      return { ok: false as const, code: "not_found" };
+    if (same.originChapterId !== input.chapterId) return { ok: false as const, code: "not_found" };
     if (
       same.destinationUrl !== input.destinationUrl ||
       same.campaignChannelId !== input.campaignChannelId
@@ -93,9 +89,9 @@ export class PrService extends WorkerEntrypoint {
     slug: string;
     destinationUrl: string;
     campaignChannelId: number | null;
-    origin?: Origin;
+    approvedVersion?: Origin;
   }) {
-    const origin = originKey(input.origin);
+    const origin = originKey(input.approvedVersion);
     const result = createOrAdopt(input, origin);
     attempts.push({
       slug: input.slug,

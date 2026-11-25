@@ -21,7 +21,7 @@
 | Transport input contract | `app/http/request.ts` |
 | Neutral helpers | `use-media-query.ts` |
 | Worker integration | `workers/app.ts`, `workers/context.ts` |
-| pr.gdgs.jp service binding (`PrService` entrypoint: campaigns, channels, private links (idempotent on pr's origin `links.pr_origin` / `pr_origin_chapter_id`: the same origin returns the same unchanged link to an actor in that chapter or its creator when the destination and channel match, `not_found` to anyone else, `origin_mismatch` otherwise), analytics for an actor, through the `*ForActor` services) | `workers/app.ts`, `app/features/campaigns/pr-service.server.ts`; contracts in `@gdgjp/gdg-lib` `pr-rpc.ts` |
+| pr.gdgs.jp service binding (`PrService` entrypoint: campaigns, channels, private links (idempotent on the `approvedVersion` pr asserts it verified the approver for, stored as `links.pr_origin` / `pr_origin_chapter_id`: the same version and chapter returns the same link's id and short URL to whichever actor pr sends, owner and visibility unchanged and no view or edit right granted; another chapter gets `not_found`, another destination or channel `origin_mismatch`; only the `PrService` entrypoint, bound by pr alone, can set or use it), analytics for an actor, through the `*ForActor` services) | `workers/app.ts`, `app/features/campaigns/pr-service.server.ts`; contracts in `@gdgjp/gdg-lib` `pr-rpc.ts` |
 | Schema/configuration | `migrations/`, `wrangler.toml` — `schema.sql` and Worker types are generated |
 
 - Registered route modules own page composition and loader/action adapters in the same file. Routes compose widgets and layouts; features contain domain code and widgets and do not import routes, including route types. There is no `features/*/pages/` or `_pages/` hierarchy.

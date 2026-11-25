@@ -54,12 +54,16 @@ only then does pr act outside. A `{{shortlink}}` link belongs to the version it 
 (`campaign_links.draft_id`, `draft_version`, slug `<campaign>-<kind>-<draft>v<version>`): the
 draft approval creates it, a send that finds it missing creates it before sending, and a send
 never uses another version's link. A stored link whose destination is not the version's link URL
-counts as missing. Every `TINYURL.createLink` names its origin (pr campaign, draft, version)
-and the campaign's chapter, and url.gdgs.jp is idempotent on that origin: if it already made the
-version's link (pr lost the record, or another approver's attempt made it), a create by anyone
-in the campaign's chapter, or by the link's creator, returns that same link and pr records it.
-A taken slug without that origin, the same origin with another destination or channel, or an
-approver outside the chapter, stops the send with an error and nothing goes out. Links stored before
+counts as missing. pr creates or recovers a link only with an `ApprovedLinkVersion`, which only
+the recorded draft approval (`reviewDraft`) and a target's claim (`claimApprovedTarget`, after
+`canApproveTarget`) produce; delegation and the Discord cron only read the stored link. Every
+`TINYURL.createLink` names that `approvedVersion` (pr campaign, draft, version) and the
+campaign's chapter, and url.gdgs.jp is idempotent on it: if it already made the version's link
+(pr lost the record), the create returns that same link to whichever approver pr sends, a
+co-host chapter's target approver included, and pr records it with that approver in
+`dispatch_log`. The link's owner and who can see it in url.gdgs.jp do not change. A taken slug
+without that version, the same version with another destination or channel, or another
+chapter, stops the send with an error and nothing goes out. Links stored before
 migration 0012 are not bound to any version; they stay as history for health checks and metrics.
 A connpass page or listing publishes the approved version. A new version saved while a send is
 under way does not change what is sent. The chart leaves out レビュー OK, 差し戻す, 却下, more than one account,
@@ -68,7 +72,8 @@ delegating or skipping a target, and sns reporting a scheduled post as failed la
 
 ## Known gaps
 
-- A Discord post whose link creation fails at its time is marked failed and is not retried.
+- A Discord post goes out only with the link its draft approval made; if that creation failed,
+  the post is marked failed at its time and is not retried.
 
 - `setDispatchMedia` (`app/features/dispatch/delivery.server.ts`, intent `media`) changes the
   image of an approved draft for anyone who can edit the campaign. The image is not part of a

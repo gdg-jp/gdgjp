@@ -1,13 +1,8 @@
 import type { Campaign } from "~/features/campaigns/campaign";
-import {
-  getActorSnapshot,
-  getCampaignById,
-  listMembers,
-} from "~/features/campaigns/campaign.repository.server";
+import { getCampaignById, listMembers } from "~/features/campaigns/campaign.repository.server";
 import { approvedForSending } from "~/features/drafts/draft";
 import { draftForItem, latestVersion } from "~/features/drafts/draft.repository.server";
-import { parseActor } from "~/features/integrations/bindings.server";
-import { versionText } from "~/features/links/create.server";
+import { storedVersionText } from "~/features/links/create.server";
 import { approvedLinkForItem } from "~/features/links/link.repository.server";
 import { withShortlink } from "~/features/links/slug";
 import { mention } from "~/features/notify/discord";
@@ -102,7 +97,7 @@ export async function sweepReminders(env: Env) {
     const campaign = await campaignOf(env, cache, item.campaignId);
     if (!campaign || !(await transitionItem(env.DB, item.id, ["approved"], "dispatching")))
       continue;
-    const text = await discordPostText(env, campaign, item);
+    const text = await discordPostText(env, item);
     if (!text.ok) {
       await logDispatch(env.DB, {
         campaignId: campaign.id,
@@ -154,16 +149,13 @@ export async function sweepReminders(env: Env) {
 
 async function discordPostText(
   env: Env,
-  campaign: Campaign,
   item: ScheduleItem,
 ): Promise<{ ok: true; text: string } | { ok: false; error: string }> {
   const draft = await draftForItem(env.DB, item.id);
   if (!draft) return { ok: true, text: item.note ?? item.title };
   if (!approvedForSending(draft) || draft.approvedVersion === null)
     return { ok: false, error: "not_approved" };
-  const actor = parseActor(await getActorSnapshot(env.DB, campaign.id));
-  const at = { draftId: draft.id, version: draft.approvedVersion };
-  return versionText(env, actor, campaign, item, at);
+  return storedVersionText(env.DB, { draftId: draft.id, version: draft.approvedVersion });
 }
 
 async function sweepReviewRequests(env: Env, cache: Map<number, Campaign | null>) {
