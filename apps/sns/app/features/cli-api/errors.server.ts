@@ -17,6 +17,7 @@ const POST_DRAFT_STATUS: Record<PostDraftErrorCode, number> = {
   invalid_sort_order: 400,
   sort_order_taken: 409,
   tag_handle_not_found: 400,
+  tag_lookup_unavailable: 503,
   media_storage_cleanup_failed: 500,
 };
 

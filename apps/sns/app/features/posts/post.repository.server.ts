@@ -191,3 +191,11 @@ export function replacePostMediaTagsStatements(
     ),
   ];
 }
+
+export async function listPostTagUsernames(db: D1Database, postId: string): Promise<string[]> {
+  const { results } = await db
+    .prepare("SELECT username FROM post_media_tags WHERE post_id = ? ORDER BY rowid")
+    .bind(postId)
+    .all<{ username: string }>();
+  return results.map((row) => row.username);
+}

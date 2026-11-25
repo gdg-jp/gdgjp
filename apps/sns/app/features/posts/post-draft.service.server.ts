@@ -48,6 +48,7 @@ export type PostDraftErrorCode =
   | "invalid_sort_order"
   | "sort_order_taken"
   | "tag_handle_not_found"
+  | "tag_lookup_unavailable"
   | "media_storage_cleanup_failed";
 
 export class PostDraftError extends Error {
@@ -100,10 +101,11 @@ async function resolveTags(
   for (const handle of normalizeTagHandles(handles)) {
     const user = await deps.resolveTagHandle(xAccountId, handle).catch((error: unknown) => {
       throw new PostDraftError(
-        "tag_handle_not_found",
-        error instanceof Error ? error.message : `X user ${handle} was not found`,
+        "tag_lookup_unavailable",
+        error instanceof Error ? error.message : "X user lookup failed",
       );
     });
+    if (!user) throw new PostDraftError("tag_handle_not_found", `X user ${handle} was not found`);
     if (!resolved.has(user.id))
       resolved.set(user.id, { xUserId: user.id, username: user.username });
   }
@@ -231,7 +233,7 @@ export async function attachMedia(
   deps: PostDraftDependencies,
   postId: string,
   file: AttachMediaInput,
-): Promise<{ media: Awaited<ReturnType<typeof insertPostMedia>>; post: Post }> {
+): Promise<{ media: NonNullable<Awaited<ReturnType<typeof insertPostMedia>>>; post: Post }> {
   const post = await getPost(deps.db, postId);
   if (!post) throw new PostDraftError("not_found");
   if (!isEditableStatus(post.status)) throw new PostDraftError("not_editable");
@@ -263,6 +265,10 @@ export async function attachMedia(
   } catch (error) {
     await deps.media.delete(r2Key).catch(() => {});
     throw error;
+  }
+  if (!media) {
+    await deps.media.delete(r2Key).catch(() => {});
+    throw new PostDraftError("sort_order_taken");
   }
 
   await reconcileStatusForMediaCount(deps, post, existing.length + 1);

@@ -5,6 +5,7 @@ export type CheckInTarget =
 const CONNPASS_PATH = /^\/event\/(\d+)\/qr_checkin\/(\d+)\/(\d+)\/?$/;
 const LUMA_PATH = /^\/check-in\/(evt-[A-Za-z0-9]+)\/?$/;
 const LUMA_PROXY_KEY = /^g-[A-Za-z0-9]+$/;
+const LUMA_HOSTS = new Set(["luma.com", "lu.ma"]);
 
 export function parseCheckInUrl(raw: unknown): CheckInTarget | null {
   if (typeof raw !== "string") return null;
@@ -27,7 +28,7 @@ export function parseCheckInUrl(raw: unknown): CheckInTarget | null {
     };
   }
 
-  if (url.hostname === "luma.com") {
+  if (LUMA_HOSTS.has(url.hostname)) {
     const eventApiId = LUMA_PATH.exec(url.pathname)?.[1];
     const proxyKey = url.searchParams.get("pk");
     if (!eventApiId || !proxyKey || !LUMA_PROXY_KEY.test(proxyKey)) return null;

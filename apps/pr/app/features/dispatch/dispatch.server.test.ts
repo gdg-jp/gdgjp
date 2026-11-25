@@ -897,7 +897,7 @@ describe("the minute cron sends an approved post the Worker did not claim", () =
 });
 
 describe("migration 0013", () => {
-  it("moves a draft's image to its current version", () => {
+  it("moves a draft's image to its current version and asks for the post's approval again", () => {
     const directory = new URL("../../../migrations/", import.meta.url);
     const files = readdirSync(directory).sort();
     const raw = sqlite("");
@@ -924,8 +924,41 @@ describe("migration 0013", () => {
       { draft_id: 2, version: 1, media_url: null },
     ]);
     expect(raw.prepare("SELECT status, approved_version FROM drafts WHERE id = 1").get()).toEqual({
-      status: "approved",
-      approved_version: 2,
+      status: "needs_approval",
+      approved_version: null,
     });
+  });
+
+  it("sends nothing approved before the image belonged to a version until it is approved again", async () => {
+    const raw = seeded("x_post");
+    const t = setup("x_post", plain("x_post"), raw);
+    await t.save(1);
+    expect(await t.approveDraft(1)).toMatchObject({ ok: true });
+    await ensureTargets(t.db, 1, 1, "x");
+    t.after("SET status = 'approved', approved_version", async () => {
+      throw new Error("worker stopped");
+    });
+    await expect(t.approveAsCohost(1)).rejects.toThrow("worker stopped");
+    const directory = new URL("../../../migrations/", import.meta.url);
+    const migration = readdirSync(directory).find((f) => f.startsWith("0013")) ?? "";
+    raw.exec(
+      readFileSync(new URL(migration, directory), "utf8").replace(
+        "ALTER TABLE draft_versions ADD COLUMN media_url TEXT;",
+        "",
+      ),
+    );
+    expect(raw.prepare("SELECT status, approved_version FROM drafts WHERE id = 1").get()).toEqual({
+      status: "needs_approval",
+      approved_version: null,
+    });
+    expect(
+      raw.prepare("SELECT status, approved_version, approved_by FROM dispatch_targets").all(),
+    ).toEqual([{ status: "pending", approved_version: null, approved_by: null }]);
+    await runCron(t.env, MINUTE_CRON);
+    expect(t.posts).toEqual([]);
+
+    expect(await t.approveDraft(1)).toMatchObject({ ok: true });
+    expect(await t.approveAsCohost(1)).toMatchObject({ ok: true });
+    expect(t.posts).toEqual(["post v1"]);
   });
 });

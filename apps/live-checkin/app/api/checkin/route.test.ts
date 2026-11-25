@@ -64,6 +64,7 @@ describe("POST /api/checkin", () => {
     ["a Luma URL without a proxy key", "https://luma.com/check-in/evt-ABC123"],
     ["a Luma URL with a bad proxy key", "https://luma.com/check-in/evt-ABC123?pk=../../x"],
     ["a Luma lookalike host", "https://luma.com.evil.example/check-in/evt-ABC123?pk=g-XYZ"],
+    ["a legacy Luma lookalike host", "https://lu.ma.evil.example/check-in/evt-ABC123?pk=g-XYZ"],
     ["a Luma page that is not a check-in", "https://luma.com/event/evt-ABC123?pk=g-XYZ"],
   ])("rejects %s without calling connpass", async (_, url) => {
     const response = await checkIn(JSON.stringify({ url }));
@@ -107,6 +108,17 @@ describe("POST /api/checkin", () => {
 
     expect(response.status).toBe(200);
     expect(upstream).toHaveBeenCalledTimes(1);
+    expect(JSON.parse(String(upstream.mock.calls[0][1]?.body))).toEqual({
+      url: "https://luma.com/check-in/evt-ABC123?pk=g-XYZ789",
+    });
+  });
+
+  it("accepts a ticket on Luma's legacy lu.ma host and forwards it as luma.com", async () => {
+    const response = await checkIn(
+      JSON.stringify({ url: "https://lu.ma/check-in/evt-ABC123?pk=g-XYZ789" }),
+    );
+
+    expect(response.status).toBe(200);
     expect(JSON.parse(String(upstream.mock.calls[0][1]?.body))).toEqual({
       url: "https://luma.com/check-in/evt-ABC123?pk=g-XYZ789",
     });

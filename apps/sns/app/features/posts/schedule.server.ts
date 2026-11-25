@@ -14,7 +14,7 @@ import {
   updateMediaMetadata,
 } from "./post-draft.service.server";
 import { listPostMedia } from "./post-media.repository.server";
-import { getPost } from "./post.repository.server";
+import { getPost, listPostTagUsernames } from "./post.repository.server";
 import type { Post } from "./post.types";
 import { type PostingOption, postingOptionCookie, postingOptionFromCookie } from "./posting-option";
 import { claimAndPublish } from "./scheduled-publishing.server";
@@ -31,6 +31,9 @@ export async function loadSchedule(request: Request, env: Env) {
     accounts: await listXAccounts(env.DB, access.chapter.chapterId),
     post,
     media: post ? ((await listPostMedia(env.DB, [post.id]))[post.id] ?? []) : [],
+    tagHandles: post
+      ? (await listPostTagUsernames(env.DB, post.id)).map((name) => `@${name}`).join(" ")
+      : "",
     defaultPostingOption: postingOptionFromCookie(request),
   };
 }
@@ -96,10 +99,17 @@ export async function submitSchedule(request: Request, env: Env) {
       { status: 400 },
     );
 
-  const tagHandles = [String(form.get("tagHandles") ?? "")];
+  const tagHandles = form.has("tagHandles") ? [String(form.get("tagHandles"))] : undefined;
   let post: Post;
   try {
     if (existing) {
+      post = await updateDraft(deps, existing.id, {
+        xAccountId,
+        text,
+        scheduledAt,
+        condition,
+        tagHandles,
+      });
       for (const media of deletedMedia) await removeMedia(deps, media.id);
       await updateMediaMetadata(
         deps,
@@ -109,13 +119,7 @@ export async function submitSchedule(request: Request, env: Env) {
           sortOrder: index,
         })),
       );
-      post = await updateDraft(deps, existing.id, {
-        xAccountId,
-        text,
-        scheduledAt,
-        condition,
-        tagHandles,
-      });
+      post = (await getDraft(deps, existing.id))?.post ?? post;
     } else {
       post = await createDraft(deps, {
         chapterId: access.chapter.chapterId,
@@ -149,6 +153,11 @@ export async function submitSchedule(request: Request, env: Env) {
         return data(
           { error: "画像は4枚まで、1枚5MB以下の画像ファイルを指定してください。" },
           { status: 400 },
+        );
+      if (error.code === "tag_lookup_unavailable")
+        return data(
+          { error: "X に問い合わせできませんでした。しばらくしてから保存し直してください。" },
+          { status: 503 },
         );
       if (error.code === "tag_handle_not_found")
         return data(

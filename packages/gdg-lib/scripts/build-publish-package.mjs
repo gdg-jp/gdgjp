@@ -2,17 +2,20 @@
 import { execFileSync } from "node:child_process";
 import { mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { createRequire } from "node:module";
-import { dirname, join } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const root = dirname(dirname(fileURLToPath(import.meta.url)));
-const distDir = join(root, "dist");
+const distDir = process.argv[2] ? resolve(process.argv[2]) : join(root, "dist");
 
 rmSync(distDir, { recursive: true, force: true });
 // Run the compiler's JS entry with Node: on Windows `tsc` on PATH is tsc.cmd,
 // which execFileSync cannot start without a shell.
 const tsc = createRequire(import.meta.url).resolve("typescript/bin/tsc");
-execFileSync(process.execPath, [tsc, "-p", "tsconfig.build.json"], { cwd: root, stdio: "inherit" });
+execFileSync(process.execPath, [tsc, "-p", "tsconfig.build.json", "--outDir", distDir], {
+  cwd: root,
+  stdio: "inherit",
+});
 
 function addJsExtensions(dir) {
   for (const entry of readdirSync(dir, { withFileTypes: true })) {

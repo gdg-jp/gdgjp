@@ -64,8 +64,10 @@ function deps(
   };
 }
 
-const lookupFails = vi.fn(async (_accountId: string, handle: string) => {
-  throw new Error(`X user ${handle} was not found`);
+const lookupFails = vi.fn(async (_accountId: string, _handle: string) => null);
+
+const lookupUnavailable = vi.fn(async (_accountId: string, _handle: string) => {
+  throw new Error("X user lookup failed with 429");
 });
 
 const lookupSucceeds = vi.fn(async (_accountId: string, handle: string) => {
@@ -94,6 +96,17 @@ describe("tag handle lookup and the saved post", () => {
     });
 
     expect(rows("SELECT id, status FROM posts")).toEqual([]);
+    expect(rows("SELECT post_id FROM post_media_tags")).toEqual([]);
+  });
+
+  it("reports an X outage as retryable, not as a wrong user name, and saves nothing", async () => {
+    const { db, rows } = migratedDatabase();
+
+    await expect(
+      createDraft(deps(db, lookupUnavailable), { ...draft, tagHandles: ["@gdg_tokyo"] }),
+    ).rejects.toMatchObject({ code: "tag_lookup_unavailable" });
+
+    expect(rows("SELECT id FROM posts")).toEqual([]);
     expect(rows("SELECT post_id FROM post_media_tags")).toEqual([]);
   });
 
@@ -169,6 +182,31 @@ describe("media sort order", () => {
 
     expect(rows("SELECT id FROM post_media")).toEqual([{ id: "m-0" }]);
     expect(dependencies.media.put).not.toHaveBeenCalled();
+  });
+
+  it("lets only one of two simultaneous uploads take a free position", async () => {
+    const { db, rows } = postWithImage();
+    const dependencies = deps(db, lookupSucceeds);
+    const upload = () =>
+      attachMedia(dependencies, "post-1", {
+        bytes: new ArrayBuffer(99),
+        contentType: "image/png",
+        sortOrder: 1,
+      });
+
+    const results = await Promise.allSettled([upload(), upload()]);
+
+    expect(results.map((result) => result.status).sort()).toEqual(["fulfilled", "rejected"]);
+    const rejected = results.find((result) => result.status === "rejected");
+    expect(rejected?.status === "rejected" && rejected.reason).toMatchObject({
+      code: "sort_order_taken",
+    });
+    expect(rows("SELECT sort_order FROM post_media ORDER BY sort_order")).toEqual([
+      { sort_order: 0 },
+      { sort_order: 1 },
+    ]);
+    expect(dependencies.media.put).toHaveBeenCalledTimes(2);
+    expect(dependencies.media.delete).toHaveBeenCalledTimes(1);
   });
 
   it("refuses a position outside the four image slots", async () => {

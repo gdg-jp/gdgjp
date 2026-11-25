@@ -124,4 +124,19 @@ describe("POST /api/cli/v1/posts/:id/media sortOrder", () => {
     });
     expect(sortOrders()).toEqual([0, 1]);
   });
+
+  it("answers two simultaneous uploads to one free position with 201 and 409", async () => {
+    const { env, media, sortOrders } = postWithImage();
+
+    const responses = await Promise.all([
+      upload(env, { sortOrder: "1" }),
+      upload(env, { sortOrder: "1" }),
+    ]);
+
+    expect(responses.map((response) => response.status).sort()).toEqual([201, 409]);
+    const conflict = responses.find((response) => response.status === 409);
+    await expect(conflict?.json()).resolves.toEqual({ error: "sort_order_taken" });
+    expect(sortOrders()).toEqual([0, 1]);
+    expect(media.put.mock.calls.length - media.delete.mock.calls.length).toBe(1);
+  });
 });

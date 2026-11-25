@@ -37,7 +37,7 @@ export default function ScheduleEditor({ loaderData, actionData }: Route.Compone
     post?.condition ?? loaderData.defaultPostingOption,
   );
   const [text, setText] = useState(post?.text ?? "");
-  const [tagHandles, setTagHandles] = useState("");
+  const [tagHandles, setTagHandles] = useState(loaderData.tagHandles);
   const [newImages, setNewImages] = useState<{ file: File; url: string }[]>([]);
   const [deletedMediaIds, setDeletedMediaIds] = useState<string[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -163,7 +163,11 @@ export default function ScheduleEditor({ loaderData, actionData }: Route.Compone
             onRemoveNew={removeNewImage}
           />
           {imageCount > 0 ? (
-            <TagUsersDialog value={tagHandles} onValueChange={setTagHandles} />
+            <TagUsersDialog
+              value={tagHandles}
+              onValueChange={setTagHandles}
+              submit={tagHandles !== loaderData.tagHandles}
+            />
           ) : null}
           <div className="flex items-center justify-between border-t pt-3">
             <div className="flex items-center gap-1">

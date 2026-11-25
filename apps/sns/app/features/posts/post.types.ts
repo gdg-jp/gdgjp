@@ -78,5 +78,5 @@ export type PostDraftDependencies = {
   resolveTagHandle: (
     xAccountId: string,
     handle: string,
-  ) => Promise<{ id: string; username: string }>;
+  ) => Promise<{ id: string; username: string } | null>;
 };
